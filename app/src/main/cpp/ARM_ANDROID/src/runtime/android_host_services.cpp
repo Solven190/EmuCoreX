@@ -1,0 +1,527 @@
+// SPDX-License-Identifier: GPL-3.0+
+
+#include "emucorex/android_crash_diagnostics.h"
+#include "emucorex/android_runtime.h"
+
+#include "pcsx2/Achievements.h"
+#include "pcsx2/GS/GS.h"
+#include "pcsx2/Host.h"
+#include "pcsx2/ImGui/FullscreenUI.h"
+#include "pcsx2/ImGui/ImGuiFullscreen.h"
+#include "pcsx2/ImGui/ImGuiManager.h"
+#include "pcsx2/Input/InputManager.h"
+#include "pcsx2/PerformanceMetrics.h"
+#include "pcsx2/VMManager.h"
+
+#include "common/ProgressCallback.h"
+#include "common/StringUtil.h"
+#include "common/WindowInfo.h"
+
+#include <android/log.h>
+
+#include <algorithm>
+#include <atomic>
+#include <condition_variable>
+#include <chrono>
+#include <cmath>
+#include <cstdarg>
+#include <cstdio>
+#include <cstring>
+#include <deque>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <thread>
+
+namespace
+{
+constexpr const char* LOG_TAG = "EmuCoreX";
+
+std::mutex s_cpu_tasks_mutex;
+std::deque<std::function<void()>> s_cpu_tasks;
+std::thread::id s_cpu_thread_id;
+std::chrono::steady_clock::time_point s_last_metrics_dispatch;
+std::mutex s_metrics_mutex;
+std::string s_metrics_snapshot;
+std::atomic_bool s_performance_metrics_enabled{false};
+
+void LogHostMessage(android_LogPriority priority, std::string_view title, std::string_view message)
+{
+	if (title.empty())
+		__android_log_write(priority, LOG_TAG, std::string(message).c_str());
+	else
+		__android_log_print(priority, LOG_TAG, "%.*s: %.*s",
+			static_cast<int>(title.size()), title.data(),
+			static_cast<int>(message.size()), message.data());
+}
+
+void AppendLine(std::string& text, const std::string& line)
+{
+	if (!text.empty())
+		text.push_back('\n');
+	text.append(line);
+}
+
+void AppendFormat(std::string& text, const char* format, ...)
+{
+	char buffer[192];
+	va_list args;
+	va_start(args, format);
+	const int written = std::vsnprintf(buffer, sizeof(buffer), format, args);
+	va_end(args);
+	if (written <= 0)
+		return;
+
+	text.append(buffer, static_cast<size_t>(std::min<int>(written, static_cast<int>(sizeof(buffer) - 1))));
+}
+
+void AppendProcessorStat(std::string& text, const char* label, double usage, double time)
+{
+	if (!std::isfinite(usage))
+		usage = 0.0;
+	if (!std::isfinite(time))
+		time = 0.0;
+
+	text.append(label);
+	if (usage >= 99.95)
+		AppendFormat(text, "100%% (%.2fms)", time);
+	else
+		AppendFormat(text, "%.1f%% (%.2fms)", usage, time);
+}
+
+}
+
+namespace emucorex::android
+{
+void RequestCurrentVmStop()
+{
+	if (!VMManager::HasValidVM())
+		return;
+
+	VMManager::SetState(VMState::Stopping);
+}
+
+void ClearPendingHostCpuTasks()
+{
+	std::lock_guard lock(s_cpu_tasks_mutex);
+	s_cpu_tasks.clear();
+	s_cpu_thread_id = {};
+}
+
+std::string GetPerformanceMetricsSnapshot()
+{
+	std::lock_guard lock(s_metrics_mutex);
+	return s_metrics_snapshot;
+}
+
+void SetPerformanceMetricsCallbackEnabled(bool enabled)
+{
+	s_performance_metrics_enabled.store(enabled, std::memory_order_relaxed);
+	if (!enabled)
+	{
+		std::lock_guard lock(s_metrics_mutex);
+		s_metrics_snapshot.clear();
+	}
+}
+}
+
+void Host::CommitBaseSettingChanges()
+{
+}
+
+void Host::LoadSettings(SettingsInterface&, std::unique_lock<std::mutex>&)
+{
+}
+
+void Host::CheckForSettingsChanges(const Pcsx2Config&)
+{
+}
+
+bool Host::RequestResetSettings(bool, bool, bool, bool, bool)
+{
+	return false;
+}
+
+void Host::SetDefaultUISettings(SettingsInterface&)
+{
+}
+
+std::unique_ptr<ProgressCallback> Host::CreateHostProgressCallback()
+{
+	return ProgressCallback::CreateNullProgressCallback();
+}
+
+void Host::ReportInfoAsync(const std::string_view title, const std::string_view message)
+{
+	LogHostMessage(ANDROID_LOG_INFO, title, message);
+}
+
+void Host::ReportErrorAsync(const std::string_view title, const std::string_view message)
+{
+	LogHostMessage(ANDROID_LOG_ERROR, title, message);
+}
+
+void Host::OpenURL(const std::string_view url)
+{
+	LogHostMessage(ANDROID_LOG_INFO, "OpenURL", url);
+}
+
+int Host::LocaleSensitiveCompare(std::string_view lhs, std::string_view rhs)
+{
+	const size_t count = std::min(lhs.size(), rhs.size());
+	const int result = std::char_traits<char>::compare(lhs.data(), rhs.data(), count);
+	if (result != 0)
+		return result;
+
+	return (lhs.size() > rhs.size()) ? 1 : ((lhs.size() < rhs.size()) ? -1 : 0);
+}
+
+bool Host::InBatchMode()
+{
+	return false;
+}
+
+bool Host::InNoGUIMode()
+{
+	return false;
+}
+
+bool Host::CopyTextToClipboard(const std::string_view)
+{
+	return false;
+}
+
+void Host::BeginTextInput()
+{
+}
+
+void Host::EndTextInput()
+{
+}
+
+std::optional<WindowInfo> Host::GetTopLevelWindowInfo()
+{
+	return std::nullopt;
+}
+
+void Host::OnInputDeviceConnected(const std::string_view identifier, const std::string_view device_name)
+{
+	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "input connected: %.*s (%.*s)",
+		static_cast<int>(identifier.size()), identifier.data(),
+		static_cast<int>(device_name.size()), device_name.data());
+}
+
+void Host::OnInputDeviceDisconnected(const InputBindingKey, const std::string_view identifier)
+{
+	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "input disconnected: %.*s",
+		static_cast<int>(identifier.size()), identifier.data());
+}
+
+void Host::SetMouseMode(bool, bool)
+{
+}
+
+void Host::SetMouseLock(bool)
+{
+}
+
+std::optional<WindowInfo> Host::AcquireRenderWindow(bool)
+{
+	void* window = nullptr;
+	int width = 0;
+	int height = 0;
+	if (!emucorex::android::AndroidRuntime::Instance().GetNativeSurface(&window, &width, &height))
+	{
+		__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "AcquireRenderWindow failed: no native surface");
+		return std::nullopt;
+	}
+	if (!window || width <= 0 || height <= 0)
+	{
+		__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "AcquireRenderWindow failed: window=%p size=%dx%d", window, width, height);
+		return std::nullopt;
+	}
+
+	WindowInfo info;
+	info.type = WindowInfo::Type::Android;
+	info.window_handle = window;
+	info.surface_width = static_cast<u32>(width);
+	info.surface_height = static_cast<u32>(height);
+	info.surface_scale = static_cast<float>(std::max(width, height)) / 800.0f;
+	info.surface_refresh_rate = 60.0f;
+	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "AcquireRenderWindow: window=%p size=%dx%d", window, width, height);
+	return info;
+}
+
+void Host::ReleaseRenderWindow()
+{
+}
+
+void Host::BeginPresentFrame()
+{
+}
+
+void Host::RequestResizeHostDisplay(s32 width, s32 height)
+{
+	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "resize requested: %dx%d", width, height);
+}
+
+void Host::OnVMStarting()
+{
+	__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "VM starting");
+}
+
+void Host::OnVMStarted()
+{
+	__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "VM started");
+}
+
+void Host::OnVMDestroyed()
+{
+	__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "VM destroyed");
+}
+
+void Host::OnVMPaused()
+{
+	__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "VM paused");
+}
+
+void Host::OnVMResumed()
+{
+	__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "VM resumed");
+}
+
+void Host::OnGameChanged(const std::string& title, const std::string&, const std::string& disc_path,
+	const std::string& disc_serial, u32 disc_crc, u32 current_crc)
+{
+	emucorex::android::RecordGameForCrashDiagnostics(title, disc_serial, disc_crc, current_crc);
+	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "game changed: title=%s path=%s serial=%s disc_crc=%08x current_crc=%08x",
+		title.c_str(), disc_path.c_str(), disc_serial.c_str(), disc_crc, current_crc);
+}
+
+void Host::OnPerformanceMetricsUpdated()
+{
+	if (!s_performance_metrics_enabled.load(std::memory_order_relaxed))
+		return;
+
+	const auto now = std::chrono::steady_clock::now();
+	if (now - s_last_metrics_dispatch < std::chrono::seconds(1))
+		return;
+	s_last_metrics_dispatch = now;
+
+	const float vps = PerformanceMetrics::GetFPS();
+	const float speed = PerformanceMetrics::GetSpeed();
+	const float internal_fps = PerformanceMetrics::GetInternalFPS();
+	const bool internal_fps_valid = PerformanceMetrics::IsInternalFPSValid();
+	const float display_fps = internal_fps_valid ? internal_fps : vps;
+
+	std::string overlay;
+	std::string line;
+	AppendFormat(line, "FPS %.2f SPD %.0f%%", display_fps, std::round(speed));
+	AppendLine(overlay, line);
+
+	line.clear();
+	AppendProcessorStat(line, "EE: ", PerformanceMetrics::GetCPUThreadUsage(), PerformanceMetrics::GetCPUThreadAverageTime());
+	AppendLine(overlay, line);
+
+	line.clear();
+	AppendProcessorStat(line, "VU: ", PerformanceMetrics::GetVUThreadUsage(), PerformanceMetrics::GetVUThreadAverageTime());
+	AppendLine(overlay, line);
+
+	line.clear();
+	AppendProcessorStat(line, "GS: ", PerformanceMetrics::GetGSThreadUsage(), PerformanceMetrics::GetGSThreadAverageTime());
+	AppendLine(overlay, line);
+
+	std::string snapshot;
+	AppendFormat(snapshot, "%.3f\n%.3f\n", display_fps, speed);
+	snapshot.append(overlay);
+	{
+		std::lock_guard lock(s_metrics_mutex);
+		s_metrics_snapshot = std::move(snapshot);
+	}
+}
+
+void Host::OnSaveStateLoading(const std::string_view filename)
+{
+	LogHostMessage(ANDROID_LOG_INFO, "save state loading", filename);
+}
+
+void Host::OnSaveStateLoaded(const std::string_view filename, bool was_successful)
+{
+	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "save state loaded: %.*s success=%s",
+		static_cast<int>(filename.size()), filename.data(), was_successful ? "true" : "false");
+}
+
+void Host::OnSaveStateSaved(const std::string_view filename)
+{
+	LogHostMessage(ANDROID_LOG_INFO, "save state saved", filename);
+}
+
+void Host::RunOnCPUThread(std::function<void()> function, bool block)
+{
+	if (!function)
+		return;
+
+	if (std::this_thread::get_id() == s_cpu_thread_id)
+	{
+		function();
+		return;
+	}
+
+	if (!block)
+	{
+		std::lock_guard lock(s_cpu_tasks_mutex);
+		s_cpu_tasks.push_back(std::move(function));
+		return;
+	}
+
+	struct Completion
+	{
+		std::mutex mutex;
+		std::condition_variable cv;
+		bool done = false;
+	};
+
+	auto completion = std::make_shared<Completion>();
+	auto task = std::make_shared<std::function<void()>>(std::move(function));
+	{
+		std::lock_guard lock(s_cpu_tasks_mutex);
+		s_cpu_tasks.push_back([completion, task]() {
+			(*task)();
+			{
+				std::lock_guard done_lock(completion->mutex);
+				completion->done = true;
+			}
+			completion->cv.notify_one();
+		});
+	}
+
+	std::unique_lock done_lock(completion->mutex);
+	if (!completion->cv.wait_for(done_lock, std::chrono::seconds(10), [&]() { return completion->done; }))
+		__android_log_write(ANDROID_LOG_ERROR, LOG_TAG, "Timed out waiting for CPU thread task");
+}
+
+void Host::RunOnGSThread(std::function<void()> function)
+{
+	function();
+}
+
+void Host::RefreshGameListAsync(bool)
+{
+}
+
+void Host::CancelGameListRefresh()
+{
+}
+
+bool Host::IsFullscreen()
+{
+	return false;
+}
+
+void Host::SetFullscreen(bool)
+{
+}
+
+void Host::OnCaptureStarted(const std::string& filename)
+{
+	LogHostMessage(ANDROID_LOG_INFO, "capture started", filename);
+}
+
+void Host::OnCaptureStopped()
+{
+	__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "capture stopped");
+}
+
+void Host::RequestExitApplication(bool)
+{
+	emucorex::android::AndroidRuntime::Instance().Shutdown();
+}
+
+void Host::RequestExitBigPicture()
+{
+}
+
+void Host::RequestVMShutdown(bool, bool, bool)
+{
+	emucorex::android::RequestCurrentVmStop();
+}
+
+void Host::PumpMessagesOnCPUThread()
+{
+	s_cpu_thread_id = std::this_thread::get_id();
+
+	std::deque<std::function<void()>> tasks;
+	{
+		std::lock_guard lock(s_cpu_tasks_mutex);
+		tasks.swap(s_cpu_tasks);
+	}
+
+	for (std::function<void()>& task : tasks)
+	{
+		if (task)
+			task();
+	}
+}
+
+s32 Host::Internal::GetTranslatedStringImpl(
+	const std::string_view, const std::string_view msg, char* tbuf, size_t tbuf_space)
+{
+	if (msg.size() > tbuf_space)
+		return -1;
+
+	std::memcpy(tbuf, msg.data(), msg.size());
+	return static_cast<s32>(msg.size());
+}
+
+std::string Host::TranslatePluralToString(const char*, const char* msg, const char*, int count)
+{
+	std::string ret(msg);
+	const std::string count_string = std::to_string(count);
+	for (;;)
+	{
+		const std::string::size_type pos = ret.find("%n");
+		if (pos == std::string::npos)
+			break;
+		ret.replace(pos, 2, count_string);
+	}
+	return ret;
+}
+
+void Host::OnAchievementsLoginRequested(Achievements::LoginRequestReason)
+{
+}
+
+void Host::OnAchievementsLoginSuccess(const char*, u32, u32, u32)
+{
+}
+
+void Host::OnAchievementsRefreshed()
+{
+}
+
+void Host::OnAchievementsHardcoreModeChanged(bool)
+{
+}
+
+void Host::OnCoverDownloaderOpenRequested()
+{
+}
+
+void Host::OnCreateMemoryCardOpenRequested()
+{
+}
+
+bool Host::LocaleCircleConfirm()
+{
+	return false;
+}
+
+bool Host::ShouldPreferHostFileSelector()
+{
+	return false;
+}
+
+void Host::OpenHostFileSelectorAsync(std::string_view, bool, FileSelectorCallback callback, FileSelectorFilters, std::string_view)
+{
+	callback({});
+}
