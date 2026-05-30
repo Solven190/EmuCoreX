@@ -263,8 +263,13 @@ object DocumentPathResolver {
                 if (relativePath.isBlank()) base.absolutePath
                 else File(base, relativePath).absolutePath
             }
+            volume.equals("raw", ignoreCase = true) && relativePath.startsWith("/") -> relativePath
             volume.startsWith("/") -> volume
-            else -> null
+            else -> {
+                val base = File("/storage", volume)
+                if (relativePath.isBlank()) base.absolutePath
+                else File(base, relativePath).absolutePath
+            }
         }
     }
 

@@ -650,10 +650,7 @@ object EmulatorBridge {
             ?.absolutePath
         if (!directPath.isNullOrBlank()) return PreparedMetadataPath(directPath)
 
-        val descriptor = runCatching {
-            context.contentResolver.openFileDescriptor(path.toUri(), "r")
-        }.getOrNull() ?: return null
-        return PreparedMetadataPath("/proc/self/fd/${descriptor.fd}", descriptor)
+        return PreparedMetadataPath(path)
     }
 
     private fun isFdMetadataArtifact(path: String, nativeTitle: String, nativeSerial: String?): Boolean {
@@ -706,7 +703,12 @@ object EmulatorBridge {
     }
 
     fun parseMetadataFromName(rawName: String): GameMetadata {
-        val cleanName = rawName.substringBeforeLast('.').trim()
+        val ext = rawName.substringAfterLast('.', "").lowercase()
+        val cleanName = if (ext in setOf("iso", "bin", "chd", "cso", "gz", "elf")) {
+            rawName.substringBeforeLast('.').trim()
+        } else {
+            rawName.trim()
+        }
         val serial = extractSerialFromName(cleanName)
         val title = cleanName
             .replace(Regex("""(?i)\b([A-Z]{4})[-_. ]?(\d{3})[-_. ]?(\d{2})\b"""), " ")

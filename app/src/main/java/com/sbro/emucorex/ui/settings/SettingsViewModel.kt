@@ -40,7 +40,7 @@ data class SettingsUiState(
     val biosPath: String? = null,
     val gamePath: String? = null,
     val coverDownloadBaseUrl: String? = null,
-    val coverArtStyle: Int = AppPreferences.COVER_ART_STYLE_DISABLED,
+    val coverArtStyle: Int = AppPreferences.COVER_ART_STYLE_DEFAULT,
     val biosValid: Boolean = false,
     val setupComplete: Boolean = false,
     val appVersion: String = "1.0.0",

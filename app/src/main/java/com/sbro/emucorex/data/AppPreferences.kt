@@ -53,7 +53,7 @@ data class SettingsSnapshot(
     val biosValid: Boolean = false,
     val gamePath: String? = null,
     val coverDownloadBaseUrl: String? = null,
-    val coverArtStyle: Int = AppPreferences.COVER_ART_STYLE_DISABLED,
+    val coverArtStyle: Int = AppPreferences.COVER_ART_STYLE_DEFAULT,
     val setupComplete: Boolean = false,
     val eeCycleRate: Int = PerformanceProfiles.safeConfig.eeCycleRate,
     val eeCycleSkip: Int = PerformanceProfiles.safeConfig.eeCycleSkip,
@@ -498,18 +498,18 @@ class AppPreferences(private val context: Context) {
 
     val coverArtStyle: Flow<Int> = context.dataStore.data.map { prefs ->
         when (prefs[COVER_ART_STYLE]) {
-            COVER_ART_STYLE_DEFAULT -> COVER_ART_STYLE_DEFAULT
+            COVER_ART_STYLE_DISABLED -> COVER_ART_STYLE_DISABLED
             COVER_ART_STYLE_3D -> COVER_ART_STYLE_3D
-            else -> COVER_ART_STYLE_DISABLED
+            else -> COVER_ART_STYLE_DEFAULT
         }
     }
 
     suspend fun setCoverArtStyle(style: Int) {
         context.dataStore.edit { prefs ->
             prefs[COVER_ART_STYLE] = when (style) {
-                COVER_ART_STYLE_DEFAULT -> COVER_ART_STYLE_DEFAULT
+                COVER_ART_STYLE_DISABLED -> COVER_ART_STYLE_DISABLED
                 COVER_ART_STYLE_3D -> COVER_ART_STYLE_3D
-                else -> COVER_ART_STYLE_DISABLED
+                else -> COVER_ART_STYLE_DEFAULT
             }
         }
     }
@@ -518,9 +518,9 @@ class AppPreferences(private val context: Context) {
         return kotlinx.coroutines.runBlocking {
             context.dataStore.data.map { prefs ->
                 when (prefs[COVER_ART_STYLE]) {
-                    COVER_ART_STYLE_DEFAULT -> COVER_ART_STYLE_DEFAULT
+                    COVER_ART_STYLE_DISABLED -> COVER_ART_STYLE_DISABLED
                     COVER_ART_STYLE_3D -> COVER_ART_STYLE_3D
-                    else -> COVER_ART_STYLE_DISABLED
+                    else -> COVER_ART_STYLE_DEFAULT
                 }
             }.first()
         }
@@ -589,9 +589,9 @@ class AppPreferences(private val context: Context) {
                 gamePath = prefs[GAME_PATH],
                 coverDownloadBaseUrl = prefs[COVER_DOWNLOAD_BASE_URL],
                 coverArtStyle = when (prefs[COVER_ART_STYLE]) {
-                    COVER_ART_STYLE_DEFAULT -> COVER_ART_STYLE_DEFAULT
+                    COVER_ART_STYLE_DISABLED -> COVER_ART_STYLE_DISABLED
                     COVER_ART_STYLE_3D -> COVER_ART_STYLE_3D
-                    else -> COVER_ART_STYLE_DISABLED
+                    else -> COVER_ART_STYLE_DEFAULT
                 },
                 setupComplete = prefs[ONBOARDING_COMPLETED] ?: false,
                 eeCycleRate = prefs[EE_CYCLE_RATE] ?: profileConfig.eeCycleRate,
@@ -1845,7 +1845,7 @@ class AppPreferences(private val context: Context) {
             put("biosPath", prefs[BIOS_PATH])
             put("gamePath", prefs[GAME_PATH])
             put("coverDownloadBaseUrl", prefs[COVER_DOWNLOAD_BASE_URL])
-            put("coverArtStyle", prefs[COVER_ART_STYLE] ?: COVER_ART_STYLE_DISABLED)
+            put("coverArtStyle", prefs[COVER_ART_STYLE] ?: COVER_ART_STYLE_DEFAULT)
             put("onboardingCompleted", prefs[ONBOARDING_COMPLETED] ?: false)
             put("languageTag", prefs[LANGUAGE_TAG])
             put("aspectRatio", normalizeAspectRatioPreference(prefs[ASPECT_RATIO]))
@@ -1956,10 +1956,10 @@ class AppPreferences(private val context: Context) {
             json.optString("coverDownloadBaseUrl").takeIf { it.isNotBlank() }?.let {
                 prefs[COVER_DOWNLOAD_BASE_URL] = it.trim().trimEnd('/')
             } ?: prefs.remove(COVER_DOWNLOAD_BASE_URL)
-            prefs[COVER_ART_STYLE] = when (json.optInt("coverArtStyle", COVER_ART_STYLE_DISABLED)) {
-                COVER_ART_STYLE_DEFAULT -> COVER_ART_STYLE_DEFAULT
+            prefs[COVER_ART_STYLE] = when (json.optInt("coverArtStyle", COVER_ART_STYLE_DEFAULT)) {
+                COVER_ART_STYLE_DISABLED -> COVER_ART_STYLE_DISABLED
                 COVER_ART_STYLE_3D -> COVER_ART_STYLE_3D
-                else -> COVER_ART_STYLE_DISABLED
+                else -> COVER_ART_STYLE_DEFAULT
             }
             prefs[ONBOARDING_COMPLETED] = json.optBoolean("onboardingCompleted", false)
             languageTag?.let { prefs[LANGUAGE_TAG] = it } ?: prefs.remove(LANGUAGE_TAG)

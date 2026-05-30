@@ -228,7 +228,7 @@
     <string name="settings_about">Sobre</string>
     <string name="settings_version">Versão</string>
     <string name="settings_emulator_core">Núcleo de Emulação</string>
-    <string name="settings_emulator_core_desc">Baseado no PCSX2 (2.7.217)</string>
+    <string name="settings_emulator_core_desc">Baseado no PCSX2 (2.7.319)</string>
     <string name="settings_about_app">Sobre o EmuCoreX</string>
     <string name="settings_about_app_desc">O EmuCoreX é uma biblioteca e inicializador de PlayStation 2 construído em torno de um núcleo de emulação baseado no PCSX2, com configuração rápida, navegação limpa e uma experiência amigável para dispositivos portáteis.</string>
     <string name="settings_about_studio">Desenvolvedor</string>
@@ -238,7 +238,7 @@
     <string name="settings_about_website_link">Abrir Site</string>
     <string name="settings_about_website_url">https://emucorex.web.app/</string>
     <string name="settings_about_core_source">Código-fonte do Núcleo</string>
-    <string name="settings_about_core_source_desc">O EmuCoreX combina sua própria interface Android e recursos de biblioteca com um núcleo de emulação derivado do projeto de código aberto PCSX2. A ponte também foi refinada usando a experiência e atualizações da equipe ARMSX2, e a ajuda deles foi inestimável durante o desenvolvimento.</string>
+    <string name="settings_about_core_source_desc">O EmuCoreX combina sua própria interface Android e recursos de biblioteca com um núcleo de emulação derivado do projeto de código aberto PCSX2. O recompilador JIT foi escrito pela equipe EmuCoreX.</string>
     <string name="settings_about_core_source_link">Abrir PCSX2 no GitHub</string>
     <string name="settings_about_core_source_url">https://github.com/PCSX2/pcsx2</string>
     <string name="settings_about_support_project">Apoiar o Projeto</string>

@@ -228,7 +228,7 @@
     <string name="settings_about">關於</string>
     <string name="settings_version">版本</string>
     <string name="settings_emulator_core">模擬器核心</string>
-    <string name="settings_emulator_core_desc">基於 PCSX2 (2.7.217)</string>
+    <string name="settings_emulator_core_desc">基於 PCSX2 (2.7.319)</string>
     <string name="settings_about_app">關於 EmuCoreX</string>
     <string name="settings_about_app_desc">EmuCoreX 是一個 PlayStation 2 遊戲庫與啟動器，基於 PCSX2 模擬器核心打造，提供快速設定、簡潔導覽以及適合掌機的體驗。</string>
     <string name="settings_about_studio">開發者</string>
@@ -238,7 +238,7 @@
     <string name="settings_about_website_link">開啟網站</string>
     <string name="settings_about_website_url">https://emucorex.web.app/</string>
     <string name="settings_about_core_source">核心原始碼</string>
-    <string name="settings_about_core_source_desc">EmuCoreX 結合了自有的 Android 介面及遊戲庫功能，並採用源自開源 PCSX2 專案的模擬器核心。橋接部分也借鑑了 ARMSX2 團隊的經驗與更新進行了改良，他們在開發期間的幫助無價。</string>
+    <string name="settings_about_core_source_desc">EmuCoreX 結合了自有的 Android 介面及遊戲庫功能，並採用源自開源 PCSX2 專案的模擬器核心。JIT 重編譯器是由 EmuCoreX 團隊所編寫。</string>
     <string name="settings_about_core_source_link">在 GitHub 上開啟 PCSX2</string>
     <string name="settings_about_core_source_url">https://github.com/PCSX2/pcsx2</string>
     <string name="settings_about_support_project">支持專案</string>
