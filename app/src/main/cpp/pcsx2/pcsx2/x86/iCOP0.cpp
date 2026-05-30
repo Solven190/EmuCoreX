@@ -404,6 +404,8 @@ static void recMFC0UpdateCount_emit_oaknut()
 	oakAsm->MOV(OAK_WSCRATCH, OAK_WSCRATCH2);
 	oakLoad32(oak::util::W4, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.lastCOP0Cycle))});
 	oakAsm->SUB(OAK_WSCRATCH, OAK_WSCRATCH, oak::util::W4);
+	oakAsm->CMP(OAK_WSCRATCH, 0);
+	oakAsm->CSINC(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH, oak::Cond::NE);
 
 	oakLoad32(oak::util::W4, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.CP0.n.Count))});
 	oakAsm->ADD(oak::util::W4, oak::util::W4, OAK_WSCRATCH);

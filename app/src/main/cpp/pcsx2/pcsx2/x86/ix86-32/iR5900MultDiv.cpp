@@ -663,7 +663,7 @@ static void recDIV_constt(int info)
 }
 
 // We handle S reading in the routine itself, since it needs to go into eax.
-EERECOMPILE_CODERC0(DIV, /*XMMINFO_READS |*/ XMMINFO_READT);
+EERECOMPILE_CODERC0(DIV, XMMINFO_READS | XMMINFO_READT);
 
 //// DIVU
 template <bool Upper>
@@ -719,7 +719,7 @@ static void recDIVU_constt(int info)
 	recDIVU_constt_emit_oaknut(info);
 }
 
-EERECOMPILE_CODERC0(DIVU, /*XMMINFO_READS |*/ XMMINFO_READT);
+EERECOMPILE_CODERC0(DIVU, XMMINFO_READS | XMMINFO_READT);
 
 static void recDIV1_const()
 {
@@ -756,7 +756,7 @@ static void recDIV1_constt(int info)
 	recDIV1_constt_emit_oaknut(info);
 }
 
-EERECOMPILE_CODERC0(DIV1, /*XMMINFO_READS |*/ XMMINFO_READT);
+EERECOMPILE_CODERC0(DIV1, XMMINFO_READS | XMMINFO_READT);
 
 static void recDIVU1_const()
 {
@@ -793,7 +793,7 @@ static void recDIVU1_constt(int info)
 	recDIVU1_constt_emit_oaknut(info);
 }
 
-EERECOMPILE_CODERC0(DIVU1, /*XMMINFO_READS |*/ XMMINFO_READT);
+EERECOMPILE_CODERC0(DIVU1, XMMINFO_READS | XMMINFO_READT);
 
 // TODO(Stenzek): All of these :(
 
