@@ -148,10 +148,16 @@ static __fi void mVUCompileSaveLpState_emit_oaknut(mV, const u32* state)
 	recBeginOaknutEmit();
 	oakMoveAddressToReg(OAK_XSCRATCH, &mVU.prog.lpState);
 	const size_t e = (sizeof(microRegInfo) - 4) >> 2;
-	for (size_t i = 0; i < e; ++i)
+	const u64* state64 = reinterpret_cast<const u64*>(state);
+	for (size_t i = 0; i < e / 2; ++i)
 	{
-		oakAsm->MOV(OAK_WSCRATCH2, state[i]);
-		oakStore32(OAK_WSCRATCH2, {OAK_XSCRATCH, static_cast<s64>(i * sizeof(u32))});
+		oakAsm->MOV(OAK_XSCRATCH2, state64[i]);
+		oakStore64(OAK_XSCRATCH2, {OAK_XSCRATCH, static_cast<s64>(i * 8)});
+	}
+	if (e % 2)
+	{
+		oakAsm->MOV(OAK_WSCRATCH2, state[e - 1]);
+		oakStore32(OAK_WSCRATCH2, {OAK_XSCRATCH, static_cast<s64>((e - 1) * 4)});
 	}
 	recEndOaknutEmit();
 }

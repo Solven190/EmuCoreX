@@ -14,7 +14,7 @@ datastorePreferences = "1.2.1"
 kotlinxSerializationJson = "1.11.0"
 documentfile = "1.1.0"
 androidYoutubePlayer = "13.0.0"
-firebaseBom = "34.13.0"
+firebaseBom = "34.14.0"
 googleServices = "4.4.4"
 firebaseCrashlytics = "3.0.7"
 

@@ -32,6 +32,18 @@ static __fi void mVUUpperPshufd_oaknut(int dst, int src, u8 imm)
 {
 	const oak::QReg dst_q = oakQRegister(dst);
 	const oak::QReg src_q = oakQRegister(src);
+
+	if (imm == 0x00) { oakAsm->DUP(dst_q.S4(), src_q.Selem()[0]); return; }
+	if (imm == 0x55) { oakAsm->DUP(dst_q.S4(), src_q.Selem()[1]); return; }
+	if (imm == 0xaa) { oakAsm->DUP(dst_q.S4(), src_q.Selem()[2]); return; }
+	if (imm == 0xff) { oakAsm->DUP(dst_q.S4(), src_q.Selem()[3]); return; }
+	if (imm == 0x1b)
+	{
+		oakAsm->REV64(OAK_QSCRATCH3.S4(), src_q.S4());
+		oakAsm->EXT(dst_q.B16(), OAK_QSCRATCH3.B16(), OAK_QSCRATCH3.B16(), 8);
+		return;
+	}
+
 	oakLoad128(OAK_QSCRATCH3,
 		mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, shuffle.data[imm][0]))));
 	oakAsm->MOV(OAK_QSCRATCH2.B16(), src_q.B16());
@@ -40,21 +52,17 @@ static __fi void mVUUpperPshufd_oaknut(int dst, int src, u8 imm)
 
 static __fi void mVUUpperMovmskps_oaknut(const oak::WReg& dst, const oak::QReg& src)
 {
-	oakAsm->UMOV(OAK_WSCRATCH2, src.Selem()[0]);
-	oakAsm->LSR(dst, OAK_WSCRATCH2, 31);
-	oakAsm->AND(dst, dst, 0x1);
-	oakAsm->UMOV(OAK_WSCRATCH2, src.Selem()[1]);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH2, 30);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x2);
-	oakAsm->ORR(dst, dst, OAK_WSCRATCH);
-	oakAsm->UMOV(OAK_WSCRATCH2, src.Selem()[2]);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH2, 29);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x4);
-	oakAsm->ORR(dst, dst, OAK_WSCRATCH);
-	oakAsm->UMOV(OAK_WSCRATCH2, src.Selem()[3]);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH2, 28);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x8);
-	oakAsm->ORR(dst, dst, OAK_WSCRATCH);
+	oakAsm->UMOV(dst, src.Selem()[0]);
+	oakAsm->LSR(dst, dst, 31);
+	oakAsm->UMOV(OAK_WSCRATCH, src.Selem()[1]);
+	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH, 31);
+	oakAsm->BFI(dst, OAK_WSCRATCH, 1, 1);
+	oakAsm->UMOV(OAK_WSCRATCH, src.Selem()[2]);
+	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH, 31);
+	oakAsm->BFI(dst, OAK_WSCRATCH, 2, 1);
+	oakAsm->UMOV(OAK_WSCRATCH, src.Selem()[3]);
+	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH, 31);
+	oakAsm->BFI(dst, OAK_WSCRATCH, 3, 1);
 }
 
 static __fi void mVUUpperClamp1Vector_oaknut(mV, int reg, bool bClampE)
@@ -433,7 +441,7 @@ static void mVUupdateFlags_oaknut(mV, int reg, int regT1in = VU_HOST_NO_XMM, int
 		oakAsm->l(no_overflow);
 	}
 
-	if (mFLAG.doFlag && _XYZW_SS && modXYZW && !_W)
+	if (_XYZW_SS && modXYZW && !_W)
 		oakAsm->LSL(mac_w, mac_w, ADD_XYZW);
 	recEndOaknutEmit();
 
@@ -1548,11 +1556,10 @@ static void mVU_MADD_direct_emit_oaknut(mP)
 	const int tempFs = mVU.regAlloc->allocRegId();
 
 	recBeginOaknutEmit();
-	if (_XYZW_SS2)
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-
 	oakAsm->MOV(oakQRegister(tempFs).B16(), oakQRegister(Fs).B16());
 	oakAsm->MOV(oakQRegister(Fs).B16(), oakQRegister(ACC).B16());
+	if (_XYZW_SS2)
+		mVUUpperPshufd_oaknut(Fs, Fs, shuffleSS(_X_Y_Z_W));
 	if (_XYZW_SS)
 		mVUUpperFmlaSs_oaknut(mVU, Fs, tempFs, Ft);
 	else
@@ -1560,12 +1567,6 @@ static void mVU_MADD_direct_emit_oaknut(mP)
 	recEndOaknutEmit();
 
 	mVU.regAlloc->clearNeededXmmId(tempFs);
-	if (_XYZW_SS2)
-	{
-		recBeginOaknutEmit();
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-		recEndOaknutEmit();
-	}
 
 	mVUupdateFlags_oaknut(mVU, Fs, tempFt);
 
@@ -1597,11 +1598,10 @@ static void mVU_MADDi_direct_emit_oaknut(mP)
 	const int tempFs = mVU.regAlloc->allocRegId();
 
 	recBeginOaknutEmit();
-	if (_XYZW_SS2)
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-
 	oakAsm->MOV(oakQRegister(tempFs).B16(), oakQRegister(Fs).B16());
 	oakAsm->MOV(oakQRegister(Fs).B16(), oakQRegister(ACC).B16());
+	if (_XYZW_SS2)
+		mVUUpperPshufd_oaknut(Fs, Fs, shuffleSS(_X_Y_Z_W));
 	if (_XYZW_SS)
 		mVUUpperFmlaSs_oaknut(mVU, Fs, tempFs, Fi);
 	else
@@ -1609,12 +1609,6 @@ static void mVU_MADDi_direct_emit_oaknut(mP)
 	recEndOaknutEmit();
 
 	mVU.regAlloc->clearNeededXmmId(tempFs);
-	if (_XYZW_SS2)
-	{
-		recBeginOaknutEmit();
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-		recEndOaknutEmit();
-	}
 
 	mVUupdateFlags_oaknut(mVU, Fs, Fi);
 
@@ -1661,11 +1655,10 @@ static void mVU_MADDq_direct_emit_oaknut(mP)
 	const int tempFs = mVU.regAlloc->allocRegId();
 
 	recBeginOaknutEmit();
-	if (_XYZW_SS2)
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-
 	oakAsm->MOV(oakQRegister(tempFs).B16(), oakQRegister(Fs).B16());
 	oakAsm->MOV(oakQRegister(Fs).B16(), oakQRegister(ACC).B16());
+	if (_XYZW_SS2)
+		mVUUpperPshufd_oaknut(Fs, Fs, shuffleSS(_X_Y_Z_W));
 	if (_XYZW_SS)
 		mVUUpperFmlaSs_oaknut(mVU, Fs, tempFs, Fq);
 	else
@@ -1673,12 +1666,6 @@ static void mVU_MADDq_direct_emit_oaknut(mP)
 	recEndOaknutEmit();
 
 	mVU.regAlloc->clearNeededXmmId(tempFs);
-	if (_XYZW_SS2)
-	{
-		recBeginOaknutEmit();
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-		recEndOaknutEmit();
-	}
 
 	mVUupdateFlags_oaknut(mVU, Fs, tempFq);
 
@@ -1716,14 +1703,14 @@ static void mVU_MADDx_direct_emit_oaknut(mP)
 	const int tempFs = mVU.regAlloc->allocRegId();
 
 	recBeginOaknutEmit();
-	if (_XYZW_SS2)
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
 	if (_XYZW_SS)
 		mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
 	else
 		mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
 	oakAsm->MOV(oakQRegister(tempFs).B16(), oakQRegister(Fs).B16());
 	oakAsm->MOV(oakQRegister(Fs).B16(), oakQRegister(ACC).B16());
+	if (_XYZW_SS2)
+		mVUUpperPshufd_oaknut(Fs, Fs, shuffleSS(_X_Y_Z_W));
 	if (_XYZW_SS)
 		mVUUpperFmlaSs_oaknut(mVU, Fs, tempFs, FtX);
 	else
@@ -1731,12 +1718,6 @@ static void mVU_MADDx_direct_emit_oaknut(mP)
 	recEndOaknutEmit();
 
 	mVU.regAlloc->clearNeededXmmId(tempFs);
-	if (_XYZW_SS2)
-	{
-		recBeginOaknutEmit();
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-		recEndOaknutEmit();
-	}
 
 	mVUupdateFlags_oaknut(mVU, Fs, FtX);
 
@@ -1769,14 +1750,10 @@ static void mVU_MADDy_direct_emit_oaknut(mP)
 	const int tempFs = mVU.regAlloc->allocRegId();
 
 	recBeginOaknutEmit();
-	if (_XYZW_SS2)
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-	if (_XYZW_SS)
-		mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-	else
-		mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
 	oakAsm->MOV(oakQRegister(tempFs).B16(), oakQRegister(Fs).B16());
 	oakAsm->MOV(oakQRegister(Fs).B16(), oakQRegister(ACC).B16());
+	if (_XYZW_SS2)
+		mVUUpperPshufd_oaknut(Fs, Fs, shuffleSS(_X_Y_Z_W));
 	if (_XYZW_SS)
 		mVUUpperFmlaSs_oaknut(mVU, Fs, tempFs, FtY);
 	else
@@ -1784,12 +1761,6 @@ static void mVU_MADDy_direct_emit_oaknut(mP)
 	recEndOaknutEmit();
 
 	mVU.regAlloc->clearNeededXmmId(tempFs);
-	if (_XYZW_SS2)
-	{
-		recBeginOaknutEmit();
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-		recEndOaknutEmit();
-	}
 
 	mVUupdateFlags_oaknut(mVU, Fs, FtY);
 
@@ -1822,14 +1793,10 @@ static void mVU_MADDz_direct_emit_oaknut(mP)
 	const int tempFs = mVU.regAlloc->allocRegId();
 
 	recBeginOaknutEmit();
-	if (_XYZW_SS2)
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-	if (_XYZW_SS)
-		mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-	else
-		mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
 	oakAsm->MOV(oakQRegister(tempFs).B16(), oakQRegister(Fs).B16());
 	oakAsm->MOV(oakQRegister(Fs).B16(), oakQRegister(ACC).B16());
+	if (_XYZW_SS2)
+		mVUUpperPshufd_oaknut(Fs, Fs, shuffleSS(_X_Y_Z_W));
 	if (_XYZW_SS)
 		mVUUpperFmlaSs_oaknut(mVU, Fs, tempFs, FtZ);
 	else
@@ -1837,12 +1804,6 @@ static void mVU_MADDz_direct_emit_oaknut(mP)
 	recEndOaknutEmit();
 
 	mVU.regAlloc->clearNeededXmmId(tempFs);
-	if (_XYZW_SS2)
-	{
-		recBeginOaknutEmit();
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-		recEndOaknutEmit();
-	}
 
 	mVUupdateFlags_oaknut(mVU, Fs, FtZ);
 
@@ -1875,27 +1836,10 @@ static void mVU_MADDw_direct_emit_oaknut(mP)
 	const int tempFs = mVU.regAlloc->allocRegId();
 
 	recBeginOaknutEmit();
-	if (_XYZW_SS2)
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-	if (isCOP2)
-	{
-		if (_XYZW_SS)
-		{
-			mVUUpperClamp2Scalar_oaknut(mVU, ACC, false);
-			mVUUpperClamp2Scalar_oaknut(mVU, FtW, false);
-		}
-		else
-		{
-			mVUUpperClamp2Vector_oaknut(mVU, ACC, false);
-			mVUUpperClamp2Vector_oaknut(mVU, FtW, false);
-		}
-	}
-	if (_XYZW_SS)
-		mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-	else
-		mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
 	oakAsm->MOV(oakQRegister(tempFs).B16(), oakQRegister(Fs).B16());
 	oakAsm->MOV(oakQRegister(Fs).B16(), oakQRegister(ACC).B16());
+	if (_XYZW_SS2)
+		mVUUpperPshufd_oaknut(Fs, Fs, shuffleSS(_X_Y_Z_W));
 	if (_XYZW_SS)
 		mVUUpperFmlaSs_oaknut(mVU, Fs, tempFs, FtW);
 	else
@@ -1903,12 +1847,6 @@ static void mVU_MADDw_direct_emit_oaknut(mP)
 	recEndOaknutEmit();
 
 	mVU.regAlloc->clearNeededXmmId(tempFs);
-	if (_XYZW_SS2)
-	{
-		recBeginOaknutEmit();
-		mVUUpperPshufd_oaknut(ACC, ACC, shuffleSS(_X_Y_Z_W));
-		recEndOaknutEmit();
-	}
 
 	mVUupdateFlags_oaknut(mVU, Fs, FtW);
 

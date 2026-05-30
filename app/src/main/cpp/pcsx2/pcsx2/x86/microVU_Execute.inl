@@ -60,19 +60,19 @@ static void mVUExecuteOakBeginStackFrame(bool save_fpr = true)
 {
 	using namespace oak::util;
 
-	oakAsm->SUB(SP, SP, save_fpr ? 192 : 144);
-	oakAsm->STP(X19, X20, SP, oak::SOffset<10, 3>(32));
-	oakAsm->STP(X21, X22, SP, oak::SOffset<10, 3>(48));
-	oakAsm->STP(X23, X24, SP, oak::SOffset<10, 3>(64));
-	oakAsm->STP(X25, X26, SP, oak::SOffset<10, 3>(80));
-	oakAsm->STP(X27, X28, SP, oak::SOffset<10, 3>(96));
-	oakAsm->STP(X29, X30, SP, oak::SOffset<10, 3>(112));
+	oakAsm->SUB(SP, SP, save_fpr ? 160 : 96);
+	oakAsm->STP(X19, X20, SP, oak::SOffset<10, 3>(0));
+	oakAsm->STP(X21, X22, SP, oak::SOffset<10, 3>(16));
+	oakAsm->STP(X23, X24, SP, oak::SOffset<10, 3>(32));
+	oakAsm->STP(X25, X26, SP, oak::SOffset<10, 3>(48));
+	oakAsm->STP(X27, X28, SP, oak::SOffset<10, 3>(64));
+	oakAsm->STP(X29, X30, SP, oak::SOffset<10, 3>(80));
 	if (save_fpr)
 	{
-		oakAsm->STP(oakDRegister(8), oakDRegister(9), SP, oak::SOffset<10, 3>(128));
-		oakAsm->STP(oakDRegister(10), oakDRegister(11), SP, oak::SOffset<10, 3>(144));
-		oakAsm->STP(oakDRegister(12), oakDRegister(13), SP, oak::SOffset<10, 3>(160));
-		oakAsm->STP(oakDRegister(14), oakDRegister(15), SP, oak::SOffset<10, 3>(176));
+		oakAsm->STP(oakDRegister(8), oakDRegister(9), SP, oak::SOffset<10, 3>(96));
+		oakAsm->STP(oakDRegister(10), oakDRegister(11), SP, oak::SOffset<10, 3>(112));
+		oakAsm->STP(oakDRegister(12), oakDRegister(13), SP, oak::SOffset<10, 3>(128));
+		oakAsm->STP(oakDRegister(14), oakDRegister(15), SP, oak::SOffset<10, 3>(144));
 	}
 }
 
@@ -82,18 +82,18 @@ static void mVUExecuteOakEndStackFrame(bool save_fpr = true)
 
 	if (save_fpr)
 	{
-		oakAsm->LDP(oakDRegister(14), oakDRegister(15), SP, oak::SOffset<10, 3>(176));
-		oakAsm->LDP(oakDRegister(12), oakDRegister(13), SP, oak::SOffset<10, 3>(160));
-		oakAsm->LDP(oakDRegister(10), oakDRegister(11), SP, oak::SOffset<10, 3>(144));
-		oakAsm->LDP(oakDRegister(8), oakDRegister(9), SP, oak::SOffset<10, 3>(128));
+		oakAsm->LDP(oakDRegister(14), oakDRegister(15), SP, oak::SOffset<10, 3>(144));
+		oakAsm->LDP(oakDRegister(12), oakDRegister(13), SP, oak::SOffset<10, 3>(128));
+		oakAsm->LDP(oakDRegister(10), oakDRegister(11), SP, oak::SOffset<10, 3>(112));
+		oakAsm->LDP(oakDRegister(8), oakDRegister(9), SP, oak::SOffset<10, 3>(96));
 	}
-	oakAsm->LDP(X29, X30, SP, oak::SOffset<10, 3>(112));
-	oakAsm->LDP(X27, X28, SP, oak::SOffset<10, 3>(96));
-	oakAsm->LDP(X25, X26, SP, oak::SOffset<10, 3>(80));
-	oakAsm->LDP(X23, X24, SP, oak::SOffset<10, 3>(64));
-	oakAsm->LDP(X21, X22, SP, oak::SOffset<10, 3>(48));
-	oakAsm->LDP(X19, X20, SP, oak::SOffset<10, 3>(32));
-	oakAsm->ADD(SP, SP, save_fpr ? 192 : 144);
+	oakAsm->LDP(X29, X30, SP, oak::SOffset<10, 3>(80));
+	oakAsm->LDP(X27, X28, SP, oak::SOffset<10, 3>(64));
+	oakAsm->LDP(X25, X26, SP, oak::SOffset<10, 3>(48));
+	oakAsm->LDP(X23, X24, SP, oak::SOffset<10, 3>(32));
+	oakAsm->LDP(X21, X22, SP, oak::SOffset<10, 3>(16));
+	oakAsm->LDP(X19, X20, SP, oak::SOffset<10, 3>(0));
+	oakAsm->ADD(SP, SP, save_fpr ? 160 : 96);
 }
 
 // Generates the code for entering/exit recompiled blocks
