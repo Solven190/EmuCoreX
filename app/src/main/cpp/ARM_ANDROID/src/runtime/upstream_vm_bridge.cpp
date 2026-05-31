@@ -18,6 +18,7 @@
 #include <android/log.h>
 
 #include <chrono>
+#include <cstdlib>
 #include <mutex>
 #include <thread>
 
@@ -165,6 +166,12 @@ void ConfigureImGuiFonts()
 
 void InstallHostSettings(const VmLaunchConfig& config)
 {
+	const auto driver_it = config.settings.find("EmuCoreX\nCustomDriverPath");
+	if (driver_it != config.settings.end() && !driver_it->second.empty())
+		setenv("LIBVULKAN_PATH", driver_it->second.c_str(), 1);
+	else
+		unsetenv("LIBVULKAN_PATH");
+
 	std::unique_lock settings_lock = Host::GetSettingsLock();
 	if (!Host::Internal::GetBaseSettingsLayer())
 		Host::Internal::SetBaseSettingsLayer(&s_base_settings);

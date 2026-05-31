@@ -56,6 +56,7 @@ import androidx.compose.material.icons.rounded.SettingsSuggest
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StayPrimaryPortrait
+import androidx.compose.material.icons.rounded.SystemUpdateAlt
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Vibration
@@ -136,7 +137,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 private enum class SettingsTab {
-    General, Graphics, Controls, Emulation, Fixes, Library, About
+    General, Graphics, Controls, Emulation, Fixes, Library, About, Updates
 }
 
 @SuppressLint("ConfigurationScreenWidthHeight")
@@ -147,6 +148,7 @@ fun SettingsScreen(
     onBackClick: (() -> Unit)? = null,
     onOpenLanguageScreen: (() -> Unit)? = null,
     onOpenMemoryCardManager: (() -> Unit)? = null,
+    onOpenGpuDriverManager: (() -> Unit)? = null,
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -159,7 +161,7 @@ fun SettingsScreen(
     val topInset = WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding() + 10.dp
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val horizontalSystemBarPadding = navigationBarsHorizontalPaddingValues()
-    var selectedTab by remember(initialTab) { mutableStateOf(initialTab.toSettingsTab()) }
+    var selectedTab by rememberSaveable(initialTab) { mutableStateOf(initialTab.toSettingsTab()) }
     val cheatRepository = remember(context) { CheatRepository(context) }
     var cheatEntries by remember { mutableStateOf(cheatRepository.listImportedCheatFiles()) }
     var cheatEditorGameKey by remember { mutableStateOf<String?>(null) }
@@ -205,6 +207,10 @@ fun SettingsScreen(
             true -> showScreenSettingsResetHint = false
             null -> Unit
         }
+    }
+
+    LaunchedEffect(uiState.customDriverPath, uiState.gpuDriverType) {
+        viewModel.refreshInstalledGpuDrivers()
     }
 
     if (!uiState.isLoaded) {
@@ -309,7 +315,17 @@ fun SettingsScreen(
                 return@launch
             }
             val gameKey = fileName.substringBeforeLast('.').ifBlank { "cheat_${System.currentTimeMillis()}" }
-            cheatRepository.importCheatFile(gameKey, fileName, contents)
+            val blockCount = cheatRepository.importCheatFile(
+                gameKey = gameKey,
+                fileName = fileName,
+                contents = contents,
+                enableAllByDefault = true
+            )
+            if (blockCount <= 0) {
+                Toast.makeText(context, cheatsImportFailureMessage, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            viewModel.setEnableCheats(true)
             refreshCheatEntries()
             Toast.makeText(context, cheatsImportSuccessMessage, Toast.LENGTH_SHORT).show()
         }
@@ -389,6 +405,7 @@ fun SettingsScreen(
                     searchQuery = ""
                 },
                 onOpenMemoryCardManager = onOpenMemoryCardManager,
+                onOpenGpuDriverManager = onOpenGpuDriverManager,
                 viewModel = viewModel,
                 topInset = 0.dp,
                 modifier = Modifier
@@ -836,7 +853,8 @@ private fun SettingsContent(
     viewModel: SettingsViewModel,
     topInset: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
-    onOpenMemoryCardManager: (() -> Unit)? = null
+    onOpenMemoryCardManager: (() -> Unit)? = null,
+    onOpenGpuDriverManager: (() -> Unit)? = null
 ) {
     val gamepadActions = remember { GamepadManager.mappableButtonActions() }
     val defaults = remember { SettingsSnapshot() }
@@ -927,29 +945,18 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_renderer),
                             onResetToDefault = { viewModel.setRenderer(defaults.renderer) }
                         )
-                        ChoiceSection(
-                            title = stringResource(R.string.settings_gpu_driver),
-                            options = listOf(
-                                0 to stringResource(R.string.settings_gpu_driver_system),
-                                1 to stringResource(R.string.settings_gpu_driver_custom)
-                            ),
-                            selectedValue = uiState.gpuDriverType,
-                            onSelect = viewModel::setGpuDriverType,
-                            helpText = stringResource(R.string.settings_help_gpu_driver),
-                            onResetToDefault = { viewModel.setGpuDriverType(defaults.gpuDriverType) }
+                        val activeDriverName = uiState.installedGpuDrivers
+                            .firstOrNull { it.mainLibraryPath == uiState.customDriverPath && uiState.gpuDriverType == 1 }
+                            ?.name
+                            ?: uiState.customDriverPath
+                                ?.takeIf { uiState.gpuDriverType == 1 }
+                                ?.let { File(it).parentFile?.name ?: File(it).name }
+                        SettingsItem(
+                            icon = Icons.Rounded.Tune,
+                            label = stringResource(R.string.settings_gpu_driver_manager_title),
+                            value = activeDriverName ?: stringResource(R.string.settings_gpu_driver_system),
+                            onClick = onOpenGpuDriverManager ?: launchDriverPicker
                         )
-                        if (uiState.gpuDriverType == 1) {
-                            val driverDisplayName = remember(uiState.customDriverPath, notSetLabel) {
-                                uiState.customDriverPath?.let { File(it).name }
-                                    ?: notSetLabel
-                            }
-                            SettingsItem(
-                                icon = Icons.Rounded.Tune,
-                                label = stringResource(R.string.settings_gpu_driver_path),
-                                value = driverDisplayName,
-                                onClick = launchDriverPicker
-                            )
-                        }
                         ChoiceSection(
                             title = stringResource(R.string.settings_upscale),
                             options = buildUpscaleOptions(stringResource(R.string.settings_upscale_native)),
@@ -1914,6 +1921,17 @@ private fun SettingsContent(
                     }
                 }
 
+                SettingsTab.Updates -> {
+                    AppUpdateTab(
+                        state = uiState.appUpdate,
+                        onCheckForUpdates = { viewModel.checkForAppUpdates(showErrors = true) },
+                        onShowCleanInstallDialog = viewModel::showCleanInstallDialog,
+                        onDismissCleanInstallDialog = viewModel::dismissCleanInstallDialog,
+                        onDownloadUpdate = { viewModel.downloadAppUpdate() },
+                        onInstallDownloadedUpdate = { viewModel.installDownloadedAppUpdate() }
+                    )
+                }
+
                 SettingsTab.About -> {
                     SettingsSection(title = stringResource(R.string.settings_about)) {
                         SettingsItem(
@@ -2198,7 +2216,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.General, R.string.settings_prefer_english_game_titles),
         entry(SettingsTab.Graphics, R.string.settings_renderer),
         entry(SettingsTab.Graphics, R.string.settings_gpu_driver),
-        entry(SettingsTab.Graphics, R.string.settings_gpu_driver_path),
+        entry(SettingsTab.Graphics, R.string.settings_gpu_driver_manager_title),
         entry(SettingsTab.Graphics, R.string.settings_upscale),
         entry(SettingsTab.Graphics, R.string.settings_aspect_ratio),
         entry(SettingsTab.Graphics, R.string.settings_bilinear_filtering),
@@ -2248,7 +2266,9 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Fixes, R.string.settings_cpu_sprite_render_size),
         entry(SettingsTab.Fixes, R.string.settings_gpu_target_clut),
         entry(SettingsTab.Fixes, R.string.settings_half_pixel_offset),
-        entry(SettingsTab.Fixes, R.string.settings_bilinear_upscale)
+        entry(SettingsTab.Fixes, R.string.settings_bilinear_upscale),
+        entry(SettingsTab.Updates, R.string.settings_updates_tab),
+        entry(SettingsTab.Updates, R.string.settings_updates_check_now)
     )
 }
 
@@ -3092,6 +3112,7 @@ private fun SettingsTab.label(): String {
         SettingsTab.Emulation -> stringResource(R.string.settings_emulation_tab)
         SettingsTab.Fixes -> stringResource(R.string.settings_fixes_tab)
         SettingsTab.Library -> stringResource(R.string.settings_library_tab)
+        SettingsTab.Updates -> stringResource(R.string.settings_updates_tab)
         SettingsTab.About -> stringResource(R.string.settings_about)
     }
 }
@@ -3105,6 +3126,7 @@ private fun SettingsTab.icon(): ImageVector {
         SettingsTab.Emulation -> Icons.Rounded.Speed
         SettingsTab.Fixes -> Icons.Rounded.SettingsSuggest
         SettingsTab.Library -> Icons.Rounded.FolderOpen
+        SettingsTab.Updates -> Icons.Rounded.SystemUpdateAlt
         SettingsTab.About -> Icons.Rounded.Info
     }
 }
@@ -3117,6 +3139,7 @@ private fun String.toSettingsTab(): SettingsTab {
         "cover-art", "cover_art", "data_transfer", "transfer", "backup", "data-transfer", "library" -> SettingsTab.Library
         "performance", "jit", "speedhacks", "speed_hacks", "speed-hacks", "cheats", "cheat", "emulation" -> SettingsTab.Emulation
         "advanced", "fixes", "hacks" -> SettingsTab.Fixes
+        "updates", "update", "app_update", "app-update" -> SettingsTab.Updates
         "about" -> SettingsTab.About
         else -> SettingsTab.General
     }

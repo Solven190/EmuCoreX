@@ -79,15 +79,24 @@ class CheatRepository(context: Context) {
         importCheatFile(gameKey = gameKey, fileName = "$gameKey.pnach", contents = contents)
     }
 
-    fun importCheatFile(gameKey: String, fileName: String, contents: String) {
+    fun importCheatFile(
+        gameKey: String,
+        fileName: String,
+        contents: String,
+        enableAllByDefault: Boolean = false
+    ): Int {
+        val blocks = parseCheatBlocks(contents)
+        if (blocks.isEmpty()) return 0
         val target = importedFile(gameKey)
         target.parentFile?.mkdirs()
         target.writeText(contents)
-        val parsedIds = parseCheatBlocks(contents).map { it.id }.toSet()
+        val parsedIds = blocks.map { it.id }.toSet()
         val state = loadEnabledIds()
         val old = state.optJSONArray(gameKey)?.toStringSet().orEmpty()
-        state.put(gameKey, JSONArray(old.filter(parsedIds::contains)))
+        val enabledIds = if (enableAllByDefault) parsedIds else old.filter(parsedIds::contains)
+        state.put(gameKey, JSONArray(enabledIds))
         writeEnabledIds(state)
+        return blocks.size
     }
 
     fun setEnabledBlocks(gameKey: String, enabledIds: Set<String>) {
@@ -97,33 +106,34 @@ class CheatRepository(context: Context) {
     }
 
     fun syncActiveCheats(gameKey: String, serial: String?, crc: String?) {
-        if (serial.isNullOrBlank() || crc.isNullOrBlank()) return
+        val normalizedCrc = crc?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: return
+        val normalizedSerial = serial?.trim()?.takeIf { it.isNotBlank() }
         val source = importedFile(gameKey)
         if (!source.exists()) return
         val enabledIds = loadEnabledIds().optJSONArray(gameKey)?.toStringSet().orEmpty()
         val blocks = parseCheatBlocks(source.readText()).filter { enabledIds.contains(it.id) }
-        val target = File(activeDir, "${serial}_${crc}.pnach")
+        val targets = activeCheatFiles(normalizedSerial, normalizedCrc)
         if (blocks.isEmpty()) {
-            if (target.exists()) target.delete()
+            targets.forEach { if (it.exists()) it.delete() }
             return
         }
-        target.writeText(
-            buildString {
-                blocks.forEach { block ->
-                    append("// ${block.title}\n")
-                    block.lines.forEach { append(it).append('\n') }
-                    append('\n')
-                }
-            }.trim() + "\n"
-        )
+        activeDir.mkdirs()
+        val contents = buildString {
+            blocks.forEach { block ->
+                append("// ${block.title}\n")
+                block.lines.forEach { append(it).append('\n') }
+                append('\n')
+            }
+        }.trim() + "\n"
+        targets.forEach { it.writeText(contents) }
     }
 
     fun deleteImportedCheats(gameKey: String, serial: String?, crc: String?) {
         importedFile(gameKey).delete()
         setEnabledBlocks(gameKey, emptySet())
-        if (!serial.isNullOrBlank() && !crc.isNullOrBlank()) {
-            File(activeDir, "${serial}_${crc}.pnach").delete()
-        }
+        val normalizedCrc = crc?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: return
+        val normalizedSerial = serial?.trim()?.takeIf { it.isNotBlank() }
+        activeCheatFiles(normalizedSerial, normalizedCrc).forEach { if (it.exists()) it.delete() }
     }
 
     fun exportJson(): JSONObject {
@@ -150,6 +160,13 @@ class CheatRepository(context: Context) {
         return value.replace(Regex("[^a-zA-Z0-9._-]"), "_")
     }
 
+    private fun activeCheatFiles(serial: String?, crc: String): List<File> {
+        val names = linkedSetOf<String>()
+        if (!serial.isNullOrBlank()) names += "${sanitizeFileName(serial)}_$crc.pnach"
+        names += "$crc.pnach"
+        return names.map { File(activeDir, it) }
+    }
+
     private fun parseCheatBlocks(raw: String): List<CheatBlock> {
         val lines = raw.lineSequence().map { it.trimEnd() }.toList()
         val blocks = mutableListOf<CheatBlock>()
@@ -158,14 +175,19 @@ class CheatRepository(context: Context) {
         var index = 1
 
         fun flush() {
-            val usefulLines = currentLines.filter { it.isNotBlank() && !it.trimStart().startsWith("//") }
+            val usefulLines = currentLines.filter { line ->
+                val trimmed = line.trimStart()
+                trimmed.startsWith("patch=", ignoreCase = true) ||
+                    trimmed.startsWith("dpatch=", ignoreCase = true)
+            }
             if (usefulLines.isEmpty()) {
                 currentLines = mutableListOf()
                 return
             }
             val title = currentTitle?.takeIf { it.isNotBlank() } ?: "Cheat $index"
+            val slug = title.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
             blocks += CheatBlock(
-                id = title.lowercase().replace(Regex("[^a-z0-9]+"), "_").ifBlank { "cheat_$index" },
+                id = "${slug.ifBlank { "cheat" }}_$index",
                 title = title,
                 lines = usefulLines,
                 enabled = false
@@ -180,21 +202,30 @@ class CheatRepository(context: Context) {
             val label = when {
                 trimmed.startsWith("//") -> trimmed.removePrefix("//").trim()
                 trimmed.startsWith("comment=", ignoreCase = true) -> trimmed.substringAfter('=').trim()
+                trimmed.startsWith("[") && trimmed.endsWith("]") -> trimmed.removeSurrounding("[", "]").trim()
                 else -> null
             }
             if (!label.isNullOrBlank()) {
-                if (currentLines.any { it.trim().startsWith("patch=", ignoreCase = true) }) {
+                if (currentLines.any { it.trim().startsWith("patch=", ignoreCase = true) || it.trim().startsWith("dpatch=", ignoreCase = true) }) {
                     flush()
                 }
                 currentTitle = label
-            } else if (trimmed.startsWith("patch=", ignoreCase = true)) {
+            } else if (
+                trimmed.startsWith("patch=", ignoreCase = true) ||
+                trimmed.startsWith("dpatch=", ignoreCase = true)
+            ) {
                 currentLines += trimmed
             }
         }
         flush()
         return blocks.ifEmpty {
             lines
-                .mapNotNull { it.trim().takeIf { value -> value.startsWith("patch=", ignoreCase = true) } }
+                .mapNotNull { line ->
+                    line.trim().takeIf { value ->
+                        value.startsWith("patch=", ignoreCase = true) ||
+                            value.startsWith("dpatch=", ignoreCase = true)
+                    }
+                }
                 .mapIndexed { idx, line ->
                     CheatBlock(
                         id = "cheat_${idx + 1}",

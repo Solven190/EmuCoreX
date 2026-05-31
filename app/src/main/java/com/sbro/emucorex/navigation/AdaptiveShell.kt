@@ -302,7 +302,7 @@ private fun CompactAdaptiveShell(
                     wrapInSurface = false,
                     topInset = statusPadding,
                     scrollState = drawerScrollState,
-                    onCloseDrawer = { scope.launch { drawerState.close() } }
+                    onCloseDrawer = { drawerState.close() }
                 )
             }
         }
@@ -364,79 +364,73 @@ private fun SideNavigation(
     wrapInSurface: Boolean = true,
     topInset: androidx.compose.ui.unit.Dp = WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding(),
     scrollState: ScrollState = rememberScrollState(),
-    onCloseDrawer: () -> Unit
+    onCloseDrawer: suspend () -> Unit
 ) {
     val drawerInset = 18.dp
     val drawerSectionSpacing = 14.dp
     val drawerBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val scope = rememberCoroutineScope()
     var showResetDialog by remember { mutableStateOf(false) }
+    val closeDrawerThen: (() -> Unit) -> Unit = { action ->
+        scope.launch {
+            onCloseDrawer()
+            action()
+        }
+    }
 
     val navigateHome = rememberDebouncedClick {
-        onCloseDrawer()
-        onNavigateHome()
+        closeDrawerThen(onNavigateHome)
     }
     val navigateSettings = rememberDebouncedClick {
-        onCloseDrawer()
-        onNavigateSettings()
+        closeDrawerThen(onNavigateSettings)
     }
     val navigateAchievements = rememberDebouncedClick {
-        onCloseDrawer()
-        onNavigateAchievements()
+        closeDrawerThen(onNavigateAchievements)
     }
     val navigateGameSettingsManager = onNavigateGameSettingsManager?.let {
         rememberDebouncedClick {
-            onCloseDrawer()
-            it()
+            closeDrawerThen(it)
         }
     }
     val navigateDataTransfer = onNavigateDataTransfer?.let {
         rememberDebouncedClick {
-            onCloseDrawer()
-            it()
+            closeDrawerThen(it)
         }
     }
     val resetAllSettings = onResetAllSettings?.let {
         rememberDebouncedClick {
-            onCloseDrawer()
-            showResetDialog = true
+            closeDrawerThen { showResetDialog = true }
         }
     }
     val navigateSaveManager = onNavigateSaveManager?.let {
         rememberDebouncedClick {
-            onCloseDrawer()
-            it()
+            closeDrawerThen(it)
         }
     }
     val navigateMemoryCardManager = onNavigateMemoryCardManager?.let {
         rememberDebouncedClick {
-            onCloseDrawer()
-            it()
+            closeDrawerThen(it)
         }
     }
     val navigateFormats = rememberDebouncedClick {
-        onCloseDrawer()
-        onNavigateFormats()
+        closeDrawerThen(onNavigateFormats)
     }
     val navigateSearch = rememberDebouncedClick {
-        onCloseDrawer()
-        onNavigateSearch()
+        closeDrawerThen(onNavigateSearch)
     }
     val openManageFolders = onOpenManageFolders?.let {
         rememberDebouncedClick {
-            onCloseDrawer()
-            it()
+            closeDrawerThen(it)
         }
     }
     val launchGame = onLaunchGame?.let {
         rememberDebouncedClick {
-            onCloseDrawer()
-            it()
+            closeDrawerThen(it)
         }
     }
     val launchBios = onLaunchBios?.let {
         rememberDebouncedClick {
-            onCloseDrawer()
-            it()
+            closeDrawerThen(it)
         }
     }
 

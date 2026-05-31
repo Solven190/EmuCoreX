@@ -273,6 +273,21 @@ std::string AndroidRuntime::GetSetting(const std::string& section, const std::st
 	return (it == settings_.end()) ? std::string() : it->second;
 }
 
+void AndroidRuntime::ReloadPatches()
+{
+	bool active = false;
+	{
+		std::lock_guard lock(mutex_);
+		active = vm_active_;
+	}
+	if (!active)
+		return;
+
+	Host::RunOnCPUThread([]() {
+		VMManager::ReloadPatches(true, true, true, true);
+	}, false);
+}
+
 void AndroidRuntime::SetNativeSurface(void* window, int width, int height)
 {
 	bool update_display_window = false;

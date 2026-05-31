@@ -162,6 +162,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class AppPreferences(private val context: Context) {
 
     private val localePrefs = context.getSharedPreferences("ui_locale", Context.MODE_PRIVATE)
+    private val appUpdatePrefs = context.getSharedPreferences("app_update", Context.MODE_PRIVATE)
 
     companion object {
         private const val CURRENT_OVERLAY_LAYOUT_VERSION = 15
@@ -346,7 +347,20 @@ class AppPreferences(private val context: Context) {
         private val ACHIEVEMENTS_REMEMBER_PASSWORD = booleanPreferencesKey("achievements_remember_password")
         private val ACHIEVEMENTS_PASSWORD = stringPreferencesKey("achievements_password")
         private val ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON = stringPreferencesKey("achievements_account_progress_json")
+        private const val KEY_SKIPPED_UPDATE_TAG = "skipped_update_tag"
     }
+
+    var skippedUpdateTag: String?
+        get() = appUpdatePrefs.getString(KEY_SKIPPED_UPDATE_TAG, null)
+        set(value) {
+            appUpdatePrefs.edit().apply {
+                if (value.isNullOrBlank()) {
+                    remove(KEY_SKIPPED_UPDATE_TAG)
+                } else {
+                    putString(KEY_SKIPPED_UPDATE_TAG, value)
+                }
+            }.apply()
+        }
 
     // Theme
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->

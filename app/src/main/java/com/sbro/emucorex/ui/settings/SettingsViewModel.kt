@@ -5,21 +5,30 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.sbro.emucorex.core.AppUpdateRelease
+import com.sbro.emucorex.core.AppUpdateRepository
 import com.sbro.emucorex.core.EmulatorBridge
+import com.sbro.emucorex.core.GpuDriverCatalogRepository
+import com.sbro.emucorex.core.GpuDriverManager
 import com.sbro.emucorex.core.GsHackDefaults
+import com.sbro.emucorex.core.InstalledGpuDriver
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.PerformancePresets
+import com.sbro.emucorex.core.RemoteGpuDriver
 import com.sbro.emucorex.core.normalizeUpscale
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
 import com.sbro.emucorex.data.CoverArtRepository
 import com.sbro.emucorex.data.SettingsSnapshot
 import com.sbro.emucorex.ui.theme.ThemeMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 data class SettingsUiState(
     val isLoaded: Boolean = false,
@@ -118,14 +127,37 @@ data class SettingsUiState(
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
     val customDriverPath: String? = null,
+    val installedGpuDrivers: List<InstalledGpuDriver> = emptyList(),
+    val remoteGpuDrivers: List<RemoteGpuDriver> = emptyList(),
+    val gpuDriverCatalogLoading: Boolean = false,
+    val gpuDriverCatalogError: String? = null,
+    val gpuDriverDownloads: Map<String, Float> = emptyMap(),
+    val appUpdate: AppUpdateUiState = AppUpdateUiState(),
     val frameLimitEnabled: Boolean = true,
     val targetFps: Int = 0
+)
+
+data class AppUpdateUiState(
+    val latestRelease: AppUpdateRelease? = null,
+    val checking: Boolean = false,
+    val checkedOnce: Boolean = false,
+    val errorMessage: String? = null,
+    val downloadProgress: Float? = null,
+    val downloadedApkPath: String? = null,
+    val startupDialogVisible: Boolean = false,
+    val cleanInstallDialogVisible: Boolean = false
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val preferences = AppPreferences(application)
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    private val gpuDriverManager = GpuDriverManager(application)
+    private val gpuDriverCatalogRepository = GpuDriverCatalogRepository(application)
+    private val appUpdateRepository = AppUpdateRepository(application)
+    private var startupUpdateCheckRequested = false
+    private val _uiState = MutableStateFlow(
+        SettingsUiState(installedGpuDrivers = gpuDriverManager.listInstalledDrivers())
+    )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
@@ -274,8 +306,238 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             if (path != null) {
                 preferences.setGpuDriverType(1)
                 EmulatorBridge.setCustomDriverPath(path)
+            } else {
+                preferences.setGpuDriverType(0)
+                EmulatorBridge.setCustomDriverPath("")
             }
         }
+    }
+
+    fun installGpuDriver(uri: Uri, onComplete: (Result<String>) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                val driverName = gpuDriverManager.installFromArchive(uri)
+                selectGpuDriverInternal(driverName)
+                driverName
+            }
+            refreshInstalledGpuDrivers()
+            withContext(Dispatchers.Main) {
+                onComplete(result)
+            }
+        }
+    }
+
+    fun refreshGpuDriverCatalog() {
+        if (_uiState.value.gpuDriverCatalogLoading) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.value = _uiState.value.copy(
+                gpuDriverCatalogLoading = true,
+                gpuDriverCatalogError = null
+            )
+            runCatching {
+                gpuDriverCatalogRepository.loadCatalog()
+            }.onSuccess { drivers ->
+                _uiState.value = _uiState.value.copy(
+                    remoteGpuDrivers = drivers,
+                    gpuDriverCatalogLoading = false,
+                    gpuDriverCatalogError = null
+                )
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    gpuDriverCatalogLoading = false,
+                    gpuDriverCatalogError = error.message ?: "Could not load GPU driver catalog"
+                )
+            }
+        }
+    }
+
+    fun installRemoteGpuDriver(driver: RemoteGpuDriver, onComplete: (Result<String>) -> Unit) {
+        if (_uiState.value.gpuDriverDownloads.containsKey(driver.id)) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.value = _uiState.value.copy(
+                gpuDriverDownloads = _uiState.value.gpuDriverDownloads + (driver.id to 0f)
+            )
+            val result = runCatching {
+                val archive = gpuDriverCatalogRepository.downloadDriver(driver) { progress ->
+                    _uiState.value = _uiState.value.copy(
+                        gpuDriverDownloads = _uiState.value.gpuDriverDownloads + (driver.id to progress)
+                    )
+                }
+                val driverName = gpuDriverManager.installFromArchive(archive)
+                selectGpuDriverInternal(driverName)
+                driverName
+            }
+            _uiState.value = _uiState.value.copy(
+                gpuDriverDownloads = _uiState.value.gpuDriverDownloads - driver.id
+            )
+            refreshInstalledGpuDrivers()
+            withContext(Dispatchers.Main) {
+                onComplete(result)
+            }
+        }
+    }
+
+    fun useSystemGpuDriver() {
+        viewModelScope.launch {
+            preferences.setGpuDriverType(0)
+            EmulatorBridge.setCustomDriverPath("")
+        }
+    }
+
+    fun selectGpuDriver(driverName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            selectGpuDriverInternal(driverName)
+            refreshInstalledGpuDrivers()
+        }
+    }
+
+    fun removeGpuDriver(driverName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val removedDriverPath = gpuDriverManager.readMainLibraryPath(driverName)
+            gpuDriverManager.remove(driverName)
+            if (removedDriverPath != null && _uiState.value.customDriverPath == removedDriverPath) {
+                preferences.setGpuDriverType(0)
+                preferences.setCustomDriverPath(null)
+                EmulatorBridge.setCustomDriverPath("")
+            }
+            refreshInstalledGpuDrivers()
+        }
+    }
+
+    private suspend fun selectGpuDriverInternal(driverName: String) {
+        val driverPath = gpuDriverManager.readMainLibraryPath(driverName) ?: error("Driver is not installed")
+        preferences.setCustomDriverPath(driverPath)
+        preferences.setGpuDriverType(1)
+        EmulatorBridge.setCustomDriverPath(driverPath)
+    }
+
+    fun refreshInstalledGpuDrivers() {
+        _uiState.value = _uiState.value.copy(
+            installedGpuDrivers = gpuDriverManager.listInstalledDrivers()
+        )
+    }
+
+    fun checkForAppUpdates(showErrors: Boolean = true, showStartupDialog: Boolean = false) {
+        if (_uiState.value.appUpdate.checking) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.value = _uiState.value.copy(
+                appUpdate = _uiState.value.appUpdate.copy(
+                    checking = true,
+                    errorMessage = null
+                )
+            )
+            runCatching {
+                appUpdateRepository.checkLatestRelease()
+            }.onSuccess { release ->
+                val startupDialogVisible = showStartupDialog &&
+                    release != null &&
+                    !release.tagName.equals(preferences.skippedUpdateTag, ignoreCase = true)
+                _uiState.value = _uiState.value.copy(
+                    appUpdate = _uiState.value.appUpdate.copy(
+                        latestRelease = release,
+                        checking = false,
+                        checkedOnce = true,
+                        errorMessage = null,
+                        startupDialogVisible = startupDialogVisible
+                    )
+                )
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    appUpdate = _uiState.value.appUpdate.copy(
+                        checking = false,
+                        checkedOnce = true,
+                        errorMessage = if (showErrors) error.message ?: "Could not check for updates" else null,
+                        startupDialogVisible = false
+                    )
+                )
+            }
+        }
+    }
+
+    fun checkForStartupAppUpdates() {
+        if (startupUpdateCheckRequested) return
+        startupUpdateCheckRequested = true
+        checkForAppUpdates(showErrors = false, showStartupDialog = true)
+    }
+
+    fun dismissStartupUpdateDialog() {
+        _uiState.value = _uiState.value.copy(
+            appUpdate = _uiState.value.appUpdate.copy(startupDialogVisible = false)
+        )
+    }
+
+    fun skipStartupUpdateDialog() {
+        val tag = _uiState.value.appUpdate.latestRelease?.tagName
+        if (!tag.isNullOrBlank()) {
+            preferences.skippedUpdateTag = tag
+        }
+        dismissStartupUpdateDialog()
+    }
+
+    fun showCleanInstallDialog() {
+        if (_uiState.value.appUpdate.latestRelease == null) return
+        _uiState.value = _uiState.value.copy(
+            appUpdate = _uiState.value.appUpdate.copy(cleanInstallDialogVisible = true)
+        )
+    }
+
+    fun dismissCleanInstallDialog() {
+        _uiState.value = _uiState.value.copy(
+            appUpdate = _uiState.value.appUpdate.copy(cleanInstallDialogVisible = false)
+        )
+    }
+
+    fun downloadAppUpdate(onComplete: (Result<Unit>) -> Unit = {}) {
+        val release = _uiState.value.appUpdate.latestRelease ?: return
+        if (_uiState.value.appUpdate.downloadProgress != null) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.value = _uiState.value.copy(
+                appUpdate = _uiState.value.appUpdate.copy(
+                    downloadProgress = 0f,
+                    errorMessage = null,
+                    downloadedApkPath = null
+                )
+            )
+            val result = runCatching {
+                val apk = appUpdateRepository.downloadApk(release) { progress ->
+                    _uiState.value = _uiState.value.copy(
+                        appUpdate = _uiState.value.appUpdate.copy(downloadProgress = progress)
+                    )
+                }
+                _uiState.value = _uiState.value.copy(
+                    appUpdate = _uiState.value.appUpdate.copy(
+                        downloadProgress = null,
+                        downloadedApkPath = apk.absolutePath
+                    )
+                )
+            }
+            result.onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    appUpdate = _uiState.value.appUpdate.copy(
+                        downloadProgress = null,
+                        errorMessage = error.message ?: "Could not download update"
+                    )
+                )
+            }
+            withContext(Dispatchers.Main) {
+                onComplete(result)
+            }
+        }
+    }
+
+    fun installDownloadedAppUpdate(onComplete: (Result<Unit>) -> Unit = {}) {
+        val apkPath = _uiState.value.appUpdate.downloadedApkPath ?: return
+        val result = runCatching {
+            appUpdateRepository.launchInstaller(File(apkPath))
+        }
+        result.onFailure { error ->
+            _uiState.value = _uiState.value.copy(
+                appUpdate = _uiState.value.appUpdate.copy(
+                    errorMessage = error.message ?: "Could not open update installer"
+                )
+            )
+        }
+        onComplete(result)
     }
 
     fun setUpscaleMultiplier(value: Float) {
@@ -329,6 +591,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             preferences.setEnableCheats(enabled)
             EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", enabled.toString())
+            if (enabled) {
+                EmulatorBridge.reloadPatches()
+            }
         }
     }
 

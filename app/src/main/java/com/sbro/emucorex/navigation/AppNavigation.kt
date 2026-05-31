@@ -7,24 +7,23 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.EaseIn
+import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -34,7 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.navigation.NavBackStackEntry
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -63,7 +62,10 @@ import com.sbro.emucorex.ui.saves.SaveManagerScreen
 import com.sbro.emucorex.ui.settings.LanguageSettingsScreen
 import com.sbro.emucorex.ui.settings.PerGameSettingsManagerScreen
 import com.sbro.emucorex.ui.settings.PerGameSettingsQuickEditorDialog
+import com.sbro.emucorex.ui.settings.AppUpdateAvailableDialog
+import com.sbro.emucorex.ui.settings.GpuDriverScreen
 import com.sbro.emucorex.ui.settings.SettingsScreen
+import com.sbro.emucorex.ui.settings.SettingsViewModel
 import com.sbro.emucorex.ui.common.PremiumLoadingAnimation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -105,6 +107,9 @@ data class SettingsRoute(val tab: String = "general")
 object LanguageSettingsRoute
 
 @Serializable
+object GpuDriverSettingsRoute
+
+@Serializable
 object OnboardingRoute
 
 @Serializable
@@ -141,75 +146,18 @@ private enum class StartupDestination {
 
 private const val TAG = "AppNavigation"
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.isRouteTransitioningToHome(): Boolean {
-    return initialState.destination.hasRoute<OnboardingRoute>() && targetState.destination.hasRoute<HomeRoute>()
+private fun appScreenEnterTransition(): EnterTransition = appScreenPopEnterTransition()
+
+private fun appScreenExitTransition(): ExitTransition = ExitTransition.None
+
+private fun appScreenPopEnterTransition(): EnterTransition {
+    return fadeIn(animationSpec = tween(durationMillis = 260, delayMillis = 70, easing = EaseOut)) +
+        scaleIn(initialScale = 0.96f, animationSpec = tween(260, delayMillis = 70, easing = EaseOut))
 }
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.isPrimaryLevelTransition(): Boolean {
-    val fromPrimary = initialState.destination.hasRoute<HomeRoute>() ||
-        initialState.destination.hasRoute<CatalogSearchRoute>() ||
-        initialState.destination.hasRoute<SupportedFormatsRoute>() ||
-        initialState.destination.hasRoute<SettingsRoute>() ||
-        initialState.destination.hasRoute<AchievementsRoute>()
-    val toPrimary = targetState.destination.hasRoute<HomeRoute>() ||
-        targetState.destination.hasRoute<CatalogSearchRoute>() ||
-        targetState.destination.hasRoute<SupportedFormatsRoute>() ||
-        targetState.destination.hasRoute<SettingsRoute>() ||
-        targetState.destination.hasRoute<AchievementsRoute>()
-    return fromPrimary && toPrimary
-}
-
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.isPushingIntoDetail(): Boolean {
-    return targetState.destination.hasRoute<GameDetailRoute>() ||
-        targetState.destination.hasRoute<EmulationRoute>() ||
-        targetState.destination.hasRoute<LanguageSettingsRoute>() ||
-        targetState.destination.hasRoute<ControlsEditorRoute>() ||
-        targetState.destination.hasRoute<GameSettingsManagerRoute>() ||
-        targetState.destination.hasRoute<AccountUnlockedAchievementsRoute>() ||
-        targetState.destination.hasRoute<GameAchievementsRoute>() ||
-        targetState.destination.hasRoute<SaveManagerRoute>() ||
-        targetState.destination.hasRoute<MemoryCardManagerRoute>()
-}
-
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.isPoppingFromDetail(): Boolean {
-    return initialState.destination.hasRoute<GameDetailRoute>() ||
-        initialState.destination.hasRoute<EmulationRoute>() ||
-        initialState.destination.hasRoute<LanguageSettingsRoute>() ||
-        initialState.destination.hasRoute<ControlsEditorRoute>() ||
-        initialState.destination.hasRoute<GameSettingsManagerRoute>() ||
-        initialState.destination.hasRoute<AccountUnlockedAchievementsRoute>() ||
-        initialState.destination.hasRoute<GameAchievementsRoute>() ||
-        initialState.destination.hasRoute<SaveManagerRoute>() ||
-        initialState.destination.hasRoute<MemoryCardManagerRoute>()
-}
-
-private fun sharedAxisEnter(
-    durationMillis: Int,
-    initialScale: Float = 0.94f,
-    initialOffsetY: Int = 24,
-    delayMillis: Int = 0
-): EnterTransition {
-    return fadeIn(
-        animationSpec = tween(
-            durationMillis = durationMillis,
-            delayMillis = delayMillis,
-            easing = LinearOutSlowInEasing
-        )
-    ) + scaleIn(
-        initialScale = initialScale,
-        animationSpec = tween(
-            durationMillis = durationMillis,
-            delayMillis = delayMillis,
-            easing = FastOutSlowInEasing
-        )
-    ) + slideInVertically(
-        initialOffsetY = { initialOffsetY },
-        animationSpec = tween(
-            durationMillis = durationMillis,
-            delayMillis = delayMillis,
-            easing = FastOutSlowInEasing
-        )
-    )
+private fun appScreenPopExitTransition(): ExitTransition {
+    return fadeOut(animationSpec = tween(durationMillis = 110, easing = EaseIn)) +
+        scaleOut(targetScale = 1.0f, animationSpec = tween(110, easing = EaseIn))
 }
 
 @Composable
@@ -272,6 +220,8 @@ fun AppNavigation(
 
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val settingsViewModel: SettingsViewModel = viewModel()
+    val settingsUiState by settingsViewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     var homeDrawerEnabled by remember { mutableStateOf(true) }
     var blockRestoredEmulationRoute by remember(restoredFromSavedState) {
@@ -343,6 +293,18 @@ fun AppNavigation(
             }
         }
     }
+    val canShowStartupUpdateDialog = currentBackStackEntry?.destination?.hasRoute<HomeRoute>() == true
+    LaunchedEffect(startupDestination) {
+        if (startupDestination == StartupDestination.HOME) {
+            settingsViewModel.checkForStartupAppUpdates()
+        }
+    }
+    LaunchedEffect(currentBackStackEntry?.destination, settingsUiState.appUpdate.startupDialogVisible) {
+        val destination = currentBackStackEntry?.destination ?: return@LaunchedEffect
+        if (settingsUiState.appUpdate.startupDialogVisible && !destination.hasRoute<HomeRoute>()) {
+            settingsViewModel.dismissStartupUpdateDialog()
+        }
+    }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -351,178 +313,14 @@ fun AppNavigation(
         NavHost(
             navController = navController,
             startDestination = startDestination,
-            enterTransition = {
-                when {
-                    isRouteTransitioningToHome() -> {
-                        sharedAxisEnter(
-                            durationMillis = 320,
-                            initialScale = 0.96f,
-                            initialOffsetY = 18,
-                            delayMillis = 20
-                        )
-                    }
-
-                    isPrimaryLevelTransition() -> {
-                        sharedAxisEnter(
-                            durationMillis = 300,
-                            initialScale = 0.955f,
-                            initialOffsetY = 20
-                        )
-                    }
-
-                    isPushingIntoDetail() -> {
-                        sharedAxisEnter(
-                            durationMillis = 280,
-                            initialScale = 0.94f,
-                            initialOffsetY = 26
-                        )
-                    }
-
-                    else -> {
-                        sharedAxisEnter(
-                            durationMillis = 240,
-                            initialScale = 0.97f,
-                            initialOffsetY = 16
-                        )
-                    }
-                }
-            },
-            exitTransition = {
-                when {
-                    initialState.destination.hasRoute<OnboardingRoute>() -> ExitTransition.None
-
-                    isPrimaryLevelTransition() -> {
-                        fadeOut(
-                            animationSpec = tween(
-                                durationMillis = 180,
-                                easing = FastOutSlowInEasing
-                            )
-                        ) + scaleOut(
-                            targetScale = 1.03f,
-                            animationSpec = tween(
-                                durationMillis = 180,
-                                easing = FastOutSlowInEasing
-                            )
-                        ) + slideOutVertically(
-                            targetOffsetY = { -14 },
-                            animationSpec = tween(
-                                durationMillis = 180,
-                                easing = FastOutSlowInEasing
-                            )
-                        )
-                    }
-
-                    isPushingIntoDetail() -> {
-                        fadeOut(
-                            animationSpec = tween(
-                                durationMillis = 160,
-                                easing = FastOutSlowInEasing
-                            )
-                        ) + scaleOut(
-                            targetScale = 1.022f,
-                            animationSpec = tween(
-                                durationMillis = 160,
-                                easing = FastOutSlowInEasing
-                            )
-                        ) + slideOutVertically(
-                            targetOffsetY = { -18 },
-                            animationSpec = tween(
-                                durationMillis = 160,
-                                easing = FastOutSlowInEasing
-                            )
-                        )
-                    }
-
-                    else -> ExitTransition.None
-                }
-            },
-            popEnterTransition = {
-                when {
-                    isPrimaryLevelTransition() -> {
-                        sharedAxisEnter(
-                            durationMillis = 280,
-                            initialScale = 0.955f,
-                            initialOffsetY = -18
-                        )
-                    }
-
-                    isPoppingFromDetail() -> {
-                        sharedAxisEnter(
-                            durationMillis = 260,
-                            initialScale = 0.95f,
-                            initialOffsetY = -20
-                        )
-                    }
-
-                    else -> {
-                        sharedAxisEnter(
-                            durationMillis = 220,
-                            initialScale = 0.975f,
-                            initialOffsetY = -14
-                        )
-                    }
-                }
-            },
-            popExitTransition = {
-                when {
-                    isPrimaryLevelTransition() -> {
-                        fadeOut(
-                            animationSpec = tween(
-                                durationMillis = 170,
-                                easing = FastOutSlowInEasing
-                            )
-                        ) + scaleOut(
-                            targetScale = 1.026f,
-                            animationSpec = tween(
-                                durationMillis = 170,
-                                easing = FastOutSlowInEasing
-                            )
-                        ) + slideOutVertically(
-                            targetOffsetY = { 12 },
-                            animationSpec = tween(
-                                durationMillis = 170,
-                                easing = FastOutSlowInEasing
-                            )
-                        )
-                    }
-
-                    isPoppingFromDetail() -> {
-                        fadeOut(
-                            animationSpec = tween(
-                                durationMillis = 150,
-                                easing = FastOutSlowInEasing
-                            )
-                        ) + scaleOut(
-                            targetScale = 1.018f,
-                            animationSpec = tween(
-                                durationMillis = 150,
-                                easing = FastOutSlowInEasing
-                            )
-                        ) + slideOutVertically(
-                            targetOffsetY = { 14 },
-                            animationSpec = tween(
-                                durationMillis = 150,
-                                easing = FastOutSlowInEasing
-                            )
-                        )
-                    }
-
-                    else -> {
-                        fadeOut(
-                            animationSpec = tween(
-                                durationMillis = 140,
-                                easing = FastOutSlowInEasing
-                            )
-                        ) + slideOutVertically(
-                            targetOffsetY = { 10 },
-                            animationSpec = tween(
-                                durationMillis = 140,
-                                easing = FastOutSlowInEasing
-                            )
-                        )
-                    }
-                }
-            }
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            enterTransition = { appScreenEnterTransition() },
+            exitTransition = { appScreenExitTransition() },
+            popEnterTransition = { appScreenPopEnterTransition() },
+            popExitTransition = { appScreenPopExitTransition() },
+            sizeTransform = { SizeTransform(clip = false) }
         ) {
             composable<OnboardingRoute> {
                 OnboardingScreen(
@@ -804,11 +602,17 @@ fun AppNavigation(
                         initialTab = route.tab,
                         onBackClick = { navController.popBackStack() },
                         onOpenMemoryCardManager = navigateMemoryCardManager,
+                        onOpenGpuDriverManager = {
+                            navController.navigate(GpuDriverSettingsRoute) {
+                                launchSingleTop = true
+                            }
+                        },
                         onOpenLanguageScreen = {
                             navController.navigate(LanguageSettingsRoute) {
                                 launchSingleTop = true
                             }
                         },
+                        viewModel = settingsViewModel
                     )
                 }
             }
@@ -816,6 +620,13 @@ fun AppNavigation(
             composable<LanguageSettingsRoute> {
                 LanguageSettingsScreen(
                     onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            composable<GpuDriverSettingsRoute> {
+                GpuDriverScreen(
+                    onBackClick = { navController.popBackStack() },
+                    viewModel = settingsViewModel
                 )
             }
 
@@ -959,6 +770,25 @@ fun AppNavigation(
             PerGameSettingsQuickEditorDialog(
                 game = game,
                 onDismiss = { quickGameSettingsTarget = null }
+            )
+        }
+
+        val startupUpdateRelease = settingsUiState.appUpdate.latestRelease
+        if (
+            canShowStartupUpdateDialog &&
+            settingsUiState.appUpdate.startupDialogVisible &&
+            startupUpdateRelease != null
+        ) {
+            AppUpdateAvailableDialog(
+                release = startupUpdateRelease,
+                onDismiss = settingsViewModel::dismissStartupUpdateDialog,
+                onSkipUpdate = settingsViewModel::skipStartupUpdateDialog,
+                onOpenUpdates = {
+                    settingsViewModel.dismissStartupUpdateDialog()
+                    navController.navigate(SettingsRoute(tab = "updates")) {
+                        launchSingleTop = true
+                    }
+                }
             )
         }
     }

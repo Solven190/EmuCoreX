@@ -1510,6 +1510,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", enabled.toString())
             if (enabled) {
                 syncCheatsForCurrentGame()
+                EmulatorBridge.reloadPatches()
             }
             updateCrashContext()
         }
@@ -1534,6 +1535,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setEnableCheats(true)
             }
             EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", "true")
+            EmulatorBridge.reloadPatches()
         }
     }
 
@@ -2761,6 +2763,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val keys = linkedSetOf<String>()
         metadata.serialWithCrc?.trim()?.takeIf { it.isNotBlank() }?.let(keys::add)
         metadata.serialWithCrc.extractSerialAndCrcKey()?.let(keys::add)
+        metadata.serialWithCrc.extractCrc()?.let(keys::add)
         metadata.serial?.trim()?.takeIf { it.isNotBlank() }?.let(keys::add)
         metadata.title.trim().takeIf { it.isNotBlank() }?.let(keys::add)
         return keys.toList()
@@ -3058,17 +3061,23 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 }
 
 private fun String?.extractCrc(): String? {
-    return this
-        ?.substringAfter('(', "")
-        ?.substringBefore(')')
-        ?.trim()
-        ?.takeIf { it.isNotBlank() }
+    val raw = this?.trim().orEmpty()
+    if (raw.isBlank()) return null
+    val parenthesized = raw.substringAfter('(', "").substringBefore(')').trim()
+    if (parenthesized.matches(Regex("[0-9A-Fa-f]{8}"))) return parenthesized.uppercase()
+    return Regex("([0-9A-Fa-f]{8})(?!.*[0-9A-Fa-f]{8})")
+        .find(raw)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.uppercase()
 }
 
 private fun String?.extractSerialAndCrcKey(): String? {
     val raw = this?.trim().orEmpty()
     if (raw.isBlank()) return null
-    val serial = raw.substringBefore('(').trim()
     val crc = raw.extractCrc()
+    val serial = raw.substringBefore('(')
+        .replace(Regex("_[0-9A-Fa-f]{8}$"), "")
+        .trim()
     return if (serial.isNotBlank() && !crc.isNullOrBlank()) "${serial}_$crc" else null
 }

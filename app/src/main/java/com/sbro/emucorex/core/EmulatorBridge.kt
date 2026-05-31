@@ -920,6 +920,11 @@ object EmulatorBridge {
         settingsCache[cacheKey] = value
     }
 
+    suspend fun reloadPatches() {
+        if (!isNativeLoaded) return
+        runSerial { NativeApp.reloadPatches() }
+    }
+
     fun getSetting(section: String, key: String, type: String): String? {
         if (!isNativeLoaded) return null
         return try {
