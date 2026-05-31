@@ -625,8 +625,6 @@
     <string name="save_manager_empty_body_all">Сначала создайте сохранение в игре, после чего оно появится здесь.</string>
     <string name="save_manager_empty_body_game">Для этой игры сохранений пока нет.</string>
     <string name="save_manager_unknown_game">Неизвестная игра</string>
-    <string name="save_manager_entries_count">Найдено сохранений: %1$d</string>
-    <string name="save_manager_entries_hint">Здесь можно загрузить, удалить, создать бэкап или восстановить данные.</string>
     <string name="save_manager_entry_meta">%1$s • Слот %2$d</string>
     <string name="save_manager_entry_date">Обновлено: %1$s</string>
     <string name="save_manager_entry_size">Размер: %1$s</string>
@@ -875,7 +873,6 @@
     <string name="settings_memory_cards_summary">Доступно карт: %1$d. Слот 1: %2$s. Слот 2: %3$s.</string>
     <string name="shell_memory_cards">Карты памяти</string>
     <string name="settings_memory_cards_tab">Карты памяти</string>
-    <string name="memory_card_help_text">Назначайте карты в два стандартных слота PS2, создавайте новые карты, экспортируйте отдельные карты, делайте полные резервные копии, восстанавливайте существующие карты и безопасно управляйте дубликатами или переименованиями.</string>
     <string name="emulation_quick_save_confirm_title">Сохранить состояние?</string>
     <string name="emulation_quick_save_confirm_desc">Это перезапишет слот %1$d текущим состоянием игры.</string>
     <string name="emulation_quick_load_confirm_title">Загрузить состояние?</string>
@@ -964,4 +961,15 @@
     <string name="settings_language_hindi">Хинди</string>
     <string name="settings_language_native_italian">Italiano</string>
     <string name="settings_language_native_hindi">हिन्दी</string>
+    <string name="save_manager_entry_meta_auto">%1$s • %2$s</string>
+    <string name="save_manager_auto_save_label">Автосохранение</string>
+    <string name="save_manager_delete_confirm_body_named">%1$s, %2$s будет удалено навсегда.</string>
+    <string name="emulation_save_slot_saved_at">Сохранено: %1$s</string>
+    <string name="emulation_save_slot_empty">Этот слот пуст.</string>
+    <string name="emulation_auto_save_title">Автосохранение</string>
+    <string name="emulation_auto_save_empty">Пока нет автосохранений.</string>
+    <string name="emulation_auto_save_last_saved">Последнее автосохранение: %1$s</string>
+    <string name="emulation_auto_save_interval_label">Каждые</string>
+    <string name="emulation_auto_save_interval_suffix">мин</string>
+    <string name="emulation_play_time_badge">Время в игре %1$s</string>
 </resources>

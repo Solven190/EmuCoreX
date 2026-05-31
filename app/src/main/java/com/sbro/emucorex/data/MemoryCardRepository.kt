@@ -19,7 +19,8 @@ data class MemoryCardInfo(
     val type: Int,
     val fileType: Int,
     val sizeBytes: Long,
-    val formatted: Boolean
+    val formatted: Boolean,
+    val isDefaultCard: Boolean
 )
 
 data class MemoryCardAssignments(
@@ -52,9 +53,11 @@ class MemoryCardRepository(
 
         val refreshedNames = listCards().map { it.name }.toSet()
         val current = currentAssignments()
-        val resolvedSlot1 = current.slot1.takeIf { it in refreshedNames } ?: defaultSlot1
+        val resolvedSlot1 = current.slot1.takeIf { it in refreshedNames }
+            ?: defaultSlot1.takeIf { it in refreshedNames }
+            ?: refreshedNames.firstOrNull()
         val resolvedSlot2 = current.slot2.takeIf { it in refreshedNames && !it.equals(resolvedSlot1, ignoreCase = true) }
-            ?: defaultSlot2.takeUnless { it.equals(resolvedSlot1, ignoreCase = true) }
+            ?: defaultSlot2.takeIf { it in refreshedNames && !it.equals(resolvedSlot1, ignoreCase = true) }
             ?: refreshedNames.firstOrNull { !it.equals(resolvedSlot1, ignoreCase = true) }
 
         if (!current.slot1.equals(resolvedSlot1, ignoreCase = true) ||
@@ -79,7 +82,8 @@ class MemoryCardRepository(
                 type = it.type,
                 fileType = it.fileType,
                 sizeBytes = it.sizeBytes,
-                formatted = it.formatted
+                formatted = it.formatted,
+                isDefaultCard = isDefaultMemoryCardName(it.name)
             )
         }.sortedBy { it.name.lowercase() }
     }
@@ -120,6 +124,7 @@ class MemoryCardRepository(
     }
 
     suspend fun renameCard(card: MemoryCardInfo, newName: String): Boolean {
+        if (card.isDefaultCard || isDefaultMemoryCardName(card.name)) return false
         val source = File(card.path)
         if (!source.exists()) return false
         val targetName = normalizeName(newName)
@@ -136,6 +141,7 @@ class MemoryCardRepository(
     }
 
     suspend fun deleteCard(card: MemoryCardInfo): Boolean {
+        if (card.isDefaultCard || isDefaultMemoryCardName(card.name)) return false
         val file = File(card.path)
         if (!file.exists()) return false
         val deleted = runCatching { file.delete() }.getOrDefault(false)
@@ -257,12 +263,19 @@ class MemoryCardRepository(
     }
 
     private fun normalizeName(value: String): String {
-        val withExt = if (value.endsWith(".ps2", ignoreCase = true)) value else "$value.ps2"
-        return withExt
+        val trimmed = value.trim()
+        val baseName = if (trimmed.endsWith(".ps2", ignoreCase = true)) {
+            trimmed.dropLast(4)
+        } else {
+            trimmed
+        }
+        val normalizedBase = baseName
             .replace(Regex("[^a-zA-Z0-9._ -]"), "_")
             .replace(Regex("\\s+"), " ")
             .trim()
-            .ifBlank { "Memory Card.ps2" }
+            .trim('.', ' ')
+            .ifBlank { "Memory Card" }
+        return "$normalizedBase.ps2"
     }
 
     private fun syncNativeMemoryCardDirectory() {
@@ -298,11 +311,17 @@ class MemoryCardRepository(
     }
 
     private companion object {
-        const val DEFAULT_CARD_SLOT_1 = "Mcd001.ps2"
-        const val DEFAULT_CARD_SLOT_2 = "Mcd002.ps2"
         const val MEMORY_CARD_TYPE_FILE = 1
         const val MEMORY_CARD_FILE_TYPE_PS2_8MB = 1
     }
+}
+
+private const val DEFAULT_CARD_SLOT_1 = "Mcd001.ps2"
+private const val DEFAULT_CARD_SLOT_2 = "Mcd002.ps2"
+
+private fun isDefaultMemoryCardName(name: String): Boolean {
+    return name.equals(DEFAULT_CARD_SLOT_1, ignoreCase = true) ||
+        name.equals(DEFAULT_CARD_SLOT_2, ignoreCase = true)
 }
 
 private fun String?.renameIfMatching(oldName: String, newName: String): String? {
@@ -339,7 +358,7 @@ private fun File.looksLikeLegacyBlankPs2Card(): Boolean {
 }
 
 private fun MemoryCardInfo.shouldRecreateDefaultCard(file: File): Boolean {
-    if (!name.equals("Mcd001.ps2", ignoreCase = true) && !name.equals("Mcd002.ps2", ignoreCase = true)) {
+    if (!isDefaultMemoryCardName(name)) {
         return false
     }
 

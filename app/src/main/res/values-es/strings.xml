@@ -622,8 +622,6 @@
     <string name="save_manager_empty_body_all">Crea un guardado en el juego primero, luego aparecerá aquí.</string>
     <string name="save_manager_empty_body_game">Este juego aún no tiene guardados.</string>
     <string name="save_manager_unknown_game">Juego desconocido</string>
-    <string name="save_manager_entries_count">%1$d guardados encontrados</string>
-    <string name="save_manager_entries_hint">Gestiona la carga, eliminación, copia de seguridad y restauración desde un solo lugar.</string>
     <string name="save_manager_entry_meta">%1$s • Ranura %2$d</string>
     <string name="save_manager_entry_date">Actualizado: %1$s</string>
     <string name="save_manager_entry_size">Tamaño: %1$s</string>
@@ -867,7 +865,6 @@
     <string name="settings_memory_cards_summary">%1$d tarjetas disponibles. Ranura 1: %2$s. Ranura 2: %3$s.</string>
     <string name="shell_memory_cards">Tarjetas de memoria</string>
     <string name="settings_memory_cards_tab">Tarjetas de memoria</string>
-    <string name="memory_card_help_text">Asigna tarjetas a las dos ranuras estándar de PS2, crea nuevas tarjetas, exporta tarjetas individuales, haz copias de seguridad completas, restaura tarjetas existentes y gestiona duplicados o renombres de forma segura.</string>
     <string name="settings_bios_path">Archivo BIOS</string>
     <string name="settings_bios_path_desc">Selecciona el archivo de imagen de la BIOS de PS2 necesario para iniciar los juegos.</string>
     <string name="settings_bios_picker_title">Elegir archivo BIOS</string>
@@ -964,4 +961,15 @@
     <string name="settings_language_hindi">Hindi</string>
     <string name="settings_language_native_italian">Italiano</string>
     <string name="settings_language_native_hindi">हिन्दी</string>
+    <string name="save_manager_entry_meta_auto">%1$s • %2$s</string>
+    <string name="save_manager_auto_save_label">Guardado automático</string>
+    <string name="save_manager_delete_confirm_body_named">%1$s, %2$s se eliminará permanentemente.</string>
+    <string name="emulation_save_slot_saved_at">Guardado: %1$s</string>
+    <string name="emulation_save_slot_empty">Este espacio está vacío.</string>
+    <string name="emulation_auto_save_title">Guardado automático</string>
+    <string name="emulation_auto_save_empty">Aún no hay guardado automático.</string>
+    <string name="emulation_auto_save_last_saved">Último guardado automático: %1$s</string>
+    <string name="emulation_auto_save_interval_label">Cada</string>
+    <string name="emulation_auto_save_interval_suffix">min</string>
+    <string name="emulation_play_time_badge">Tiempo de juego %1$s</string>
 </resources>

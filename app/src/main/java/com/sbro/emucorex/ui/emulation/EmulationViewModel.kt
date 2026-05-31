@@ -132,7 +132,13 @@ data class EmulationUiState(
     val targetFps: Int = 0,
     val currentGameTitle: String = "",
     val currentGameSubtitle: String = "",
-    val gameSettingsProfileActive: Boolean = false
+    val gameSettingsProfileActive: Boolean = false,
+    val currentSlotLastModified: Long = 0L,
+    val autoSaveEnabled: Boolean = false,
+    val autoSaveIntervalMinutes: Int = 1,
+    val autoSaveLastModified: Long = 0L,
+    val isAutoSaveInProgress: Boolean = false,
+    val activePlayTimeMs: Long = 0L
 )
 
 private data class EmulationLaunchConfig(
@@ -269,6 +275,7 @@ private data class LiveRuntimeSnapshot(
 class EmulationViewModel(application: Application) : AndroidViewModel(application) {
     private companion object {
         const val TAG = "EmulationViewModel"
+        private const val AUTO_SAVE_SLOT = 0
     }
 
 
@@ -295,6 +302,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private var currentGameCrc: String = ""
     @Volatile
     private var currentGameSource: String = ""
+    private var lastAutoSavePlayTimeMs: Long = 0L
 
     init {
         viewModelScope.launch {
@@ -646,6 +654,19 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 applyGlobalRuntimePreferenceUpdate { it.copy(targetFps = value) }
             }
         }
+        viewModelScope.launch {
+            preferences.autoSaveEnabled.collect { enabled ->
+                _uiState.value = _uiState.value.copy(autoSaveEnabled = enabled)
+                if (enabled) {
+                    lastAutoSavePlayTimeMs = _uiState.value.activePlayTimeMs
+                }
+            }
+        }
+        viewModelScope.launch {
+            preferences.autoSaveIntervalMinutes.collect { value ->
+                _uiState.value = _uiState.value.copy(autoSaveIntervalMinutes = value.coerceIn(1, 999))
+            }
+        }
         
         viewModelScope.launch {
             while (isActive) {
@@ -653,7 +674,59 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 pollNativePerformanceMetrics()
             }
         }
+        viewModelScope.launch {
+            while (isActive) {
+                delay(1_000)
+                tickActivePlayTimeAndAutoSave()
+            }
+        }
         syncNativePerformanceOverlayState(_uiState.value)
+    }
+
+    private fun tickActivePlayTimeAndAutoSave() {
+        val state = _uiState.value
+        if (!state.isRunning || state.isStarting || state.isPaused || state.showMenu || isShuttingDown) {
+            return
+        }
+
+        val nextPlayTimeMs = state.activePlayTimeMs + 1_000L
+        _uiState.value = state.copy(activePlayTimeMs = nextPlayTimeMs)
+
+        val intervalMs = state.autoSaveIntervalMinutes.coerceIn(1, 999) * 60_000L
+        if (!state.autoSaveEnabled ||
+            state.isActionInProgress ||
+            state.isAutoSaveInProgress ||
+            nextPlayTimeMs - lastAutoSavePlayTimeMs < intervalMs
+        ) {
+            return
+        }
+
+        lastAutoSavePlayTimeMs = nextPlayTimeMs
+        performAutoSave()
+    }
+
+    private fun performAutoSave() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val path = currentGamePath
+            val previousModified = path?.let { saveStateLastModified(it, AUTO_SAVE_SLOT) } ?: 0L
+            _uiState.value = _uiState.value.copy(isAutoSaveInProgress = true)
+            val scheduled = lifecycleMutex.withLock {
+                if (isShuttingDown || !_uiState.value.isRunning || _uiState.value.isPaused || _uiState.value.showMenu) {
+                    false
+                } else {
+                    try {
+                        EmulatorBridge.saveState(AUTO_SAVE_SLOT)
+                    } catch (_: Exception) {
+                        false
+                    }
+                }
+            }
+            val success = scheduled && path != null && waitForSaveStateUpdate(path, AUTO_SAVE_SLOT, previousModified)
+            _uiState.value = _uiState.value.copy(isAutoSaveInProgress = false)
+            if (success) {
+                refreshSaveStateMetadata()
+            }
+        }
     }
 
     private fun pollNativePerformanceMetrics() {
@@ -703,6 +776,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         cancelPendingStart = false
         pausedForBackground = false
         currentGamePath = if (bootToBios) null else path?.takeIf { it.isNotBlank() }
+        lastAutoSavePlayTimeMs = 0L
+        _uiState.value = _uiState.value.copy(
+            activePlayTimeMs = 0L,
+            currentSlotLastModified = 0L,
+            autoSaveLastModified = 0L,
+            isAutoSaveInProgress = false
+        )
 
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(
@@ -915,6 +995,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     isStarting = false,
                     statusMessage = "status_starting_core"
                 )
+                refreshSaveStateMetadata()
                 if (!autotestMode && !bootSmokeProbe && !bootToBios && !path.isNullOrBlank()) {
                     preferences.markGameLaunched(
                         path = path,
@@ -1025,6 +1106,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         statusMessage = if (loaded) "status_running" else null,
                         toastMessage = if (loaded) null else "load_failed"
                     )
+                    refreshSaveStateMetadata()
                     delay(2000)
                     if (_uiState.value.statusMessage == "status_running") {
                         _uiState.value = _uiState.value.copy(statusMessage = null)
@@ -2685,19 +2767,76 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun setSlot(slot: Int) {
-        _uiState.value = _uiState.value.copy(currentSlot = normalizeSaveSlot(slot))
+        _uiState.value = _uiState.value.copy(currentSlot = normalizeManualSaveSlot(slot))
+        refreshSaveStateMetadata()
     }
 
-    private fun normalizeSaveSlot(slot: Int): Int = slot.coerceIn(1, 10)
+    private fun normalizeSaveSlot(slot: Int): Int = slot.coerceIn(AUTO_SAVE_SLOT, 10)
+
+    private fun normalizeManualSaveSlot(slot: Int): Int = slot.coerceIn(1, 10)
+
+    fun setAutoSaveEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setAutoSaveEnabled(enabled)
+        }
+    }
+
+    fun setAutoSaveIntervalMinutes(value: Int) {
+        viewModelScope.launch {
+            preferences.setAutoSaveIntervalMinutes(value)
+        }
+    }
+
+    private fun refreshSaveStateMetadata() {
+        val path = currentGamePath
+        if (path.isNullOrBlank()) {
+            _uiState.value = _uiState.value.copy(
+                currentSlotLastModified = 0L,
+                autoSaveLastModified = 0L
+            )
+            return
+        }
+
+        val currentSlot = _uiState.value.currentSlot
+        val currentSlotModified = saveStateLastModified(path, currentSlot)
+        val autoSaveModified = saveStateLastModified(path, AUTO_SAVE_SLOT)
+        _uiState.value = _uiState.value.copy(
+            currentSlotLastModified = currentSlotModified,
+            autoSaveLastModified = autoSaveModified
+        )
+    }
+
+    private fun saveStateLastModified(gamePath: String, slot: Int): Long {
+        val statePath = runCatching { NativeApp.getSaveStatePathForFile(gamePath, slot) }.getOrNull()
+            ?: return 0L
+        val file = File(statePath)
+        return file.takeIf { it.exists() }?.lastModified() ?: 0L
+    }
+
+    private suspend fun waitForSaveStateUpdate(gamePath: String, slot: Int, previousModified: Long): Boolean {
+        val statePath = runCatching { NativeApp.getSaveStatePathForFile(gamePath, slot) }.getOrNull()
+            ?: return false
+        val file = File(statePath)
+        repeat(40) {
+            val modified = file.takeIf { it.exists() }?.lastModified() ?: 0L
+            if (modified > 0L && modified != previousModified) {
+                return true
+            }
+            delay(250)
+        }
+        return file.exists()
+    }
 
     fun quickSave() {
         val slot = _uiState.value.currentSlot
         viewModelScope.launch(Dispatchers.IO) {
+            val path = currentGamePath
+            val previousModified = path?.let { saveStateLastModified(it, slot) } ?: 0L
             _uiState.value = _uiState.value.copy(
                 isActionInProgress = true,
                 actionLabel = "saving"
             )
-            val success = lifecycleMutex.withLock {
+            val scheduled = lifecycleMutex.withLock {
                 if (isShuttingDown) {
                     false
                 } else {
@@ -2706,11 +2845,15 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     } catch (_: Exception) { false }
                 }
             }
+            val success = scheduled && path != null && waitForSaveStateUpdate(path, slot, previousModified)
             _uiState.value = _uiState.value.copy(
                 isActionInProgress = false,
                 actionLabel = null,
                 toastMessage = if (success) "saved" else null
             )
+            if (success) {
+                refreshSaveStateMetadata()
+            }
             delay(2000)
             _uiState.value = _uiState.value.copy(toastMessage = null)
         }

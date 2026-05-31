@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material3.AlertDialog
@@ -57,6 +56,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.ContentScale
 import com.sbro.emucorex.R
 import com.sbro.emucorex.data.SaveStateEntryInfo
 import com.sbro.emucorex.data.SaveStateRepository
@@ -205,11 +205,19 @@ fun SaveManagerScreen(
             title = { Text(stringResource(R.string.save_manager_delete_confirm_title)) },
             text = {
                 Text(
-                    stringResource(
-                        R.string.save_manager_delete_confirm_body,
-                        entry.gameTitle,
-                        entry.slot
-                    )
+                    if (entry.isAutoSave) {
+                        stringResource(
+                            R.string.save_manager_delete_confirm_body_named,
+                            entry.gameTitle,
+                            stringResource(R.string.save_manager_auto_save_label)
+                        )
+                    } else {
+                        stringResource(
+                            R.string.save_manager_delete_confirm_body,
+                            entry.gameTitle,
+                            entry.slot
+                        )
+                    }
                 )
             },
             confirmButton = {
@@ -273,7 +281,6 @@ fun SaveManagerScreen(
                     SaveManagerHeader(
                         topInset = topInset,
                         subtitle = screenSubtitle,
-                        entryCount = entries.size,
                         isWorking = isWorking,
                         onBackClick = onBackClick
                     )
@@ -356,7 +363,6 @@ fun SaveManagerScreen(
 private fun SaveManagerHeader(
     topInset: androidx.compose.ui.unit.Dp,
     subtitle: String?,
-    entryCount: Int,
     isWorking: Boolean,
     onBackClick: () -> Unit
 ) {
@@ -401,37 +407,6 @@ private fun SaveManagerHeader(
                     modifier = Modifier.size(22.dp),
                     strokeWidth = 2.dp
                 )
-            }
-        }
-
-        Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.26f)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.FolderOpen,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Column(modifier = Modifier.padding(start = 12.dp)) {
-                    Text(
-                        text = stringResource(R.string.save_manager_entries_count, entryCount),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(R.string.save_manager_entries_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         }
     }
@@ -552,15 +527,22 @@ private fun SaveEntryCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                Box(
+                Surface(
                     modifier = Modifier
-                        .width(112.dp)
-                        .height(150.dp)
+                        .width(132.dp)
+                        .height(96.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
                 ) {
                     GameCoverArt(
                         coverPath = previewPath,
                         fallbackTitle = entry.gameTitle,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(18.dp)),
+                        contentScale = ContentScale.Crop
                     )
                 }
 
@@ -579,11 +561,19 @@ private fun SaveEntryCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = stringResource(
-                            R.string.save_manager_entry_meta,
-                            entry.serial,
-                            entry.slot
-                        ),
+                        text = if (entry.isAutoSave) {
+                            stringResource(
+                                R.string.save_manager_entry_meta_auto,
+                                entry.serial,
+                                stringResource(R.string.save_manager_auto_save_label)
+                            )
+                        } else {
+                            stringResource(
+                                R.string.save_manager_entry_meta,
+                                entry.serial,
+                                entry.slot
+                            )
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -692,8 +682,9 @@ private fun SaveEntrySkeletonCard() {
             ) {
                 SkeletonBlock(
                     modifier = Modifier
-                        .width(112.dp)
-                        .height(150.dp)
+                        .width(132.dp)
+                        .height(96.dp)
+                        .clip(RoundedCornerShape(18.dp))
                 )
 
                 Column(

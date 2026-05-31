@@ -622,8 +622,6 @@
     <string name="save_manager_empty_body_all">Créez d\'abord une sauvegarde dans le jeu, puis elle apparaîtra ici.</string>
     <string name="save_manager_empty_body_game">Ce jeu n\'a pas encore de sauvegarde.</string>
     <string name="save_manager_unknown_game">Jeu inconnu</string>
-    <string name="save_manager_entries_count">%1$d sauvegardes trouvées</string>
-    <string name="save_manager_entries_hint">Gérez le chargement, la suppression, la sauvegarde et la restauration à partir d\'un seul endroit.</string>
     <string name="save_manager_entry_meta">%1$s • Emplacement %2$d</string>
     <string name="save_manager_entry_date">Mise à jour : %1$s</string>
     <string name="save_manager_entry_size">Taille : %1$s</string>
@@ -867,7 +865,6 @@
     <string name="settings_memory_cards_summary">%1$d cartes disponibles. Emplacement 1 : %2$s. Emplacement 2 : %3$s.</string>
     <string name="shell_memory_cards">Cartes mémoire</string>
     <string name="settings_memory_cards_tab">Cartes mémoire</string>
-    <string name="memory_card_help_text">Attribuez des cartes aux deux emplacements PS2 standard, créez de nouvelles cartes, exportez des cartes individuelles, effectuez des sauvegardes complètes, restaurez des cartes existantes et gérez les doublons ou les renommages en toute sécurité.</string>
     <string name="settings_bios_path">Fichier BIOS</string>
     <string name="settings_bios_path_desc">Sélectionnez le fichier image du BIOS PS2 nécessaire pour démarrer les jeux.</string>
     <string name="settings_bios_picker_title">Choisir le fichier BIOS</string>
@@ -964,4 +961,15 @@
     <string name="settings_language_hindi">Hindi</string>
     <string name="settings_language_native_italian">Italiano</string>
     <string name="settings_language_native_hindi">हिन्दी</string>
+    <string name="save_manager_entry_meta_auto">%1$s • %2$s</string>
+    <string name="save_manager_auto_save_label">Sauvegarde automatique</string>
+    <string name="save_manager_delete_confirm_body_named">%1$s, %2$s sera définitivement supprimé.</string>
+    <string name="emulation_save_slot_saved_at">Sauvegardé : %1$s</string>
+    <string name="emulation_save_slot_empty">Cet emplacement est vide.</string>
+    <string name="emulation_auto_save_title">Sauvegarde automatique</string>
+    <string name="emulation_auto_save_empty">Aucune sauvegarde automatique pour le moment.</string>
+    <string name="emulation_auto_save_last_saved">Dernière sauvegarde automatique : %1$s</string>
+    <string name="emulation_auto_save_interval_label">Toutes les</string>
+    <string name="emulation_auto_save_interval_suffix">min</string>
+    <string name="emulation_play_time_badge">Temps de jeu %1$s</string>
 </resources>

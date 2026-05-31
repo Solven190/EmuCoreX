@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,7 +67,6 @@ import com.sbro.emucorex.data.MemoryCardAssignments
 import com.sbro.emucorex.data.MemoryCardInfo
 import com.sbro.emucorex.data.MemoryCardRepository
 import com.sbro.emucorex.ui.common.NavigationBackButton
-import com.sbro.emucorex.ui.common.SettingHelpButton
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import java.text.DateFormat
@@ -440,11 +440,6 @@ private fun MemoryCardHeader(
                     color = MaterialTheme.colorScheme.onBackground
                 )
             }
-            SettingHelpButton(
-                title = stringResource(R.string.memory_card_manager_title),
-                description = stringResource(R.string.memory_card_help_text),
-                modifier = Modifier.padding(end = 8.dp)
-            )
             if (isWorking) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(22.dp),
@@ -469,16 +464,21 @@ private fun MemoryCardItem(
     val assignedSlot1 = assignments.slot1.equals(card.name, ignoreCase = true)
     val assignedSlot2 = assignments.slot2.equals(card.name, ignoreCase = true)
     Surface(
-        shape = RoundedCornerShape(22.dp),
-        tonalElevation = 2.dp,
-        shadowElevation = 0.dp,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        tonalElevation = 1.dp,
+        shadowElevation = 3.dp,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+        )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -488,7 +488,7 @@ private fun MemoryCardItem(
                     modifier = Modifier
                         .size(54.dp)
                         .background(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
                             shape = RoundedCornerShape(16.dp)
                         ),
                     contentAlignment = Alignment.Center
@@ -496,7 +496,7 @@ private fun MemoryCardItem(
                     Icon(
                         imageVector = Icons.Rounded.Memory,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
                 Column(
@@ -565,16 +565,18 @@ private fun MemoryCardItem(
                     label = stringResource(R.string.memory_card_duplicate_action),
                     onClick = onDuplicate
                 )
-                SmallActionButton(
-                    icon = Icons.Rounded.Edit,
-                    label = stringResource(R.string.memory_card_rename_action),
-                    onClick = onRename
-                )
-                SmallActionButton(
-                    icon = Icons.Rounded.DeleteOutline,
-                    label = stringResource(R.string.memory_card_delete_action),
-                    onClick = onDelete
-                )
+                if (!card.isDefaultCard) {
+                    SmallActionButton(
+                        icon = Icons.Rounded.Edit,
+                        label = stringResource(R.string.memory_card_rename_action),
+                        onClick = onRename
+                    )
+                    SmallActionButton(
+                        icon = Icons.Rounded.DeleteOutline,
+                        label = stringResource(R.string.memory_card_delete_action),
+                        onClick = onDelete
+                    )
+                }
             }
         }
     }

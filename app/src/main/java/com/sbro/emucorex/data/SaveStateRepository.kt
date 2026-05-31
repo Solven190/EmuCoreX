@@ -19,12 +19,15 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.flow.first
 
+private const val AUTO_SAVE_SLOT = 0
+
 data class SaveStateSlotInfo(
     val slot: Int,
     val exists: Boolean,
     val fileName: String?,
     val sizeBytes: Long,
-    val lastModified: Long
+    val lastModified: Long,
+    val isAutoSave: Boolean = slot == AUTO_SAVE_SLOT
 )
 
 data class SaveStateEntryInfo(
@@ -37,7 +40,8 @@ data class SaveStateEntryInfo(
     val lastModified: Long,
     val gamePath: String?,
     val gameTitle: String,
-    val coverArtPath: String?
+    val coverArtPath: String?,
+    val isAutoSave: Boolean = slot == AUTO_SAVE_SLOT
 ) {
     val canLoad: Boolean get() = !gamePath.isNullOrBlank()
 }
@@ -212,7 +216,8 @@ class SaveStateRepository(private val context: Context) {
                     gamePath = gamePath,
                     gameTitle = fallbackInfo.title,
                     coverArtPath = fallbackInfo.coverArtPath
-                        ?: coverArtRepository.findCachedCoverPath(serialKey)
+                        ?: coverArtRepository.findCachedCoverPath(serialKey),
+                    isAutoSave = slot.isAutoSave
                 )
             }
             .sortedByDescending { it.lastModified }
@@ -300,7 +305,8 @@ class SaveStateRepository(private val context: Context) {
             lastModified = file.lastModified(),
             gamePath = null,
             gameTitle = resolvedTitle,
-            coverArtPath = coverArtRepository.findCachedCoverPath(serial)
+            coverArtPath = coverArtRepository.findCachedCoverPath(serial),
+            isAutoSave = slot == AUTO_SAVE_SLOT
         )
     }
 
@@ -382,7 +388,7 @@ class SaveStateRepository(private val context: Context) {
     }
 
     private companion object {
-        private val SAVE_STATE_SLOTS = 1..10
+        private val SAVE_STATE_SLOTS = 0..10
         private val SAVE_STATE_FILE_REGEX = Regex("""^(.+?) \(([0-9A-Fa-f]{8})\)\.(\d{2})\.p2s$""")
     }
 }

@@ -622,8 +622,6 @@
     <string name="save_manager_empty_body_all">請先在遊戲中建立存檔，然後它就會出現在這裡。</string>
     <string name="save_manager_empty_body_game">此遊戲目前沒有任何存檔。</string>
     <string name="save_manager_unknown_game">未知的遊戲</string>
-    <string name="save_manager_entries_count">找到 %1$d 個存檔</string>
-    <string name="save_manager_entries_hint">在同一個地方管理載入、刪除、備份和還原。</string>
     <string name="save_manager_entry_meta">%1$s • 欄位 %2$d</string>
     <string name="save_manager_entry_date">更新於：%1$s</string>
     <string name="save_manager_entry_size">大小：%1$s</string>
@@ -867,7 +865,6 @@
     <string name="settings_memory_cards_summary">共有 %1$d 张可用记忆卡。插槽 1：%2$s。插槽 2：%3$s。</string>
     <string name="shell_memory_cards">记忆卡</string>
     <string name="settings_memory_cards_tab">记忆卡</string>
-    <string name="memory_card_help_text">将记忆卡分配到标准的两个 PS2 插槽，创建新记忆卡，导出单个记忆卡，进行完整备份，还原现有记忆卡，并安全地管理副本或重命名。</string>
     <string name="settings_bios_path">BIOS 文件</string>
     <string name="settings_bios_path_desc">选择启动游戏所需的 PS2 BIOS 镜像文件。</string>
     <string name="settings_bios_picker_title">选择 BIOS 文件</string>
@@ -964,4 +961,15 @@
     <string name="settings_language_hindi">印地语</string>
     <string name="settings_language_native_italian">Italiano</string>
     <string name="settings_language_native_hindi">हिन्दी</string>
+    <string name="save_manager_entry_meta_auto">%1$s • %2$s</string>
+    <string name="save_manager_auto_save_label">自动保存</string>
+    <string name="save_manager_delete_confirm_body_named">%1$s，%2$s 将被永久删除。</string>
+    <string name="emulation_save_slot_saved_at">已保存：%1$s</string>
+    <string name="emulation_save_slot_empty">此存档位为空。</string>
+    <string name="emulation_auto_save_title">自动保存</string>
+    <string name="emulation_auto_save_empty">暂无自动保存。</string>
+    <string name="emulation_auto_save_last_saved">上次自动保存：%1$s</string>
+    <string name="emulation_auto_save_interval_label">每</string>
+    <string name="emulation_auto_save_interval_suffix">分钟</string>
+    <string name="emulation_play_time_badge">游戏时长 %1$s</string>
 </resources>

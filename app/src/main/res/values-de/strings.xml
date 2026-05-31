@@ -622,8 +622,6 @@
     <string name="save_manager_empty_body_all">Erstelle zuerst einen Spielstand im Spiel, dann wird er hier angezeigt.</string>
     <string name="save_manager_empty_body_game">Für dieses Spiel gibt es noch keine Speicherstände.</string>
     <string name="save_manager_unknown_game">Unbekanntes Spiel</string>
-    <string name="save_manager_entries_count">%1$d Speicherstände gefunden</string>
-    <string name="save_manager_entries_hint">Verwalte das Laden, Löschen, Sichern und Wiederherstellen an einem Ort.</string>
     <string name="save_manager_entry_meta">%1$s • Slot %2$d</string>
     <string name="save_manager_entry_date">Aktualisiert: %1$s</string>
     <string name="save_manager_entry_size">Größe: %1$s</string>
@@ -867,7 +865,6 @@
     <string name="settings_memory_cards_summary">%1$d Karten verfügbar. Steckplatz 1: %2$s. Steckplatz 2: %3$s.</string>
     <string name="shell_memory_cards">Memory Cards</string>
     <string name="settings_memory_cards_tab">Memory Cards</string>
-    <string name="memory_card_help_text">Weise den zwei Standard-PS2-Steckplätzen Karten zu, erstelle neue Karten, exportiere einzelne Karten, erstelle vollständige Backups, stelle vorhandene Karten wieder her und verwalte Duplikate oder Umbenennungen auf sichere Weise.</string>
     <string name="settings_bios_path">BIOS-Datei</string>
     <string name="settings_bios_path_desc">Wähle die PS2-BIOS-Image-Datei aus, die zum Starten von Spielen benötigt wird.</string>
     <string name="settings_bios_picker_title">BIOS-Datei auswählen</string>
@@ -964,4 +961,15 @@
     <string name="settings_language_hindi">Hindi</string>
     <string name="settings_language_native_italian">Italiano</string>
     <string name="settings_language_native_hindi">हिन्दी</string>
+    <string name="save_manager_entry_meta_auto">%1$s • %2$s</string>
+    <string name="save_manager_auto_save_label">Automatisches Speichern</string>
+    <string name="save_manager_delete_confirm_body_named">%1$s, %2$s wird dauerhaft gelöscht.</string>
+    <string name="emulation_save_slot_saved_at">Gespeichert: %1$s</string>
+    <string name="emulation_save_slot_empty">Dieser Slot ist leer.</string>
+    <string name="emulation_auto_save_title">Automatisches Speichern</string>
+    <string name="emulation_auto_save_empty">Noch kein automatisches Speichern.</string>
+    <string name="emulation_auto_save_last_saved">Letztes automatisches Speichern: %1$s</string>
+    <string name="emulation_auto_save_interval_label">Alle</string>
+    <string name="emulation_auto_save_interval_suffix">Min.</string>
+    <string name="emulation_play_time_badge">Spielzeit %1$s</string>
 </resources>

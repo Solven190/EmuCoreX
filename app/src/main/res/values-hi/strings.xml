@@ -832,8 +832,6 @@
     <string name="save_manager_empty_body_all">पहले गेम में एक सेव बनाएं, फिर वह यहां दिखाई देगा।</string>
     <string name="save_manager_empty_body_game">इस गेम के लिए अभी तक कोई सेव नहीं है।</string>
     <string name="save_manager_unknown_game">अज्ञात गेम</string>
-    <string name="save_manager_entries_count">%1$d सेव मिले</string>
-    <string name="save_manager_entries_hint">एक ही स्थान से लोडिंग, विलोपन, बैकअप और पुनर्स्थापना प्रबंधित करें।</string>
     <string name="save_manager_entry_meta">%1$s • स्लॉट %2$d</string>
     <string name="save_manager_entry_date">अपडेट किया गया: %1$s</string>
     <string name="save_manager_entry_size">आकार: %1$s</string>
@@ -846,7 +844,6 @@
     <string name="save_manager_load_unavailable">गेम फ़ाइल लाइब्रेरी में नहीं मिली</string>
     <string name="memory_card_manager_title">मेमोरी कार्ड मैनेजर</string>
     <string name="memory_card_manager_subtitle">PS2 मेमोरी कार्ड, स्लॉट, बैकअप, रिस्टोर और स्टोरेज प्रबंधित करें।</string>
-    <string name="memory_card_help_text">दो मानक PS2 स्लॉट्स में कार्ड असाइन करें, नए कार्ड बनाएं, एकल कार्ड निर्यात करें, पूर्ण बैकअप बनाएं, मौजूदा कार्ड पुनर्स्थापित करें, और डुप्लिकेट या नाम बदलने को सुरक्षित रूप से प्रबंधित करें।</string>
     <string name="memory_card_entries_count">%1$d मेमोरी कार्ड मिले</string>
     <string name="memory_card_entries_hint">मानक दो स्लॉट में कार्ड असाइन करें और एक ही स्थान से बैकअप प्रबंधित करें।</string>
     <string name="memory_card_slot_summary">स्लॉट 1: %1$s\nस्लॉट 2: %2$s</string>
@@ -962,4 +959,15 @@
     <string name="settings_language_hindi">हिन्दी</string>
     <string name="settings_language_native_italian">Italiano</string>
     <string name="settings_language_native_hindi">हिन्दी</string>
+    <string name="save_manager_entry_meta_auto">%1$s • %2$s</string>
+    <string name="save_manager_auto_save_label">ऑटो सेव</string>
+    <string name="save_manager_delete_confirm_body_named">%1$s, %2$s को स्थायी रूप से हटा दिया जाएगा।</string>
+    <string name="emulation_save_slot_saved_at">सहेजा गया: %1$s</string>
+    <string name="emulation_save_slot_empty">यह स्लॉट खाली है।</string>
+    <string name="emulation_auto_save_title">ऑटो सेव</string>
+    <string name="emulation_auto_save_empty">अभी तक कोई ऑटो सेव नहीं है।</string>
+    <string name="emulation_auto_save_last_saved">अंतिम ऑटो सेव: %1$s</string>
+    <string name="emulation_auto_save_interval_label">हर</string>
+    <string name="emulation_auto_save_interval_suffix">मिनट</string>
+    <string name="emulation_play_time_badge">खेलने का समय %1$s</string>
 </resources>

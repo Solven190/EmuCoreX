@@ -488,11 +488,38 @@ std::string AndroidRuntime::GetGameSerial() const
 
 std::string AndroidRuntime::GetSaveStatePathForFile(const std::string& path, int slot) const
 {
-	std::lock_guard lock(mutex_);
-	if (paths_.data_root.empty())
+	std::string data_root;
+	bool vm_active = false;
+	{
+		std::lock_guard lock(mutex_);
+		data_root = paths_.data_root;
+		vm_active = vm_active_;
+	}
+
+	if (vm_active)
+	{
+		const std::string serial = VMManager::GetDiscSerial();
+		const u32 crc = VMManager::GetDiscCRC();
+		const std::string current_filename = VMManager::GetSaveStateFileName(serial.c_str(), crc, slot);
+		if (!current_filename.empty())
+			return current_filename;
+	}
+	else if (!path.empty())
+	{
+		std::string serial;
+		u32 crc = 0;
+		if (GameList::GetSerialAndCRCForFilename(path.c_str(), &serial, &crc))
+		{
+			const std::string filename = VMManager::GetSaveStateFileName(serial.c_str(), crc, slot);
+			if (!filename.empty())
+				return filename;
+		}
+	}
+
+	if (data_root.empty())
 		return {};
 	std::ostringstream out;
-	out << paths_.data_root << "/sstates/" << BasenameWithoutExtension(path) << "." << slot << ".p2s";
+	out << data_root << "/sstates/" << BasenameWithoutExtension(path) << "." << slot << ".p2s";
 	return out.str();
 }
 

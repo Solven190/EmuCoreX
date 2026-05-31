@@ -622,8 +622,6 @@
     <string name="save_manager_empty_body_all">Crie um save no jogo primeiro, e ele aparecerá aqui.</string>
     <string name="save_manager_empty_body_game">Este jogo ainda não possui nenhum save.</string>
     <string name="save_manager_unknown_game">Jogo desconhecido</string>
-    <string name="save_manager_entries_count">%1$d saves encontrados</string>
-    <string name="save_manager_entries_hint">Gerencie o carregamento, exclusão, backup e restauração em um só lugar.</string>
     <string name="save_manager_entry_meta">%1$s • Slot %2$d</string>
     <string name="save_manager_entry_date">Atualizado em: %1$s</string>
     <string name="save_manager_entry_size">Tamanho: %1$s</string>
@@ -867,7 +865,6 @@
     <string name="settings_memory_cards_summary">%1$d cartões disponíveis. Slot 1: %2$s. Slot 2: %3$s.</string>
     <string name="shell_memory_cards">Cartões de memória</string>
     <string name="settings_memory_cards_tab">Cartões de memória</string>
-    <string name="memory_card_help_text">Atribua cartões aos dois slots padrão do PS2, crie novos cartões, exporte cartões individuais, faça backups completos, restaure cartões existentes e gerencie duplicatas ou renomeações com segurança.</string>
     <string name="settings_bios_path">Arquivo de BIOS</string>
     <string name="settings_bios_path_desc">Selecione o arquivo de imagem da BIOS do PS2 necessário para iniciar os jogos.</string>
     <string name="settings_bios_picker_title">Escolher arquivo de BIOS</string>
@@ -964,4 +961,15 @@
     <string name="settings_language_hindi">Hindi</string>
     <string name="settings_language_native_italian">Italiano</string>
     <string name="settings_language_native_hindi">हिन्दी</string>
+    <string name="save_manager_entry_meta_auto">%1$s • %2$s</string>
+    <string name="save_manager_auto_save_label">Salvamento automático</string>
+    <string name="save_manager_delete_confirm_body_named">%1$s, %2$s será excluído permanentemente.</string>
+    <string name="emulation_save_slot_saved_at">Salvo: %1$s</string>
+    <string name="emulation_save_slot_empty">Este espaço está vazio.</string>
+    <string name="emulation_auto_save_title">Salvamento automático</string>
+    <string name="emulation_auto_save_empty">Nenhum salvamento automático ainda.</string>
+    <string name="emulation_auto_save_last_saved">Último salvamento automático: %1$s</string>
+    <string name="emulation_auto_save_interval_label">A cada</string>
+    <string name="emulation_auto_save_interval_suffix">min</string>
+    <string name="emulation_play_time_badge">Tempo de jogo %1$s</string>
 </resources>

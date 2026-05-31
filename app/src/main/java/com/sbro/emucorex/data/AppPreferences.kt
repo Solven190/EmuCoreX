@@ -318,6 +318,8 @@ class AppPreferences(private val context: Context) {
         private val SCREEN_SETTINGS_RESET_HINT_SHOWN = booleanPreferencesKey("screen_settings_reset_hint_shown")
         private val FRAME_LIMIT_ENABLED = booleanPreferencesKey("frame_limit_enabled")
         private val TARGET_FPS = intPreferencesKey("target_fps")
+        private val AUTO_SAVE_ENABLED = booleanPreferencesKey("auto_save_enabled")
+        private val AUTO_SAVE_INTERVAL_MINUTES = intPreferencesKey("auto_save_interval_minutes")
         private val MEMORY_CARD_SLOT1 = stringPreferencesKey("memory_card_slot_1")
         private val MEMORY_CARD_SLOT2 = stringPreferencesKey("memory_card_slot_2")
 
@@ -433,6 +435,22 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setTargetFps(value: Int) {
         context.dataStore.edit { it[TARGET_FPS] = if (value <= 0) 0 else value.coerceIn(20, 120) }
+    }
+
+    val autoSaveEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[AUTO_SAVE_ENABLED] ?: false
+    }
+
+    suspend fun setAutoSaveEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[AUTO_SAVE_ENABLED] = enabled }
+    }
+
+    val autoSaveIntervalMinutes: Flow<Int> = context.dataStore.data.map { prefs ->
+        (prefs[AUTO_SAVE_INTERVAL_MINUTES] ?: 1).coerceIn(1, 999)
+    }
+
+    suspend fun setAutoSaveIntervalMinutes(value: Int) {
+        context.dataStore.edit { it[AUTO_SAVE_INTERVAL_MINUTES] = value.coerceIn(1, 999) }
     }
 
     val skipDuplicateFrames: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -1935,6 +1953,8 @@ class AppPreferences(private val context: Context) {
             put("customDriverPath", prefs[CUSTOM_DRIVER_PATH])
             put("frameLimitEnabled", prefs[FRAME_LIMIT_ENABLED] ?: true)
             put("targetFps", prefs[TARGET_FPS] ?: 0)
+            put("autoSaveEnabled", prefs[AUTO_SAVE_ENABLED] ?: false)
+            put("autoSaveIntervalMinutes", (prefs[AUTO_SAVE_INTERVAL_MINUTES] ?: 1).coerceIn(1, 999))
             put("overlayLayoutVersion", prefs[OVERLAY_LAYOUT_VERSION] ?: 0)
             put("dpadOffset", prefs[DPAD_OFFSET])
             put("lstickOffset", prefs[LSTICK_OFFSET])
@@ -2052,6 +2072,8 @@ class AppPreferences(private val context: Context) {
             json.optString("customDriverPath").takeIf { it.isNotBlank() }?.let { prefs[CUSTOM_DRIVER_PATH] = it } ?: prefs.remove(CUSTOM_DRIVER_PATH)
             prefs[FRAME_LIMIT_ENABLED] = json.optBoolean("frameLimitEnabled", true)
             prefs[TARGET_FPS] = json.optInt("targetFps", 0).let { if (it <= 0) 0 else it.coerceIn(20, 120) }
+            prefs[AUTO_SAVE_ENABLED] = json.optBoolean("autoSaveEnabled", false)
+            prefs[AUTO_SAVE_INTERVAL_MINUTES] = json.optInt("autoSaveIntervalMinutes", 1).coerceIn(1, 999)
             val importedOverlayVersion = json.optInt("overlayLayoutVersion", 0)
             json.optString("dpadOffset").takeIf { it.isNotBlank() }?.let {
                 prefs[DPAD_OFFSET] = if (importedOverlayVersion >= 12) {

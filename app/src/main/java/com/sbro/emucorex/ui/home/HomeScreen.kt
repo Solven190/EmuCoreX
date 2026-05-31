@@ -68,6 +68,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -401,14 +402,21 @@ fun HomeScreen(
                                                 .fillMaxWidth()
                                                 .padding(top = sectionTopSpacing)
                                         ) {
-                                            Text(
-                                                text = stringResource(R.string.home_recent_title),
-                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                                color = MaterialTheme.colorScheme.onSurface,
+                                            Row(
                                                 modifier = Modifier
+                                                    .fillMaxWidth()
                                                     .padding(horizontal = horizontalInset)
-                                                    .padding(vertical = 4.dp)
-                                            )
+                                                    .padding(vertical = 4.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                Text(
+                                                    text = stringResource(R.string.home_recent_title),
+                                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                HomeSectionDivider(modifier = Modifier.weight(1f))
+                                            }
                                             Spacer(modifier = Modifier.height(sectionInnerSpacing))
                                             LazyRow(
                                                 modifier = Modifier
@@ -447,6 +455,11 @@ fun HomeScreen(
                                                     )
                                                 }
                                             }
+                                            HomeSectionDivider(
+                                                modifier = Modifier
+                                                    .padding(horizontal = horizontalInset)
+                                                    .padding(top = 10.dp, bottom = 2.dp)
+                                            )
                                         }
                                     }
                                 }
@@ -531,6 +544,15 @@ fun HomeScreen(
             }
         }
     }
+}
+
+@Composable
+private fun HomeSectionDivider(modifier: Modifier = Modifier) {
+    HorizontalDivider(
+        modifier = modifier,
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+    )
 }
 
 @Composable

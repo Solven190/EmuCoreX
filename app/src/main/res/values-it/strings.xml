@@ -832,8 +832,6 @@
     <string name="save_manager_empty_body_all">Crea prima un salvataggio in-game, poi apparirà qui.</string>
     <string name="save_manager_empty_body_game">Questo gioco non ha ancora alcun salvataggio.</string>
     <string name="save_manager_unknown_game">Gioco sconosciuto</string>
-    <string name="save_manager_entries_count">%1$d salvataggi trovati</string>
-    <string name="save_manager_entries_hint">Gestisci il caricamento, l\'eliminazione, il backup e il ripristino da un unico posto.</string>
     <string name="save_manager_entry_meta">%1$s • Slot %2$d</string>
     <string name="save_manager_entry_date">Aggiornato: %1$s</string>
     <string name="save_manager_entry_size">Dimensione: %1$s</string>
@@ -846,7 +844,6 @@
     <string name="save_manager_load_unavailable">File di gioco non trovato nella libreria</string>
     <string name="memory_card_manager_title">Gestore Memory Card</string>
     <string name="memory_card_manager_subtitle">Gestisci le memory card PS2, gli slot, il backup, il ripristino e la memorizzazione.</string>
-    <string name="memory_card_help_text">Assegna le schede ai due slot standard PS2, crea nuove schede, esporta singole schede, esegui backup completi, ripristina schede esistenti e gestisci duplicati o rinominazioni in modo sicuro.</string>
     <string name="memory_card_entries_count">%1$d memory card trovate</string>
     <string name="memory_card_entries_hint">Assegna le schede ai due slot standard e gestisci i backup in un unico posto.</string>
     <string name="memory_card_slot_summary">Slot 1: %1$s\nSlot 2: %2$s</string>
@@ -962,4 +959,15 @@
     <string name="settings_language_hindi">Hindi</string>
     <string name="settings_language_native_italian">Italiano</string>
     <string name="settings_language_native_hindi">हिन्दी</string>
+    <string name="save_manager_entry_meta_auto">%1$s • %2$s</string>
+    <string name="save_manager_auto_save_label">Salvataggio automatico</string>
+    <string name="save_manager_delete_confirm_body_named">%1$s, %2$s sarà eliminato definitivamente.</string>
+    <string name="emulation_save_slot_saved_at">Salvato: %1$s</string>
+    <string name="emulation_save_slot_empty">Questo slot è vuoto.</string>
+    <string name="emulation_auto_save_title">Salvataggio automatico</string>
+    <string name="emulation_auto_save_empty">Nessun salvataggio automatico.</string>
+    <string name="emulation_auto_save_last_saved">Ultimo salvataggio automatico: %1$s</string>
+    <string name="emulation_auto_save_interval_label">Ogni</string>
+    <string name="emulation_auto_save_interval_suffix">min</string>
+    <string name="emulation_play_time_badge">Tempo di gioco %1$s</string>
 </resources>

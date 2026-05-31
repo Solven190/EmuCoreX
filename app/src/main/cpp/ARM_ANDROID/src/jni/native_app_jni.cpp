@@ -9,11 +9,13 @@
 #include <android/log.h>
 #include <android/native_window_jni.h>
 #include <jni.h>
+#include <zip.h>
 #include <cstring>
 #include <mutex>
 #include <string>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <vector>
 
 using emucorex::android::AndroidRuntime;
 using emucorex::android::JStringToString;
@@ -30,6 +32,59 @@ jclass s_native_app_class = nullptr;
 void LogUnsupported(const char* feature)
 {
 	__android_log_print(ANDROID_LOG_WARN, LOG_TAG, "Unsupported native feature requested in Phase 1: %s", feature);
+}
+
+jbyteArray ReadSaveStateScreenshot(JNIEnv* env, const std::string& path)
+{
+	if (path.empty())
+		return nullptr;
+
+	int error = 0;
+	zip_t* zip = zip_open(path.c_str(), ZIP_RDONLY, &error);
+	if (!zip)
+	{
+		__android_log_print(ANDROID_LOG_WARN, LOG_TAG, "failed to open savestate zip for screenshot: %s", path.c_str());
+		return nullptr;
+	}
+
+	constexpr const char* SCREENSHOT_ENTRY = "Screenshot.png";
+	zip_stat_t stat = {};
+	if (zip_stat(zip, SCREENSHOT_ENTRY, 0, &stat) != 0 || stat.size == 0 ||
+		stat.size > static_cast<zip_uint64_t>(32 * 1024 * 1024))
+	{
+		zip_close(zip);
+		return nullptr;
+	}
+
+	zip_file_t* file = zip_fopen(zip, SCREENSHOT_ENTRY, 0);
+	if (!file)
+	{
+		zip_close(zip);
+		return nullptr;
+	}
+
+	std::vector<jbyte> bytes(static_cast<size_t>(stat.size));
+	zip_uint64_t offset = 0;
+	while (offset < stat.size)
+	{
+		const zip_int64_t read = zip_fread(file, bytes.data() + offset, stat.size - offset);
+		if (read <= 0)
+		{
+			zip_fclose(file);
+			zip_close(zip);
+			return nullptr;
+		}
+		offset += static_cast<zip_uint64_t>(read);
+	}
+
+	zip_fclose(file);
+	zip_close(zip);
+
+	jbyteArray result = env->NewByteArray(static_cast<jsize>(bytes.size()));
+	if (!result)
+		return nullptr;
+	env->SetByteArrayRegion(result, 0, static_cast<jsize>(bytes.size()), bytes.data());
+	return result;
 }
 
 bool RunExecutableMemorySmokeTest()
@@ -228,10 +283,9 @@ extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getGa
 extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_saveStateToSlot(JNIEnv*, jclass, jint slot) { return AndroidRuntime::Instance().SaveStateToSlot(slot) ? JNI_TRUE : JNI_FALSE; }
 extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_loadStateFromSlot(JNIEnv*, jclass, jint slot) { return AndroidRuntime::Instance().LoadStateFromSlot(slot) ? JNI_TRUE : JNI_FALSE; }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getSaveStatePathForFile(JNIEnv* env, jclass, jstring path, jint slot) { return StringToJString(env, AndroidRuntime::Instance().GetSaveStatePathForFile(JStringToString(env, path), slot)); }
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_sbro_emucorex_core_NativeApp_getSaveStateScreenshot(JNIEnv*, jclass, jstring)
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_sbro_emucorex_core_NativeApp_getSaveStateScreenshot(JNIEnv* env, jclass, jstring path)
 {
-	LogUnsupported("save-state screenshot extraction");
-	return nullptr;
+	return ReadSaveStateScreenshot(env, JStringToString(env, path));
 }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getRetroAchievementGameData(JNIEnv*, jclass, jstring)
 {

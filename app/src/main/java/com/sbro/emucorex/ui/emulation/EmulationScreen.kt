@@ -22,6 +22,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,6 +38,7 @@ import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
@@ -70,6 +72,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -116,6 +119,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -159,6 +163,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.DateFormat
+import java.util.Date
 import kotlin.math.roundToInt
 
 private object PadKey {
@@ -949,6 +955,8 @@ fun EmulationScreen(
                     onPauseToggle = togglePauseClick,
                     onQuickSave = requestQuickSaveClick,
                     onQuickLoad = requestQuickLoadClick,
+                    onSetAutoSaveEnabled = { viewModel.setAutoSaveEnabled(it) },
+                    onSetAutoSaveIntervalMinutes = { viewModel.setAutoSaveIntervalMinutes(it) },
                     onSaveGameSettingsProfile = { viewModel.saveCurrentGameSettingsProfile() },
                     onResetGameSettingsProfile = { viewModel.resetCurrentGameSettingsProfile() },
                     onNextSlot = { viewModel.setSlot(uiState.currentSlot + 1) },
@@ -1691,6 +1699,23 @@ private fun updateAnalogStick(
     onPadInput(leftKey, left, left > 0)
 }
 
+private fun formatSaveTimestamp(timestamp: Long): String {
+    if (timestamp <= 0L) return ""
+    return DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(timestamp))
+}
+
+private fun formatPlayTime(milliseconds: Long): String {
+    val totalSeconds = (milliseconds / 1000L).coerceAtLeast(0L)
+    val hours = totalSeconds / 3600L
+    val minutes = (totalSeconds % 3600L) / 60L
+    val seconds = totalSeconds % 60L
+    return if (hours > 0L) {
+        "%d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%02d:%02d".format(minutes, seconds)
+    }
+}
+
 @Composable
 private fun EmulationSidebarMenu(
     uiState: EmulationUiState,
@@ -1703,6 +1728,8 @@ private fun EmulationSidebarMenu(
     onPauseToggle: () -> Unit,
     onQuickSave: () -> Unit,
     onQuickLoad: () -> Unit,
+    onSetAutoSaveEnabled: (Boolean) -> Unit,
+    onSetAutoSaveIntervalMinutes: (Int) -> Unit,
     onSaveGameSettingsProfile: () -> Unit,
     onResetGameSettingsProfile: () -> Unit,
     onNextSlot: () -> Unit,
@@ -1805,6 +1832,23 @@ private fun EmulationSidebarMenu(
     }
     var selectedMenuTabName by rememberSaveable { mutableStateOf(EmulationMenuTab.Session.name) }
     val selectedMenuTab = remember(selectedMenuTabName) { EmulationMenuTab.valueOf(selectedMenuTabName) }
+    var autoSaveIntervalText by remember(uiState.autoSaveIntervalMinutes) {
+        mutableStateOf(uiState.autoSaveIntervalMinutes.toString())
+    }
+    val sessionScrollState = rememberScrollState()
+    val controlsScrollState = rememberScrollState()
+    val emulationScrollState = rememberScrollState()
+    val graphicsScrollState = rememberScrollState()
+    val fixesScrollState = rememberScrollState()
+    val achievementsScrollState = rememberScrollState()
+    val selectedTabScrollState = when (selectedMenuTab) {
+        EmulationMenuTab.Session -> sessionScrollState
+        EmulationMenuTab.Controls -> controlsScrollState
+        EmulationMenuTab.Emulation -> emulationScrollState
+        EmulationMenuTab.Graphics -> graphicsScrollState
+        EmulationMenuTab.Fixes -> fixesScrollState
+        EmulationMenuTab.Achievements -> achievementsScrollState
+    }
 
     Row(
         modifier = modifier
@@ -1825,7 +1869,7 @@ private fun EmulationSidebarMenu(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(selectedTabScrollState)
                     .padding(horizontal = 18.dp, vertical = 18.dp)
                     .padding(bottom = drawerBottomPadding + animatedBottomInset),
                 verticalArrangement = Arrangement.spacedBy(sectionSpacing)
@@ -1854,11 +1898,35 @@ private fun EmulationSidebarMenu(
                             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Text(
-                            text = uiState.currentGameSubtitle.ifBlank { stringResource(R.string.emulation_menu_subtitle) },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = uiState.currentGameSubtitle.ifBlank { stringResource(R.string.emulation_menu_subtitle) },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(999.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        R.string.emulation_play_time_badge,
+                                        formatPlayTime(uiState.activePlayTimeMs)
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -1898,39 +1966,126 @@ private fun EmulationSidebarMenu(
                             shape = RoundedCornerShape(16.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Text(
-                                    text = stringResource(R.string.detail_save_states),
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                androidx.compose.material3.IconButton(
-                                    onClick = onPrevSlot,
-                                    enabled = uiState.currentSlot > 1,
-                                    colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.primary
-                                    )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null)
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = stringResource(R.string.detail_save_states),
+                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = if (uiState.currentSlotLastModified > 0L) {
+                                                stringResource(
+                                                    R.string.emulation_save_slot_saved_at,
+                                                    formatSaveTimestamp(uiState.currentSlotLastModified)
+                                                )
+                                            } else {
+                                                stringResource(R.string.emulation_save_slot_empty)
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    androidx.compose.material3.IconButton(
+                                        onClick = onPrevSlot,
+                                        enabled = uiState.currentSlot > 1,
+                                        colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null)
+                                    }
+                                    Text(
+                                        text = "${uiState.currentSlot}",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                    )
+                                    androidx.compose.material3.IconButton(
+                                        onClick = onNextSlot,
+                                        enabled = uiState.currentSlot < 10,
+                                        colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null)
+                                    }
                                 }
-                                Text(
-                                    text = "${uiState.currentSlot}",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 4.dp)
-                                )
-                                androidx.compose.material3.IconButton(
-                                    onClick = onNextSlot,
-                                    enabled = uiState.currentSlot < 10,
-                                    colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.primary
-                                    )
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null)
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = stringResource(R.string.emulation_auto_save_title),
+                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = if (uiState.autoSaveLastModified > 0L) {
+                                                stringResource(
+                                                    R.string.emulation_auto_save_last_saved,
+                                                    formatSaveTimestamp(uiState.autoSaveLastModified)
+                                                )
+                                            } else {
+                                                stringResource(R.string.emulation_auto_save_empty)
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Switch(
+                                        checked = uiState.autoSaveEnabled,
+                                        onCheckedChange = onSetAutoSaveEnabled,
+                                        enabled = !uiState.isActionInProgress
+                                    )
+                                }
+
+                                AnimatedVisibility(visible = uiState.autoSaveEnabled) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.emulation_auto_save_interval_label),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        OutlinedTextField(
+                                            value = autoSaveIntervalText,
+                                            onValueChange = { raw ->
+                                                val filtered = raw.filter(Char::isDigit).take(3)
+                                                autoSaveIntervalText = filtered
+                                                filtered.toIntOrNull()?.takeIf { it >= 1 }?.let { minutes ->
+                                                    onSetAutoSaveIntervalMinutes(minutes)
+                                                }
+                                            },
+                                            enabled = !uiState.isActionInProgress,
+                                            singleLine = true,
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            shape = RoundedCornerShape(16.dp),
+                                            textStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                            modifier = Modifier
+                                                .width(108.dp)
+                                                .height(48.dp),
+                                            suffix = {
+                                                Text(stringResource(R.string.emulation_auto_save_interval_suffix))
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
