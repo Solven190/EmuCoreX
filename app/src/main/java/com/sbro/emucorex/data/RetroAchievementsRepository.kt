@@ -11,6 +11,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 
 data class RetroAchievementEntry(
     val id: Long,
@@ -35,25 +39,50 @@ data class RetroAchievementGameData(
     val title: String,
     val gameImageUrl: String?,
     val achievements: List<RetroAchievementEntry>,
-    val resolvedOnly: Boolean
+    val resolvedOnly: Boolean,
+    val earnedCountOverride: Int? = null,
+    val totalCountOverride: Int? = null,
+    val earnedHardcoreCountOverride: Int? = null,
+    val earnedPointsOverride: Int? = null,
+    val totalPointsOverride: Int? = null
 ) {
     val earnedCount: Int
-        get() = achievements.count { it.isEarned }
+        get() = earnedCountOverride ?: achievements.count { it.isEarned }
 
     val totalCount: Int
-        get() = achievements.size
+        get() = totalCountOverride ?: achievements.size
+
+    val earnedHardcoreCount: Int
+        get() = earnedHardcoreCountOverride ?: achievements.count { it.earnedHardcore }
 
     val earnedPoints: Int
-        get() = achievements.filter { it.isEarned }.sumOf { it.points }
+        get() = earnedPointsOverride ?: achievements.filter { it.isEarned }.sumOf { it.points }
 
     val totalPoints: Int
-        get() = achievements.sumOf { it.points }
+        get() = totalPointsOverride ?: achievements.sumOf { it.points }
 }
+
+data class RetroAchievementAccountProgress(
+    val gameId: Long,
+    val title: String,
+    val gameImageUrl: String?,
+    val earnedAchievements: Int,
+    val earnedHardcoreAchievements: Int,
+    val totalAchievements: Int
+)
 
 data class LibraryUnlockedAchievement(
     val gameTitle: String,
     val gamePath: String,
     val achievement: RetroAchievementEntry
+)
+
+data class LibraryAchievementGame(
+    val gameTitle: String,
+    val gamePath: String,
+    val coverArtPath: String?,
+    val serial: String?,
+    val gameData: RetroAchievementGameData
 )
 
 class RetroAchievementsRepository(private val context: Context) {
@@ -65,9 +94,44 @@ class RetroAchievementsRepository(private val context: Context) {
         if (gamePath.isBlank()) return null
 
         return withContext(Dispatchers.IO) {
-            buildLookupCandidates(gamePath).firstNotNullOfOrNull { candidate ->
-                safeLoadGameDataCandidate(candidate)
+            val activeCachedData = findCachedGameData(gamePath)
+            val accountCachedData = if (gamePath != ACTIVE_GAME_LOOKUP_KEY) {
+                loadAccountProgressGames()
+                findAccountCachedGameData(gamePath)
+            } else {
+                null
             }
+            val data = activeCachedData?.takeIf { it.achievements.isNotEmpty() || gamePath == ACTIVE_GAME_LOOKUP_KEY }
+                ?: if (gamePath != ACTIVE_GAME_LOOKUP_KEY) {
+                    accountCachedData?.let { fetchRemoteGameDataById(it) ?: it }
+                } else {
+                    null
+                }
+                ?: buildLookupCandidates(gamePath).firstNotNullOfOrNull { candidate ->
+                    safeLoadGameDataCandidate(candidate)
+                }
+                ?: activeCachedData
+            if (data != null && data.totalCount > 0) {
+                if (data.achievements.isNotEmpty()) {
+                    lastActiveGameData = data
+                }
+            }
+            data
+        }
+    }
+
+    suspend fun loadActiveGameData(): RetroAchievementGameData? {
+        return withContext(Dispatchers.IO) {
+            nativeLoadMutex.withLock {
+                runCatching {
+                    NativeApp.getRetroAchievementGameData(ACTIVE_GAME_LOOKUP_KEY)?.toRetroAchievementGameData()
+                }.getOrNull()
+            }?.takeIf { it.totalCount > 0 }
+                ?.also { data ->
+                    if (data.achievements.isNotEmpty()) {
+                        lastActiveGameData = data
+                    }
+                }
         }
     }
 
@@ -91,7 +155,12 @@ class RetroAchievementsRepository(private val context: Context) {
         val result = mutableListOf<LibraryUnlockedAchievement>()
         games.forEachIndexed { index, game ->
             onProgress(index + 1, games.size)
-            val gameData = runCatching { loadGameData(game.path) }.getOrNull() ?: return@forEachIndexed
+            val gameData = runCatching { loadGameData(game.path) }.getOrNull()
+                ?: lastActiveGameData?.takeIf { game.title.toAchievementTitleKey() == it.title.toAchievementTitleKey() }
+                ?: return@forEachIndexed
+            if (game.title.toAchievementTitleKey() != gameData.title.toAchievementTitleKey()) {
+                return@forEachIndexed
+            }
             gameData.achievements
                 .asSequence()
                 .filter { it.isEarned }
@@ -111,6 +180,111 @@ class RetroAchievementsRepository(private val context: Context) {
         )
         unlockedAchievementsCache[cacheKey] = sorted
         return sorted
+    }
+
+    suspend fun loadAchievementGamesFromLibrary(
+        activeGameTitle: String?,
+        activeGameId: Int?
+    ): List<LibraryAchievementGame> {
+        val libraryPath = preferences.gamePath.first().orEmpty()
+        if (libraryPath.isBlank()) return emptyList()
+
+        val accountProgress = loadAccountProgressGames()
+        val cachedActiveData = lastActiveGameData?.takeIf { it.totalCount > 0 }
+        val cachedActiveTitle = cachedActiveData?.title?.ifBlank { activeGameTitle.orEmpty() }
+            ?.takeIf { it.isNotBlank() }
+            ?: activeGameTitle.orEmpty()
+        val cachedCacheKey = buildAchievementGamesCacheKey(
+            libraryPath = libraryPath,
+            activeGameTitle = cachedActiveTitle,
+            activeGameId = activeGameId ?: cachedActiveData?.gameId?.toInt(),
+            accountProgressHash = accountProgress.hashCode()
+        )
+        achievementGamesCache[cachedCacheKey]?.let { return it }
+
+        val activeData = cachedActiveData ?: runCatching { loadGameData(ACTIVE_GAME_LOOKUP_KEY) }.getOrNull()
+            ?.takeIf { it.totalCount > 0 }
+        val resolvedActiveTitle = activeData?.title?.ifBlank { activeGameTitle.orEmpty() }
+            ?.takeIf { it.isNotBlank() }
+            ?: activeGameTitle.orEmpty()
+        val cacheKey = buildAchievementGamesCacheKey(
+            libraryPath = libraryPath,
+            activeGameTitle = resolvedActiveTitle,
+            activeGameId = activeGameId ?: activeData?.gameId?.toInt(),
+            accountProgressHash = accountProgress.hashCode()
+        )
+        achievementGamesCache[cacheKey]?.let { return it }
+
+        val libraryGames = scanLibraryGames(libraryPath)
+
+        val resultByKey = linkedMapOf<String, LibraryAchievementGame>()
+        accountProgress
+            .filter { it.totalAchievements > 0 && it.title.isNotBlank() }
+            .forEach { progress ->
+                val progressKey = progress.title.toAchievementTitleKey()
+                val matchedGame = libraryGames.firstOrNull { game -> game.title.toAchievementTitleKey() == progressKey }
+                    ?: return@forEach
+                resultByKey[matchedGame.path] = LibraryAchievementGame(
+                    gameTitle = matchedGame.title,
+                    gamePath = matchedGame.path,
+                    coverArtPath = matchedGame.coverArtPath,
+                    serial = matchedGame.serial,
+                    gameData = progress.toSummaryGameData()
+                )
+            }
+
+        if (activeData != null && resolvedActiveTitle.isNotBlank()) {
+            val activeTitleKey = resolvedActiveTitle.toAchievementTitleKey()
+            val activeGame = libraryGames.firstOrNull { game -> game.title.toAchievementTitleKey() == activeTitleKey }
+            val activeItem = if (activeGame != null) {
+                LibraryAchievementGame(
+                    gameTitle = activeGame.title,
+                    gamePath = activeGame.path,
+                    coverArtPath = activeGame.coverArtPath,
+                    serial = activeGame.serial,
+                    gameData = activeData
+                )
+            } else {
+                LibraryAchievementGame(
+                    gameTitle = resolvedActiveTitle,
+                    gamePath = "",
+                    coverArtPath = null,
+                    serial = null,
+                    gameData = activeData
+                )
+            }
+            resultByKey[activeItem.gamePath.ifBlank { activeItem.gameData.gameId.toString() }] = activeItem
+        }
+
+        val result = resultByKey.values.sortedBy { it.gameTitle.lowercase() }
+        lastAccountAchievementGames = result
+        lastAccountAchievementGamesLibraryPath = libraryPath
+
+        achievementGamesCache[cacheKey] = result
+        return result
+    }
+
+    suspend fun peekCachedAchievementGamesFromLibrary(
+        activeGameTitle: String?,
+        activeGameId: Int?
+    ): List<LibraryAchievementGame>? {
+        val libraryPath = preferences.gamePath.first().orEmpty()
+        if (libraryPath.isBlank()) return null
+
+        val activeData = lastActiveGameData?.takeIf { it.totalCount > 0 }
+        val resolvedActiveTitle = activeData?.title?.ifBlank { activeGameTitle.orEmpty() }
+            ?.takeIf { it.isNotBlank() }
+            ?: activeGameTitle.orEmpty()
+        val cacheKey = buildAchievementGamesCacheKey(
+            libraryPath = libraryPath,
+            activeGameTitle = resolvedActiveTitle,
+            activeGameId = activeGameId ?: activeData?.gameId?.toInt(),
+            accountProgressHash = lastAccountProgress.hashCode()
+        )
+        achievementGamesCache[cacheKey]?.let { return it }
+
+        return lastAccountAchievementGames
+            .takeIf { lastAccountAchievementGamesLibraryPath == libraryPath && it.isNotEmpty() }
     }
 
     suspend fun peekCachedUnlockedAchievementsFromLibrary(): List<LibraryUnlockedAchievement>? {
@@ -141,18 +315,195 @@ class RetroAchievementsRepository(private val context: Context) {
         }
     }
 
+    private fun scanLibraryGames(libraryPath: String): List<GameItem> {
+        return if (libraryPath.startsWith("content://")) {
+            gameRepository.scanDirectoryFromUri(libraryPath.toUri(), context)
+        } else {
+            gameRepository.scanDirectory(libraryPath, context)
+        }
+    }
+
+    private fun findCachedGameData(gamePath: String): RetroAchievementGameData? {
+        val cached = lastActiveGameData?.takeIf { it.totalCount > 0 } ?: return null
+        if (gamePath == ACTIVE_GAME_LOOKUP_KEY) return cached
+
+        val cachedKey = cached.title.toAchievementTitleKey()
+        if (cachedKey.isBlank()) return null
+
+        val requestedKeys = buildList {
+            add(gamePath.toAchievementTitleKey())
+            if (gamePath.startsWith("content://")) {
+                runCatching { DocumentPathResolver.getDisplayName(context, gamePath) }.getOrNull()
+                    ?.substringBeforeLast('.')
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { add(it.toAchievementTitleKey()) }
+            } else {
+                File(gamePath).nameWithoutExtension
+                    .takeIf { it.isNotBlank() }
+                    ?.let { add(it.toAchievementTitleKey()) }
+            }
+        }
+
+        return cached.takeIf { requestedKeys.any { key -> key == cachedKey } }
+    }
+
+    private suspend fun loadAccountProgressGames(): List<RetroAchievementAccountProgress> {
+        lastAccountProgress.takeIf { it.isNotEmpty() }?.let { return it }
+
+        nativeLoadMutex.withLock {
+            val nativeJson = runCatching { NativeApp.getRetroAchievementsAccountData() }.getOrNull()
+                ?.takeIf { it.isNotBlank() }
+            if (nativeJson != null) {
+                val progress = nativeJson.toRetroAchievementAccountProgress()
+                preferences.setAchievementsAccountProgressJson(nativeJson)
+                lastAccountProgress = progress
+                return progress
+            }
+        }
+
+        val cachedJson = preferences.getAchievementsAccountProgressJson().orEmpty()
+        val cachedProgress = cachedJson.toRetroAchievementAccountProgress()
+        if (cachedProgress.isNotEmpty()) {
+            lastAccountProgress = cachedProgress
+        }
+        return cachedProgress
+    }
+
+    private fun findAccountCachedGameData(gamePath: String): RetroAchievementGameData? {
+        val requestedKeys = buildRequestedTitleKeys(gamePath)
+        if (requestedKeys.isEmpty()) return null
+
+        lastAccountAchievementGames
+            .firstOrNull { game ->
+                game.gamePath == gamePath || requestedKeys.any { key ->
+                    key == game.gameTitle.toAchievementTitleKey() || key == game.gameData.title.toAchievementTitleKey()
+                }
+            }
+            ?.let { return it.gameData }
+
+        return lastAccountProgress
+            .firstOrNull { progress -> requestedKeys.any { key -> key == progress.title.toAchievementTitleKey() } }
+            ?.toSummaryGameData()
+    }
+
+    private fun buildRequestedTitleKeys(gamePath: String): Set<String> {
+        return buildSet {
+            add(gamePath.toAchievementTitleKey())
+            if (gamePath.startsWith("content://")) {
+                runCatching { DocumentPathResolver.getDisplayName(context, gamePath) }.getOrNull()
+                    ?.substringBeforeLast('.')
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { add(it.toAchievementTitleKey()) }
+            } else {
+                File(gamePath).nameWithoutExtension
+                    .takeIf { it.isNotBlank() }
+                    ?.let { add(it.toAchievementTitleKey()) }
+            }
+        }.filterTo(mutableSetOf()) { it.isNotBlank() }
+    }
+
+    private fun fetchRemoteGameDataById(summary: RetroAchievementGameData): RetroAchievementGameData? {
+        if (summary.gameId <= 0) return null
+        remoteGameDataCache[summary.gameId]?.let { return it }
+
+        val username = preferences.getAchievementsUsernameSync().orEmpty()
+        val token = preferences.getAchievementsTokenSync().orEmpty()
+        if (username.isBlank() || token.isBlank()) return null
+
+        val patchJson = postRetroAchievementsRequest(
+            "r" to "patch",
+            "u" to username,
+            "t" to token,
+            "g" to summary.gameId.toString()
+        ) ?: return null
+        val softcoreUnlocks = postRetroAchievementsRequest(
+            "r" to "unlocks",
+            "u" to username,
+            "t" to token,
+            "g" to summary.gameId.toString(),
+            "h" to "0"
+        )?.toUnlockIdSet().orEmpty()
+        val hardcoreUnlocks = postRetroAchievementsRequest(
+            "r" to "unlocks",
+            "u" to username,
+            "t" to token,
+            "g" to summary.gameId.toString(),
+            "h" to "1"
+        )?.toUnlockIdSet().orEmpty()
+
+        return patchJson.toRetroAchievementPatchGameData(
+            fallback = summary,
+            softcoreUnlocks = softcoreUnlocks,
+            hardcoreUnlocks = hardcoreUnlocks
+        )?.also { remoteGameDataCache[summary.gameId] = it }
+    }
+
+    private fun postRetroAchievementsRequest(vararg params: Pair<String, String>): String? {
+        var connection: HttpURLConnection? = null
+        return runCatching {
+            val body = params.joinToString("&") { (key, value) ->
+                "${URLEncoder.encode(key, Charsets.UTF_8.name())}=${URLEncoder.encode(value, Charsets.UTF_8.name())}"
+            }
+            connection = (URL("https://retroachievements.org/dorequest.php").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 6_000
+                readTimeout = 8_000
+                instanceFollowRedirects = true
+                doOutput = true
+                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                setRequestProperty("User-Agent", "EmuCoreX/1.0")
+            }
+            connection.outputStream.use { output ->
+                output.write(body.toByteArray(Charsets.UTF_8))
+            }
+            val responseCode = connection.responseCode
+            val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+            stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                ?.takeIf { responseCode in 200..299 && it.isNotBlank() }
+        }.getOrNull().also {
+            connection?.disconnect()
+        }
+    }
+
     companion object {
         private val unlockedAchievementsCache = mutableMapOf<String, List<LibraryUnlockedAchievement>>()
+        private val achievementGamesCache = mutableMapOf<String, List<LibraryAchievementGame>>()
         private val nativeLoadMutex = Mutex()
+        private var lastActiveGameData: RetroAchievementGameData? = null
+        private var lastAccountProgress: List<RetroAchievementAccountProgress> = emptyList()
+        private var lastAccountAchievementGames: List<LibraryAchievementGame> = emptyList()
+        private var lastAccountAchievementGamesLibraryPath: String? = null
+        private val remoteGameDataCache = mutableMapOf<Long, RetroAchievementGameData>()
+        private const val ACTIVE_GAME_LOOKUP_KEY = "__active_retroachievements_game__"
 
         fun invalidateUnlockedAchievementsCache() {
             unlockedAchievementsCache.clear()
+            achievementGamesCache.clear()
+            lastAccountProgress = emptyList()
+            lastAccountAchievementGames = emptyList()
+            lastAccountAchievementGamesLibraryPath = null
+            remoteGameDataCache.clear()
         }
 
         private fun buildUnlockedCacheKey(libraryPath: String): String {
             return libraryPath.trim()
         }
+
+        private fun buildAchievementGamesCacheKey(
+            libraryPath: String,
+            activeGameTitle: String,
+            activeGameId: Int?,
+            accountProgressHash: Int
+        ): String {
+            return "${libraryPath.trim()}|${activeGameTitle.toAchievementTitleKey()}|${activeGameId ?: 0}|$accountProgressHash"
+        }
     }
+}
+
+private fun String.toAchievementTitleKey(): String {
+    return lowercase()
+        .substringBeforeLast('.')
+        .replace(Regex("[^a-z0-9]+"), "")
 }
 
 private fun String.toRetroAchievementGameData(): RetroAchievementGameData? {
@@ -167,6 +518,117 @@ private fun String.toRetroAchievementGameData(): RetroAchievementGameData? {
             resolvedOnly = root.optBoolean("resolvedOnly")
         )
     }.getOrNull()
+}
+
+private fun String.toRetroAchievementAccountProgress(): List<RetroAchievementAccountProgress> {
+    return runCatching {
+        val games = JSONObject(this).optJSONArray("games") ?: return@runCatching emptyList()
+        buildList {
+            for (index in 0 until games.length()) {
+                val item = games.optJSONObject(index) ?: continue
+                add(
+                    RetroAchievementAccountProgress(
+                        gameId = item.optLong("gameId"),
+                        title = item.optString("title"),
+                        gameImageUrl = item.optString("gameImageUrl").takeIf { it.isNotBlank() },
+                        earnedAchievements = item.optInt("earnedAchievements"),
+                        earnedHardcoreAchievements = item.optInt("earnedHardcoreAchievements"),
+                        totalAchievements = item.optInt("totalAchievements")
+                    )
+                )
+            }
+        }
+    }.getOrDefault(emptyList())
+}
+
+private fun String.toRetroAchievementPatchGameData(
+    fallback: RetroAchievementGameData,
+    softcoreUnlocks: Set<Long>,
+    hardcoreUnlocks: Set<Long>
+): RetroAchievementGameData? {
+    return runCatching {
+        val root = JSONObject(this)
+        if (!root.optBoolean("Success", true)) return@runCatching null
+        val patchData = root.optJSONObject("PatchData") ?: return@runCatching null
+        val achievements = patchData.optJSONArray("Achievements").toPatchAchievementEntries(
+            softcoreUnlocks = softcoreUnlocks,
+            hardcoreUnlocks = hardcoreUnlocks
+        )
+        if (achievements.isEmpty() && fallback.totalCount > 0) return@runCatching null
+        RetroAchievementGameData(
+            gameId = patchData.optLong("ID", fallback.gameId),
+            title = patchData.optString("Title").takeIf { it.isNotBlank() } ?: fallback.title,
+            gameImageUrl = patchData.optString("ImageIconURL").takeIf { it.isNotBlank() } ?: fallback.gameImageUrl,
+            achievements = achievements,
+            resolvedOnly = false
+        )
+    }.getOrNull()
+}
+
+private fun String.toUnlockIdSet(): Set<Long> {
+    return runCatching {
+        val root = JSONObject(this)
+        if (!root.optBoolean("Success", true)) return@runCatching emptySet()
+        val ids = root.optJSONArray("UserUnlocks") ?: return@runCatching emptySet()
+        buildSet {
+            for (index in 0 until ids.length()) {
+                val id = ids.optLong(index)
+                if (id > 0) add(id)
+            }
+        }
+    }.getOrDefault(emptySet())
+}
+
+private fun JSONArray?.toPatchAchievementEntries(
+    softcoreUnlocks: Set<Long>,
+    hardcoreUnlocks: Set<Long>
+): List<RetroAchievementEntry> {
+    if (this == null) return emptyList()
+    return buildList {
+        for (index in 0 until length()) {
+            val item = optJSONObject(index) ?: continue
+            val id = item.optLong("ID")
+            val type = when (item.optString("Type")) {
+                "missable" -> 1
+                "progression" -> 2
+                "win_condition" -> 3
+                else -> 0
+            }
+            add(
+                RetroAchievementEntry(
+                    id = id,
+                    title = item.optString("Title"),
+                    description = item.optString("Description"),
+                    points = item.optInt("Points"),
+                    category = item.optInt("Flags"),
+                    type = type,
+                    rarity = item.optDouble("Rarity", 100.0).toFloat(),
+                    rarityHardcore = item.optDouble("RarityHardcore", 100.0).toFloat(),
+                    earnedSoftcore = id in softcoreUnlocks || id in hardcoreUnlocks,
+                    earnedHardcore = id in hardcoreUnlocks,
+                    badgeUrl = item.optString("BadgeURL").takeIf { it.isNotBlank() }
+                        ?: item.optString("BadgeName").takeIf { it.isNotBlank() }?.let { "https://media.retroachievements.org/Badge/$it.png" },
+                    badgeLockedUrl = item.optString("BadgeLockedURL").takeIf { it.isNotBlank() }
+                        ?: item.optString("BadgeName").takeIf { it.isNotBlank() }?.let { "https://media.retroachievements.org/Badge/${it}_lock.png" }
+                )
+            )
+        }
+    }
+}
+
+private fun RetroAchievementAccountProgress.toSummaryGameData(): RetroAchievementGameData {
+    return RetroAchievementGameData(
+        gameId = gameId,
+        title = title,
+        gameImageUrl = gameImageUrl,
+        achievements = emptyList(),
+        resolvedOnly = true,
+        earnedCountOverride = earnedAchievements,
+        totalCountOverride = totalAchievements,
+        earnedHardcoreCountOverride = earnedHardcoreAchievements,
+        earnedPointsOverride = 0,
+        totalPointsOverride = 0
+    )
 }
 
 private fun JSONArray?.toRetroAchievementEntries(): List<RetroAchievementEntry> {

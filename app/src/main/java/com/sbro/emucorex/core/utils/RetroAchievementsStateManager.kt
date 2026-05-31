@@ -1,7 +1,6 @@
 package com.sbro.emucorex.core.utils
 
 import com.sbro.emucorex.core.EmulatorBridge
-import com.sbro.emucorex.core.NativeApp
 import com.sbro.emucorex.data.RetroAchievementsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -66,9 +65,8 @@ object RetroAchievementsStateManager {
     fun initialize() {
         if (initialized) return
         initialized = true
-        val context = EmulatorBridge.getContext()
-        val prefsEnabled = context?.let { com.sbro.emucorex.data.AppPreferences(it).getAchievementsEnabledSync() } ?: false
-        val prefsHardcore = context?.let { com.sbro.emucorex.data.AppPreferences(it).getAchievementsHardcoreSync() } ?: false
+        val prefsEnabled = loadStoredEnabled()
+        val prefsHardcore = loadStoredHardcore()
         _state.update {
             it.copy(
                 isSupported = EmulatorBridge.isNativeLoaded,
@@ -78,18 +76,13 @@ object RetroAchievementsStateManager {
                 isLoading = true
             )
         }
-        if (EmulatorBridge.isNativeLoaded) {
-            scope.launch(Dispatchers.IO) {
-                runCatching {
-                    RetroAchievementsBridge.nativeSetEnabled(prefsEnabled)
-                    RetroAchievementsBridge.nativeSetHardcore(prefsHardcore)
-                }
-            }
-        }
-        refreshState()
+        refreshState(invalidateCaches = false)
     }
 
-    fun refreshState() {
+    fun refreshState(invalidateCaches: Boolean = true) {
+        if (invalidateCaches) {
+            RetroAchievementsRepository.invalidateUnlockedAchievementsCache()
+        }
         if (!EmulatorBridge.isNativeLoaded) {
             _state.update {
                 it.copy(
@@ -106,6 +99,8 @@ object RetroAchievementsStateManager {
             it.copy(
                 isSupported = true,
                 isLoading = true,
+                enabled = loadStoredEnabled(),
+                hardcorePreference = loadStoredHardcore(),
                 storedUsername = loadStoredUsername() ?: it.storedUsername
             )
         }
@@ -115,7 +110,7 @@ object RetroAchievementsStateManager {
         }
     }
 
-    fun login(username: String, password: String) {
+    fun login(username: String, password: String, rememberPassword: Boolean = false) {
         val cleanUsername = username.trim()
         if (cleanUsername.isBlank() || password.isBlank()) {
             _state.update {
@@ -145,6 +140,35 @@ object RetroAchievementsStateManager {
                                 errorMessage = error
                             )
                         }
+                    } else {
+                        EmulatorBridge.getContext()?.let { context ->
+                            val preferences = com.sbro.emucorex.data.AppPreferences(context)
+                            val previousUsername = preferences.getAchievementsUsernameSync()
+                            preferences.setAchievementsUsername(cleanUsername)
+                            preferences.setAchievementsRememberPassword(rememberPassword)
+                            preferences.setAchievementsPassword(password.takeIf { rememberPassword })
+                            if (!previousUsername.equals(cleanUsername, ignoreCase = true)) {
+                                preferences.setAchievementsAvatarPath(null)
+                            }
+                            preferences.setAchievementsAccountProgressJson(null)
+                        }
+                        _state.update { current ->
+                            current.copy(
+                                isAuthenticating = false,
+                                isLoading = false,
+                                errorMessage = null,
+                                loginRequestReason = null,
+                                storedUsername = cleanUsername,
+                                user = current.user ?: RetroAchievementsUserState(
+                                    username = cleanUsername,
+                                    displayName = cleanUsername,
+                                    avatarPath = current.user?.takeIf { it.username == cleanUsername }?.avatarPath,
+                                    points = 0,
+                                    softcorePoints = 0,
+                                    unreadMessages = 0
+                                )
+                            )
+                        }
                     }
                 }
                 .onFailure { handleNativeFailure(it) }
@@ -164,6 +188,14 @@ object RetroAchievementsStateManager {
         scope.launch(Dispatchers.IO) {
             runCatching { RetroAchievementsBridge.nativeLogout() }
                 .onFailure { handleNativeFailure(it) }
+                .also {
+                    EmulatorBridge.getContext()?.let { context ->
+                        com.sbro.emucorex.data.AppPreferences(context).run {
+                            setAchievementsAvatarPath(null)
+                            setAchievementsAccountProgressJson(null)
+                        }
+                    }
+                }
         }
     }
 
@@ -176,14 +208,12 @@ object RetroAchievementsStateManager {
                 errorMessage = null
             )
         }
-        val context = EmulatorBridge.getContext()
-        if (context != null) {
-            scope.launch(Dispatchers.IO) {
-                com.sbro.emucorex.data.AppPreferences(context).setAchievementsEnabled(enabled)
-            }
-        }
         scope.launch(Dispatchers.IO) {
-            runCatching { RetroAchievementsBridge.nativeSetEnabled(enabled) }
+            runCatching {
+                EmulatorBridge.getContext()
+                    ?.let { com.sbro.emucorex.data.AppPreferences(it).setAchievementsEnabled(enabled) }
+                RetroAchievementsBridge.nativeSetEnabled(enabled)
+            }
                 .onFailure { handleNativeFailure(it) }
         }
     }
@@ -196,14 +226,12 @@ object RetroAchievementsStateManager {
                 errorMessage = null
             )
         }
-        val context = EmulatorBridge.getContext()
-        if (context != null) {
-            scope.launch(Dispatchers.IO) {
-                com.sbro.emucorex.data.AppPreferences(context).setAchievementsHardcore(enabled)
-            }
-        }
         scope.launch(Dispatchers.IO) {
-            runCatching { RetroAchievementsBridge.nativeSetHardcore(enabled) }
+            runCatching {
+                EmulatorBridge.getContext()
+                    ?.let { com.sbro.emucorex.data.AppPreferences(it).setAchievementsHardcore(enabled) }
+                RetroAchievementsBridge.nativeSetHardcore(enabled)
+            }
                 .onFailure { handleNativeFailure(it) }
         }
     }
@@ -231,22 +259,36 @@ object RetroAchievementsStateManager {
         }
     }
 
-    internal fun onLoginSuccess(displayName: String?, points: Int, scPoints: Int, unreadMessages: Int) {
+    internal fun onLoginSuccess(username: String?, points: Int, scPoints: Int, unreadMessages: Int) {
+        val storedAvatar = loadStoredAvatarPath()
         _state.update { current ->
+            val resolvedUsername = username?.takeIf { it.isNotBlank() }
+                ?: current.user?.username
+                ?: current.storedUsername
+                ?: loadStoredUsername()
             current.copy(
                 isAuthenticating = false,
                 isLoading = false,
                 errorMessage = null,
-                user = current.user?.copy(
-                    displayName = displayName ?: current.user.displayName,
-                    points = points,
-                    softcorePoints = scPoints,
-                    unreadMessages = unreadMessages
-                ) ?: current.storedUsername?.let { username ->
-                    RetroAchievementsUserState(
-                        username = username,
-                        displayName = displayName ?: username,
-                        avatarPath = null,
+                loginRequestReason = null,
+                storedUsername = resolvedUsername ?: current.storedUsername,
+                user = if (!resolvedUsername.isNullOrBlank()) {
+                    current.user?.copy(
+                        username = resolvedUsername,
+                        displayName = username?.takeIf { it.isNotBlank() } ?: current.user.displayName,
+                        points = points,
+                        softcorePoints = scPoints,
+                        unreadMessages = unreadMessages
+                    ) ?: RetroAchievementsUserState(
+                        username = resolvedUsername,
+                        displayName = username?.takeIf { it.isNotBlank() } ?: resolvedUsername,
+                        avatarPath = storedAvatar,
+                        points = points,
+                        softcorePoints = scPoints,
+                        unreadMessages = unreadMessages
+                    )
+                } else {
+                    current.user?.copy(
                         points = points,
                         softcorePoints = scPoints,
                         unreadMessages = unreadMessages
@@ -281,29 +323,36 @@ object RetroAchievementsStateManager {
         richPresenceEnabled: Boolean
     ) {
         val resolvedStoredUsername = username ?: _state.value.storedUsername ?: loadStoredUsername()
+        val storedEnabled = loadStoredEnabled()
+        val storedHardcore = loadStoredHardcore()
+        val storedAvatar = loadStoredAvatarPath()
+        val resolvedAvatar = avatar?.takeIf { it.isNotBlank() } ?: storedAvatar
+        if (!avatar.isNullOrBlank()) {
+            persistStoredAvatarPath(avatar)
+        }
         _state.update { current ->
             current.copy(
                 isSupported = true,
                 isLoading = false,
                 isAuthenticating = false,
-                enabled = enabled,
-                hardcorePreference = hardcorePreference,
+                enabled = storedEnabled,
+                hardcorePreference = storedHardcore,
                 hardcoreActive = hardcoreActive,
                 storedUsername = resolvedStoredUsername,
                 user = if (haveUser && !username.isNullOrBlank()) {
                     RetroAchievementsUserState(
                         username = username,
                         displayName = displayName?.takeIf { it.isNotBlank() } ?: username,
-                        avatarPath = avatar,
+                        avatarPath = resolvedAvatar,
                         points = points,
                         softcorePoints = scPoints,
                         unreadMessages = unreadMessages
                     )
-                } else if (!enabled && !resolvedStoredUsername.isNullOrBlank()) {
+                } else if (!resolvedStoredUsername.isNullOrBlank()) {
                     current.user?.takeIf { it.username == resolvedStoredUsername } ?: RetroAchievementsUserState(
                         username = resolvedStoredUsername,
                         displayName = resolvedStoredUsername,
-                        avatarPath = null,
+                        avatarPath = storedAvatar,
                         points = 0,
                         softcorePoints = 0,
                         unreadMessages = 0
@@ -346,6 +395,28 @@ object RetroAchievementsStateManager {
     private fun loadStoredUsername(): String? {
         val context = EmulatorBridge.getContext() ?: return null
         return com.sbro.emucorex.data.AppPreferences(context).getAchievementsUsernameSync()
+    }
+
+    private fun loadStoredEnabled(): Boolean {
+        val context = EmulatorBridge.getContext() ?: return _state.value.enabled
+        return com.sbro.emucorex.data.AppPreferences(context).getAchievementsEnabledSync()
+    }
+
+    private fun loadStoredHardcore(): Boolean {
+        val context = EmulatorBridge.getContext() ?: return _state.value.hardcorePreference
+        return com.sbro.emucorex.data.AppPreferences(context).getAchievementsHardcoreSync()
+    }
+
+    private fun loadStoredAvatarPath(): String? {
+        val context = EmulatorBridge.getContext() ?: return null
+        return com.sbro.emucorex.data.AppPreferences(context).getAchievementsAvatarPathSync()
+    }
+
+    private fun persistStoredAvatarPath(avatarPath: String) {
+        val context = EmulatorBridge.getContext() ?: return
+        scope.launch(Dispatchers.IO) {
+            com.sbro.emucorex.data.AppPreferences(context).setAchievementsAvatarPath(avatarPath)
+        }
     }
 
     private fun handleNativeFailure(error: Throwable) {

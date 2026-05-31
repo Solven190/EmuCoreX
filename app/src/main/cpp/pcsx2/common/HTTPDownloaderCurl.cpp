@@ -152,7 +152,11 @@ void HTTPDownloaderCurl::InternalPollRequests()
 		}
 		else
 		{
-			Console.Error(fmt::format("Request for '{}' returned error {}", req->url, static_cast<int>(msg->data.result)));
+			long response_code = 0;
+			curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &response_code);
+			const char* error_text = curl_easy_strerror(msg->data.result);
+			Console.Error(fmt::format(
+				"Request for '{}' returned error {} ({})", req->url, static_cast<int>(msg->data.result), error_text ? error_text : ""));
 		}
 
 		req->state.store(Request::State::Complete, std::memory_order_release);
@@ -172,6 +176,10 @@ bool HTTPDownloaderCurl::StartRequest(HTTPDownloader::Request* request)
 	curl_easy_setopt(req->handle, CURLOPT_NOSIGNAL, 1L);
 	curl_easy_setopt(req->handle, CURLOPT_PRIVATE, req);
 	curl_easy_setopt(req->handle, CURLOPT_FOLLOWLOCATION, 1L);
+
+#ifdef __ANDROID__
+	curl_easy_setopt(req->handle, CURLOPT_CAPATH, "/system/etc/security/cacerts");
+#endif
 
 	if (request->type == Request::Type::Post)
 	{

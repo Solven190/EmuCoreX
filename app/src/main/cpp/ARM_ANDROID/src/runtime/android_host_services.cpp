@@ -33,6 +33,8 @@
 #include <mutex>
 #include <thread>
 
+extern void QueryAndNotifyAchievementsState();
+
 namespace
 {
 constexpr const char* LOG_TAG = "EmuCoreX";
@@ -307,6 +309,7 @@ void Host::OnGameChanged(const std::string& title, const std::string&, const std
 	emucorex::android::RecordGameForCrashDiagnostics(title, disc_serial, disc_crc, current_crc);
 	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "game changed: title=%s path=%s serial=%s disc_crc=%08x current_crc=%08x",
 		title.c_str(), disc_path.c_str(), disc_serial.c_str(), disc_crc, current_crc);
+	QueryAndNotifyAchievementsState();
 }
 
 void Host::OnPerformanceMetricsUpdated()
@@ -501,8 +504,6 @@ std::string Host::TranslatePluralToString(const char*, const char* msg, const ch
 extern void NotifyLoginRequested(int reason);
 extern void NotifyLoginSuccess(const char* username, u32 points, u32 sc_points, u32 unread_messages);
 extern void NotifyHardcoreModeChanged(bool enabled);
-extern void QueryAndNotifyAchievementsState();
-
 void Host::OnAchievementsLoginRequested(Achievements::LoginRequestReason reason)
 {
 	NotifyLoginRequested(static_cast<int>(reason));

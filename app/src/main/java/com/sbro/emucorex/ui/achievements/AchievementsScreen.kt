@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -34,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Speed
@@ -41,10 +43,10 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -60,6 +62,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,6 +71,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sbro.emucorex.R
@@ -75,6 +79,8 @@ import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.utils.RetroAchievementsLoginRequestReason
 import com.sbro.emucorex.core.utils.RetroAchievementsStateManager
 import com.sbro.emucorex.core.utils.RetroAchievementsUiState
+import com.sbro.emucorex.data.AppPreferences
+import com.sbro.emucorex.data.LibraryAchievementGame
 import com.sbro.emucorex.data.LibraryUnlockedAchievement
 import com.sbro.emucorex.data.RetroAchievementEntry
 import com.sbro.emucorex.data.RetroAchievementGameData
@@ -91,7 +97,8 @@ import java.io.File
 
 private data class HubContentState(
     val isLoading: Boolean = true,
-    val unlocked: List<LibraryUnlockedAchievement> = emptyList()
+    val unlocked: List<LibraryUnlockedAchievement> = emptyList(),
+    val games: List<LibraryAchievementGame> = emptyList()
 )
 
 private data class GameContentState(
@@ -118,24 +125,61 @@ fun AchievementsHubScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val repository = remember(context) { RetroAchievementsRepository(context) }
+    val preferences = remember(context) { AppPreferences(context) }
+    val uiScope = rememberCoroutineScope()
     val retroState by RetroAchievementsStateManager.state.collectAsState()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val horizontalSystemBarPadding = navigationBarsHorizontalPaddingValues()
     var username by rememberSaveable(retroState.storedUsername) { mutableStateOf(retroState.storedUsername.orEmpty()) }
-    var password by rememberSaveable { mutableStateOf("") }
-    val hubState by produceState(
-        initialValue = HubContentState(),
-        key1 = retroState.enabled,
-        key2 = retroState.user?.username
-    ) {
-        value = HubContentState(isLoading = true)
-        value = withContext(Dispatchers.IO) {
-            if (!retroState.enabled || retroState.user == null) {
-                HubContentState(isLoading = false)
+    val initialRememberPassword = remember(preferences) { preferences.getAchievementsRememberPasswordSync() }
+    var rememberPassword by rememberSaveable { mutableStateOf(initialRememberPassword) }
+    var password by rememberSaveable {
+        mutableStateOf(
+            if (initialRememberPassword) {
+                preferences.getAchievementsPasswordSync().orEmpty()
             } else {
+                ""
+            }
+        )
+    }
+    val hubState by produceState(
+        HubContentState(),
+        retroState.enabled,
+        retroState.user?.username,
+        retroState.game?.gameId,
+        retroState.game?.totalAchievements,
+        retroState.isLoading
+    ) {
+        if (!retroState.enabled || retroState.user == null) {
+            value = HubContentState(isLoading = false)
+        } else {
+            val cachedState = withContext(Dispatchers.IO) {
                 HubContentState(
                     isLoading = false,
-                    unlocked = runCatching { repository.peekCachedUnlockedAchievementsFromLibrary() }.getOrNull().orEmpty()
+                    unlocked = runCatching { repository.peekCachedUnlockedAchievementsFromLibrary() }.getOrNull().orEmpty(),
+                    games = runCatching {
+                        repository.peekCachedAchievementGamesFromLibrary(
+                            activeGameTitle = retroState.game?.title,
+                            activeGameId = retroState.game?.gameId
+                        )
+                    }.getOrNull().orEmpty()
+                )
+            }
+            value = if (cachedState.games.isNotEmpty() || cachedState.unlocked.isNotEmpty()) {
+                cachedState
+            } else {
+                HubContentState(isLoading = true)
+            }
+            value = withContext(Dispatchers.IO) {
+                HubContentState(
+                    isLoading = false,
+                    unlocked = runCatching { repository.peekCachedUnlockedAchievementsFromLibrary() }.getOrNull().orEmpty(),
+                    games = runCatching {
+                        repository.loadAchievementGamesFromLibrary(
+                            activeGameTitle = retroState.game?.title,
+                            activeGameId = retroState.game?.gameId
+                        )
+                    }.getOrNull().orEmpty()
                 )
             }
         }
@@ -150,7 +194,9 @@ fun AchievementsHubScreen(
         return
     }
 
-    val earnedGames = hubState.unlocked.map { it.gamePath }.distinct().size
+    val earnedGames = hubState.games.size
+    val totalGameAchievements = hubState.games.sumOf { it.gameData.totalCount }
+    val earnedGameAchievements = hubState.games.sumOf { it.gameData.earnedCount }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -163,13 +209,32 @@ fun AchievementsHubScreen(
         AchievementsTopBar(
             title = androidx.compose.ui.res.stringResource(R.string.achievements_title),
             subtitle = "",
-            onBackClick = onBackClick
+            onBackClick = onBackClick,
+            actions = {
+                if (retroState.user != null) {
+                    IconButton(onClick = { RetroAchievementsStateManager.refreshState() }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = androidx.compose.ui.res.stringResource(R.string.settings_ra_refresh),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    IconButton(onClick = { RetroAchievementsStateManager.logout() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.Logout,
+                            contentDescription = androidx.compose.ui.res.stringResource(R.string.settings_ra_logout),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
         )
         AchievementToggleCard(retroState = retroState)
         AchievementAccountCard(
             retroState = retroState,
             username = username,
             password = password,
+            rememberPassword = rememberPassword,
             onUsernameChange = {
                 username = it
                 if (retroState.errorMessage != null || retroState.loginRequestReason != null) {
@@ -182,20 +247,28 @@ fun AchievementsHubScreen(
                     RetroAchievementsStateManager.clearTransientState()
                 }
             },
+            onRememberPasswordChange = { remember ->
+                rememberPassword = remember
+                uiScope.launch {
+                    preferences.setAchievementsRememberPassword(remember)
+                }
+            },
             onLogin = {
-                RetroAchievementsStateManager.login(username, password)
-                password = ""
+                RetroAchievementsStateManager.login(username, password, rememberPassword)
+                if (!rememberPassword) {
+                    password = ""
+                }
             },
             onOpenUnlockedAchievements = if (retroState.user != null) onOpenUnlockedAchievements else null
         )
         SummaryRow(
             firstLabel = androidx.compose.ui.res.stringResource(R.string.achievements_earned_total),
-            firstValue = hubState.unlocked.size.toString(),
+            firstValue = if (totalGameAchievements > 0) "$earnedGameAchievements/$totalGameAchievements" else hubState.unlocked.size.toString(),
             secondLabel = androidx.compose.ui.res.stringResource(R.string.achievements_games_with_unlocks),
             secondValue = earnedGames.toString()
         )
         SectionTitle(
-            text = androidx.compose.ui.res.stringResource(R.string.achievements_unlocked_section),
+            text = androidx.compose.ui.res.stringResource(R.string.achievements_library_games_section),
             topPadding = 2.dp,
             bottomPadding = 0.dp
         )
@@ -206,18 +279,22 @@ fun AchievementsHubScreen(
             retroState.user == null -> {
                 NoticeCard(text = androidx.compose.ui.res.stringResource(R.string.achievements_login_to_sync), isError = false)
             }
-            hubState.unlocked.isEmpty() -> {
-                CompactHintRow(text = androidx.compose.ui.res.stringResource(R.string.achievements_unlocked_empty))
+            hubState.games.isEmpty() -> {
+                CompactHintRow(text = androidx.compose.ui.res.stringResource(R.string.achievements_library_games_empty))
             }
             else -> {
                 Column(
                     modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    hubState.unlocked.forEach { unlocked ->
-                        LibraryUnlockedCard(
-                            item = unlocked,
-                            onClick = { onOpenGameAchievements(unlocked.gamePath, unlocked.gameTitle) }
+                    hubState.games.forEach { game ->
+                        LibraryAchievementGameCard(
+                            item = game,
+                            onClick = {
+                                if (game.gamePath.isNotBlank()) {
+                                    onOpenGameAchievements(game.gamePath, game.gameTitle)
+                                }
+                            }
                         )
                     }
                 }
@@ -342,6 +419,9 @@ fun GameAchievementsScreen(
             GameContentState(
                 isLoading = false,
                 gameData = runCatching { repository.loadGameData(gamePath) }.getOrNull()
+                    ?: gameTitle?.let { title ->
+                        runCatching { repository.loadGameData(title) }.getOrNull()
+                    }
             )
         }
     }
@@ -451,7 +531,12 @@ fun GameAchievementsScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AchievementsTopBar(title: String, subtitle: String, onBackClick: () -> Unit) {
+private fun AchievementsTopBar(
+    title: String,
+    subtitle: String,
+    onBackClick: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
     val topInset = WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding()
     Row(
         modifier = Modifier
@@ -463,7 +548,11 @@ private fun AchievementsTopBar(title: String, subtitle: String, onBackClick: () 
             onClick = onBackClick,
             contentColor = MaterialTheme.colorScheme.onSurface
         )
-        Column(modifier = Modifier.padding(start = 12.dp)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp)
+        ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
@@ -479,6 +568,11 @@ private fun AchievementsTopBar(title: String, subtitle: String, onBackClick: () 
                 )
             }
         }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = actions
+        )
     }
 }
 
@@ -560,18 +654,13 @@ private fun AchievementAccountCard(
     retroState: RetroAchievementsUiState,
     username: String,
     password: String,
+    rememberPassword: Boolean,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
+    onRememberPasswordChange: (Boolean) -> Unit,
     onLogin: () -> Unit,
     onOpenUnlockedAchievements: (() -> Unit)? = null
 ) {
-    val gradientBrush = androidx.compose.ui.graphics.Brush.horizontalGradient(
-        colors = listOf(
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.05f)
-        )
-    )
-
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -585,7 +674,6 @@ private fun AchievementAccountCard(
     ) {
         Column(
             modifier = Modifier
-                .background(gradientBrush)
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -705,23 +793,6 @@ private fun AchievementAccountCard(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    ActionBadgeButton(
-                        modifier = Modifier.weight(1f),
-                        text = androidx.compose.ui.res.stringResource(R.string.settings_ra_refresh),
-                        icon = Icons.Rounded.Refresh,
-                        onClick = { RetroAchievementsStateManager.refreshState() }
-                    )
-                    ActionBadgeButton(
-                        modifier = Modifier.weight(1f),
-                        text = androidx.compose.ui.res.stringResource(R.string.settings_ra_logout),
-                        icon = Icons.Rounded.Logout,
-                        onClick = { RetroAchievementsStateManager.logout() }
-                    )
-                }
                 if (onOpenUnlockedAchievements != null) {
                     ActionBadgeButton(
                         modifier = Modifier.fillMaxWidth(),
@@ -772,24 +843,28 @@ private fun AchievementAccountCard(
                     )
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ActionBadgeButton(
-                        modifier = Modifier.weight(1f),
-                        text = androidx.compose.ui.res.stringResource(R.string.settings_ra_refresh),
-                        icon = Icons.Rounded.Refresh,
-                        onClick = { RetroAchievementsStateManager.refreshState() }
+                    Text(
+                        text = androidx.compose.ui.res.stringResource(R.string.settings_ra_remember_password),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    ActionBadgeButton(
-                        modifier = Modifier.weight(1f),
-                        text = androidx.compose.ui.res.stringResource(R.string.settings_ra_login),
-                        onClick = onLogin,
-                        enabled = username.isNotBlank() && password.isNotBlank() && !retroState.isAuthenticating,
-                        isLoading = retroState.isAuthenticating,
-                        isPrimary = true
+                    Switch(
+                        checked = rememberPassword,
+                        onCheckedChange = onRememberPasswordChange
                     )
                 }
+                ActionBadgeButton(
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                    text = androidx.compose.ui.res.stringResource(R.string.settings_ra_login),
+                    onClick = onLogin,
+                    enabled = username.isNotBlank() && password.isNotBlank() && !retroState.isAuthenticating,
+                    isLoading = retroState.isAuthenticating,
+                    isPrimary = true
+                )
             }
         }
     }
@@ -805,45 +880,41 @@ private fun ActionBadgeButton(
     isLoading: Boolean = false,
     isPrimary: Boolean = false
 ) {
-    val primaryGradient = androidx.compose.ui.graphics.Brush.horizontalGradient(
-        colors = listOf(
-            MaterialTheme.colorScheme.primary,
-            MaterialTheme.colorScheme.tertiary
-        )
-    )
-
     Surface(
-        modifier = modifier,
+        modifier = modifier.height(54.dp),
         shape = RoundedCornerShape(16.dp),
-        color = if (isPrimary) {
-            Color.Transparent
+        color = if (isPrimary && enabled) {
+            MaterialTheme.colorScheme.primary
+        } else if (isPrimary) {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
         } else if (enabled) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
         } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
         },
         tonalElevation = 0.dp,
-        shadowElevation = if (isPrimary && enabled) 4.dp else 0.dp,
+        shadowElevation = 0.dp,
         onClick = onClick,
         enabled = enabled && !isLoading
     ) {
-        val contentModifier = if (isPrimary && enabled) {
-            Modifier.background(primaryGradient).padding(horizontal = 16.dp, vertical = 12.dp)
-        } else {
-            Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-        }
-
         Box(
-            modifier = contentModifier,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
-                    color = if (isPrimary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                    color = if (isPrimary && enabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
                 )
             } else {
+                val contentColor = when {
+                    isPrimary && enabled -> MaterialTheme.colorScheme.onPrimary
+                    enabled -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -853,19 +924,13 @@ private fun ActionBadgeButton(
                             imageVector = icon,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
-                            tint = if (isPrimary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                            tint = contentColor
                         )
                     }
                     Text(
                         text = text,
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                        color = if (isPrimary) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else if (enabled) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        }
+                        color = contentColor
                     )
                 }
             }
@@ -1132,12 +1197,95 @@ private fun NoticeCard(text: String, isError: Boolean) {
 
 @Composable
 private fun CompactHintRow(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = ScreenHorizontalPadding)
-    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = ScreenHorizontalPadding, vertical = 22.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun LibraryAchievementGameCard(item: LibraryAchievementGame, onClick: () -> Unit) {
+    val imagePath = item.coverArtPath ?: item.gameData.gameImageUrl
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        ),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center
+            ) {
+                BitmapPathImage(
+                    imagePath = imagePath,
+                    contentDescription = item.gameTitle,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(18.dp)),
+                    fallback = {
+                        Icon(
+                            imageVector = Icons.Rounded.EmojiEvents,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = item.gameData.title.ifBlank { item.gameTitle },
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                item.serial?.takeIf { it.isNotBlank() }?.let { serial ->
+                    Text(
+                        text = serial,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MiniBadge(text = "${item.gameData.earnedCount}/${item.gameData.totalCount}")
+                    MiniBadge(text = "${item.gameData.earnedPoints}/${item.gameData.totalPoints} pts")
+                }
+            }
+            Icon(
+                imageVector = Icons.Rounded.EmojiEvents,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+    }
 }
 
 @Composable

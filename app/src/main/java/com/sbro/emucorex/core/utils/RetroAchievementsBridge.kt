@@ -1,15 +1,13 @@
 package com.sbro.emucorex.core.utils
 
-import android.util.Log
 import com.sbro.emucorex.core.NativeApp
 import com.sbro.emucorex.data.AppPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 object RetroAchievementsBridge {
-    private const val TAG = "RetroAchievementsBridge"
-
     @JvmStatic
     external fun nativeRequestState()
 
@@ -27,13 +25,12 @@ object RetroAchievementsBridge {
 
     @JvmStatic
     fun notifyLoginRequested(reason: Int) {
-        Log.d(TAG, "notifyLoginRequested reason=$reason")
         RetroAchievementsStateManager.onLoginRequested(reason)
     }
 
     @JvmStatic
     fun notifyLoginSuccess(username: String?, points: Int, scPoints: Int, unreadMessages: Int) {
-        Log.d(TAG, "notifyLoginSuccess user=$username")
+        RetroAchievementsLiveStateManager.onLoginSuccess(username, points, scPoints, unreadMessages)
         RetroAchievementsStateManager.onLoginSuccess(username, points, scPoints, unreadMessages)
     }
 
@@ -46,6 +43,30 @@ object RetroAchievementsBridge {
         gameId: Int, numAchievements: Int, earnedAchievements: Int, score: Int, scScore: Int,
         hardcoreMode: Boolean, leaderboardEnabled: Boolean, richPresenceEnabled: Boolean
     ) {
+        RetroAchievementsLiveStateManager.onStateChanged(
+            enabled = enabled,
+            haveUser = haveUser,
+            username = username,
+            displayName = displayName,
+            avatar = avatar,
+            points = points,
+            scPoints = scPoints,
+            unreadMessages = unreadMessages,
+            hardcorePreference = hardcorePreference,
+            hardcoreActive = hardcoreActive,
+            haveGame = haveGame,
+            gameTitle = gameTitle,
+            richPresence = richPresence,
+            iconPath = iconPath,
+            gameId = gameId,
+            numAchievements = numAchievements,
+            earnedAchievements = earnedAchievements,
+            score = score,
+            scScore = scScore,
+            hardcoreMode = hardcoreMode,
+            leaderboardEnabled = leaderboardEnabled,
+            richPresenceEnabled = richPresenceEnabled
+        )
         RetroAchievementsStateManager.onStateChanged(
             enabled = enabled,
             haveUser = haveUser,
@@ -74,20 +95,28 @@ object RetroAchievementsBridge {
 
     @JvmStatic
     fun notifyHardcoreModeChanged(enabled: Boolean) {
-        Log.d(TAG, "notifyHardcoreModeChanged enabled=$enabled")
+        RetroAchievementsLiveStateManager.onHardcoreModeChanged(enabled)
         RetroAchievementsStateManager.onHardcoreModeChanged(enabled)
     }
 
     @JvmStatic
     fun notifySettingsChanged(section: String, key: String, value: String) {
-        Log.d(TAG, "notifySettingsChanged section=$section, key=$key, value=${if (key == "Token") "********" else value}")
         val context = NativeApp.getContext() ?: return
         val prefs = AppPreferences(context)
-        CoroutineScope(Dispatchers.IO).launch {
-            if (section == "Achievements") {
+        if (section == "Achievements" && (key == "Username" || key == "Token" || key == "LoginTimestamp")) {
+            runBlocking(Dispatchers.IO) {
                 when (key) {
                     "Username" -> prefs.setAchievementsUsername(value.ifBlank { null })
                     "Token" -> prefs.setAchievementsToken(value.ifBlank { null })
+                    "LoginTimestamp" -> prefs.setAchievementsLoginTimestamp(value.ifBlank { null })
+                }
+            }
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            if (section == "Achievements") {
+                when (key) {
                     "Enabled" -> prefs.setAchievementsEnabled(value.toBoolean())
                     "ChallengeMode" -> prefs.setAchievementsHardcore(value.toBoolean())
                 }

@@ -5,6 +5,7 @@
 #include "common/FileSystem.h"
 #include "common/HostSys.h"
 #include "arm64/OaknutHelpers.h"
+#include "pcsx2/Achievements.h"
 
 #include <android/log.h>
 #include <android/native_window_jni.h>
@@ -287,10 +288,15 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_sbro_emucorex_core_NativeApp_ge
 {
 	return ReadSaveStateScreenshot(env, JStringToString(env, path));
 }
-extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getRetroAchievementGameData(JNIEnv*, jclass, jstring)
+extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getRetroAchievementGameData(JNIEnv* env, jclass, jstring)
 {
-	LogUnsupported("RetroAchievements game metadata");
-	return nullptr;
+	const std::string json = Achievements::GetActiveGameDataJSON();
+	return json.empty() ? nullptr : StringToJString(env, json);
+}
+extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getRetroAchievementsAccountData(JNIEnv* env, jclass)
+{
+	const std::string json = Achievements::GetAccountProgressJSON();
+	return json.empty() ? nullptr : StringToJString(env, json);
 }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_listMemoryCards(JNIEnv* env, jclass) { return StringToJString(env, AndroidRuntime::Instance().ListMemoryCards()); }
 extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_createMemoryCard(JNIEnv* env, jclass, jstring name, jint type, jint file_type) { return AndroidRuntime::Instance().CreateMemoryCard(JStringToString(env, name), type, file_type) ? JNI_TRUE : JNI_FALSE; }

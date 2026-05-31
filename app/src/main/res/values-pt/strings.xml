@@ -972,4 +972,7 @@
     <string name="emulation_auto_save_interval_label">A cada</string>
     <string name="emulation_auto_save_interval_suffix">min</string>
     <string name="emulation_play_time_badge">Tempo de jogo %1$s</string>
+    <string name="settings_ra_remember_password">Lembrar senha</string>
+    <string name="achievements_library_games_section">Jogos com conquistas</string>
+    <string name="achievements_library_games_empty">Ainda não há jogos com suporte a conquistas disponíveis na biblioteca verificada.</string>
 </resources>

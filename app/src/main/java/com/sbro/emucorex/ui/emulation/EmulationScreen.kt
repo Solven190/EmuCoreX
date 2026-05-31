@@ -140,7 +140,7 @@ import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.buildUpscaleOptions
 import com.sbro.emucorex.core.upscaleMultiplierValue
-import com.sbro.emucorex.core.utils.RetroAchievementsStateManager
+import com.sbro.emucorex.core.utils.RetroAchievementsLiveStateManager
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_SIMPLE
@@ -207,8 +207,6 @@ private data class OverlayAchievementsContentState(
     val isLoading: Boolean = false,
     val gameData: RetroAchievementGameData? = null
 )
-
-private const val RETRO_ACHIEVEMENTS_HUD_DURATION_MS = 6_000L
 
 private data class TouchButtonSpec(
     val id: String,
@@ -289,7 +287,7 @@ fun EmulationScreen(
     viewModel: EmulationViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val retroAchievementsState by RetroAchievementsStateManager.state.collectAsState()
+    val retroAchievementsState by RetroAchievementsLiveStateManager.state.collectAsState()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val preferences = remember(context) { AppPreferences(context) }
@@ -335,7 +333,6 @@ fun EmulationScreen(
     val gamepadConnected = connectedGamepadCount > 0
     val touchPadIndex = GamepadManager.resolveTouchPadIndex()
     var showGamepadIndicator by remember { mutableStateOf(gamepadConnected) }
-    var showRetroAchievementsHud by remember { mutableStateOf(false) }
 
     val shouldShowOverlay = uiState.controlsVisible && (
         touchPadIndex != null || !gamepadConnected || !uiState.hideOverlayOnGamepad
@@ -473,6 +470,20 @@ fun EmulationScreen(
             gsDumpFrames = gsDumpFrames,
             gsDumpDelayMs = gsDumpDelayMs
         )
+        RetroAchievementsLiveStateManager.refreshFromNative()
+    }
+
+    LaunchedEffect(
+        uiState.isRunning,
+        gamePath,
+        retroAchievementsState.enabled,
+        retroAchievementsState.user?.username
+    ) {
+        if (!uiState.isRunning || gamePath.isNullOrBlank() || !retroAchievementsState.enabled) {
+            return@LaunchedEffect
+        }
+        delay(800)
+        RetroAchievementsLiveStateManager.refreshFromNative()
     }
 
     LaunchedEffect(gamepadConnected, uiState.showMenu) {
@@ -492,25 +503,6 @@ fun EmulationScreen(
             delay(2200)
             showOverlayShortcut = false
         }
-    }
-
-    LaunchedEffect(
-        uiState.showMenu,
-        retroAchievementsState.enabled,
-        retroAchievementsState.hardcoreActive,
-        retroAchievementsState.game?.gameId,
-        retroAchievementsState.game?.earnedAchievements,
-        retroAchievementsState.game?.totalAchievements,
-        retroAchievementsState.game?.earnedPoints,
-        retroAchievementsState.game?.totalPoints
-    ) {
-        if (uiState.showMenu || !retroAchievementsState.enabled || retroAchievementsState.game == null) {
-            showRetroAchievementsHud = false
-            return@LaunchedEffect
-        }
-        showRetroAchievementsHud = true
-        delay(RETRO_ACHIEVEMENTS_HUD_DURATION_MS)
-        showRetroAchievementsHud = false
     }
 
     LaunchedEffect(showControlsEditor) {
@@ -644,27 +636,6 @@ fun EmulationScreen(
                             contentDescription = stringResource(R.string.gamepad_connected),
                             tint = Color(0xFF50D9A0),
                             modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-
-                AnimatedVisibility(
-                    visible = retroAchievementsState.enabled &&
-                        retroAchievementsState.game != null &&
-                        showRetroAchievementsHud &&
-                        !uiState.showMenu,
-                    enter = fadeIn(tween(220)),
-                    exit = fadeOut(tween(180))
-                ) {
-                    retroAchievementsState.game?.let { game ->
-                        RetroAchievementsHudCard(
-                            title = game.title,
-                            richPresence = game.richPresence,
-                            earnedAchievements = game.earnedAchievements,
-                            totalAchievements = game.totalAchievements,
-                            earnedPoints = game.earnedPoints,
-                            totalPoints = game.totalPoints,
-                            hardcoreActive = retroAchievementsState.hardcoreActive
                         )
                     }
                 }
@@ -1334,64 +1305,6 @@ fun EmulationScreen(
     }
 }
 
-@Composable
-private fun RetroAchievementsHudCard(
-    title: String,
-    richPresence: String?,
-    earnedAchievements: Int,
-    totalAchievements: Int,
-    earnedPoints: Int,
-    totalPoints: Int,
-    hardcoreActive: Boolean
-) {
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF14181F).copy(alpha = 0.86f))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Star,
-                contentDescription = null,
-                tint = Color(0xFFFFD166),
-                modifier = Modifier.size(14.dp)
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = Color.White,
-                maxLines = 1
-            )
-            if (hardcoreActive) {
-                Text(
-                    text = stringResource(R.string.settings_ra_hardcore_badge),
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFFFFD166)
-                )
-            }
-        }
-        richPresence?.takeIf { it.isNotBlank() }?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.78f),
-                maxLines = 1
-            )
-        }
-        Text(
-            text = "$earnedAchievements/$totalAchievements ${stringResource(R.string.settings_ra_achievements_label)}  •  $earnedPoints/$totalPoints ${stringResource(R.string.settings_ra_points_label)}",
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.88f),
-            maxLines = 1
-        )
-    }
-}
-
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 private fun OnScreenControls(
@@ -1721,7 +1634,7 @@ private fun EmulationSidebarMenu(
     uiState: EmulationUiState,
     gamepadConnected: Boolean,
     currentGamePath: String?,
-    retroState: com.sbro.emucorex.core.utils.RetroAchievementsUiState,
+    retroState: com.sbro.emucorex.core.utils.RetroAchievementsLiveUiState,
     globalDefaults: SettingsSnapshot,
     overlayDefaults: OverlayLayoutSnapshot,
     onClose: () -> Unit,
@@ -3124,7 +3037,7 @@ private fun EmulationSidebarMenu(
 private fun OverlayAchievementsPane(
     gamePath: String?,
     currentGameTitle: String,
-    retroState: com.sbro.emucorex.core.utils.RetroAchievementsUiState
+    retroState: com.sbro.emucorex.core.utils.RetroAchievementsLiveUiState
 ) {
     val context = LocalContext.current
     val repository = remember(context) { RetroAchievementsRepository(context) }
@@ -3145,7 +3058,7 @@ private fun OverlayAchievementsPane(
         value = withContext(Dispatchers.IO) {
             OverlayAchievementsContentState(
                 isLoading = false,
-                gameData = runCatching { repository.loadGameData(gamePath) }.getOrNull()
+                gameData = runCatching { repository.loadActiveGameData() }.getOrNull()
             )
         }
     }

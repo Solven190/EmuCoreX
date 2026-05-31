@@ -972,4 +972,7 @@
     <string name="emulation_auto_save_interval_label">Кожні</string>
     <string name="emulation_auto_save_interval_suffix">хв</string>
     <string name="emulation_play_time_badge">Час у грі %1$s</string>
+    <string name="settings_ra_remember_password">Запам\'ятати пароль</string>
+    <string name="achievements_library_games_section">Ігри з досягненнями</string>
+    <string name="achievements_library_games_empty">У відсканованій бібліотеці поки немає ігор з підтримкою досягнень.</string>
 </resources>

@@ -341,6 +341,11 @@ class AppPreferences(private val context: Context) {
         private val ACHIEVEMENTS_HARDCORE = booleanPreferencesKey("achievements_hardcore")
         private val ACHIEVEMENTS_USERNAME = stringPreferencesKey("achievements_username")
         private val ACHIEVEMENTS_TOKEN = stringPreferencesKey("achievements_token")
+        private val ACHIEVEMENTS_LOGIN_TIMESTAMP = stringPreferencesKey("achievements_login_timestamp")
+        private val ACHIEVEMENTS_AVATAR_PATH = stringPreferencesKey("achievements_avatar_path")
+        private val ACHIEVEMENTS_REMEMBER_PASSWORD = booleanPreferencesKey("achievements_remember_password")
+        private val ACHIEVEMENTS_PASSWORD = stringPreferencesKey("achievements_password")
+        private val ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON = stringPreferencesKey("achievements_account_progress_json")
     }
 
     // Theme
@@ -2134,6 +2139,43 @@ class AppPreferences(private val context: Context) {
         }
     }
 
+    suspend fun setAchievementsLoginTimestamp(timestamp: String?) {
+        context.dataStore.edit { prefs ->
+            if (timestamp == null) prefs.remove(ACHIEVEMENTS_LOGIN_TIMESTAMP)
+            else prefs[ACHIEVEMENTS_LOGIN_TIMESTAMP] = timestamp
+        }
+    }
+
+    suspend fun setAchievementsAvatarPath(avatarPath: String?) {
+        context.dataStore.edit { prefs ->
+            if (avatarPath.isNullOrBlank()) prefs.remove(ACHIEVEMENTS_AVATAR_PATH)
+            else prefs[ACHIEVEMENTS_AVATAR_PATH] = avatarPath
+        }
+    }
+
+    suspend fun setAchievementsRememberPassword(remember: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[ACHIEVEMENTS_REMEMBER_PASSWORD] = remember
+            if (!remember) {
+                prefs.remove(ACHIEVEMENTS_PASSWORD)
+            }
+        }
+    }
+
+    suspend fun setAchievementsPassword(password: String?) {
+        context.dataStore.edit { prefs ->
+            if (password == null) prefs.remove(ACHIEVEMENTS_PASSWORD)
+            else prefs[ACHIEVEMENTS_PASSWORD] = password
+        }
+    }
+
+    suspend fun setAchievementsAccountProgressJson(json: String?) {
+        context.dataStore.edit { prefs ->
+            if (json.isNullOrBlank()) prefs.remove(ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON)
+            else prefs[ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON] = json
+        }
+    }
+
     fun getAchievementsEnabledSync(): Boolean {
         return kotlinx.coroutines.runBlocking {
             context.dataStore.data.map { it[ACHIEVEMENTS_ENABLED] ?: false }.first()
@@ -2156,6 +2198,28 @@ class AppPreferences(private val context: Context) {
         return kotlinx.coroutines.runBlocking {
             context.dataStore.data.map { it[ACHIEVEMENTS_TOKEN] }.first()
         }
+    }
+
+    fun getAchievementsAvatarPathSync(): String? {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_AVATAR_PATH] }.first()
+        }
+    }
+
+    fun getAchievementsRememberPasswordSync(): Boolean {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_REMEMBER_PASSWORD] ?: false }.first()
+        }
+    }
+
+    fun getAchievementsPasswordSync(): String? {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_PASSWORD] }.first()
+        }
+    }
+
+    suspend fun getAchievementsAccountProgressJson(): String? {
+        return context.dataStore.data.map { it[ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON] }.first()
     }
 
     private fun JSONObject.readUpscaleMultiplier(): Float {

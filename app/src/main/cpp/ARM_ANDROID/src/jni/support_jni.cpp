@@ -199,7 +199,9 @@ void NotifySettingsChanged(const char* section, const char* key, const char* val
 
 void QueryAndNotifyAchievementsState()
 {
-	bool enabled = (Host::Internal::GetBaseSettingsLayer() != nullptr) ? Achievements::IsActive() : EmuConfig.Achievements.Enabled;
+	bool enabled = EmuConfig.Achievements.Enabled;
+	if (Host::Internal::GetBaseSettingsLayer() != nullptr)
+		enabled = Host::GetBaseBoolSettingValue("Achievements", "Enabled", enabled);
 	const char* username = Achievements::GetLoggedInUserName();
 	bool have_user = username != nullptr;
 	const char* display_name = Achievements::GetLoggedInUserDisplayName();
@@ -286,6 +288,15 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchieve
 	{
 		Host::SetBaseBoolSettingValue("Achievements", "Enabled", enabled == JNI_TRUE);
 		Host::CommitBaseSettingChanges();
+	}
+	if (enabled == JNI_TRUE)
+	{
+		if (!Achievements::IsActive())
+			Achievements::Initialize();
+	}
+	else if (Achievements::IsActive())
+	{
+		Achievements::Shutdown(false);
 	}
 	QueryAndNotifyAchievementsState();
 }

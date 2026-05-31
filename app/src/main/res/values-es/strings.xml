@@ -972,4 +972,7 @@
     <string name="emulation_auto_save_interval_label">Cada</string>
     <string name="emulation_auto_save_interval_suffix">min</string>
     <string name="emulation_play_time_badge">Tiempo de juego %1$s</string>
+    <string name="settings_ra_remember_password">Recordar contraseña</string>
+    <string name="achievements_library_games_section">Juegos con logros</string>
+    <string name="achievements_library_games_empty">Aún no hay juegos con logros disponibles en la biblioteca escaneada.</string>
 </resources>

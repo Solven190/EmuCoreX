@@ -34,10 +34,12 @@
 #include "IconsPromptFont.h"
 #include "fmt/format.h"
 #include "rc_client.h"
+#include "rc_consoles.h"
 
 #include <algorithm>
 #include <array>
 #include <cstdarg>
+#include <cstdio>
 #include <cstdlib>
 #include <functional>
 #include <limits>
@@ -89,6 +91,19 @@ namespace Achievements
 			rc_client_async_handle_t* request;
 			bool result;
 		};
+
+		struct FetchAllUserProgressParameters
+		{
+			rc_client_async_handle_t* request = nullptr;
+			rc_client_all_user_progress_t* list = nullptr;
+		};
+
+		struct FetchGameTitlesParameters
+		{
+			rc_client_async_handle_t* request = nullptr;
+			rc_client_game_title_list_t* list = nullptr;
+		};
+
 		struct LeaderboardTrackerIndicator
 		{
 			u32 tracker_id;
@@ -169,6 +184,10 @@ namespace Achievements
 	static void ClientLoginWithTokenCallback(int result, const char* error_message, rc_client_t* client, void* userdata);
 	static void ClientLoginWithPasswordCallback(int result, const char* error_message, rc_client_t* client, void* userdata);
 	static void ClientLoadGameCallback(int result, const char* error_message, rc_client_t* client, void* userdata);
+	static void ClientFetchAllUserProgressCallback(
+		int result, const char* error_message, rc_client_all_user_progress_t* list, rc_client_t* client, void* userdata);
+	static void ClientFetchGameTitlesCallback(
+		int result, const char* error_message, rc_client_game_title_list_t* list, rc_client_t* client, void* userdata);
 
 	static void DisplayHardcoreDeferredMessage();
 	static void DisplayAchievementSummary();
@@ -179,6 +198,10 @@ namespace Achievements
 	static std::string GetSubsetBadgePath(const rc_client_subset_t* subset);
 	static std::string GetUserBadgePath(const std::string_view username);
 	static std::string GetLeaderboardUserBadgePath(const rc_client_leaderboard_entry_t* entry);
+	static void AppendJSONString(std::string& out, const char* value);
+	static void AppendJSONString(std::string& out, const std::string& value);
+	static void AppendAccountProgressJSON(std::string& out, const rc_client_all_user_progress_t* progress,
+		const rc_client_game_title_list_t* titles);
 
 	static void DrawAchievement(const rc_client_achievement_t* cheevo);
 	static void DrawLeaderboardListEntry(const rc_client_leaderboard_t* lboard);
@@ -432,6 +455,12 @@ bool Achievements::Initialize()
 
 	auto lock = GetLock();
 	pxAssertRel(EmuConfig.Achievements.Enabled, "Achievements are enabled");
+	if (s_client && s_http_downloader)
+	{
+		if (VMManager::HasValidVM())
+			IdentifyGame(VMManager::GetDiscCRC(), VMManager::GetCurrentCRC());
+		return true;
+	}
 	pxAssertRel(!s_client && !s_http_downloader, "No client and downloader");
 
 	if (!CreateClient(&s_client, &s_http_downloader))
@@ -451,23 +480,30 @@ bool Achievements::Initialize()
 	if (VMManager::HasValidVM())
 		IdentifyGame(VMManager::GetDiscCRC(), VMManager::GetCurrentCRC());
 
-	const std::string username = Host::GetBaseStringSettingValue("Achievements", "Username");
+	const bool has_base_settings = (Host::Internal::GetBaseSettingsLayer() != nullptr);
+	const std::string username = has_base_settings ? Host::GetBaseStringSettingValue("Achievements", "Username") : std::string();
 
 	// Check the base settings file to see if the token is defined inside. Move if found.
-	std::string oldToken = Host::GetBaseStringSettingValue("Achievements", "Token");
+	std::string oldToken = has_base_settings ? Host::GetBaseStringSettingValue("Achievements", "Token") : std::string();
 	if (!oldToken.empty())
 	{
 		auto secretsLock = Host::GetSecretsSettingsLock();
 		SettingsInterface* secretsInterface = Host::Internal::GetSecretsSettingsLayer();
-		secretsInterface->SetStringValue("Achievements", "Token", oldToken.c_str());
-		secretsInterface->Save();
+		if (secretsInterface)
+		{
+			secretsInterface->SetStringValue("Achievements", "Token", oldToken.c_str());
+			secretsInterface->Save();
 
-		oldToken.clear();
+			oldToken.clear();
 
-		auto baseLock = Host::GetSettingsLock();
-		SettingsInterface* baseInterface = Host::Internal::GetBaseSettingsLayer();
-		baseInterface->DeleteValue("Achievements", "Token");
-		baseInterface->Save();
+			auto baseLock = Host::GetSettingsLock();
+			SettingsInterface* baseInterface = Host::Internal::GetBaseSettingsLayer();
+			if (baseInterface)
+			{
+				baseInterface->DeleteValue("Achievements", "Token");
+				baseInterface->Save();
+			}
+		}
 	}
 
 	const std::string api_token = Host::GetStringSettingValue("Achievements", "Token");
@@ -521,7 +557,9 @@ bool Achievements::CreateClient(rc_client_t** client, std::unique_ptr<HTTPDownlo
 
 	rc_client_set_userdata(new_client, http->get());
 
-	const std::string custom_host = Host::GetBaseStringSettingValue("Achievements", "Host", "");
+	const std::string custom_host = (Host::Internal::GetBaseSettingsLayer() != nullptr) ?
+		Host::GetBaseStringSettingValue("Achievements", "Host", "") :
+		std::string();
 	if (!custom_host.empty())
 	{
 		Console.WriteLn("Achievements: Using custom host %s", custom_host.c_str());
@@ -745,6 +783,8 @@ uint32_t Achievements::ClientReadMemory(uint32_t address, uint8_t* buffer, uint3
 void Achievements::ClientServerCall(
 	const rc_api_request_t* request, rc_client_server_callback_t callback, void* callback_data, rc_client_t* client)
 {
+	const char* request_url = request->url ? request->url : "";
+
 	HTTPDownloader::Request::Callback hd_callback = [callback, callback_data](s32 status_code, const std::string& content_type, HTTPDownloader::Request::Data data)
 	{
 		rc_api_server_response_t rr;
@@ -765,11 +805,11 @@ void Achievements::ClientServerCall(
 	{
 		// const auto pd = std::string_view(request->post_data);
 		// Console.WriteLn(fmt::format("Server POST: {}", pd.substr(0, std::min<size_t>(pd.length(), 10))).c_str());
-		http->CreatePostRequest(request->url, request->post_data, std::move(hd_callback));
+		http->CreatePostRequest(request_url, request->post_data, std::move(hd_callback));
 	}
 	else
 	{
-		http->CreateRequest(request->url, std::move(hd_callback));
+		http->CreateRequest(request_url, std::move(hd_callback));
 	}
 }
 
@@ -1751,6 +1791,255 @@ std::string Achievements::GetAchievementBadgePath(const rc_client_achievement_t*
 	return path;
 }
 
+void Achievements::AppendJSONString(std::string& out, const char* value)
+{
+	out.push_back('"');
+
+	if (value)
+	{
+		for (const unsigned char ch : std::string_view(value))
+		{
+			switch (ch)
+			{
+				case '"':
+					out.append("\\\"");
+					break;
+				case '\\':
+					out.append("\\\\");
+					break;
+				case '\b':
+					out.append("\\b");
+					break;
+				case '\f':
+					out.append("\\f");
+					break;
+				case '\n':
+					out.append("\\n");
+					break;
+				case '\r':
+					out.append("\\r");
+					break;
+				case '\t':
+					out.append("\\t");
+					break;
+				default:
+				{
+					if (ch < 0x20)
+					{
+						char escaped[7];
+						std::snprintf(escaped, sizeof(escaped), "\\u%04x", ch);
+						out.append(escaped);
+					}
+					else
+					{
+						out.push_back(static_cast<char>(ch));
+					}
+					break;
+				}
+			}
+		}
+	}
+
+	out.push_back('"');
+}
+
+void Achievements::AppendJSONString(std::string& out, const std::string& value)
+{
+	AppendJSONString(out, value.c_str());
+}
+
+std::string Achievements::GetActiveGameDataJSON()
+{
+	auto lock = GetLock();
+	if (!s_client || s_game_id == 0)
+		return {};
+
+	std::string out;
+	out.reserve(8192);
+	out.append("{\"gameId\":");
+	out.append(std::to_string(s_game_id));
+	out.append(",\"title\":");
+	AppendJSONString(out, s_game_title);
+	out.append(",\"gameImageUrl\":");
+	AppendJSONString(out, s_game_icon.empty() ? s_game_icon_url : s_game_icon);
+	out.append(",\"resolvedOnly\":false,\"achievements\":[");
+
+	rc_client_achievement_list_t* list = rc_client_create_achievement_list(
+		s_client,
+		RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL,
+		RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_LOCK_STATE);
+
+	bool first = true;
+	if (list)
+	{
+		for (u32 bucket_index = 0; bucket_index < list->num_buckets; bucket_index++)
+		{
+			const rc_client_achievement_bucket_t& bucket = list->buckets[bucket_index];
+			for (u32 achievement_index = 0; achievement_index < bucket.num_achievements; achievement_index++)
+			{
+				const rc_client_achievement_t* achievement = bucket.achievements[achievement_index];
+				if (!achievement)
+					continue;
+
+				const bool earned_softcore = (achievement->unlocked & RC_CLIENT_ACHIEVEMENT_UNLOCKED_SOFTCORE) != 0;
+				const bool earned_hardcore = (achievement->unlocked & RC_CLIENT_ACHIEVEMENT_UNLOCKED_HARDCORE) != 0;
+				const std::string badge_path = GetAchievementBadgePath(achievement, RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED);
+				const std::string locked_badge_path = GetAchievementBadgePath(achievement, RC_CLIENT_ACHIEVEMENT_STATE_ACTIVE);
+
+				if (!first)
+					out.push_back(',');
+				first = false;
+
+				out.append("{\"id\":");
+				out.append(std::to_string(achievement->id));
+				out.append(",\"title\":");
+				AppendJSONString(out, achievement->title);
+				out.append(",\"description\":");
+				AppendJSONString(out, achievement->description);
+				out.append(",\"points\":");
+				out.append(std::to_string(achievement->points));
+				out.append(",\"category\":");
+				out.append(std::to_string(achievement->category));
+				out.append(",\"type\":");
+				out.append(std::to_string(achievement->type));
+				out.append(",\"rarity\":");
+				out.append(fmt::format("{}", achievement->rarity));
+				out.append(",\"rarityHardcore\":");
+				out.append(fmt::format("{}", achievement->rarity_hardcore));
+				out.append(",\"earnedSoftcore\":");
+				out.append(earned_softcore ? "true" : "false");
+				out.append(",\"earnedHardcore\":");
+				out.append(earned_hardcore ? "true" : "false");
+				out.append(",\"badgeUrl\":");
+				AppendJSONString(out, badge_path.empty() ? (achievement->badge_url ? achievement->badge_url : "") : badge_path);
+				out.append(",\"badgeLockedUrl\":");
+				AppendJSONString(out, locked_badge_path.empty() ? (achievement->badge_locked_url ? achievement->badge_locked_url : "") : locked_badge_path);
+				out.push_back('}');
+			}
+		}
+
+		rc_client_destroy_achievement_list(list);
+	}
+
+	out.append("]}");
+	return out;
+}
+
+void Achievements::ClientFetchAllUserProgressCallback(
+	int result, const char* error_message, rc_client_all_user_progress_t* list, rc_client_t* client, void* userdata)
+{
+	pxAssert(userdata);
+
+	FetchAllUserProgressParameters* params = static_cast<FetchAllUserProgressParameters*>(userdata);
+	params->request = nullptr;
+	if (result == RC_OK)
+		params->list = list;
+	else
+		ReportRCError(result, "rc_client_begin_fetch_all_user_progress() failed: {}", error_message ? error_message : "");
+}
+
+void Achievements::ClientFetchGameTitlesCallback(
+	int result, const char* error_message, rc_client_game_title_list_t* list, rc_client_t* client, void* userdata)
+{
+	pxAssert(userdata);
+
+	FetchGameTitlesParameters* params = static_cast<FetchGameTitlesParameters*>(userdata);
+	params->request = nullptr;
+	if (result == RC_OK)
+		params->list = list;
+	else
+		ReportRCError(result, "rc_client_begin_fetch_game_titles() failed: {}", error_message ? error_message : "");
+}
+
+void Achievements::AppendAccountProgressJSON(
+	std::string& out, const rc_client_all_user_progress_t* progress, const rc_client_game_title_list_t* titles)
+{
+	out.append("{\"games\":[");
+	if (!progress)
+	{
+		out.append("]}");
+		return;
+	}
+
+	bool first = true;
+	for (u32 i = 0; i < progress->num_entries; i++)
+	{
+		const rc_client_all_user_progress_entry_t& progress_entry = progress->entries[i];
+		const rc_client_game_title_entry_t* title_entry = nullptr;
+		if (titles)
+		{
+			for (u32 title_index = 0; title_index < titles->num_entries; title_index++)
+			{
+				if (titles->entries[title_index].game_id == progress_entry.game_id)
+				{
+					title_entry = &titles->entries[title_index];
+					break;
+				}
+			}
+		}
+
+		if (!first)
+			out.push_back(',');
+		first = false;
+
+		out.append("{\"gameId\":");
+		out.append(std::to_string(progress_entry.game_id));
+		out.append(",\"title\":");
+		AppendJSONString(out, title_entry && title_entry->title ? title_entry->title : "");
+		out.append(",\"gameImageUrl\":");
+		AppendJSONString(out, title_entry && title_entry->badge_url ? title_entry->badge_url : "");
+		out.append(",\"earnedAchievements\":");
+		out.append(std::to_string(progress_entry.num_unlocked_achievements));
+		out.append(",\"earnedHardcoreAchievements\":");
+		out.append(std::to_string(progress_entry.num_unlocked_achievements_hardcore));
+		out.append(",\"totalAchievements\":");
+		out.append(std::to_string(progress_entry.num_achievements));
+		out.push_back('}');
+	}
+
+	out.append("]}");
+}
+
+std::string Achievements::GetAccountProgressJSON()
+{
+	auto lock = GetLock();
+	if (!s_client || !s_http_downloader || !rc_client_get_user_info(s_client))
+		return {};
+
+	FetchAllUserProgressParameters progress_params;
+	progress_params.request = rc_client_begin_fetch_all_user_progress(
+		s_client, RC_CONSOLE_PLAYSTATION_2, ClientFetchAllUserProgressCallback, &progress_params);
+	if (!progress_params.request)
+		return {};
+
+	s_http_downloader->WaitForAllRequests();
+	if (!progress_params.list)
+		return {};
+
+	std::vector<u32> game_ids;
+	game_ids.reserve(progress_params.list->num_entries);
+	for (u32 i = 0; i < progress_params.list->num_entries; i++)
+		game_ids.push_back(progress_params.list->entries[i].game_id);
+
+	FetchGameTitlesParameters titles_params;
+	if (!game_ids.empty())
+	{
+		titles_params.request = rc_client_begin_fetch_game_titles(
+			s_client, game_ids.data(), static_cast<u32>(game_ids.size()), ClientFetchGameTitlesCallback, &titles_params);
+		if (titles_params.request)
+			s_http_downloader->WaitForAllRequests();
+	}
+
+	std::string out;
+	out.reserve(2048 + (progress_params.list->num_entries * 192));
+	AppendAccountProgressJSON(out, progress_params.list, titles_params.list);
+
+	if (titles_params.list)
+		rc_client_destroy_game_title_list(titles_params.list);
+	rc_client_destroy_all_user_progress(progress_params.list);
+	return out;
+}
+
 std::string Achievements::GetUserBadgePath(const std::string_view username)
 {
 	// definitely want to sanitize usernames... :)
@@ -1963,9 +2252,17 @@ std::string Achievements::GetLoggedInUserBadgePath()
 		char url[URL_BUFFER_SIZE];
 		const int res = rc_client_user_get_image_url(user, url, std::size(url));
 		if (res == RC_OK)
+		{
 			DownloadImage(url, badge_path);
+			if (!FileSystem::FileExists(badge_path.c_str()))
+				return url;
+		}
 		else
+		{
 			ReportRCError(res, "rc_client_user_get_image_url() failed: ");
+			if (user->avatar_url && user->avatar_url[0])
+				return user->avatar_url;
+		}
 	}
 
 	return badge_path;

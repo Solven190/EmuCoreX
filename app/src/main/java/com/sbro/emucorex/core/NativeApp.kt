@@ -92,6 +92,7 @@ object NativeApp {
     @JvmStatic external fun getSaveStatePathForFile(path: String, slot: Int): String?
     @JvmStatic external fun getSaveStateScreenshot(path: String): ByteArray?
     @JvmStatic external fun getRetroAchievementGameData(path: String): String?
+    @JvmStatic external fun getRetroAchievementsAccountData(): String?
     @JvmStatic external fun listMemoryCards(): String?
     @JvmStatic external fun createMemoryCard(name: String, type: Int, fileType: Int): Boolean
     @JvmStatic external fun convertIsoToChd(inputIsoPath: String): Int

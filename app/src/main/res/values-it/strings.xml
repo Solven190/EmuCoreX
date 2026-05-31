@@ -970,4 +970,7 @@
     <string name="emulation_auto_save_interval_label">Ogni</string>
     <string name="emulation_auto_save_interval_suffix">min</string>
     <string name="emulation_play_time_badge">Tempo di gioco %1$s</string>
+    <string name="settings_ra_remember_password">Ricorda password</string>
+    <string name="achievements_library_games_section">Giochi con obiettivi</string>
+    <string name="achievements_library_games_empty">Non ci sono ancora giochi con obiettivi disponibili nella libreria scansionata.</string>
 </resources>

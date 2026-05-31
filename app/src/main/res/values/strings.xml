@@ -252,6 +252,7 @@
     <string name="settings_ra_current_game">Current Game</string>
     <string name="settings_ra_username">Username</string>
     <string name="settings_ra_password">Password</string>
+    <string name="settings_ra_remember_password">Remember password</string>
     <string name="settings_ra_login">Sign In</string>
     <string name="settings_ra_logout">Sign Out</string>
     <string name="settings_ra_refresh">Refresh</string>
@@ -272,6 +273,8 @@
     <string name="achievements_earned_total">Unlocked</string>
     <string name="achievements_games_with_unlocks">Games</string>
     <string name="achievements_unlocked_section">Unlocked in your library</string>
+    <string name="achievements_library_games_section">Games with achievements</string>
+    <string name="achievements_library_games_empty">No achievement-supported games are available in the scanned library yet.</string>
     <string name="achievements_login_to_sync">Sign in to RetroAchievements to load your unlocked achievements across the library.</string>
     <string name="achievements_unlocked_empty">No unlocked achievements found in the scanned library yet.</string>
     <string name="achievements_open_all_unlocked">All unlocked</string>

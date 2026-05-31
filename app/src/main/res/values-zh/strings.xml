@@ -972,4 +972,7 @@
     <string name="emulation_auto_save_interval_label">每</string>
     <string name="emulation_auto_save_interval_suffix">分钟</string>
     <string name="emulation_play_time_badge">游戏时长 %1$s</string>
+    <string name="settings_ra_remember_password">记住密码</string>
+    <string name="achievements_library_games_section">包含成就的游戏</string>
+    <string name="achievements_library_games_empty">扫描的库中暂无支持成就的游戏。</string>
 </resources>

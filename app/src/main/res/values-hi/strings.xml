@@ -970,4 +970,7 @@
     <string name="emulation_auto_save_interval_label">हर</string>
     <string name="emulation_auto_save_interval_suffix">मिनट</string>
     <string name="emulation_play_time_badge">खेलने का समय %1$s</string>
+    <string name="settings_ra_remember_password">पासवर्ड याद रखें</string>
+    <string name="achievements_library_games_section">उपलब्धियों वाले गेम</string>
+    <string name="achievements_library_games_empty">स्कैन की गई लाइब्रेरी में अभी तक उपलब्धियों का समर्थन करने वाले कोई गेम उपलब्ध नहीं हैं।</string>
 </resources>

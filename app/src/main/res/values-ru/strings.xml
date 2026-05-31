@@ -972,4 +972,7 @@
     <string name="emulation_auto_save_interval_label">Каждые</string>
     <string name="emulation_auto_save_interval_suffix">мин</string>
     <string name="emulation_play_time_badge">Время в игре %1$s</string>
+    <string name="settings_ra_remember_password">Запомнить пароль</string>
+    <string name="achievements_library_games_section">Игры с достижениями</string>
+    <string name="achievements_library_games_empty">В отсканированной библиотеке пока нет игр с поддержкой достижений.</string>
 </resources>
