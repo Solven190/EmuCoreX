@@ -316,7 +316,7 @@
     <string name="settings_enable_cheats_desc">Permite al núcleo cargar trucos activos desde archivos pnach.</string>
     <string name="settings_cheats_import_title">Importar archivo de trucos</string>
     <string name="settings_cheats_import_desc">Añade un archivo .pnach y adminístralo directamente en la aplicación.</string>
-    <string name="settings_cheats_note">Consejo: nombra los archivos de trucos por el serial del juego o el serial más el CRC para una mejor compatibilidad en el juego.</string>
+    <string name="settings_cheats_note">Consejo: usa archivos .pnach nombrados por CRC, serial + CRC, serial o título del juego. Los trucos importados se activan automáticamente y se pueden cambiar desde el menú del juego.</string>
     <string name="settings_cheats_files_title">Archivos de trucos importados</string>
     <string name="settings_cheats_empty_title">Aún no hay archivos de trucos</string>
     <string name="settings_cheats_empty">Aún no se han importado archivos de trucos.</string>

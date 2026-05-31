@@ -509,7 +509,7 @@
     <string name="settings_enable_cheats_desc">कोर को pnach फ़ाइलों से सक्रिय चीट्स लोड करने की अनुमति देता है।</string>
     <string name="settings_cheats_import_title">चीट फ़ाइल आयात (Import) करें</string>
     <string name="settings_cheats_import_desc">एक .pnach फ़ाइल जोड़ें और इसे सीधे ऐप में प्रबंधित करें।</string>
-    <string name="settings_cheats_note">सुझाव: गेम में सर्वश्रेष्ठ मिलान के लिए चीट फ़ाइलों को गेम सीरियल या सीरियल प्लस CRC द्वारा नाम दें।</string>
+    <string name="settings_cheats_note">सुझाव: .pnach फ़ाइलों को CRC, serial + CRC, serial या गेम शीर्षक से नाम दें। आयात किए गए चीट अपने आप सक्षम होते हैं और इन्हें इन-गेम मेनू में बदला जा सकता है।</string>
     <string name="settings_cheats_files_title">आयातित चीट फ़ाइलें</string>
     <string name="settings_cheats_empty_title">अभी तक कोई चीट फ़ाइल नहीं</string>
     <string name="settings_cheats_empty">अभी तक कोई चीट फ़ाइल आयात नहीं की गई है।</string>

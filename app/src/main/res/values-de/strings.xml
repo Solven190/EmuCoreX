@@ -316,7 +316,7 @@
     <string name="settings_enable_cheats_desc">Erlaubt dem Kern, aktive Cheats aus pnach-Dateien zu laden.</string>
     <string name="settings_cheats_import_title">Cheat-Datei importieren</string>
     <string name="settings_cheats_import_desc">Füge eine .pnach-Datei hinzu und verwalte sie direkt in der App.</string>
-    <string name="settings_cheats_note">Tipp: Benenne Cheat-Dateien nach der Spiel-Seriennummer oder Seriennummer plus CRC für den besten Abgleich im Spiel.</string>
+    <string name="settings_cheats_note">Tipp: Verwende .pnach-Dateien, die nach CRC, Seriennummer + CRC, Seriennummer oder Spieltitel benannt sind. Importierte Cheats werden automatisch aktiviert und können im Spielmenü umgeschaltet werden.</string>
     <string name="settings_cheats_files_title">Importierte Cheat-Dateien</string>
     <string name="settings_cheats_empty_title">Noch keine Cheat-Dateien</string>
     <string name="settings_cheats_empty">Es wurden noch keine Cheat-Dateien importiert.</string>

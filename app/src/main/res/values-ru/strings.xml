@@ -318,7 +318,7 @@
     <string name="settings_enable_cheats_desc">Разрешает ядру загружать активные читы из файлов pnach.</string>
     <string name="settings_cheats_import_title">Импорт файла читов</string>
     <string name="settings_cheats_import_desc">Добавьте файл .pnach и управляйте им прямо в приложении.</string>
-    <string name="settings_cheats_note">Совет: лучше всего называть файлы по serial игры или serial + CRC для точного совпадения в оверлее.</string>
+    <string name="settings_cheats_note">Совет: используйте .pnach файлы с именем по CRC, serial + CRC, serial или названию игры. Импортированные читы включаются автоматически, а переключать их можно в игровом меню.</string>
     <string name="settings_cheats_files_title">Импортированные файлы читов</string>
     <string name="settings_cheats_empty_title">Файлов читов пока нет</string>
     <string name="settings_cheats_empty">Файлы читов ещё не импортированы.</string>

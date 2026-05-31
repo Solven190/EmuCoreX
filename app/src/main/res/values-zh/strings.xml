@@ -316,7 +316,7 @@
     <string name="settings_enable_cheats_desc">允許核心從 pnach 檔案載入有效的金手指。</string>
     <string name="settings_cheats_import_title">匯入金手指檔案</string>
     <string name="settings_cheats_import_desc">新增 .pnach 檔案並直接在應用程式中管理。</string>
-    <string name="settings_cheats_note">提示：以遊戲序號或序號加 CRC 命名金手指檔案，以便在遊戲中獲得最佳匹配。</string>
+    <string name="settings_cheats_note">提示：使用以 CRC、序號 + CRC、序號或遊戲標題命名的 .pnach 檔案。匯入的金手指會自動啟用，也可以在遊戲選單中切換。</string>
     <string name="settings_cheats_files_title">已匯入的金手指檔案</string>
     <string name="settings_cheats_empty_title">尚無金手指檔案</string>
     <string name="settings_cheats_empty">尚未匯入任何金手指檔案。</string>

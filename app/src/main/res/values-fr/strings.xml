@@ -316,7 +316,7 @@
     <string name="settings_enable_cheats_desc">Permet au cœur de charger les codes de triche actifs à partir des fichiers pnach.</string>
     <string name="settings_cheats_import_title">Importer un fichier de triche</string>
     <string name="settings_cheats_import_desc">Ajoutez un fichier .pnach et gérez-le directement dans l\'application.</string>
-    <string name="settings_cheats_note">Astuce : nommez les fichiers de triche avec le numéro de série du jeu ou le numéro de série plus CRC pour une meilleure correspondance en jeu.</string>
+    <string name="settings_cheats_note">Astuce : utilisez des fichiers .pnach nommés par CRC, série + CRC, série ou titre du jeu. Les codes importés sont activés automatiquement et peuvent être basculés dans le menu en jeu.</string>
     <string name="settings_cheats_files_title">Fichiers de triche importés</string>
     <string name="settings_cheats_empty_title">Aucun fichier de triche pour le moment</string>
     <string name="settings_cheats_empty">Aucun fichier de triche importé pour le moment.</string>

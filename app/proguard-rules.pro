@@ -1,36 +1,59 @@
-# Keep source/line information so Crashlytics and mapped stack traces stay useful.
--keepattributes SourceFile,LineNumberTable,*Annotation*,InnerClasses,EnclosingMethod,Signature
+# EmuCoreX release/R8 rules.
+#
+# The release build uses minification and resource shrinking. Keep this file focused on
+# runtime entry points that are reached from Android manifests, JNI, Kotlin serialization,
+# or library reflection. Do not blanket-keep the whole app; that hides real shrinker issues.
 
-# Native JNI entry points and Java callbacks looked up from C++ must keep stable
-# class and method names. This protects the emulator core bridge, RetroAchievements,
-# Discord, and SDL/HID integration from obfuscation-related breakage.
--keepclasseswithmembers class com.sbro.emucorex.** {
+# Keep useful crash context for Crashlytics mapping and native-adjacent stack traces.
+-keepattributes SourceFile,LineNumberTable
+-keepattributes Signature,*Annotation*,InnerClasses,EnclosingMethod
+
+# Android framework entry points. Manifest components are normally handled by AGP, but
+# keeping the app/activity names explicit protects startup if the manifest or tooling
+# changes around the custom native bootstrap.
+-keep class com.sbro.emucorex.EmuCoreXApp { *; }
+-keep class com.sbro.emucorex.MainActivity { *; }
+
+# FileProvider is used by the in-app updater to hand the downloaded APK to Android's
+# package installer.
+-keep class androidx.core.content.FileProvider { *; }
+
+# JNI entry points. Native libraries use static JNI names such as
+# Java_com_sbro_emucorex_core_NativeApp_initialize, so classes and native method names
+# must remain stable.
+-keepclasseswithmembers,includedescriptorclasses class com.sbro.emucorex.** {
     native <methods>;
 }
 
--keep class com.sbro.emucorex.core.NativeApp { *; }
--keep class com.sbro.emucorex.core.utils.RetroAchievementsBridge { *; }
--keep class com.sbro.emucorex.core.utils.DiscordBridge { *; }
--keep class com.sbro.emucorex.core.utils.SDLControllerManager { *; }
--keep class com.sbro.emucorex.core.hid.HIDDeviceManager { *; }
+-keep,includedescriptorclasses class com.sbro.emucorex.core.NativeApp { *; }
+-keep,includedescriptorclasses class com.sbro.emucorex.core.utils.RetroAchievementsBridge { *; }
+-keep,includedescriptorclasses class com.sbro.emucorex.core.utils.DiscordBridge { *; }
+-keep,includedescriptorclasses class com.sbro.emucorex.core.utils.SDLControllerManager { *; }
+-keep,includedescriptorclasses class com.sbro.emucorex.core.hid.HIDDeviceManager { *; }
 
-# Methods called from native via FindClass/GetStaticMethodID.
--keepclassmembers class com.sbro.emucorex.core.NativeApp {
+# Methods looked up from C++ with GetStaticMethodID/CallStatic* must keep their Java
+# names and signatures even when the surrounding Kotlin code is optimized.
+-keepclassmembers,includedescriptorclasses class com.sbro.emucorex.core.NativeApp {
     public static void onPadVibration(int, float, float);
+    public static void onPerformanceMetrics(java.lang.String, float, float);
     public static void ensureResourceSubdirectoryCopied(java.lang.String);
     public static void nativeLog(java.lang.String);
-    public static void onPerformanceMetrics(java.lang.String, float, float);
     public static int openContentUri(java.lang.String);
 }
 
--keepclassmembers class com.sbro.emucorex.core.utils.RetroAchievementsBridge {
+-keepclassmembers,includedescriptorclasses class com.sbro.emucorex.core.utils.RetroAchievementsBridge {
     public static void notifyLoginRequested(int);
     public static void notifyLoginSuccess(java.lang.String, int, int, int);
     public static void notifyStateChanged(boolean, boolean, java.lang.String, java.lang.String, java.lang.String, int, int, int, boolean, boolean, boolean, java.lang.String, java.lang.String, java.lang.String, int, int, int, int, int, boolean, boolean, boolean);
     public static void notifyHardcoreModeChanged(boolean);
+    public static void notifySettingsChanged(java.lang.String, java.lang.String, java.lang.String);
 }
 
--keepclassmembers class com.sbro.emucorex.core.utils.SDLControllerManager {
+-keepclassmembers,includedescriptorclasses class com.sbro.emucorex.core.utils.DiscordBridge {
+    public static void onStateChanged(int);
+}
+
+-keepclassmembers,includedescriptorclasses class com.sbro.emucorex.core.utils.SDLControllerManager {
     public static void pollInputDevices();
     public static void pollHapticDevices();
     public static void hapticRun(int, float, int);
@@ -38,10 +61,44 @@
     public static void hapticStop(int);
 }
 
--keepclassmembers class com.sbro.emucorex.core.hid.HIDDeviceManager {
+-keepclassmembers,includedescriptorclasses class com.sbro.emucorex.core.hid.HIDDeviceManager {
     public static boolean initialize(boolean, boolean);
     public static boolean openDevice(int);
     public static int writeReport(int, byte[], boolean);
     public static boolean readReport(int, byte[], boolean);
     public static void closeDevice(int);
 }
+
+# Typed Navigation Compose routes are kotlinx-serializable. Their generated serializers
+# are used by navigation to encode/decode route arguments, including after process death.
+-keep,includedescriptorclasses class com.sbro.emucorex.navigation.** { *; }
+-keep,includedescriptorclasses class com.sbro.emucorex.navigation.**$$serializer { *; }
+-keepclassmembers class com.sbro.emucorex.navigation.** {
+    public static ** serializer(...);
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# Keep Kotlin serialization generated companions/serializers generally. This is narrow
+# enough for release, but avoids R8 removing serializer singletons that are reached
+# through generated lookup paths.
+-keepclassmembers class ** {
+    *** Companion;
+}
+-keepclassmembers class **$Companion {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keep,includedescriptorclasses class **$$serializer { *; }
+-keepclassmembers class **$$serializer {
+    public static ** INSTANCE;
+}
+
+# DataStore stores preferences by string keys, so no app classes need to be kept for it.
+# JSON parsing in the app is manual org.json; no Gson/Moshi reflection model rules needed.
+
+# Firebase/Crashlytics and AndroidX ship their own consumer rules. These dontwarn entries
+# keep release output focused when optional integrations are absent from a variant.
+-dontwarn com.google.firebase.**
+-dontwarn com.google.android.gms.**
+-dontwarn com.pierfrancescosoffritti.androidyoutubeplayer.**
+-dontwarn kotlinx.coroutines.debug.**

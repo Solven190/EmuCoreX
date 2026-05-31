@@ -316,7 +316,7 @@
     <string name="settings_enable_cheats_desc">Permite que o núcleo carregue cheats ativos a partir de arquivos pnach.</string>
     <string name="settings_cheats_import_title">Importar arquivo de cheat</string>
     <string name="settings_cheats_import_desc">Adicione um arquivo .pnach e gerencie-o diretamente no aplicativo.</string>
-    <string name="settings_cheats_note">Dica: nomeie os arquivos de cheat pelo serial do jogo ou serial mais CRC para melhor correspondência no jogo.</string>
+    <string name="settings_cheats_note">Dica: use arquivos .pnach nomeados por CRC, serial + CRC, serial ou título do jogo. Cheats importados são ativados automaticamente e podem ser alternados no menu do jogo.</string>
     <string name="settings_cheats_files_title">Arquivos de Cheat Importados</string>
     <string name="settings_cheats_empty_title">Nenhum arquivo de cheat ainda</string>
     <string name="settings_cheats_empty">Nenhum arquivo de cheat importado ainda.</string>
