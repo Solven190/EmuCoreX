@@ -452,6 +452,11 @@ object EmulatorBridge {
                 add(settingOp("EmuCoreX", "AutotestMode", "bool", autotestMode.toString()))
                 add(settingOp("EmuCore", "WarnAboutUnsafeSettings", "bool", "false"))
                 add(settingOp("EmuCore/GS", "OsdMessagesPos", "int", "0"))
+                val prefs = AppPreferences(context)
+                add(settingOp("Achievements", "Enabled", "bool", prefs.getAchievementsEnabledSync().toString()))
+                add(settingOp("Achievements", "ChallengeMode", "bool", prefs.getAchievementsHardcoreSync().toString()))
+                add(settingOp("Achievements", "Username", "string", prefs.getAchievementsUsernameSync().orEmpty()))
+                add(settingOp("Achievements", "Token", "string", prefs.getAchievementsTokenSync().orEmpty()))
                 add(customDriverOp(if (gpuDriverType == 1) customDriverPath.orEmpty() else ""))
             }
         )

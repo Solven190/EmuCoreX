@@ -52,6 +52,8 @@
 #include "RA_Interface.h"
 #endif
 
+void NotifySettingsChanged(const char* section, const char* key, const char* value);
+
 namespace Achievements
 {
 	static constexpr u32 LEADERBOARD_NEARBY_ENTRIES_TO_FETCH = 10;
@@ -1863,13 +1865,28 @@ void Achievements::ClientLoginWithPasswordCallback(int result, const char* error
 	params->result = true;
 
 	// Store configuration.
-	Host::SetBaseStringSettingValue("Achievements", "Username", params->username);
-	Host::SetBaseStringSettingValue("Achievements", "LoginTimestamp", fmt::format("{}", std::time(nullptr)).c_str());
-	Host::CommitBaseSettingChanges();
+	if (Host::Internal::GetBaseSettingsLayer() != nullptr)
+	{
+		Host::SetBaseStringSettingValue("Achievements", "Username", params->username);
+		Host::SetBaseStringSettingValue("Achievements", "LoginTimestamp", fmt::format("{}", std::time(nullptr)).c_str());
+		Host::CommitBaseSettingChanges();
+	}
+	else
+	{
+		::NotifySettingsChanged("Achievements", "Username", params->username);
+		::NotifySettingsChanged("Achievements", "LoginTimestamp", fmt::format("{}", std::time(nullptr)).c_str());
+	}
 
 	SettingsInterface* secretsInterface = Host::Internal::GetSecretsSettingsLayer();
-	secretsInterface->SetStringValue("Achievements", "Token", user->token);
-	secretsInterface->Save();
+	if (secretsInterface != nullptr)
+	{
+		secretsInterface->SetStringValue("Achievements", "Token", user->token);
+		secretsInterface->Save();
+	}
+	else
+	{
+		::NotifySettingsChanged("Achievements", "Token", user->token);
+	}
 
 	ShowLoginSuccess(client);
 }
@@ -1954,6 +1971,62 @@ std::string Achievements::GetLoggedInUserBadgePath()
 	return badge_path;
 }
 
+u32 Achievements::GetLoggedInUserPoints()
+{
+	auto lock = GetLock();
+	if (!s_client) return 0;
+	const rc_client_user_t* user = rc_client_get_user_info(s_client);
+	return user ? user->score : 0;
+}
+
+u32 Achievements::GetLoggedInUserSoftcorePoints()
+{
+	auto lock = GetLock();
+	if (!s_client) return 0;
+	const rc_client_user_t* user = rc_client_get_user_info(s_client);
+	return user ? user->score_softcore : 0;
+}
+
+u32 Achievements::GetLoggedInUserUnreadMessages()
+{
+	auto lock = GetLock();
+	if (!s_client) return 0;
+	const rc_client_user_t* user = rc_client_get_user_info(s_client);
+	return user ? user->num_unread_messages : 0;
+}
+
+const char* Achievements::GetLoggedInUserDisplayName()
+{
+	auto lock = GetLock();
+	if (!s_client) return nullptr;
+	const rc_client_user_t* user = rc_client_get_user_info(s_client);
+	return user ? user->display_name : nullptr;
+}
+
+u32 Achievements::GetNumAchievements()
+{
+	auto lock = GetLock();
+	return s_game_summary.num_core_achievements;
+}
+
+u32 Achievements::GetEarnedAchievements()
+{
+	auto lock = GetLock();
+	return s_game_summary.num_unlocked_achievements;
+}
+
+u32 Achievements::GetGamePoints()
+{
+	auto lock = GetLock();
+	return s_game_summary.points_core;
+}
+
+u32 Achievements::GetEarnedPoints()
+{
+	auto lock = GetLock();
+	return s_game_summary.points_unlocked;
+}
+
 void Achievements::Logout()
 {
 	if (IsActive())
@@ -1974,8 +2047,11 @@ void Achievements::Logout()
 
 	auto secretsLock = Host::GetSecretsSettingsLock();
 	SettingsInterface* secretsInterface = Host::Internal::GetSecretsSettingsLayer();
-	secretsInterface->DeleteValue("Achievements", "Token");
-	secretsInterface->Save();
+	if (secretsInterface)
+	{
+		secretsInterface->DeleteValue("Achievements", "Token");
+		secretsInterface->Save();
+	}
 }
 
 

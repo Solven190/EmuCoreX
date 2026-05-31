@@ -117,8 +117,8 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 	// while VMBootParameters asks for fast_boot=true left both sides fighting
 	// and the BIOS sequence ran in full every cold launch.
 	si.SetBoolValue("EmuCore", "EnableFastBoot", !config.path.empty() || config.boot_elf);
-	si.SetBoolValue("EmuCore", "EnableDiscordPresence", false);
-	si.SetBoolValue("Achievements", "Enabled", false);
+	si.SetBoolValue("Achievements", "Enabled", GetBoolSetting(config.settings, "Achievements", "Enabled", false));
+	si.SetBoolValue("Achievements", "ChallengeMode", GetBoolSetting(config.settings, "Achievements", "ChallengeMode", false));
 	si.SetBoolValue("Logging", "EnableFileLogging", autotest_mode);
 	si.SetBoolValue("Logging", "EnableEEConsole", autotest_mode);
 	si.SetBoolValue("Logging", "EnableIOPConsole", autotest_mode);
@@ -177,6 +177,13 @@ void InstallHostSettings(const VmLaunchConfig& config)
 	if (!Host::Internal::GetSecretsSettingsLayer())
 		Host::Internal::SetSecretsSettingsLayer(&s_secrets_settings);
 	s_secrets_settings.Clear();
+
+	const auto it = config.settings.find("Achievements\nToken");
+	if (it != config.settings.end() && !it->second.empty())
+	{
+		s_secrets_settings.SetStringValue("Achievements", "Token", it->second.c_str());
+	}
+	secrets_lock.unlock();
 }
 
 VMBootParameters CreateBootParameters(const VmLaunchConfig& config)

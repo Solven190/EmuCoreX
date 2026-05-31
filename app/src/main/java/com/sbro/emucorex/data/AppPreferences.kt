@@ -126,7 +126,11 @@ data class SettingsSnapshot(
     val gpuDriverType: Int = 0,
     val customDriverPath: String? = null,
     val frameLimitEnabled: Boolean = true,
-    val targetFps: Int = 0
+    val targetFps: Int = 0,
+    val achievementsEnabled: Boolean = false,
+    val achievementsHardcore: Boolean = false,
+    val achievementsUsername: String? = null,
+    val achievementsToken: String? = null
 )
 
 data class OverlayLayoutSnapshot(
@@ -331,6 +335,10 @@ class AppPreferences(private val context: Context) {
         private val STICK_SURFACE_MODE = booleanPreferencesKey("stick_surface_mode")
         private val CONTROL_LAYOUTS = stringPreferencesKey("control_layouts")
         private val OVERLAY_LAYOUT_VERSION = intPreferencesKey("overlay_layout_version")
+        private val ACHIEVEMENTS_ENABLED = booleanPreferencesKey("achievements_enabled")
+        private val ACHIEVEMENTS_HARDCORE = booleanPreferencesKey("achievements_hardcore")
+        private val ACHIEVEMENTS_USERNAME = stringPreferencesKey("achievements_username")
+        private val ACHIEVEMENTS_TOKEN = stringPreferencesKey("achievements_token")
     }
 
     // Theme
@@ -671,7 +679,11 @@ class AppPreferences(private val context: Context) {
                 gpuDriverType = prefs[GPU_DRIVER_TYPE] ?: 0,
                 customDriverPath = prefs[CUSTOM_DRIVER_PATH],
                 frameLimitEnabled = prefs[FRAME_LIMIT_ENABLED] ?: true,
-                targetFps = prefs[TARGET_FPS] ?: 0
+                targetFps = prefs[TARGET_FPS] ?: 0,
+                achievementsEnabled = prefs[ACHIEVEMENTS_ENABLED] ?: false,
+                achievementsHardcore = prefs[ACHIEVEMENTS_HARDCORE] ?: false,
+                achievementsUsername = prefs[ACHIEVEMENTS_USERNAME],
+                achievementsToken = prefs[ACHIEVEMENTS_TOKEN]
             )
         }
         .distinctUntilChanged()
@@ -2076,6 +2088,52 @@ class AppPreferences(private val context: Context) {
         return (prefs[UPSCALE]
             ?: prefs[UPSCALE_LEGACY]?.toFloat()
             ?: 1f).let(::normalizeUpscale)
+    }
+
+    suspend fun setAchievementsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[ACHIEVEMENTS_ENABLED] = enabled }
+    }
+
+    suspend fun setAchievementsHardcore(enabled: Boolean) {
+        context.dataStore.edit { it[ACHIEVEMENTS_HARDCORE] = enabled }
+    }
+
+    suspend fun setAchievementsUsername(username: String?) {
+        context.dataStore.edit { prefs ->
+            if (username == null) prefs.remove(ACHIEVEMENTS_USERNAME)
+            else prefs[ACHIEVEMENTS_USERNAME] = username
+        }
+    }
+
+    suspend fun setAchievementsToken(token: String?) {
+        context.dataStore.edit { prefs ->
+            if (token == null) prefs.remove(ACHIEVEMENTS_TOKEN)
+            else prefs[ACHIEVEMENTS_TOKEN] = token
+        }
+    }
+
+    fun getAchievementsEnabledSync(): Boolean {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_ENABLED] ?: false }.first()
+        }
+    }
+
+    fun getAchievementsHardcoreSync(): Boolean {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_HARDCORE] ?: false }.first()
+        }
+    }
+
+    fun getAchievementsUsernameSync(): String? {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_USERNAME] }.first()
+        }
+    }
+
+    fun getAchievementsTokenSync(): String? {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_TOKEN] }.first()
+        }
     }
 
     private fun JSONObject.readUpscaleMultiplier(): Float {

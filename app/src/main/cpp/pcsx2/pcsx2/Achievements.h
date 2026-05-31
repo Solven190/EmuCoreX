@@ -127,6 +127,16 @@ namespace Achievements
 	/// Should be called with the lock held.
 	std::string GetLoggedInUserBadgePath();
 
+	u32 GetLoggedInUserPoints();
+	u32 GetLoggedInUserSoftcorePoints();
+	u32 GetLoggedInUserUnreadMessages();
+	const char* GetLoggedInUserDisplayName();
+
+	u32 GetNumAchievements();
+	u32 GetEarnedAchievements();
+	u32 GetGamePoints();
+	u32 GetEarnedPoints();
+
 	/// Clears all cached state used to render the UI.
 	void ClearUIState();
 

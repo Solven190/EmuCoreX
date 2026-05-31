@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,14 +38,21 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Logout
+import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -154,7 +162,7 @@ fun AchievementsHubScreen(
     ) {
         AchievementsTopBar(
             title = androidx.compose.ui.res.stringResource(R.string.achievements_title),
-            subtitle = androidx.compose.ui.res.stringResource(R.string.achievements_subtitle),
+            subtitle = "",
             onBackClick = onBackClick
         )
         AchievementToggleCard(retroState = retroState)
@@ -455,9 +463,21 @@ private fun AchievementsTopBar(title: String, subtitle: String, onBackClick: () 
             onClick = onBackClick,
             contentColor = MaterialTheme.colorScheme.onSurface
         )
-        Column(modifier = Modifier.padding(start = 6.dp)) {
-            Text(text = title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onBackground)
-            Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(modifier = Modifier.padding(start = 12.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
@@ -475,10 +495,10 @@ private fun ScrollToTopButton(
         modifier = modifier
     ) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
-            tonalElevation = 2.dp,
-            shadowElevation = 4.dp,
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+            tonalElevation = 6.dp,
+            shadowElevation = 6.dp,
             onClick = onClick
         ) {
             Box(
@@ -488,7 +508,7 @@ private fun ScrollToTopButton(
                 Icon(
                     imageVector = Icons.Rounded.KeyboardArrowUp,
                     contentDescription = androidx.compose.ui.res.stringResource(R.string.back),
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -501,11 +521,22 @@ private fun AchievementToggleCard(retroState: RetroAchievementsUiState) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenHorizontalPadding),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        )
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(text = androidx.compose.ui.res.stringResource(R.string.settings_ra_overview), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = androidx.compose.ui.res.stringResource(R.string.settings_ra_overview),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
             ToggleRow(
                 icon = Icons.Rounded.Star,
                 title = androidx.compose.ui.res.stringResource(R.string.settings_ra_enabled),
@@ -534,38 +565,108 @@ private fun AchievementAccountCard(
     onLogin: () -> Unit,
     onOpenUnlockedAchievements: (() -> Unit)? = null
 ) {
+    val gradientBrush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.05f)
+        )
+    )
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenHorizontalPadding),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        )
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(text = androidx.compose.ui.res.stringResource(R.string.settings_ra_profile), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
-            retroState.loginRequestReason?.let { NoticeCard(text = androidx.compose.ui.res.stringResource(loginReasonString(it)), isError = it == RetroAchievementsLoginRequestReason.TOKEN_INVALID) }
+        Column(
+            modifier = Modifier
+                .background(gradientBrush)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = androidx.compose.ui.res.stringResource(R.string.settings_ra_profile),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (retroState.user != null) {
+                    Surface(
+                        shape = RoundedCornerShape(99.dp),
+                        color = if (retroState.hardcorePreference) {
+                            Color(0xFFF27121).copy(alpha = 0.2f)
+                        } else {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                        }
+                    ) {
+                        Text(
+                            text = if (retroState.hardcorePreference) "HARDCORE" else "SOFTCORE",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (retroState.hardcorePreference) {
+                                Color(0xFFF27121)
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                }
+            }
+
+            retroState.loginRequestReason?.let {
+                NoticeCard(
+                    text = androidx.compose.ui.res.stringResource(loginReasonString(it)),
+                    isError = it == RetroAchievementsLoginRequestReason.TOKEN_INVALID
+                )
+            }
             retroState.errorMessage?.let { NoticeCard(text = it, isError = true) }
+
             retroState.user?.let { user ->
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(60.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),
+                            .size(76.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                            .border(
+                                width = 2.dp,
+                                brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                    colors = if (retroState.hardcorePreference) {
+                                        listOf(Color(0xFFE94057), Color(0xFFF27121))
+                                    } else {
+                                        listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary)
+                                    }
+                                ),
+                                shape = RoundedCornerShape(22.dp)
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         BitmapPathImage(
                             imagePath = user.avatarPath,
                             contentDescription = user.displayName,
                             modifier = Modifier
-                                .size(60.dp)
-                                .clip(RoundedCornerShape(18.dp)),
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(20.dp)),
                             fallback = {
-                                Icon(Icons.Rounded.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(
+                                    imageVector = Icons.Rounded.Person,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(36.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
                         )
                     }
@@ -575,7 +676,7 @@ private fun AchievementAccountCard(
                     ) {
                         Text(
                             text = user.displayName,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
@@ -584,83 +685,109 @@ private fun AchievementAccountCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    if (retroState.isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    }
                 }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 22.dp),
+                        .padding(top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     AccountStatCard(
                         value = user.points.toString(),
                         label = androidx.compose.ui.res.stringResource(R.string.settings_ra_points_label),
+                        icon = Icons.Rounded.Star,
                         modifier = Modifier.weight(1f),
                     )
                     AccountStatCard(
                         value = user.softcorePoints.toString(),
                         label = androidx.compose.ui.res.stringResource(R.string.settings_ra_softcore_points_label),
+                        icon = Icons.Rounded.EmojiEvents,
                         modifier = Modifier.weight(1f),
                     )
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     ActionBadgeButton(
                         modifier = Modifier.weight(1f),
                         text = androidx.compose.ui.res.stringResource(R.string.settings_ra_refresh),
+                        icon = Icons.Rounded.Refresh,
                         onClick = { RetroAchievementsStateManager.refreshState() }
                     )
                     ActionBadgeButton(
                         modifier = Modifier.weight(1f),
                         text = androidx.compose.ui.res.stringResource(R.string.settings_ra_logout),
+                        icon = Icons.Rounded.Logout,
                         onClick = { RetroAchievementsStateManager.logout() }
                     )
-                    if (onOpenUnlockedAchievements != null) {
-                        ActionBadgeButton(
-                            modifier = Modifier.weight(1f),
-                            text = androidx.compose.ui.res.stringResource(R.string.achievements_open_all_unlocked),
-                            onClick = onOpenUnlockedAchievements
-                        )
-                    }
+                }
+                if (onOpenUnlockedAchievements != null) {
+                    ActionBadgeButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = androidx.compose.ui.res.stringResource(R.string.achievements_open_all_unlocked),
+                        icon = Icons.Rounded.EmojiEvents,
+                        onClick = onOpenUnlockedAchievements
+                    )
                 }
             } ?: run {
-                Text(text = androidx.compose.ui.res.stringResource(R.string.achievements_sign_in_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
                     value = username,
                     onValueChange = onUsernameChange,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                     singleLine = true,
-                    label = { Text(androidx.compose.ui.res.stringResource(R.string.settings_ra_username)) }
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    label = { Text(androidx.compose.ui.res.stringResource(R.string.settings_ra_username)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                    )
                 )
                 OutlinedTextField(
                     value = password,
                     onValueChange = onPasswordChange,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                     singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
                     label = { Text(androidx.compose.ui.res.stringResource(R.string.settings_ra_password)) },
                     visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                    )
                 )
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     ActionBadgeButton(
+                        modifier = Modifier.weight(1f),
                         text = androidx.compose.ui.res.stringResource(R.string.settings_ra_refresh),
+                        icon = Icons.Rounded.Refresh,
                         onClick = { RetroAchievementsStateManager.refreshState() }
                     )
                     ActionBadgeButton(
+                        modifier = Modifier.weight(1f),
                         text = androidx.compose.ui.res.stringResource(R.string.settings_ra_login),
                         onClick = onLogin,
                         enabled = username.isNotBlank() && password.isNotBlank() && !retroState.isAuthenticating,
-                        isLoading = retroState.isAuthenticating
+                        isLoading = retroState.isAuthenticating,
+                        isPrimary = true
                     )
                 }
             }
@@ -672,39 +799,75 @@ private fun AchievementAccountCard(
 private fun ActionBadgeButton(
     modifier: Modifier = Modifier,
     text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     onClick: () -> Unit,
     enabled: Boolean = true,
-    isLoading: Boolean = false
+    isLoading: Boolean = false,
+    isPrimary: Boolean = false
 ) {
+    val primaryGradient = androidx.compose.ui.graphics.Brush.horizontalGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.tertiary
+        )
+    )
+
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(999.dp),
-        color = if (enabled) {
+        shape = RoundedCornerShape(16.dp),
+        color = if (isPrimary) {
+            Color.Transparent
+        } else if (enabled) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
         } else {
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         },
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
+        shadowElevation = if (isPrimary && enabled) 4.dp else 0.dp,
         onClick = onClick,
         enabled = enabled && !isLoading
     ) {
+        val contentModifier = if (isPrimary && enabled) {
+            Modifier.background(primaryGradient).padding(horizontal = 16.dp, vertical = 12.dp)
+        } else {
+            Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        }
+
         Box(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            modifier = contentModifier,
             contentAlignment = Alignment.Center
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary
+                    color = if (isPrimary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
                 )
             } else {
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (icon != null) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isPrimary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = if (isPrimary) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else if (enabled) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        }
+                    )
+                }
             }
         }
     }
@@ -714,29 +877,45 @@ private fun ActionBadgeButton(
 private fun AccountStatCard(
     value: String,
     label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+        )
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
                 color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -749,12 +928,16 @@ private fun UnlockedGameGroupCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -767,7 +950,7 @@ private fun UnlockedGameGroupCard(
                 ) {
                     Text(
                         text = group.gameTitle,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -785,10 +968,10 @@ private fun UnlockedGameGroupCard(
                     Text(text = androidx.compose.ui.res.stringResource(R.string.achievements_open_game))
                 }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 group.achievements.forEach { unlocked ->
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AchievementBadge(
@@ -801,20 +984,20 @@ private fun UnlockedGameGroupCard(
                         ) {
                             Text(
                                 text = unlocked.achievement.title,
-                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 2,
+                                maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = unlocked.achievement.description,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        MiniBadge(text = "${unlocked.achievement.points} ${androidx.compose.ui.res.stringResource(R.string.settings_ra_points_label)}")
+                        MiniBadge(text = "${unlocked.achievement.points} pts")
                     }
                 }
             }
@@ -843,10 +1026,18 @@ private fun ToggleRow(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 12.dp, end = 10.dp)
+                .padding(start = 14.dp, end = 10.dp)
         ) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
@@ -875,13 +1066,25 @@ private fun SummaryRow(
 private fun SummaryCard(label: String, value: String, modifier: Modifier = Modifier, compact: Boolean = false) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surface
+        shape = RoundedCornerShape(26.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        )
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = if (compact) 14.dp else 16.dp)) {
-            Text(text = value, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = if (compact) 16.dp else 20.dp)) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
+                color = MaterialTheme.colorScheme.onSurface
+            )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -890,7 +1093,7 @@ private fun SummaryCard(label: String, value: String, modifier: Modifier = Modif
 private fun SectionTitle(text: String, topPadding: androidx.compose.ui.unit.Dp = 12.dp, bottomPadding: androidx.compose.ui.unit.Dp = 12.dp) {
     Text(
         text = text,
-        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
         color = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier.padding(
             start = ScreenHorizontalPadding,
@@ -907,13 +1110,20 @@ private fun NoticeCard(text: String, isError: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenHorizontalPadding),
-        shape = RoundedCornerShape(22.dp),
-        color = if (isError) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
-        else MaterialTheme.colorScheme.surface
+        shape = RoundedCornerShape(20.dp),
+        color = if (isError) {
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        },
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isError) MaterialTheme.colorScheme.error.copy(alpha = 0.2f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        )
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -937,42 +1147,48 @@ private fun LibraryUnlockedCard(item: LibraryUnlockedAchievement, onClick: () ->
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(28.dp),
         color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        ),
         onClick = onClick
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {
                 AchievementBadge(
                     imagePath = item.achievement.badgeUrl ?: item.achievement.badgeLockedUrl,
                     earned = true
                 )
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = item.gameTitle,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     cleanAchievementTitle?.let {
                         Text(
                             text = it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 2,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            ),
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                     cleanAchievementDescription?.let {
                         Text(
                             text = it,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 3,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
@@ -983,7 +1199,7 @@ private fun LibraryUnlockedCard(item: LibraryUnlockedAchievement, onClick: () ->
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MiniBadge(text = "${item.achievement.points} ${androidx.compose.ui.res.stringResource(R.string.settings_ra_points_label)}")
+                MiniBadge(text = "${item.achievement.points} pts")
                 MiniBadge(text = androidx.compose.ui.res.stringResource(R.string.achievements_open_game))
             }
         }
@@ -1004,39 +1220,58 @@ private fun AchievementCard(
     modifier: Modifier = Modifier
 ) {
     val imagePath = if (achievement.isEarned) achievement.badgeUrl ?: achievement.badgeLockedUrl else achievement.badgeLockedUrl ?: achievement.badgeUrl
+    val cardBorderColor = if (achievement.isEarned) {
+        if (achievement.earnedHardcore) Color(0xFFF27121).copy(alpha = 0.35f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    }
+
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface
+        shape = RoundedCornerShape(26.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, cardBorderColor)
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top) {
-                AchievementBadge(imagePath = imagePath, earned = achievement.isEarned)
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = achievement.title,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = achievement.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            modifier = Modifier.padding(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AchievementBadge(imagePath = imagePath, earned = achievement.isEarned)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                MiniBadge(text = "${achievement.points} ${androidx.compose.ui.res.stringResource(R.string.settings_ra_points_label)}")
-                MiniBadge(text = if (achievement.isEarned) androidx.compose.ui.res.stringResource(R.string.achievements_status_earned) else androidx.compose.ui.res.stringResource(R.string.achievements_status_locked))
-                if (achievement.earnedHardcore) {
-                    MiniBadge(text = androidx.compose.ui.res.stringResource(R.string.settings_ra_hardcore_badge))
+                Text(
+                    text = achievement.title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = if (achievement.isEarned) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = achievement.description,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = if (achievement.isEarned) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Row(
+                    modifier = Modifier.padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MiniBadge(text = "${achievement.points} pts")
+                    if (achievement.isEarned) {
+                        MiniBadge(
+                            text = if (achievement.earnedHardcore) "HARDCORE" else "EARNED",
+                            isHardcore = achievement.earnedHardcore
+                        )
+                    } else {
+                        MiniBadge(text = "LOCKED", isLocked = true)
+                    }
                 }
             }
         }
@@ -1047,22 +1282,27 @@ private fun AchievementCard(
 private fun AchievementBadge(imagePath: String?, earned: Boolean) {
     Box(
         modifier = Modifier
-            .size(74.dp)
+            .size(76.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            .border(
+                width = if (earned) 1.dp else 0.dp,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(20.dp)
+            ),
         contentAlignment = Alignment.Center
     ) {
         BitmapPathImage(
             imagePath = imagePath,
             contentDescription = null,
             modifier = Modifier
-                .size(74.dp)
+                .size(76.dp)
                 .clip(RoundedCornerShape(20.dp)),
             fallback = {
                 Icon(
                     imageVector = if (earned) Icons.Rounded.Star else Icons.Rounded.LockOpen,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = if (earned) 1f else 0.4f)
                 )
             }
         )
@@ -1070,13 +1310,32 @@ private fun AchievementBadge(imagePath: String?, earned: Boolean) {
 }
 
 @Composable
-private fun MiniBadge(text: String) {
-    Surface(shape = RoundedCornerShape(999.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
+private fun MiniBadge(
+    text: String,
+    isHardcore: Boolean = false,
+    isLocked: Boolean = false
+) {
+    val bgColor = when {
+        isHardcore -> Color(0xFFF27121).copy(alpha = 0.12f)
+        isLocked -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    }
+
+    val textColor = when {
+        isHardcore -> Color(0xFFF27121)
+        isLocked -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        else -> MaterialTheme.colorScheme.primary
+    }
+
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = bgColor
+    ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = textColor
         )
     }
 }
@@ -1092,7 +1351,7 @@ private fun AchievementsHubSkeleton(onBackClick: () -> Unit) {
     ) {
         AchievementsTopBar(
             title = androidx.compose.ui.res.stringResource(R.string.achievements_title),
-            subtitle = androidx.compose.ui.res.stringResource(R.string.achievements_subtitle),
+            subtitle = "",
             onBackClick = onBackClick
         )
         repeat(4) {

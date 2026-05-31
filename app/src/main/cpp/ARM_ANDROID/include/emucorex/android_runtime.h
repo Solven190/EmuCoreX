@@ -104,6 +104,7 @@ private:
 std::string JStringToString(JNIEnv* env, jstring value);
 jstring StringToJString(JNIEnv* env, const std::string& value);
 void ConfigureNativeAppCallbacks(JNIEnv* env, jclass native_app_class);
+JavaVM* GetJavaVM();
 void SetPerformanceMetricsCallbackEnabled(bool enabled);
 std::string GetPerformanceMetricsSnapshot();
 void RequestCurrentVmStop();

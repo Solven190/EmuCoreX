@@ -261,7 +261,6 @@
     <string name="settings_ra_leaderboards_badge">LB</string>
     <string name="settings_ra_loading">Loading RetroAchievements data…</string>
     <string name="achievements_title">Achievements</string>
-    <string name="achievements_subtitle">A dedicated RetroAchievements hub for your account and games.</string>
     <string name="achievements_earned_total">Unlocked</string>
     <string name="achievements_games_with_unlocks">Games</string>
     <string name="achievements_unlocked_section">Unlocked in your library</string>
@@ -271,7 +270,6 @@
     <string name="achievements_account_unlocked_title">Unlocked by Game</string>
     <string name="achievements_account_unlocked_subtitle">Your synced unlocks grouped by game.</string>
     <string name="achievements_account_group_summary">%1$d unlocked achievements</string>
-    <string name="achievements_sign_in_hint">Use your RetroAchievements account here instead of going through Settings.</string>
     <string name="achievements_open_game">Open game</string>
     <string name="achievements_game_title">Game Achievements</string>
     <string name="achievements_game_unavailable">Unable to load achievements for this game right now.</string>
@@ -938,9 +936,6 @@
     <string name="got_it">Got it</string>
     <string name="shell_game_settings_manager">Game Manager</string>
     <string name="game_settings_manager_title">Game Manager</string>
-    <string name="game_settings_manager_subtitle">Manage per-game profiles, edit core settings, and move them between devices.</string>
-    <string name="game_settings_manager_tools_title">Profile tools</string>
-    <string name="game_settings_manager_tools_desc">Export, import, or reset every per-game profile without touching your global defaults.</string>
     <string name="game_settings_manager_export_title">Export profiles</string>
     <string name="game_settings_manager_import_title">Import profiles</string>
     <string name="game_settings_manager_reset_all_title">Reset all game profiles</string>

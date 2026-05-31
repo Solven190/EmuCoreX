@@ -66,12 +66,25 @@ object RetroAchievementsStateManager {
     fun initialize() {
         if (initialized) return
         initialized = true
+        val context = EmulatorBridge.getContext()
+        val prefsEnabled = context?.let { com.sbro.emucorex.data.AppPreferences(it).getAchievementsEnabledSync() } ?: false
+        val prefsHardcore = context?.let { com.sbro.emucorex.data.AppPreferences(it).getAchievementsHardcoreSync() } ?: false
         _state.update {
             it.copy(
                 isSupported = EmulatorBridge.isNativeLoaded,
                 storedUsername = loadStoredUsername(),
+                enabled = prefsEnabled,
+                hardcorePreference = prefsHardcore,
                 isLoading = true
             )
+        }
+        if (EmulatorBridge.isNativeLoaded) {
+            scope.launch(Dispatchers.IO) {
+                runCatching {
+                    RetroAchievementsBridge.nativeSetEnabled(prefsEnabled)
+                    RetroAchievementsBridge.nativeSetHardcore(prefsHardcore)
+                }
+            }
         }
         refreshState()
     }
@@ -163,6 +176,12 @@ object RetroAchievementsStateManager {
                 errorMessage = null
             )
         }
+        val context = EmulatorBridge.getContext()
+        if (context != null) {
+            scope.launch(Dispatchers.IO) {
+                com.sbro.emucorex.data.AppPreferences(context).setAchievementsEnabled(enabled)
+            }
+        }
         scope.launch(Dispatchers.IO) {
             runCatching { RetroAchievementsBridge.nativeSetEnabled(enabled) }
                 .onFailure { handleNativeFailure(it) }
@@ -176,6 +195,12 @@ object RetroAchievementsStateManager {
                 isLoading = true,
                 errorMessage = null
             )
+        }
+        val context = EmulatorBridge.getContext()
+        if (context != null) {
+            scope.launch(Dispatchers.IO) {
+                com.sbro.emucorex.data.AppPreferences(context).setAchievementsHardcore(enabled)
+            }
         }
         scope.launch(Dispatchers.IO) {
             runCatching { RetroAchievementsBridge.nativeSetHardcore(enabled) }
@@ -319,10 +344,8 @@ object RetroAchievementsStateManager {
     }
 
     private fun loadStoredUsername(): String? {
-        if (!EmulatorBridge.isNativeLoaded) return null
-        return runCatching { NativeApp.getSetting("Achievements", "Username", "string") }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
+        val context = EmulatorBridge.getContext() ?: return null
+        return com.sbro.emucorex.data.AppPreferences(context).getAchievementsUsernameSync()
     }
 
     private fun handleNativeFailure(error: Throwable) {

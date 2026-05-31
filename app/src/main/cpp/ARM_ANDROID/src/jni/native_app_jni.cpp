@@ -97,6 +97,12 @@ void ConfigureNativeAppCallbacks(JNIEnv* env, jclass native_app_class)
 	s_native_app_class = static_cast<jclass>(env->NewGlobalRef(native_app_class));
 }
 
+JavaVM* GetJavaVM()
+{
+	std::lock_guard lock(s_callback_mutex);
+	return s_java_vm;
+}
+
 }
 
 int FileSystem::OpenFDFileContent(const char* filename)

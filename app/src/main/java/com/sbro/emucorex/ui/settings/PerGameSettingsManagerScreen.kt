@@ -144,7 +144,7 @@ fun PerGameSettingsManagerScreen(
         contentPadding = PaddingValues(
             start = 18.dp,
             end = 18.dp,
-            top = topInset + 18.dp,
+            top = topInset,
             bottom = 28.dp
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -169,23 +169,6 @@ fun PerGameSettingsManagerScreen(
             item {
                 Surface(
                     shape = RoundedCornerShape(28.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)
-                ) {
-                    Text(
-                        text = stringResource(R.string.game_settings_manager_subtitle),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 18.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-
-            item {
-                Surface(
-                    shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f)
                 ) {
                     Column(
@@ -194,16 +177,6 @@ fun PerGameSettingsManagerScreen(
                             .padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Text(
-                            text = stringResource(R.string.game_settings_manager_tools_title),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = stringResource(R.string.game_settings_manager_tools_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)

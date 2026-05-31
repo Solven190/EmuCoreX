@@ -189,7 +189,6 @@
     <string name="settings_ra_leaderboards_badge">LB</string>
     <string name="settings_ra_loading">Завантаження даних RetroAchievements…</string>
     <string name="achievements_title">Досягнення</string>
-    <string name="achievements_subtitle">Окремий центр RetroAchievements для акаунта та ігор.</string>
     <string name="achievements_earned_total">Вибито</string>
     <string name="achievements_games_with_unlocks">Ігор</string>
     <string name="achievements_unlocked_section">Вибиті в бібліотеці</string>
@@ -199,7 +198,6 @@
     <string name="achievements_account_unlocked_title">Вибиті за іграми</string>
     <string name="achievements_account_unlocked_subtitle">Синхронізовані вибиті досягнення, згруповані за іграми.</string>
     <string name="achievements_account_group_summary">%1$d вибитих досягнень</string>
-    <string name="achievements_sign_in_hint">Вхід у RetroAchievements тепер знаходиться тут, а не в налаштуваннях.</string>
     <string name="achievements_open_game">Відкрити гру</string>
     <string name="achievements_game_title">Досягнення гри</string>
     <string name="achievements_game_unavailable">Зараз не вдалося завантажити досягнення для цієї гри.</string>
@@ -655,9 +653,6 @@
     <string name="settings_cas_mode_sharpen_resize">Різкість + масштабування</string>
     <string name="shell_game_settings_manager">Менеджер гри</string>
     <string name="game_settings_manager_title">Менеджер гри</string>
-    <string name="game_settings_manager_subtitle">Керуйте профілями для кожної гри, редагуйте основні налаштування та переносьте їх між пристроями.</string>
-    <string name="game_settings_manager_tools_title">Інструменти профілю</string>
-    <string name="game_settings_manager_tools_desc">Експортуйте, імпортуйте або скидайте кожен профіль гри, не зачіпаючи глобальні налаштування.</string>
     <string name="game_settings_manager_export_title">Експортувати профілі</string>
     <string name="game_settings_manager_import_title">Імпортувати профілі</string>
     <string name="game_settings_manager_reset_all_title">Скинути всі профілі ігор</string>

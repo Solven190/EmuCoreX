@@ -252,7 +252,6 @@
     <string name="settings_ra_leaderboards_badge">LB</string>
     <string name="settings_ra_loading">RetroAchievements डेटा लोड हो रहा है…</string>
     <string name="achievements_title">उपलब्धियां</string>
-    <string name="achievements_subtitle">आपके खाते और गेम्स के लिए एक समर्पित RetroAchievements हब।</string>
     <string name="achievements_earned_total">अनलॉक किया गया</string>
     <string name="achievements_games_with_unlocks">गेम्स</string>
     <string name="achievements_unlocked_section">आपकी लाइब्रेरी में अनलॉक किया गया</string>
@@ -262,7 +261,6 @@
     <string name="achievements_account_unlocked_title">गेम द्वारा अनलॉक किया गया</string>
     <string name="achievements_account_unlocked_subtitle">आपके समन्वयित (synced) अनलॉक्स को गेम द्वारा समूहीकृत किया गया।</string>
     <string name="achievements_account_group_summary">%1$d अनलॉक की गई उपलब्धियां</string>
-    <string name="achievements_sign_in_hint">सेटिंग्स के माध्यम से जाने के बजाय यहां अपने RetroAchievements खाते का उपयोग करें।</string>
     <string name="achievements_open_game">गेम खोलें</string>
     <string name="achievements_game_title">गेम उपलब्धियां</string>
     <string name="achievements_game_unavailable">अभी इस गेम के लिए उपलब्धियां लोड करने में असमर्थ।</string>
@@ -921,9 +919,6 @@
     <string name="got_it">समझ गया</string>
     <string name="shell_game_settings_manager">गेम मैनेजर</string>
     <string name="game_settings_manager_title">गेम मैनेजर</string>
-    <string name="game_settings_manager_subtitle">प्रति-गेम प्रोफाइल प्रबंधित करें, कोर सेटिंग्स संपादित करें, और उन्हें उपकरणों के बीच ले जाएं。</string>
-    <string name="game_settings_manager_tools_title">प्रोफ़ाइल टूल</string>
-    <string name="game_settings_manager_tools_desc">अपने वैश्विक डिफ़ॉल्ट को छुए बिना प्रत्येक प्रति-गेम प्रोफ़ाइल को निर्यात, आयात या रीसेट करें।</string>
     <string name="game_settings_manager_export_title">प्रोफाइल निर्यात (Export) करें</string>
     <string name="game_settings_manager_import_title">प्रोफाइल आयात (Import) करें</string>
     <string name="game_settings_manager_reset_all_title">सभी गेम प्रोफाइल रीसेट करें</string>

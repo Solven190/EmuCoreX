@@ -1,6 +1,11 @@
 package com.sbro.emucorex.core.utils
 
 import android.util.Log
+import com.sbro.emucorex.core.NativeApp
+import com.sbro.emucorex.data.AppPreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 object RetroAchievementsBridge {
     private const val TAG = "RetroAchievementsBridge"
@@ -71,5 +76,22 @@ object RetroAchievementsBridge {
     fun notifyHardcoreModeChanged(enabled: Boolean) {
         Log.d(TAG, "notifyHardcoreModeChanged enabled=$enabled")
         RetroAchievementsStateManager.onHardcoreModeChanged(enabled)
+    }
+
+    @JvmStatic
+    fun notifySettingsChanged(section: String, key: String, value: String) {
+        Log.d(TAG, "notifySettingsChanged section=$section, key=$key, value=${if (key == "Token") "********" else value}")
+        val context = NativeApp.getContext() ?: return
+        val prefs = AppPreferences(context)
+        CoroutineScope(Dispatchers.IO).launch {
+            if (section == "Achievements") {
+                when (key) {
+                    "Username" -> prefs.setAchievementsUsername(value.ifBlank { null })
+                    "Token" -> prefs.setAchievementsToken(value.ifBlank { null })
+                    "Enabled" -> prefs.setAchievementsEnabled(value.toBoolean())
+                    "ChallengeMode" -> prefs.setAchievementsHardcore(value.toBoolean())
+                }
+            }
+        }
     }
 }

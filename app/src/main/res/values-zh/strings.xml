@@ -189,7 +189,6 @@
     <string name="settings_ra_leaderboards_badge">LB</string>
     <string name="settings_ra_loading">正在載入 RetroAchievements 資料…</string>
     <string name="achievements_title">成就</string>
-    <string name="achievements_subtitle">專為您的帳戶和遊戲打造的 RetroAchievements 中心。</string>
     <string name="achievements_earned_total">已解鎖</string>
     <string name="achievements_games_with_unlocks">遊戲</string>
     <string name="achievements_unlocked_section">在您的遊戲庫中解鎖</string>
@@ -199,7 +198,6 @@
     <string name="achievements_account_unlocked_title">依遊戲解鎖</string>
     <string name="achievements_account_unlocked_subtitle">已同步的解鎖項目，按遊戲分組。</string>
     <string name="achievements_account_group_summary">%1$d 個已解鎖的成就</string>
-    <string name="achievements_sign_in_hint">在此處使用您的 RetroAchievements 帳戶，而不需要進入設定。</string>
     <string name="achievements_open_game">開啟遊戲</string>
     <string name="achievements_game_title">遊戲成就</string>
     <string name="achievements_game_unavailable">目前無法載入此遊戲的成就。</string>
@@ -646,9 +644,6 @@
     <string name="settings_cas_mode_sharpen_resize">銳化 + 縮放</string>
     <string name="shell_game_settings_manager">游戏管理器</string>
     <string name="game_settings_manager_title">游戏管理器</string>
-    <string name="game_settings_manager_subtitle">管理每个游戏的配置文件，编辑核心设置，并在设备之间移动它们。</string>
-    <string name="game_settings_manager_tools_title">配置文件工具</string>
-    <string name="game_settings_manager_tools_desc">导出、导入或重置每个游戏的配置文件，而不影响您的全局默认设置。</string>
     <string name="game_settings_manager_export_title">导出配置文件</string>
     <string name="game_settings_manager_import_title">导入配置文件</string>
     <string name="game_settings_manager_reset_all_title">重置所有游戏配置文件</string>

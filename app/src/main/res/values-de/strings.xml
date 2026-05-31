@@ -189,7 +189,6 @@
     <string name="settings_ra_leaderboards_badge">LB</string>
     <string name="settings_ra_loading">RetroAchievements-Daten werden geladen…</string>
     <string name="achievements_title">Erfolge</string>
-    <string name="achievements_subtitle">Ein dedizierter RetroAchievements-Hub für dein Konto und deine Spiele.</string>
     <string name="achievements_earned_total">Freigeschaltet</string>
     <string name="achievements_games_with_unlocks">Spiele</string>
     <string name="achievements_unlocked_section">In deiner Bibliothek freigeschaltet</string>
@@ -199,7 +198,6 @@
     <string name="achievements_account_unlocked_title">Nach Spiel freigeschaltet</string>
     <string name="achievements_account_unlocked_subtitle">Deine synchronisierten Freischaltungen, gruppiert nach Spiel.</string>
     <string name="achievements_account_group_summary">%1$d freigeschaltete Erfolge</string>
-    <string name="achievements_sign_in_hint">Verwende hier dein RetroAchievements-Konto, anstatt über die Einstellungen zu gehen.</string>
     <string name="achievements_open_game">Spiel öffnen</string>
     <string name="achievements_game_title">Spielerfolge</string>
     <string name="achievements_game_unavailable">Erfolge für dieses Spiel können derzeit nicht geladen werden.</string>
@@ -646,9 +644,6 @@
     <string name="settings_cas_mode_sharpen_resize">Schärfen + skalieren</string>
     <string name="shell_game_settings_manager">Spielmanager</string>
     <string name="game_settings_manager_title">Spielmanager</string>
-    <string name="game_settings_manager_subtitle">Verwalte spielspezifische Profile, bearbeite Kerneinstellungen und übertrage sie zwischen Geräten.</string>
-    <string name="game_settings_manager_tools_title">Profil-Werkzeuge</string>
-    <string name="game_settings_manager_tools_desc">Exportiere, importiere oder setze jedes spielspezifische Profil zurück, ohne deine globalen Standardeinstellungen zu ändern.</string>
     <string name="game_settings_manager_export_title">Profile exportieren</string>
     <string name="game_settings_manager_import_title">Profile importieren</string>
     <string name="game_settings_manager_reset_all_title">Alle Spielprofile zurücksetzen</string>

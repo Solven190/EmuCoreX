@@ -189,7 +189,6 @@
     <string name="settings_ra_leaderboards_badge">LB</string>
     <string name="settings_ra_loading">Загрузка данных RetroAchievements…</string>
     <string name="achievements_title">Достижения</string>
-    <string name="achievements_subtitle">Отдельный центр RetroAchievements для аккаунта и игр.</string>
     <string name="achievements_earned_total">Выбито</string>
     <string name="achievements_games_with_unlocks">Игр</string>
     <string name="achievements_unlocked_section">Выбитые в библиотеке</string>
@@ -199,7 +198,6 @@
     <string name="achievements_account_unlocked_title">Выбитые по играм</string>
     <string name="achievements_account_unlocked_subtitle">Синхронизированные выбитые достижения, сгруппированные по играм.</string>
     <string name="achievements_account_group_summary">%1$d выбитых достижений</string>
-    <string name="achievements_sign_in_hint">Вход в RetroAchievements теперь находится здесь, а не в настройках.</string>
     <string name="achievements_open_game">Открыть игру</string>
     <string name="achievements_game_title">Достижения игры</string>
     <string name="achievements_game_unavailable">Сейчас не удалось загрузить достижения для этой игры.</string>
@@ -649,9 +647,6 @@
     <string name="settings_cas_mode_sharpen_resize">Резкость + масштабирование</string>
     <string name="shell_game_settings_manager">Менеджер игры</string>
     <string name="game_settings_manager_title">Менеджер игры</string>
-    <string name="game_settings_manager_subtitle">Управляйте профилями для каждой игры, редактируйте основные настройки и переносите их между устройствами.</string>
-    <string name="game_settings_manager_tools_title">Инструменты профиля</string>
-    <string name="game_settings_manager_tools_desc">Экспортируйте, импортируйте или сбрасывайте каждый профиль игры, не затрагивая глобальные настройки по умолчанию.</string>
     <string name="game_settings_manager_export_title">Экспорт профилей</string>
     <string name="game_settings_manager_import_title">Импорт профилей</string>
     <string name="game_settings_manager_reset_all_title">Сбросить все профили игр</string>

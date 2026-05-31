@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -61,7 +62,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.sbro.emucorex.R
@@ -209,6 +212,8 @@ private fun CompactAdaptiveShell(
     val selectedDrawerItemFocusRequester = remember { FocusRequester() }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val inputModeManager = LocalInputModeManager.current
+    val drawerScrollState = rememberScrollState()
 
     val mobileLeadingAction = if (
         !drawerEnabled || (
@@ -237,7 +242,9 @@ private fun CompactAdaptiveShell(
     }
     LaunchedEffect(drawerState.isOpen, mobileLeadingAction, selected) {
         if (drawerState.isOpen && mobileLeadingAction == MobileLeadingAction.Drawer) {
-            selectedDrawerItemFocusRequester.requestFocus()
+            if (inputModeManager.inputMode == InputMode.Keyboard) {
+                selectedDrawerItemFocusRequester.requestFocus()
+            }
         }
     }
     DisposableEffect(mobileLeadingAction, drawerState) {
@@ -250,6 +257,7 @@ private fun CompactAdaptiveShell(
         } else {
             GamepadUiActions.setToggleDrawerAction(null)
         }
+
         onDispose {
             GamepadUiActions.setToggleDrawerAction(null)
         }
@@ -293,6 +301,7 @@ private fun CompactAdaptiveShell(
                     selectedItemFocusRequester = selectedDrawerItemFocusRequester,
                     wrapInSurface = false,
                     topInset = statusPadding,
+                    scrollState = drawerScrollState,
                     onCloseDrawer = { scope.launch { drawerState.close() } }
                 )
             }
@@ -354,6 +363,7 @@ private fun SideNavigation(
     selectedItemFocusRequester: FocusRequester? = null,
     wrapInSurface: Boolean = true,
     topInset: androidx.compose.ui.unit.Dp = WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding(),
+    scrollState: ScrollState = rememberScrollState(),
     onCloseDrawer: () -> Unit
 ) {
     val drawerInset = 18.dp
@@ -434,7 +444,7 @@ private fun SideNavigation(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(
                     start = drawerInset,
                     end = drawerInset,
@@ -482,13 +492,7 @@ private fun SideNavigation(
                 } else Modifier,
                 onClick = navigateAchievements
             )
-            if (onNavigateCheats != null) {
-                ShellAction(
-                    icon = Icons.Rounded.Star,
-                    label = stringResource(R.string.settings_cheats_tab),
-                    onClick = onNavigateCheats
-                )
-            }
+
             HorizontalDivider(
                 thickness = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
@@ -501,15 +505,6 @@ private fun SideNavigation(
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 4.dp)
-                )
-                ShellItem(
-                    icon = Icons.Rounded.Memory,
-                    label = stringResource(R.string.shell_supported_formats),
-                    selected = selected == PrimaryDestination.Formats,
-                    modifier = if (selected == PrimaryDestination.Formats && selectedItemFocusRequester != null) {
-                        Modifier.focusRequester(selectedItemFocusRequester)
-                    } else Modifier,
-                    onClick = navigateFormats
                 )
                 if (launchGame != null) {
                     ShellAction(
@@ -539,15 +534,6 @@ private fun SideNavigation(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
-                ShellItem(
-                    icon = Icons.Rounded.Settings,
-                    label = stringResource(R.string.shell_app_settings),
-                    selected = selected == PrimaryDestination.Settings,
-                    modifier = if (selected == PrimaryDestination.Settings && selectedItemFocusRequester != null) {
-                        Modifier.focusRequester(selectedItemFocusRequester)
-                    } else Modifier,
-                    onClick = navigateSettings
-                )
                 if (navigateGameSettingsManager != null) {
                     ShellAction(
                         icon = Icons.Rounded.Tune,
@@ -555,18 +541,18 @@ private fun SideNavigation(
                         onClick = navigateGameSettingsManager
                     )
                 }
-                if (resetAllSettings != null) {
-                    ShellAction(
-                        icon = Icons.Rounded.Refresh,
-                        label = stringResource(R.string.settings_reset_all_action),
-                        onClick = resetAllSettings
-                    )
-                }
                 if (navigateDataTransfer != null) {
                     ShellAction(
                         icon = Icons.Rounded.SwapVert,
                         label = stringResource(R.string.shell_data_transfer),
                         onClick = navigateDataTransfer
+                    )
+                }
+                if (resetAllSettings != null) {
+                    ShellAction(
+                        icon = Icons.Rounded.Refresh,
+                        label = stringResource(R.string.settings_reset_all_action),
+                        onClick = resetAllSettings
                     )
                 }
             }
@@ -583,11 +569,11 @@ private fun SideNavigation(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
-                if (openManageFolders != null) {
+                if (navigateMemoryCardManager != null) {
                     ShellAction(
-                        icon = Icons.Rounded.FolderOpen,
-                        label = stringResource(R.string.shell_manage_folders),
-                        onClick = openManageFolders
+                        icon = Icons.Rounded.Memory,
+                        label = stringResource(R.string.shell_memory_cards),
+                        onClick = navigateMemoryCardManager
                     )
                 }
                 if (navigateSaveManager != null) {
@@ -597,14 +583,29 @@ private fun SideNavigation(
                         onClick = navigateSaveManager
                     )
                 }
-                if (navigateMemoryCardManager != null) {
-                    ShellAction(
-                        icon = Icons.Rounded.Memory,
-                        label = stringResource(R.string.shell_memory_cards),
-                        onClick = navigateMemoryCardManager
-                    )
-                }
             }
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+            )
+            ShellItem(
+                icon = Icons.Rounded.Settings,
+                label = stringResource(R.string.shell_app_settings),
+                selected = selected == PrimaryDestination.Settings,
+                modifier = if (selected == PrimaryDestination.Settings && selectedItemFocusRequester != null) {
+                    Modifier.focusRequester(selectedItemFocusRequester)
+                } else Modifier,
+                onClick = navigateSettings
+            )
+            ShellItem(
+                icon = Icons.Rounded.Memory,
+                label = stringResource(R.string.shell_supported_formats),
+                selected = selected == PrimaryDestination.Formats,
+                modifier = if (selected == PrimaryDestination.Formats && selectedItemFocusRequester != null) {
+                    Modifier.focusRequester(selectedItemFocusRequester)
+                } else Modifier,
+                onClick = navigateFormats
+            )
         }
 
         if (showResetDialog && onResetAllSettings != null) {

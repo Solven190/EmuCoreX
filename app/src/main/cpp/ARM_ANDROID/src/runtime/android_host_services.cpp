@@ -125,8 +125,19 @@ void SetPerformanceMetricsCallbackEnabled(bool enabled)
 }
 }
 
+extern void NotifySettingsChanged(const char* section, const char* key, const char* value);
+
 void Host::CommitBaseSettingChanges()
 {
+	std::string username = Host::GetStringSettingValue("Achievements", "Username");
+	std::string token = Host::GetStringSettingValue("Achievements", "Token");
+	bool enabled = Host::GetBoolSettingValue("Achievements", "Enabled", false);
+	bool hardcore = Host::GetBoolSettingValue("Achievements", "ChallengeMode", false);
+
+	NotifySettingsChanged("Achievements", "Username", username.c_str());
+	NotifySettingsChanged("Achievements", "Token", token.c_str());
+	NotifySettingsChanged("Achievements", "Enabled", enabled ? "true" : "false");
+	NotifySettingsChanged("Achievements", "ChallengeMode", hardcore ? "true" : "false");
 }
 
 void Host::LoadSettings(SettingsInterface&, std::unique_lock<std::mutex>&)
@@ -487,20 +498,29 @@ std::string Host::TranslatePluralToString(const char*, const char* msg, const ch
 	return ret;
 }
 
-void Host::OnAchievementsLoginRequested(Achievements::LoginRequestReason)
+extern void NotifyLoginRequested(int reason);
+extern void NotifyLoginSuccess(const char* username, u32 points, u32 sc_points, u32 unread_messages);
+extern void NotifyHardcoreModeChanged(bool enabled);
+extern void QueryAndNotifyAchievementsState();
+
+void Host::OnAchievementsLoginRequested(Achievements::LoginRequestReason reason)
 {
+	NotifyLoginRequested(static_cast<int>(reason));
 }
 
-void Host::OnAchievementsLoginSuccess(const char*, u32, u32, u32)
+void Host::OnAchievementsLoginSuccess(const char* display_name, u32 points, u32 sc_points, u32 unread_messages)
 {
+	NotifyLoginSuccess(display_name, points, sc_points, unread_messages);
 }
 
 void Host::OnAchievementsRefreshed()
 {
+	QueryAndNotifyAchievementsState();
 }
 
-void Host::OnAchievementsHardcoreModeChanged(bool)
+void Host::OnAchievementsHardcoreModeChanged(bool enabled)
 {
+	NotifyHardcoreModeChanged(enabled);
 }
 
 void Host::OnCoverDownloaderOpenRequested()
