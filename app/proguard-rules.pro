@@ -69,6 +69,13 @@
     public static void closeDevice(int);
 }
 
+# The app compiles SDL's Java glue directly from the bundled SDL Android project.
+# SDL's native JNI_OnLoad registers classes by hard-coded names such as
+# org/libsdl/app/SDLActivity and org/libsdl/app/SDLInputConnection. Keep the full
+# glue package stable so optimized release builds cannot rename a class or method
+# that native code resolves by string.
+-keep,includedescriptorclasses class org.libsdl.app.** { *; }
+
 # Typed Navigation Compose routes are kotlinx-serializable. Their generated serializers
 # are used by navigation to encode/decode route arguments, including after process death.
 -keep,includedescriptorclasses class com.sbro.emucorex.navigation.** { *; }
