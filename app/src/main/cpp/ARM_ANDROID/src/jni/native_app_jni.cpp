@@ -10,6 +10,7 @@
 
 #include <android/log.h>
 #include <android/native_window_jni.h>
+#include <dlfcn.h>
 #include <jni.h>
 #include <zip.h>
 #include <cstring>
@@ -215,9 +216,9 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_initiali
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_reloadDataRoot(JNIEnv* env, jclass, jstring path) { AndroidRuntime::Instance().ReloadDataRoot(JStringToString(env, path)); }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getGameTitle(JNIEnv* env, jclass, jstring path) { return StringToJString(env, AndroidRuntime::Instance().GetGameTitle(JStringToString(env, path))); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPadVibration(JNIEnv*, jclass, jboolean enabled) { AndroidRuntime::Instance().SetSetting("InputSources", "PadVibration", "bool", enabled == JNI_TRUE ? "true" : "false"); }
-extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPerformanceOverlayMode(JNIEnv*, jclass, jboolean visible, jboolean)
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPerformanceOverlayMode(JNIEnv*, jclass, jboolean visible, jboolean detailed)
 {
-	emucorex::android::SetPerformanceMetricsCallbackEnabled(visible == JNI_TRUE);
+	emucorex::android::SetPerformanceMetricsCallbackEnabled(visible == JNI_TRUE, detailed == JNI_TRUE);
 	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowFPS", "bool", "false");
 	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowVPS", "bool", "false");
 	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowSpeed", "bool", "false");
@@ -268,6 +269,17 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_renderUp
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_renderGpu(JNIEnv*, jclass, jint value) { AndroidRuntime::Instance().SetSetting("EmuCore/GS", "Renderer", "int", std::to_string(value)); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setCustomDriverPath(JNIEnv* env, jclass, jstring path) { AndroidRuntime::Instance().SetSetting("EmuCoreX", "CustomDriverPath", "string", JStringToString(env, path)); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setNativeLibraryDir(JNIEnv* env, jclass, jstring path) { AndroidRuntime::Instance().SetNativeLibraryDir(JStringToString(env, path)); }
+extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_loadGlobalLibrary(JNIEnv* env, jclass, jstring path)
+{
+	const std::string library_path = JStringToString(env, path);
+	void* handle = dlopen(library_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
+	if (handle)
+		return nullptr;
+
+	const char* error = dlerror();
+	const std::string message = error ? error : "unknown dlopen error";
+	return StringToJString(env, message);
+}
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_beginSettingsBatch(JNIEnv*, jclass) { AndroidRuntime::Instance().BeginSettingsBatch(); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_endSettingsBatch(JNIEnv*, jclass) { AndroidRuntime::Instance().EndSettingsBatch(); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setSetting(JNIEnv* env, jclass, jstring section, jstring key, jstring type, jstring value) { AndroidRuntime::Instance().SetSetting(JStringToString(env, section), JStringToString(env, key), JStringToString(env, type), JStringToString(env, value)); }

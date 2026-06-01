@@ -1005,6 +1005,12 @@
     <string name="settings_gpu_driver_source">स्रोत</string>
     <string name="settings_gpu_driver_recommended">अनुशंसित</string>
     <string name="settings_gpu_driver_downloaded">डाउनलोड किया गया</string>
+    <string name="settings_vulkan_wrapper">Vulkan रैपर</string>
+    <string name="settings_vulkan_wrapper_desc">Vulkan रेंडरिंग के लिए शामिल Bionic Vulkan रैपर का उपयोग करें। सक्षम होने पर यह चुने हुए GPU ड्राइवर को बदल देता है।</string>
+    <string name="settings_vulkan_wrapper_etc2">ETC2 मेमोरी मोड</string>
+    <string name="settings_vulkan_wrapper_etc2_desc">रैपर सक्षम होने पर ETC2 transcoding के जरिए टेक्सचर VRAM उपयोग घटाता है।</string>
+    <string name="settings_help_vulkan_wrapper">अगली बार शुरू होने पर Vulkan को शामिल Bionic Vulkan रैपर से चलाता है। इसे बंद रखें, जब तक किसी गेम या ड्राइवर को compatibility fixes की जरूरत न हो। सक्षम होने पर यह चुने हुए custom GPU ड्राइवर की जगह इस्तेमाल होता है।</string>
+    <string name="settings_help_vulkan_wrapper_etc2">रैपर का ETC2 transcoding path सक्षम करता है। यह VRAM उपयोग काफी घटा सकता है, लेकिन कुछ टेक्सचर नरम दिख सकते हैं या compression artifacts दिखा सकते हैं।</string>
     <string name="settings_updates_tab">अपडेट</string>
     <string name="settings_updates_checking_title">अपडेट की जांच हो रही है</string>
     <string name="settings_updates_available_title">अपडेट उपलब्ध है</string>

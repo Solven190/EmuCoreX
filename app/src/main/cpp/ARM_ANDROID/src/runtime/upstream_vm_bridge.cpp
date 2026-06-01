@@ -172,6 +172,35 @@ void InstallHostSettings(const VmLaunchConfig& config)
 	else
 		unsetenv("LIBVULKAN_PATH");
 
+	const bool vulkan_wrapper_enabled = GetBoolSetting(config.settings, "EmuCoreX", "VulkanWrapperEnabled", false);
+	const bool vulkan_wrapper_etc2 = GetBoolSetting(config.settings, "EmuCoreX", "VulkanWrapperEtc2", false);
+	const auto wrapper_icd_it = config.settings.find("EmuCoreX\nVulkanWrapperIcdJsonPath");
+	if (vulkan_wrapper_enabled && wrapper_icd_it != config.settings.end() && !wrapper_icd_it->second.empty())
+	{
+		setenv("EMUCOREX_VULKAN_WRAPPER_ACTIVE", "1", 1);
+		unsetenv("VK_ICD_FILENAMES");
+		unsetenv("VK_DRIVER_FILES");
+		unsetenv("VK_LOADER_DISABLE_INST_EXT_FILTER");
+	}
+	else
+	{
+		unsetenv("EMUCOREX_VULKAN_WRAPPER_ACTIVE");
+		unsetenv("VK_ICD_FILENAMES");
+		unsetenv("VK_DRIVER_FILES");
+		unsetenv("VK_LOADER_DISABLE_INST_EXT_FILTER");
+	}
+
+	if (vulkan_wrapper_enabled && vulkan_wrapper_etc2)
+	{
+		setenv("USE_IMAGE_VIEW", "0", 1);
+		setenv("FORCE_BCN_EMULATION", "1", 1);
+	}
+	else
+	{
+		unsetenv("USE_IMAGE_VIEW");
+		unsetenv("FORCE_BCN_EMULATION");
+	}
+
 	std::unique_lock settings_lock = Host::GetSettingsLock();
 	if (!Host::Internal::GetBaseSettingsLayer())
 		Host::Internal::SetBaseSettingsLayer(&s_base_settings);

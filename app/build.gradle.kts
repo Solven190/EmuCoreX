@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.google.services)
-    alias(libs.plugins.firebase.crashlytics)
 }
 
 android {
@@ -46,9 +45,6 @@ android {
                 "proguard-rules.pro",
                 "src/main/cpp/ARM_ANDROID/third_party/SDL/android-project/app/proguard-rules.pro"
             )
-            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
-                nativeSymbolUploadEnabled = true
-            }
         }
     }
     compileOptions {
@@ -122,11 +118,65 @@ val shadercBuildTask = tasks.register<Exec>("buildShadercArm64") {
     )
 }
 
+val vulkanWrapperShimSources = mapOf(
+    "libcutils.so" to "libcutils_shim.c",
+    "libhardware.so" to "libhardware_shim.c",
+    "libnativewindow.so" to "libnativewindow_shim.c",
+)
+
+val sdkRootForVulkanWrapperShims = file(
+    System.getenv("ANDROID_HOME")
+        ?: System.getenv("ANDROID_SDK_ROOT")
+        ?: "${System.getProperty("user.home")}/AppData/Local/Android/Sdk"
+)
+val ndkRootForVulkanWrapperShims = sdkRootForVulkanWrapperShims.resolve("ndk/${android.ndkVersion}")
+val clangForVulkanWrapperShims =
+    ndkRootForVulkanWrapperShims.resolve("toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android29-clang.cmd")
+val vulkanWrapperShimSourceDir = file("src/main/cpp/vulkan_wrapper_shims")
+val vulkanWrapperShimAssetDir = file("src/main/assets/vulkan_wrappers/android_stub")
+
+val vulkanWrapperShimBuildTasks = vulkanWrapperShimSources.map { (libraryName, sourceName) ->
+    tasks.register<Exec>("build${libraryName.removePrefix("lib").removeSuffix(".so").replaceFirstChar { it.uppercase() }}VulkanWrapperShimArm64") {
+        val source = vulkanWrapperShimSourceDir.resolve(sourceName)
+        val output = vulkanWrapperShimAssetDir.resolve(libraryName)
+
+        inputs.file(source)
+        outputs.file(output)
+
+        doFirst {
+            vulkanWrapperShimAssetDir.mkdirs()
+        }
+        commandLine(
+            clangForVulkanWrapperShims.absolutePath,
+            "-shared",
+            "-fPIC",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-Wl,-soname,$libraryName",
+            "-o",
+            output.absolutePath,
+            source.absolutePath,
+            "-ldl"
+        )
+    }
+}
+
+val buildVulkanWrapperShimsTask = tasks.register("buildVulkanWrapperShimsArm64") {
+    dependsOn(vulkanWrapperShimBuildTasks)
+}
+
 tasks.configureEach {
     if (name.startsWith("configureCMake") ||
         name.startsWith("buildCMake") ||
         name.startsWith("externalNativeBuild")) {
         dependsOn(shadercBuildTask)
+    }
+    if (name.startsWith("merge") && name.endsWith("Assets")) {
+        dependsOn(buildVulkanWrapperShimsTask)
+    }
+    if (name.contains("Lint", ignoreCase = true)) {
+        dependsOn(buildVulkanWrapperShimsTask)
     }
 }
 
@@ -148,9 +198,6 @@ dependencies {
     implementation(libs.androidx.documentfile)
     implementation(libs.android.youtube.player.core)
     implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.analytics)
-    implementation(libs.firebase.crashlytics)
-    implementation(libs.firebase.crashlytics.ndk)
     implementation(libs.firebase.firestore)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

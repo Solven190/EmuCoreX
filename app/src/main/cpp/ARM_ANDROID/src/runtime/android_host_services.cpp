@@ -14,6 +14,7 @@
 #include "pcsx2/VMManager.h"
 
 #include "common/ProgressCallback.h"
+#include "common/SmallString.h"
 #include "common/StringUtil.h"
 #include "common/WindowInfo.h"
 
@@ -46,6 +47,7 @@ std::chrono::steady_clock::time_point s_last_metrics_dispatch;
 std::mutex s_metrics_mutex;
 std::string s_metrics_snapshot;
 std::atomic_bool s_performance_metrics_enabled{false};
+std::atomic_bool s_performance_metrics_detailed{false};
 
 void LogHostMessage(android_LogPriority priority, std::string_view title, std::string_view message)
 {
@@ -91,6 +93,21 @@ void AppendProcessorStat(std::string& text, const char* label, double usage, dou
 		AppendFormat(text, "%.1f%% (%.2fms)", usage, time);
 }
 
+std::string GetFirstStatsSegment(const SmallStringBase& stats)
+{
+	if (stats.empty())
+		return {};
+
+	std::string_view segment(stats.c_str());
+	const size_t separator = segment.find('|');
+	if (separator != std::string_view::npos)
+		segment = segment.substr(0, separator);
+	while (!segment.empty() && segment.back() == ' ')
+		segment.remove_suffix(1);
+
+	return std::string(segment);
+}
+
 }
 
 namespace emucorex::android
@@ -116,9 +133,10 @@ std::string GetPerformanceMetricsSnapshot()
 	return s_metrics_snapshot;
 }
 
-void SetPerformanceMetricsCallbackEnabled(bool enabled)
+void SetPerformanceMetricsCallbackEnabled(bool enabled, bool detailed)
 {
 	s_performance_metrics_enabled.store(enabled, std::memory_order_relaxed);
+	s_performance_metrics_detailed.store(enabled && detailed, std::memory_order_relaxed);
 	if (!enabled)
 	{
 		std::lock_guard lock(s_metrics_mutex);
@@ -344,6 +362,31 @@ void Host::OnPerformanceMetricsUpdated()
 	line.clear();
 	AppendProcessorStat(line, "GS: ", PerformanceMetrics::GetGSThreadUsage(), PerformanceMetrics::GetGSThreadAverageTime());
 	AppendLine(overlay, line);
+
+	if (s_performance_metrics_detailed.load(std::memory_order_relaxed))
+	{
+		SmallString gs_stats_line;
+		SmallString gs_memory_stats_line;
+		GSgetStats(gs_stats_line);
+		GSgetMemoryStats(gs_memory_stats_line);
+
+		std::string renderer = GetFirstStatsSegment(gs_stats_line);
+		std::string memory = GetFirstStatsSegment(gs_memory_stats_line);
+		if (!renderer.empty() && !memory.empty())
+		{
+			renderer.append(" | ");
+			renderer.append(memory);
+			AppendLine(overlay, renderer);
+		}
+		else if (!renderer.empty())
+		{
+			AppendLine(overlay, renderer);
+		}
+		else if (!memory.empty())
+		{
+			AppendLine(overlay, memory);
+		}
+	}
 
 	std::string snapshot;
 	AppendFormat(snapshot, "%.3f\n%.3f\n", display_fps, speed);

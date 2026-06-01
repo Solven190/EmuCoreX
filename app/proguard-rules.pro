@@ -4,7 +4,7 @@
 # runtime entry points that are reached from Android manifests, JNI, Kotlin serialization,
 # or library reflection. Do not blanket-keep the whole app; that hides real shrinker issues.
 
-# Keep useful crash context for Crashlytics mapping and native-adjacent stack traces.
+# Keep native-adjacent stack traces readable in release builds.
 -keepattributes SourceFile,LineNumberTable
 -keepattributes Signature,*Annotation*,InnerClasses,EnclosingMethod
 
@@ -30,6 +30,12 @@
 -keep,includedescriptorclasses class com.sbro.emucorex.core.utils.DiscordBridge { *; }
 -keep,includedescriptorclasses class com.sbro.emucorex.core.utils.SDLControllerManager { *; }
 -keep,includedescriptorclasses class com.sbro.emucorex.core.hid.HIDDeviceManager { *; }
+
+# Bundled Vulkan wrapper extraction is part of the release-only rendering path. It is
+# statically referenced, but keep it explicit so R8 cannot fold away diagnostics or
+# helper data used to decide whether the wrapper can safely be enabled.
+-keep,includedescriptorclasses class com.sbro.emucorex.core.VulkanWrapperManager { *; }
+-keep,includedescriptorclasses class com.sbro.emucorex.core.VulkanWrapperManager$Install { *; }
 
 # Methods looked up from C++ with GetStaticMethodID/CallStatic* must keep their Java
 # names and signatures even when the surrounding Kotlin code is optimized.
@@ -103,8 +109,8 @@
 # DataStore stores preferences by string keys, so no app classes need to be kept for it.
 # JSON parsing in the app is manual org.json; no Gson/Moshi reflection model rules needed.
 
-# Firebase/Crashlytics and AndroidX ship their own consumer rules. These dontwarn entries
-# keep release output focused when optional integrations are absent from a variant.
+# Firebase Firestore, Google services, and AndroidX ship their own consumer rules. These
+# dontwarn entries keep release output focused when optional integrations are absent.
 -dontwarn com.google.firebase.**
 -dontwarn com.google.android.gms.**
 -dontwarn com.pierfrancescosoffritti.androidyoutubeplayer.**

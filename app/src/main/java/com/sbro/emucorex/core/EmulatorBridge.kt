@@ -236,6 +236,8 @@ object EmulatorBridge {
         upscaleMultiplier: Float,
         gpuDriverType: Int = 0,
         customDriverPath: String? = null,
+        vulkanWrapperEnabled: Boolean = false,
+        vulkanWrapperEtc2Enabled: Boolean = false,
         aspectRatio: Int = 1,
         enableEeRecompiler: Boolean = true,
         enableIopRecompiler: Boolean = true,
@@ -316,6 +318,17 @@ object EmulatorBridge {
         val cheatsDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "cheats").apply { mkdirs() }
         val patchesDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "patches").apply { mkdirs() }
         val logDir = EmulatorStorage.logDir(context)
+        val wrapperInstall = if (resolvedRenderer == VULKAN_RENDERER && vulkanWrapperEnabled) {
+            VulkanWrapperManager.ensureBionicWrapper(context)
+        } else {
+            null
+        }
+        val wrapperActive = wrapperInstall != null
+        val effectiveDriverPath = when {
+            wrapperActive -> wrapperInstall.libraryFile.absolutePath
+            gpuDriverType == 1 && !wrapperActive -> customDriverPath.orEmpty()
+            else -> ""
+        }
         val manualHardwareFixes = GsHackDefaults.shouldEnableManualHardwareFixes(
             cpuSpriteRenderSize = cpuSpriteRenderSize,
             cpuSpriteRenderLevel = cpuSpriteRenderLevel,
@@ -347,7 +360,14 @@ object EmulatorBridge {
         )
 
         NativeApp.setCrashContextString("emu_renderer_name", rendererName(resolvedRenderer))
-        NativeApp.setCrashContextString("emu_gpu_driver_mode", if (gpuDriverType == 1) "custom" else "system")
+        NativeApp.setCrashContextString(
+            "emu_gpu_driver_mode",
+            when {
+                wrapperActive -> "bionic_wrapper"
+                gpuDriverType == 1 -> "custom"
+                else -> "system"
+            }
+        )
         val directEeRecompiler = enableEeRecompiler
         val directIopRecompiler = enableIopRecompiler
         val directVu0Recompiler = enableVu0Recompiler
@@ -358,7 +378,7 @@ object EmulatorBridge {
             "android jit: requested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem} mtvuRequested=$mtvu direct={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu fastmem:$enableFastmem}"
         )
         NativeApp.logCrashBreadcrumb(
-            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$gpuDriverType hwDownload=$hwDownloadMode mtvuRequested=$mtvu directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu fastmem:$enableFastmem} fastCdvd=$fastCdvd jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
+            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$gpuDriverType wrapper=$wrapperActive wrapperEtc2=${wrapperActive && vulkanWrapperEtc2Enabled} hwDownload=$hwDownloadMode mtvuRequested=$mtvu directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu fastmem:$enableFastmem} fastCdvd=$fastCdvd jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
         )
 
         performRuntimeOps(
@@ -450,6 +470,9 @@ object EmulatorBridge {
                 add(settingOp("EmuCoreX", "UpscaleMultiplier", "float", upscaleMultiplier.toString()))
                 add(settingOp("EmuCoreX", "HasContext", "bool", (context.applicationContext != null).toString()))
                 add(settingOp("EmuCoreX", "AutotestMode", "bool", autotestMode.toString()))
+                add(settingOp("EmuCoreX", "VulkanWrapperEnabled", "bool", wrapperActive.toString()))
+                add(settingOp("EmuCoreX", "VulkanWrapperEtc2", "bool", (wrapperActive && vulkanWrapperEtc2Enabled).toString()))
+                add(settingOp("EmuCoreX", "VulkanWrapperIcdJsonPath", "string", wrapperInstall?.icdFile?.absolutePath.orEmpty()))
                 add(settingOp("EmuCore", "WarnAboutUnsafeSettings", "bool", "false"))
                 add(settingOp("EmuCore/GS", "OsdMessagesPos", "int", "0"))
                 val prefs = AppPreferences(context)
@@ -457,7 +480,7 @@ object EmulatorBridge {
                 add(settingOp("Achievements", "ChallengeMode", "bool", prefs.getAchievementsHardcoreSync().toString()))
                 add(settingOp("Achievements", "Username", "string", prefs.getAchievementsUsernameSync().orEmpty()))
                 add(settingOp("Achievements", "Token", "string", prefs.getAchievementsTokenSync().orEmpty()))
-                add(customDriverOp(if (gpuDriverType == 1) customDriverPath.orEmpty() else ""))
+                add(customDriverOp(effectiveDriverPath))
             }
         )
     }

@@ -1005,6 +1005,12 @@
     <string name="settings_gpu_driver_source">Fonte</string>
     <string name="settings_gpu_driver_recommended">Consigliato</string>
     <string name="settings_gpu_driver_downloaded">Scaricato</string>
+    <string name="settings_vulkan_wrapper">Wrapper Vulkan</string>
+    <string name="settings_vulkan_wrapper_desc">Usa il wrapper Vulkan Bionic incluso per il rendering Vulkan. Quando è attivo, sostituisce il driver GPU selezionato.</string>
+    <string name="settings_vulkan_wrapper_etc2">Modalità memoria ETC2</string>
+    <string name="settings_vulkan_wrapper_etc2_desc">Riduce l\'uso della VRAM per le texture tramite ETC2 transcoding quando il wrapper è attivo.</string>
+    <string name="settings_help_vulkan_wrapper">Instrada Vulkan tramite il wrapper Vulkan Bionic incluso al prossimo avvio. Lascialo disattivato a meno che un gioco o un driver richieda correzioni di compatibilità. Quando è attivo, questo wrapper viene usato al posto del driver GPU personalizzato selezionato.</string>
+    <string name="settings_help_vulkan_wrapper_etc2">Attiva il percorso ETC2 transcoding del wrapper. Può ridurre molto l\'uso della VRAM, ma alcune texture potrebbero apparire più morbide o mostrare artefatti di compressione.</string>
     <string name="settings_updates_tab">Aggiornamenti</string>
     <string name="settings_updates_checking_title">Ricerca aggiornamenti</string>
     <string name="settings_updates_available_title">Aggiornamento disponibile</string>
