@@ -721,42 +721,71 @@ static void recDIVU_constt(int info)
 
 EERECOMPILE_CODERC0(DIVU, XMMINFO_READS | XMMINFO_READT);
 
-static void recDIV1_const()
+static void recDIV1_safe_emit_oaknut()
 {
-	recDIVConstExact<true>();
+	_deleteEEreg(XMMGPR_LO, 1);
+	_deleteEEreg(XMMGPR_HI, 1);
+	_deleteGPRtoX86reg(_Rs_, DELETE_REG_FLUSH);
+	_deleteGPRtoXMMreg(_Rs_, DELETE_REG_FLUSH);
+	_deleteGPRtoX86reg(_Rt_, DELETE_REG_FLUSH);
+	_deleteGPRtoXMMreg(_Rt_, DELETE_REG_FLUSH);
+
+	recBeginOaknutEmit();
+
+	if (GPR_IS_CONST1(_Rt_))
+		oakAsm->MOV(oak::util::W1, g_cpuConstRegs[_Rt_].UL[0]);
+	else
+		oakLoad32(oak::util::W1, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
+
+	if (GPR_IS_CONST1(_Rs_))
+		oakAsm->MOV(oak::util::W0, g_cpuConstRegs[_Rs_].UL[0]);
+	else
+		oakLoad32(oak::util::W0, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UL[0]))});
+
+	oak::Label end1;
+	oak::Label not_overflow;
+	oakAsm->MOV(oak::util::W4, 0x80000000u);
+	oakAsm->CMP(oak::util::W0, oak::util::W4);
+	oakAsm->B(oak::Cond::NE, not_overflow);
+	oakAsm->MOV(oak::util::W4, 0xffffffffu);
+	oakAsm->CMP(oak::util::W1, oak::util::W4);
+	oakAsm->B(oak::Cond::NE, not_overflow);
+	oakAsm->MOV(oak::util::W2, 0);
+	oakAsm->B(end1);
+
+	oakAsm->l(not_overflow);
+
+	oak::Label cont3;
+	oakAsm->CBNZ(oak::util::W1, cont3);
+	oakAsm->MOV(oak::util::W2, oak::util::W0);
+	oakAsm->ASR(oak::util::W0, oak::util::W0, 31);
+	oakAsm->LSL(oak::util::W0, oak::util::W0, 1);
+	oakAsm->MVN(oak::util::W0, oak::util::W0);
+	oak::Label end2;
+	oakAsm->B(end2);
+
+	oakAsm->l(cont3);
+
+	oakAsm->MOV(oak::util::W4, oak::util::W0);
+	oakAsm->SDIV(oak::util::W0, oak::util::W4, oak::util::W1);
+	oakAsm->MSUB(oak::util::W2, oak::util::W0, oak::util::W1, oak::util::W4);
+
+	oakAsm->l(end1);
+	oakAsm->l(end2);
+
+	oakAsm->SXTW(oak::util::X0, oak::util::W0);
+	oakStore64(oak::util::X0, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.LO.UD[1]))});
+	oakAsm->SXTW(oak::util::X2, oak::util::W2);
+	oakStore64(oak::util::X2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.HI.UD[1]))});
+
+	recEndOaknutEmit();
 }
 
-static void recDIV1_emit_oaknut(int info)
+void recDIV1(void)
 {
-	recDIVExact<true, true, 0>(info);
+	EE::Profiler.EmitOp(eeOpcode::DIV1);
+	recDIV1_safe_emit_oaknut();
 }
-
-static void recDIV1_(int info)
-{
-	recDIV1_emit_oaknut(info);
-}
-
-static void recDIV1_consts_emit_oaknut(int info)
-{
-	recDIVExact<true, true, PROCESS_CONSTS>(info);
-}
-
-static void recDIV1_consts(int info)
-{
-	recDIV1_consts_emit_oaknut(info);
-}
-
-static void recDIV1_constt_emit_oaknut(int info)
-{
-	recDIVExact<true, true, PROCESS_CONSTT>(info);
-}
-
-static void recDIV1_constt(int info)
-{
-	recDIV1_constt_emit_oaknut(info);
-}
-
-EERECOMPILE_CODERC0(DIV1, XMMINFO_READS | XMMINFO_READT);
 
 static void recDIVU1_const()
 {
