@@ -70,12 +70,9 @@ Thumbs.db
 *.bak
 *.orig
 emulog.txt
-# Local investigation notes
-docs/*
-!docs/README.md
-!docs/EE_JIT_NFS_DEBUG_NOTES.md
-!docs/JIT_DEBUGGING_PLAYBOOK.md
-!docs/VU1_JIT_INVESTIGATION_LOG.md
+# Local investigation notes and profiling captures
+docs/
+profiling-runs/
 
 # Third-party and upstream docs (not needed in repo)
 **/third_party/**/docs/

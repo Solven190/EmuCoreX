@@ -139,11 +139,13 @@ __ri void mVUdeleteProg(microVU& mVU, microProgram*& prog)
 // Creates a new Micro Program
 __ri microProgram* mVUcreateProg(microVU& mVU, int startPC)
 {
+	EMUCOREX_PROFILE_SCOPE(mVU.index ? "microVU1 Create Program" : "microVU0 Create Program");
 	auto* prog = (microProgram*)_aligned_malloc(sizeof(microProgram), 64);
 	memset(prog, 0, sizeof(microProgram));
 	prog->idx = mVU.prog.total++;
 	prog->ranges = new std::deque<microRange>();
 	prog->startPC = startPC;
+	prog->microMemVersion = (mVU.index && THREAD_VU1) ? vu1Thread.microMemVersion : 0;
 	if(doWholeProgCompare)
 		mVUcacheProg(mVU, *prog); // Cache Micro Program
 	return prog;
@@ -220,6 +222,14 @@ void mVUprintUniqueRatio(microVU& mVU)
 // Compare Cached microProgram to mVU.regs().Micro
 __fi bool mVUcmpProg(microVU& mVU, microProgram& prog)
 {
+	if (mVU.index && THREAD_VU1 && prog.microMemVersion == vu1Thread.microMemVersion)
+	{
+		mVU.prog.cleared = 0;
+		mVU.prog.cur = &prog;
+		mVU.prog.isSame = 1;
+		return true;
+	}
+
 	if (doWholeProgCompare)
 	{
 		if (memcmp((u8*)prog.data, mVU.regs().Micro, mVU.microMemSize))
@@ -242,6 +252,7 @@ __fi bool mVUcmpProg(microVU& mVU, microProgram& prog)
 	mVU.prog.cleared = 0;
 	mVU.prog.cur = &prog;
 	mVU.prog.isSame = doWholeProgCompare ? 1 : -1;
+	prog.microMemVersion = (mVU.index && THREAD_VU1) ? vu1Thread.microMemVersion : 0;
 	return true;
 }
 
@@ -255,6 +266,11 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 
 	microProgramQuick& quick = mVU.prog.quick[regs_start_pc_8];
 	microProgramList*  list  = mVU.prog.prog [regs_start_pc_8];
+	if (quick.prog && mVU.index && THREAD_VU1 && quick.prog->microMemVersion != vu1Thread.microMemVersion)
+	{
+		quick.block = nullptr;
+		quick.prog = nullptr;
+	}
 
 	if (!quick.prog) // If null, we need to search for new program
 	{

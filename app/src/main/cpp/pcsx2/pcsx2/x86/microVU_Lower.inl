@@ -1489,7 +1489,6 @@ static void mVU_IADD_direct_emit_oaknut(mP)
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakWRegister(regD), oakWRegister(regS));
 		recEndOaknutEmit();
-		mVU_normalizeVIWrite_oaknut(regD);
 		mVU.regAlloc->clearNeeded(regD);
 		mVU.regAlloc->clearNeeded(regS);
 	}
@@ -1613,7 +1612,6 @@ static void mVU_IADDIU_direct_emit_oaknut(mP)
 			mVU_IADDIU_load_ibithack_imm15_emit_oaknut(mVU, regTW);
 		}
 		recEndOaknutEmit();
-		mVU_normalizeVIWrite_oaknut(regT);
 		mVU.regAlloc->clearNeeded(regT);
 	}
 	else
@@ -1967,6 +1965,27 @@ static void mVU_moveVIToGPR_oaknut(mV, int dst, int vi, bool signext = false)
 	mVU.regAlloc->clearNeeded(src);
 }
 
+static void mVU_moveVIToAddressGPR_oaknut(mV, int dst, int vi)
+{
+	const oak::WReg dst_w = oakWRegister(dst);
+	if (vi == 0)
+	{
+		recBeginOaknutEmit();
+		oakAsm->EOR(dst_w, dst_w, dst_w);
+		recEndOaknutEmit();
+		return;
+	}
+
+	const int src = mVU.regAlloc->allocGPRId(vi);
+	if (dst != src)
+	{
+		recBeginOaknutEmit();
+		oakAsm->MOV(dst_w, oakWRegister(src));
+		recEndOaknutEmit();
+	}
+	mVU.regAlloc->clearNeeded(src);
+}
+
 static void mVUaddrFix_oaknut(mV, int gprReg)
 {
 	constexpr s64 vu0_to_vu1_vf_qwords =
@@ -1980,8 +1999,7 @@ static void mVUaddrFix_oaknut(mV, int gprReg)
 	recBeginOaknutEmit();
 	if (isVU1)
 	{
-		oakAsm->AND(addr_w, addr_w, 0x3ff);
-		oakAsm->LSL(addr_w, addr_w, 4);
+		oakAsm->UBFIZ(addr_w, addr_w, 4, 10);
 	}
 	else
 	{
@@ -2005,17 +2023,65 @@ static void mVUaddrFix_oaknut(mV, int gprReg)
 	recEndOaknutEmit();
 }
 
+static __fi void mVU_addPointerOffset_oaknut(const oak::XReg& reg, s64 offset)
+{
+	if (offset == 0)
+		return;
+
+	if (offset > 0 && offset <= 4095)
+	{
+		oakAsm->ADD(reg, reg, static_cast<u32>(offset));
+	}
+	else
+	{
+		oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(offset));
+		oakAsm->ADD(reg, reg, OAK_XSCRATCH);
+	}
+}
+
+static bool mVU_tryConstantMemoryAddress_oaknut(mP, int vi, s32 imm, s32 byte_offset)
+{
+	if (EmuConfig.Gamefixes.IbitHack || vi != 0)
+		return false;
+
+	const s32 addr = imm;
+	if (isVU0 && (addr & 0x400))
+		return false;
+
+	const s64 offset = (isVU1 ? ((addr & 0x3ffu) << 4) : ((addr & 0xffu) << 4)) + byte_offset;
+	recBeginOaknutEmit();
+	oakLoad64(oakXRegister(VU_HOST_T2),
+		mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].Mem))));
+	mVU_addPointerOffset_oaknut(oakXRegister(VU_HOST_T2), offset);
+	recEndOaknutEmit();
+	return true;
+}
+
 static void mVU_makeMemoryAddress_oaknut(mP, int addr, int vi, s32 imm, s32 byte_offset)
 {
-	mVU_moveVIToGPR_oaknut(mVU, addr, vi);
+	if (mVU_tryConstantMemoryAddress_oaknut(mVU, recPass, vi, imm, byte_offset))
+		return;
+
+	mVU_moveVIToAddressGPR_oaknut(mVU, addr, vi);
 	const oak::WReg addr_w = oakWRegister(addr);
 	recBeginOaknutEmit();
 	if (!EmuConfig.Gamefixes.IbitHack)
 	{
 		if (imm != 0)
 		{
-			oakAsm->MOV(OAK_WSCRATCH, static_cast<u32>(imm));
-			oakAsm->ADD(addr_w, addr_w, OAK_WSCRATCH);
+			if (imm > 0 && imm <= 4095)
+			{
+				oakAsm->ADD(addr_w, addr_w, static_cast<u32>(imm));
+			}
+			else if (imm < 0 && imm >= -4095)
+			{
+				oakAsm->SUB(addr_w, addr_w, static_cast<u32>(-imm));
+			}
+			else
+			{
+				oakAsm->MOV(OAK_WSCRATCH, static_cast<u32>(imm));
+				oakAsm->ADD(addr_w, addr_w, OAK_WSCRATCH);
+			}
 		}
 	}
 	else
@@ -2033,27 +2099,50 @@ static void mVU_makeMemoryAddress_oaknut(mP, int addr, int vi, s32 imm, s32 byte
 	recBeginOaknutEmit();
 	oakLoad64(oakXRegister(VU_HOST_T2),
 		mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].Mem))));
-	if (byte_offset != 0)
-	{
-		oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(static_cast<s64>(byte_offset)));
-		oakAsm->ADD(oakXRegister(VU_HOST_T2), oakXRegister(VU_HOST_T2), OAK_XSCRATCH);
-	}
+	mVU_addPointerOffset_oaknut(oakXRegister(VU_HOST_T2), byte_offset);
 	oakAsm->ADD(oakXRegister(VU_HOST_T2), oakXRegister(VU_HOST_T2), oakXRegister(addr));
 	recEndOaknutEmit();
 }
 
+static bool mVU_makeIndexedQwordMemoryAddress_oaknut(mP, int addr, int vi, s32 imm)
+{
+	if (!isVU1 || EmuConfig.Gamefixes.IbitHack || vi == 0)
+		return false;
+
+	mVU_moveVIToAddressGPR_oaknut(mVU, addr, vi);
+	const oak::WReg addr_w = oakWRegister(addr);
+	recBeginOaknutEmit();
+	if (imm > 0 && imm <= 4095)
+	{
+		oakAsm->ADD(addr_w, addr_w, static_cast<u32>(imm));
+	}
+	else if (imm < 0 && imm >= -4095)
+	{
+		oakAsm->SUB(addr_w, addr_w, static_cast<u32>(-imm));
+	}
+	else if (imm != 0)
+	{
+		oakAsm->MOV(OAK_WSCRATCH, static_cast<u32>(imm));
+		oakAsm->ADD(addr_w, addr_w, OAK_WSCRATCH);
+	}
+	oakAsm->AND(addr_w, addr_w, 0x3ff);
+	oakLoad64(oakXRegister(VU_HOST_T2),
+		mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].Mem))));
+	recEndOaknutEmit();
+	return true;
+}
+
 static void mVU_makeRegisterMemoryAddress_oaknut(mP, int addr, int vi, s32 byte_offset = 0)
 {
-	mVU_moveVIToGPR_oaknut(mVU, addr, vi);
+	if (mVU_tryConstantMemoryAddress_oaknut(mVU, recPass, vi, 0, byte_offset))
+		return;
+
+	mVU_moveVIToAddressGPR_oaknut(mVU, addr, vi);
 	mVUaddrFix_oaknut(mVU, addr);
 	recBeginOaknutEmit();
 	oakLoad64(oakXRegister(VU_HOST_T2),
 		mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].Mem))));
-	if (byte_offset != 0)
-	{
-		oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(static_cast<s64>(byte_offset)));
-		oakAsm->ADD(oakXRegister(VU_HOST_T2), oakXRegister(VU_HOST_T2), OAK_XSCRATCH);
-	}
+	mVU_addPointerOffset_oaknut(oakXRegister(VU_HOST_T2), byte_offset);
 	oakAsm->ADD(oakXRegister(VU_HOST_T2), oakXRegister(VU_HOST_T2), oakXRegister(addr));
 	recEndOaknutEmit();
 }
@@ -2149,7 +2238,11 @@ static void mVU_makePostIncrementMemoryAddress_oaknut(mP, int addr, int vi, bool
 	}
 	else
 	{
-		mVU_moveVIToGPR_oaknut(mVU, addr, 0);
+		recBeginOaknutEmit();
+		oakLoad64(oakXRegister(VU_HOST_T2),
+			mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].Mem))));
+		recEndOaknutEmit();
+		return;
 	}
 
 	mVUaddrFix_oaknut(mVU, addr);
@@ -2205,10 +2298,10 @@ static void mVU_makePreDecrementMemoryAddress_oaknut(mP, int addr, int vi, bool 
 
 static void mVU_ILW_direct_emit_oaknut(mP)
 {
-	mVU_makeMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _Is_, _Imm11_, offsetSS);
+	mVU_makeMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _Is_, _Imm11_, 0);
 	const int regT = mVU.regAlloc->allocGPRId(-1, _It_, mVUlow.backupVI);
 	recBeginOaknutEmit();
-	oakLoad16(oakWRegister(regT), {oakXRegister(VU_HOST_T2), 0});
+	oakLoad16(oakWRegister(regT), {oakXRegister(VU_HOST_T2), static_cast<s64>(offsetSS)});
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeeded(regT);
 	mVU.profiler.EmitOp(opILW);
@@ -2233,10 +2326,10 @@ static void mVU_ILW_emit(mP)
 
 static void mVU_ILWR_direct_emit_oaknut(mP)
 {
-	mVU_makeRegisterMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _Is_, offsetSS);
+	mVU_makeRegisterMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _Is_, 0);
 	const int regT = mVU.regAlloc->allocGPRId(-1, _It_, mVUlow.backupVI);
 	recBeginOaknutEmit();
-	oakLoad16(oakWRegister(regT), {oakXRegister(VU_HOST_T2), 0});
+	oakLoad16(oakWRegister(regT), {oakXRegister(VU_HOST_T2), static_cast<s64>(offsetSS)});
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeeded(regT);
 	mVU.profiler.EmitOp(opILWR);
@@ -2322,11 +2415,20 @@ static void mVU_ISWR_emit(mP)
 
 static void mVU_LQ_direct_emit_oaknut(mP)
 {
-	mVU_makeMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _Is_, _Imm11_, 0);
 	const int Ft = mVU.regAlloc->allocRegId(-1, _Ft_, _X_Y_Z_W);
-	recBeginOaknutEmit();
-	mVU_loadVectorFromAddress_oaknut(Ft, oakXRegister(VU_HOST_T2), _X_Y_Z_W);
-	recEndOaknutEmit();
+	if ((_X_Y_Z_W == 0xf) && mVU_makeIndexedQwordMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _Is_, _Imm11_))
+	{
+		recBeginOaknutEmit();
+		oakAsm->LDR(oakQRegister(Ft), oakXRegister(VU_HOST_T2), oakWRegister(VU_HOST_T1), oak::util::UXTW, 4);
+		recEndOaknutEmit();
+	}
+	else
+	{
+		mVU_makeMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _Is_, _Imm11_, 0);
+		recBeginOaknutEmit();
+		mVU_loadVectorFromAddress_oaknut(Ft, oakXRegister(VU_HOST_T2), _X_Y_Z_W);
+		recEndOaknutEmit();
+	}
 	mVU.regAlloc->clearNeededXmmId(Ft);
 	mVU.profiler.EmitOp(opLQ);
 }
@@ -2396,11 +2498,20 @@ static void mVU_LQI_emit(mP)
 
 static void mVU_SQ_direct_emit_oaknut(mP)
 {
-	mVU_makeMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _It_, _Imm11_, 0);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _XYZW_PS ? -1 : 0, _X_Y_Z_W);
-	recBeginOaknutEmit();
-	mVU_storeVectorLanes_oaknut(Fs, oakXRegister(VU_HOST_T2), _X_Y_Z_W, _XYZW_SS);
-	recEndOaknutEmit();
+	if ((_X_Y_Z_W == 0xf) && !_XYZW_SS && mVU_makeIndexedQwordMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _It_, _Imm11_))
+	{
+		recBeginOaknutEmit();
+		oakAsm->STR(oakQRegister(Fs), oakXRegister(VU_HOST_T2), oakWRegister(VU_HOST_T1), oak::util::UXTW, 4);
+		recEndOaknutEmit();
+	}
+	else
+	{
+		mVU_makeMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _It_, _Imm11_, 0);
+		recBeginOaknutEmit();
+		mVU_storeVectorLanes_oaknut(Fs, oakXRegister(VU_HOST_T2), _X_Y_Z_W, _XYZW_SS);
+		recEndOaknutEmit();
+	}
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.profiler.EmitOp(opSQ);
 }
@@ -2737,6 +2848,7 @@ static void mVU_XITOP_direct_emit_oaknut(mP)
 		oakMoveAddressToReg(OAK_XSCRATCH, &vif.itop);
 		oakAsm->LDRH(dst, OAK_XSCRATCH);
 	}
+	oakAsm->AND(dst, dst, isVU1 ? 0x3ff : 0xff);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeeded(regT);
 	mVU.profiler.EmitOp(opXITOP);

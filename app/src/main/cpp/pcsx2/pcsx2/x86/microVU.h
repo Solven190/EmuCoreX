@@ -8,9 +8,11 @@
 #include <deque>
 #include <algorithm>
 #include <memory>
+#include <string>
 #include "Common.h"
 #include "VU.h"
 #include "MTVU.h"
+#include "emucorex/native_profiler.h"
 #include "GS.h"
 #include "Gif_Unit.h"
 #include "iR5900.h"
@@ -49,6 +51,7 @@ struct microProgram
 	microBlockManager* block[mProgSizeHalf]; // Array of Block Managers
 	std::deque<microRange>* ranges;          // The ranges of the microProgram that have already been recompiled
 	u32 startPC; // Start PC of this program
+	u32 microMemVersion; // Fast VU1 key for unchanged micro-memory
 	int idx;     // Program index
 };
 

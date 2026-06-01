@@ -243,6 +243,8 @@ namespace Threading
 				m_sema.Wait();
 		}
 
+		void WaitWithSpin();
+
 		bool TryWait()
 		{
 			int32_t counter = m_counter.load(std::memory_order_relaxed);

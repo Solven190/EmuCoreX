@@ -7,6 +7,7 @@
 #include "Vif_Dma.h"
 #include "VUmicro.h"
 
+#include <atomic>
 #include <thread>
 
 #define MTVU_LOG(...) do{} while(0)
@@ -49,6 +50,13 @@ public:
 	std::atomic<u32> mtvuInterrupts; // Used for GS Signal, Finish etc, plus VU End/T-Bit
 	std::atomic<u64> gsLabel; // Used for GS Label command
 	std::atomic<u64> gsSignal; // Used for GS Signal command
+
+	u32 microMemVersion = 1;
+
+	std::atomic<u64> asyncQueuedOrder{0};
+	std::atomic<u64> asyncAppliedOrder{0};
+	std::atomic<u64> asyncQueuedExecuteOrder{0};
+	std::atomic<u64> asyncExecutedOrder{0};
 
 	VU_Thread();
 	~VU_Thread();
@@ -117,7 +125,12 @@ private:
 	void Write(const void* src, u32 size);
 	void WriteRegs(VIFregisters* src);
 
+	u64 AllocPacketOrder();
+	void WriteOrder(u64 order);
+	u64 ReadOrder();
 	u32 Get_vuCycles();
+
+	u64 m_next_packet_order = 1;
 };
 
 extern VU_Thread& vu1Thread;

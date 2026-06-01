@@ -12,12 +12,21 @@
 //------------------------------------------------------------------
 static bool mvuNeedsFPCRUpdate(mV)
 {
-	// always update on the vu1 thread
+	// MTVU owns its worker thread, so keep VU1 FPCR installed around ring-buffer batches
+	// instead of paying an MSR FPCR in every generated VU1 dispatcher entry.
 	if (isVU1 && THREAD_VU1)
-		return true;
+		return false;
 
 	// otherwise only emit when it's different to the EE
 	return EmuConfig.Cpu.FPUFPCR.bitmask != (isVU0 ? EmuConfig.Cpu.VU0FPCR.bitmask : EmuConfig.Cpu.VU1FPCR.bitmask);
+}
+
+static bool mvuNeedsFPCRRestore(mV)
+{
+	if (isVU1 && THREAD_VU1)
+		return false;
+
+	return mvuNeedsFPCRUpdate(mVU);
 }
 
 static __fi OakMemOperand mVUExecuteOakCpuMem(s64 offset)
@@ -160,7 +169,7 @@ void mVUdispatcherAB(mV)
 		mVU.exitFunct = oakGetCurrentCodePointer();
 
 		// Load EE's MXCSR state
-		if (mvuNeedsFPCRUpdate(mVU)) {
+		if (mvuNeedsFPCRRestore(mVU)) {
             mVUExecuteOakLoadFpcr(mVUExecuteOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, Cpu.FPUFPCR.bitmask))));
         }
 
@@ -215,7 +224,7 @@ void mVUdispatcherCD(mV)
         oakStore32(oakWRegister(VU_HOST_F3), mVUExecuteOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].micro_statusflags[3]))));
 
         // Load EE's MXCSR state
-        if (mvuNeedsFPCRUpdate(mVU)) {
+        if (mvuNeedsFPCRRestore(mVU)) {
             mVUExecuteOakLoadFpcr(mVUExecuteOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, Cpu.FPUFPCR.bitmask))));
         }
 
@@ -382,7 +391,7 @@ _mVUt void* mVUexecute(u32 startPC, u32 cycles)
 	mVU.cycles = cycles;
 	mVU.totalCycles = cycles;
 
-
+	EMUCOREX_PROFILE_SCOPE(vuIndex ? "microVU1 Search Program" : "microVU0 Search Program");
 	return mVUsearchProg<vuIndex>(startPC & vuLimit, (uptr)&mVU.prog.lpState); // Find and set correct program
 }
 

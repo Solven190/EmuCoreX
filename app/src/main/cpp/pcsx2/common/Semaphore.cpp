@@ -137,6 +137,19 @@ void Threading::WorkSema::Reset()
 	m_state = STATE_RUNNING_0;
 }
 
+void Threading::UserspaceSemaphore::WaitWithSpin()
+{
+	u32 waited = 0;
+	do
+	{
+		if (TryWait())
+			return;
+		waited += ShortSpin();
+	} while (waited <= SPIN_TIME_NS);
+
+	Wait();
+}
+
 #if !defined(__APPLE__) // macOS implementations are in DarwinThreads
 
 Threading::KernelSemaphore::KernelSemaphore()

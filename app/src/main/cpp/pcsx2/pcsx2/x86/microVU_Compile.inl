@@ -775,6 +775,7 @@ static void mvuPreloadRegisters(microVU& mVU, u32 endCount)
 
 void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 {
+	EMUCOREX_PROFILE_SCOPE(mVU.index ? "microVU1 Compile Block" : "microVU0 Compile Block");
 	microFlagCycles mFC{};
 
 	u8* thisPtr;
