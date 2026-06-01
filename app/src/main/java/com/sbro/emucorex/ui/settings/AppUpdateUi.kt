@@ -59,6 +59,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.AppUpdateRelease
+import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 
 @Composable
 fun AppUpdateTab(
@@ -292,7 +293,7 @@ private fun UpdateHeroCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = ScreenHorizontalPadding),
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 4.dp,
@@ -647,7 +648,7 @@ private fun UpdateSectionCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = ScreenHorizontalPadding),
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 3.dp,

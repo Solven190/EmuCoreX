@@ -975,7 +975,7 @@
     <string name="settings_ra_remember_password">Se souvenir du mot de passe</string>
     <string name="achievements_library_games_section">Jeux avec succès</string>
     <string name="achievements_library_games_empty">Aucun jeu proposant des succès n\'est encore disponible dans la bibliothèque analysée.</string>
-    <string name="settings_gpu_driver_manager_title">Gestionnaire de pilotes GPU</string>
+    <string name="settings_gpu_driver_manager_title">Pilotes GPU</string>
     <string name="settings_gpu_driver_manage">Gérer les pilotes GPU</string>
     <string name="settings_gpu_driver_active_title">Pilote actif</string>
     <string name="settings_gpu_driver_status_system">Utilisation du pilote GPU système</string>

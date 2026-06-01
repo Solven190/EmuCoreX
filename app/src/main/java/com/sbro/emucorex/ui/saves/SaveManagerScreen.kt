@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -61,7 +61,7 @@ import com.sbro.emucorex.R
 import com.sbro.emucorex.data.SaveStateEntryInfo
 import com.sbro.emucorex.data.SaveStateRepository
 import com.sbro.emucorex.ui.common.GameCoverArt
-import com.sbro.emucorex.ui.common.NavigationBackButton
+import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.shimmer
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
@@ -376,32 +376,12 @@ private fun SaveManagerHeader(
                 .padding(top = topInset, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NavigationBackButton(
-                onClick = onBackClick,
-                contentColor = MaterialTheme.colorScheme.onBackground
+            ScreenTopBar(
+                title = stringResource(R.string.save_manager_title),
+                subtitle = subtitle,
+                onBackClick = onBackClick,
+                modifier = Modifier.weight(1f)
             )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 4.dp, end = 8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.save_manager_title),
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (!subtitle.isNullOrBlank()) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
             if (isWorking) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(22.dp),
@@ -512,15 +492,20 @@ private fun SaveEntryCard(
     onDeleteClick: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(22.dp),
-        tonalElevation = 2.dp,
-        shadowElevation = 0.dp,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        tonalElevation = 1.dp,
+        shadowElevation = 3.dp,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+        )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
@@ -549,8 +534,7 @@ private fun SaveEntryCard(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(start = 16.dp)
-                        .heightIn(min = 150.dp),
+                        .padding(start = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
@@ -665,15 +649,20 @@ private fun SaveEntryCard(
 @Composable
 private fun SaveEntrySkeletonCard() {
     Surface(
-        shape = RoundedCornerShape(22.dp),
-        tonalElevation = 2.dp,
-        shadowElevation = 0.dp,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        tonalElevation = 1.dp,
+        shadowElevation = 3.dp,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+        )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
@@ -690,8 +679,7 @@ private fun SaveEntrySkeletonCard() {
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(start = 16.dp)
-                        .heightIn(min = 150.dp),
+                        .padding(start = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     SkeletonBlock(
@@ -764,8 +752,14 @@ private fun SkeletonBlock(modifier: Modifier = Modifier) {
 private fun EmptyStateCard(isFiltered: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surface
+        shape = RoundedCornerShape(20.dp),
+        tonalElevation = 1.dp,
+        shadowElevation = 3.dp,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+        )
     ) {
         Column(
             modifier = Modifier.padding(18.dp),

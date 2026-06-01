@@ -86,7 +86,7 @@ import com.sbro.emucorex.data.RetroAchievementEntry
 import com.sbro.emucorex.data.RetroAchievementGameData
 import com.sbro.emucorex.data.RetroAchievementsRepository
 import com.sbro.emucorex.ui.common.BitmapPathImage
-import com.sbro.emucorex.ui.common.NavigationBackButton
+import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.shimmer
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
@@ -538,42 +538,19 @@ private fun AchievementsTopBar(
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     val topInset = WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = ScreenHorizontalPadding, end = ScreenHorizontalPadding, top = topInset + 8.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        NavigationBackButton(
-            onClick = onBackClick,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 12.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            if (subtitle.isNotEmpty()) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            content = actions
-        )
-    }
+    ScreenTopBar(
+        title = title,
+        subtitle = subtitle.takeIf { it.isNotEmpty() },
+        onBackClick = onBackClick,
+        backContentColor = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(
+            start = ScreenHorizontalPadding,
+            end = ScreenHorizontalPadding,
+            top = topInset + 8.dp,
+            bottom = 12.dp
+        ),
+        actions = actions
+    )
 }
 
 @Composable

@@ -973,7 +973,7 @@
     <string name="settings_ra_remember_password">Ricorda password</string>
     <string name="achievements_library_games_section">Giochi con obiettivi</string>
     <string name="achievements_library_games_empty">Non ci sono ancora giochi con obiettivi disponibili nella libreria scansionata.</string>
-    <string name="settings_gpu_driver_manager_title">Gestore driver GPU</string>
+    <string name="settings_gpu_driver_manager_title">Driver GPU</string>
     <string name="settings_gpu_driver_manage">Gestisci driver GPU</string>
     <string name="settings_gpu_driver_active_title">Driver attivo</string>
     <string name="settings_gpu_driver_status_system">In uso il driver GPU di sistema</string>

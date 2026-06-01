@@ -74,7 +74,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.InstalledGpuDriver
 import com.sbro.emucorex.core.RemoteGpuDriver
-import com.sbro.emucorex.ui.common.NavigationBackButton
+import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 
@@ -367,24 +367,11 @@ private fun GpuDriverHeader(
     onSearchClick: () -> Unit,
     onFiltersClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        NavigationBackButton(
-            onClick = onBackClick,
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
+    ScreenTopBar(
+        title = title,
+        onBackClick = onBackClick,
+        backContentColor = MaterialTheme.colorScheme.onSurface,
+        actions = {
         HeaderIconButton(
             selected = searchActive,
             onClick = onSearchClick
@@ -405,7 +392,8 @@ private fun GpuDriverHeader(
                 modifier = Modifier.size(18.dp)
             )
         }
-    }
+        }
+    )
 }
 
 @Composable

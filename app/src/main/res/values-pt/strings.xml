@@ -975,7 +975,7 @@
     <string name="settings_ra_remember_password">Lembrar senha</string>
     <string name="achievements_library_games_section">Jogos com conquistas</string>
     <string name="achievements_library_games_empty">Ainda não há jogos com suporte a conquistas disponíveis na biblioteca verificada.</string>
-    <string name="settings_gpu_driver_manager_title">Gerenciador de drivers de GPU</string>
+    <string name="settings_gpu_driver_manager_title">Drivers GPU</string>
     <string name="settings_gpu_driver_manage">Gerenciar drivers de GPU</string>
     <string name="settings_gpu_driver_active_title">Driver ativo</string>
     <string name="settings_gpu_driver_status_system">Usando o driver de GPU do sistema</string>

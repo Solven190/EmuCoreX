@@ -975,7 +975,7 @@
     <string name="settings_ra_remember_password">Passwort merken</string>
     <string name="achievements_library_games_section">Spiele mit Erfolgen</string>
     <string name="achievements_library_games_empty">In der gescannten Bibliothek sind noch keine Spiele mit Erfolgen verfügbar.</string>
-    <string name="settings_gpu_driver_manager_title">GPU-Treiber-Manager</string>
+    <string name="settings_gpu_driver_manager_title">GPU-Treiber</string>
     <string name="settings_gpu_driver_manage">GPU-Treiber verwalten</string>
     <string name="settings_gpu_driver_active_title">Aktiver Treiber</string>
     <string name="settings_gpu_driver_status_system">System-GPU-Treiber wird verwendet</string>

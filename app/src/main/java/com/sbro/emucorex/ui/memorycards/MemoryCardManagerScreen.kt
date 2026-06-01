@@ -66,7 +66,7 @@ import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.MemoryCardAssignments
 import com.sbro.emucorex.data.MemoryCardInfo
 import com.sbro.emucorex.data.MemoryCardRepository
-import com.sbro.emucorex.ui.common.NavigationBackButton
+import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import java.text.DateFormat
@@ -425,21 +425,11 @@ private fun MemoryCardHeader(
                 .padding(top = topInset, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NavigationBackButton(
-                onClick = onBackClick,
-                contentColor = MaterialTheme.colorScheme.onBackground
+            ScreenTopBar(
+                title = stringResource(R.string.memory_card_manager_title),
+                onBackClick = onBackClick,
+                modifier = Modifier.weight(1f)
             )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 4.dp, end = 8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.memory_card_manager_title),
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
             if (isWorking) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(22.dp),

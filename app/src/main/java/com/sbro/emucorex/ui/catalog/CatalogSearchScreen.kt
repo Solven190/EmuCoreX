@@ -72,9 +72,9 @@ import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.data.pcsx2.Pcsx2CompatibilityStatus
 import com.sbro.emucorex.data.ps2.Ps2CatalogSummary
 import com.sbro.emucorex.ui.common.GameCoverArt
-import com.sbro.emucorex.ui.common.NavigationBackButton
 import com.sbro.emucorex.ui.common.PremiumLoadingAnimation
 import com.sbro.emucorex.ui.common.RequestFocusOnResume
+import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
@@ -170,23 +170,11 @@ fun CatalogSearchScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            NavigationBackButton(
-                                onClick = guardedBackClick,
-                                modifier = Modifier.focusRequester(backFocusRequester)
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.catalog_search_title),
-                                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-                            }
-                        }
+                        ScreenTopBar(
+                            title = stringResource(R.string.catalog_search_title),
+                            onBackClick = guardedBackClick,
+                            backButtonModifier = Modifier.focusRequester(backFocusRequester)
+                        )
                     }
 
                     item(span = { GridItemSpan(maxLineSpan) }) {

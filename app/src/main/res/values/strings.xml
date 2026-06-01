@@ -242,7 +242,7 @@
     <string name="settings_gpu_driver_path">Driver Path</string>
     <string name="settings_gpu_driver_choose">Install Driver</string>
     <string name="settings_gpu_driver_path_note">Selecting a driver file here will switch the GPU driver to Custom automatically.</string>
-    <string name="settings_gpu_driver_manager_title">GPU Driver Manager</string>
+    <string name="settings_gpu_driver_manager_title">GPU Drivers</string>
     <string name="settings_gpu_driver_manage">Manage GPU drivers</string>
     <string name="settings_gpu_driver_active_title">Active driver</string>
     <string name="settings_gpu_driver_status_system">Using the system GPU driver</string>

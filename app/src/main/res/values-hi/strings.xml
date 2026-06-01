@@ -973,7 +973,7 @@
     <string name="settings_ra_remember_password">पासवर्ड याद रखें</string>
     <string name="achievements_library_games_section">उपलब्धियों वाले गेम</string>
     <string name="achievements_library_games_empty">स्कैन की गई लाइब्रेरी में अभी तक उपलब्धियों का समर्थन करने वाले कोई गेम उपलब्ध नहीं हैं।</string>
-    <string name="settings_gpu_driver_manager_title">GPU ड्राइवर मैनेजर</string>
+    <string name="settings_gpu_driver_manager_title">GPU ड्राइवर</string>
     <string name="settings_gpu_driver_manage">GPU ड्राइवर प्रबंधित करें</string>
     <string name="settings_gpu_driver_active_title">सक्रिय ड्राइवर</string>
     <string name="settings_gpu_driver_status_system">सिस्टम GPU ड्राइवर का उपयोग कर रहा है</string>

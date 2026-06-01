@@ -4,6 +4,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.width
@@ -75,10 +77,11 @@ import com.sbro.emucorex.data.GameItem
 import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.SettingsSnapshot
-import com.sbro.emucorex.ui.common.NavigationBackButton
+import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.ScreenSettingsResetHintDialog
 import com.sbro.emucorex.ui.common.SettingHelpButton
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
+import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import org.json.JSONObject
 import java.text.DateFormat
 import kotlinx.coroutines.launch
@@ -95,6 +98,7 @@ fun PerGameSettingsManagerScreen(
     var pendingDeleteProfile by remember { mutableStateOf<PerGameSettings?>(null) }
     var showResetAllDialog by remember { mutableStateOf(false) }
     val topInset = WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding() + 10.dp
+    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val horizontalSystemBarPadding = navigationBarsHorizontalPaddingValues()
     val exportSuccess = stringResource(R.string.game_settings_manager_export_success)
     val exportFailure = stringResource(R.string.game_settings_manager_export_failure)
@@ -142,34 +146,31 @@ fun PerGameSettingsManagerScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontalSystemBarPadding),
         contentPadding = PaddingValues(
-            start = 18.dp,
-            end = 18.dp,
+            start = ScreenHorizontalPadding,
+            end = ScreenHorizontalPadding,
             top = topInset,
-            bottom = 28.dp
+            bottom = 24.dp + bottomInset
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    NavigationBackButton(onClick = onBackClick)
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.game_settings_manager_title),
-                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
-                }
+                ScreenTopBar(
+                    title = stringResource(R.string.game_settings_manager_title),
+                    onBackClick = onBackClick
+                )
             }
 
             item {
                 Surface(
-                    shape = RoundedCornerShape(28.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f)
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    tonalElevation = 1.dp,
+                    shadowElevation = 3.dp,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                    )
                 ) {
                     Column(
                         modifier = Modifier
@@ -208,8 +209,15 @@ fun PerGameSettingsManagerScreen(
             if (profiles.isEmpty()) {
                 item {
                     Surface(
-                        shape = RoundedCornerShape(28.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        tonalElevation = 1.dp,
+                        shadowElevation = 3.dp,
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                        )
                     ) {
                         Column(
                             modifier = Modifier
@@ -350,8 +358,15 @@ private fun GameSettingsProfileCard(
         DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(profile.updatedAt)
     }
     Surface(
-        shape = RoundedCornerShape(26.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        tonalElevation = 1.dp,
+        shadowElevation = 3.dp,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+        )
     ) {
         Column(
             modifier = Modifier
@@ -1296,8 +1311,16 @@ private fun ManagerActionButton(
         color = if (destructive) {
             MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f)
         } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
         },
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (destructive) {
+                MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+            } else {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+            }
+        ),
         onClick = onClick
     ) {
         Row(
@@ -1335,8 +1358,16 @@ private fun ProfileActionIconButton(
         color = if (destructive) {
             MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f)
         } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-        }
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        },
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (destructive) {
+                MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+            } else {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+            }
+        )
     ) {
         IconButton(
             modifier = Modifier.fillMaxWidth(),

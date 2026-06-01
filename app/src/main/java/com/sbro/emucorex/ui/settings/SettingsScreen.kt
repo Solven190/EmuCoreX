@@ -127,6 +127,7 @@ import com.sbro.emucorex.data.SettingsSnapshot
 import com.sbro.emucorex.ui.common.NavigationBackButton
 import com.sbro.emucorex.ui.common.RequestFocusOnResume
 import com.sbro.emucorex.ui.common.ScreenSettingsResetHintDialog
+import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.SettingHelpButton
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
@@ -738,7 +739,7 @@ private fun SettingsCompactTopBar(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 4.dp, end = 8.dp)
+                    .padding(start = 14.dp, end = 8.dp)
             ) {
                 if (searchEnabled) {
                     OutlinedTextField(
@@ -752,7 +753,7 @@ private fun SettingsCompactTopBar(
                 } else {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -2087,7 +2088,9 @@ private fun SettingsSection(
             modifier = Modifier.padding(horizontal = ScreenHorizontalPadding)
         )
         Surface(
-            modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = ScreenHorizontalPadding),
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 2.dp
@@ -2942,30 +2945,16 @@ fun LanguageSettingsScreen(
             .padding(horizontalSystemBarPadding)
             .verticalScroll(rememberScrollState())
     ) {
-        Row(
+        ScreenTopBar(
+            title = stringResource(R.string.settings_language),
+            subtitle = stringResource(R.string.settings_language_screen_subtitle),
+            onBackClick = onBackClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = ScreenHorizontalPadding, vertical = 0.dp)
                 .padding(top = topInset, bottom = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            NavigationBackButton(
-                onClick = onBackClick,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            )
-            Column(modifier = Modifier.padding(start = 8.dp)) {
-                Text(
-                    text = stringResource(R.string.settings_language),
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = stringResource(R.string.settings_language_screen_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+            backContentColor = MaterialTheme.colorScheme.onSurface
+        )
 
         Column(
             modifier = Modifier

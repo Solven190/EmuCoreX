@@ -975,7 +975,7 @@
     <string name="settings_ra_remember_password">Запам\'ятати пароль</string>
     <string name="achievements_library_games_section">Ігри з досягненнями</string>
     <string name="achievements_library_games_empty">У відсканованій бібліотеці поки немає ігор з підтримкою досягнень.</string>
-    <string name="settings_gpu_driver_manager_title">Менеджер драйверів GPU</string>
+    <string name="settings_gpu_driver_manager_title">Драйвери GPU</string>
     <string name="settings_gpu_driver_manage">Керування драйверами GPU</string>
     <string name="settings_gpu_driver_active_title">Активний драйвер</string>
     <string name="settings_gpu_driver_status_system">Використовується системний драйвер GPU</string>

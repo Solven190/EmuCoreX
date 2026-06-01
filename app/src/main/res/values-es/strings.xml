@@ -975,7 +975,7 @@
     <string name="settings_ra_remember_password">Recordar contraseña</string>
     <string name="achievements_library_games_section">Juegos con logros</string>
     <string name="achievements_library_games_empty">Aún no hay juegos con logros disponibles en la biblioteca escaneada.</string>
-    <string name="settings_gpu_driver_manager_title">Administrador de controladores de GPU</string>
+    <string name="settings_gpu_driver_manager_title">Drivers GPU</string>
     <string name="settings_gpu_driver_manage">Administrar controladores de GPU</string>
     <string name="settings_gpu_driver_active_title">Controlador activo</string>
     <string name="settings_gpu_driver_status_system">Usando el controlador de GPU del sistema</string>

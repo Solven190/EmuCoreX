@@ -47,7 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.ImageConversionManager
-import com.sbro.emucorex.ui.common.NavigationBackButton
+import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
@@ -259,17 +259,15 @@ private fun FormatsTopBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (handleBackClick != null) {
-                NavigationBackButton(onClick = handleBackClick)
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = if (onBackClick != null) 2.dp else 10.dp, end = 10.dp)
-            ) {
+                ScreenTopBar(
+                    title = stringResource(R.string.formats_title),
+                    onBackClick = handleBackClick
+                )
+            } else {
                 Text(
                     text = stringResource(R.string.formats_title),
-                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
