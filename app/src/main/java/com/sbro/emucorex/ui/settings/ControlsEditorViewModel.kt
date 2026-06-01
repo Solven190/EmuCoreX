@@ -85,6 +85,21 @@ class ControlsEditorViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    fun updateControlOffsets(offsets: Map<String, Pair<Float, Float>>) {
+        if (offsets.isEmpty()) return
+        viewModelScope.launch {
+            commitLayout { current ->
+                val updated = current.controlLayouts.toMutableMap()
+                val controlDefaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+                offsets.forEach { (controlId, offset) ->
+                    val control = updated[controlId] ?: controlDefaults[controlId] ?: OverlayControlLayout()
+                    updated[controlId] = control.copy(offset = offset)
+                }
+                current.copy(controlLayouts = updated)
+            }
+        }
+    }
+
     fun updateControlScale(controlId: String, scale: Int) {
         viewModelScope.launch {
             commitLayout { current ->
@@ -92,6 +107,18 @@ class ControlsEditorViewModel(application: Application) : AndroidViewModel(appli
                 val controlDefaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
                 val control = updated[controlId] ?: controlDefaults[controlId] ?: OverlayControlLayout()
                 updated[controlId] = control.copy(scale = scale.coerceIn(50, 200))
+                current.copy(controlLayouts = updated)
+            }
+        }
+    }
+
+    fun updateControlWidthScale(controlId: String, widthScale: Int) {
+        viewModelScope.launch {
+            commitLayout { current ->
+                val updated = current.controlLayouts.toMutableMap()
+                val controlDefaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+                val control = updated[controlId] ?: controlDefaults[controlId] ?: OverlayControlLayout()
+                updated[controlId] = control.copy(widthScale = widthScale.coerceIn(100, 240))
                 current.copy(controlLayouts = updated)
             }
         }

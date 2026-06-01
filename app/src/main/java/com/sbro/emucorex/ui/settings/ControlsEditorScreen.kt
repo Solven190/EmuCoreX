@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.pm.ActivityInfo
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -47,6 +49,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -62,10 +65,25 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.OverlayControlLayout
-import com.sbro.emucorex.ui.emulation.EmulationUiState
+import com.sbro.emucorex.ui.common.OverlayCanvasButtonSpec
+import com.sbro.emucorex.ui.common.OverlayCanvasStickSpec
 import com.sbro.emucorex.ui.common.VectorAnalogStick
 import com.sbro.emucorex.ui.common.VectorOverlayButton
 import com.sbro.emucorex.ui.common.buildOverlayCanvasLayout
+import com.sbro.emucorex.ui.emulation.EmulationUiState
+
+private const val ControlGroupDpad = "group_dpad"
+private const val ControlGroupActions = "group_actions"
+private val ControlGroupIds = setOf(ControlGroupDpad, ControlGroupActions)
+private val DpadControlIds = setOf("dpad_up", "dpad_down", "dpad_left", "dpad_right")
+private val ActionControlIds = setOf("triangle", "circle", "cross", "square")
+
+private data class PreviewGroupBounds(
+    val x: Dp,
+    val y: Dp,
+    val width: Dp,
+    val height: Dp
+)
 
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
@@ -91,6 +109,7 @@ fun ControlsEditorScreen(
     val selectedLayout = selectedControlId?.let { id ->
         editorControlLayouts[id] ?: defaultLayouts[id] ?: OverlayControlLayout()
     }
+    val selectedIsGroup = selectedControlId?.let { it in ControlGroupIds } == true
     val originalOrientation = remember(activity) {
         activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
@@ -118,6 +137,13 @@ fun ControlsEditorScreen(
         viewModel.updateControlOffset(controlId, current.offset)
     }
 
+    fun persistControlPositions(controlIds: List<String>) {
+        val offsets = controlIds.associateWith { controlId ->
+            currentLayoutFor(controlId, if (controlId.contains("stick")) state.stickScale else 100).offset
+        }
+        viewModel.updateControlOffsets(offsets)
+    }
+
     fun setControlVisibleLocally(controlId: String, visible: Boolean) {
         val current = currentLayoutFor(controlId, if (controlId.contains("stick")) state.stickScale else 100)
         editorControlLayouts = editorControlLayouts.toMutableMap().apply {
@@ -133,6 +159,15 @@ fun ControlsEditorScreen(
             put(controlId, current.copy(scale = nextScale))
         }
         viewModel.updateControlScale(controlId, nextScale)
+    }
+
+    fun setControlWidthScaleLocally(controlId: String, widthScale: Int) {
+        val current = currentLayoutFor(controlId, if (controlId.contains("stick")) state.stickScale else 100)
+        val nextWidthScale = widthScale.coerceIn(100, 240)
+        editorControlLayouts = editorControlLayouts.toMutableMap().apply {
+            put(controlId, current.copy(widthScale = nextWidthScale))
+        }
+        viewModel.updateControlWidthScale(controlId, nextWidthScale)
     }
 
     BackHandler(onBack = onBackClick)
@@ -151,8 +186,13 @@ fun ControlsEditorScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.34f))
+        )
+
         PreviewLayout(
             state = state,
             controlLayouts = editorControlLayouts,
@@ -160,6 +200,7 @@ fun ControlsEditorScreen(
             onSelectControl = { selectedControlId = it },
             onSetControlOffset = ::setControlOffsetLocally,
             onCommitControlPosition = ::persistControlPosition,
+            onCommitControlPositions = ::persistControlPositions,
             overlayHorizontalSafeInset = overlayHorizontalSafeInset,
             overlayTopSafeInset = overlayTopSafeInset,
             overlayBottomSafeInset = overlayBottomSafeInset,
@@ -229,10 +270,12 @@ fun ControlsEditorScreen(
                 OutlinedButton(
                     onClick = {
                         selectedControlId?.let { controlId ->
-                            setControlVisibleLocally(controlId, !(selectedLayout?.visible ?: true))
+                            if (controlId !in ControlGroupIds) {
+                                setControlVisibleLocally(controlId, !(selectedLayout?.visible ?: true))
+                            }
                         }
                     },
-                    enabled = selectedControlId != null,
+                    enabled = selectedControlId != null && !selectedIsGroup,
                     shape = RoundedCornerShape(16.dp),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
@@ -279,8 +322,9 @@ fun ControlsEditorScreen(
                 }
             }
 
-            selectedControlId?.let { controlId ->
+            selectedControlId?.takeUnless { it in ControlGroupIds }?.let { controlId ->
                 val scale = selectedLayout?.scale ?: if (controlId.contains("stick")) state.stickScale else 100
+                val isStickPanel = controlId.contains("stick") && state.stickSurfaceMode
                 Surface(
                     modifier = Modifier.padding(top = 8.dp),
                     color = Color(0xFF111827).copy(alpha = 0.82f),
@@ -323,6 +367,52 @@ fun ControlsEditorScreen(
                         }
                     }
                 }
+
+                if (isStickPanel) {
+                    val widthScale = selectedLayout?.widthScale ?: 160
+                    Surface(
+                        modifier = Modifier.padding(top = 8.dp),
+                        color = Color(0xFF111827).copy(alpha = 0.82f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { setControlWidthScaleLocally(controlId, widthScale - 10) },
+                                enabled = widthScale > 100,
+                                shape = RoundedCornerShape(14.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = Color.White.copy(alpha = 0.08f),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Icon(Icons.Rounded.Remove, contentDescription = null)
+                            }
+                            Text(
+                                text = "W $widthScale%",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
+                            OutlinedButton(
+                                onClick = { setControlWidthScaleLocally(controlId, widthScale + 10) },
+                                enabled = widthScale < 240,
+                                shape = RoundedCornerShape(14.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = Color.White.copy(alpha = 0.08f),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Icon(Icons.Rounded.Add, contentDescription = null)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -334,6 +424,8 @@ private fun controlTitle(controlId: String): String = when (controlId) {
     "l1" -> "L1"
     "r2" -> "R2"
     "r1" -> "R1"
+    ControlGroupDpad -> "D-pad"
+    ControlGroupActions -> "Face Buttons"
     "dpad_up" -> stringResource(R.string.settings_gamepad_action_dpad_up)
     "dpad_down" -> stringResource(R.string.settings_gamepad_action_dpad_down)
     "dpad_left" -> stringResource(R.string.settings_gamepad_action_dpad_left)
@@ -361,6 +453,7 @@ private fun PreviewLayout(
     onSelectControl: (String) -> Unit,
     onSetControlOffset: (String, Pair<Float, Float>) -> Unit,
     onCommitControlPosition: (String) -> Unit,
+    onCommitControlPositions: (List<String>) -> Unit,
     modifier: Modifier = Modifier,
     overlayHorizontalSafeInset: Dp? = null,
     overlayTopSafeInset: Dp? = null,
@@ -382,9 +475,7 @@ private fun PreviewLayout(
     val safeTop = overlayTopSafeInset ?: maxOf(cutoutPadding.calculateTopPadding(), navBarPadding.calculateTopPadding())
     val safeBottom = overlayBottomSafeInset ?: maxOf(cutoutPadding.calculateBottomPadding(), navBarPadding.calculateBottomPadding())
     BoxWithConstraints(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black)
+        modifier = modifier.fillMaxSize()
     ) {
         val layout = buildOverlayCanvasLayout(
             canvasWidth = maxWidth,
@@ -434,7 +525,7 @@ private fun PreviewLayout(
             return (nextX - baseXPx) to (nextY - baseYPx)
         }
 
-        fun moveButton(controlId: String, spec: com.sbro.emucorex.ui.common.OverlayCanvasButtonSpec, delta: Pair<Float, Float>) {
+        fun moveButton(controlId: String, spec: OverlayCanvasButtonSpec, delta: Pair<Float, Float>) {
             val current = controlLayouts[controlId] ?: OverlayControlLayout()
             onSetControlOffset(
                 controlId,
@@ -449,24 +540,103 @@ private fun PreviewLayout(
             )
         }
 
-        fun moveStick(controlId: String, spec: com.sbro.emucorex.ui.common.OverlayCanvasStickSpec, delta: Pair<Float, Float>) {
+        fun stickPanelWidth(spec: OverlayCanvasStickSpec): Dp {
+            return if (state.stickSurfaceMode) spec.size * (spec.widthScale / 100f) else spec.size
+        }
+
+        fun stickPanelX(spec: OverlayCanvasStickSpec): Dp {
+            val width = stickPanelWidth(spec)
+            return if (state.stickSurfaceMode) spec.x - ((width - spec.size) / 2f) else spec.x
+        }
+
+        fun stickPanelBaseX(spec: OverlayCanvasStickSpec): Dp {
+            val width = stickPanelWidth(spec)
+            return if (state.stickSurfaceMode) spec.baseX - ((width - spec.size) / 2f) else spec.baseX
+        }
+
+        fun moveStick(controlId: String, spec: OverlayCanvasStickSpec, delta: Pair<Float, Float>) {
             val current = controlLayouts[controlId] ?: OverlayControlLayout(scale = state.stickScale)
             onSetControlOffset(
                 controlId,
                 clampOffset(
                     currentOffset = current.offset,
                     delta = delta,
-                    baseX = spec.baseX,
+                    baseX = stickPanelBaseX(spec),
                     baseY = spec.baseY,
-                    width = spec.size,
+                    width = stickPanelWidth(spec),
                     height = spec.size
                 )
             )
         }
 
-        layout.allButtons
-            .filter { shouldShowButton(it.id) }
-            .forEach { spec ->
+        fun buttonGroupBounds(specs: List<OverlayCanvasButtonSpec>): PreviewGroupBounds? {
+            if (specs.isEmpty()) return null
+            val padding = 10.dp
+            val rawLeft = specs.minOf { it.x } - padding
+            val rawTop = specs.minOf { it.y } - padding
+            val rawRight = specs.maxOf { it.x + it.width } + padding
+            val rawBottom = specs.maxOf { it.y + it.height } + padding
+            val left = rawLeft.coerceAtLeast(0.dp)
+            val top = rawTop.coerceAtLeast(0.dp)
+            val right = rawRight.coerceAtMost(maxWidth)
+            val bottom = rawBottom.coerceAtMost(maxHeight)
+            return PreviewGroupBounds(
+                x = left,
+                y = top,
+                width = (right - left).coerceAtLeast(1.dp),
+                height = (bottom - top).coerceAtLeast(1.dp)
+            )
+        }
+
+        fun clampGroupDelta(specs: List<OverlayCanvasButtonSpec>, delta: Pair<Float, Float>): Pair<Float, Float> {
+            if (specs.isEmpty()) return 0f to 0f
+            val minX = specs.minOf { with(density) { it.x.toPx() } }
+            val minY = specs.minOf { with(density) { it.y.toPx() } }
+            val maxX = specs.maxOf { with(density) { (it.x + it.width).toPx() } }
+            val maxY = specs.maxOf { with(density) { (it.y + it.height).toPx() } }
+            val canvasWidthPx = with(density) { maxWidth.toPx() }
+            val canvasHeightPx = with(density) { maxHeight.toPx() }
+            val dx = delta.first.coerceIn(-minX, canvasWidthPx - maxX)
+            val dy = delta.second.coerceIn(-minY, canvasHeightPx - maxY)
+            return dx to dy
+        }
+
+        fun moveButtonGroup(specs: List<OverlayCanvasButtonSpec>, delta: Pair<Float, Float>) {
+            val clampedDelta = clampGroupDelta(specs, delta)
+            specs.forEach { spec -> moveButton(spec.id, spec, clampedDelta) }
+        }
+
+        fun commitButtonGroup(specs: List<OverlayCanvasButtonSpec>) {
+            onCommitControlPositions(specs.map { it.id })
+        }
+
+        val visibleButtonSpecs = layout.allButtons.filter { shouldShowButton(it.id) }
+        val actionGroupSpecs = visibleButtonSpecs.filter { it.id in ActionControlIds }
+        val dpadGroupSpecs = visibleButtonSpecs.filter { it.id in DpadControlIds }
+
+        buttonGroupBounds(dpadGroupSpecs)?.let { bounds ->
+            PreviewCanvasButtonGroup(
+                id = ControlGroupDpad,
+                bounds = bounds,
+                selected = selectedControlId == ControlGroupDpad,
+                onSelectControl = onSelectControl,
+                onMoveGroupBy = { delta -> moveButtonGroup(dpadGroupSpecs, delta) },
+                onCommitGroupPosition = { commitButtonGroup(dpadGroupSpecs) }
+            )
+        }
+
+        buttonGroupBounds(actionGroupSpecs)?.let { bounds ->
+            PreviewCanvasButtonGroup(
+                id = ControlGroupActions,
+                bounds = bounds,
+                selected = selectedControlId == ControlGroupActions,
+                onSelectControl = onSelectControl,
+                onMoveGroupBy = { delta -> moveButtonGroup(actionGroupSpecs, delta) },
+                onCommitGroupPosition = { commitButtonGroup(actionGroupSpecs) }
+            )
+        }
+
+        visibleButtonSpecs.forEach { spec ->
             val baseZIndex = when (spec.id) {
                 "select", "left_input_toggle", "start", "l3", "r3" -> 3f
                 else -> 1f
@@ -488,6 +658,8 @@ private fun PreviewLayout(
                 spec = spec,
                 selected = selectedControlId == spec.id,
                 surfaceOnly = state.stickSurfaceMode,
+                panelWidth = stickPanelWidth(spec),
+                panelX = stickPanelX(spec),
                 onSelectControl = onSelectControl,
                 onMoveControlBy = { id, delta -> moveStick(id, spec, delta) },
                 onCommitControlPosition = onCommitControlPosition
@@ -500,6 +672,8 @@ private fun PreviewLayout(
                 spec = spec,
                 selected = selectedControlId == spec.id,
                 surfaceOnly = state.stickSurfaceMode,
+                panelWidth = stickPanelWidth(spec),
+                panelX = stickPanelX(spec),
                 onSelectControl = onSelectControl,
                 onMoveControlBy = { id, delta -> moveStick(id, spec, delta) },
                 onCommitControlPosition = onCommitControlPosition
@@ -517,6 +691,7 @@ private fun DraggableControl(
     onCommitControlPosition: (String) -> Unit,
     modifier: Modifier = Modifier,
     baseZIndex: Float = 0f,
+    selectedZBoost: Float = 10f,
     content: @Composable () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -525,7 +700,7 @@ private fun DraggableControl(
     val currentOnCommitControlPosition by rememberUpdatedState(onCommitControlPosition)
     Box(
         modifier = modifier
-            .zIndex(baseZIndex + if (selected) 10f else 0f)
+            .zIndex(baseZIndex + if (selected) selectedZBoost else 0f)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null
@@ -550,7 +725,7 @@ private fun DraggableControl(
 
 @Composable
 private fun PreviewCanvasButton(
-    spec: com.sbro.emucorex.ui.common.OverlayCanvasButtonSpec,
+    spec: OverlayCanvasButtonSpec,
     selected: Boolean,
     onSelectControl: (String) -> Unit,
     onMoveControlBy: (String, Pair<Float, Float>) -> Unit,
@@ -584,10 +759,61 @@ private fun PreviewCanvasButton(
 }
 
 @Composable
+private fun PreviewCanvasButtonGroup(
+    id: String,
+    bounds: PreviewGroupBounds,
+    selected: Boolean,
+    onSelectControl: (String) -> Unit,
+    onMoveGroupBy: (Pair<Float, Float>) -> Unit,
+    onCommitGroupPosition: () -> Unit
+) {
+    val shape = RoundedCornerShape(22.dp)
+    DraggableControl(
+        id = id,
+        selected = selected,
+        onSelectControl = onSelectControl,
+        onMoveControlBy = { _, delta -> onMoveGroupBy(delta) },
+        onCommitControlPosition = { onCommitGroupPosition() },
+        modifier = Modifier.offset {
+            IntOffset(
+                bounds.x.roundToPx(),
+                bounds.y.roundToPx()
+            )
+        },
+        baseZIndex = 0.2f,
+        selectedZBoost = 0.4f
+    ) {
+        Box(
+            modifier = Modifier
+                .size(width = bounds.width, height = bounds.height)
+                .clip(shape)
+                .background(
+                    if (selected) {
+                        Color(0xFF7CC8FF).copy(alpha = 0.11f)
+                    } else {
+                        Color.White.copy(alpha = 0.04f)
+                    }
+                )
+                .border(
+                    width = 1.dp,
+                    color = if (selected) {
+                        Color(0xFF7CC8FF).copy(alpha = 0.72f)
+                    } else {
+                        Color.White.copy(alpha = 0.20f)
+                    },
+                    shape = shape
+                )
+        )
+    }
+}
+
+@Composable
 private fun PreviewCanvasStick(
-    spec: com.sbro.emucorex.ui.common.OverlayCanvasStickSpec,
+    spec: OverlayCanvasStickSpec,
     selected: Boolean,
     surfaceOnly: Boolean = false,
+    panelWidth: Dp = spec.size,
+    panelX: Dp = spec.x,
     onSelectControl: (String) -> Unit,
     onMoveControlBy: (String, Pair<Float, Float>) -> Unit,
     onCommitControlPosition: (String) -> Unit
@@ -600,7 +826,7 @@ private fun PreviewCanvasStick(
         onCommitControlPosition = onCommitControlPosition,
         modifier = Modifier.offset {
             IntOffset(
-                spec.x.roundToPx(),
+                panelX.roundToPx(),
                 spec.y.roundToPx()
             )
         },
@@ -608,6 +834,8 @@ private fun PreviewCanvasStick(
     ) {
         VectorAnalogStick(
             analogSize = spec.size,
+            analogWidth = panelWidth,
+            analogHeight = spec.size,
             alpha = if (spec.visible) 1f else 0.38f,
             selected = selected,
             surfaceOnly = surfaceOnly,

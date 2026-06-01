@@ -5,6 +5,7 @@ import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -139,6 +140,8 @@ fun VectorOverlayButton(
 @Composable
 fun VectorAnalogStick(
     analogSize: Dp,
+    analogWidth: Dp = analogSize,
+    analogHeight: Dp = analogSize,
     modifier: Modifier = Modifier,
     alpha: Float = 1f,
     selected: Boolean = false,
@@ -233,13 +236,21 @@ fun VectorAnalogStick(
 
     Box(
         modifier = modifier
-            .size(analogSize)
+            .size(width = analogWidth, height = analogHeight)
             .graphicsLayer(alpha = alpha)
             .then(
                 if (selected) {
-                    Modifier.border(1.5.dp, OverlaySelectedStroke, CircleShape)
+                    Modifier.border(
+                        width = 1.5.dp,
+                        color = OverlaySelectedStroke,
+                        shape = if (surfaceOnly) RoundedCornerShape(22.dp) else CircleShape
+                    )
                 } else if (alpha < 0.65f) {
-                    Modifier.border(1.dp, OverlayPreviewStroke.copy(alpha = 0.35f), CircleShape)
+                    Modifier.border(
+                        width = 1.dp,
+                        color = OverlayPreviewStroke.copy(alpha = 0.35f),
+                        shape = if (surfaceOnly) RoundedCornerShape(22.dp) else CircleShape
+                    )
                 } else {
                     Modifier
                 }
@@ -251,13 +262,40 @@ fun VectorAnalogStick(
             .then(pointerModifier),
         contentAlignment = Alignment.Center
     ) {
-        Image(
-            painter = painterResource(R.drawable.ic_controller_analog_base),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Fit
-        )
-        if (!surfaceOnly) {
+        if (surfaceOnly) {
+            val panelShape = RoundedCornerShape(22.dp)
+            val guideSize = minOf(analogWidth, analogHeight)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(panelShape)
+                    .background(Color(0xFF14213A).copy(alpha = 0.58f))
+                    .border(1.dp, Color.White.copy(alpha = 0.16f), panelShape)
+            )
+            Box(
+                modifier = Modifier
+                    .size(width = analogWidth * 0.58f, height = 1.5.dp)
+                    .background(Color(0xFF7CC8FF).copy(alpha = 0.28f))
+            )
+            Box(
+                modifier = Modifier
+                    .size(width = 1.5.dp, height = analogHeight * 0.54f)
+                    .background(Color(0xFF7CC8FF).copy(alpha = 0.28f))
+            )
+            Box(
+                modifier = Modifier
+                    .size(guideSize * 0.14f)
+                    .clip(CircleShape)
+                    .background(Color(0xFF7CC8FF).copy(alpha = 0.38f))
+                    .offset { IntOffset(thumbOffset.x.roundToInt(), thumbOffset.y.roundToInt()) }
+            )
+        } else {
+            Image(
+                painter = painterResource(R.drawable.ic_controller_analog_base),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
             Image(
                 painter = painterResource(R.drawable.ic_controller_analog_stick),
                 contentDescription = null,

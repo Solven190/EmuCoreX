@@ -25,6 +25,7 @@ data class OverlayCanvasButtonSpec(
 data class OverlayCanvasStickSpec(
     val id: String,
     val size: Dp,
+    val widthScale: Int,
     val baseX: Dp,
     val baseY: Dp,
     val x: Dp,
@@ -194,6 +195,7 @@ fun buildOverlayCanvasLayout(
     val leftStick = OverlayCanvasStickSpec(
         id = "left_stick",
         size = leftStickSize,
+        widthScale = leftStickLayout.widthScale,
         baseX = edgePadStart + pxToDp(lstickOffset.first) + leftStickBase,
         baseY = canvasHeight - bottomPad + pxToDp(lstickOffset.second) - dpadSize + leftStickBase,
         x = edgePadStart + pxToDp(lstickOffset.first) + leftStickBase + pxToDp(leftStickLayout.offset.first),
@@ -419,6 +421,7 @@ fun buildOverlayCanvasLayout(
     val rightStick = OverlayCanvasStickSpec(
         id = "right_stick",
         size = rightStickSize,
+        widthScale = rightStickLayout.widthScale,
         baseX = rightStickBaseX,
         baseY = rightStickBaseY,
         x = rightStickBaseX + pxToDp(rightStickLayout.offset.first),

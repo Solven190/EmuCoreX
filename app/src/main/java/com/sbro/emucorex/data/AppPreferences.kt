@@ -154,6 +154,7 @@ data class OverlayLayoutSnapshot(
 data class OverlayControlLayout(
     val offset: Pair<Float, Float> = 0f to 0f,
     val scale: Int = 100,
+    val widthScale: Int = 100,
     val visible: Boolean = true
 )
 
@@ -209,12 +210,12 @@ class AppPreferences(private val context: Context) {
             "dpad_down" to OverlayControlLayout(visible = false),
             "dpad_left" to OverlayControlLayout(visible = false),
             "dpad_right" to OverlayControlLayout(visible = false),
-            "left_stick" to OverlayControlLayout(scale = stickScale, visible = true),
+            "left_stick" to OverlayControlLayout(scale = stickScale, widthScale = 160, visible = true),
             "triangle" to OverlayControlLayout(),
             "cross" to OverlayControlLayout(),
             "square" to OverlayControlLayout(),
             "circle" to OverlayControlLayout(),
-            "right_stick" to OverlayControlLayout(scale = stickScale, visible = false),
+            "right_stick" to OverlayControlLayout(scale = stickScale, widthScale = 160, visible = false),
             "select" to OverlayControlLayout(scale = 80),
             "left_input_toggle" to OverlayControlLayout(scale = 80, visible = true),
             "start" to OverlayControlLayout(scale = 80),
@@ -1673,6 +1674,10 @@ class AppPreferences(private val context: Context) {
                         OverlayControlLayout(
                             offset = (item.optDouble("x", 0.0).toFloat()) to (item.optDouble("y", 0.0).toFloat()),
                             scale = item.optInt("scale", 100).coerceIn(50, 200),
+                            widthScale = item.optInt(
+                                "widthScale",
+                                if (id.contains("stick")) 160 else 100
+                            ).coerceIn(100, 240),
                             visible = item.optBoolean("visible", true)
                         )
                     )
@@ -1691,6 +1696,7 @@ class AppPreferences(private val context: Context) {
                         put("x", layout.offset.first.toDouble())
                         put("y", layout.offset.second.toDouble())
                         put("scale", layout.scale.coerceIn(50, 200))
+                        put("widthScale", layout.widthScale.coerceIn(100, 240))
                         put("visible", layout.visible)
                     }
                 )

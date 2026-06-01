@@ -122,6 +122,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -554,7 +555,6 @@ fun EmulationScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (!showControlsEditor) {
         // Game surface
         AndroidView(
             factory = { ctx ->
@@ -588,7 +588,7 @@ fun EmulationScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInteropFilter { event ->
-                    if (!uiState.showMenu && event.actionMasked == MotionEvent.ACTION_DOWN) {
+                    if (!showControlsEditor && !uiState.showMenu && event.actionMasked == MotionEvent.ACTION_DOWN) {
                         val timestamp = event.eventTime
                         val dx = event.x - lastTapX
                         val dy = event.y - lastTapY
@@ -607,6 +607,7 @@ fun EmulationScreen(
                 }
         )
 
+        if (!showControlsEditor) {
         // Top systemic overlay (Gamepad, Achievements)
         Box(
             modifier = Modifier
@@ -1389,6 +1390,15 @@ private fun OnScreenControls(
             }
         }
 
+        fun stickPanelWidth(stick: com.sbro.emucorex.ui.common.OverlayCanvasStickSpec): Dp {
+            return if (stickSurfaceMode) stick.size * (stick.widthScale / 100f) else stick.size
+        }
+
+        fun stickPanelX(stick: com.sbro.emucorex.ui.common.OverlayCanvasStickSpec): Dp {
+            val width = stickPanelWidth(stick)
+            return if (stickSurfaceMode) stick.x - ((width - stick.size) / 2f) else stick.x
+        }
+
         val leftShoulderSpecs = runtimeSpecs(layout.leftShoulders)
         if (leftShoulderSpecs.isNotEmpty()) {
             TouchButtonGroup(specs = leftShoulderSpecs)
@@ -1405,8 +1415,11 @@ private fun OnScreenControls(
         }
 
         layout.leftStick?.takeIf { it.visible }?.let { stick ->
+            val panelWidth = stickPanelWidth(stick)
             VectorAnalogStick(
                 analogSize = stick.size,
+                analogWidth = panelWidth,
+                analogHeight = stick.size,
                 surfaceOnly = stickSurfaceMode,
                 onValueChange = { x, y ->
                     updateAnalogStick(
@@ -1421,7 +1434,7 @@ private fun OnScreenControls(
                     )
                 },
                 modifier = Modifier.offset {
-                    IntOffset(stick.x.roundToPx(), stick.y.roundToPx())
+                    IntOffset(stickPanelX(stick).roundToPx(), stick.y.roundToPx())
                 }
             )
         }
@@ -1432,8 +1445,11 @@ private fun OnScreenControls(
         }
 
         layout.rightStick?.takeIf { it.visible }?.let { stick ->
+            val panelWidth = stickPanelWidth(stick)
             VectorAnalogStick(
                 analogSize = stick.size,
+                analogWidth = panelWidth,
+                analogHeight = stick.size,
                 surfaceOnly = stickSurfaceMode,
                 onValueChange = { x, y ->
                     updateAnalogStick(
@@ -1448,7 +1464,7 @@ private fun OnScreenControls(
                     )
                 },
                 modifier = Modifier.offset {
-                    IntOffset(stick.x.roundToPx(), stick.y.roundToPx())
+                    IntOffset(stickPanelX(stick).roundToPx(), stick.y.roundToPx())
                 }
             )
         }
