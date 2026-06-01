@@ -78,6 +78,7 @@ import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
+import com.sbro.emucorex.ui.common.skipGamepadTextFieldFocus
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -182,7 +183,8 @@ fun CatalogSearchScreen(
                             value = uiState.query,
                             onValueChange = viewModel::updateQuery,
                             modifier = Modifier
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .skipGamepadTextFieldFocus(),
                             placeholder = { Text(text = stringResource(R.string.home_search)) },
                             leadingIcon = {
                                 Icon(

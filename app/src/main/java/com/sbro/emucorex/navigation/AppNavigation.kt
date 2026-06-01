@@ -67,6 +67,7 @@ import com.sbro.emucorex.ui.settings.GpuDriverScreen
 import com.sbro.emucorex.ui.settings.SettingsScreen
 import com.sbro.emucorex.ui.settings.SettingsViewModel
 import com.sbro.emucorex.ui.common.PremiumLoadingAnimation
+import com.sbro.emucorex.ui.common.ProvideGamepadUiNavigation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Alignment
@@ -310,6 +311,16 @@ fun AppNavigation(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        ProvideGamepadUiNavigation(
+            enabled = true,
+            onBack = {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                } else {
+                    false
+                }
+            }
+        )
         NavHost(
             navController = navController,
             startDestination = startDestination,

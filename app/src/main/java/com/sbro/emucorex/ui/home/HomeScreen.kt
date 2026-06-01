@@ -17,6 +17,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -91,6 +92,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -119,6 +121,7 @@ import com.sbro.emucorex.ui.common.RequestFocusOnResume
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
+import com.sbro.emucorex.ui.common.skipGamepadTextFieldFocus
 import com.sbro.emucorex.ui.theme.GradientEnd
 import com.sbro.emucorex.ui.theme.GradientStart
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
@@ -435,11 +438,8 @@ fun HomeScreen(
                                                             .padding(
                                                                 start = if (index == 0) horizontalInset else 0.dp,
                                                                 end = if (index == uiState.recentGames.lastIndex) horizontalInset else 0.dp
-                                                            )
-                                                            .then(
-                                                                if (index == 0) Modifier.focusRequester(initialGamepadFocusRequester)
-                                                                else Modifier
                                                             ),
+                                                        focusModifier = if (index == 0) Modifier.focusRequester(initialGamepadFocusRequester) else Modifier,
                                                         game = game,
                                                         showCenteredTitlePlaceholder = showCoverPlaceholder,
                                                         onClick = { onGameClick(game) },
@@ -480,14 +480,14 @@ fun HomeScreen(
                                                     val showCoverPlaceholder = uiState.isCoverArtDisabled &&
                                                         !customCoverRepository.isCustomCoverPath(game.coverArtPath)
                                                     Box(modifier = Modifier.weight(1f)) {
-                                                        val itemModifier = if (uiState.recentGames.isEmpty() && game == uiState.games.first()) {
+                                                        val itemFocusModifier = if (uiState.recentGames.isEmpty() && game == uiState.games.first()) {
                                                             Modifier.focusRequester(initialGamepadFocusRequester)
                                                         } else {
                                                             Modifier
                                                         }
                                                         if (isListView) {
                                                             GameListCard(
-                                                                modifier = itemModifier,
+                                                                focusModifier = itemFocusModifier,
                                                                 game = game,
                                                                 showCoverArt = !showCoverPlaceholder,
                                                                 onClick = { onGameClick(game) },
@@ -502,7 +502,7 @@ fun HomeScreen(
                                                             )
                                                         } else {
                                                             GameCard(
-                                                                modifier = itemModifier,
+                                                                focusModifier = itemFocusModifier,
                                                                 game = game,
                                                                 showCenteredTitlePlaceholder = showCoverPlaceholder,
                                                                 onClick = { onGameClick(game) },
@@ -603,14 +603,24 @@ private fun HomeHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (!isWide && onMenuClick != null) {
+                val drawerInteractionSource = remember { MutableInteractionSource() }
                 Surface(
                     modifier = Modifier
-                        .size(44.dp),
+                        .size(44.dp)
+                        .clickable(
+                            interactionSource = drawerInteractionSource,
+                            indication = null,
+                            onClick = rememberDebouncedClick(onClick = onMenuClick)
+                        )
+                        .gamepadFocusableCard(
+                            shape = RoundedCornerShape(14.dp),
+                            interactionSource = drawerInteractionSource,
+                            addFocusTarget = false
+                        ),
                     shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 3.dp,
-                    shadowElevation = 5.dp,
-                    onClick = rememberDebouncedClick(onClick = onMenuClick)
+                    shadowElevation = 5.dp
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -706,7 +716,8 @@ private fun HomeSearchField(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = horizontalInset)
-            .padding(top = 0.dp, bottom = sectionBottomSpacing),
+            .padding(top = 0.dp, bottom = sectionBottomSpacing)
+            .skipGamepadTextFieldFocus(),
         placeholder = {
             Text(
                 stringResource(R.string.home_search),
@@ -1081,6 +1092,7 @@ internal fun NoGamesState() {
 @Composable
 private fun RecentGameCard(
     modifier: Modifier = Modifier,
+    focusModifier: Modifier = Modifier,
     game: GameItem,
     showCenteredTitlePlaceholder: Boolean,
     onClick: () -> Unit,
@@ -1103,7 +1115,7 @@ private fun RecentGameCard(
             .width(if (compact) 98.dp else 108.dp)
     ) {
         Surface(
-            modifier = Modifier
+            modifier = focusModifier
                 .fillMaxWidth()
                 .graphicsLayer(scaleX = scale, scaleY = scale)
                 .combinedClickable(
@@ -1112,7 +1124,11 @@ private fun RecentGameCard(
                     onClick = debouncedClick,
                     onLongClick = { showMenu = true }
                 )
-                .gamepadFocusableCard(shape = RoundedCornerShape(16.dp)),
+                .gamepadFocusableCard(
+                    shape = RoundedCornerShape(16.dp),
+                    interactionSource = interactionSource,
+                    addFocusTarget = false
+                ),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
@@ -1182,6 +1198,7 @@ private fun RecentGameCard(
 @Composable
 private fun GameCard(
     modifier: Modifier = Modifier,
+    focusModifier: Modifier = Modifier,
     game: GameItem,
     showCenteredTitlePlaceholder: Boolean,
     onClick: () -> Unit,
@@ -1197,10 +1214,17 @@ private fun GameCard(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (isPressed) 0.96f else 1f, tween(100))
     var showMenu by remember { mutableStateOf(false) }
+    val isLightTheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
+    val gridCardBorder = if (isLightTheme) {
+        BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.34f))
+    } else {
+        null
+    }
 
     Box(modifier = modifier.fillMaxWidth()) {
         Surface(
-        modifier = modifier
+        modifier = focusModifier
+            .fillMaxWidth()
             .graphicsLayer(scaleX = scale, scaleY = scale)
             .animateContentSize()
             .combinedClickable(
@@ -1209,11 +1233,16 @@ private fun GameCard(
                 onClick = debouncedClick,
                 onLongClick = { showMenu = true }
             )
-            .gamepadFocusableCard(shape = RoundedCornerShape(16.dp)),
+            .gamepadFocusableCard(
+                shape = RoundedCornerShape(16.dp),
+                interactionSource = interactionSource,
+                addFocusTarget = false
+            ),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp
+        shadowElevation = 0.dp,
+        border = gridCardBorder
     ) {
         Box(
             modifier = Modifier
@@ -1279,6 +1308,7 @@ private fun GameCard(
 @Composable
 private fun GameListCard(
     modifier: Modifier = Modifier,
+    focusModifier: Modifier = Modifier,
     game: GameItem,
     showCoverArt: Boolean,
     onClick: () -> Unit,
@@ -1297,7 +1327,8 @@ private fun GameListCard(
 
     Box(modifier = modifier.fillMaxWidth()) {
         Surface(
-        modifier = modifier
+        modifier = focusModifier
+            .fillMaxWidth()
             .graphicsLayer(scaleX = scale, scaleY = scale)
             .animateContentSize()
             .combinedClickable(
@@ -1306,7 +1337,11 @@ private fun GameListCard(
                 onClick = debouncedClick,
                 onLongClick = { showMenu = true }
             )
-            .gamepadFocusableCard(shape = RoundedCornerShape(16.dp)),
+            .gamepadFocusableCard(
+                shape = RoundedCornerShape(16.dp),
+                interactionSource = interactionSource,
+                addFocusTarget = false
+            ),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,

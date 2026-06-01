@@ -8,7 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -71,6 +71,7 @@ import com.sbro.emucorex.data.CustomGameCoverRepository
 import com.sbro.emucorex.data.GameItem
 import com.sbro.emucorex.ui.common.GameCoverArt
 import com.sbro.emucorex.ui.common.RequestFocusOnResume
+import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
@@ -254,12 +255,12 @@ internal fun HomeShelfMode(
                                 onLongClickCreateShortcut = { onLongClickCreateShortcut(game) },
                                 onLongClickCustomCover = { onLongClickCustomCover(game) },
                                 onNavigateLeft = {
-                                    if (page > 0) {
+                                    if (page > 0 && !pagerState.isScrollInProgress) {
                                         scope.launch { pagerState.animateScrollToPage(page - 1) }
                                     }
                                 },
                                 onNavigateRight = {
-                                    if (page < games.lastIndex) {
+                                    if (page < games.lastIndex && !pagerState.isScrollInProgress) {
                                         scope.launch { pagerState.animateScrollToPage(page + 1) }
                                     }
                                 }
@@ -467,6 +468,7 @@ private fun ShelfCoverCard(
     onNavigateRight: () -> Unit
 ) {
     val debouncedClick = rememberDebouncedClick(onClick = onClick)
+    val interactionSource = remember { MutableInteractionSource() }
     var showMenu by remember(game.path) { mutableStateOf(false) }
     val shape = RoundedCornerShape(24.dp)
     val coverAspectRatio = 2f / 3f
@@ -483,9 +485,19 @@ private fun ShelfCoverCard(
             .fillMaxWidth()
             .aspectRatio(coverAspectRatio)
             .focusRequester(focusRequester)
-            .focusable()
             .onPreviewKeyEvent { keyEvent ->
                 if (keyEvent.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                val isShelfNavigationKey = when (keyEvent.key) {
+                    Key.DirectionLeft,
+                    Key.DirectionRight,
+                    Key.DirectionCenter,
+                    Key.Enter,
+                    Key.NumPadEnter -> true
+                    else -> false
+                }
+                if (keyEvent.nativeKeyEvent.repeatCount != 0 && isShelfNavigationKey) {
+                    return@onPreviewKeyEvent true
+                }
                 when (keyEvent.key) {
                     Key.DirectionLeft -> {
                         onNavigateLeft()
@@ -505,8 +517,15 @@ private fun ShelfCoverCard(
                 }
             }
             .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
                 onClick = debouncedClick,
                 onLongClick = { showMenu = true }
+            )
+            .gamepadFocusableCard(
+                shape = shape,
+                interactionSource = interactionSource,
+                addFocusTarget = false
             ),
         shape = shape,
         color = Color.Transparent,

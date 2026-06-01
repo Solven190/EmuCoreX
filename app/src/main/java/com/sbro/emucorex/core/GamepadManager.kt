@@ -16,7 +16,10 @@ import com.sbro.emucorex.data.AppPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.abs
@@ -194,6 +197,8 @@ object GamepadManager {
         MappableButtonAction("dpad_right", PadKey.Right, listOf(KeyEvent.KEYCODE_DPAD_RIGHT))
     )
     private val actionsById = mappableActions.associateBy { it.id }
+    private val _connectedGamepadCountState = MutableStateFlow(0)
+    val connectedGamepadCountState: StateFlow<Int> = _connectedGamepadCountState
 
     fun ensureInitialized(context: android.content.Context) {
         if (initialized) return
@@ -250,6 +255,12 @@ object GamepadManager {
             preferences.enableAutoGamepad.collectLatest { enabled ->
                 singleGamepadReplacesTouch = enabled
                 refreshConnectedGamepads()
+            }
+        }
+        scope.launch {
+            while (true) {
+                refreshConnectedGamepads()
+                delay(750)
             }
         }
         refreshConnectedGamepads()
@@ -648,6 +659,7 @@ object GamepadManager {
             }
         }
 
+        _connectedGamepadCountState.value = connectedSnapshot.size
         return connectedSnapshot
     }
 

@@ -37,6 +37,11 @@
 -keep,includedescriptorclasses class com.sbro.emucorex.core.VulkanWrapperManager { *; }
 -keep,includedescriptorclasses class com.sbro.emucorex.core.VulkanWrapperManager$Install { *; }
 
+# Shared gamepad UI navigation is reached from Activity input callbacks and Compose
+# registration lambdas. Keep the small common Gamepad* surface explicit so release
+# minification cannot fold away router singletons or top-level Compose helper entry points.
+-keep,includedescriptorclasses class com.sbro.emucorex.ui.common.Gamepad* { *; }
+
 # Methods looked up from C++ with GetStaticMethodID/CallStatic* must keep their Java
 # names and signatures even when the surrounding Kotlin code is optimized.
 -keepclassmembers,includedescriptorclasses class com.sbro.emucorex.core.NativeApp {

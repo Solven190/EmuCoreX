@@ -80,6 +80,7 @@ import com.sbro.emucorex.data.SettingsSnapshot
 import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.ScreenSettingsResetHintDialog
 import com.sbro.emucorex.ui.common.SettingHelpButton
+import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import org.json.JSONObject
@@ -1198,6 +1199,7 @@ private fun ToggleRow(
     val interactionSource = remember { MutableInteractionSource() }
     val context = LocalContext.current
     val resetToast = stringResource(R.string.settings_reset_to_default_toast)
+    val shape = RoundedCornerShape(14.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1211,7 +1213,13 @@ private fun ToggleRow(
                         Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
                     }
                 }
-            ),
+            )
+            .gamepadFocusableCard(
+                shape = shape,
+                interactionSource = interactionSource,
+                addFocusTarget = false
+            )
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
@@ -1231,7 +1239,7 @@ private fun ToggleRow(
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = null
         )
     }
 }

@@ -21,10 +21,10 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.sbro.emucorex.core.AppLocaleManager
 import com.sbro.emucorex.core.GamepadManager
-import com.sbro.emucorex.core.GamepadUiActions
 import com.sbro.emucorex.core.NativeApp
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.navigation.AppNavigation
+import com.sbro.emucorex.ui.common.GamepadUiInputRouter
 import com.sbro.emucorex.ui.theme.EmuCoreXTheme
 import com.sbro.emucorex.ui.theme.ThemeMode
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -125,15 +125,13 @@ class MainActivity : ComponentActivity() {
         if (GamepadManager.isGameController(event.device)) {
             if (GamepadManager.handleBindingCapture(event)) return true
             if (GamepadManager.isEmulationInputEnabled()) {
+                if (GamepadUiInputRouter.handleEmulationOverlayKeyEvent(event)) return true
                 if (GamepadManager.handleKeyEvent(event)) return true
             } else {
-                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                    when (event.keyCode) {
-                        KeyEvent.KEYCODE_DPAD_LEFT -> if (GamepadUiActions.navigateLeft()) return true
-                        KeyEvent.KEYCODE_DPAD_RIGHT -> if (GamepadUiActions.navigateRight()) return true
-                    }
+                if (GamepadUiInputRouter.handleKeyEvent(event)) return true
+                if (GamepadUiInputRouter.shouldMapToPrimaryClick(event)) {
+                    return super.dispatchKeyEvent(event.withKeyCode(KeyEvent.KEYCODE_DPAD_CENTER))
                 }
-                return true
             }
         }
 
@@ -150,8 +148,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onGenericMotionEvent(event: MotionEvent?): Boolean {
         if (event != null && GamepadManager.isGameController(event.device) && !GamepadManager.isEmulationInputEnabled()) {
-            if (GamepadUiActions.handleHorizontalMotion(event)) return true
-            return true
+            if (GamepadUiInputRouter.handleMotionEvent(event)) return true
         }
         if (event != null && GamepadManager.handleMotionEvent(event)) return true
         if (event != null && GamepadManager.isEmulationInputEnabled() && handleMouseMotionEvent(event)) return true
@@ -267,5 +264,20 @@ class MainActivity : ComponentActivity() {
     private fun isMouseEvent(event: MotionEvent): Boolean {
         val source = event.source
         return (source and android.view.InputDevice.SOURCE_MOUSE) == android.view.InputDevice.SOURCE_MOUSE
+    }
+
+    private fun KeyEvent.withKeyCode(keyCode: Int): KeyEvent {
+        return KeyEvent(
+            downTime,
+            eventTime,
+            action,
+            keyCode,
+            repeatCount,
+            metaState,
+            deviceId,
+            scanCode,
+            flags,
+            source
+        )
     }
 }

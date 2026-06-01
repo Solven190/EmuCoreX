@@ -24,6 +24,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -152,10 +153,14 @@ import com.sbro.emucorex.data.RetroAchievementGameData
 import com.sbro.emucorex.data.RetroAchievementsRepository
 import com.sbro.emucorex.data.SettingsSnapshot
 import com.sbro.emucorex.ui.common.BitmapPathImage
+import com.sbro.emucorex.ui.common.ProvideGamepadMenuAction
+import com.sbro.emucorex.ui.common.ProvideGamepadShoulderActions
+import com.sbro.emucorex.ui.common.ProvideGamepadUiNavigation
 import com.sbro.emucorex.ui.common.SettingHelpButton
 import com.sbro.emucorex.ui.common.VectorAnalogStick
 import com.sbro.emucorex.ui.common.VectorOverlayButton
 import com.sbro.emucorex.ui.common.buildOverlayCanvasLayout
+import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import com.sbro.emucorex.ui.settings.ControlsEditorScreen
 import com.sbro.emucorex.ui.theme.GradientEnd
@@ -365,10 +370,60 @@ fun EmulationScreen(
     val dismissGamepadMappingDialog: () -> Unit = { showGamepadMappingDialog = false }
     val dismissGamepadMappingDialogClick = rememberDebouncedClick(onClick = dismissGamepadMappingDialog)
     val sessionRestoredUnavailableMessage = stringResource(R.string.emulation_session_restored_unavailable)
+    val gamepadUiActive = uiState.showMenu ||
+        showControlsEditor ||
+        showExitDialog ||
+        showQuickSaveDialog ||
+        showQuickLoadDialog ||
+        showCheatsDialog ||
+        showGamepadMappingDialog ||
+        pendingGamepadActionId != null
 
     BackHandler(enabled = true) {
         toggleMenuClick()
     }
+
+    ProvideGamepadMenuAction(onMenu = toggleMenuClick)
+    ProvideGamepadUiNavigation(
+        enabled = gamepadUiActive,
+        onBack = {
+            when {
+                pendingGamepadActionId != null -> {
+                    pendingGamepadActionId = null
+                    true
+                }
+                showGamepadMappingDialog -> {
+                    dismissGamepadMappingDialog()
+                    true
+                }
+                showCheatsDialog -> {
+                    dismissCheatsDialog()
+                    true
+                }
+                showQuickLoadDialog -> {
+                    showQuickLoadDialog = false
+                    true
+                }
+                showQuickSaveDialog -> {
+                    showQuickSaveDialog = false
+                    true
+                }
+                showExitDialog -> {
+                    showExitDialog = false
+                    true
+                }
+                showControlsEditor -> {
+                    showControlsEditor = false
+                    true
+                }
+                uiState.showMenu -> {
+                    toggleMenuClick()
+                    true
+                }
+                else -> false
+            }
+        }
+    )
 
     LaunchedEffect(restoredAfterProcessDeath) {
         if (!restoredAfterProcessDeath) return@LaunchedEffect
@@ -531,8 +586,11 @@ fun EmulationScreen(
         }
     }
 
+    LaunchedEffect(gamepadUiActive) {
+        GamepadManager.setEmulationInputEnabled(!gamepadUiActive)
+    }
+
     DisposableEffect(Unit) {
-        GamepadManager.setEmulationInputEnabled(true)
         onDispose {
             GamepadManager.setEmulationInputEnabled(false)
             viewModel.stopEmulation()
@@ -1761,6 +1819,10 @@ private fun EmulationSidebarMenu(
     }
     var selectedMenuTabName by rememberSaveable { mutableStateOf(EmulationMenuTab.Session.name) }
     val selectedMenuTab = remember(selectedMenuTabName) { EmulationMenuTab.valueOf(selectedMenuTabName) }
+    val firstMenuFocusRequester = remember { FocusRequester() }
+    val railFocusRequesters = remember {
+        EmulationMenuTab.entries.associateWith { FocusRequester() }
+    }
     var autoSaveIntervalText by remember(uiState.autoSaveIntervalMinutes) {
         mutableStateOf(uiState.autoSaveIntervalMinutes.toString())
     }
@@ -1778,6 +1840,27 @@ private fun EmulationSidebarMenu(
         EmulationMenuTab.Fixes -> fixesScrollState
         EmulationMenuTab.Achievements -> achievementsScrollState
     }
+    LaunchedEffect(selectedMenuTab) {
+        railFocusRequesters[selectedMenuTab]?.requestFocus()
+    }
+    val menuTabs = remember {
+        listOf(
+            EmulationMenuTab.Session,
+            EmulationMenuTab.Controls,
+            EmulationMenuTab.Emulation,
+            EmulationMenuTab.Graphics,
+            EmulationMenuTab.Fixes,
+            EmulationMenuTab.Achievements
+        )
+    }
+    fun selectRelativeMenuTab(offset: Int) {
+        val currentIndex = menuTabs.indexOf(selectedMenuTab).coerceAtLeast(0)
+        selectedMenuTabName = menuTabs[(currentIndex + offset + menuTabs.size) % menuTabs.size].name
+    }
+    ProvideGamepadShoulderActions(
+        onPrevious = { selectRelativeMenuTab(-1) },
+        onNext = { selectRelativeMenuTab(1) }
+    )
 
     Row(
         modifier = modifier
@@ -1867,6 +1950,7 @@ private fun EmulationSidebarMenu(
                         ) {
                             Box(modifier = Modifier.weight(1f)) {
                                 MenuButton(
+                                    modifier = Modifier.focusRequester(firstMenuFocusRequester),
                                     icon = if (uiState.isPaused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
                                     text = stringResource(if (uiState.isPaused) R.string.emulation_resume else R.string.emulation_pause),
                                     onClick = onPauseToggle,
@@ -3000,36 +3084,42 @@ private fun EmulationSidebarMenu(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 EmulationMenuRailButton(
+                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Session)),
                     icon = Icons.Rounded.Menu,
                     contentDescription = stringResource(R.string.emulation_session_tab),
                     selected = selectedMenuTab == EmulationMenuTab.Session,
                     onClick = { selectedMenuTabName = EmulationMenuTab.Session.name }
                 )
                 EmulationMenuRailButton(
+                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Controls)),
                     icon = Icons.Rounded.Gamepad,
                     contentDescription = stringResource(R.string.settings_controls_tab),
                     selected = selectedMenuTab == EmulationMenuTab.Controls,
                     onClick = { selectedMenuTabName = EmulationMenuTab.Controls.name }
                 )
                 EmulationMenuRailButton(
+                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Emulation)),
                     icon = Icons.Rounded.SettingsSuggest,
                     contentDescription = stringResource(R.string.settings_emulation_tab),
                     selected = selectedMenuTab == EmulationMenuTab.Emulation,
                     onClick = { selectedMenuTabName = EmulationMenuTab.Emulation.name }
                 )
                 EmulationMenuRailButton(
+                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Graphics)),
                     icon = Icons.Rounded.Fullscreen,
                     contentDescription = stringResource(R.string.settings_graphics_tab),
                     selected = selectedMenuTab == EmulationMenuTab.Graphics,
                     onClick = { selectedMenuTabName = EmulationMenuTab.Graphics.name }
                 )
                 EmulationMenuRailButton(
+                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Fixes)),
                     icon = Icons.Rounded.Star,
                     contentDescription = stringResource(R.string.settings_fixes_tab),
                     selected = selectedMenuTab == EmulationMenuTab.Fixes,
                     onClick = { selectedMenuTabName = EmulationMenuTab.Fixes.name }
                 )
                 EmulationMenuRailButton(
+                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Achievements)),
                     icon = Icons.Rounded.LockOpen,
                     contentDescription = stringResource(R.string.emulation_achievements_tab),
                     selected = selectedMenuTab == EmulationMenuTab.Achievements,
@@ -3333,33 +3423,45 @@ private fun OverlayAchievementRow(achievement: RetroAchievementEntry) {
 
 @Composable
 private fun EmulationMenuRailButton(
+    modifier: Modifier = Modifier,
     icon: ImageVector,
     contentDescription: String,
     selected: Boolean,
     onClick: () -> Unit,
     isDestructive: Boolean = false
 ) {
+    val shape = RoundedCornerShape(18.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
     val iconScale by animateFloatAsState(
         targetValue = if (selected && !isDestructive) 1.08f else 1f,
         animationSpec = tween(durationMillis = 220),
         label = "emulation_menu_rail_icon_scale"
     )
+    val border = BorderStroke(
+        if (isFocused) 2.dp else 1.dp,
+        when {
+            isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
+            isDestructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.22f)
+            selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
+            else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.52f)
+        }
+    )
     Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
+        modifier = modifier
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .focusable(interactionSource = interactionSource),
+        shape = shape,
         color = when {
             isDestructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
             selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
             else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f)
         },
-        border = BorderStroke(
-            1.dp,
-            when {
-                isDestructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.22f)
-                selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
-                else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.52f)
-            }
-        )
+        border = border
     ) {
         Box(
             modifier = Modifier
@@ -3501,25 +3603,33 @@ private fun SettingsToggle(
     val interactionSource = remember { MutableInteractionSource() }
     val context = LocalContext.current
     val resetToast = stringResource(R.string.settings_reset_to_default_toast)
+    val shape = RoundedCornerShape(16.dp)
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = { onCheckedChange(!checked) },
+                onLongClick = onResetToDefault?.let {
+                    {
+                        it()
+                        Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+            .gamepadFocusableCard(
+                shape = shape,
+                interactionSource = interactionSource,
+                addFocusTarget = false
+            ),
+        shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = { onCheckedChange(!checked) },
-                    onLongClick = onResetToDefault?.let {
-                        {
-                            it()
-                            Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                )
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -3540,7 +3650,7 @@ private fun SettingsToggle(
             }
             Switch(
                 checked = checked,
-                onCheckedChange = onCheckedChange,
+                onCheckedChange = null,
                 modifier = Modifier.scale(0.85f),
                 colors = androidx.compose.material3.SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.primary,
@@ -3971,6 +4081,7 @@ private fun LiveSliderRow(
 
 @Composable
 private fun MenuButton(
+    modifier: Modifier = Modifier,
     icon: ImageVector,
     text: String,
     onClick: () -> Unit,
@@ -3980,17 +4091,30 @@ private fun MenuButton(
     showProgress: Boolean = false,
     containerColor: Color? = null
 ) {
+    val shape = RoundedCornerShape(16.dp)
+    val interactionSource = remember { MutableInteractionSource() }
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(
+                enabled = enabled,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .gamepadFocusableCard(
+                enabled = enabled,
+                shape = shape,
+                interactionSource = interactionSource,
+                addFocusTarget = false
+            ),
+        shape = shape,
         color = when {
             gradientColors != null -> Color.Transparent
             containerColor != null -> containerColor
             isDestructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
             else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
         },
-        onClick = onClick,
-        enabled = enabled,
         border = if (gradientColors == null) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)) else null
     ) {
         Row(
@@ -4044,12 +4168,25 @@ private fun QuickIconActionButton(
     showProgress: Boolean,
     containerColor: Color
 ) {
+    val shape = RoundedCornerShape(18.dp)
+    val interactionSource = remember { MutableInteractionSource() }
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                enabled = enabled,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .gamepadFocusableCard(
+                enabled = enabled,
+                shape = shape,
+                interactionSource = interactionSource,
+                addFocusTarget = false
+            ),
+        shape = shape,
         color = containerColor,
-        onClick = onClick,
-        enabled = enabled,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
         Box(

@@ -9,6 +9,7 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -23,41 +24,60 @@ import androidx.compose.material3.MaterialTheme
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.sbro.emucorex.core.GamepadManager
+
+enum class GamepadFocusHighlightMode {
+    ConnectedGamepadOnly,
+    Always
+}
 
 fun Modifier.gamepadFocusableCard(
     enabled: Boolean = true,
-    shape: Shape = RoundedCornerShape(18.dp)
+    shape: Shape = RoundedCornerShape(18.dp),
+    interactionSource: MutableInteractionSource? = null,
+    addFocusTarget: Boolean = true,
+    focusHighlightMode: GamepadFocusHighlightMode = GamepadFocusHighlightMode.ConnectedGamepadOnly
 ): Modifier = composed {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isFocused by interactionSource.collectIsFocusedAsState()
+    val focusInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
+    val isFocused by focusInteractionSource.collectIsFocusedAsState()
+    val connectedGamepadCount by GamepadManager.connectedGamepadCountState.collectAsState()
+    val shouldShowFocusHighlight = isFocused && enabled && (
+        focusHighlightMode == GamepadFocusHighlightMode.Always || connectedGamepadCount > 0
+    )
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.02f else 1f,
+        targetValue = if (shouldShowFocusHighlight) 1.02f else 1f,
         label = "gamepadFocusScale"
     )
+    val focusBorder = when {
+        shouldShowFocusHighlight -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.95f))
+        else -> BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+    }
 
-    this
+    var focusedModifier = this
         .graphicsLayer {
             scaleX = scale
             scaleY = scale
         }
         .shadow(
-            elevation = if (isFocused) 14.dp else 0.dp,
+            elevation = if (shouldShowFocusHighlight) 14.dp else 0.dp,
             shape = shape,
             clip = false
         )
         .clip(shape)
-        .border(
-            border = if (isFocused) {
-                BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.95f))
-            } else {
-                BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-            },
-            shape = shape
-        )
-        .focusable(
+
+    focusedModifier = focusedModifier.border(
+        border = focusBorder,
+        shape = shape
+    )
+
+    if (addFocusTarget) {
+        focusedModifier.focusable(
             enabled = enabled,
-            interactionSource = interactionSource
+            interactionSource = focusInteractionSource
         )
+    } else {
+        focusedModifier
+    }
 }
 
 @Composable

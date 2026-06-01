@@ -76,6 +76,7 @@ import com.sbro.emucorex.core.InstalledGpuDriver
 import com.sbro.emucorex.core.RemoteGpuDriver
 import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
+import com.sbro.emucorex.ui.common.skipGamepadTextFieldFocus
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 
 @Composable
@@ -294,7 +295,9 @@ private fun DriverSearchField(
     OutlinedTextField(
         value = searchQuery,
         onValueChange = onSearchQueryChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .skipGamepadTextFieldFocus(),
         singleLine = true,
         leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
         trailingIcon = {

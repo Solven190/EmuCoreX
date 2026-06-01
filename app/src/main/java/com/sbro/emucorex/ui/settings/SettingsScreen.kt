@@ -128,6 +128,7 @@ import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.SettingsBackupRepository
 import com.sbro.emucorex.data.SettingsSnapshot
 import com.sbro.emucorex.ui.common.NavigationBackButton
+import com.sbro.emucorex.ui.common.ProvideGamepadShoulderActions
 import com.sbro.emucorex.ui.common.RequestFocusOnResume
 import com.sbro.emucorex.ui.common.ScreenSettingsResetHintDialog
 import com.sbro.emucorex.ui.common.ScreenTopBar
@@ -135,6 +136,7 @@ import com.sbro.emucorex.ui.common.SettingHelpButton
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
+import com.sbro.emucorex.ui.common.skipGamepadTextFieldFocus
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import com.sbro.emucorex.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
@@ -248,7 +250,15 @@ fun SettingsScreen(
         }
     }
 
-    LaunchedEffect(shouldRequestGamepadFocus) {
+    val settingsTabs = remember { SettingsTab.entries.toList() }
+    fun selectRelativeTab(offset: Int) {
+        val currentIndex = settingsTabs.indexOf(selectedTab).coerceAtLeast(0)
+        selectedTab = settingsTabs[(currentIndex + offset + settingsTabs.size) % settingsTabs.size]
+        searchEnabled = false
+        searchQuery = ""
+    }
+
+    LaunchedEffect(selectedTab, shouldRequestGamepadFocus) {
         if (shouldRequestGamepadFocus) {
             selectedTabFocusRequester.requestFocus()
         }
@@ -335,6 +345,11 @@ fun SettingsScreen(
             Toast.makeText(context, cheatsImportSuccessMessage, Toast.LENGTH_SHORT).show()
         }
     }
+    ProvideGamepadShoulderActions(
+        enabled = !searchEnabled,
+        onPrevious = { selectRelativeTab(-1) },
+        onNext = { selectRelativeTab(1) }
+    )
 
     Box(
         modifier = Modifier
@@ -749,7 +764,9 @@ private fun SettingsCompactTopBar(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = onSearchQueryChange,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .skipGamepadTextFieldFocus(),
                         singleLine = true,
                         shape = RoundedCornerShape(18.dp),
                         placeholder = { Text(stringResource(R.string.settings_search_placeholder)) }
@@ -816,6 +833,7 @@ private fun SettingsTabRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(items = tabs, key = { it.name }) { tab ->
+            val interactionSource = remember { MutableInteractionSource() }
             FilterChip(
                 modifier = if (tab == selectedTab) {
                     Modifier.focusRequester(selectedTabFocusRequester)
@@ -824,6 +842,7 @@ private fun SettingsTabRow(
                 },
                 selected = selectedTab == tab,
                 onClick = { onSelected(tab) },
+                interactionSource = interactionSource,
                 label = { Text(tab.label()) },
                 leadingIcon = {
                     Icon(
@@ -2463,11 +2482,17 @@ private fun ToggleItem(
     val interactionSource = remember { MutableInteractionSource() }
     val context = LocalContext.current
     val resetToast = stringResource(R.string.settings_reset_to_default_toast)
+    val shape = RoundedCornerShape(18.dp)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .gamepadFocusableCard(shape = RoundedCornerShape(18.dp))
+            .gamepadFocusableCard(
+                enabled = enabled,
+                shape = shape,
+                interactionSource = interactionSource,
+                addFocusTarget = false
+            )
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -2480,7 +2505,7 @@ private fun ToggleItem(
                     }
                 }
             ),
-        shape = RoundedCornerShape(18.dp),
+        shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
     ) {
         Row(
@@ -2531,7 +2556,7 @@ private fun ToggleItem(
             }
             Switch(
                 checked = checked,
-                onCheckedChange = onCheckedChange,
+                onCheckedChange = null,
                 enabled = enabled,
                 modifier = Modifier.padding(end = 2.dp)
             )

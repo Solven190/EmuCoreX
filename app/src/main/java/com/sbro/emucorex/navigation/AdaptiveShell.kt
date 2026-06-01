@@ -1,9 +1,14 @@
 package com.sbro.emucorex.navigation
 
 import android.annotation.SuppressLint
+import android.view.KeyEvent as AndroidKeyEvent
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,7 +54,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,13 +67,16 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.sbro.emucorex.R
-import com.sbro.emucorex.core.GamepadUiActions
+import com.sbro.emucorex.core.GamepadManager
+import com.sbro.emucorex.ui.common.ProvideGamepadMenuAction
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class PrimaryDestination {
@@ -242,26 +249,20 @@ private fun CompactAdaptiveShell(
     }
     LaunchedEffect(drawerState.isOpen, mobileLeadingAction, selected) {
         if (drawerState.isOpen && mobileLeadingAction == MobileLeadingAction.Drawer) {
-            if (inputModeManager.inputMode == InputMode.Keyboard) {
+            if (GamepadManager.isGamepadConnected() || inputModeManager.inputMode == InputMode.Keyboard) {
+                delay(40)
                 selectedDrawerItemFocusRequester.requestFocus()
             }
         }
     }
-    DisposableEffect(mobileLeadingAction, drawerState) {
-        if (mobileLeadingAction == MobileLeadingAction.Drawer) {
-            GamepadUiActions.setToggleDrawerAction {
-                scope.launch {
-                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
-                }
+    ProvideGamepadMenuAction(
+        enabled = mobileLeadingAction == MobileLeadingAction.Drawer,
+        onMenu = {
+            scope.launch {
+                if (drawerState.isClosed) drawerState.open() else drawerState.close()
             }
-        } else {
-            GamepadUiActions.setToggleDrawerAction(null)
         }
-
-        onDispose {
-            GamepadUiActions.setToggleDrawerAction(null)
-        }
-    }
+    )
     BackHandler(enabled = drawerState.isOpen) {
         scope.launch { drawerState.close() }
     }
@@ -651,13 +652,27 @@ private fun ShellAction(
     label: String,
     onClick: () -> Unit
 ) {
+    val shape = RoundedCornerShape(18.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val border = if (isFocused) {
+        BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.95f))
+    } else {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+    }
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .focusable(),
-        shape = RoundedCornerShape(18.dp),
+            .activateDrawerItemOnGamepad(onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .focusable(interactionSource = interactionSource),
+        shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f),
-        onClick = onClick
+        border = border
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
@@ -687,17 +702,31 @@ private fun ShellItem(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val shape = RoundedCornerShape(18.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val border = if (isFocused) {
+        BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.95f))
+    } else {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+    }
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .focusable(),
-        shape = RoundedCornerShape(18.dp),
+            .activateDrawerItemOnGamepad(onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .focusable(interactionSource = interactionSource),
+        shape = shape,
         color = if (selected) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
         } else {
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)
         },
-        onClick = onClick
+        border = border
     ) {
         Row(
             modifier = Modifier
@@ -717,6 +746,26 @@ private fun ShellItem(
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(start = 12.dp)
             )
+        }
+    }
+}
+
+private fun Modifier.activateDrawerItemOnGamepad(onClick: () -> Unit): Modifier {
+    return onPreviewKeyEvent { keyEvent ->
+        val nativeEvent = keyEvent.nativeKeyEvent
+        if (nativeEvent.action != AndroidKeyEvent.ACTION_DOWN || nativeEvent.repeatCount != 0) {
+            return@onPreviewKeyEvent false
+        }
+        when (nativeEvent.keyCode) {
+            AndroidKeyEvent.KEYCODE_BUTTON_A,
+            AndroidKeyEvent.KEYCODE_BUTTON_1,
+            AndroidKeyEvent.KEYCODE_DPAD_CENTER,
+            AndroidKeyEvent.KEYCODE_ENTER,
+            AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                onClick()
+                true
+            }
+            else -> false
         }
     }
 }
