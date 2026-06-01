@@ -74,7 +74,7 @@ std::optional<InputBindingKey> InputSource::ParseGenericControllerKey(
 		return std::nullopt;
 
 	const std::optional<s32> source_index = StringUtil::FromChars<s32>(source.substr(pos));
-	if (source_index.has_value() || source_index.value() < 0)
+	if (!source_index.has_value() || source_index.value() < 0)
 		return std::nullopt;
 
 	InputBindingKey key = {};
@@ -115,6 +115,15 @@ std::optional<InputBindingKey> InputSource::ParseGenericControllerKey(
 		key.source_subtype = InputSubclass::ControllerButton;
 		key.data = static_cast<u32>(button_number.value());
 	}
+	else if (sub_binding.starts_with("Motor"))
+	{
+		const std::optional<s32> motor_number = StringUtil::FromChars<s32>(sub_binding.substr(5));
+		if (!motor_number.has_value() || motor_number.value() < 0)
+			return std::nullopt;
+
+		key.source_subtype = InputSubclass::ControllerMotor;
+		key.data = static_cast<u32>(motor_number.value());
+	}
 	else
 	{
 		return std::nullopt;
@@ -140,6 +149,11 @@ std::string InputSource::ConvertGenericControllerKeyToString(InputBindingKey key
 	{
 		return StringUtil::StdStringFromFormat(
 			"%s%u/Button%u", InputManager::InputSourceToString(key.source_type), key.source_index, key.data);
+	}
+	else if (key.source_subtype == InputSubclass::ControllerMotor)
+	{
+		return StringUtil::StdStringFromFormat(
+			"%s-%u/Motor%u", InputManager::InputSourceToString(key.source_type), key.source_index, key.data);
 	}
 	else
 	{

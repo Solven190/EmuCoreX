@@ -1048,4 +1048,13 @@
     <string name="settings_updates_dialog_details">Открыть обновления</string>
     <string name="settings_updates_dialog_later">Позже</string>
     <string name="settings_updates_dialog_skip">Пропустить эту версию</string>
+    <string name="settings_pad_vibration_strength">Сила вибрации</string>
+    <string name="settings_pad_vibration_test">Проверить вибрацию</string>
+    <string name="settings_pad_vibration_test_desc">Запускает короткий импульс вибрации, используя текущее значение ползунка силы.</string>
+    <string name="settings_pad_vibration_test_action">Проверить</string>
+    <string name="settings_pad_vibration_fallback">Использовать вибрацию устройства как запасную</string>
+    <string name="settings_pad_vibration_fallback_desc">Вибрировать корпусом телефона или портативной консоли, если контроллер не предоставляет доступ к собственному мотору.</string>
+    <string name="settings_help_pad_vibration_strength">Масштабирует вибрацию игры перед отправкой в Android. Снизьте значение для шумных моторов портативных консолей или увеличьте, если вибрация контроллера кажется слишком слабой.</string>
+    <string name="settings_help_pad_vibration_test">Отправляет прямой запрос на вибрацию Android сначала подключенному контроллеру, а затем на запасной вариант телефона или портативной консоли (если включено).</string>
+    <string name="settings_help_pad_vibration_fallback">Некоторые элементы управления портативных консолей определяются как геймпад, но обеспечивают вибрацию только через вибромотор устройства. Этот запасной вариант позволяет сохранить вибрацию на таких устройствах, однако внешние контроллеры без вибрации будут вместо этого вызывать вибрацию телефона или консоли.</string>
 </resources>

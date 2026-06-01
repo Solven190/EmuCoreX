@@ -1048,4 +1048,13 @@
     <string name="settings_updates_dialog_details">Updates öffnen</string>
     <string name="settings_updates_dialog_later">Später</string>
     <string name="settings_updates_dialog_skip">Diese Version überspringen</string>
+    <string name="settings_pad_vibration_strength">Vibrationsstärke</string>
+    <string name="settings_pad_vibration_test">Vibration testen</string>
+    <string name="settings_pad_vibration_test_desc">Führt einen kurzen Vibrationsimpuls mit dem aktuellen Wert des Stärkereglers aus.</string>
+    <string name="settings_pad_vibration_test_action">Testen</string>
+    <string name="settings_pad_vibration_fallback">Geräte-Vibration als Fallback nutzen</string>
+    <string name="settings_pad_vibration_fallback_desc">Das Handheld- oder Telefongehäuse vibrieren lassen, wenn der Controller keinen eigenen Motor bereitstellt.</string>
+    <string name="settings_help_pad_vibration_strength">Skaliert die Spielvibration, bevor sie an Android gesendet wird. Senken Sie den Wert für laute Handheld-Motoren oder erhöhen Sie ihn, wenn sich ein Controller zu schwach anfühlt.</string>
+    <string name="settings_help_pad_vibration_test">Sendet eine direkte Android-Vibrationsanforderung zuerst an den verbundenen Controller und dann an das Fallback-Telefon oder -Handheld, falls aktiviert.</string>
+    <string name="settings_help_pad_vibration_fallback">Einige Handheld-Steuerungen melden sich als Gamepad, stellen die Vibration jedoch nur über den Gerätevibrator bereit. Dieses Fallback sorgt dafür, dass die Vibration auf diesen Geräten weiterhin funktioniert, aber externe Controller ohne Vibration lassen stattdessen das Telefon oder Handheld vibrieren.</string>
 </resources>

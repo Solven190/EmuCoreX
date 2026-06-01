@@ -106,6 +106,7 @@ std::string JStringToString(JNIEnv* env, jstring value);
 jstring StringToJString(JNIEnv* env, const std::string& value);
 void ConfigureNativeAppCallbacks(JNIEnv* env, jclass native_app_class);
 JavaVM* GetJavaVM();
+void DispatchPadVibration(int pad_index, float large_motor, float small_motor);
 void SetPerformanceMetricsCallbackEnabled(bool enabled, bool detailed);
 std::string GetPerformanceMetricsSnapshot();
 void RequestCurrentVmStop();

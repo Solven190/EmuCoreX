@@ -161,6 +161,40 @@ JavaVM* GetJavaVM()
 	return s_java_vm;
 }
 
+void DispatchPadVibration(int pad_index, float large_motor, float small_motor)
+{
+	JavaVM* java_vm = nullptr;
+	jclass native_app_class = nullptr;
+	{
+		std::lock_guard lock(s_callback_mutex);
+		java_vm = s_java_vm;
+		native_app_class = s_native_app_class;
+	}
+
+	if (!java_vm || !native_app_class)
+		return;
+
+	JNIEnv* env = nullptr;
+	bool did_attach = false;
+	if (java_vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK)
+	{
+		if (java_vm->AttachCurrentThread(&env, nullptr) != JNI_OK || !env)
+			return;
+		did_attach = true;
+	}
+
+	jmethodID method = env->GetStaticMethodID(native_app_class, "onPadVibration", "(IFF)V");
+	if (method)
+		env->CallStaticVoidMethod(native_app_class, method, static_cast<jint>(pad_index),
+			static_cast<jfloat>(large_motor), static_cast<jfloat>(small_motor));
+
+	if (env->ExceptionCheck())
+		env->ExceptionClear();
+
+	if (did_attach)
+		java_vm->DetachCurrentThread();
+}
+
 }
 
 int FileSystem::OpenFDFileContent(const char* filename)

@@ -129,6 +129,14 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 	si.SetStringValue("SPU2/Output", "Backend", "SDL");
 	si.SetStringValue("SPU2/Output", "DriverName", "");
 	si.SetStringValue("SPU2/Output", "DeviceName", "");
+	si.SetBoolValue("InputSources", "SDL", true);
+	si.SetBoolValue("InputSources", "PadVibration", GetBoolSetting(config.settings, "InputSources", "PadVibration", true));
+	si.SetStringValue("Pad1", "Type", "DualShock2");
+	si.SetStringValue("Pad1", "LargeMotor", "SDL-0/Motor0");
+	si.SetStringValue("Pad1", "SmallMotor", "SDL-0/Motor1");
+	si.SetStringValue("Pad2", "Type", "DualShock2");
+	si.SetStringValue("Pad2", "LargeMotor", "SDL-1/Motor0");
+	si.SetStringValue("Pad2", "SmallMotor", "SDL-1/Motor1");
 
 	EmuFolders::LoadConfig(si);
 	EmuFolders::EnsureFoldersExist();

@@ -41,6 +41,8 @@ data class SettingsSnapshot(
     val upscaleMultiplier: Float = 1f,
     val aspectRatio: Int = 1,
     val padVibration: Boolean = true,
+    val padVibrationStrength: Int = AppPreferences.DEFAULT_PAD_VIBRATION_STRENGTH,
+    val padVibrationFallback: Boolean = true,
     val showFps: Boolean = false,
     val fpsOverlayMode: Int = AppPreferences.FPS_OVERLAY_MODE_DETAILED,
     val fpsOverlayCorner: Int = AppPreferences.FPS_OVERLAY_CORNER_TOP_RIGHT,
@@ -193,6 +195,7 @@ class AppPreferences(private val context: Context) {
         const val DEFAULT_STICK_SENSITIVITY = 100
         const val DEFAULT_GAMEPAD_STICK_DEADZONE = 15
         const val DEFAULT_GAMEPAD_STICK_SENSITIVITY = 100
+        const val DEFAULT_PAD_VIBRATION_STRENGTH = 100
         const val COVER_ART_STYLE_DISABLED = -1
         const val COVER_ART_STYLE_DEFAULT = 0
         const val COVER_ART_STYLE_3D = 1
@@ -238,6 +241,8 @@ class AppPreferences(private val context: Context) {
         private val LANGUAGE_TAG = stringPreferencesKey("language_tag")
         private val ASPECT_RATIO = intPreferencesKey("aspect_ratio")
         private val PAD_VIBRATION = booleanPreferencesKey("pad_vibration")
+        private val PAD_VIBRATION_STRENGTH = intPreferencesKey("pad_vibration_strength")
+        private val PAD_VIBRATION_FALLBACK = booleanPreferencesKey("pad_vibration_fallback")
         private val SHOW_FPS = booleanPreferencesKey("show_fps")
         private val FPS_OVERLAY_MODE = intPreferencesKey("fps_overlay_mode")
         private val FPS_OVERLAY_CORNER = intPreferencesKey("fps_overlay_corner")
@@ -636,6 +641,8 @@ class AppPreferences(private val context: Context) {
                 upscaleMultiplier = readUpscale(prefs),
                 aspectRatio = normalizeAspectRatioPreference(prefs[ASPECT_RATIO]),
                 padVibration = prefs[PAD_VIBRATION] ?: true,
+                padVibrationStrength = (prefs[PAD_VIBRATION_STRENGTH] ?: DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150),
+                padVibrationFallback = prefs[PAD_VIBRATION_FALLBACK] ?: true,
                 showFps = prefs[SHOW_FPS] ?: false,
                 fpsOverlayMode = prefs[FPS_OVERLAY_MODE] ?: FPS_OVERLAY_MODE_DETAILED,
                 fpsOverlayCorner = when (prefs[FPS_OVERLAY_CORNER]) {
@@ -812,6 +819,22 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setPadVibration(enabled: Boolean) {
         context.dataStore.edit { it[PAD_VIBRATION] = enabled }
+    }
+
+    val padVibrationStrength: Flow<Int> = context.dataStore.data.map { prefs ->
+        (prefs[PAD_VIBRATION_STRENGTH] ?: DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150)
+    }
+
+    suspend fun setPadVibrationStrength(value: Int) {
+        context.dataStore.edit { it[PAD_VIBRATION_STRENGTH] = value.coerceIn(0, 150) }
+    }
+
+    val padVibrationFallback: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[PAD_VIBRATION_FALLBACK] ?: true
+    }
+
+    suspend fun setPadVibrationFallback(enabled: Boolean) {
+        context.dataStore.edit { it[PAD_VIBRATION_FALLBACK] = enabled }
     }
 
     val showFps: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -1927,6 +1950,8 @@ class AppPreferences(private val context: Context) {
             put("languageTag", prefs[LANGUAGE_TAG])
             put("aspectRatio", normalizeAspectRatioPreference(prefs[ASPECT_RATIO]))
             put("padVibration", prefs[PAD_VIBRATION] ?: true)
+            put("padVibrationStrength", (prefs[PAD_VIBRATION_STRENGTH] ?: DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150))
+            put("padVibrationFallback", prefs[PAD_VIBRATION_FALLBACK] ?: true)
             put("showFps", prefs[SHOW_FPS] ?: false)
             put("fpsOverlayMode", prefs[FPS_OVERLAY_MODE] ?: FPS_OVERLAY_MODE_DETAILED)
             put("fpsOverlayCorner", prefs[FPS_OVERLAY_CORNER] ?: FPS_OVERLAY_CORNER_TOP_RIGHT)
@@ -2046,6 +2071,8 @@ class AppPreferences(private val context: Context) {
             languageTag?.let { prefs[LANGUAGE_TAG] = it } ?: prefs.remove(LANGUAGE_TAG)
             prefs[ASPECT_RATIO] = normalizeAspectRatioPreference(json.optInt("aspectRatio", 1))
             prefs[PAD_VIBRATION] = json.optBoolean("padVibration", true)
+            prefs[PAD_VIBRATION_STRENGTH] = json.optInt("padVibrationStrength", DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150)
+            prefs[PAD_VIBRATION_FALLBACK] = json.optBoolean("padVibrationFallback", true)
             prefs[SHOW_FPS] = json.optBoolean("showFps", false)
             prefs[FPS_OVERLAY_MODE] = json.optInt("fpsOverlayMode", FPS_OVERLAY_MODE_DETAILED)
             prefs[FPS_OVERLAY_CORNER] = json.optInt("fpsOverlayCorner", FPS_OVERLAY_CORNER_TOP_RIGHT).coerceIn(

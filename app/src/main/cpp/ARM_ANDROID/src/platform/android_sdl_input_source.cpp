@@ -2,10 +2,14 @@
 
 #include "Input/SDLInputSource.h"
 
+#include "emucorex/android_runtime.h"
+
 #include "common/SettingsInterface.h"
 #include "common/StringUtil.h"
 
 #include <android/log.h>
+
+#include <algorithm>
 
 namespace
 {
@@ -15,15 +19,23 @@ constexpr const char* LOG_TAG = "EmuCoreX";
 SDLInputSource::SDLInputSource() = default;
 SDLInputSource::~SDLInputSource() = default;
 
-bool SDLInputSource::Initialize(SettingsInterface&, std::unique_lock<std::mutex>&)
+bool SDLInputSource::Initialize(SettingsInterface& si, std::unique_lock<std::mutex>&)
 {
+	m_android_vibration_enabled = si.GetBoolValue("InputSources", "PadVibration", true);
 	m_sdl_subsystem_initialized = true;
 	__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Android input source initialized without SDL joystick subsystem");
 	return true;
 }
 
-void SDLInputSource::UpdateSettings(SettingsInterface&, std::unique_lock<std::mutex>&)
+void SDLInputSource::UpdateSettings(SettingsInterface& si, std::unique_lock<std::mutex>&)
 {
+	m_android_vibration_enabled = si.GetBoolValue("InputSources", "PadVibration", true);
+	if (!m_android_vibration_enabled)
+	{
+		m_android_motor_state = {};
+		emucorex::android::DispatchPadVibration(0, 0.0f, 0.0f);
+		emucorex::android::DispatchPadVibration(1, 0.0f, 0.0f);
+	}
 }
 
 bool SDLInputSource::ReloadDevices()
@@ -103,12 +115,33 @@ InputLayout SDLInputSource::GetControllerLayout(u32)
 	return InputLayout::Playstation;
 }
 
-void SDLInputSource::UpdateMotorState(InputBindingKey, float)
+void SDLInputSource::UpdateMotorState(InputBindingKey key, float intensity)
 {
+	if (!m_android_vibration_enabled || key.source_subtype != InputSubclass::ControllerMotor)
+		return;
+
+	const u32 pad = std::min<u32>(key.source_index, static_cast<u32>(m_android_motor_state.size() - 1));
+	const u32 motor = std::min<u32>(key.data, 1u);
+	m_android_motor_state[pad][motor] = std::clamp(intensity, 0.0f, 1.0f);
+	emucorex::android::DispatchPadVibration(pad, m_android_motor_state[pad][0], m_android_motor_state[pad][1]);
 }
 
-void SDLInputSource::UpdateMotorState(InputBindingKey, InputBindingKey, float, float)
+void SDLInputSource::UpdateMotorState(InputBindingKey large_key, InputBindingKey small_key, float large_intensity, float small_intensity)
 {
+	if (!m_android_vibration_enabled)
+		return;
+
+	const u32 large_pad = std::min<u32>(large_key.source_index, static_cast<u32>(m_android_motor_state.size() - 1));
+	if (large_key.source_subtype == InputSubclass::ControllerMotor)
+		m_android_motor_state[large_pad][std::min<u32>(large_key.data, 1u)] = std::clamp(large_intensity, 0.0f, 1.0f);
+
+	const u32 small_pad = std::min<u32>(small_key.source_index, static_cast<u32>(m_android_motor_state.size() - 1));
+	if (small_key.source_subtype == InputSubclass::ControllerMotor)
+		m_android_motor_state[small_pad][std::min<u32>(small_key.data, 1u)] = std::clamp(small_intensity, 0.0f, 1.0f);
+
+	emucorex::android::DispatchPadVibration(large_pad, m_android_motor_state[large_pad][0], m_android_motor_state[large_pad][1]);
+	if (small_pad != large_pad)
+		emucorex::android::DispatchPadVibration(small_pad, m_android_motor_state[small_pad][0], m_android_motor_state[small_pad][1]);
 }
 
 std::optional<InputBindingKey> SDLInputSource::ParseKeyString(const std::string_view device, const std::string_view binding)

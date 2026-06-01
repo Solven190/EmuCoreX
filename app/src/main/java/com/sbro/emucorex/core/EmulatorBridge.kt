@@ -380,6 +380,8 @@ object EmulatorBridge {
         NativeApp.logCrashBreadcrumb(
             "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$gpuDriverType wrapper=$wrapperActive wrapperEtc2=${wrapperActive && vulkanWrapperEtc2Enabled} hwDownload=$hwDownloadMode mtvuRequested=$mtvu directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu fastmem:$enableFastmem} fastCdvd=$fastCdvd jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
         )
+        val prefs = AppPreferences(context)
+        val padVibrationEnabled = prefs.padVibration.first()
 
         performRuntimeOps(
             buildList {
@@ -475,7 +477,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCoreX", "VulkanWrapperIcdJsonPath", "string", wrapperInstall?.icdFile?.absolutePath.orEmpty()))
                 add(settingOp("EmuCore", "WarnAboutUnsafeSettings", "bool", "false"))
                 add(settingOp("EmuCore/GS", "OsdMessagesPos", "int", "0"))
-                val prefs = AppPreferences(context)
+                add(settingOp("InputSources", "PadVibration", "bool", padVibrationEnabled.toString()))
                 add(settingOp("Achievements", "Enabled", "bool", prefs.getAchievementsEnabledSync().toString()))
                 add(settingOp("Achievements", "ChallengeMode", "bool", prefs.getAchievementsHardcoreSync().toString()))
                 add(settingOp("Achievements", "Username", "string", prefs.getAchievementsUsernameSync().orEmpty()))

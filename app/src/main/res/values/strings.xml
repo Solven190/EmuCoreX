@@ -434,6 +434,12 @@
     <string name="settings_open_setup">Open Setup</string>
     <string name="settings_pad_vibration">Pad vibration</string>
     <string name="settings_pad_vibration_desc">Enable vibration in supported games and on supported devices.</string>
+    <string name="settings_pad_vibration_strength">Vibration strength</string>
+    <string name="settings_pad_vibration_test">Test vibration</string>
+    <string name="settings_pad_vibration_test_desc">Runs a short vibration pulse using the current strength slider value.</string>
+    <string name="settings_pad_vibration_test_action">Test</string>
+    <string name="settings_pad_vibration_fallback">Use device vibration fallback</string>
+    <string name="settings_pad_vibration_fallback_desc">Vibrate the handheld or phone body when the controller does not expose its own motor.</string>
     <string name="settings_show_fps">Show FPS counter</string>
     <string name="settings_show_fps_desc">Display the frame rate while playing.</string>
     <string name="settings_show_recent_games">Show recent games</string>
@@ -447,6 +453,9 @@
     <string name="settings_help_auto_gamepad">Automatically switches to a connected controller when one is detected. Keep it on if you move between touch controls and a pad often; turn it off only if you want to keep the current input layout fixed.</string>
     <string name="settings_help_keep_screen_on">Prevents Android from dimming or locking the screen during play. Useful for long sessions and games with cutscenes, but it will use a little more battery if you leave the app open.</string>
     <string name="settings_help_pad_vibration">Lets supported games trigger controller rumble. It adds useful feedback in racing, combat, and impact-heavy games, but it can drain battery faster and some wireless pads may vibrate weakly or with slight delay.</string>
+    <string name="settings_help_pad_vibration_strength">Scales game rumble before it is sent to Android. Lower it for noisy handheld motors, or raise it when a controller feels too weak.</string>
+    <string name="settings_help_pad_vibration_test">Sends a direct Android vibration request to the connected controller first, then to the phone or handheld fallback when enabled.</string>
+    <string name="settings_help_pad_vibration_fallback">Some handheld controls report as a gamepad but expose vibration only through the device vibrator. This fallback keeps rumble working on those devices, but external controllers without rumble will vibrate the phone or handheld instead.</string>
     <string name="settings_help_recent_games">Shows a quick-access row for the games you played last. Good if you bounce between a few titles often; turn it off if you want a cleaner home screen.</string>
     <string name="settings_help_home_search">Shows the library search bar directly on the home screen. Leave it on for big libraries; turn it off if you prefer a cleaner layout and rarely search by name.</string>
     <string name="settings_help_prefer_english_game_titles">Uses English titles from PCSX2\'s GameIndex database for games that ship with Japanese or other regional names. This mainly helps imported releases read more clearly in the library, while games without an English database title keep their normal name.</string>

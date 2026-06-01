@@ -49,6 +49,7 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.SaveAs
 import androidx.compose.material.icons.rounded.Search
@@ -138,6 +139,7 @@ import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import com.sbro.emucorex.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.math.roundToInt
 
 private enum class SettingsTab {
     General, Graphics, Controls, Emulation, Fixes, Library, About, Updates
@@ -1235,6 +1237,38 @@ private fun SettingsContent(
                             onResetToDefault = { viewModel.setPadVibration(defaults.padVibration) }
                         )
                         SliderItem(
+                            icon = Icons.Rounded.Vibration,
+                            title = stringResource(R.string.settings_pad_vibration_strength),
+                            subtitle = "${uiState.padVibrationStrength}%",
+                            valueLabel = { "${it.roundToInt()}%" },
+                            value = uiState.padVibrationStrength.toFloat(),
+                            range = 0f..150f,
+                            steps = 0,
+                            onValueChange = { viewModel.setPadVibrationStrength(it.toInt()) },
+                            onValueChangeLive = { viewModel.testPadVibration(it.roundToInt(), 70L) },
+                            onValueChangeFinished = { viewModel.testPadVibration(it.roundToInt(), 260L) },
+                            helpText = stringResource(R.string.settings_help_pad_vibration_strength),
+                            onResetToDefault = { viewModel.setPadVibrationStrength(defaults.padVibrationStrength) }
+                        )
+                        ActionItem(
+                            icon = Icons.Rounded.Vibration,
+                            title = stringResource(R.string.settings_pad_vibration_test),
+                            subtitle = stringResource(R.string.settings_pad_vibration_test_desc),
+                            actionIcon = Icons.Rounded.PlayArrow,
+                            actionLabel = stringResource(R.string.settings_pad_vibration_test_action),
+                            onClick = { viewModel.testPadVibration(uiState.padVibrationStrength, 320L) },
+                            helpText = stringResource(R.string.settings_help_pad_vibration_test)
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Vibration,
+                            title = stringResource(R.string.settings_pad_vibration_fallback),
+                            subtitle = stringResource(R.string.settings_pad_vibration_fallback_desc),
+                            checked = uiState.padVibrationFallback,
+                            onCheckedChange = viewModel::setPadVibrationFallback,
+                            helpText = stringResource(R.string.settings_help_pad_vibration_fallback),
+                            onResetToDefault = { viewModel.setPadVibrationFallback(defaults.padVibrationFallback) }
+                        )
+                        SliderItem(
                             icon = Icons.Rounded.Tune,
                             title = stringResource(R.string.settings_gamepad_stick_deadzone),
                             subtitle = "${uiState.gamepadStickDeadzone}%",
@@ -2270,6 +2304,9 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Controls, R.string.settings_gamepad_left_stick_sensitivity),
         entry(SettingsTab.Controls, R.string.settings_gamepad_right_stick_sensitivity),
         entry(SettingsTab.Controls, R.string.settings_pad_vibration),
+        entry(SettingsTab.Controls, R.string.settings_pad_vibration_strength),
+        entry(SettingsTab.Controls, R.string.settings_pad_vibration_test),
+        entry(SettingsTab.Controls, R.string.settings_pad_vibration_fallback),
         entry(SettingsTab.Library, R.string.settings_bios_path),
         entry(SettingsTab.Library, R.string.settings_game_path),
         entry(SettingsTab.Library, R.string.settings_memory_cards_tab),
@@ -2503,6 +2540,94 @@ private fun ToggleItem(
 }
 
 @Composable
+private fun ActionItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    actionIcon: ImageVector,
+    actionLabel: String,
+    onClick: () -> Unit,
+    helpText: String? = null,
+    enabled: Boolean = true
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .gamepadFocusableCard(shape = RoundedCornerShape(18.dp))
+            .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = enabled,
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    helpText?.let {
+                        SettingHelpButton(title = title, description = it)
+                    }
+                }
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(
+                onClick = onClick,
+                enabled = enabled
+            ) {
+                Icon(
+                    imageVector = actionIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(actionLabel)
+            }
+        }
+    }
+}
+
+@Composable
 private fun SliderItem(
     icon: ImageVector,
     title: String,
@@ -2511,6 +2636,9 @@ private fun SliderItem(
     range: ClosedFloatingPointRange<Float>,
     steps: Int,
     onValueChange: (Float) -> Unit,
+    valueLabel: ((Float) -> String)? = null,
+    onValueChangeLive: ((Float) -> Unit)? = null,
+    onValueChangeFinished: ((Float) -> Unit)? = null,
     helpText: String? = null,
     onResetToDefault: (() -> Unit)? = null
 ) {
@@ -2571,7 +2699,7 @@ private fun SliderItem(
                     }
                 }
                 Text(
-                    text = subtitle,
+                    text = valueLabel?.invoke(sliderValue) ?: subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium
@@ -2580,8 +2708,14 @@ private fun SliderItem(
         }
         Slider(
             value = sliderValue,
-            onValueChange = { sliderValue = it },
-            onValueChangeFinished = { onValueChange(sliderValue) },
+            onValueChange = {
+                sliderValue = it
+                onValueChangeLive?.invoke(it)
+            },
+            onValueChangeFinished = {
+                onValueChange(sliderValue)
+                onValueChangeFinished?.invoke(sliderValue)
+            },
             valueRange = range,
             steps = steps,
             colors = SliderDefaults.colors(

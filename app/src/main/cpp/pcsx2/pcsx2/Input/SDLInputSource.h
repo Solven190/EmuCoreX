@@ -103,8 +103,10 @@ private:
 
 	std::array<u32, MAX_LED_COLORS> m_led_colors{};
 	std::vector<std::pair<std::string, std::string>> m_sdl_hints;
+	std::array<std::array<float, 2>, 2> m_android_motor_state{};
 
 	bool m_sdl_subsystem_initialized = false;
+	bool m_android_vibration_enabled = true;
 	bool m_enable_enhanced_reports = false;
 	bool m_use_raw_input = false;
 	bool m_enable_ps5_player_leds = false;

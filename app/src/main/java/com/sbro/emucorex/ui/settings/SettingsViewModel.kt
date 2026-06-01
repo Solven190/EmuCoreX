@@ -10,6 +10,7 @@ import com.sbro.emucorex.core.AppUpdateRepository
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GpuDriverCatalogRepository
 import com.sbro.emucorex.core.GpuDriverManager
+import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.InstalledGpuDriver
 import com.sbro.emucorex.core.PerformanceProfiles
@@ -38,6 +39,8 @@ data class SettingsUiState(
     val upscaleMultiplier: Float = 1f,
     val aspectRatio: Int = 1,
     val padVibration: Boolean = true,
+    val padVibrationStrength: Int = AppPreferences.DEFAULT_PAD_VIBRATION_STRENGTH,
+    val padVibrationFallback: Boolean = true,
     val showFps: Boolean = true,
     val fpsOverlayMode: Int = FPS_OVERLAY_MODE_DETAILED,
     val fpsOverlayCorner: Int = AppPreferences.FPS_OVERLAY_CORNER_TOP_RIGHT,
@@ -184,6 +187,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             upscaleMultiplier = snapshot.upscaleMultiplier,
             aspectRatio = snapshot.aspectRatio,
             padVibration = snapshot.padVibration,
+            padVibrationStrength = snapshot.padVibrationStrength,
+            padVibrationFallback = snapshot.padVibrationFallback,
             showFps = snapshot.showFps,
             fpsOverlayMode = snapshot.fpsOverlayMode,
             fpsOverlayCorner = snapshot.fpsOverlayCorner,
@@ -586,6 +591,30 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             preferences.setPadVibration(enabled)
             EmulatorBridge.setPadVibration(enabled)
         }
+    }
+
+    fun setPadVibrationStrength(value: Int) {
+        viewModelScope.launch {
+            preferences.setPadVibrationStrength(value)
+        }
+    }
+
+    fun setPadVibrationFallback(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setPadVibrationFallback(enabled)
+        }
+    }
+
+    fun testPadVibration(
+        strengthPercent: Int = _uiState.value.padVibrationStrength,
+        durationMs: Long = 260L
+    ) {
+        GamepadManager.ensureInitialized(getApplication())
+        GamepadManager.testPadVibration(
+            padIndex = 0,
+            strengthPercent = strengthPercent,
+            durationMs = durationMs
+        )
     }
 
     fun setGamepadBinding(padIndex: Int, actionId: String, keyCode: Int) {

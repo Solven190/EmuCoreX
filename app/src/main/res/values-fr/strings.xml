@@ -1048,4 +1048,13 @@
     <string name="settings_updates_dialog_details">Ouvrir les mises à jour</string>
     <string name="settings_updates_dialog_later">Plus tard</string>
     <string name="settings_updates_dialog_skip">Ignorer cette version</string>
+    <string name="settings_pad_vibration_strength">Force des vibrations</string>
+    <string name="settings_pad_vibration_test">Tester les vibrations</string>
+    <string name="settings_pad_vibration_test_desc">Émet une courte impulsion de vibration en utilisant la valeur actuelle du curseur de force.</string>
+    <string name="settings_pad_vibration_test_action">Tester</string>
+    <string name="settings_pad_vibration_fallback">Utiliser la vibration de l\'appareil comme solution de repli</string>
+    <string name="settings_pad_vibration_fallback_desc">Fait vibrer le boîtier de la console portable ou du téléphone lorsque la manette n\'expose pas son propre moteur.</string>
+    <string name="settings_help_pad_vibration_strength">Ajuste les vibrations du jeu avant qu\'elles ne soient envoyées à Android. Baissez-les pour les moteurs bruyants des consoles portables, ou augmentez-les lorsqu\'une manette semble trop faible.</string>
+    <string name="settings_help_pad_vibration_test">Envoie une demande de vibration Android directe d\'abord à la manette connectée, puis à la solution de repli du téléphone ou de la console portable si elle est activée.</string>
+    <string name="settings_help_pad_vibration_fallback">Certaines commandes de consoles portables sont reconnues comme une manette mais n\'exposent les vibrations que via le vibreur de l\'appareil. Cette solution de repli permet de conserver les vibrations sur ces appareils, mais les manettes externes sans vibrations feront vibrer le téléphone ou la console portable à la place.</string>
 </resources>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "ImGui/ImGuiManager.h"
+#include "Host.h"
 #include "Input/InputManager.h"
 #include "Input/InputSource.h"
 #include "SIO/Pad/Pad.h"
@@ -131,6 +132,13 @@ using VibrationBindingArray = std::vector<PadVibrationBinding>;
 static BindingMap s_binding_map;
 static VibrationBindingArray s_pad_vibration_array;
 static std::mutex s_binding_map_write_lock;
+
+#if defined(__ANDROID__)
+namespace emucorex::android
+{
+	void DispatchPadVibration(int pad_index, float large_motor, float small_motor);
+}
+#endif
 
 // Hooks/intercepting (for setting bindings)
 static std::mutex m_event_intercept_mutex;
@@ -1394,6 +1402,22 @@ void InputManager::SetUSBVibrationIntensity(u32 port, float large_or_single_moto
 
 void InputManager::SetPadVibrationIntensity(u32 pad_index, float large_or_single_motor_intensity, float small_motor_intensity)
 {
+#if defined(__ANDROID__)
+	if (pad_index < Pad::NUM_CONTROLLER_PORTS)
+	{
+		if (Host::GetBaseBoolSettingValue("InputSources", "PadVibration", true))
+		{
+			emucorex::android::DispatchPadVibration(static_cast<int>(pad_index),
+				std::clamp(large_or_single_motor_intensity, 0.0f, 1.0f),
+				std::clamp(small_motor_intensity, 0.0f, 1.0f));
+		}
+		else
+		{
+			emucorex::android::DispatchPadVibration(static_cast<int>(pad_index), 0.0f, 0.0f);
+		}
+	}
+#endif
+
 	for (PadVibrationBinding& pad : s_pad_vibration_array)
 	{
 		if (pad.pad_index != pad_index)

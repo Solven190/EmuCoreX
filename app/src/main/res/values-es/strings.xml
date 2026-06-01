@@ -1048,4 +1048,13 @@
     <string name="settings_updates_dialog_details">Abrir actualizaciones</string>
     <string name="settings_updates_dialog_later">Más tarde</string>
     <string name="settings_updates_dialog_skip">Omitir esta versión</string>
+    <string name="settings_pad_vibration_strength">Intensidad de la vibración</string>
+    <string name="settings_pad_vibration_test">Probar vibración</string>
+    <string name="settings_pad_vibration_test_desc">Ejecuta un pulso de vibración corto utilizando el valor actual del control deslizante de intensidad.</string>
+    <string name="settings_pad_vibration_test_action">Probar</string>
+    <string name="settings_pad_vibration_fallback">Usar vibración del dispositivo como alternativa</string>
+    <string name="settings_pad_vibration_fallback_desc">Hace vibrar el cuerpo del teléfono o consola portátil cuando el mando no expone su propio motor.</string>
+    <string name="settings_help_pad_vibration_strength">Escala la vibración del juego antes de enviarla a Android. Bájalo para motores de consolas portátiles ruidosos o súbelo cuando la vibración de un mando se sienta demasiado débil.</string>
+    <string name="settings_help_pad_vibration_test">Envía una solicitud de vibración de Android directa al mando conectado primero, y luego a la alternativa del teléfono o consola portátil cuando está habilitada.</string>
+    <string name="settings_help_pad_vibration_fallback">Algunos controles de consolas portátiles se identifican como un mando pero exponen la vibración solo a través del vibrador del dispositivo. Esta alternativa mantiene la vibración funcionando en esos dispositivos, pero los mandos externos sin vibración harán vibrar el teléfono o consola portátil en su lugar.</string>
 </resources>

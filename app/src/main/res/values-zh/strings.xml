@@ -1048,4 +1048,13 @@
     <string name="settings_updates_dialog_details">打开更新</string>
     <string name="settings_updates_dialog_later">稍后</string>
     <string name="settings_updates_dialog_skip">跳过此版本</string>
+    <string name="settings_pad_vibration_strength">振动强度</string>
+    <string name="settings_pad_vibration_test">测试振动</string>
+    <string name="settings_pad_vibration_test_desc">使用当前强度滑块值运行短促的振动脉冲。</string>
+    <string name="settings_pad_vibration_test_action">测试</string>
+    <string name="settings_pad_vibration_fallback">使用设备振动回退</string>
+    <string name="settings_pad_vibration_fallback_desc">当手柄不提供自己的马达时，让掌机或手机机身振动。</string>
+    <string name="settings_help_pad_vibration_strength">在将游戏震动发送到 Android 之前对其进行缩放。对于噪音较大的掌机马达，请调低此值；当手柄振动感觉太弱时，请调高此值。</string>
+    <string name="settings_help_pad_vibration_test">首先将直接的 Android 振动请求发送到连接的手柄，然后在启用时发送到手机或掌机回退。</string>
+    <string name="settings_help_pad_vibration_fallback">一些掌机控件识别为游戏手柄，但仅通过设备振动器提供振动。此回退可使这些设备上的震动保持工作，但没有震动功能的外部手柄将使手机或掌机振动。</string>
 </resources>
