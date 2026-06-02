@@ -1007,12 +1007,6 @@
     <string name="settings_gpu_driver_source">Quelle</string>
     <string name="settings_gpu_driver_recommended">Empfohlen</string>
     <string name="settings_gpu_driver_downloaded">Heruntergeladen</string>
-    <string name="settings_vulkan_wrapper">Vulkan-Wrapper</string>
-    <string name="settings_vulkan_wrapper_desc">Den integrierten Bionic Vulkan-Wrapper für Vulkan-Rendering verwenden. Er ersetzt den ausgewählten GPU-Treiber, solange er aktiv ist.</string>
-    <string name="settings_vulkan_wrapper_etc2">ETC2-Speichermodus</string>
-    <string name="settings_vulkan_wrapper_etc2_desc">Senkt den VRAM-Verbrauch von Texturen durch ETC2-Transcoding, wenn der Wrapper aktiv ist.</string>
-    <string name="settings_help_vulkan_wrapper">Leitet Vulkan beim nächsten Start über den integrierten Bionic Vulkan-Wrapper. Lass dies deaktiviert, außer wenn ein Spiel oder Treiber Kompatibilitätskorrekturen benötigt. Wenn aktiv, wird der Wrapper anstelle des ausgewählten benutzerdefinierten GPU-Treibers verwendet.</string>
-    <string name="settings_help_vulkan_wrapper_etc2">Aktiviert den ETC2-Transcoding-Pfad des Wrappers. Das kann den VRAM-Verbrauch deutlich senken, aber einige Texturen können weicher wirken oder Kompressionsartefakte zeigen.</string>
     <string name="settings_updates_tab">Updates</string>
     <string name="settings_updates_checking_title">Nach Updates suchen</string>
     <string name="settings_updates_available_title">Update verfügbar</string>

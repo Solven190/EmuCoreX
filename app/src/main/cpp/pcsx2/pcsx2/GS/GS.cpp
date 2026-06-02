@@ -52,7 +52,6 @@
 
 #include "fmt/format.h"
 
-#include <cstdlib>
 #include <fstream>
 
 Pcsx2Config::GSOptions GSConfig;
@@ -660,15 +659,6 @@ void GSgetInternalResolution(int* width, int* height)
 	*height = res.y;
 }
 
-static const char* GSGetRendererStatsWrapperSuffix()
-{
-#if defined(__ANDROID__)
-	return (GSCurrentRenderer == GSRendererType::VK && std::getenv("EMUCOREX_VULKAN_WRAPPER_ACTIVE")) ? " Wrapper" : "";
-#else
-	return "";
-#endif
-}
-
 void GSgetStats(SmallStringBase& info)
 {
 	GSPerfMon& pm = g_perfmon;
@@ -696,8 +686,8 @@ void GSgetStats(SmallStringBase& info)
 			prefix = 'k';
 		}
 
-		info.format("Renderer: {}{} SW | {} SYNP | {} PRIM | {} DRW | {:.2f} SWIZ | {:.2f} UNSWIZ | {:.2f} {}pps",
-			api_name, GSGetRendererStatsWrapperSuffix(),
+		info.format("{} SW | {} SYNP | {} PRIM | {} DRW | {:.2f} SWIZ | {:.2f} UNSWIZ | {:.2f} {}pps",
+			api_name,
 			(int)pm.Get(GSPerfMon::SyncPoint),
 			(int)pm.Get(GSPerfMon::Prim),
 			(int)pm.Get(GSPerfMon::Draw),
@@ -707,12 +697,12 @@ void GSgetStats(SmallStringBase& info)
 	}
 	else if (GSCurrentRenderer == GSRendererType::Null)
 	{
-		info.format("Renderer: {} Null", api_name);
+		info.format("{} Null", api_name);
 	}
 	else
 	{
-		info.format("Renderer: {}{} HW | {} PRIM | {} DRW | {} DRWC | {} BAR | {} RP | {} RB | {} TC | {} TU",
-			api_name, GSGetRendererStatsWrapperSuffix(),
+		info.format("{} HW | {} PRIM | {} DRW | {} DRWC | {} BAR | {} RP | {} RB | {} TC | {} TU",
+			api_name,
 			(int)pm.Get(GSPerfMon::Prim),
 			(int)pm.Get(GSPerfMon::Draw),
 			(int)std::ceil(pm.Get(GSPerfMon::DrawCalls)),

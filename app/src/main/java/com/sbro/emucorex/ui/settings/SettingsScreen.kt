@@ -110,10 +110,8 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.DocumentPathResolver
-import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.PerformanceProfiles
-import com.sbro.emucorex.core.VulkanWrapperManager
 import com.sbro.emucorex.core.buildUpscaleOptions
 import com.sbro.emucorex.core.upscaleMultiplierValue
 import com.sbro.emucorex.data.AppPreferences
@@ -980,30 +978,6 @@ private fun SettingsContent(
                             label = stringResource(R.string.settings_gpu_driver_manager_title),
                             value = activeDriverName ?: stringResource(R.string.settings_gpu_driver_system),
                             onClick = onOpenGpuDriverManager ?: launchDriverPicker
-                        )
-                        val vulkanWrapperAvailable =
-                            uiState.renderer == EmulatorBridge.VULKAN_RENDERER &&
-                                VulkanWrapperManager.isSupportedOnThisBuild()
-                        val vulkanWrapperEnabled = uiState.vulkanWrapperEnabled && vulkanWrapperAvailable
-                        ToggleItem(
-                            icon = Icons.Rounded.GraphicEq,
-                            title = stringResource(R.string.settings_vulkan_wrapper),
-                            subtitle = stringResource(R.string.settings_vulkan_wrapper_desc),
-                            checked = vulkanWrapperEnabled,
-                            onCheckedChange = viewModel::setVulkanWrapperEnabled,
-                            enabled = vulkanWrapperAvailable,
-                            helpText = stringResource(R.string.settings_help_vulkan_wrapper),
-                            onResetToDefault = { viewModel.setVulkanWrapperEnabled(defaults.vulkanWrapperEnabled) }
-                        )
-                        ToggleItem(
-                            icon = Icons.Rounded.Memory,
-                            title = stringResource(R.string.settings_vulkan_wrapper_etc2),
-                            subtitle = stringResource(R.string.settings_vulkan_wrapper_etc2_desc),
-                            checked = uiState.vulkanWrapperEtc2Enabled && vulkanWrapperEnabled,
-                            onCheckedChange = viewModel::setVulkanWrapperEtc2Enabled,
-                            enabled = vulkanWrapperEnabled,
-                            helpText = stringResource(R.string.settings_help_vulkan_wrapper_etc2),
-                            onResetToDefault = { viewModel.setVulkanWrapperEtc2Enabled(defaults.vulkanWrapperEtc2Enabled) }
                         )
                         ChoiceSection(
                             title = stringResource(R.string.settings_upscale),

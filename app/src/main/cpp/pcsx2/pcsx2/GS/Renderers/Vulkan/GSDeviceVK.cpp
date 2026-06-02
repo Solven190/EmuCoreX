@@ -24,7 +24,6 @@
 #include "imgui.h"
 
 #include <bit>
-#include <cstdlib>
 #include <limits>
 #include <mutex>
 #include <sstream>
@@ -86,13 +85,6 @@ static std::mutex s_instance_mutex;
 static constexpr const char* s_required_device_extensions[] = {
 	VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
 };
-
-#if defined(__ANDROID__)
-static bool EmuCoreXIsVulkanWrapperActive()
-{
-	return std::getenv("EMUCOREX_VULKAN_WRAPPER_ACTIVE") != nullptr;
-}
-#endif
 
 GSDeviceVK::GSDeviceVK()
 {
@@ -190,8 +182,7 @@ bool GSDeviceVK::SelectInstanceExtensions(ExtensionList* extension_list, const W
 	};
 
 	// Common extensions
-	if (wi.type != WindowInfo::Type::Surfaceless &&
-		!SupportsExtension(VK_KHR_SURFACE_EXTENSION_NAME, true))
+	if (wi.type != WindowInfo::Type::Surfaceless && !SupportsExtension(VK_KHR_SURFACE_EXTENSION_NAME, true))
 		return false;
 
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
@@ -211,8 +202,7 @@ bool GSDeviceVK::SelectInstanceExtensions(ExtensionList* extension_list, const W
 		return false;
 #endif
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
-	if (wi.type == WindowInfo::Type::Android &&
-		!SupportsExtension(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME, true))
+	if (wi.type == WindowInfo::Type::Android && !SupportsExtension(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME, true))
 		return false;
 #endif
 
@@ -437,15 +427,6 @@ bool GSDeviceVK::SelectDeviceExtensions(ExtensionList* extension_list, bool enab
 
 	if (m_optional_extensions.vk_swapchain_maintenance1)
 	{
-#if defined(__ANDROID__)
-		if (EmuCoreXIsVulkanWrapperActive())
-		{
-			m_optional_extensions.vk_swapchain_maintenance1 = false;
-			m_optional_extensions.vk_swapchain_maintenance1_is_khr = false;
-		}
-		else
-#endif
-		{
 		const bool khr_swapchain_maintenance1 = SupportsExtension(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME, false);
 		// vk_swapchain_maintenance1_is_khr will be set if we havn't enabled VK_EXT_surface_maintenance1
 		// This will happen if either the VK_EXT_surface_maintenance1 was unsupported, or we instead found the KHR version.
@@ -454,7 +435,6 @@ bool GSDeviceVK::SelectDeviceExtensions(ExtensionList* extension_list, bool enab
 			(!m_optional_extensions.vk_swapchain_maintenance1_is_khr && SupportsExtension(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME, false));
 
 		m_optional_extensions.vk_swapchain_maintenance1_is_khr = khr_swapchain_maintenance1;
-		}
 	}
 
 	// glslang generates debug info instructions before phi nodes at the beginning of blocks when non-semantic debug info
@@ -2548,8 +2528,6 @@ bool GSDeviceVK::CreateDeviceAndSwapChain()
 	bool enable_debug_utils = GSConfig.UseDebugDevice;
 	bool enable_validation_layer = GSConfig.UseDebugDevice;
 
-	m_optional_extensions = {};
-
 	Error error;
 	if (!Vulkan::LoadVulkanLibrary(&error))
 	{
@@ -2643,15 +2621,7 @@ bool GSDeviceVK::CreateDeviceAndSwapChain()
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
 	ScopedGuard surface_cleanup = [this, &surface]() {
 		if (surface != VK_NULL_HANDLE)
-		{
-#if defined(__ANDROID__)
-			if (EmuCoreXIsVulkanWrapperActive())
-			{
-				return;
-			}
-#endif
 			vkDestroySurfaceKHR(m_instance, surface, nullptr);
-		}
 	};
 	if (m_window_info.type != WindowInfo::Type::Surfaceless)
 	{

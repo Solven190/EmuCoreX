@@ -130,8 +130,6 @@ data class SettingsUiState(
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
     val customDriverPath: String? = null,
-    val vulkanWrapperEnabled: Boolean = false,
-    val vulkanWrapperEtc2Enabled: Boolean = false,
     val installedGpuDrivers: List<InstalledGpuDriver> = emptyList(),
     val remoteGpuDrivers: List<RemoteGpuDriver> = emptyList(),
     val gpuDriverCatalogLoading: Boolean = false,
@@ -274,8 +272,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             gamepadBindingsByPad = snapshot.gamepadBindingsByPad,
             gpuDriverType = snapshot.gpuDriverType,
             customDriverPath = snapshot.customDriverPath,
-            vulkanWrapperEnabled = snapshot.vulkanWrapperEnabled,
-            vulkanWrapperEtc2Enabled = snapshot.vulkanWrapperEtc2Enabled,
             frameLimitEnabled = snapshot.frameLimitEnabled,
             targetFps = snapshot.targetFps
         )
@@ -288,10 +284,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             markPerformancePresetCustom()
             preferences.setRenderer(value)
-            if (value != EmulatorBridge.VULKAN_RENDERER) {
-                preferences.setVulkanWrapperEnabled(false)
-                preferences.setVulkanWrapperEtc2Enabled(false)
-            }
             EmulatorBridge.setRenderer(value)
         }
     }
@@ -323,23 +315,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 preferences.setGpuDriverType(0)
                 EmulatorBridge.setCustomDriverPath("")
             }
-        }
-    }
-
-    fun setVulkanWrapperEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            val canUseWrapper = _uiState.value.renderer == EmulatorBridge.VULKAN_RENDERER
-            preferences.setVulkanWrapperEnabled(enabled && canUseWrapper)
-            if (!enabled || !canUseWrapper)
-                preferences.setVulkanWrapperEtc2Enabled(false)
-        }
-    }
-
-    fun setVulkanWrapperEtc2Enabled(enabled: Boolean) {
-        viewModelScope.launch {
-            val canUseWrapper = _uiState.value.renderer == EmulatorBridge.VULKAN_RENDERER &&
-                _uiState.value.vulkanWrapperEnabled
-            preferences.setVulkanWrapperEtc2Enabled(enabled && canUseWrapper)
         }
     }
 
@@ -1255,8 +1230,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 upscaleMultiplier = _uiState.value.upscaleMultiplier,
                 gpuDriverType = _uiState.value.gpuDriverType,
                 customDriverPath = _uiState.value.customDriverPath,
-                vulkanWrapperEnabled = _uiState.value.vulkanWrapperEnabled,
-                vulkanWrapperEtc2Enabled = _uiState.value.vulkanWrapperEtc2Enabled,
                 enableEeRecompiler = _uiState.value.enableEeRecompiler,
                 enableIopRecompiler = _uiState.value.enableIopRecompiler,
                 enableVu0Recompiler = _uiState.value.enableVu0Recompiler,

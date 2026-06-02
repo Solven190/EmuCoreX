@@ -127,8 +127,6 @@ data class SettingsSnapshot(
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
     val customDriverPath: String? = null,
-    val vulkanWrapperEnabled: Boolean = false,
-    val vulkanWrapperEtc2Enabled: Boolean = false,
     val frameLimitEnabled: Boolean = true,
     val targetFps: Int = 0,
     val achievementsEnabled: Boolean = false,
@@ -324,8 +322,6 @@ class AppPreferences(private val context: Context) {
         private val GAMEPAD_BINDINGS = stringPreferencesKey("gamepad_bindings")
         private val GPU_DRIVER_TYPE = intPreferencesKey("gpu_driver_type")
         private val CUSTOM_DRIVER_PATH = stringPreferencesKey("custom_driver_path")
-        private val VULKAN_WRAPPER_ENABLED = booleanPreferencesKey("vulkan_wrapper_enabled")
-        private val VULKAN_WRAPPER_ETC2_ENABLED = booleanPreferencesKey("vulkan_wrapper_etc2_enabled")
         private val SCREEN_SETTINGS_RESET_HINT_SHOWN = booleanPreferencesKey("screen_settings_reset_hint_shown")
         private val FRAME_LIMIT_ENABLED = booleanPreferencesKey("frame_limit_enabled")
         private val TARGET_FPS = intPreferencesKey("target_fps")
@@ -409,14 +405,6 @@ class AppPreferences(private val context: Context) {
         prefs[CUSTOM_DRIVER_PATH]
     }
 
-    val vulkanWrapperEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[VULKAN_WRAPPER_ENABLED] ?: false
-    }
-
-    val vulkanWrapperEtc2Enabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[VULKAN_WRAPPER_ETC2_ENABLED] ?: false
-    }
-
     suspend fun setRenderer(value: Int) {
         context.dataStore.edit { it[RENDERER] = normalizeRendererPreference(value) }
     }
@@ -448,14 +436,6 @@ class AppPreferences(private val context: Context) {
             if (path == null) prefs.remove(CUSTOM_DRIVER_PATH)
             else prefs[CUSTOM_DRIVER_PATH] = path
         }
-    }
-
-    suspend fun setVulkanWrapperEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[VULKAN_WRAPPER_ENABLED] = enabled }
-    }
-
-    suspend fun setVulkanWrapperEtc2Enabled(enabled: Boolean) {
-        context.dataStore.edit { it[VULKAN_WRAPPER_ETC2_ENABLED] = enabled }
     }
 
     val screenSettingsResetHintShown: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -743,8 +723,6 @@ class AppPreferences(private val context: Context) {
                 gamepadBindingsByPad = decodeGamepadBindingsByPad(prefs[GAMEPAD_BINDINGS]),
                 gpuDriverType = prefs[GPU_DRIVER_TYPE] ?: 0,
                 customDriverPath = prefs[CUSTOM_DRIVER_PATH],
-                vulkanWrapperEnabled = prefs[VULKAN_WRAPPER_ENABLED] ?: false,
-                vulkanWrapperEtc2Enabled = prefs[VULKAN_WRAPPER_ETC2_ENABLED] ?: false,
                 frameLimitEnabled = prefs[FRAME_LIMIT_ENABLED] ?: true,
                 targetFps = prefs[TARGET_FPS] ?: 0,
                 achievementsEnabled = prefs[ACHIEVEMENTS_ENABLED] ?: false,
@@ -2023,8 +2001,6 @@ class AppPreferences(private val context: Context) {
             put("gamepadBindings", prefs[GAMEPAD_BINDINGS])
             put("gpuDriverType", prefs[GPU_DRIVER_TYPE] ?: 0)
             put("customDriverPath", prefs[CUSTOM_DRIVER_PATH])
-            put("vulkanWrapperEnabled", prefs[VULKAN_WRAPPER_ENABLED] ?: false)
-            put("vulkanWrapperEtc2Enabled", prefs[VULKAN_WRAPPER_ETC2_ENABLED] ?: false)
             put("frameLimitEnabled", prefs[FRAME_LIMIT_ENABLED] ?: true)
             put("targetFps", prefs[TARGET_FPS] ?: 0)
             put("autoSaveEnabled", prefs[AUTO_SAVE_ENABLED] ?: false)
@@ -2146,8 +2122,6 @@ class AppPreferences(private val context: Context) {
             json.optString("gamepadBindings").takeIf { it.isNotBlank() }?.let { prefs[GAMEPAD_BINDINGS] = it } ?: prefs.remove(GAMEPAD_BINDINGS)
             prefs[GPU_DRIVER_TYPE] = json.optInt("gpuDriverType", 0)
             json.optString("customDriverPath").takeIf { it.isNotBlank() }?.let { prefs[CUSTOM_DRIVER_PATH] = it } ?: prefs.remove(CUSTOM_DRIVER_PATH)
-            prefs[VULKAN_WRAPPER_ENABLED] = json.optBoolean("vulkanWrapperEnabled", false)
-            prefs[VULKAN_WRAPPER_ETC2_ENABLED] = json.optBoolean("vulkanWrapperEtc2Enabled", false)
             prefs[FRAME_LIMIT_ENABLED] = json.optBoolean("frameLimitEnabled", true)
             prefs[TARGET_FPS] = json.optInt("targetFps", 0).let { if (it <= 0) 0 else it.coerceIn(20, 120) }
             prefs[AUTO_SAVE_ENABLED] = json.optBoolean("autoSaveEnabled", false)

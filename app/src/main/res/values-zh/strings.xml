@@ -1007,12 +1007,6 @@
     <string name="settings_gpu_driver_source">来源</string>
     <string name="settings_gpu_driver_recommended">推荐</string>
     <string name="settings_gpu_driver_downloaded">已下载</string>
-    <string name="settings_vulkan_wrapper">Vulkan 包装器</string>
-    <string name="settings_vulkan_wrapper_desc">使用内置的 Bionic Vulkan 包装器进行 Vulkan 渲染。启用后会替代当前选择的 GPU 驱动。</string>
-    <string name="settings_vulkan_wrapper_etc2">ETC2 内存模式</string>
-    <string name="settings_vulkan_wrapper_etc2_desc">启用包装器时，通过 ETC2 transcoding 降低纹理的 VRAM 占用。</string>
-    <string name="settings_help_vulkan_wrapper">下次启动时通过内置的 Bionic Vulkan 包装器运行 Vulkan。除非游戏或驱动需要兼容性修复，否则建议保持关闭。启用后会使用该包装器，而不是当前选择的自定义 GPU 驱动。</string>
-    <string name="settings_help_vulkan_wrapper_etc2">启用包装器的 ETC2 transcoding 路径。它可以显著降低 VRAM 占用，但部分纹理可能变软或出现压缩伪影。</string>
     <string name="settings_updates_tab">更新</string>
     <string name="settings_updates_checking_title">正在检查更新</string>
     <string name="settings_updates_available_title">有可用更新</string>

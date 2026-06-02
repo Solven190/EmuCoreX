@@ -3,6 +3,7 @@ package com.sbro.emucorex.core
 import android.content.Context
 import android.util.Log
 import android.view.Surface
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import org.json.JSONArray
 import java.io.File
 import java.io.FileOutputStream
@@ -70,7 +71,6 @@ object NativeApp {
     @JvmStatic external fun renderGpu(value: Int)
     @JvmStatic external fun setCustomDriverPath(path: String)
     @JvmStatic external fun setNativeLibraryDir(path: String)
-    @JvmStatic external fun loadGlobalLibrary(path: String): String?
     @JvmStatic external fun beginSettingsBatch()
     @JvmStatic external fun endSettingsBatch()
     @JvmStatic external fun setSetting(section: String, key: String, type: String, value: String)
@@ -158,20 +158,34 @@ object NativeApp {
     @JvmStatic
     fun nativeLog(message: String) {
         Log.d("NativeCore", message)
+        withCrashlytics { it.log("Native: $message") }
     }
 
     @JvmStatic
-    fun setCrashContextString(key: String, value: String?) = Unit
+    fun setCrashContextString(key: String, value: String?) {
+        withCrashlytics { it.setCustomKey(key, value.orEmpty()) }
+    }
 
     @JvmStatic
-    fun setCrashContextInt(key: String, value: Int) = Unit
+    fun setCrashContextInt(key: String, value: Int) {
+        withCrashlytics { it.setCustomKey(key, value) }
+    }
 
     @JvmStatic
-    fun setCrashContextBool(key: String, value: Boolean) = Unit
+    fun setCrashContextBool(key: String, value: Boolean) {
+        withCrashlytics { it.setCustomKey(key, value) }
+    }
 
     @JvmStatic
     fun logCrashBreadcrumb(message: String) {
         Log.i(TAG, message)
+        withCrashlytics { it.log(message) }
+    }
+
+    private fun withCrashlytics(block: (FirebaseCrashlytics) -> Unit) {
+        try {
+            block(FirebaseCrashlytics.getInstance())
+        } catch (_: Exception) { }
     }
 
     @JvmStatic
