@@ -41,7 +41,11 @@ using namespace x86Emitter;
 #define FPU_FLAGS_ID 1
 
 // Add/Sub opcodes produce the same results as the ps2
+#ifdef __ANDROID__
+#define FPU_CORRECT_ADD_SUB 0
+#else
 #define FPU_CORRECT_ADD_SUB 1
+#endif
 
 #ifdef FPU_RECOMPILE
 

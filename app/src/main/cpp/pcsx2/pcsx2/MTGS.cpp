@@ -8,6 +8,9 @@
 #include "Host.h"
 #include "IconsFontAwesome.h"
 #include "VMManager.h"
+#if defined(__ANDROID__)
+#include <sys/resource.h>
+#endif
 
 #include "common/FPControl.h"
 #include "common/ScopedGuard.h"
@@ -144,6 +147,9 @@ void MTGS::ShutdownThread()
 void MTGS::ThreadEntryPoint()
 {
 	Threading::SetNameOfCurrentThread("GS");
+#if defined(__ANDROID__)
+	setpriority(PRIO_PROCESS, 0, -10);
+#endif
 
 	// GS can hit SMC write traps when executing InitAndReadFIFO
 	// As racey as it sounds, it should be safe, since InitAndReadFIFO is requested and immediately waited for,

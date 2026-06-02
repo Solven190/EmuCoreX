@@ -26,7 +26,7 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 	set(USE_VULKAN ON CACHE BOOL "" FORCE)
 	set(USE_VTUNE OFF)
 	set(USE_BACKTRACE OFF)
-	set(LTO_PCSX2_CORE OFF)
+	set(LTO_PCSX2_CORE ON)
 	set(DISABLE_ADVANCE_SIMD OFF)
 	set(PCSX2_DEFS
 		__POSIX__
@@ -353,6 +353,27 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 	)
 	set_property(TARGET PCSX2 PROPERTY CXX_STANDARD 20)
 	set_property(TARGET PCSX2 PROPERTY CXX_STANDARD_REQUIRED ON)
+
+	if(LTO_PCSX2_CORE)
+		target_include_directories(PCSX2_LTO PRIVATE
+			"${CMAKE_CURRENT_LIST_DIR}/include"
+			"${EMUCOREX_OAKNUT_INCLUDE_DIR}"
+			"${PCSX2_UPSTREAM_DIR}/3rdparty/glad/include"
+		)
+		target_include_directories(PCSX2_LTO BEFORE PRIVATE
+			"${PCSX2_UPSTREAM_DIR}/3rdparty/include"
+		)
+		target_include_directories(PCSX2_LTO PRIVATE
+			"${CMAKE_ANDROID_NDK}/sources/third_party/shaderc/libshaderc/include"
+		)
+		target_compile_definitions(PCSX2_LTO PRIVATE VK_USE_PLATFORM_ANDROID_KHR)
+		target_compile_definitions(PCSX2_LTO PRIVATE EMUCOREX_ANDROID_JIT=1)
+		target_compile_options(PCSX2_LTO PRIVATE
+			"SHELL:-include ${CMAKE_CURRENT_LIST_DIR}/include/emucorex/android_posix_compat.h"
+		)
+		set_property(TARGET PCSX2_LTO PROPERTY CXX_STANDARD 20)
+		set_property(TARGET PCSX2_LTO PROPERTY CXX_STANDARD_REQUIRED ON)
+	endif()
 endif()
 
 set(EMUCOREX_SHADERC_LIB_DIR

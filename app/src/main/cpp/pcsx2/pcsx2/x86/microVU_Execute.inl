@@ -242,51 +242,49 @@ static void mVUGenerateWaitMTVU(mV)
 {
     mVU.waitMTVU = recBeginOaknutEmit();
 
-    int i;
-    for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
+    mVURegSaveLayout layout = mVUGetWaitMTVULayout(mVU);
+    if (layout.stack_size > 0)
     {
-        if (!oakIsCallerSaved(i) || i == 4)
-            continue;
+        oakAsm->SUB(oak::util::SP, oak::util::SP, layout.stack_size);
 
-        // T1 often contains the address we're loading when waiting for VU1.
-        // T2 isn't used until afterwards, so don't bother saving it.
-        if (i == VU_HOST_T2)
-            continue;
+        for (const auto& save : layout.gpr_saves) {
+            if (save.r2 != -1) {
+                oakAsm->STP(oakXRegister(save.r1), oakXRegister(save.r2), oak::util::SP, oak::SOffset<10, 3>(save.offset));
+            } else {
+                oakAsm->STP(oakXRegister(save.r1), oak::util::XZR, oak::util::SP, oak::SOffset<10, 3>(save.offset));
+            }
+        }
 
-        oakAsm->STP(oakXRegister(i), oak::util::XZR, oak::util::SP, oak::PreIndexed{}, oak::SOffset<10, 3>(-16));
+        for (const auto& save : layout.xmm_saves) {
+            if (save.r2 != -1) {
+                oakAsm->STP(oakQRegister(save.r1), oakQRegister(save.r2), oak::util::SP, oak::SOffset<11, 4>(save.offset));
+            } else {
+                oakAsm->STR(oakQRegister(save.r1), oak::util::SP, oak::POffset<16, 4>(save.offset));
+            }
+        }
     }
-    //
-    for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
-    {
-        if (!oakIsCallerSavedXmm(i))
-            continue;
 
-        oakAsm->STR(oakQRegister(i), oak::util::SP, oak::PreIndexed{}, oak::SOffset<9, 0>(-16));
-    }
-
-    ////
-    oakAsm->STP(oak::util::X30, oak::util::XZR, oak::util::SP, oak::PreIndexed{}, oak::SOffset<10, 3>(-16));
     oakEmitCall((void*)mVUwaitMTVU);
-    oakAsm->LDP(oak::util::X30, oak::util::XZR, oak::util::SP, oak::PostIndexed{}, oak::SOffset<10, 3>(16));
-    ////
 
-    for (i = static_cast<int>(iREGCNT_XMM - 1); i >= 0; --i)
+    if (layout.stack_size > 0)
     {
-        if (!oakIsCallerSavedXmm(i))
-            continue;
+        for (const auto& save : layout.xmm_saves) {
+            if (save.r2 != -1) {
+                oakAsm->LDP(oakQRegister(save.r1), oakQRegister(save.r2), oak::util::SP, oak::SOffset<11, 4>(save.offset));
+            } else {
+                oakAsm->LDR(oakQRegister(save.r1), oak::util::SP, oak::POffset<16, 4>(save.offset));
+            }
+        }
 
-        oakAsm->LDR(oakQRegister(i), oak::util::SP, oak::PostIndexed{}, oak::SOffset<9, 0>(16));
-    }
-    //
-    for (i = static_cast<int>(iREGCNT_GPR - 1); i >= 0; --i)
-    {
-        if (!oakIsCallerSaved(i) || i == 4)
-            continue;
+        for (const auto& save : layout.gpr_saves) {
+            if (save.r2 != -1) {
+                oakAsm->LDP(oakXRegister(save.r1), oakXRegister(save.r2), oak::util::SP, oak::SOffset<10, 3>(save.offset));
+            } else {
+                oakAsm->LDP(oakXRegister(save.r1), oak::util::XZR, oak::util::SP, oak::SOffset<10, 3>(save.offset));
+            }
+        }
 
-        if (i == VU_HOST_T2)
-            continue;
-
-        oakAsm->LDP(oakXRegister(i), oak::util::XZR, oak::util::SP, oak::PostIndexed{}, oak::SOffset<10, 3>(16));
+        oakAsm->ADD(oak::util::SP, oak::util::SP, layout.stack_size);
     }
 
     oakAsm->RET();
@@ -298,13 +296,9 @@ static void mVUGenerateWaitMTVU(mV)
 
 static void mVUCompareMaskPs_emit_oaknut(oak::WReg dst, oak::QReg src)
 {
-	oakAsm->MOV(dst, 0);
-	for (int lane = 0; lane < 4; lane++)
-	{
-		oakAsm->MOV(OAK_WSCRATCH, src.Selem()[lane]);
-		oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH, 31);
-		oakAsm->ORR(dst, dst, OAK_WSCRATCH, oak::LogShift::LSL, lane);
-	}
+	oakAsm->UMINV(OAK_SSCRATCH, src.S4());
+	oakAsm->FMOV(dst, OAK_SSCRATCH);
+	oakAsm->MVN(dst, dst);
 }
 
 static void mVUGenerateCopyPipelineState(mV)
@@ -340,33 +334,38 @@ static void mVUGenerateCompareState(mV)
 
 	oakLoad128(oak::util::Q0, {oak::util::X1, 0x00});
 	oakLoad128(oak::util::Q1, {oak::util::X2, 0x00});
-	oakAsm->CMEQ(oak::util::Q0.S4(), oak::util::Q0.S4(), oak::util::Q1.S4());
+	oakAsm->EOR(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16());
+
 	oakLoad128(oak::util::Q1, {oak::util::X1, 0x10});
 	oakLoad128(oak::util::Q2, {oak::util::X2, 0x10});
-	oakAsm->CMEQ(oak::util::Q1.S4(), oak::util::Q1.S4(), oak::util::Q2.S4());
-	oakAsm->AND(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16());
-	mVUCompareMaskPs_emit_oaknut(oak::util::W0, oak::util::Q0);
-	oakAsm->EOR(oak::util::W0, oak::util::W0, 0xf);
+	oakAsm->EOR(oak::util::Q1.B16(), oak::util::Q1.B16(), oak::util::Q2.B16());
+	oakAsm->ORR(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16());
+
+	oakAsm->UMAXV(OAK_SSCRATCH, oak::util::Q0.S4());
+	oakAsm->FMOV(oak::util::W0, OAK_SSCRATCH);
 	oakAsm->CBNZ(oak::util::W0, exitPoint);
 
 	oakLoad128(oak::util::Q0, {oak::util::X1, 0x20});
 	oakLoad128(oak::util::Q1, {oak::util::X2, 0x20});
-	oakAsm->CMEQ(oak::util::Q0.S4(), oak::util::Q0.S4(), oak::util::Q1.S4());
+	oakAsm->EOR(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16());
+
 	oakLoad128(oak::util::Q1, {oak::util::X1, 0x30});
 	oakLoad128(oak::util::Q2, {oak::util::X2, 0x30});
-	oakAsm->CMEQ(oak::util::Q1.S4(), oak::util::Q1.S4(), oak::util::Q2.S4());
-	oakAsm->AND(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16());
+	oakAsm->EOR(oak::util::Q1.B16(), oak::util::Q1.B16(), oak::util::Q2.B16());
+	oakAsm->ORR(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16());
 
 	oakLoad128(oak::util::Q1, {oak::util::X1, 0x40});
 	oakLoad128(oak::util::Q2, {oak::util::X2, 0x40});
-	oakAsm->CMEQ(oak::util::Q1.S4(), oak::util::Q1.S4(), oak::util::Q2.S4());
-	oakLoad128(oak::util::Q2, {oak::util::X1, 0x50});
-	oakLoad128(oak::util::Q3, {oak::util::X2, 0x50});
-	oakAsm->CMEQ(oak::util::Q2.S4(), oak::util::Q2.S4(), oak::util::Q3.S4());
-	oakAsm->AND(oak::util::Q1.B16(), oak::util::Q1.B16(), oak::util::Q2.B16());
-	oakAsm->AND(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16());
-	mVUCompareMaskPs_emit_oaknut(oak::util::W0, oak::util::Q0);
-	oakAsm->EOR(oak::util::W0, oak::util::W0, 0xf);
+	oakAsm->EOR(oak::util::Q1.B16(), oak::util::Q1.B16(), oak::util::Q2.B16());
+	oakAsm->ORR(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16());
+
+	oakLoad128(oak::util::Q1, {oak::util::X1, 0x50});
+	oakLoad128(oak::util::Q2, {oak::util::X2, 0x50});
+	oakAsm->EOR(oak::util::Q1.B16(), oak::util::Q1.B16(), oak::util::Q2.B16());
+	oakAsm->ORR(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16());
+
+	oakAsm->UMAXV(OAK_SSCRATCH, oak::util::Q0.S4());
+	oakAsm->FMOV(oak::util::W0, OAK_SSCRATCH);
 
 	oakAsm->l(exitPoint);
 	oakAsm->RET();

@@ -66,7 +66,11 @@ namespace DOUBLE
 #define FPUflagSU 0x00000008
 
 // Add/Sub opcodes produce the same results as the ps2
+#ifdef __ANDROID__
+#define FPU_CORRECT_ADD_SUB 0
+#else
 #define FPU_CORRECT_ADD_SUB 1
+#endif
 
 //alignas(16) static const u32 s_neg[4] = {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff};
 //alignas(16) static const u32 s_pos[4] = {0x7fffffff, 0xffffffff, 0xffffffff, 0xffffffff};
@@ -731,7 +735,14 @@ static void recADD_S_emit_oaknut(int info)
 		recFpuClampFloat3Operand_emit_oaknut(sreg);
 		recFpuClampFloat3Operand_emit_oaknut(treg);
 	}
-	recFpuAddSubExact_emit_oaknut(EEREC_D, sreg, treg, false);
+	if (FPU_CORRECT_ADD_SUB)
+	{
+		recFpuAddSubExact_emit_oaknut(EEREC_D, sreg, treg, false);
+	}
+	else
+	{
+		oakAsm->FADD(oakSRegister(EEREC_D), oakSRegister(sreg), oakSRegister(treg));
+	}
 	recEndOaknutEmit();
 
 	_freeXMMreg(treg);
@@ -765,7 +776,14 @@ static void recADDA_S_emit_oaknut(int info)
 		recFpuClampFloat3Operand_emit_oaknut(sreg);
 		recFpuClampFloat3Operand_emit_oaknut(treg);
 	}
-	recFpuAddSubExact_emit_oaknut(EEREC_ACC, sreg, treg, false);
+	if (FPU_CORRECT_ADD_SUB)
+	{
+		recFpuAddSubExact_emit_oaknut(EEREC_ACC, sreg, treg, false);
+	}
+	else
+	{
+		oakAsm->FADD(oakSRegister(EEREC_ACC), oakSRegister(sreg), oakSRegister(treg));
+	}
 	recEndOaknutEmit();
 
 	_freeXMMreg(treg);
@@ -1863,7 +1881,14 @@ static void recSUB_S_emit_oaknut(int info)
 		recFpuLoadScalarOperand_emit_oaknut(treg, _Ft_, EEREC_T, info & PROCESS_EE_T);
 	recFpuDoubleClampOperand_emit_oaknut(sreg);
 	recFpuDoubleClampOperand_emit_oaknut(treg);
-	recFpuAddSubExact_emit_oaknut(EEREC_D, sreg, treg, true);
+	if (FPU_CORRECT_ADD_SUB)
+	{
+		recFpuAddSubExact_emit_oaknut(EEREC_D, sreg, treg, true);
+	}
+	else
+	{
+		oakAsm->FSUB(oakSRegister(EEREC_D), oakSRegister(sreg), oakSRegister(treg));
+	}
 	recEndOaknutEmit();
 
 	_freeXMMreg(treg);
@@ -1890,7 +1915,14 @@ static void recSUBA_S_emit_oaknut(int info)
 	recFpuLoadScalarOperand_emit_oaknut(treg, _Ft_, EEREC_T, info & PROCESS_EE_T);
 	recFpuDoubleClampOperand_emit_oaknut(sreg);
 	recFpuDoubleClampOperand_emit_oaknut(treg);
-	recFpuAddSubExact_emit_oaknut(EEREC_ACC, sreg, treg, true);
+	if (FPU_CORRECT_ADD_SUB)
+	{
+		recFpuAddSubExact_emit_oaknut(EEREC_ACC, sreg, treg, true);
+	}
+	else
+	{
+		oakAsm->FSUB(oakSRegister(EEREC_ACC), oakSRegister(sreg), oakSRegister(treg));
+	}
 	recEndOaknutEmit();
 
 	_freeXMMreg(treg);

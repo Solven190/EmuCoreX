@@ -3,12 +3,134 @@
 
 #pragma once
 #include <bitset>
+#include <vector>
 
 #include "arm64/OaknutHelpers.h"
 
 //------------------------------------------------------------------
 // Micro VU - Misc Functions
 //------------------------------------------------------------------
+
+struct mVURegSaveLayout {
+    struct GprPair {
+        int r1;
+        int r2; // -1 if none (e.g. paired with XZR)
+        int offset;
+    };
+    struct XmmPair {
+        int r1;
+        int r2; // -1 if none
+        int offset;
+    };
+
+    std::vector<GprPair> gpr_saves;
+    std::vector<XmmPair> xmm_saves;
+    int stack_size = 0;
+};
+
+static inline mVURegSaveLayout mVUGetRegSaveLayout(microVU& mVU, bool onlyNeeded)
+{
+    mVURegSaveLayout layout;
+    std::vector<int> gprs_to_save;
+    for (int i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
+    {
+        if (!oakIsCallerSaved(i) || i == 4)
+            continue;
+
+        if (!onlyNeeded || mVU.regAlloc->checkCachedGPR(i)) {
+            gprs_to_save.push_back(i);
+        }
+    }
+
+    std::vector<int> xmms_to_save;
+    for (int i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
+    {
+        if (!oakIsCallerSavedXmm(i))
+            continue;
+
+        if (!onlyNeeded || mVU.regAlloc->checkCachedReg(i) || VU_HOST_XMMPQ == i) {
+            xmms_to_save.push_back(i);
+        }
+    }
+
+    int current_offset = 0;
+
+    // Lay out GPRs (8 bytes each, stored in pairs)
+    for (size_t idx = 0; idx < gprs_to_save.size(); idx += 2) {
+        if (idx + 1 < gprs_to_save.size()) {
+            layout.gpr_saves.push_back({gprs_to_save[idx], gprs_to_save[idx + 1], current_offset});
+            current_offset += 16;
+        } else {
+            layout.gpr_saves.push_back({gprs_to_save[idx], -1, current_offset});
+            current_offset += 16;
+        }
+    }
+
+    // Lay out XMMs (16 bytes each, stored in pairs)
+    for (size_t idx = 0; idx < xmms_to_save.size(); idx += 2) {
+        if (idx + 1 < xmms_to_save.size()) {
+            layout.xmm_saves.push_back({xmms_to_save[idx], xmms_to_save[idx + 1], current_offset});
+            current_offset += 32;
+        } else {
+            layout.xmm_saves.push_back({xmms_to_save[idx], -1, current_offset});
+            current_offset += 16;
+        }
+    }
+
+    layout.stack_size = current_offset;
+    return layout;
+}
+
+static inline mVURegSaveLayout mVUGetWaitMTVULayout(microVU& mVU)
+{
+    mVURegSaveLayout layout;
+    std::vector<int> gprs_to_save;
+    for (int i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
+    {
+        if (!oakIsCallerSaved(i) || i == 4)
+            continue;
+        if (i == VU_HOST_T2)
+            continue;
+        gprs_to_save.push_back(i);
+    }
+    // Also save X30 (LR)
+    gprs_to_save.push_back(30);
+
+    std::vector<int> xmms_to_save;
+    for (int i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
+    {
+        if (!oakIsCallerSavedXmm(i))
+            continue;
+        xmms_to_save.push_back(i);
+    }
+
+    int current_offset = 0;
+
+    // Lay out GPRs (8 bytes each, stored in pairs)
+    for (size_t idx = 0; idx < gprs_to_save.size(); idx += 2) {
+        if (idx + 1 < gprs_to_save.size()) {
+            layout.gpr_saves.push_back({gprs_to_save[idx], gprs_to_save[idx + 1], current_offset});
+            current_offset += 16;
+        } else {
+            layout.gpr_saves.push_back({gprs_to_save[idx], -1, current_offset});
+            current_offset += 16;
+        }
+    }
+
+    // Lay out XMMs (16 bytes each, stored in pairs)
+    for (size_t idx = 0; idx < xmms_to_save.size(); idx += 2) {
+        if (idx + 1 < xmms_to_save.size()) {
+            layout.xmm_saves.push_back({xmms_to_save[idx], xmms_to_save[idx + 1], current_offset});
+            current_offset += 32;
+        } else {
+            layout.xmm_saves.push_back({xmms_to_save[idx], -1, current_offset});
+            current_offset += 16;
+        }
+    }
+
+    layout.stack_size = current_offset;
+    return layout;
+}
 
 // Backup Volatile Regs (EAX, ECX, EDX, MM0~7, XMM0~7, are all volatile according to 32bit Win/Linux ABI)
 __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = false)
@@ -17,27 +139,25 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
     {
         recBeginOaknutEmit();
 
-        int i, e = iREGCNT_GPR;
-        for (i = 0; i < e; ++i)
+        mVURegSaveLayout layout = mVUGetRegSaveLayout(mVU, onlyNeeded);
+        if (layout.stack_size > 0)
         {
-            if (!oakIsCallerSaved(i) || i == 4)
-                continue;
+            oakAsm->SUB(oak::util::SP, oak::util::SP, layout.stack_size);
 
-            if (!onlyNeeded || mVU.regAlloc->checkCachedGPR(i)) {
-                oakAsm->STP(oakXRegister(i), oak::util::XZR, oak::util::SP, oak::PreIndexed{}, oak::SOffset<10, 3>(-16));
+            for (const auto& save : layout.gpr_saves) {
+                if (save.r2 != -1) {
+                    oakAsm->STP(oakXRegister(save.r1), oakXRegister(save.r2), oak::util::SP, oak::SOffset<10, 3>(save.offset));
+                } else {
+                    oakAsm->STP(oakXRegister(save.r1), oak::util::XZR, oak::util::SP, oak::SOffset<10, 3>(save.offset));
+                }
             }
-        }
 
-        ////
-
-        e = iREGCNT_XMM;
-        for (i = 0; i < e; ++i)
-        {
-            if (!oakIsCallerSavedXmm(i))
-                continue;
-
-            if (!onlyNeeded || mVU.regAlloc->checkCachedReg(i) || VU_HOST_XMMPQ == i) {
-                oakAsm->STR(oakQRegister(i), oak::util::SP, oak::PreIndexed{}, oak::SOffset<9, 0>(-16));
+            for (const auto& save : layout.xmm_saves) {
+                if (save.r2 != -1) {
+                    oakAsm->STP(oakQRegister(save.r1), oakQRegister(save.r2), oak::util::SP, oak::SOffset<11, 4>(save.offset));
+                } else {
+                    oakAsm->STR(oakQRegister(save.r1), oak::util::SP, oak::POffset<16, 4>(save.offset));
+                }
             }
         }
 
@@ -61,28 +181,26 @@ __fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded 
     {
         recBeginOaknutEmit();
 
-        int i, e = iREGCNT_XMM - 1;
-        for (i = e; i >= 0; --i)
+        mVURegSaveLayout layout = mVUGetRegSaveLayout(mVU, onlyNeeded);
+        if (layout.stack_size > 0)
         {
-            if (!oakIsCallerSavedXmm(i))
-                continue;
-
-            if (!onlyNeeded || mVU.regAlloc->checkCachedReg(i) || VU_HOST_XMMPQ == i) {
-                oakAsm->LDR(oakQRegister(i), oak::util::SP, oak::PostIndexed{}, oak::SOffset<9, 0>(16));
+            for (const auto& save : layout.xmm_saves) {
+                if (save.r2 != -1) {
+                    oakAsm->LDP(oakQRegister(save.r1), oakQRegister(save.r2), oak::util::SP, oak::SOffset<11, 4>(save.offset));
+                } else {
+                    oakAsm->LDR(oakQRegister(save.r1), oak::util::SP, oak::POffset<16, 4>(save.offset));
+                }
             }
-        }
 
-        ////
-
-        e = iREGCNT_GPR - 1;
-        for (i = e; i >= 0; --i)
-        {
-            if (!oakIsCallerSaved(i)  || i == 4)
-                continue;
-
-            if (!onlyNeeded || mVU.regAlloc->checkCachedGPR(i)) {
-                oakAsm->LDP(oakXRegister(i), oak::util::XZR, oak::util::SP, oak::PostIndexed{}, oak::SOffset<10, 3>(16));
+            for (const auto& save : layout.gpr_saves) {
+                if (save.r2 != -1) {
+                    oakAsm->LDP(oakXRegister(save.r1), oakXRegister(save.r2), oak::util::SP, oak::SOffset<10, 3>(save.offset));
+                } else {
+                    oakAsm->LDP(oakXRegister(save.r1), oak::util::XZR, oak::util::SP, oak::SOffset<10, 3>(save.offset));
+                }
             }
+
+            oakAsm->ADD(oak::util::SP, oak::util::SP, layout.stack_size);
         }
 
         recEndOaknutEmit();

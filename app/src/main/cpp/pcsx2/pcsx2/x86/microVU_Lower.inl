@@ -2975,52 +2975,55 @@ void _vuXGKICKTransfermVU(bool flush)
 			}
 		}
 	}
-	//VUM_LOG("XGKick run complete Enabled %d", VU1.xgkickenable);
 }
 
 static __fi void mVU_XGKICK_backupNeededRegs_oaknut(mV)
 {
-	int i, e = iREGCNT_GPR;
-	for (i = 0; i < e; ++i)
+	mVURegSaveLayout layout = mVUGetRegSaveLayout(mVU, true);
+	if (layout.stack_size > 0)
 	{
-		if (!oakIsCallerSaved(i) || i == 4)
-			continue;
+		oakAsm->SUB(oak::util::SP, oak::util::SP, layout.stack_size);
 
-		if (mVU.regAlloc->checkCachedGPR(i))
-			oakAsm->STP(oakXRegister(i), oak::util::XZR, oak::util::SP, oak::PreIndexed{}, oak::SOffset<10, 3>(-16));
-	}
+		for (const auto& save : layout.gpr_saves) {
+			if (save.r2 != -1) {
+				oakAsm->STP(oakXRegister(save.r1), oakXRegister(save.r2), oak::util::SP, oak::SOffset<10, 3>(save.offset));
+			} else {
+				oakAsm->STP(oakXRegister(save.r1), oak::util::XZR, oak::util::SP, oak::SOffset<10, 3>(save.offset));
+			}
+		}
 
-	e = iREGCNT_XMM;
-	for (i = 0; i < e; ++i)
-	{
-		if (!oakIsCallerSavedXmm(i))
-			continue;
-
-		if (mVU.regAlloc->checkCachedReg(i) || VU_HOST_XMMPQ == i)
-			oakAsm->STR(oakQRegister(i), oak::util::SP, oak::PreIndexed{}, oak::SOffset<9, 0>(-16));
+		for (const auto& save : layout.xmm_saves) {
+			if (save.r2 != -1) {
+				oakAsm->STP(oakQRegister(save.r1), oakQRegister(save.r2), oak::util::SP, oak::SOffset<11, 4>(save.offset));
+			} else {
+				oakAsm->STR(oakQRegister(save.r1), oak::util::SP, oak::POffset<16, 4>(save.offset));
+			}
+		}
 	}
 }
 
 static __fi void mVU_XGKICK_restoreNeededRegs_oaknut(mV)
 {
-	int i, e = iREGCNT_XMM - 1;
-	for (i = e; i >= 0; --i)
+	mVURegSaveLayout layout = mVUGetRegSaveLayout(mVU, true);
+	if (layout.stack_size > 0)
 	{
-		if (!oakIsCallerSavedXmm(i))
-			continue;
+		for (const auto& save : layout.xmm_saves) {
+			if (save.r2 != -1) {
+				oakAsm->LDP(oakQRegister(save.r1), oakQRegister(save.r2), oak::util::SP, oak::SOffset<11, 4>(save.offset));
+			} else {
+				oakAsm->LDR(oakQRegister(save.r1), oak::util::SP, oak::POffset<16, 4>(save.offset));
+			}
+		}
 
-		if (mVU.regAlloc->checkCachedReg(i) || VU_HOST_XMMPQ == i)
-			oakAsm->LDR(oakQRegister(i), oak::util::SP, oak::PostIndexed{}, oak::SOffset<9, 0>(16));
-	}
+		for (const auto& save : layout.gpr_saves) {
+			if (save.r2 != -1) {
+				oakAsm->LDP(oakXRegister(save.r1), oakXRegister(save.r2), oak::util::SP, oak::SOffset<10, 3>(save.offset));
+			} else {
+				oakAsm->LDP(oakXRegister(save.r1), oak::util::XZR, oak::util::SP, oak::SOffset<10, 3>(save.offset));
+			}
+		}
 
-	e = iREGCNT_GPR - 1;
-	for (i = e; i >= 0; --i)
-	{
-		if (!oakIsCallerSaved(i) || i == 4)
-			continue;
-
-		if (mVU.regAlloc->checkCachedGPR(i))
-			oakAsm->LDP(oakXRegister(i), oak::util::XZR, oak::util::SP, oak::PostIndexed{}, oak::SOffset<10, 3>(16));
+		oakAsm->ADD(oak::util::SP, oak::util::SP, layout.stack_size);
 	}
 }
 

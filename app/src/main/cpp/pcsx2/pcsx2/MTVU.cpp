@@ -267,7 +267,7 @@ void VU_Thread::ExecuteRingBuffer()
 // Should only be called by ReserveSpace()
 __ri void VU_Thread::WaitOnSize(s32 size)
 {
-	for (;;)
+	for (u32 spin = 0; ; ++spin)
 	{
 		s32 readPos = GetReadPos();
 		if (readPos <= m_write_pos)
@@ -285,7 +285,14 @@ __ri void VU_Thread::WaitOnSize(s32 size)
 			// will be more aggressive, and only flush the minimal size.
 			// Performance will be smoother but it will consume extra CPU cycle
 			// on the EE thread (not an issue on 4 cores).
-			std::this_thread::yield();
+			if (spin < 32)
+			{
+				Threading::SpinWait();
+			}
+			else
+			{
+				std::this_thread::yield();
+			}
 		}
 	}
 }

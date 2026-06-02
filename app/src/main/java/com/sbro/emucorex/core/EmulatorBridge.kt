@@ -454,6 +454,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCoreX", "AutotestMode", "bool", autotestMode.toString()))
                 add(settingOp("EmuCore", "WarnAboutUnsafeSettings", "bool", "false"))
                 add(settingOp("EmuCore/GS", "OsdMessagesPos", "int", "0"))
+                add(settingOp("EmuCore/GS", "OsdPerformancePos", "int", "0"))
                 add(settingOp("InputSources", "PadVibration", "bool", padVibrationEnabled.toString()))
                 add(settingOp("Achievements", "Enabled", "bool", prefs.getAchievementsEnabledSync().toString()))
                 add(settingOp("Achievements", "ChallengeMode", "bool", prefs.getAchievementsHardcoreSync().toString()))

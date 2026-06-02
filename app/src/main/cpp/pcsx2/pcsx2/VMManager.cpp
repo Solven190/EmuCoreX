@@ -42,6 +42,9 @@
 #include "Vif_Dynarec.h"
 #include "VMManager.h"
 #include "ps2/BiosTools.h"
+#if defined(__ANDROID__)
+#include <sys/resource.h>
+#endif
 
 #include "common/Console.h"
 #include "common/Error.h"
@@ -378,6 +381,9 @@ const std::string& VMManager::GetCurrentELF()
 bool VMManager::Internal::CPUThreadInitialize()
 {
 	Threading::SetNameOfCurrentThread("CPU Thread");
+#if defined(__ANDROID__)
+	setpriority(PRIO_PROCESS, 0, -10);
+#endif
 	PerformanceMetrics::SetCPUThread(Threading::ThreadHandle::GetForCallingThread());
 
 	// On Win32, we have a bunch of things which use COM (e.g. SDL, XAudio2, etc).
