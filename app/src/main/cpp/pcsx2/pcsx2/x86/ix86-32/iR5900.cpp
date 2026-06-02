@@ -679,21 +679,6 @@ void recClear(u32 addr, u32 size)
 
 	upperextent = std::min(upperextent, ceiling);
 
-	if (IsDevBuild)
-	{
-		for (int i = 0; (pexblock = recBlocks[i]); ++i)
-		{
-			if (s_pCurBlock == PC_GETBLOCK(pexblock->startpc))
-				continue;
-			blockend = pexblock->startpc + (pexblock->size << 2); // pexblock->size * 4
-			if ((pexblock->startpc >= addr && pexblock->startpc < addr_size) || (pexblock->startpc < addr && blockend > addr)) [[unlikely]]
-			{
-				Console.Error("[EE] Impossible block clearing failure");
-				pxFail("[EE] Impossible block clearing failure");
-			}
-		}
-	}
-
 	if (upperextent > lowerextent)
 		ClearRecLUT(PC_GETBLOCK(lowerextent), upperextent - lowerextent);
 }

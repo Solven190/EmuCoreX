@@ -1032,19 +1032,6 @@ static __fi u32 psxRecClearMem(u32 pc)
 		recBlocks.Remove(toRemoveFirst, (blockidx - 1));
 	}
 
-	if (IsDevBuild)
-	{
-		blockidx = 0;
-		while (BASEBLOCKEX* pexblock = recBlocks[blockidx++])
-		{
-			if (pc >= pexblock->startpc && pc < pexblock->startpc + pexblock->size * 4) [[unlikely]]
-			{
-				DevCon.Error("[IOP] Impossible block clearing failure");
-				pxFail("[IOP] Impossible block clearing failure");
-			}
-		}
-	}
-
 	iopClearRecLUT(PSX_GETBLOCK(lowerextent), (upperextent - lowerextent) / 4);
 
 	return upperextent - pc;
