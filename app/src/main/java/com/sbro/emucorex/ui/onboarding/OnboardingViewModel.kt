@@ -9,6 +9,7 @@ import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.SetupValidator
+import com.sbro.emucorex.core.StoragePermissionHelper
 import com.sbro.emucorex.data.AppPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +22,7 @@ data class OnboardingUiState(
     val gamePath: String? = null,
     val biosValid: Boolean = false,
     val gamePathValid: Boolean = false,
+    val allFilesAccessGranted: Boolean = StoragePermissionHelper.hasAllFilesAccess(),
     val canContinue: Boolean = false,
     val currentPage: Int = 0,
     val totalPages: Int = 5
@@ -114,6 +116,14 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.value = currentState.copy(currentPage = page.coerceIn(0, currentState.totalPages - 1))
     }
 
+    fun refreshAllFilesAccess() {
+        val currentState = _uiState.value
+        updateState(
+            gamePathValid = SetupValidator.isGameFolderAccessible(getApplication(), currentState.gamePath),
+            allFilesAccessGranted = StoragePermissionHelper.hasAllFilesAccess()
+        )
+    }
+
     fun completeOnboarding(onFinished: () -> Unit) {
         if (!_uiState.value.canContinue) return
         viewModelScope.launch {
@@ -128,6 +138,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         gamePath: String? = _uiState.value.gamePath,
         biosValid: Boolean = _uiState.value.biosValid,
         gamePathValid: Boolean = _uiState.value.gamePathValid,
+        allFilesAccessGranted: Boolean = _uiState.value.allFilesAccessGranted,
         currentPage: Int = _uiState.value.currentPage
     ) {
         _uiState.value = OnboardingUiState(
@@ -136,7 +147,8 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             gamePath = gamePath,
             biosValid = biosValid,
             gamePathValid = gamePathValid,
-            canContinue = biosValid && gamePathValid,
+            allFilesAccessGranted = allFilesAccessGranted,
+            canContinue = biosValid && gamePathValid && allFilesAccessGranted,
             currentPage = currentPage,
             totalPages = 5
         )

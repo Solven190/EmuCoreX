@@ -818,11 +818,13 @@
     <string name="onboarding_profile_fast_title">Fast / Unsafe</string>
     <string name="onboarding_profile_fast_desc">For weaker devices that need extra speed. Some games may show more glitches or become less stable.</string>
     <string name="onboarding_title">Get ready to play</string>
-    <string name="onboarding_subtitle">Add a BIOS file and choose your games folder.</string>
+    <string name="onboarding_subtitle">Add a BIOS file, choose your games folder, and grant full file access.</string>
     <string name="onboarding_bios_title">Choose BIOS File</string>
     <string name="onboarding_bios_desc">Select the PS2 BIOS image file needed to start games.</string>
     <string name="onboarding_games_title">Choose games folder</string>
     <string name="onboarding_games_desc">Select the folder that contains your games.</string>
+    <string name="onboarding_all_files_title">Grant full file access</string>
+    <string name="onboarding_all_files_desc">Allow EmuCoreX to read game files directly so scanned games can launch reliably on every device.</string>
     <string name="onboarding_status_required">Required</string>
     <string name="onboarding_status_ready">Ready</string>
     <string name="onboarding_status_invalid_bios">Files not found</string>

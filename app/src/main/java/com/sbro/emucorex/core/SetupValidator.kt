@@ -14,10 +14,13 @@ object SetupValidator {
             val root = DocumentFile.fromTreeUri(context, rawPath.toUri()) ?: return false
             runCatching { root.exists() && root.isDirectory }.getOrDefault(false)
         } else {
+            val dir = File(rawPath)
+            if (StoragePermissionHelper.hasAllFilesAccess()) {
+                return dir.exists() && dir.isDirectory
+            }
             if (DocumentPathResolver.findAccessibleTreeUriForRawPath(context, rawPath) != null) {
                 return true
             }
-            val dir = File(rawPath)
             dir.exists() && dir.isDirectory
         }
     }
@@ -30,6 +33,10 @@ object SetupValidator {
             runCatching { root.isDirectory && root.exists() && root.listFiles().isNotEmpty() || root.isDirectory && root.exists() }
                 .getOrDefault(false)
         } else {
+            val dir = File(rawPath)
+            if (StoragePermissionHelper.hasAllFilesAccess()) {
+                return dir.exists() && dir.isDirectory
+            }
             if (DocumentPathResolver.isScopedStorageExternalPath(rawPath)) {
                 val migratedUri = DocumentPathResolver.findAccessibleTreeUriForRawPath(context, rawPath)
                 if (migratedUri != null) {
@@ -38,7 +45,6 @@ object SetupValidator {
                 }
                 return false
             }
-            val dir = File(rawPath)
             dir.exists() && dir.isDirectory
         }
     }
