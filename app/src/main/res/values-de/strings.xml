@@ -1051,4 +1051,6 @@
     <string name="settings_help_pad_vibration_strength">Skaliert die Spielvibration, bevor sie an Android gesendet wird. Senken Sie den Wert für laute Handheld-Motoren oder erhöhen Sie ihn, wenn sich ein Controller zu schwach anfühlt.</string>
     <string name="settings_help_pad_vibration_test">Sendet eine direkte Android-Vibrationsanforderung zuerst an den verbundenen Controller und dann an das Fallback-Telefon oder -Handheld, falls aktiviert.</string>
     <string name="settings_help_pad_vibration_fallback">Einige Handheld-Steuerungen melden sich als Gamepad, stellen die Vibration jedoch nur über den Gerätevibrator bereit. Dieses Fallback sorgt dafür, dass die Vibration auf diesen Geräten weiterhin funktioniert, aber externe Controller ohne Vibration lassen stattdessen das Telefon oder Handheld vibrieren.</string>
+    <string name="onboarding_all_files_title">Vollen Dateizugriff gewähren</string>
+    <string name="onboarding_all_files_desc">Erlauben Sie EmuCoreX, Spieldateien direkt zu lesen, damit gescannte Spiele auf jedem Gerät zuverlässig gestartet werden können.</string>
 </resources>

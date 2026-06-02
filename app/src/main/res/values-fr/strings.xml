@@ -1051,4 +1051,6 @@
     <string name="settings_help_pad_vibration_strength">Ajuste les vibrations du jeu avant qu\'elles ne soient envoyées à Android. Baissez-les pour les moteurs bruyants des consoles portables, ou augmentez-les lorsqu\'une manette semble trop faible.</string>
     <string name="settings_help_pad_vibration_test">Envoie une demande de vibration Android directe d\'abord à la manette connectée, puis à la solution de repli du téléphone ou de la console portable si elle est activée.</string>
     <string name="settings_help_pad_vibration_fallback">Certaines commandes de consoles portables sont reconnues comme une manette mais n\'exposent les vibrations que via le vibreur de l\'appareil. Cette solution de repli permet de conserver les vibrations sur ces appareils, mais les manettes externes sans vibrations feront vibrer le téléphone ou la console portable à la place.</string>
+    <string name="onboarding_all_files_title">Accorder un accès complet aux fichiers</string>
+    <string name="onboarding_all_files_desc">Autorisez EmuCoreX à lire directement les fichiers de jeu afin que les jeux analysés puissent se lancer de manière fiable sur chaque appareil.</string>
 </resources>

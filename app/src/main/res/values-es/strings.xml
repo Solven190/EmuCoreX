@@ -1051,4 +1051,6 @@
     <string name="settings_help_pad_vibration_strength">Escala la vibración del juego antes de enviarla a Android. Bájalo para motores de consolas portátiles ruidosos o súbelo cuando la vibración de un mando se sienta demasiado débil.</string>
     <string name="settings_help_pad_vibration_test">Envía una solicitud de vibración de Android directa al mando conectado primero, y luego a la alternativa del teléfono o consola portátil cuando está habilitada.</string>
     <string name="settings_help_pad_vibration_fallback">Algunos controles de consolas portátiles se identifican como un mando pero exponen la vibración solo a través del vibrador del dispositivo. Esta alternativa mantiene la vibración funcionando en esos dispositivos, pero los mandos externos sin vibración harán vibrar el teléfono o consola portátil en su lugar.</string>
+    <string name="onboarding_all_files_title">Conceder acceso completo a los archivos</string>
+    <string name="onboarding_all_files_desc">Permite a EmuCoreX leer archivos de juegos directamente para que los juegos escaneados puedan iniciarse de manera confiable en cada dispositivo.</string>
 </resources>
