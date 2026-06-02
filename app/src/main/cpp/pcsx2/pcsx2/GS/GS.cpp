@@ -686,7 +686,7 @@ void GSgetStats(SmallStringBase& info)
 			prefix = 'k';
 		}
 
-		info.format("{} SW | {} SYNP | {} PRIM | {} DRW | {:.2f} SWIZ | {:.2f} UNSWIZ | {:.2f} {}pps",
+		info.format("Renderer: {} SW | {} SYNP | {} PRIM | {} DRW | {:.2f} SWIZ | {:.2f} UNSWIZ | {:.2f} {}pps",
 			api_name,
 			(int)pm.Get(GSPerfMon::SyncPoint),
 			(int)pm.Get(GSPerfMon::Prim),
@@ -697,11 +697,11 @@ void GSgetStats(SmallStringBase& info)
 	}
 	else if (GSCurrentRenderer == GSRendererType::Null)
 	{
-		info.format("{} Null", api_name);
+		info.format("Renderer: {} Null", api_name);
 	}
 	else
 	{
-		info.format("{} HW | {} PRIM | {} DRW | {} DRWC | {} BAR | {} RP | {} RB | {} TC | {} TU",
+		info.format("Renderer: {} HW | {} PRIM | {} DRW | {} DRWC | {} BAR | {} RP | {} RB | {} TC | {} TU",
 			api_name,
 			(int)pm.Get(GSPerfMon::Prim),
 			(int)pm.Get(GSPerfMon::Draw),
