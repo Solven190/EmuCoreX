@@ -4,7 +4,7 @@
 # runtime entry points that are reached from Android manifests, JNI, Kotlin serialization,
 # or library reflection. Do not blanket-keep the whole app; that hides real shrinker issues.
 
-# Keep useful crash context for Crashlytics mapping and native-adjacent stack traces.
+# Keep useful crash context for native-adjacent stack traces.
 -keepattributes SourceFile,LineNumberTable
 -keepattributes Signature,*Annotation*,InnerClasses,EnclosingMethod
 
@@ -109,7 +109,7 @@
 # DataStore stores preferences by string keys, so no app classes need to be kept for it.
 # JSON parsing in the app is manual org.json; no Gson/Moshi reflection model rules needed.
 
-# Firebase/Crashlytics and AndroidX ship their own consumer rules. These dontwarn entries
+# Firebase and AndroidX ship their own consumer rules. These dontwarn entries
 # keep release output focused when optional integrations are absent from a variant.
 -dontwarn com.google.firebase.**
 -dontwarn com.google.android.gms.**
