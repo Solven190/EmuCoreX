@@ -82,7 +82,7 @@ public:
 	{
 		if (mSize + 1 >= mReserved)
 		{
-			reserve(mReserved + 0x2000); // some games requires even more!
+			reserve(mReserved > 0 ? mReserved * 2 : 0x2000); // some games requires even more!
 		}
 
 		// Insert the the new BASEBLOCKEX by startpc order

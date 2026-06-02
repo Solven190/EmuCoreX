@@ -1032,13 +1032,16 @@ static __fi u32 psxRecClearMem(u32 pc)
 		recBlocks.Remove(toRemoveFirst, (blockidx - 1));
 	}
 
-	blockidx = 0;
-	while (BASEBLOCKEX* pexblock = recBlocks[blockidx++])
+	if (IsDevBuild)
 	{
-		if (pc >= pexblock->startpc && pc < pexblock->startpc + pexblock->size * 4) [[unlikely]]
+		blockidx = 0;
+		while (BASEBLOCKEX* pexblock = recBlocks[blockidx++])
 		{
-			DevCon.Error("[IOP] Impossible block clearing failure");
-			pxFail("[IOP] Impossible block clearing failure");
+			if (pc >= pexblock->startpc && pc < pexblock->startpc + pexblock->size * 4) [[unlikely]]
+			{
+				DevCon.Error("[IOP] Impossible block clearing failure");
+				pxFail("[IOP] Impossible block clearing failure");
+			}
 		}
 	}
 
