@@ -49,7 +49,7 @@ data class SettingsSnapshot(
     val compactControls: Boolean = true,
     val keepScreenOn: Boolean = true,
     val showRecentGames: Boolean = true,
-    val showHomeSearch: Boolean = true,
+    val showHomeSearch: Boolean = false,
     val preferEnglishGameTitles: Boolean = false,
     val biosPath: String? = null,
     val biosValid: Boolean = false,
@@ -635,7 +635,7 @@ class AppPreferences(private val context: Context) {
                 compactControls = prefs[COMPACT_CONTROLS] ?: true,
                 keepScreenOn = prefs[KEEP_SCREEN_ON] ?: true,
                 showRecentGames = prefs[SHOW_RECENT_GAMES] ?: true,
-                showHomeSearch = prefs[SHOW_HOME_SEARCH] ?: true,
+                showHomeSearch = prefs[SHOW_HOME_SEARCH] ?: false,
                 preferEnglishGameTitles = prefs[PREFER_ENGLISH_GAME_TITLES] ?: false,
                 biosPath = biosPath,
                 biosValid = BiosValidator.hasUsableBiosFiles(context, biosPath),
@@ -878,7 +878,7 @@ class AppPreferences(private val context: Context) {
     }
 
     val showHomeSearch: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[SHOW_HOME_SEARCH] ?: true
+        prefs[SHOW_HOME_SEARCH] ?: false
     }
 
     suspend fun setShowHomeSearch(enabled: Boolean) {
@@ -1936,7 +1936,7 @@ class AppPreferences(private val context: Context) {
             put("compactControls", prefs[COMPACT_CONTROLS] ?: true)
             put("keepScreenOn", prefs[KEEP_SCREEN_ON] ?: true)
             put("showRecentGames", prefs[SHOW_RECENT_GAMES] ?: true)
-            put("showHomeSearch", prefs[SHOW_HOME_SEARCH] ?: true)
+            put("showHomeSearch", prefs[SHOW_HOME_SEARCH] ?: false)
             put("preferEnglishGameTitles", prefs[PREFER_ENGLISH_GAME_TITLES] ?: false)
             put("recentGames", prefs[RECENT_GAMES] ?: "[]")
             put("homeLibraryViewMode", prefs[HOME_LIBRARY_VIEW_MODE] ?: 0)
@@ -2058,7 +2058,7 @@ class AppPreferences(private val context: Context) {
             prefs[COMPACT_CONTROLS] = json.optBoolean("compactControls", true)
             prefs[KEEP_SCREEN_ON] = json.optBoolean("keepScreenOn", true)
             prefs[SHOW_RECENT_GAMES] = json.optBoolean("showRecentGames", true)
-            prefs[SHOW_HOME_SEARCH] = json.optBoolean("showHomeSearch", true)
+            prefs[SHOW_HOME_SEARCH] = json.optBoolean("showHomeSearch", false)
             prefs[PREFER_ENGLISH_GAME_TITLES] = json.optBoolean("preferEnglishGameTitles", false)
             prefs[RECENT_GAMES] = json.optString("recentGames", "[]")
             prefs[HOME_LIBRARY_VIEW_MODE] = json.optInt("homeLibraryViewMode", 0).coerceIn(0, 2)

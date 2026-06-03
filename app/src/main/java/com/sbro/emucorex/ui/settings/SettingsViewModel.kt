@@ -47,7 +47,7 @@ data class SettingsUiState(
     val compactControls: Boolean = true,
     val keepScreenOn: Boolean = true,
     val showRecentGames: Boolean = true,
-    val showHomeSearch: Boolean = true,
+    val showHomeSearch: Boolean = false,
     val preferEnglishGameTitles: Boolean = false,
     val biosPath: String? = null,
     val gamePath: String? = null,

@@ -60,7 +60,7 @@ data class HomeUiState(
     val biosValid: Boolean = false,
     val setupComplete: Boolean = false,
     val showRecentGames: Boolean = true,
-    val showHomeSearch: Boolean = true,
+    val showHomeSearch: Boolean = false,
     val searchQuery: String = "",
     val sortOption: HomeSortOption = HomeSortOption.TITLE_ASC,
     val libraryViewMode: HomeLibraryViewMode = HomeLibraryViewMode.GRID,
