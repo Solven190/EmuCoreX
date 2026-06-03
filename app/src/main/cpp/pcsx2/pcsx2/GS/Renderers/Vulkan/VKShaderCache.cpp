@@ -17,6 +17,12 @@
 #include "common/MD5Digest.h"
 #include "common/Path.h"
 
+#ifndef __ANDROID__
+#include "SPIRV/GlslangToSpv.h"
+#include "StandAlone/ResourceLimits.h"
+#include "glslang/Public/ShaderLang.h"
+#endif
+
 #include "fmt/format.h"
 #include "shaderc/shaderc.h"
 
@@ -28,6 +34,10 @@
 std::unique_ptr<VKShaderCache> g_vulkan_shader_cache;
 
 static u32 s_next_bad_shader_id = 0;
+#ifndef __ANDROID__
+static bool s_glslang_initialized = false;
+static bool s_shaderc_fallback_warning_emitted = false;
+#endif
 
 namespace
 {
@@ -124,6 +134,7 @@ namespace dyn_shaderc
 
 	static DynamicLibrary s_library;
 	static shaderc_compiler_t s_compiler = nullptr;
+	static bool s_open_failed = false;
 
 #define ADD_FUNC(F) static decltype(&::F) F;
 	SHADERC_FUNCTIONS(ADD_FUNC)
@@ -133,6 +144,17 @@ namespace dyn_shaderc
 
 bool dyn_shaderc::Open()
 {
+	if (s_compiler)
+		return true;
+
+	if (s_open_failed)
+		return false;
+
+#ifdef __ANDROID__
+#define LOAD_FUNC(F) F = &::F;
+	SHADERC_FUNCTIONS(LOAD_FUNC)
+#undef LOAD_FUNC
+#else
 	if (s_library.IsOpen())
 		return true;
 
@@ -146,6 +168,7 @@ bool dyn_shaderc::Open()
 #endif
 	if (!s_library.Open(libname.c_str(), &error))
 	{
+		s_open_failed = true;
 		ERROR_LOG("Failed to load shaderc: {}", error.GetDescription());
 		return false;
 	}
@@ -153,6 +176,7 @@ bool dyn_shaderc::Open()
 #define LOAD_FUNC(F) \
 	if (!s_library.GetSymbol(#F, &F)) \
 	{ \
+		s_open_failed = true; \
 		ERROR_LOG("Failed to find function {}", #F); \
 		Close(); \
 		return false; \
@@ -160,10 +184,12 @@ bool dyn_shaderc::Open()
 
 	SHADERC_FUNCTIONS(LOAD_FUNC)
 #undef LOAD_FUNC
+#endif
 
 	s_compiler = shaderc_compiler_initialize();
 	if (!s_compiler)
 	{
+		s_open_failed = true;
 		ERROR_LOG("shaderc_compiler_initialize() failed");
 		Close();
 		return false;
@@ -205,6 +231,122 @@ static void DumpBadShader(std::string_view code, std::string_view errors)
 	}
 }
 
+#ifndef __ANDROID__
+static bool InitializeGlslang()
+{
+	if (s_glslang_initialized)
+		return true;
+
+	if (!glslang::InitializeProcess())
+	{
+		ERROR_LOG("Failed to initialize glslang shader compiler");
+		return false;
+	}
+
+	std::atexit(&glslang::FinalizeProcess);
+	s_glslang_initialized = true;
+	return true;
+}
+
+static std::optional<EShLanguage> ShaderKindToGlslangStage(u32 stage)
+{
+	switch (static_cast<shaderc_shader_kind>(stage))
+	{
+		case shaderc_glsl_vertex_shader:
+			return EShLangVertex;
+		case shaderc_glsl_fragment_shader:
+			return EShLangFragment;
+		case shaderc_glsl_compute_shader:
+			return EShLangCompute;
+		default:
+			return std::nullopt;
+	}
+}
+
+static std::optional<std::vector<u32>> CompileShaderToSPVWithGlslang(u32 stage, std::string_view source, bool debug)
+{
+	if (!InitializeGlslang())
+		return std::nullopt;
+
+	const std::optional<EShLanguage> glslang_stage = ShaderKindToGlslangStage(stage);
+	if (!glslang_stage.has_value())
+	{
+		ERROR_LOG("glslang fallback does not support shader stage {}", stage);
+		return std::nullopt;
+	}
+
+	std::unique_ptr<glslang::TShader> shader = std::make_unique<glslang::TShader>(*glslang_stage);
+	std::unique_ptr<glslang::TProgram> program;
+	glslang::TShader::ForbidIncluder includer;
+	const EProfile profile = ECoreProfile;
+	const EShMessages messages =
+		static_cast<EShMessages>(EShMsgDefault | EShMsgSpvRules | EShMsgVulkanRules | (debug ? EShMsgDebugInfo : 0));
+	const int default_version = 450;
+
+	const char* pass_source_code = source.data();
+	int pass_source_code_length = static_cast<int>(source.size());
+	shader->setStringsWithLengths(&pass_source_code, &pass_source_code_length, 1);
+
+	auto dump_with_logs = [&](const char* msg) {
+		std::string errors(msg);
+		errors.append("\nShader Info Log:\n");
+		errors.append(shader->getInfoLog());
+		errors.append("\nShader Debug Log:\n");
+		errors.append(shader->getInfoDebugLog());
+		if (program)
+		{
+			errors.append("\nProgram Info Log:\n");
+			errors.append(program->getInfoLog());
+			errors.append("\nProgram Debug Log:\n");
+			errors.append(program->getInfoDebugLog());
+		}
+		DumpBadShader(source, errors);
+	};
+
+	if (!shader->parse(&glslang::DefaultTBuiltInResource, default_version, profile, false, true, messages, includer))
+	{
+		dump_with_logs("Failed to parse shader");
+		return std::nullopt;
+	}
+
+	program = std::make_unique<glslang::TProgram>();
+	program->addShader(shader.get());
+	if (!program->link(messages))
+	{
+		dump_with_logs("Failed to link program");
+		return std::nullopt;
+	}
+
+	glslang::TIntermediate* intermediate = program->getIntermediate(*glslang_stage);
+	if (!intermediate)
+	{
+		dump_with_logs("Failed to generate SPIR-V");
+		return std::nullopt;
+	}
+
+	std::vector<u32> out_code;
+	spv::SpvBuildLogger logger;
+	glslang::SpvOptions options;
+	options.generateDebugInfo = debug;
+	glslang::GlslangToSpv(*intermediate, out_code, &logger, &options);
+
+	if (std::strlen(shader->getInfoLog()) > 0)
+		WARNING_LOG("Shader info log: {}", shader->getInfoLog());
+	if (std::strlen(shader->getInfoDebugLog()) > 0)
+		WARNING_LOG("Shader debug info log: {}", shader->getInfoDebugLog());
+	if (std::strlen(program->getInfoLog()) > 0)
+		WARNING_LOG("Program info log: {}", program->getInfoLog());
+	if (std::strlen(program->getInfoDebugLog()) > 0)
+		WARNING_LOG("Program debug info log: {}", program->getInfoDebugLog());
+
+	const std::string spv_messages = logger.getAllMessages();
+	if (!spv_messages.empty())
+		WARNING_LOG("SPIR-V conversion messages: {}", spv_messages);
+
+	return out_code;
+}
+#endif
+
 static const char* compilation_status_to_string(shaderc_compilation_status status)
 {
 	switch (status)
@@ -228,7 +370,19 @@ std::optional<VKShaderCache::SPIRVCodeVector> VKShaderCache::CompileShaderToSPV(
 {
 	std::optional<VKShaderCache::SPIRVCodeVector> ret;
 	if (!dyn_shaderc::Open())
-		return ret;
+	{
+#ifdef __ANDROID__
+		ERROR_LOG("Static shaderc compiler could not be initialized.");
+		return std::nullopt;
+#else
+		if (!s_shaderc_fallback_warning_emitted)
+		{
+			WARNING_LOG("Falling back to glslang for SPIR-V compilation because shaderc could not be loaded.");
+			s_shaderc_fallback_warning_emitted = true;
+		}
+		return CompileShaderToSPVWithGlslang(stage, source, debug);
+#endif
+	}
 
 	shaderc_compile_options_t options = dyn_shaderc::shaderc_compile_options_initialize();
 	pxAssertRel(options, "shaderc_compile_options_initialize() failed");

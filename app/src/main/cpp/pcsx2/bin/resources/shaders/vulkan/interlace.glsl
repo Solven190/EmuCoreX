@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
+// SPDX-FileCopyrightText: 2002-2025 PCSX2 Dev Team
 // SPDX-License-Identifier: GPL-3.0+
 
 #ifdef VERTEX_SHADER
@@ -38,7 +38,7 @@ void ps_main0()
 	const int vpos  = int(gl_FragCoord.y); // vertical position of destination texture
 
 	if ((vpos & 1) == field)
-		o_col0 = textureLod(samp0, v_tex, 0.0);
+		o_col0 = textureLod(samp0, v_tex, 0);
 	else
 		discard;
 }
@@ -49,7 +49,7 @@ void ps_main0()
 #ifdef ps_main1
 void ps_main1()
 {
-	o_col0 = textureLod(samp0, v_tex, 0.0);
+	o_col0 = textureLod(samp0, v_tex, 0);
 }
 #endif
 
@@ -59,9 +59,9 @@ void ps_main1()
 void ps_main2()
 {
 	vec2 vstep = vec2(0.0f, ZrH.y);
-	vec4 c0 = textureLod(samp0, v_tex - vstep, 0.0);
-	vec4 c1 = textureLod(samp0, v_tex, 0.0);
-	vec4 c2 = textureLod(samp0, v_tex + vstep, 0.0);
+	vec4 c0 = textureLod(samp0, v_tex - vstep, 0);
+	vec4 c1 = textureLod(samp0, v_tex, 0);
+	vec4 c2 = textureLod(samp0, v_tex + vstep, 0);
 
 	o_col0 = (c0 + c1 * 2.0f + c2) / 4.0f;
 }
@@ -89,7 +89,7 @@ void ps_main3()
 	// if the index of current destination line belongs to the current fiels we update it, otherwise
 	// we leave the old line in the destination buffer
 	if ((vpos & 1) == field)
-		o_col0 = textureLod(samp0, v_tex, 0.0);
+		o_col0 = textureLod(samp0, v_tex, 0);
 	else
 		discard;
 }
@@ -149,13 +149,13 @@ void ps_main4()
 
 	// calculating motion, only relevant for missing lines where the "center line" is pointed by p_t1
 
-	vec4 hn = textureLod(samp0, p_t0 - lofs, 0.0); // new high pixel
-	vec4 cn = textureLod(samp0, p_t1, 0.0);        // new center pixel
-	vec4 ln = textureLod(samp0, p_t0 + lofs, 0.0); // new low pixel
+	vec4 hn = textureLod(samp0, p_t0 - lofs, 0); // new high pixel
+	vec4 cn = textureLod(samp0, p_t1, 0);        // new center pixel
+	vec4 ln = textureLod(samp0, p_t0 + lofs, 0); // new low pixel
 
-	vec4 ho = textureLod(samp0, p_t2 - lofs, 0.0); // old high pixel
-	vec4 co = textureLod(samp0, p_t3, 0.0);        // old center pixel
-	vec4 lo = textureLod(samp0, p_t2 + lofs, 0.0); // old low pixel
+	vec4 ho = textureLod(samp0, p_t2 - lofs, 0); // old high pixel
+	vec4 co = textureLod(samp0, p_t3, 0);        // old center pixel
+	vec4 lo = textureLod(samp0, p_t2 + lofs, 0); // old low pixel
 
 	vec3 mh = hn.rgb - ho.rgb; // high pixel motion
 	vec3 mc = cn.rgb - co.rgb; // center pixel motion
@@ -180,7 +180,7 @@ void ps_main4()
 	if ((vpos & 1) == field) // output coordinate present on current field
 	{
 		// output coordinate present on current field
-		o_col0 = textureLod(samp0, p_t0, 0.0);
+		o_col0 = textureLod(samp0, p_t0, 0);
 	}
 	else if ((iptr.y > 0.5f - lofs.y) || (iptr.y < 0.0 + lofs.y))
 	{
@@ -194,32 +194,8 @@ void ps_main4()
 			// high motion -> interpolate pixels above and below
 			o_col0 = (hn + ln) / 2.0f;
 		else
-		{
-			// Check if it's completely static first, we don't need to mess with any of that.
-			if((mh_max != -motion_thr.x) || (ml_max != -motion_thr.x) || (mc_max != -motion_thr.x))
-			{
-				// Check the diff with the above and below lines, if the difference is smaller between the new high and low lines
-				// compared to the new centre line and the high line (with some threshold of about 25 color steps), then reconstruct.
-				vec3 mhln = hn.rgb - ln.rgb;
-				vec3 mchn = hn.rgb - cn.rgb;
-
-				mhln = max(mhln, -mhln) - motion_thr;
-				mchn = max(mchn, -mchn) - motion_thr;
-
-				float mhln_max = max(max(mhln.x, mhln.y), mhln.z);
-				float mchn_max = max(max(mchn.x, mchn.y), mchn.z);
-
-				// The new centre line is a fair chunk different from those surrounding it, so quite likely incorrect.
-				if (mhln_max < 0.0f && mchn_max >= (mhln_max * 0.90f))
-					o_col0 = (hn + ln) / 2.0f;
-				else
-					// low motion -> weave
-					o_col0 = cn;
-			}
-			else
-				// low motion -> weave
-				o_col0 = cn;
-		}
+			// low motion -> weave
+			o_col0 = cn;
 	}
 }
 #endif

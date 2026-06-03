@@ -41,6 +41,7 @@ public:
 		bool vk_ext_rasterization_order_attachment_access : 1;
 		bool vk_ext_full_screen_exclusive : 1;
 		bool vk_ext_line_rasterization : 1;
+		bool vk_khr_push_descriptor : 1;
 		bool vk_swapchain_maintenance1 : 1;
 		bool vk_swapchain_maintenance1_is_khr : 1;
 		bool vk_khr_driver_properties : 1;
@@ -58,11 +59,28 @@ public:
 	__fi const VkPhysicalDeviceProperties& GetDeviceProperties() const { return m_device_properties; }
 	__fi const OptionalExtensions& GetOptionalExtensions() const { return m_optional_extensions; }
 
-	// The interaction between raster order attachment access and fbfetch is unclear.
+	__fi bool UsesRasterizationOrderAttachmentAccessForFeedback() const
+	{
+		return (m_features.framebuffer_fetch &&
+				m_optional_extensions.vk_ext_rasterization_order_attachment_access);
+	}
+
+	__fi bool PrefersInputAttachmentFeedbackPath() const
+	{
+		// The explicit input-attachment/subpass path is the most predictable Vulkan feedback route
+		// in this fork right now. Keep it as the default whenever we already rely on texture barriers
+		// instead of framebuffer-fetch, and only use attachment-feedback-loop layouts for a future
+		// revalidated path.
+		return (m_features.texture_barrier && !m_features.framebuffer_fetch);
+	}
+
+	// Prefer the attachment-feedback-loop layout only for paths that have been explicitly
+	// revalidated. Otherwise stick to the input-attachment route.
 	__fi bool UseFeedbackLoopLayout() const
 	{
 		return (m_optional_extensions.vk_ext_attachment_feedback_loop_layout &&
-				!m_optional_extensions.vk_ext_rasterization_order_attachment_access);
+				!PrefersInputAttachmentFeedbackPath() &&
+				!UsesRasterizationOrderAttachmentAccessForFeedback());
 	}
 
 	// Helpers for getting constants
@@ -158,9 +176,6 @@ private:
 	// Allocates a temporary CPU staging buffer, fires the callback with it to populate, then copies to a GPU buffer.
 	bool AllocatePreinitializedGPUBuffer(u32 size, VkBuffer* gpu_buffer, VmaAllocation* gpu_allocation,
 		VkBufferUsageFlags gpu_usage, const std::function<void(void*)>& fill_callback);
-	
-	// Helper function for uploading indices.
-	void UploadIndices(VKStreamBuffer& buffer, const void* index, size_t count);
 
 	union RenderPassCacheKey
 	{
@@ -386,7 +401,6 @@ private:
 
 	VKStreamBuffer m_vertex_stream_buffer;
 	VKStreamBuffer m_index_stream_buffer;
-	VKStreamBuffer m_expand_index_stream_buffer;
 	VKStreamBuffer m_vertex_uniform_stream_buffer;
 	VKStreamBuffer m_fragment_uniform_stream_buffer;
 	VKStreamBuffer m_texture_stream_buffer;
@@ -433,7 +447,6 @@ private:
 
 	GSHWDrawConfig::VSConstantBuffer m_vs_cb_cache;
 	GSHWDrawConfig::PSConstantBuffer m_ps_cb_cache;
-	GSHWDrawConfig::VSPushConstants m_vs_pc_cache;
 
 	std::string m_tfx_source;
 
@@ -476,6 +489,7 @@ private:
 	bool CompileCASPipelines();
 
 	bool CompileImGuiPipeline();
+	void WarmupCommonTFXPipelines();
 	void RenderImGui();
 	void RenderBlankFrame();
 
@@ -533,15 +547,9 @@ public:
 	void PopDebugGroup() override;
 	void InsertDebugMessage(DebugMessageCategory category, const char* fmt, ...) override;
 
-	// Helpers and utility draws.
 	void DrawPrimitive();
 	void DrawIndexedPrimitive();
 	void DrawIndexedPrimitive(int offset, int count);
-	void DrawIndexedPrimitiveVSExpand(int offset, int count, bool vs_indexing, int vs_indexing_expansion);
-
-	// Main GS primitive draws.
-	void Draw(const GSHWDrawConfig& config);
-	void Draw(const GSHWDrawConfig& config, int offset, int count);
 
 	std::unique_ptr<GSDownloadTexture> CreateDownloadTexture(u32 width, u32 height, GSTexture::Format format) override;
 
@@ -573,7 +581,6 @@ public:
 
 	void IASetVertexBuffer(const void* vertex, size_t stride, size_t count, size_t align_multiplier = 1);
 	void IASetIndexBuffer(const void* index, size_t count);
-	void VSSetIndexBuffer(const void* index, size_t count);
 
 	void PSSetShaderResource(int i, GSTexture* sr, bool check_state);
 	void PSSetSampler(GSHWDrawConfig::SamplerSelector sel);
@@ -583,7 +590,6 @@ public:
 
 	void SetVSConstantBuffer(const GSHWDrawConfig::VSConstantBuffer& cb);
 	void SetPSConstantBuffer(const GSHWDrawConfig::PSConstantBuffer& cb);
-	void SetVSPushConstants(u32 base_vertex, u32 base_index = 0, bool force_update = false);
 	bool BindDrawPipeline(const PipelineSelector& p);
 
 	void RenderHW(GSHWDrawConfig& config) override;
@@ -654,7 +660,6 @@ private:
 		DIRTY_FLAG_PIPELINE = (1 << 12),
 		DIRTY_FLAG_VS_CONSTANT_BUFFER = (1 << 13),
 		DIRTY_FLAG_PS_CONSTANT_BUFFER = (1 << 14),
-		DIRTY_FLAG_VS_PUSH_CONSTANTS = (1 << 15),
 
 		DIRTY_FLAG_TFX_TEXTURE_TEX = (DIRTY_FLAG_TFX_TEXTURE_0 << 0),
 		DIRTY_FLAG_TFX_TEXTURE_PALETTE = (DIRTY_FLAG_TFX_TEXTURE_0 << 1),
@@ -670,7 +675,7 @@ private:
 		                   DIRTY_FLAG_BLEND_CONSTANTS | DIRTY_FLAG_LINE_WIDTH,
 		DIRTY_TFX_STATE = DIRTY_BASE_STATE | DIRTY_FLAG_TFX_TEXTURES,
 		DIRTY_UTILITY_STATE = DIRTY_BASE_STATE | DIRTY_FLAG_UTILITY_TEXTURE,
-		DIRTY_CONSTANT_BUFFER_STATE = DIRTY_FLAG_VS_CONSTANT_BUFFER | DIRTY_FLAG_PS_CONSTANT_BUFFER | DIRTY_FLAG_VS_PUSH_CONSTANTS,
+		DIRTY_CONSTANT_BUFFER_STATE = DIRTY_FLAG_VS_CONSTANT_BUFFER | DIRTY_FLAG_PS_CONSTANT_BUFFER,
 		ALL_DIRTY_STATE = DIRTY_BASE_STATE | DIRTY_TFX_STATE | DIRTY_UTILITY_STATE | DIRTY_CONSTANT_BUFFER_STATE,
 	};
 

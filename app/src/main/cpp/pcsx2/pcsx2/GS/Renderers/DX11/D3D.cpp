@@ -5,7 +5,7 @@
 #include "GS/Renderers/Common/GSDevice.h"
 #include "GS/Renderers/DX11/D3D.h"
 #include "GS/GSExtra.h"
-#include "Host.h"
+#include "platform/host/Host.h"
 
 #ifdef ARCH_X86
 #include "GS/Renderers/Vulkan/GSDeviceVK.h"
@@ -496,8 +496,8 @@ wil::com_ptr_nothrow<ID3DBlob> D3D::CompileShader(D3D::ShaderType type, D3D_FEAT
 		break;
 	}
 
-	static constexpr UINT flags_non_debug = D3DCOMPILE_OPTIMIZATION_LEVEL3 | D3DCOMPILE_IEEE_STRICTNESS;
-	static constexpr UINT flags_debug = D3DCOMPILE_SKIP_OPTIMIZATION | D3DCOMPILE_DEBUG | D3DCOMPILE_DEBUG_NAME_FOR_SOURCE | D3DCOMPILE_IEEE_STRICTNESS;
+	static constexpr UINT flags_non_debug = D3DCOMPILE_OPTIMIZATION_LEVEL3;
+	static constexpr UINT flags_debug = D3DCOMPILE_SKIP_OPTIMIZATION | D3DCOMPILE_DEBUG | D3DCOMPILE_DEBUG_NAME_FOR_SOURCE;
 
 	wil::com_ptr_nothrow<ID3DBlob> blob;
 	wil::com_ptr_nothrow<ID3DBlob> error_blob;

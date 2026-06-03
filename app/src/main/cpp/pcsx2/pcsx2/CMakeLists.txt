@@ -605,9 +605,14 @@ if(USE_OPENGL)
 		list(APPEND pcsx2GSHeaders GS/Renderers/OpenGL/GLContextWGL.h)
 		target_link_libraries(PCSX2_FLAGS INTERFACE opengl32.lib WinPixEventRuntime::WinPixEventRuntime)
 	else()
-		if(X11_API OR WAYLAND_API)
+		if(X11_API OR WAYLAND_API OR ANDROID)
 			list(APPEND pcsx2GSSources GS/Renderers/OpenGL/GLContextEGL.cpp)
 			list(APPEND pcsx2GSHeaders GS/Renderers/OpenGL/GLContextEGL.h)
+		endif()
+
+		if(ANDROID)
+			list(APPEND pcsx2GSSources GS/Renderers/OpenGL/GLContextEGLAndroid.cpp)
+			list(APPEND pcsx2GSHeaders GS/Renderers/OpenGL/GLContextEGLAndroid.h)
 		endif()
 
 		if(X11_API)
@@ -648,8 +653,18 @@ if(USE_VULKAN)
 		GS/Renderers/Vulkan/VKStreamBuffer.h
 		GS/Renderers/Vulkan/VKSwapChain.h
 	)
-	target_link_libraries(PCSX2_FLAGS INTERFACE vulkan-headers)
-	target_include_directories(PCSX2_FLAGS INTERFACE ${SHADERC_INCLUDE_DIR})
+	if(ANDROID)
+		set(PCSX2_ANDROID_SHADERC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../3rdparty/shaderc")
+		add_library(shaderc_static STATIC IMPORTED GLOBAL)
+		set_target_properties(shaderc_static PROPERTIES
+			IMPORTED_LOCATION "${PCSX2_ANDROID_SHADERC_DIR}/libs/system/${ANDROID_ABI}/libshaderc.a"
+			INTERFACE_INCLUDE_DIRECTORIES "${PCSX2_ANDROID_SHADERC_DIR}/include"
+		)
+		target_link_libraries(PCSX2_FLAGS INTERFACE vulkan-headers shaderc_static)
+	else()
+		target_link_libraries(PCSX2_FLAGS INTERFACE vulkan-headers)
+		target_include_directories(PCSX2_FLAGS INTERFACE ${SHADERC_INCLUDE_DIR})
+	endif()
 endif()
 
 set(pcsx2GSMetalShaders

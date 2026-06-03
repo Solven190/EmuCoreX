@@ -11,7 +11,6 @@
 
 #include "common/MRCHelpers.h"
 #include "common/Pcsx2Types.h"
-#include "GS/Renderers/Common/GSShaderEnums.h"
 #include <Metal/Metal.h>
 
 struct GSMTLDevice
@@ -26,14 +25,12 @@ struct GSMTLDevice
 
 	struct Features
 	{
-		bool unified_memory         : 1;
-		bool texture_swizzle        : 1;
-		bool framebuffer_fetch      : 1;
-		bool primid                 : 1;
-		bool slow_color_compression : 1; ///< Color compression seems to slow down rt read on AMD
-		bool has_fast_half          : 1;
-		bool memoryless_textures    : 1;
-		bool depth_feedback         : 1;
+		bool unified_memory;
+		bool texture_swizzle;
+		bool framebuffer_fetch;
+		bool primid;
+		bool slow_color_compression; ///< Color compression seems to slow down rt read on AMD
+		bool has_fast_half;
 		MetalVersion shader_version;
 		int max_texsize;
 	};
@@ -44,8 +41,6 @@ struct GSMTLDevice
 
 	GSMTLDevice() = default;
 	explicit GSMTLDevice(MRCOwned<id<MTLDevice>> dev);
-
-	static u32 GetMaxTextureSize(id<MTLDevice> dev);
 
 	bool IsOk() const { return dev && shaders; }
 	void Reset()

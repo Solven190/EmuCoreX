@@ -68,6 +68,9 @@ public:
 		AAudioStreamBuilder_setSampleRate(builder, static_cast<int32_t>(m_sample_rate));
 		AAudioStreamBuilder_setChannelCount(builder, static_cast<int32_t>(m_output_channels));
 		AAudioStreamBuilder_setFormat(builder, AAUDIO_FORMAT_PCM_FLOAT);
+		const int32_t requested_buffer_frames =
+			static_cast<int32_t>(AudioStream::GetBufferSizeForMS(m_sample_rate, m_parameters.buffer_ms));
+		AAudioStreamBuilder_setBufferCapacityInFrames(builder, requested_buffer_frames);
 		AAudioStreamBuilder_setDataCallback(builder, &AndroidAAudioStream::DataCallback, this);
 		AAudioStreamBuilder_setErrorCallback(builder, &AndroidAAudioStream::ErrorCallback, this);
 
@@ -82,6 +85,13 @@ public:
 
 		BaseInitialize(sample_readers[static_cast<size_t>(m_parameters.expansion_mode)], stretch_enabled);
 
+		const aaudio_result_t buffer_size_result = AAudioStream_setBufferSizeInFrames(m_stream, requested_buffer_frames);
+		if (buffer_size_result < 0)
+		{
+			__android_log_print(ANDROID_LOG_WARN, LOG_TAG, "AAudio buffer resize to %d frames failed: %s",
+				requested_buffer_frames, AAudio_convertResultToText(buffer_size_result));
+		}
+
 		result = AAudioStream_requestStart(m_stream);
 		if (result != AAUDIO_OK)
 		{
@@ -90,8 +100,10 @@ public:
 			return false;
 		}
 
-		__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "AAudio stream started rate=%u channels=%u",
-			m_sample_rate, static_cast<unsigned>(m_output_channels));
+		__android_log_print(ANDROID_LOG_INFO, LOG_TAG,
+			"AAudio stream started rate=%u channels=%u buffer=%d/%d frames",
+			m_sample_rate, static_cast<unsigned>(m_output_channels), AAudioStream_getBufferSizeInFrames(m_stream),
+			AAudioStream_getBufferCapacityInFrames(m_stream));
 		return true;
 	}
 

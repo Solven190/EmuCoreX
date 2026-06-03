@@ -3,7 +3,6 @@
 
 #pragma once
 #include <simd/simd.h>
-#include "../Common/GSShaderEnums.h"
 
 enum GSMTLBufferIndices
 {
@@ -11,7 +10,6 @@ enum GSMTLBufferIndices
 	GSMTLBufferIndexUniforms,
 	GSMTLBufferIndexHWVertices,
 	GSMTLBufferIndexHWUniforms,
-	GSMTLBufferIndexHWIndices,
 };
 
 enum GSMTLTextureIndex
@@ -21,8 +19,6 @@ enum GSMTLTextureIndex
 	GSMTLTextureIndexPalette,
 	GSMTLTextureIndexRenderTarget,
 	GSMTLTextureIndexPrimIDs,
-	GSMTLTextureIndexDepthTarget,
-	GSMTLTextureIndexCount,
 };
 
 struct GSMTLConvertPSUniform
@@ -98,7 +94,6 @@ struct GSMTLMainVSUniform
 	vector_float2 texture_offset;
 	vector_float2 point_size;
 	uint max_depth;
-	uint _pad0;
 };
 
 struct GSMTLMainPSUniform
@@ -153,11 +148,18 @@ enum GSMTLAttributes
 	GSMTLAttributeIndexF,
 };
 
+enum class GSMTLExpandType : unsigned char
+{
+	None = 0,
+	Point = 1,
+	Line = 2,
+	Sprite = 3,
+};
+
 enum GSMTLFnConstants
 {
 	GSMTLConstantIndex_CAS_SHARPEN_ONLY,
 	GSMTLConstantIndex_FRAMEBUFFER_FETCH,
-	GSMTLConstantIndex_DEPTH_FEEDBACK,
 	GSMTLConstantIndex_FST,
 	GSMTLConstantIndex_IIP,
 	GSMTLConstantIndex_VS_POINT_SIZE,
@@ -172,7 +174,6 @@ enum GSMTLFnConstants
 	GSMTLConstantIndex_PS_DATE,
 	GSMTLConstantIndex_PS_ATST,
 	GSMTLConstantIndex_PS_AFAIL,
-	GSMTLConstantIndex_PS_ZTST,
 	GSMTLConstantIndex_PS_TFX,
 	GSMTLConstantIndex_PS_TCC,
 	GSMTLConstantIndex_PS_WMS,
@@ -217,7 +218,4 @@ enum GSMTLFnConstants
 	GSMTLConstantIndex_PS_MANUAL_LOD,
 	GSMTLConstantIndex_PS_REGION_RECT,
 	GSMTLConstantIndex_PS_SCANMSK,
-	GSMTLConstantIndex_PS_AA1,
-	GSMTLConstantIndex_PS_ABE,
-	GSMTLConstantIndex_PS_SW_ANISO,
 };

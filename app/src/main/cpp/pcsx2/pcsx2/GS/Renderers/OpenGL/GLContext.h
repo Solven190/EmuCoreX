@@ -8,6 +8,7 @@
 
 #include <array>
 #include <memory>
+#include <span>
 #include <vector>
 
 class Error;
@@ -18,38 +19,22 @@ public:
 	GLContext(const WindowInfo& wi);
 	virtual ~GLContext();
 
+	enum class Profile
+	{
+		NoProfile,
+		Core,
+		ES
+	};
+
 	struct Version
 	{
-		enum class Profile
-		{
-			NoProfile,
-			Core,
-			ES,
-		};
-
-		constexpr Version() = default;
-
-		constexpr Version(int major, int minor)
-			: profile(Profile::Core)
-			, major_version(major)
-			, minor_version(minor)
-		{
-		}
-
-		constexpr Version(Profile profile_, int major, int minor)
-			: profile(profile_)
-			, major_version(major)
-			, minor_version(minor)
-		{
-		}
-
-		Profile profile = Profile::Core;
-		int major_version = 0;
-		int minor_version = 0;
+		Profile profile;
+		int major_version;
+		int minor_version;
 	};
 
 	__fi const WindowInfo& GetWindowInfo() const { return m_wi; }
-	__fi bool IsGLES() const { return (m_version.profile == Version::Profile::ES); }
+	__fi bool IsGLES() const { return (m_version.profile == Profile::ES); }
 	__fi u32 GetSurfaceWidth() const { return m_wi.surface_width; }
 	__fi u32 GetSurfaceHeight() const { return m_wi.surface_height; }
 
@@ -66,7 +51,17 @@ public:
 
 	static std::unique_ptr<GLContext> Create(const WindowInfo& wi, Error* error);
 
+	template<size_t N>
+	static std::unique_ptr<GLContext> Create(const WindowInfo& wi, const std::array<Version, N>& versions_to_try, Error* error)
+	{
+		return Create(wi, std::span<const Version>(versions_to_try.data(), versions_to_try.size()), error);
+	}
+
+	static const std::array<Version, 16>& GetAllVersionsList();
+
 protected:
+	static std::unique_ptr<GLContext> Create(const WindowInfo& wi, std::span<const Version> versions_to_try, Error* error);
+
 	WindowInfo m_wi;
 	Version m_version = {};
 };

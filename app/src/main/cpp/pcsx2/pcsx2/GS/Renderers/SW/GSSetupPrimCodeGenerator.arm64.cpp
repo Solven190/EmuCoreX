@@ -20,8 +20,6 @@ static constexpr oak::XReg _locals{3};
 static constexpr oak::XReg _scratchaddr{7};
 static constexpr oak::QReg _vscratch{31};
 
-static constexpr const GSScanlineConstantData128B& g_const = g_const_128b;
-
 // Yay, you can't offsetof with non-constant array indices in GCC
 #define OFFSETOF(base, field) (reinterpret_cast<uptr>(&reinterpret_cast<base*>(0)->field))
 #define _local(field) OakMemOperand{_locals, static_cast<s64>(OFFSETOF(GSScanlineLocalData, field))}
@@ -73,10 +71,10 @@ void GSSetupPrimCodeGenerator::Generate()
 	const bool needs_shift = ((m_en.z || m_en.f) && m_sel.prim != GS_SPRITE_CLASS) || m_en.t || (m_en.c && m_sel.iip);
 	if (needs_shift)
 	{
-		oakAsm->MOVP2R(X4, g_const.m_shift);
+		oakAsm->MOVP2R(X4, g_const.m_shift_128b);
 		for (int i = 0; i < (m_sel.notest ? 2 : 5); i++)
 		{
-			gsLoad128(oak::QReg(3 + i), OakMemOperand{X4, static_cast<s64>(i * sizeof(g_const.m_shift[0]))});
+			gsLoad128(oak::QReg(3 + i), OakMemOperand{X4, static_cast<s64>(i * sizeof(g_const.m_shift_128b[0]))});
 		}
 	}
 

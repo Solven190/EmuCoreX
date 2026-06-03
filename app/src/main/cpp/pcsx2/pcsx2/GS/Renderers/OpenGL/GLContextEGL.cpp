@@ -435,13 +435,13 @@ void GLContextEGL::DestroySurface()
 
 bool GLContextEGL::CreateContext(const Version& version, EGLContext share_context)
 {
-	const bool gles = (version.profile == Version::Profile::ES);
-	DevCon.WriteLnFmt("Trying {}GL version {}.{}", gles ? "ES " : "", version.major_version, version.minor_version);
+	DevCon.WriteLnFmt("Trying GL version {}.{} ({})", version.major_version, version.minor_version,
+		(version.profile == GLContext::Profile::ES) ? "ES" :
+			((version.profile == GLContext::Profile::Core) ? "Core" : "None"));
 	const int surface_attribs[] = {
 		EGL_RENDERABLE_TYPE,
-		gles ?
-			((version.major_version >= 3) ? EGL_OPENGL_ES3_BIT :
-				((version.major_version == 2) ? EGL_OPENGL_ES2_BIT : EGL_OPENGL_ES_BIT)) :
+		(version.profile == Profile::ES) ?
+			((version.major_version >= 3) ? EGL_OPENGL_ES3_BIT : ((version.major_version == 2) ? EGL_OPENGL_ES2_BIT : EGL_OPENGL_ES_BIT)) :
 			EGL_OPENGL_BIT,
 		EGL_SURFACE_TYPE,
 		(m_wi.type != WindowInfo::Type::Surfaceless) ? EGL_WINDOW_BIT : 0,
@@ -479,21 +479,18 @@ bool GLContextEGL::CreateContext(const Version& version, EGLContext share_contex
 		config = configs.front();
 	}
 
-	int attribs[8];
-	int nattribs = 0;
-	if (version.profile != Version::Profile::NoProfile)
-	{
-		attribs[nattribs++] = EGL_CONTEXT_MAJOR_VERSION;
-		attribs[nattribs++] = version.major_version;
-		attribs[nattribs++] = EGL_CONTEXT_MINOR_VERSION;
-		attribs[nattribs++] = version.minor_version;
-	}
-	attribs[nattribs++] = EGL_NONE;
-	attribs[nattribs++] = 0;
+	const int attribs[] = {
+		EGL_CONTEXT_MAJOR_VERSION,
+		version.major_version,
+		EGL_CONTEXT_MINOR_VERSION,
+		version.minor_version,
+		EGL_NONE,
+		0};
 
-	if (!eglBindAPI(gles ? EGL_OPENGL_ES_API : EGL_OPENGL_API))
+	if (!eglBindAPI((version.profile == Profile::ES) ? EGL_OPENGL_ES_API : EGL_OPENGL_API))
 	{
-		Console.ErrorFmt("eglBindAPI() failed: 0x{:x}", eglGetError());
+		Console.ErrorFmt("eglBindAPI({}) failed: 0x{:x}",
+			(version.profile == Profile::ES) ? "EGL_OPENGL_ES_API" : "EGL_OPENGL_API", eglGetError());
 		return false;
 	}
 

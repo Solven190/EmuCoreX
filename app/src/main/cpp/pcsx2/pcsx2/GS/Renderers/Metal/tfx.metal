@@ -12,7 +12,6 @@ constant uint SHUFFLE_READ = 1;
 constant uint SHUFFLE_READWRITE = 3;
 
 constant bool HAS_FBFETCH           [[function_constant(GSMTLConstantIndex_FRAMEBUFFER_FETCH)]];
-constant bool DEPTH_FEEDBACK        [[function_constant(GSMTLConstantIndex_DEPTH_FEEDBACK)]];
 constant bool FST                   [[function_constant(GSMTLConstantIndex_FST)]];
 constant bool IIP                   [[function_constant(GSMTLConstantIndex_IIP)]];
 constant bool VS_POINT_SIZE         [[function_constant(GSMTLConstantIndex_VS_POINT_SIZE)]];
@@ -25,9 +24,8 @@ constant bool PS_AEM                [[function_constant(GSMTLConstantIndex_PS_AE
 constant bool PS_FBA                [[function_constant(GSMTLConstantIndex_PS_FBA)]];
 constant bool PS_FOG                [[function_constant(GSMTLConstantIndex_PS_FOG)]];
 constant uint PS_DATE               [[function_constant(GSMTLConstantIndex_PS_DATE)]];
-constant uint PS_ATST_RAW           [[function_constant(GSMTLConstantIndex_PS_ATST)]];
-constant uint PS_AFAIL_RAW          [[function_constant(GSMTLConstantIndex_PS_AFAIL)]];
-constant uint PS_ZTST_RAW           [[function_constant(GSMTLConstantIndex_PS_ZTST)]];
+constant uint PS_ATST               [[function_constant(GSMTLConstantIndex_PS_ATST)]];
+constant uint PS_AFAIL              [[function_constant(GSMTLConstantIndex_PS_AFAIL)]];
 constant uint PS_TFX                [[function_constant(GSMTLConstantIndex_PS_TFX)]];
 constant bool PS_TCC                [[function_constant(GSMTLConstantIndex_PS_TCC)]];
 constant uint PS_WMS                [[function_constant(GSMTLConstantIndex_PS_WMS)]];
@@ -72,20 +70,8 @@ constant bool PS_AUTOMATIC_LOD      [[function_constant(GSMTLConstantIndex_PS_AU
 constant bool PS_MANUAL_LOD         [[function_constant(GSMTLConstantIndex_PS_MANUAL_LOD)]];
 constant bool PS_REGION_RECT        [[function_constant(GSMTLConstantIndex_PS_REGION_RECT)]];
 constant uint PS_SCANMSK            [[function_constant(GSMTLConstantIndex_PS_SCANMSK)]];
-constant uint PS_AA1_RAW            [[function_constant(GSMTLConstantIndex_PS_AA1)]];
-constant bool PS_ABE                [[function_constant(GSMTLConstantIndex_PS_ABE)]];
-constant uint PS_SW_ANISO           [[function_constant(GSMTLConstantIndex_PS_SW_ANISO)]];
 
-using GSShader::VSExpand;
-using AFAIL = GSShader::PS_AFAIL;
-using ATST = GSShader::PS_ATST;
-using GSShader::ZTST;
-using AA1 = GSShader::PS_AA1;
-constant VSExpand VS_EXPAND_TYPE = static_cast<VSExpand>(VS_EXPAND_TYPE_RAW);
-constant AFAIL PS_AFAIL = static_cast<AFAIL>(PS_AFAIL_RAW);
-constant ATST  PS_ATST  = static_cast<ATST>(PS_ATST_RAW);
-constant ZTST  PS_ZTST  = static_cast<ZTST>(PS_ZTST_RAW);
-constant AA1   PS_AA1   = static_cast<AA1>(PS_AA1_RAW);
+constant GSMTLExpandType VS_EXPAND_TYPE = static_cast<GSMTLExpandType>(VS_EXPAND_TYPE_RAW);
 
 #if defined(__METAL_MACOS__) && __METAL_VERSION__ >= 220
 	#define PRIMID_SUPPORT 1
@@ -112,24 +98,12 @@ constant bool SW_BLEND = (PS_BLEND_A != PS_BLEND_B) || PS_BLEND_D;
 constant bool SW_AD_TO_HW = (PS_BLEND_C == 1 && PS_A_MASKED);
 constant bool NEEDS_RT_FOR_BLEND = (((PS_BLEND_A != PS_BLEND_B) && (PS_BLEND_A == 1 || PS_BLEND_B == 1 || PS_BLEND_C == 1)) || PS_BLEND_D == 1 || SW_AD_TO_HW);
 constant bool NEEDS_RT_EARLY = PS_TEX_IS_FB || PS_DATE >= 5;
-constant bool NEEDS_RT_FOR_AFAIL = PS_AFAIL == AFAIL::ZB_ONLY || PS_AFAIL == AFAIL::RGB_ONLY || PS_AFAIL == AFAIL::RGB_ONLY_SW_Z;
+constant bool NEEDS_RT_FOR_AFAIL = PS_AFAIL == 3 && PS_NO_COLOR1;
 constant bool NEEDS_RT = NEEDS_RT_FOR_AFAIL || NEEDS_RT_EARLY || (!PS_PRIM_CHECKING_INIT && (PS_FBMASK || NEEDS_RT_FOR_BLEND));
-constant bool NEEDS_DEPTH_FOR_AFAIL = PS_AFAIL == AFAIL::FB_ONLY || PS_AFAIL == AFAIL::RGB_ONLY_SW_Z;
-constant bool NEEDS_DEPTH_FOR_ZTST  = PS_ZTST == ZTST::GEQUAL || PS_ZTST == ZTST::GREATER;
-constant bool NEEDS_DEPTH_FOR_AA1   = PS_AA1 == AA1::TRIANGLE_SW_Z;
-constant bool SW_DEPTH = NEEDS_DEPTH_FOR_AFAIL || NEEDS_DEPTH_FOR_ZTST || NEEDS_DEPTH_FOR_AA1;
 
 constant bool PS_COLOR0 = !PS_NO_COLOR;
 constant bool PS_COLOR1 = !PS_NO_COLOR1;
-constant bool PS_ZOUTPUT = PS_ZCLAMP || PS_ZFLOOR || SW_DEPTH;
-constant bool PS_ZOUTPUT_LESS = PS_ZOUTPUT && !SW_DEPTH;
-constant bool PS_ZOUTPUT_ANY  = PS_ZOUTPUT && SW_DEPTH;
-constant bool PS_ZOUTPUT_COLOR = PS_ZOUTPUT_ANY && !DEPTH_FEEDBACK;
-constant bool VS_NEEDS_INDEX_BUFFER = VS_EXPAND_TYPE == VSExpand::TriangleAA1;
-constant bool VS_COVERAGE = VS_EXPAND_TYPE == VSExpand::LineAA1 || VS_EXPAND_TYPE == VSExpand::TriangleAA1;
-constant bool VS_INTERIOR = VS_EXPAND_TYPE == VSExpand::TriangleAA1;
-constant bool PS_COVERAGE = PS_AA1 != AA1::NONE;
-constant bool PS_INTERIOR = PS_AA1 == AA1::TRIANGLE_SW_Z;
+constant bool PS_ZOUTPUT = PS_ZCLAMP || PS_ZFLOOR;
 
 struct MainVSIn
 {
@@ -149,8 +123,6 @@ struct MainVSOut
 	float4 ti;
 	float4 c [[function_constant(IIP)]];
 	float4 fc [[flat, function_constant(NOT_IIP)]];
-	float inv_cov [[function_constant(VS_COVERAGE)]];
-	uint interior [[function_constant(VS_INTERIOR)]];
 	float point_size [[point_size, function_constant(VS_POINT_SIZE)]];
 };
 
@@ -161,26 +133,13 @@ struct MainPSIn
 	float4 ti;
 	float4 c [[function_constant(IIP)]];
 	float4 fc [[flat, function_constant(NOT_IIP)]];
-	float inv_cov [[function_constant(PS_COVERAGE)]];
-	uint interior [[function_constant(PS_INTERIOR)]];
 };
 
 struct MainPSOut
 {
 	float4 c0 [[color(0), index(0), function_constant(PS_COLOR0)]];
 	float4 c1 [[color(0), index(1), function_constant(PS_COLOR1)]];
-	float depthColor [[color(1), function_constant(PS_ZOUTPUT_COLOR)]];
-	float depthLess [[depth(less), function_constant(PS_ZOUTPUT_LESS)]];
-	float depthAny  [[depth(any),  function_constant(PS_ZOUTPUT_ANY)]];
-	void setDepth(float depth)
-	{
-		if (PS_ZOUTPUT_LESS)
-			depthLess = depth;
-		if (PS_ZOUTPUT_ANY)
-			depthAny = depth;
-		if (PS_ZOUTPUT_COLOR)
-			depthColor = depth;
-	}
+	float depth [[depth(less), function_constant(PS_ZOUTPUT)]];
 };
 
 // MARK: - Vertex functions
@@ -256,14 +215,13 @@ static MainVSIn load_vertex(GSMTLMainVertex base)
 vertex MainVSOut vs_main_expand(
 	uint vid [[vertex_id]],
 	device const GSMTLMainVertex* vertices [[buffer(GSMTLBufferIndexHWVertices)]],
-	constant GSMTLMainVSUniform& cb [[buffer(GSMTLBufferIndexHWUniforms)]],
-	device const ushort* indices [[buffer(GSMTLBufferIndexHWIndices), function_constant(VS_NEEDS_INDEX_BUFFER)]])
+	constant GSMTLMainVSUniform& cb [[buffer(GSMTLBufferIndexHWUniforms)]])
 {
 	switch (VS_EXPAND_TYPE)
 	{
-		case VSExpand::None:
+		case GSMTLExpandType::None:
 			return vs_main_run(load_vertex(vertices[vid]), cb);
-		case VSExpand::Point:
+		case GSMTLExpandType::Point:
 		{
 			MainVSOut point = vs_main_run(load_vertex(vertices[vid >> 2]), cb);
 			if (vid & 1)
@@ -272,8 +230,7 @@ vertex MainVSOut vs_main_expand(
 				point.p.y += cb.point_size.y;
 			return point;
 		}
-		case VSExpand::Line:
-		case VSExpand::LineAA1:
+		case GSMTLExpandType::Line:
 		{
 			uint vid_base = vid >> 2;
 			bool is_bottom = vid & 2;
@@ -282,26 +239,12 @@ vertex MainVSOut vs_main_expand(
 			MainVSOut point = vs_main_run(load_vertex(vertices[vid_base]), cb);
 			MainVSOut other = vs_main_run(load_vertex(vertices[vid_other]), cb);
 
-			// Use bottom minus top for delta regardless of which vertex we are expanding.
-			float2 line_delta = is_bottom ? point.p.xy - other.p.xy : other.p.xy - point.p.xy;
-			float2 line_expand;
-			if (VS_EXPAND_TYPE == VSExpand::Line)
-			{
-				float2 line_vector = normalize(line_delta);
-				line_expand = float2(line_vector.y, -line_vector.x);
-			}
-			else
-			{
-				// Expand in y direction for shallow lines and x direction for steep lines.
-				line_delta /= cb.vertex_scale;
-				line_expand = abs(line_delta.x) >= abs(line_delta.y) ? float2(0, 2) : float2(2, 0);
-			}
-			float2 line_width = (line_expand * cb.point_size) / 2;
-			float2 offset = is_right ? line_width : -line_width;
+			float2 line_vector = normalize(point.p.xy - other.p.xy);
+			float2 line_normal = float2(line_vector.y, -line_vector.x);
+			float2 line_width = (line_normal * cb.point_size) / 2;
+			// line_normal is inverted for bottom point
+			float2 offset = (is_bottom ^ is_right) ? line_width : -line_width;
 			point.p.xy += offset;
-
-			if (VS_EXPAND_TYPE == VSExpand::LineAA1)
-				point.inv_cov = is_right ? 1.f : -1.f;
 
 			// Lines will be run as (0 1 2) (1 2 3)
 			// This means that both triangles will have a point based off the top line point as their first point
@@ -309,7 +252,7 @@ vertex MainVSOut vs_main_expand(
 
 			return point;
 		}
-		case VSExpand::Sprite:
+		case GSMTLExpandType::Sprite:
 		{
 			uint vid_base = vid >> 1;
 			bool is_bottom = vid & 2;
@@ -338,68 +281,6 @@ vertex MainVSOut vs_main_expand(
 
 			return out;
 		}
-		case VSExpand::TriangleAA1:
-		{
-			// Triangles with AA1 are expanded as follows:
-			// - Vertices 0-2: Interior of triangle (1 triangle).
-			// - Vertices 3-8: First edge expanded (2 triangles).
-			// - Vertices 9-14: Second edge expanded (2 triangles).
-			// - Vertices 15-20: Third edge expanded (2 triangles).
-
-			uint prim_id = vid / 21;
-			uint prim_offset = vid - 21 * prim_id; // range: 0-20
-			bool interior = prim_offset < 3;
-			uint i0 = interior ? prim_offset : (prim_offset - 3) / 6;
-			uint i1 = (i0 >= 2) ? i0 - 2 : i0 + 1;
-			uint i2 = (i0 >= 1) ? i0 - 1 : i0 + 2;
-			MainVSOut out      = vs_main_run(load_vertex(vertices[indices[3 * prim_id + i0]]), cb);
-			MainVSOut other    = vs_main_run(load_vertex(vertices[indices[3 * prim_id + i1]]), cb);
-			MainVSOut opposite = vs_main_run(load_vertex(vertices[indices[3 * prim_id + i2]]), cb);
-			if (interior)
-			{
-				out.inv_cov = 0.f;
-				out.interior = 1;
-			}
-			else
-			{
-				// Vertex indices for this edge. We need all 3 for determining exterior/interior.
-				uint prim_offset_edges = prim_offset - 3; // range: 0-17
-				uint edge_offset = prim_offset_edges - 6 * i0; // range: 0-5
-
-				// Note: order of top/bottom, inside/outside order is arbitrary,
-				// as long as it assembles into two triangles forming a quad.
-				bool is_bottom = (2 <= edge_offset) && (edge_offset <= 4);
-				bool is_outside = (edge_offset & 1) != 0;
-
-				// Similar expansion to line AA1 except instead of expanding on both sides of
-				// the line we expand on on the side towards the outside of the triangle.
-				float2 line_delta = out.p.xy - other.p.xy;
-				float2 line_normal = normalize(float2(line_delta.y, -line_delta.x));
-				float2 line_expand = abs(line_delta.x) >= abs(line_delta.y) ? float2(0, 2) : float2(2, 0);
-				if ((dot(line_expand, line_normal) >= 0.0f) == (dot(opposite.p.xy - out.p.xy, line_normal) >= 0.0f))
-				{
-					// Expand direction point towards the interior so flip it.
-					line_expand = -line_expand;
-				}
-				float2 line_width = (line_expand * cb.point_size) / 2;
-
-				if (is_bottom)
-					out = other;
-				if (is_outside)
-				{
-					out.p.xy += line_width;
-					out.inv_cov = 1.0f; // No coverage
-				}
-				else
-				{
-					out.inv_cov = 0.0f; // Full coverage
-				}
-
-				out.interior = 0;
-			}
-
-			return out;
-		}
 	}
 }
 
@@ -413,7 +294,6 @@ struct PSMain
 	texture2d<float> prim_id_tex;
 	sampler tex_sampler;
 	float4 current_color;
-	float current_depth;
 	uint prim_id;
 	const thread MainPSIn& in;
 	constant GSMTLMainPSUniform& cb;
@@ -435,150 +315,6 @@ struct PSMain
 			return float4(tex_depth.read(pos, lod));
 		else
 			return tex.read(pos, lod);
-	}
-
-	uint2 get_tex_dims()
-	{
-		if (PS_TEX_IS_DEPTH)
-			return uint2(tex_depth.get_width(), tex_depth.get_height());
-		else
-			return uint2(tex.get_width(), tex.get_height());
-	}
-
-	float manual_lod(float uv_w)
-	{
-		// FIXME add LOD: K - ( LOG2(Q) * (1 << L))
-		float K = cb.lod_params.x;
-		float L = cb.lod_params.y;
-		float bias = cb.lod_params.z;
-		float max_lod = cb.lod_params.w;
-
-		float gs_lod = K - log2(abs(uv_w)) * L;
-		// FIXME max useful ?
-		//return max(min(gs_lod, max_lod) - bias, 0.0f);
-		return min(gs_lod, max_lod) - bias;
-	}
-
-	float4 sample_c_af(float2 uv, float uv_w)
-	{
-		// HW sampler will reject bad UVs, match that here.
-		uv = any(isnan(uv) | isinf(uv)) ? float2(0, 0) : uv;
-
-		// Below taken from https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#7.18.11%20LOD%20Calculations
-		// With guidance from https://pema.dev/2025/05/09/mipmaps-too-much-detail/
-		float2 sz = float2(get_tex_dims());
-		float2 dX = dfdx(uv) * sz;
-		float2 dY = dfdy(uv) * sz;
-
-		// Calculate Ellipse Transform
-		bool d_zero = length(dX) == 0 || length(dY) == 0;
-		bool d_par = (dX.x * dY.y - dY.x * dX.y) == 0;
-		bool d_per = dot(dX, dY) == 0;
-		bool d_inf_nan = any(isinf(dX) | isinf(dY) | isnan(dX) | isnan(dY));
-
-		if (!(d_zero || d_par || d_per || d_inf_nan))
-		{
-			float A = dX.y * dX.y + dY.y * dY.y;
-			float B = -2 * (dX.x * dX.y + dY.x * dY.y);
-			float C = dX.x * dX.x + dY.x * dY.x;
-			float f = (dX.x * dY.y - dY.x * dX.y);
-			float F = f * f;
-
-			float p = A - C;
-			float q = A + C;
-			float t = sqrt(p * p + B * B);
-
-			float2 new_dX = float2(
-				sqrt(F * (t + p) / (t * (q + t))),
-				sqrt(F * (t - p) / (t * (q + t))) * sign(B)
-			);
-
-			float2 new_dY = float2(
-				sqrt(F * (t - p) / (t * (q - t))) * -sign(B),
-				sqrt(F * (t + p) / (t * (q - t)))
-			);
-
-			d_inf_nan = any(isinf(new_dX) | isinf(new_dY) | isnan(new_dX) | isnan(new_dY));
-			if (!d_inf_nan)
-			{
-				dX = new_dX;
-				dY = new_dY;
-			}
-		}
-
-		// Compute AF values
-		float squared_length_x = dX.x * dX.x + dX.y * dX.y;
-		float squared_length_y = dY.x * dY.x + dY.y * dY.y;
-		float determinant = abs(dX.x * dY.y - dX.y * dY.x);
-		bool is_major_x = squared_length_x > squared_length_y;
-		float squared_length_major = is_major_x ? squared_length_x : squared_length_y;
-		float length_major = sqrt(squared_length_major);
-
-		float aniso_ratio;
-		float length_lod;
-		float2 aniso_line;
-		if (length_major <= 1.0f)
-		{
-			// A zero length_major would result in NaN Lod and break sampling.
-			// A small length_major would result in aniso_ratio getting clamped to 1.
-			// Perform isotropic filtering instead.
-			aniso_ratio = 1.0f;
-			length_lod = length_major;
-			aniso_line = float2(0, 0);
-		}
-		else
-		{
-			float norm_major = 1.0f / length_major;
-
-			float2 aniso_line_dir = float2(
-				(is_major_x ? dX.x : dY.x) * norm_major,
-				(is_major_x ? dX.y : dY.y) * norm_major
-			);
-
-			aniso_ratio = squared_length_major / determinant;
-
-			// Calculate the minor length of the ellipse for Lod, while also clamping the ratio of anisotropy.
-			if (aniso_ratio > PS_SW_ANISO)
-			{
-				// ratio is clamped - Lod is based on ratio (preserves area)
-				aniso_ratio = PS_SW_ANISO;
-				length_lod = length_major / PS_SW_ANISO;
-			}
-			else
-			{
-				// ratio not clamped - Lod is based on area
-				length_lod = determinant / length_major;
-			}
-
-			// clamp to top Lod
-			if (length_lod < 1.0f)
-				aniso_ratio = max(1.0f, aniso_ratio * length_lod);
-
-			aniso_ratio = round(aniso_ratio);
-			aniso_line = aniso_line_dir * 0.5f * length_major * (1.0f / sz);
-		}
-
-		float lod = PS_AUTOMATIC_LOD ? log2(length_lod) : PS_MANUAL_LOD ? manual_lod(uv_w) : 0;
-
-		float4 colour;
-		if (aniso_ratio == 1.0f)
-		{
-			colour = sample_tex(tex_sampler, uv, level(lod));
-		}
-		else
-		{
-			float4 num = float4(0, 0, 0, 0);
-			for (int i = 0; i < aniso_ratio; i++)
-			{
-				float2 d = -aniso_line + (0.5f + i) * (2.0f * aniso_line) / aniso_ratio;
-				float2 uv_sample = uv + d;
-				float4 sample_colour = sample_tex(tex_sampler, uv_sample, level(lod));
-				num += sample_colour;
-			}
-
-			colour = num / aniso_ratio;
-		}
-		return colour;
 	}
 
 	float4 sample_c(float2 uv)
@@ -604,14 +340,28 @@ struct PSMain
 				uv.y = uv.y * cb.st_scale.y;
 		}
 
-		if (PS_SW_ANISO > 1)
-			return sample_c_af(uv, in.t.w);
-		else if (PS_AUTOMATIC_LOD)
+		if (PS_AUTOMATIC_LOD)
+		{
 			return sample_tex(tex_sampler, uv);
+		}
 		else if (PS_MANUAL_LOD)
-			return sample_tex(tex_sampler, uv, level(manual_lod(in.t.w)));
+		{
+			float K = cb.lod_params.x;
+			float L = cb.lod_params.y;
+			float bias = cb.lod_params.z;
+			float max_lod = cb.lod_params.w;
+
+			float gs_lod = K - log2(abs(in.t.w)) * L;
+			// FIXME max useful ?
+			//float lod = max(min(gs_lod, max_lod) - bias, 0.f);
+			float lod = min(gs_lod, max_lod) - bias;
+
+			return sample_tex(tex_sampler, uv, level(lod));
+		}
 		else
+		{
 			return sample_tex(tex_sampler, uv, level(0));
+		}
 	}
 
 	float4 sample_p(uint idx)
@@ -1015,21 +765,21 @@ struct PSMain
 		float a = C.a;
 		switch (PS_ATST)
 		{
-			case ATST::NONE:
+			case 0:
 				break; // Nothing to do
-			case ATST::LEQUAL:
+			case 1:
 				if (a > cb.aref)
 					return false;
 				break;
-			case ATST::GEQUAL:
+			case 2:
 				if (a < cb.aref)
 					return false;
 				break;
-			case ATST::EQUAL:
+			case 3:
 				if (abs(a - cb.aref) > 0.5f)
 					return false;
 				break;
-			case ATST::NOTEQUAL:
+			case 4:
 				if (abs(a - cb.aref) < 0.5f)
 					return false;
 				break;
@@ -1306,17 +1056,6 @@ struct PSMain
 	MainPSOut ps_main()
 	{
 		MainPSOut out = {};
-		float input_z = in.p.z;
-		if (PS_ZFLOOR)
-			input_z = floor(input_z * 0x1p32) * 0x1p-32;
-
-		if (PS_ZTST == ZTST::GEQUAL || PS_ZTST == ZTST::GREATER)
-		{
-			if (PS_ZTST == ZTST::GEQUAL && input_z < current_depth)
-				discard_fragment();
-			if (PS_ZTST == ZTST::GREATER && input_z <= current_depth)
-				discard_fragment();
-		}
 
 		if (PS_SCANMSK & 2)
 		{
@@ -1344,24 +1083,17 @@ struct PSMain
 		}
 
 		float4 C = ps_color();
+		bool atst_pass = atst(C);
+		if (PS_AFAIL == 0 && !atst_pass)
+			discard_fragment();
 
 		// Must be done before alpha correction
 
-		if (PS_AA1 != AA1::NONE)
+		// AA (Fixed one) will output a coverage of 1.0 as alpha
+		if (PS_FIXED_ONE_A)
 		{
-			float cov = saturate(1.f - abs(in.inv_cov));
-			if (!PS_ABE || floor(C.a) == 128.f) // The coverage is only used if the fragment alpha is 128.
-				C.a = 128.f * cov;
-		}
-		else if (PS_FIXED_ONE_A)
-		{
-			// AA (Fixed one) will output a coverage of 1.0 as alpha
 			C.a = 128.0f;
 		}
-
-		bool atst_pass = atst(C);
-		if (PS_AFAIL == AFAIL::KEEP && !atst_pass)
-			discard_fragment();
 
 		float4 alpha_blend = float4(0.f);
 		if (SW_AD_TO_HW)
@@ -1434,7 +1166,10 @@ struct PSMain
 				uint2 denorm_TA = uint2(cb.ta * 255.5f);
 				
 				C.rb = (denorm_c.r >> 3) | (((denorm_c.g >> 3) & 0x7) << 5);
-				C.ga = (denorm_c.g >> 6) | ((denorm_c.b >> 3) << 2) | (denorm_TA.x & 0x80);
+				if (denorm_c.a & 0x80)
+					C.ga = (denorm_c.g >> 6) | ((denorm_c.b >> 3) << 2) | (denorm_TA.y & 0x80);
+				else
+					C.ga = (denorm_c.g >> 6) | ((denorm_c.b >> 3) << 2) | (denorm_TA.x & 0x80);
 			}
 			else if (PS_SHUFFLE_ACROSS)
 			{
@@ -1464,35 +1199,25 @@ struct PSMain
 		ps_fbmask(C);
 
 		// Use alpha blend factor to determine whether to update A.
-		if (PS_AFAIL == AFAIL::RGB_ONLY_DSB)
+		if (PS_AFAIL == 3) // RGB_ONLY
 			alpha_blend.a = float(atst_pass);
 
 		if (PS_COLOR0)
 		{
 			out.c0.a = PS_RTA_CORRECTION ? C.a / 128.f : C.a / 255.f;
 			out.c0.rgb = PS_COLCLIP_HW ? float3(C.rgb / 65535.f) : C.rgb / 255.f;
+			if (PS_AFAIL == 3 && !PS_COLOR1 && !atst_pass) // Doing RGB_ONLY without COLOR1
+				out.c0.a = current_color.a;
 		}
 		if (PS_COLOR1)
 			out.c1 = alpha_blend;
-
+		
+		float depth_value = PS_ZFLOOR ? (floor(in.p.z * exp2(32.0f)) * exp2(-32.0f)) : in.p.z;
+		
 		if (PS_ZCLAMP)
-			input_z = min(input_z, cb.max_depth);
-
-		if (PS_AA1 == AA1::TRIANGLE_SW_Z && !in.interior)
-			input_z = current_depth; // No depth update for triangle edges.
-
-		if (!atst_pass)
-		{
-			if (PS_AFAIL == AFAIL::RGB_ONLY_SW_Z || PS_AFAIL == AFAIL::RGB_ONLY)
-				out.c0.a = current_color.a;
-			else if (PS_AFAIL == AFAIL::ZB_ONLY)
-				out.c0 = current_color;
-
-			if (PS_AFAIL == AFAIL::RGB_ONLY_SW_Z || PS_AFAIL == AFAIL::FB_ONLY)
-				input_z = current_depth;
-		}
-
-		out.setDepth(input_z);
+			out.depth = min(depth_value, cb.max_depth);
+		else if (PS_ZFLOOR)
+			out.depth = depth_value;
 
 		return out;
 	}
@@ -1506,14 +1231,9 @@ fragment float4 fbfetch_test(float4 in [[color(0), raster_order_group(0)]])
 
 constant bool NEEDS_RT_TEX = NEEDS_RT && !HAS_FBFETCH;
 constant bool NEEDS_RT_FBF = NEEDS_RT &&  HAS_FBFETCH;
-constant bool NEEDS_DS_FBF = SW_DEPTH &&  HAS_FBFETCH && !DEPTH_FEEDBACK;
 #else
 constant bool NEEDS_RT_TEX = NEEDS_RT;
-constant bool NEEDS_DS_FBF = false;
-constant float ds_fbf = 0;
 #endif
-constant bool NEEDS_DS_TEX   = SW_DEPTH && !DEPTH_FEEDBACK && !NEEDS_DS_FBF;
-constant bool NEEDS_DS_DEPTH = SW_DEPTH && DEPTH_FEEDBACK || NEEDS_DS_FBF;
 
 fragment MainPSOut ps_main(
 	MainPSIn in [[stage_in]],
@@ -1524,15 +1244,12 @@ fragment MainPSOut ps_main(
 #endif
 #if FBFETCH_SUPPORT
 	float4 rt_fbf [[color(0), raster_order_group(0), function_constant(NEEDS_RT_FBF)]],
-	float  ds_fbf [[color(1), raster_order_group(1), function_constant(NEEDS_DS_FBF)]],
 #endif
 	texture2d<float> tex       [[texture(GSMTLTextureIndexTex),          function_constant(PS_TEX_IS_COLOR)]],
 	depth2d<float>   depth     [[texture(GSMTLTextureIndexTex),          function_constant(PS_TEX_IS_DEPTH)]],
 	texture2d<float> palette   [[texture(GSMTLTextureIndexPalette),      function_constant(PS_HAS_PALETTE)]],
 	texture2d<float> rt        [[texture(GSMTLTextureIndexRenderTarget), function_constant(NEEDS_RT_TEX)]],
-	texture2d<float> primidtex [[texture(GSMTLTextureIndexPrimIDs),      function_constant(PS_PRIM_CHECKING_READ)]],
-	texture2d<float> ds_tex    [[texture(GSMTLTextureIndexDepthTarget),  function_constant(NEEDS_DS_TEX)]],
-	depth2d<float>   ds_depth  [[texture(GSMTLTextureIndexDepthTarget),  function_constant(NEEDS_DS_DEPTH)]])
+	texture2d<float> primidtex [[texture(GSMTLTextureIndexPrimIDs),      function_constant(PS_PRIM_CHECKING_READ)]])
 {
 	PSMain main(in, cb);
 	main.tex_sampler = s;
@@ -1549,24 +1266,12 @@ fragment MainPSOut ps_main(
 		main.prim_id = primid;
 #endif
 
-	uint2 coord = uint2(in.p.xy);
-
-	if (SW_DEPTH)
-	{
-		if (DEPTH_FEEDBACK)
-			main.current_depth = ds_depth.read(coord);
-		else if (NEEDS_DS_FBF)
-			main.current_depth = ds_fbf < 0 ? ds_depth.read(coord) : ds_fbf;
-		else
-			main.current_depth = ds_tex.read(coord).x;
-	}
-
 	if (NEEDS_RT)
 	{
 #if FBFETCH_SUPPORT
-		main.current_color = HAS_FBFETCH ? rt_fbf : rt.read(coord);
+		main.current_color = HAS_FBFETCH ? rt_fbf : rt.read(uint2(in.p.xy));
 #else
-		main.current_color = rt.read(coord);
+		main.current_color = rt.read(uint2(in.p.xy));
 #endif
 	}
 	else

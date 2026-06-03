@@ -10,6 +10,7 @@
 #include "pcsx2/ImGui/ImGuiFullscreen.h"
 #include "pcsx2/ImGui/ImGuiManager.h"
 #include "pcsx2/Input/InputManager.h"
+#include "pcsx2/MTGS.h"
 #include "pcsx2/PerformanceMetrics.h"
 #include "pcsx2/VMManager.h"
 
@@ -261,25 +262,17 @@ std::optional<WindowInfo> Host::AcquireRenderWindow(bool)
 	void* window = nullptr;
 	int width = 0;
 	int height = 0;
-	if (!emucorex::android::AndroidRuntime::Instance().GetNativeSurface(&window, &width, &height))
-	{
-		__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "AcquireRenderWindow failed: no native surface");
-		return std::nullopt;
-	}
-	if (!window || width <= 0 || height <= 0)
-	{
-		__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "AcquireRenderWindow failed: window=%p size=%dx%d", window, width, height);
-		return std::nullopt;
-	}
+	const bool has_surface = emucorex::android::AndroidRuntime::Instance().GetNativeSurface(&window, &width, &height);
 
 	WindowInfo info;
-	info.type = WindowInfo::Type::Android;
+	info.type = (has_surface && window) ? WindowInfo::Type::Android : WindowInfo::Type::Surfaceless;
 	info.window_handle = window;
-	info.surface_width = static_cast<u32>(width);
-	info.surface_height = static_cast<u32>(height);
-	info.surface_scale = static_cast<float>(std::max(width, height)) / 800.0f;
+	info.surface_width = static_cast<u32>(std::max(width, 0));
+	info.surface_height = static_cast<u32>(std::max(height, 0));
+	info.surface_scale = (width > 0 && height > 0) ? (static_cast<float>(std::max(width, height)) / 800.0f) : 1.0f;
 	info.surface_refresh_rate = 60.0f;
-	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "AcquireRenderWindow: window=%p size=%dx%d", window, width, height);
+	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "AcquireRenderWindow: type=%s window=%p size=%dx%d",
+		info.type == WindowInfo::Type::Android ? "Android" : "Surfaceless", window, width, height);
 	return info;
 }
 
@@ -459,7 +452,12 @@ void Host::RunOnCPUThread(std::function<void()> function, bool block)
 
 void Host::RunOnGSThread(std::function<void()> function)
 {
-	function();
+	if (!function)
+		return;
+
+	Host::RunOnCPUThread([fn = std::move(function)]() mutable {
+		MTGS::RunOnGSThread(std::move(fn));
+	}, false);
 }
 
 void Host::RefreshGameListAsync(bool)

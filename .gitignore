@@ -79,3 +79,6 @@ profiling-runs/
 app/src/main/cpp/PCSX2/**/docs/
 app/src/main/cpp/PCSX2/**/Docs/
 app/src/main/cpp/PCSX2/bin/docs/
+
+# Temporary / backup directories
+CoreVixlOLD/

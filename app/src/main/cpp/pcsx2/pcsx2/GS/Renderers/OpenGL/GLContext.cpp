@@ -6,14 +6,14 @@
 #if defined(_WIN32)
 #include "GS/Renderers/OpenGL/GLContextWGL.h"
 #else // Linux
+#if defined(__ANDROID__)
+#include "GS/Renderers/OpenGL/GLContextEGLAndroid.h"
+#endif
 #ifdef X11_API
 #include "GS/Renderers/OpenGL/GLContextEGLX11.h"
 #endif
 #ifdef WAYLAND_API
 #include "GS/Renderers/OpenGL/GLContextEGLWayland.h"
-#endif
-#if defined(__ANDROID__)
-#include "GS/Renderers/OpenGL/GLContextEGLAndroid.h"
 #endif
 #endif
 
@@ -22,10 +22,8 @@
 
 #include "glad/gl.h"
 
-#include <array>
 #include <cstdlib>
 #include <cstring>
-#include <span>
 
 static bool ShouldPreferESContext()
 {
@@ -42,8 +40,9 @@ static bool ShouldPreferESContext()
 
 static void DisableBrokenExtensions(const char* gl_vendor, const char* gl_renderer)
 {
-	if (std::strstr(gl_vendor, "ARM"))
+	if (std::strstr(gl_vendor, "ARM") || std::strstr(gl_renderer, "Mali"))
 	{
+		// GL_{EXT,OES}_copy_image appears to fall back to CPU paths on Mali.
 		Console.Warning("Mali driver detected, disabling GL_{EXT,OES}_copy_image");
 		GLAD_GL_EXT_copy_image = 0;
 		GLAD_GL_OES_copy_image = 0;
@@ -59,41 +58,27 @@ GLContext::~GLContext() = default;
 
 std::unique_ptr<GLContext> GLContext::Create(const WindowInfo& wi, Error* error)
 {
-	static constexpr Version vlist[] = {
-		{Version::Profile::Core, 4, 6},
-		{Version::Profile::Core, 4, 5},
-		{Version::Profile::Core, 4, 4},
-		{Version::Profile::Core, 4, 3},
-		{Version::Profile::Core, 4, 2},
-		{Version::Profile::Core, 4, 1},
-		{Version::Profile::Core, 4, 0},
-		{Version::Profile::Core, 3, 3},
-		{Version::Profile::Core, 3, 2},
-		{Version::Profile::Core, 3, 1},
-		{Version::Profile::Core, 3, 0},
-		{Version::Profile::ES, 3, 2},
-		{Version::Profile::ES, 3, 1},
-		{Version::Profile::ES, 3, 0},
-		{Version::Profile::ES, 2, 0},
-		{Version::Profile::NoProfile, 0, 0},
-	};
+	return Create(wi, std::span<const Version>(GetAllVersionsList().data(), GetAllVersionsList().size()), error);
+}
 
-	std::array<Version, std::size(vlist)> es_first_vlist;
-	std::span<const Version> versions_to_try(vlist);
-	if (ShouldPreferESContext())
+std::unique_ptr<GLContext> GLContext::Create(const WindowInfo& wi, std::span<const Version> versions_to_try, Error* error)
+{
+	std::array<Version, 16> reordered_versions = {};
+	if (wi.type == WindowInfo::Type::Android || ShouldPreferESContext())
 	{
 		size_t count = 0;
-		for (const Version& version : vlist)
+		for (const Version& version : versions_to_try)
 		{
-			if (version.profile == Version::Profile::ES)
-				es_first_vlist[count++] = version;
+			if (version.profile == Profile::ES)
+				reordered_versions[count++] = version;
 		}
-		for (const Version& version : vlist)
+		for (const Version& version : versions_to_try)
 		{
-			if (version.profile != Version::Profile::ES)
-				es_first_vlist[count++] = version;
+			if (version.profile != Profile::ES)
+				reordered_versions[count++] = version;
 		}
-		versions_to_try = es_first_vlist;
+
+		versions_to_try = std::span<const Version>(reordered_versions.data(), versions_to_try.size());
 	}
 
 	std::unique_ptr<GLContext> context;
@@ -104,14 +89,13 @@ std::unique_ptr<GLContext> GLContext::Create(const WindowInfo& wi, Error* error)
 	if (wi.type == WindowInfo::Type::Android)
 		context = GLContextEGLAndroid::Create(wi, versions_to_try, error);
 #endif
-
 #if defined(X11_API)
-	if (wi.type == WindowInfo::Type::X11)
+	if (!context && wi.type == WindowInfo::Type::X11)
 		context = GLContextEGLX11::Create(wi, versions_to_try, error);
 #endif
 
 #if defined(WAYLAND_API)
-	if (wi.type == WindowInfo::Type::Wayland)
+	if (!context && wi.type == WindowInfo::Type::Wayland)
 		context = GLContextEGLWayland::Create(wi, versions_to_try, error);
 #endif
 #endif
@@ -123,20 +107,51 @@ std::unique_ptr<GLContext> GLContext::Create(const WindowInfo& wi, Error* error)
 	static GLContext* context_being_created;
 	context_being_created = context.get();
 
-	const auto loader = [](const char* name) {
-		return reinterpret_cast<GLADapiproc>(context_being_created->GetProcAddress(name));
-	};
-	const int glad_version = context->IsGLES() ? gladLoadGLES2(loader) : gladLoadGL(loader);
-	if (!glad_version)
+	const auto load_proc = [](const char* name) { return reinterpret_cast<GLADapiproc>(context_being_created->GetProcAddress(name)); };
+	if (!context->IsGLES())
 	{
-		Error::SetStringView(error, "Failed to load GL functions for GLAD");
-		return nullptr;
+		if (!gladLoadGL(load_proc))
+		{
+			Error::SetStringView(error, "Failed to load GL functions for GLAD");
+			return nullptr;
+		}
+	}
+	else
+	{
+		if (!gladLoadGLES2(load_proc))
+		{
+			Error::SetStringView(error, "Failed to load GLES functions for GLAD");
+			return nullptr;
+		}
 	}
 
 	context_being_created = nullptr;
 
-	DisableBrokenExtensions(reinterpret_cast<const char*>(glGetString(GL_VENDOR)),
-		reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
+	const char* gl_vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+	const char* gl_renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+	if (gl_vendor && gl_renderer)
+		DisableBrokenExtensions(gl_vendor, gl_renderer);
 
 	return context;
+}
+
+const std::array<GLContext::Version, 16>& GLContext::GetAllVersionsList()
+{
+	static constexpr std::array<Version, 16> vlist = {{{Profile::Core, 4, 6},
+		{Profile::Core, 4, 5},
+		{Profile::Core, 4, 4},
+		{Profile::Core, 4, 3},
+		{Profile::Core, 4, 2},
+		{Profile::Core, 4, 1},
+		{Profile::Core, 4, 0},
+		{Profile::Core, 3, 3},
+		{Profile::Core, 3, 2},
+		{Profile::Core, 3, 1},
+		{Profile::Core, 3, 0},
+		{Profile::ES, 3, 2},
+		{Profile::ES, 3, 1},
+		{Profile::ES, 3, 0},
+		{Profile::ES, 2, 0},
+		{Profile::NoProfile, 0, 0}}};
+	return vlist;
 }

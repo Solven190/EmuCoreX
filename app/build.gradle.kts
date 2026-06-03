@@ -43,7 +43,7 @@ android {
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
-                "src/main/cpp/ARM_ANDROID/third_party/SDL/android-project/app/proguard-rules.pro"
+                "src/main/cpp/PCSX2/3rdparty/SDL3/android-project/app/proguard-rules.pro"
             )
         }
     }
@@ -63,66 +63,13 @@ android {
     sourceSets {
         getByName("main") {
             assets.srcDir("src/main/cpp/PCSX2/bin")
-            java.srcDir("src/main/cpp/ARM_ANDROID/third_party/SDL/android-project/app/src/main/java")
+            java.srcDir("src/main/cpp/PCSX2/3rdparty/SDL3/android-project/app/src/main/java")
         }
     }
     packaging {
         jniLibs {
             useLegacyPackaging = true
         }
-    }
-}
-
-val shadercBuildTask = tasks.register<Exec>("buildShadercArm64") {
-    val sdkRoot = file(
-        System.getenv("ANDROID_HOME")
-            ?: System.getenv("ANDROID_SDK_ROOT")
-            ?: "${System.getProperty("user.home")}/AppData/Local/Android/Sdk"
-    )
-    val ndkRoot = sdkRoot.resolve("ndk/${android.ndkVersion}")
-    val shadercRoot = ndkRoot.resolve("sources/third_party/shaderc")
-    val outDir = layout.buildDirectory.dir("shaderc/out")
-    val libsDir = layout.buildDirectory.dir("shaderc/libs")
-
-    inputs.dir(shadercRoot)
-    outputs.files(
-        outDir.map { it.file("local/arm64-v8a/libglslang.a") },
-        outDir.map { it.file("local/arm64-v8a/libOGLCompiler.a") },
-        outDir.map { it.file("local/arm64-v8a/libOSDependent.a") },
-        outDir.map { it.file("local/arm64-v8a/libshaderc.a") },
-        outDir.map { it.file("local/arm64-v8a/libshaderc_util.a") },
-        outDir.map { it.file("local/arm64-v8a/libSPIRV.a") },
-        outDir.map { it.file("local/arm64-v8a/libHLSL.a") },
-        outDir.map { it.file("local/arm64-v8a/libSPIRV-Tools.a") },
-        outDir.map { it.file("local/arm64-v8a/libSPIRV-Tools-opt.a") }
-    )
-
-    commandLine(
-        ndkRoot.resolve("ndk-build.cmd").absolutePath,
-        "NDK_PROJECT_PATH=${shadercRoot.absolutePath}",
-        "APP_BUILD_SCRIPT=${shadercRoot.resolve("Android.mk").absolutePath}",
-        "APP_ABI=arm64-v8a",
-        "APP_PLATFORM=android-29",
-        "APP_STL=c++_static",
-        "NDK_OUT=${outDir.get().asFile.absolutePath}",
-        "NDK_LIBS_OUT=${libsDir.get().asFile.absolutePath}",
-        "glslang",
-        "OGLCompiler",
-        "OSDependent",
-        "shaderc",
-        "shaderc_util",
-        "SPIRV",
-        "HLSL",
-        "SPIRV-Tools",
-        "SPIRV-Tools-opt"
-    )
-}
-
-tasks.configureEach {
-    if (name.startsWith("configureCMake") ||
-        name.startsWith("buildCMake") ||
-        name.startsWith("externalNativeBuild")) {
-        dependsOn(shadercBuildTask)
     }
 }
 

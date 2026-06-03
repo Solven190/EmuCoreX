@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
+// SPDX-FileCopyrightText: 2002-2025 PCSX2 Dev Team
 // SPDX-License-Identifier: GPL-3.0+
 
 //#version 420 // Keep it for editor detection
@@ -293,7 +293,7 @@ vec3 Bloom(vec2 pos)
 	vec3 e = Horz5(pos, 2.0);
 
 	float wa = BloomScan(pos,-2.0);
-	float wb = BloomScan(pos,-1.0);
+	float wb = BloomScan(pos,-1.0); 
 	float wc = BloomScan(pos, 0.0);
 	float wd = BloomScan(pos, 1.0);
 	float we = BloomScan(pos, 2.0);
@@ -437,7 +437,7 @@ void ps_filter_lottes()
 void ps_4x_rgss()
 {
 	vec2 dxy = vec2(dFdx(PSin_t.x), dFdy(PSin_t.y));
-	vec3 color = vec3(0.0);
+	vec3 color = vec3(0);
 
 	float s = 1.0/8.0;
 	float l = 3.0/8.0;
@@ -447,7 +447,7 @@ void ps_4x_rgss()
 	color += sample_c(PSin_t + vec2(-s,-l) * dxy).rgb;
 	color += sample_c(PSin_t + vec2(-l, s) * dxy).rgb;
 
-	SV_Target0 = vec4(color * 0.25, 1.0);
+	SV_Target0 = vec4(color * 0.25,1);
 }
 #endif
 
@@ -465,11 +465,11 @@ void ps_automagical_supersampling()
 		{
 			vec2 offset = vec2(x,y) - ratio * 0.5;
 			col += sample_c(PSin_t + offset * u_rcp_source_resolution * 2.0).rgb;
-			div += 1.0;
+			div++;
 		}
 	}
 
-	SV_Target0 = vec4(col / div, 1.0);
+	SV_Target0 = vec4(col / div, 1);
 }
 #endif
 

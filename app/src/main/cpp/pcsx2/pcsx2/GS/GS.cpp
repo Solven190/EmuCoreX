@@ -13,7 +13,7 @@
 #include "GS/GSPerfMon.h"
 #include "GS/GSUtil.h"
 #include "GS/MultiISA.h"
-#include "Host.h"
+#include "platform/host/Host.h"
 #include "Input/InputManager.h"
 #include "MTGS.h"
 #include "pcsx2/GS.h"
@@ -181,6 +181,7 @@ static void CloseGSDevice(bool clear_state)
 
 static void GSClampUpscaleMultiplier(Pcsx2Config::GSOptions& config)
 {
+	// Clamp against the active device capability so target sizing stays in sync with the actual renderer.
 	const u32 max_upscale_multiplier = GSGetMaxUpscaleMultiplier(g_gs_device->GetMaxTextureSize());
 	if (config.UpscaleMultiplier <= static_cast<float>(max_upscale_multiplier))
 	{
@@ -239,6 +240,8 @@ static void CloseGSRenderer()
 bool GSreopen(bool recreate_device, bool recreate_renderer, GSRendererType new_renderer,
 	std::optional<const Pcsx2Config::GSOptions*> old_config)
 {
+	// Reopen correctness matters for rendering too: stale GS state after a backend/config flip can masquerade
+	// as a renderer bug, especially with cached HW targets and feedback-dependent effects.
 	Console.WriteLn("Reopening GS with %s device", recreate_device ? "new" : "existing");
 
 	g_gs_renderer->Flush(GSState::GSFlushReason::GSREOPEN);
@@ -686,7 +689,7 @@ void GSgetStats(SmallStringBase& info)
 			prefix = 'k';
 		}
 
-		info.format("Renderer: {} SW | {} SYNP | {} PRIM | {} DRW | {:.2f} SWIZ | {:.2f} UNSWIZ | {:.2f} {}pps",
+		info.format("{} SW | {} SYNP | {} PRIM | {} DRW | {:.2f} SWIZ | {:.2f} UNSWIZ | {:.2f} {}pps",
 			api_name,
 			(int)pm.Get(GSPerfMon::SyncPoint),
 			(int)pm.Get(GSPerfMon::Prim),
@@ -697,11 +700,11 @@ void GSgetStats(SmallStringBase& info)
 	}
 	else if (GSCurrentRenderer == GSRendererType::Null)
 	{
-		info.format("Renderer: {} Null", api_name);
+		info.format("{} Null", api_name);
 	}
 	else
 	{
-		info.format("Renderer: {} HW | {} PRIM | {} DRW | {} DRWC | {} BAR | {} RP | {} RB | {} TC | {} TU",
+		info.format("{} HW | {} PRIM | {} DRW | {} DRWC | {} BAR | {} RP | {} RB | {} TC | {} TU",
 			api_name,
 			(int)pm.Get(GSPerfMon::Prim),
 			(int)pm.Get(GSPerfMon::Draw),
@@ -965,6 +968,9 @@ void GSFreeWrappedMemory(void* ptr, size_t size, size_t repeat)
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#ifdef __ANDROID__
+#include <android/sharedmem.h>
+#endif
 
 static int s_shm_fd = -1;
 
@@ -973,6 +979,7 @@ void* GSAllocateWrappedMemory(size_t size, size_t repeat)
 	pxAssert(s_shm_fd == -1);
 
 	const char* file_name = "/GS.mem";
+#ifndef __ANDROID__
 	s_shm_fd = shm_open(file_name, O_RDWR | O_CREAT | O_EXCL, 0600);
 	if (s_shm_fd != -1)
 	{
@@ -986,6 +993,14 @@ void* GSAllocateWrappedMemory(size_t size, size_t repeat)
 
 	if (ftruncate(s_shm_fd, repeat * size) < 0)
 		fprintf(stderr, "Failed to reserve memory due to %s\n", strerror(errno));
+#else
+	s_shm_fd = ASharedMemory_create(file_name, repeat * size);
+	if (s_shm_fd < 0)
+	{
+		fprintf(stderr, "Failed to open shared memory\n");
+		return nullptr;
+	}
+#endif
 
 	void* fifo = mmap(nullptr, size * repeat, PROT_READ | PROT_WRITE, MAP_SHARED, s_shm_fd, 0);
 
@@ -1103,8 +1118,7 @@ static void HotkeyAdjustUpscaleMultiplier(const float delta)
 
 	// Clamp logic mirrors GraphicsSettingsWidget::populateUpscaleMultipliers().
 	float candidate_multiplier = EmuConfig.GS.UpscaleMultiplier + delta;
-	const float max_multiplier = static_cast<float>(std::clamp(GSGetMaxUpscaleMultiplier(g_gs_device->GetMaxTextureSize()),
-													10u, EmuConfig.GS.ExtendedUpscalingMultipliers ? 25u : 12u));
+	const float max_multiplier = static_cast<float>(GSGetMaxUpscaleMultiplier(g_gs_device->GetMaxTextureSize()));
 
 	std::string osd_message;
 	if (candidate_multiplier <= 1)

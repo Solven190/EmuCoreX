@@ -5,6 +5,7 @@ project(EmuCoreXArmAndroid LANGUAGES C CXX)
 set(EMUCOREX_CPP_DIR "${CMAKE_CURRENT_LIST_DIR}/.." CACHE PATH "EmuCoreX native source root")
 set(PCSX2_UPSTREAM_DIR "${EMUCOREX_CPP_DIR}/PCSX2" CACHE PATH "Clean PCSX2 upstream checkout")
 option(EMUCOREX_LINK_UPSTREAM_PCSX2 "Link the upstream PCSX2 core into libemucore.so" ON)
+set(EMUCOREX_PCSX2_THIRD_PARTY_DIR "${PCSX2_UPSTREAM_DIR}/3rdparty" CACHE PATH "PCSX2 third-party dependency root")
 set(EMUCOREX_OAKNUT_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/oaknut/include" CACHE PATH "Oaknut include directory")
 
 if(NOT EXISTS "${EMUCOREX_OAKNUT_INCLUDE_DIR}/oaknut/oaknut.hpp")
@@ -18,7 +19,7 @@ if(NOT EXISTS "${PCSX2_UPSTREAM_DIR}/pcsx2/VMManager.h")
 endif()
 
 if(EMUCOREX_LINK_UPSTREAM_PCSX2)
-	set(EMUCOREX_THIRD_PARTY_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party")
+	set(EMUCOREX_THIRD_PARTY_DIR "${EMUCOREX_PCSX2_THIRD_PARTY_DIR}")
 	set(TOP_CMAKE_WAS_SOURCED TRUE)
 	set(ARCH_ARM64 TRUE)
 	set(LINUX FALSE)
@@ -67,6 +68,16 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 		endif()
 	endfunction()
 
+	function(emucorex_import_static_target name library_name)
+		if(NOT TARGET ${name})
+			add_library(${name} STATIC IMPORTED GLOBAL)
+			set_target_properties(${name} PROPERTIES
+				IMPORTED_LOCATION "${EMUCOREX_THIRD_PARTY_DIR}/libs/${library_name}"
+				INTERFACE_INCLUDE_DIRECTORIES "${EMUCOREX_THIRD_PARTY_DIR}/include"
+			)
+		endif()
+	endfunction()
+
 	function(emucorex_remove_target_sources target)
 		get_target_property(_sources ${target} SOURCES)
 		if(NOT _sources)
@@ -78,84 +89,18 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 		set_property(TARGET ${target} PROPERTY SOURCES "${_sources}")
 	endfunction()
 
-	function(emucorex_add_libjpeg_turbo_static)
-		set(_jpeg_dir "${EMUCOREX_THIRD_PARTY_DIR}/libjpeg-turbo")
-		set(_jpeg_build_dir "${CMAKE_CURRENT_BINARY_DIR}/third_party/libjpeg-turbo")
-		file(MAKE_DIRECTORY "${_jpeg_build_dir}")
+	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/zlib" "${CMAKE_CURRENT_BINARY_DIR}/upstream/zlib" EXCLUDE_FROM_ALL)
 
-		set(VERSION "3.1.91")
-		set(COPYRIGHT_YEAR "1991-2026")
-		set(BUILD "20260506")
-		set(LIBJPEG_TURBO_VERSION_NUMBER 3001091)
-		set(JPEG_LIB_VERSION 62)
-		set(C_ARITH_CODING_SUPPORTED 1)
-		set(D_ARITH_CODING_SUPPORTED 1)
-		set(RIGHT_SHIFT_IS_UNSIGNED 0)
-		set(HIDDEN "__attribute__((visibility(\"hidden\")))")
-		set(INLINE "__inline__ __attribute__((always_inline))")
-		set(THREAD_LOCAL "__thread")
-		set(SIZE_T 8)
-		set(HAVE_BUILTIN_CTZL 1)
-		set(SIMD_ARCHITECTURE NONE)
-		configure_file("${_jpeg_dir}/src/jversion.h.in" "${_jpeg_build_dir}/jversion.h" @ONLY)
-		configure_file("${_jpeg_dir}/src/jconfig.h.in" "${_jpeg_build_dir}/jconfig.h" @ONLY)
-		configure_file("${_jpeg_dir}/src/jconfigint.h.in" "${_jpeg_build_dir}/jconfigint.h" @ONLY)
-
-		set(_jpeg_sources
-			src/jcapimin.c
-			src/wrapper/jcapistd-8.c src/wrapper/jcapistd-12.c src/wrapper/jcapistd-16.c
-			src/wrapper/jccoefct-8.c src/wrapper/jccoefct-12.c
-			src/wrapper/jccolor-8.c src/wrapper/jccolor-12.c src/wrapper/jccolor-16.c
-			src/wrapper/jcdctmgr-8.c src/wrapper/jcdctmgr-12.c
-			src/wrapper/jcdiffct-8.c src/wrapper/jcdiffct-12.c src/wrapper/jcdiffct-16.c
-			src/jchuff.c src/jcicc.c src/jcinit.c src/jclhuff.c
-			src/wrapper/jclossls-8.c src/wrapper/jclossls-12.c src/wrapper/jclossls-16.c
-			src/wrapper/jcmainct-8.c src/wrapper/jcmainct-12.c src/wrapper/jcmainct-16.c
-			src/jcmarker.c src/jcmaster.c src/jcomapi.c src/jcparam.c src/jcphuff.c
-			src/wrapper/jcprepct-8.c src/wrapper/jcprepct-12.c src/wrapper/jcprepct-16.c
-			src/wrapper/jcsample-8.c src/wrapper/jcsample-12.c src/wrapper/jcsample-16.c
-			src/jctrans.c src/jdapimin.c
-			src/wrapper/jdapistd-8.c src/wrapper/jdapistd-12.c src/wrapper/jdapistd-16.c
-			src/jdatadst.c src/jdatasrc.c
-			src/wrapper/jdcoefct-8.c src/wrapper/jdcoefct-12.c
-			src/wrapper/jdcolor-8.c src/wrapper/jdcolor-12.c src/wrapper/jdcolor-16.c
-			src/wrapper/jddctmgr-8.c src/wrapper/jddctmgr-12.c
-			src/wrapper/jddiffct-8.c src/wrapper/jddiffct-12.c src/wrapper/jddiffct-16.c
-			src/jdhuff.c src/jdicc.c src/jdinput.c src/jdlhuff.c
-			src/wrapper/jdlossls-8.c src/wrapper/jdlossls-12.c src/wrapper/jdlossls-16.c
-			src/wrapper/jdmainct-8.c src/wrapper/jdmainct-12.c src/wrapper/jdmainct-16.c
-			src/jdmarker.c src/jdmaster.c
-			src/wrapper/jdmerge-8.c src/wrapper/jdmerge-12.c
-			src/jdphuff.c
-			src/wrapper/jdpostct-8.c src/wrapper/jdpostct-12.c src/wrapper/jdpostct-16.c
-			src/wrapper/jdsample-8.c src/wrapper/jdsample-12.c src/wrapper/jdsample-16.c
-			src/jdtrans.c src/jerror.c src/jfdctflt.c
-			src/wrapper/jfdctfst-8.c src/wrapper/jfdctfst-12.c
-			src/wrapper/jfdctint-8.c src/wrapper/jfdctint-12.c
-			src/wrapper/jidctflt-8.c src/wrapper/jidctflt-12.c
-			src/wrapper/jidctfst-8.c src/wrapper/jidctfst-12.c
-			src/wrapper/jidctint-8.c src/wrapper/jidctint-12.c
-			src/wrapper/jidctred-8.c src/wrapper/jidctred-12.c
-			src/jmemmgr.c src/jmemnobs.c src/jpeg_nbits.c
-			src/wrapper/jquant1-8.c src/wrapper/jquant1-12.c
-			src/wrapper/jquant2-8.c src/wrapper/jquant2-12.c
-			src/wrapper/jutils-8.c src/wrapper/jutils-12.c src/wrapper/jutils-16.c
-			src/jaricom.c src/jcarith.c src/jdarith.c
-		)
-		list(TRANSFORM _jpeg_sources PREPEND "${_jpeg_dir}/")
-		add_library(jpeg-static STATIC ${_jpeg_sources})
-		set_target_properties(jpeg-static PROPERTIES OUTPUT_NAME jpeg)
-		target_include_directories(jpeg-static PUBLIC "${_jpeg_build_dir}" "${_jpeg_dir}/src")
-		target_compile_definitions(jpeg-static PUBLIC C_ARITH_CODING_SUPPORTED=1 D_ARITH_CODING_SUPPORTED=1)
-		if(NOT TARGET JPEG::JPEG)
-			add_library(JPEG::JPEG ALIAS jpeg-static)
-		endif()
-	endfunction()
-
-	if(NOT TARGET ZLIB::ZLIB)
-		add_library(ZLIB::ZLIB INTERFACE IMPORTED)
-		target_link_libraries(ZLIB::ZLIB INTERFACE z)
-	endif()
+	emucorex_import_static_target(JPEG::JPEG libjpeg.a)
+	emucorex_import_static_target(PNG::PNG libpng16.a)
+	emucorex_import_static_target(PCAP::PCAP libpcap.a)
+	emucorex_import_static_target(OpenSSL::Crypto libcrypto.a)
+	emucorex_import_static_target(OpenSSL::SSL libssl.a)
+	emucorex_import_static_target(NGHTTP2::nghttp2 libnghttp2.a)
+	emucorex_import_static_target(CURL::libcurl libcurl.a)
+	target_link_libraries(PNG::PNG INTERFACE ZLIB::ZLIB)
+	target_link_libraries(OpenSSL::SSL INTERFACE OpenSSL::Crypto)
+	target_link_libraries(CURL::libcurl INTERFACE OpenSSL::SSL OpenSSL::Crypto NGHTTP2::nghttp2 ZLIB::ZLIB PCAP::PCAP)
 
 	set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 	set(SDL_STATIC ON CACHE BOOL "" FORCE)
@@ -163,22 +108,7 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 	set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 	set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
 	set(HAVE_WL_VERSION_SCRIPT ON CACHE INTERNAL "Android NDK lld supports linker version scripts")
-	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/SDL" "${CMAKE_CURRENT_BINARY_DIR}/third_party/SDL" EXCLUDE_FROM_ALL)
-
-	set(PNG_SHARED OFF CACHE BOOL "" FORCE)
-	set(PNG_STATIC ON CACHE BOOL "" FORCE)
-	set(PNG_TESTS OFF CACHE BOOL "" FORCE)
-	set(PNG_TOOLS OFF CACHE BOOL "" FORCE)
-	set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
-	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/libpng" "${CMAKE_CURRENT_BINARY_DIR}/third_party/libpng" EXCLUDE_FROM_ALL)
-	if(TARGET png_static AND NOT TARGET PNG::PNG)
-		add_library(PNG::PNG ALIAS png_static)
-	endif()
-
-	set(ENABLE_SHARED OFF CACHE BOOL "" FORCE)
-	set(WITH_SIMD OFF CACHE BOOL "" FORCE)
-	set(WITH_TURBOJPEG OFF CACHE BOOL "" FORCE)
-	emucorex_add_libjpeg_turbo_static()
+	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/SDL3" "${CMAKE_CURRENT_BINARY_DIR}/upstream/SDL3" EXCLUDE_FROM_ALL)
 
 	set(WEBP_BUILD_ANIM_UTILS OFF CACHE BOOL "" FORCE)
 	set(WEBP_BUILD_CWEBP OFF CACHE BOOL "" FORCE)
@@ -189,75 +119,18 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 	set(WEBP_BUILD_WEBPINFO OFF CACHE BOOL "" FORCE)
 	set(WEBP_BUILD_WEBPMUX OFF CACHE BOOL "" FORCE)
 	set(WEBP_BUILD_EXTRAS OFF CACHE BOOL "" FORCE)
-	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/libwebp" "${CMAKE_CURRENT_BINARY_DIR}/third_party/libwebp" EXCLUDE_FROM_ALL)
+	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/libwebp" "${CMAKE_CURRENT_BINARY_DIR}/upstream/libwebp" EXCLUDE_FROM_ALL)
 	if(TARGET webp AND NOT TARGET WebP::libwebp)
 		add_library(WebP::libwebp ALIAS webp)
 	endif()
 
-	set(ZSTD_BUILD_SHARED OFF CACHE BOOL "" FORCE)
-	set(ZSTD_BUILD_STATIC ON CACHE BOOL "" FORCE)
-	set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
-	set(ZSTD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-	set(ZSTD_LEGACY_SUPPORT OFF CACHE BOOL "" FORCE)
-	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/zstd/build/cmake" "${CMAKE_CURRENT_BINARY_DIR}/third_party/zstd" EXCLUDE_FROM_ALL)
-	if(TARGET libzstd_static AND NOT TARGET Zstd::Zstd)
-		add_library(Zstd::Zstd ALIAS libzstd_static)
-	endif()
+	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/zstd" "${CMAKE_CURRENT_BINARY_DIR}/upstream/zstd" EXCLUDE_FROM_ALL)
 
-	set(LZ4_BUILD_CLI OFF CACHE BOOL "" FORCE)
-	set(LZ4_BUILD_LEGACY_LZ4C OFF CACHE BOOL "" FORCE)
-	set(LZ4_BUNDLED_MODE ON CACHE BOOL "" FORCE)
-	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/lz4/build/cmake" "${CMAKE_CURRENT_BINARY_DIR}/third_party/lz4" EXCLUDE_FROM_ALL)
-	if(TARGET lz4_static AND NOT TARGET LZ4::LZ4)
-		add_library(LZ4::LZ4 ALIAS lz4_static)
-	endif()
+	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/lz4" "${CMAKE_CURRENT_BINARY_DIR}/upstream/lz4" EXCLUDE_FROM_ALL)
 
-	set(RYML_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-	set(RYML_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
-	set(RYML_BUILD_API OFF CACHE BOOL "" FORCE)
-	set(RYML_INSTALL OFF CACHE BOOL "" FORCE)
-	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/rapidyaml" "${CMAKE_CURRENT_BINARY_DIR}/third_party/rapidyaml" EXCLUDE_FROM_ALL)
-	if(TARGET ryml AND NOT TARGET ryml::ryml)
-		add_library(ryml::ryml ALIAS ryml)
-	endif()
-
-	set(WOLFSSL_INSTALL "no" CACHE STRING "" FORCE)
-	set(WOLFSSL_ASM "no" CACHE STRING "" FORCE)
-	set(WOLFSSL_CURL "yes" CACHE STRING "" FORCE)
-	set(WOLFSSL_TLS13 "yes" CACHE STRING "" FORCE)
-	set(WOLFSSL_SINGLE_THREADED "yes" CACHE STRING "" FORCE)
-	set(WOLFSSL_EXAMPLES "no" CACHE STRING "" FORCE)
-	set(WOLFSSL_CRYPT_TESTS "no" CACHE STRING "" FORCE)
-	set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/wolfssl" "${CMAKE_CURRENT_BINARY_DIR}/third_party/wolfssl" EXCLUDE_FROM_ALL)
-
-	set(BUILD_CURL_EXE OFF CACHE BOOL "" FORCE)
-	set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-	set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-	set(BUILD_STATIC_LIBS ON CACHE BOOL "" FORCE)
-	set(CURL_DISABLE_INSTALL ON CACHE BOOL "" FORCE)
-	set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-	set(BUILD_LIBCURL_DOCS OFF CACHE BOOL "" FORCE)
-	set(BUILD_MISC_DOCS OFF CACHE BOOL "" FORCE)
-	set(ENABLE_CURL_MANUAL OFF CACHE BOOL "" FORCE)
-	set(HTTP_ONLY ON CACHE BOOL "" FORCE)
-	set(CURL_USE_PKGCONFIG OFF CACHE BOOL "" FORCE)
-	set(CURL_USE_CMAKECONFIG OFF CACHE BOOL "" FORCE)
-	set(CURL_USE_LIBPSL OFF CACHE BOOL "" FORCE)
-	set(CURL_ENABLE_SSL ON CACHE BOOL "" FORCE)
-	set(CURL_USE_MBEDTLS OFF CACHE BOOL "" FORCE)
-	set(CURL_USE_WOLFSSL ON CACHE BOOL "" FORCE)
-	set(CURL_USE_OPENSSL OFF CACHE BOOL "" FORCE)
-	set(wolfssl_CONFIG TRUE)
-	set(WOLFSSL_VERSION "5.9.1")
-	set(HAVE_WOLFSSL_GET_PEER_CERTIFICATE TRUE CACHE BOOL "" FORCE)
-	set(HAVE_WOLFSSL_USEALPN TRUE CACHE BOOL "" FORCE)
-	set(HAVE_WOLFSSL_BIO_NEW FALSE CACHE BOOL "" FORCE)
-	set(HAVE_WOLFSSL_BIO_SET_SHUTDOWN FALSE CACHE BOOL "" FORCE)
-	set(HAVE_WC_DES_ECBENCRYPT TRUE CACHE BOOL "" FORCE)
-	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/curl" "${CMAKE_CURRENT_BINARY_DIR}/third_party/curl" EXCLUDE_FROM_ALL)
-	if(TARGET libcurl_static AND NOT TARGET CURL::libcurl)
-		add_library(CURL::libcurl ALIAS libcurl_static)
+	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/rapidyaml" "${CMAKE_CURRENT_BINARY_DIR}/upstream/rapidyaml" EXCLUDE_FROM_ALL)
+	if(TARGET pcsx2-rapidyaml AND NOT TARGET ryml::ryml)
+		add_library(ryml::ryml ALIAS pcsx2-rapidyaml)
 	endif()
 
 	set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
@@ -266,17 +139,15 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 	set(FT_DISABLE_HVF ON CACHE BOOL "" FORCE)
 	set(FT_REQUIRE_ZLIB OFF CACHE BOOL "" FORCE)
 	set(FT_REQUIRE_PNG OFF CACHE BOOL "" FORCE)
-	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/freetype" "${CMAKE_CURRENT_BINARY_DIR}/third_party/freetype" EXCLUDE_FROM_ALL)
+	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/harfbuzz" "${CMAKE_CURRENT_BINARY_DIR}/upstream/harfbuzz" EXCLUDE_FROM_ALL)
+	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/freetype" "${CMAKE_CURRENT_BINARY_DIR}/upstream/freetype" EXCLUDE_FROM_ALL)
 	if(TARGET freetype AND NOT TARGET Freetype::Freetype)
 		add_library(Freetype::Freetype ALIAS freetype)
 	endif()
 
-	set(PLUTOVG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/plutovg" "${CMAKE_CURRENT_BINARY_DIR}/third_party/plutovg" EXCLUDE_FROM_ALL)
-
 	set(PLUTOSVG_ENABLE_FREETYPE OFF CACHE BOOL "" FORCE)
 	set(PLUTOSVG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/plutosvg" "${CMAKE_CURRENT_BINARY_DIR}/third_party/plutosvg" EXCLUDE_FROM_ALL)
+	add_subdirectory("${EMUCOREX_THIRD_PARTY_DIR}/plutosvg1" "${CMAKE_CURRENT_BINARY_DIR}/upstream/plutosvg1" EXCLUDE_FROM_ALL)
 
 	emucorex_add_interface_target(JPEG::JPEG)
 	emucorex_add_interface_target(PNG::PNG)
@@ -340,11 +211,6 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_posix_compat.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_pcap_unavailable.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_sdl_input_source.cpp"
-		"${PCSX2_UPSTREAM_DIR}/pcsx2/GS/Renderers/OpenGL/GLContextEGL.cpp"
-		"${PCSX2_UPSTREAM_DIR}/pcsx2/GS/Renderers/OpenGL/GLContextEGLAndroid.cpp"
-	)
-	target_include_directories(PCSX2 PRIVATE
-		"${CMAKE_ANDROID_NDK}/sources/third_party/shaderc/libshaderc/include"
 	)
 	target_compile_definitions(PCSX2 PRIVATE VK_USE_PLATFORM_ANDROID_KHR)
 	target_compile_definitions(PCSX2 PRIVATE EMUCOREX_ANDROID_JIT=1)
@@ -363,9 +229,6 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 		target_include_directories(PCSX2_LTO BEFORE PRIVATE
 			"${PCSX2_UPSTREAM_DIR}/3rdparty/include"
 		)
-		target_include_directories(PCSX2_LTO PRIVATE
-			"${CMAKE_ANDROID_NDK}/sources/third_party/shaderc/libshaderc/include"
-		)
 		target_compile_definitions(PCSX2_LTO PRIVATE VK_USE_PLATFORM_ANDROID_KHR)
 		target_compile_definitions(PCSX2_LTO PRIVATE EMUCOREX_ANDROID_JIT=1)
 		target_compile_options(PCSX2_LTO PRIVATE
@@ -375,34 +238,6 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 		set_property(TARGET PCSX2_LTO PROPERTY CXX_STANDARD_REQUIRED ON)
 	endif()
 endif()
-
-set(EMUCOREX_SHADERC_LIB_DIR
-	"${CMAKE_CURRENT_LIST_DIR}/../../../../build/shaderc/out/local/${ANDROID_ABI}"
-)
-set(EMUCOREX_SHADERC_STATIC_LIBS
-	"${EMUCOREX_SHADERC_LIB_DIR}/libshaderc.a"
-	"${EMUCOREX_SHADERC_LIB_DIR}/libshaderc_util.a"
-	"${EMUCOREX_SHADERC_LIB_DIR}/libglslang.a"
-	"${EMUCOREX_SHADERC_LIB_DIR}/libOGLCompiler.a"
-	"${EMUCOREX_SHADERC_LIB_DIR}/libOSDependent.a"
-	"${EMUCOREX_SHADERC_LIB_DIR}/libSPIRV.a"
-	"${EMUCOREX_SHADERC_LIB_DIR}/libHLSL.a"
-	"${EMUCOREX_SHADERC_LIB_DIR}/libSPIRV-Tools-opt.a"
-	"${EMUCOREX_SHADERC_LIB_DIR}/libSPIRV-Tools.a"
-)
-
-add_library(shaderc_shared SHARED
-	src/platform/shaderc_shared_anchor.cpp
-)
-set_target_properties(shaderc_shared PROPERTIES
-	OUTPUT_NAME "shaderc_shared"
-	LINK_FLAGS "-Wl,-soname,libshaderc_shared.so"
-)
-target_link_libraries(shaderc_shared PRIVATE
-	"-Wl,--whole-archive"
-	${EMUCOREX_SHADERC_STATIC_LIBS}
-	"-Wl,--no-whole-archive"
-)
 
 if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/third_party/capstone/CMakeLists.txt")
 	set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -438,7 +273,7 @@ target_include_directories(emucore
 		"${PCSX2_UPSTREAM_DIR}/pcsx2"
 		"${PCSX2_UPSTREAM_DIR}/common/include"
 		"${PCSX2_UPSTREAM_DIR}/3rdparty/fmt/include"
-		"${CMAKE_CURRENT_LIST_DIR}/third_party/SDL/include"
+		"${EMUCOREX_PCSX2_THIRD_PARTY_DIR}/SDL3/include"
 )
 if(EMUCOREX_HAS_OAKNUT)
 	target_include_directories(emucore PRIVATE "${EMUCOREX_OAKNUT_INCLUDE_DIR}")
@@ -461,5 +296,3 @@ endif()
 if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 	target_link_libraries(emucore PRIVATE PCSX2 PCSX2_FLAGS)
 endif()
-
-add_dependencies(emucore shaderc_shared)

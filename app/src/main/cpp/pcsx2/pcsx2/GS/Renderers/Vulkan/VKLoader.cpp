@@ -7,12 +7,18 @@
 #include "common/Console.h"
 #include "common/DynamicLibrary.h"
 #include "common/Error.h"
+#include "pcsx2/Config.h"
+#include "GS/GS.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+
+#ifdef __ANDROID__
+#include <dlfcn.h>
+#endif
 
 extern "C" {
 
@@ -47,6 +53,41 @@ bool Vulkan::LoadVulkanLibrary(Error* error)
 {
 	pxAssertRel(!s_vulkan_library.IsOpen(), "Vulkan module is not loaded.");
 
+	std::string custom_driver_path;
+#if defined(__ANDROID__)
+	char* libvulkan_env = getenv("LIBVULKAN_PATH");
+	if (libvulkan_env)
+		custom_driver_path = libvulkan_env;
+
+	if (!custom_driver_path.empty())
+	{
+		Console.WriteLn(Color_StrongGreen, "Vulkan: Attempting to load custom driver from: %s",
+			custom_driver_path.c_str());
+		if (s_vulkan_library.Open(custom_driver_path.c_str(), error))
+		{
+			Console.WriteLn(Color_StrongGreen,
+				"Vulkan: Successfully loaded custom driver directly");
+		}
+		else
+		{
+			Console.Warning(
+				"Vulkan: Failed to load custom driver from '%s', falling back to system driver",
+				custom_driver_path.c_str());
+		}
+	}
+
+	if (!s_vulkan_library.IsOpen())
+	{
+		const char* android_native_lib_dir = getenv("ANDROID_NATIVE_LIB_DIR");
+		if (android_native_lib_dir)
+		{
+			const std::string custom_lib_path = std::string(android_native_lib_dir) + "/libvulkan.so";
+			if (s_vulkan_library.Open(custom_lib_path.c_str(), error))
+				Console.WriteLn(Color_StrongGreen, "Vulkan: Loaded bundled libvulkan from app directory");
+		}
+	}
+#endif
+
 #ifdef __APPLE__
 	// Check if a path to a specific Vulkan library has been specified.
 	char* libvulkan_env = getenv("LIBVULKAN_PATH");
@@ -59,7 +100,8 @@ bool Vulkan::LoadVulkanLibrary(Error* error)
 	}
 #else
 	// try versioned first, then unversioned.
-	if (!s_vulkan_library.Open(DynamicLibrary::GetVersionedFilename("vulkan", 1).c_str(), error) &&
+	if (!s_vulkan_library.IsOpen() &&
+		!s_vulkan_library.Open(DynamicLibrary::GetVersionedFilename("vulkan", 1).c_str(), error) &&
 		!s_vulkan_library.Open(DynamicLibrary::GetVersionedFilename("vulkan").c_str(), error))
 	{
 		return false;
