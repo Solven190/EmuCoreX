@@ -3047,7 +3047,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     override fun onCleared() {
         NativeApp.setPerformanceOverlayMode(visible = false, detailed = false)
-        NativeApp.setPerformanceListener(null)
         if (_uiState.value.isRunning) {
             EmulatorBridge.resetKeyStatus()
             runCatching {

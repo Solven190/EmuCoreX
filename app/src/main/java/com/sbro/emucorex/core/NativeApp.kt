@@ -25,15 +25,7 @@ object NativeApp {
 
     private var contextRef: WeakReference<Context>? = null
     private var dataRootOverride: String? = null
-    private var performanceListener: PerformanceListener? = null
 
-    interface PerformanceListener {
-        fun onMetricsUpdate(
-            overlayText: String,
-            fps: Float,
-            speedPercent: Float
-        )
-    }
 
     init {
         try {
@@ -141,25 +133,6 @@ object NativeApp {
     }
 
     @JvmStatic
-    fun onPerformanceMetrics(
-        overlayText: String,
-        fps: Float,
-        speedPercent: Float
-    ) {
-        performanceListener?.onMetricsUpdate(overlayText, fps, speedPercent)
-    }
-
-    @JvmStatic
-    fun setPerformanceListener(listener: PerformanceListener?) {
-        performanceListener = listener
-    }
-
-    @JvmStatic
-    fun nativeLog(message: String) {
-        Log.d("NativeCore", message)
-    }
-
-    @JvmStatic
     fun setCrashContextString(key: String, value: String?) {
     }
 
@@ -174,15 +147,6 @@ object NativeApp {
     @JvmStatic
     fun logCrashBreadcrumb(message: String) {
         Log.i(TAG, message)
-    }
-
-    @JvmStatic
-    fun ensureResourceSubdirectoryCopied(relativePath: String) {
-        val context = getContext() ?: return
-        val cleanRelativePath = relativePath.trim('/').trim()
-        val assetPath = if (cleanRelativePath.isBlank()) RESOURCE_ROOT else "$RESOURCE_ROOT/$cleanRelativePath"
-        val targetRoot = File(resolveDataRoot(context), assetPath)
-        copyAssetTree(context, assetPath, targetRoot)
     }
 
     @JvmStatic
