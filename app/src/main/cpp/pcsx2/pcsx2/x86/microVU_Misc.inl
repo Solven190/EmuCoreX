@@ -43,7 +43,7 @@ static inline mVURegSaveLayout mVUGetRegSaveLayout(microVU& mVU, bool onlyNeeded
     }
 
     std::vector<int> xmms_to_save;
-    for (int i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
+    for (int i = 0; i < mVU.regAlloc->getXmmCount(); ++i)
     {
         if (!oakIsCallerSavedXmm(i))
             continue;
@@ -97,7 +97,7 @@ static inline mVURegSaveLayout mVUGetWaitMTVULayout(microVU& mVU)
     gprs_to_save.push_back(30);
 
     std::vector<int> xmms_to_save;
-    for (int i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
+    for (int i = 0; i < mVU.regAlloc->getXmmCount(); ++i)
     {
         if (!oakIsCallerSavedXmm(i))
             continue;

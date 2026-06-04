@@ -357,7 +357,11 @@ struct microMapGPR
 class microRegAlloc
 {
 protected:
+#if defined(__ANDROID__)
+	static const int xmmTotal = 29; // Q29-Q31 are Oaknut scratch registers.
+#else
 	static const int xmmTotal = iREGCNT_XMM - 1; // PQ register is reserved
+#endif
 	static const int gprTotal = iREGCNT_GPR;
 
 	std::array<microMapXMM, xmmTotal> xmmMap;
@@ -378,6 +382,24 @@ protected:
 //	VURegs& regs() const { return ::g_cpuRegistersPack.vuRegs[index]; }
 //	__fi REG_VI& getVI(uint reg) const { return regs().VI[reg]; }
 //	__fi VECTOR& getVF(uint reg) const { return regs().VF[reg]; }
+
+	bool isAllocatableXmm(int reg) const
+	{
+		if (reg < 0 || reg >= xmmTotal || reg == VU_HOST_XMMPQ)
+			return false;
+
+		if (regAllocCOP2)
+			return reg < static_cast<int>(iREGCNT_XMM);
+
+#if defined(__ANDROID__)
+		// Standalone VU blocks are entered through a normal AArch64 call. Keep
+		// generated code off D8-D15 so the dispatcher does not have to preserve them.
+		if (reg >= 8 && reg <= 15)
+			return false;
+#endif
+
+		return true;
+	}
 
 	__ri void loadIreg(int reg, int xyzw)
 	{
@@ -414,7 +436,7 @@ protected:
         int i;
 		for (i = startIdx; i < xmmTotal; ++i)
 		{
-			if (!xmmMap[i].isNeeded)
+			if (isAllocatableXmm(i) && !xmmMap[i].isNeeded)
 			{
 				int x = findFreeRegRec(i + 1);
 				if (x == -1)
@@ -435,7 +457,7 @@ protected:
         int i;
 		for (i = 0; i < xmmTotal; ++i)
 		{
-			if (!xmmMap[i].isNeeded && (xmmMap[i].VFreg < 0))
+			if (isAllocatableXmm(i) && !xmmMap[i].isNeeded && (xmmMap[i].VFreg < 0))
 			{
 				return i; // Reg is not needed and was a temp reg
 			}
@@ -526,8 +548,11 @@ public:
 
 		if (cop2mode)
 		{
-			for (i = 0; i < xmmTotal; ++i)
+			for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
 			{
+				if (!isAllocatableXmm(i))
+					continue;
+
 				if (!pxmmregs[i].inuse || pxmmregs[i].type != XMMTYPE_VFREG)
 					continue;
 
@@ -565,7 +590,7 @@ public:
 
 	int getXmmCount()
 	{
-		return xmmTotal + 1;
+		return xmmTotal;
 	}
 
 	int getFreeXmmCount()
@@ -574,7 +599,7 @@ public:
 
 		for (i = 0; i < xmmTotal; ++i)
 		{
-			if (!xmmMap[i].isNeeded && (xmmMap[i].VFreg < 0))
+			if (isAllocatableXmm(i) && !xmmMap[i].isNeeded && (xmmMap[i].VFreg < 0))
 				count++;
 		}
 
@@ -771,7 +796,7 @@ public:
 	void clearReg(int regId)
 	{
 		microMapXMM& clear = xmmMap[regId];
-		if (regAllocCOP2 && (clear.isNeeded || clear.VFreg >= 0))
+		if (regAllocCOP2 && regId < static_cast<int>(iREGCNT_XMM) && (clear.isNeeded || clear.VFreg >= 0))
 		{
 			pxAssert(pxmmregs[regId].type == XMMTYPE_VFREG);
 			pxmmregs[regId].inuse = false;
@@ -802,6 +827,7 @@ public:
 			return;
 
 		const bool dirty = (xmmMap[rn].VFreg > 0 && xmmMap[rn].xyzw != 0);
+		pxAssert(rn < static_cast<int>(iREGCNT_XMM));
 		pxAssert(pxmmregs[rn].type == XMMTYPE_VFREG);
 		pxmmregs[rn].reg = xmmMap[rn].VFreg;
 		pxmmregs[rn].mode = dirty ? (MODE_READ | MODE_WRITE) : MODE_READ;
@@ -873,7 +899,7 @@ public:
 	// writes into them.
 	void clearNeededXmmId(int reg_code)
 	{
-		if ((reg_code < 0) || (reg_code >= xmmTotal)) // PQ can use a reserved host id.
+		if ((reg_code < 0) || (reg_code >= xmmTotal) || (reg_code == VU_HOST_XMMPQ))
 			return;
 
 		microMapXMM& clear = xmmMap[reg_code];

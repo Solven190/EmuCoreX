@@ -166,7 +166,7 @@ void mVUdispatcherAB(mV)
 {
     mVU.startFunct = recBeginOaknutEmit();
 	{
-        mVUExecuteOakBeginStackFrame();
+        mVUExecuteOakBeginStackFrame(!isVU1);
 
         // From memory to registry
         mVUExecuteOakLoadRuntimeBases();
@@ -243,7 +243,7 @@ void mVUdispatcherAB(mV)
             oakEmitCall(reinterpret_cast<void*>(mVUcleanUpVU1));
         }
 
-        mVUExecuteOakEndStackFrame();
+        mVUExecuteOakEndStackFrame(!isVU1);
 	}
 
     oakAsm->RET();
@@ -258,7 +258,7 @@ void mVUdispatcherCD(mV)
 {
     mVU.startFunctXG = recBeginOaknutEmit();
 	{
-        mVUExecuteOakBeginStackFrame();
+        mVUExecuteOakBeginStackFrame(!isVU1);
 		mVUExecuteOakLoadRuntimeBases();
 
         // Load VU's MXCSR state
@@ -289,7 +289,7 @@ void mVUdispatcherCD(mV)
             mVUExecuteOakLoadFpcr(mVUExecuteOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, Cpu.FPUFPCR.bitmask))));
         }
 
-        mVUExecuteOakEndStackFrame();
+        mVUExecuteOakEndStackFrame(!isVU1);
 	}
 
     oakAsm->RET();

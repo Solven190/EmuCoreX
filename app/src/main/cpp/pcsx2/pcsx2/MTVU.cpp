@@ -9,6 +9,11 @@
 #include "common/FPControl.h"
 #include "emucorex/native_profiler.h"
 
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <string>
 #include <thread>
 
 //VU_Thread vu1Thread;
@@ -21,6 +26,91 @@ static __fi u32 size_u32(u32 x) { return (x + 3) >> 2; }
 
 namespace
 {
+enum class MTVUTimingSlot : u32
+{
+	VUExecute,
+	GifFinish,
+	WaitVU,
+	WaitSize,
+	Count
+};
+
+struct MTVUTimingCounter
+{
+	std::atomic<u64> calls{0};
+	std::atomic<u64> total_ns{0};
+	std::atomic<u64> max_ns{0};
+};
+
+std::array<MTVUTimingCounter, static_cast<size_t>(MTVUTimingSlot::Count)> s_mtvu_timing;
+
+static __fi MTVUTimingCounter& MTVUTiming(MTVUTimingSlot slot)
+{
+	return s_mtvu_timing[static_cast<size_t>(slot)];
+}
+
+static void MTVURecordTiming(MTVUTimingSlot slot, u64 elapsed_ns)
+{
+	MTVUTimingCounter& counter = MTVUTiming(slot);
+	counter.calls.fetch_add(1, std::memory_order_relaxed);
+	counter.total_ns.fetch_add(elapsed_ns, std::memory_order_relaxed);
+
+	u64 old_max = counter.max_ns.load(std::memory_order_relaxed);
+	while (old_max < elapsed_ns &&
+		   !counter.max_ns.compare_exchange_weak(old_max, elapsed_ns, std::memory_order_relaxed, std::memory_order_relaxed))
+	{
+	}
+}
+
+struct MTVUTimingScope
+{
+	explicit MTVUTimingScope(MTVUTimingSlot slot_)
+		: slot(slot_)
+	{
+		if (!emucorex::android::profiler::IsEnabled())
+			return;
+
+		active = true;
+		start = std::chrono::steady_clock::now();
+	}
+
+	~MTVUTimingScope()
+	{
+		if (!active)
+			return;
+
+		const auto elapsed = std::chrono::steady_clock::now() - start;
+		MTVURecordTiming(slot, static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count()));
+	}
+
+	MTVUTimingSlot slot;
+	bool active = false;
+	std::chrono::steady_clock::time_point start;
+};
+
+static void MTVUAppendTiming(std::string& out, const char* name, MTVUTimingSlot slot)
+{
+	MTVUTimingCounter& counter = MTVUTiming(slot);
+	const u64 calls = counter.calls.exchange(0, std::memory_order_relaxed);
+	const u64 total_ns = counter.total_ns.exchange(0, std::memory_order_relaxed);
+	const u64 max_ns = counter.max_ns.exchange(0, std::memory_order_relaxed);
+	if (!calls)
+		return;
+
+	char line[128];
+	const u64 avg_us = (total_ns / calls) / 1000;
+	const u64 total_us = total_ns / 1000;
+	const u64 max_us = max_ns / 1000;
+	std::snprintf(line, sizeof(line), " %s_calls=%llu %s_us=%llu/%llu/%llu",
+		name,
+		static_cast<unsigned long long>(calls),
+		name,
+		static_cast<unsigned long long>(avg_us),
+		static_cast<unsigned long long>(max_us),
+		static_cast<unsigned long long>(total_us));
+	out += line;
+}
+
 struct PendingMicroClear
 {
 	static constexpr u32 MaxRanges = 8;
@@ -61,6 +151,9 @@ struct PendingMicroClear
 
 	void Flush()
 	{
+		if (!count)
+			return;
+
 		for (u32 i = 0; i < count; i++)
 			CpuVU1->Clear(start[i], end[i] - start[i]);
 		count = 0;
@@ -242,11 +335,15 @@ void VU_Thread::ExecuteRingBuffer()
 					CpuVU1->SetStartPC(VU1.VI[REG_TPC].UL << 3);
 					{
 						EMUCOREX_PROFILE_SCOPE("MTVU VU1 Execute");
+						MTVUTimingScope timing(MTVUTimingSlot::VUExecute);
 						CpuVU1->Execute(vu1RunCycles);
 					}
 					asyncExecutedOrder.store(packet_order, std::memory_order_release);
-					gifUnit.gifPath[GIF_PATH_1].FinishGSPacketMTVU();
-					semaXGkick.Post(); // Tell MTGS a path1 packet is complete
+					{
+						MTVUTimingScope timing(MTVUTimingSlot::GifFinish);
+						gifUnit.gifPath[GIF_PATH_1].FinishGSPacketMTVU();
+						semaXGkick.Post(); // Tell MTGS a path1 packet is complete
+					}
 					vuCycles[vuCycleIdx].store(VU1.cycle, std::memory_order_release);
 					vuCycleIdx = (vuCycleIdx + 1) & 3;
 					break;
@@ -318,7 +415,10 @@ void VU_Thread::ExecuteRingBuffer()
 // Should only be called by ReserveSpace()
 __ri void VU_Thread::WaitOnSize(s32 size)
 {
-	for (u32 spin = 0; ; ++spin)
+	const bool profile = emucorex::android::profiler::IsEnabled();
+	const auto wait_start = profile ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+	u32 spin = 0;
+	for (;; ++spin)
 	{
 		s32 readPos = GetReadPos();
 		if (readPos <= m_write_pos)
@@ -345,6 +445,12 @@ __ri void VU_Thread::WaitOnSize(s32 size)
 				std::this_thread::yield();
 			}
 		}
+	}
+
+	if (profile && spin > 0)
+	{
+		const auto elapsed = std::chrono::steady_clock::now() - wait_start;
+		MTVURecordTiming(MTVUTimingSlot::WaitSize, static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count()));
 	}
 }
 
@@ -569,7 +675,22 @@ bool VU_Thread::IsDone()
 void VU_Thread::WaitVU()
 {
 	MTVU_LOG("MTVU - WaitVU!");
+	MTVUTimingScope timing(MTVUTimingSlot::WaitVU);
 	semaEvent.WaitForEmpty();
+}
+
+std::string mTVUGetProfilerStatsAndReset()
+{
+	if (!emucorex::android::profiler::IsEnabled())
+		return {};
+
+	std::string out = "MTVU";
+	const size_t start_size = out.size();
+	MTVUAppendTiming(out, "exec", MTVUTimingSlot::VUExecute);
+	MTVUAppendTiming(out, "gif", MTVUTimingSlot::GifFinish);
+	MTVUAppendTiming(out, "waitvu", MTVUTimingSlot::WaitVU);
+	MTVUAppendTiming(out, "waitsize", MTVUTimingSlot::WaitSize);
+	return out.size() == start_size ? std::string{} : out;
 }
 
 void VU_Thread::ExecuteVU(u32 vu_addr, u32 vif_top, u32 vif_itop, u32 fbrst)

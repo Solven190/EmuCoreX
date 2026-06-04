@@ -5,6 +5,7 @@
 #include <atomic>
 
 std::string mVUGetVU1ProfilerStatsAndReset();
+std::string mTVUGetProfilerStatsAndReset();
 
 namespace emucorex::android::profiler
 {
@@ -32,6 +33,12 @@ std::string GetStatus()
 	{
 		status += ' ';
 		status += vu1_stats;
+	}
+	const std::string mtvu_stats = mTVUGetProfilerStatsAndReset();
+	if (!mtvu_stats.empty())
+	{
+		status += ' ';
+		status += mtvu_stats;
 	}
 	return status;
 }
