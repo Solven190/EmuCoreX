@@ -5,7 +5,7 @@ object GsHackDefaults {
     const val TRILINEAR_FILTERING_DEFAULT = -1
     const val TRILINEAR_FILTERING_MIN = -1
     const val TRILINEAR_FILTERING_MAX = 2
-    const val BLENDING_ACCURACY_DEFAULT = 1
+    const val BLENDING_ACCURACY_DEFAULT = 0
     const val TEXTURE_PRELOADING_DEFAULT = 2
     const val ANISOTROPIC_FILTERING_DEFAULT = 0
     const val HW_MIPMAPPING_DEFAULT = true
