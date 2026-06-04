@@ -101,7 +101,7 @@ data class EmulationUiState(
     val shadeBoostSaturation: Int = 50,
     val shadeBoostGamma: Int = 50,
     val anisotropicFiltering: Int = 0,
-    val enableHwMipmapping: Boolean = true,
+    val enableHwMipmapping: Boolean = GsHackDefaults.HW_MIPMAPPING_DEFAULT,
     val widescreenPatches: Boolean = false,
     val noInterlacingPatches: Boolean = false,
     val cpuSpriteRenderSize: Int = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,

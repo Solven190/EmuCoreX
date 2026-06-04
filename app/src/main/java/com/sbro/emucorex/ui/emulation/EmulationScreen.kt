@@ -335,7 +335,7 @@ fun EmulationScreen(
     var lastTapTimestamp by remember { mutableLongStateOf(0L) }
     var lastTapX by remember { mutableFloatStateOf(0f) }
     var lastTapY by remember { mutableFloatStateOf(0f) }
-    var connectedGamepadCount by remember { mutableIntStateOf(GamepadManager.connectedGamepadCount()) }
+    val connectedGamepadCount by GamepadManager.connectedGamepadCountState.collectAsState()
     val gamepadConnected = connectedGamepadCount > 0
     val touchPadIndex = GamepadManager.resolveTouchPadIndex()
     var showGamepadIndicator by remember { mutableStateOf(gamepadConnected) }
@@ -602,13 +602,6 @@ fun EmulationScreen(
         view.keepScreenOn = uiState.keepScreenOn
         onDispose {
             view.keepScreenOn = previousValue
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            connectedGamepadCount = GamepadManager.connectedGamepadCount()
-            delay(500)
         }
     }
 

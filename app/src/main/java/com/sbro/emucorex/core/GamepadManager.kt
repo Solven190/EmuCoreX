@@ -199,6 +199,7 @@ object GamepadManager {
     private val actionsById = mappableActions.associateBy { it.id }
     private val _connectedGamepadCountState = MutableStateFlow(0)
     val connectedGamepadCountState: StateFlow<Int> = _connectedGamepadCountState
+    private var connectedGamepadSnapshot: List<ConnectedGamepad> = emptyList()
 
     fun ensureInitialized(context: android.content.Context) {
         if (initialized) return
@@ -294,7 +295,9 @@ object GamepadManager {
         }
     }
 
-    fun connectedGamepads(): List<ConnectedGamepad> = refreshConnectedGamepads()
+    fun connectedGamepads(): List<ConnectedGamepad> = synchronized(connectionLock) {
+        connectedGamepadSnapshot
+    }
 
     fun connectedControllerName(padIndex: Int): String? {
         val normalizedPadIndex = normalizePadIndex(padIndex)
@@ -339,7 +342,7 @@ object GamepadManager {
 
     fun isGamepadConnected(): Boolean = connectedGamepads().isNotEmpty()
 
-    fun connectedGamepadCount(): Int = connectedGamepads().size
+    fun connectedGamepadCount(): Int = _connectedGamepadCountState.value
 
     fun resolveTouchPadIndex(): Int? {
         val connectedCount = synchronized(connectionLock) { deviceToPadIndex.size }
@@ -642,7 +645,7 @@ object GamepadManager {
             deviceToPadIndex.clear()
             deviceToPadIndex.putAll(updatedAssignments)
 
-            connectedDevices.mapNotNull { device ->
+            val snapshot = connectedDevices.mapNotNull { device ->
                 val padIndex = deviceToPadIndex[device.id] ?: return@mapNotNull null
                 ConnectedGamepad(
                     padIndex = padIndex,
@@ -650,6 +653,8 @@ object GamepadManager {
                     name = device.name.ifBlank { "Controller ${padIndex + 1}" }
                 )
             }.sortedBy { it.padIndex }
+            connectedGamepadSnapshot = snapshot
+            snapshot
         }
 
         releasedAssignments.forEach { (padIndex, deviceId) ->

@@ -85,7 +85,7 @@ data class SettingsUiState(
     val enableWidescreenPatches: Boolean = false,
     val enableNoInterlacingPatches: Boolean = false,
     val anisotropicFiltering: Int = 0,
-    val enableHwMipmapping: Boolean = true,
+    val enableHwMipmapping: Boolean = GsHackDefaults.HW_MIPMAPPING_DEFAULT,
     val cpuSpriteRenderSize: Int = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
     val cpuSpriteRenderLevel: Int = GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT,
     val softwareClutRender: Int = GsHackDefaults.SOFTWARE_CLUT_RENDER_DEFAULT,
