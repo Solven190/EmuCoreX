@@ -17,7 +17,10 @@
 #include <string>
 
 #ifdef __ANDROID__
+#include <android/log.h>
+#include <adrenotools/driver.h>
 #include <dlfcn.h>
+#include "emucorex/android_runtime.h"
 #endif
 
 extern "C" {
@@ -44,6 +47,62 @@ void Vulkan::ResetVulkanLibraryFunctionPointers()
 
 static DynamicLibrary s_vulkan_library;
 
+#ifdef __ANDROID__
+static const char* BasenameForLog(const std::string& path)
+{
+	const size_t last_separator = path.find_last_of("/\\");
+	return path.c_str() + ((last_separator == std::string::npos) ? 0 : last_separator + 1);
+}
+
+static bool LoadVulkanLibraryWithAdrenoTools(const std::string& custom_driver_path, Error* error)
+{
+	const char* hook_lib_dir = getenv("ANDROID_NATIVE_LIB_DIR");
+	if (!hook_lib_dir || !*hook_lib_dir)
+	{
+		__android_log_write(ANDROID_LOG_ERROR, "EmuCoreX",
+			"Vulkan custom driver: native library directory env missing");
+		Console.Warning("Vulkan: Custom driver requested, but native library directory is not set");
+		return false;
+	}
+
+	const size_t last_separator = custom_driver_path.find_last_of("/\\");
+	if (last_separator == std::string::npos || last_separator + 1 >= custom_driver_path.size())
+	{
+		Console.Warning("Vulkan: Custom driver path is invalid: %s", custom_driver_path.c_str());
+		return false;
+	}
+
+	std::string custom_driver_dir = custom_driver_path.substr(0, last_separator + 1);
+	std::string custom_driver_name = custom_driver_path.substr(last_separator + 1);
+
+	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
+		"Vulkan custom driver: adrenotools open driver=%s hookDir=%s",
+		custom_driver_name.c_str(), hook_lib_dir);
+	void* handle = adrenotools_open_libvulkan(
+		RTLD_NOW,
+		ADRENOTOOLS_DRIVER_CUSTOM,
+		nullptr,
+		hook_lib_dir,
+		custom_driver_dir.c_str(),
+		custom_driver_name.c_str(),
+		nullptr,
+		nullptr);
+	if (!handle)
+	{
+		__android_log_print(ANDROID_LOG_ERROR, "EmuCoreX",
+			"Vulkan custom driver: adrenotools failed driver=%s", custom_driver_name.c_str());
+		Error::SetStringFmt(error, "adrenotools failed to open custom Vulkan driver {}", custom_driver_path);
+		return false;
+	}
+
+	s_vulkan_library.Adopt(handle);
+	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
+		"Vulkan custom driver: adrenotools loaded driver=%s", custom_driver_name.c_str());
+	Console.WriteLn(Color_StrongGreen, "Vulkan: Loaded custom driver with adrenotools: %s", custom_driver_name.c_str());
+	return true;
+}
+#endif
+
 bool Vulkan::IsVulkanLibraryLoaded()
 {
 	return s_vulkan_library.IsOpen();
@@ -58,22 +117,17 @@ bool Vulkan::LoadVulkanLibrary(Error* error)
 	char* libvulkan_env = getenv("LIBVULKAN_PATH");
 	if (libvulkan_env)
 		custom_driver_path = libvulkan_env;
+	if (custom_driver_path.empty())
+		custom_driver_path = emucorex::android::AndroidRuntime::Instance().GetSetting("EmuCoreX", "CustomDriverPath");
+	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX", "Vulkan loader entry customDriver=%s",
+		custom_driver_path.empty() ? "<none>" : BasenameForLog(custom_driver_path));
 
 	if (!custom_driver_path.empty())
 	{
-		Console.WriteLn(Color_StrongGreen, "Vulkan: Attempting to load custom driver from: %s",
+		Console.WriteLn(Color_StrongGreen, "Vulkan: Attempting to load custom driver with adrenotools: %s",
 			custom_driver_path.c_str());
-		if (s_vulkan_library.Open(custom_driver_path.c_str(), error))
-		{
-			Console.WriteLn(Color_StrongGreen,
-				"Vulkan: Successfully loaded custom driver directly");
-		}
-		else
-		{
-			Console.Warning(
-				"Vulkan: Failed to load custom driver from '%s', falling back to system driver",
-				custom_driver_path.c_str());
-		}
+		if (!LoadVulkanLibraryWithAdrenoTools(custom_driver_path, error))
+			Console.Warning("Vulkan: Failed to load custom driver, falling back to system driver");
 	}
 
 	if (!s_vulkan_library.IsOpen())

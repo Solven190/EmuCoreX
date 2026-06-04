@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
+import com.sbro.emucorex.core.GpuDriverManager
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.NativeApp
 import com.sbro.emucorex.core.PerformanceProfiles
@@ -2320,14 +2321,25 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val profile = activePerGameKey()?.let(perGameSettingsRepository::get)
         val ensuredAssignments = memoryCardRepository.ensureDefaultCardsAssigned()
         val profileConfig = PerformanceProfiles.configFor(preferences.performanceProfile.first())
+        val savedGpuDriverType = preferences.gpuDriverType.first()
+        val savedCustomDriverPath = preferences.customDriverPath.first()
+        val resolvedCustomDriverPath = if (savedGpuDriverType == 1) {
+            GpuDriverManager(getApplication()).resolveUsableDriverPath(savedCustomDriverPath)
+        } else {
+            null
+        }
+        val resolvedGpuDriverType = if (savedGpuDriverType == 1 && !resolvedCustomDriverPath.isNullOrBlank()) 1 else 0
+        if (savedGpuDriverType == 1 && resolvedGpuDriverType == 1 && resolvedCustomDriverPath != savedCustomDriverPath) {
+            preferences.setCustomDriverPath(resolvedCustomDriverPath)
+        }
         return EmulationLaunchConfig(
             biosPath = preferences.biosPath.first(),
             memoryCardSlot1 = ensuredAssignments.slot1,
             memoryCardSlot2 = ensuredAssignments.slot2,
             renderer = preferences.renderer.first(),
             upscaleMultiplier = preferences.upscaleMultiplier.first(),
-            gpuDriverType = preferences.gpuDriverType.first(),
-            customDriverPath = preferences.customDriverPath.first(),
+            gpuDriverType = resolvedGpuDriverType,
+            customDriverPath = resolvedCustomDriverPath,
             aspectRatio = preferences.aspectRatio.first(),
             enableEeRecompiler = preferences.enableEeRecompiler.first(),
             enableIopRecompiler = preferences.enableIopRecompiler.first(),

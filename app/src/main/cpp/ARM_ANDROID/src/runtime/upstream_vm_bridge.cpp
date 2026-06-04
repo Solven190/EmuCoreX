@@ -177,9 +177,17 @@ void InstallHostSettings(const VmLaunchConfig& config)
 {
 	const auto driver_it = config.settings.find("EmuCoreX\nCustomDriverPath");
 	if (driver_it != config.settings.end() && !driver_it->second.empty())
+	{
 		setenv("LIBVULKAN_PATH", driver_it->second.c_str(), 1);
+		const std::size_t slash = driver_it->second.find_last_of("/\\");
+		__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "Custom Vulkan driver path set: %s",
+			driver_it->second.c_str() + ((slash == std::string::npos) ? 0 : slash + 1));
+	}
 	else
+	{
 		unsetenv("LIBVULKAN_PATH");
+		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Custom Vulkan driver path not set");
+	}
 
 	std::unique_lock settings_lock = Host::GetSettingsLock();
 	if (!Host::Internal::GetBaseSettingsLayer())

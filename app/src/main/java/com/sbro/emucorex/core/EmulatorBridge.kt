@@ -97,6 +97,17 @@ object EmulatorBridge {
 
     private fun customDriverOp(path: String) = RuntimeOp("custom_driver", listOf(path))
 
+    private fun prepareCustomDriverLibrary(path: String): String {
+        if (path.isBlank()) return ""
+        val file = File(path)
+        if (file.isFile) {
+            file.setReadable(true, true)
+            file.setWritable(true, true)
+            file.setExecutable(true, true)
+        }
+        return path
+    }
+
     private fun refreshBiosOp() = RuntimeOp("refresh_bios", emptyList())
 
     private fun resetTargetFpsOp() = RuntimeOp("reset_target_fps", emptyList())
@@ -346,8 +357,15 @@ object EmulatorBridge {
             nativePaletteDraw = nativePaletteDraw
         )
 
+        val customDriverSupported = GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()
+        val effectiveGpuDriverType = if (gpuDriverType == 1 && customDriverSupported) 1 else 0
         NativeApp.setCrashContextString("emu_renderer_name", rendererName(resolvedRenderer))
-        NativeApp.setCrashContextString("emu_gpu_driver_mode", if (gpuDriverType == 1) "custom" else "system")
+        NativeApp.setCrashContextString("emu_gpu_driver_mode", if (effectiveGpuDriverType == 1) "custom" else "system")
+        val resolvedCustomDriverPath = if (effectiveGpuDriverType == 1) {
+            prepareCustomDriverLibrary(customDriverPath.orEmpty())
+        } else {
+            ""
+        }
         val directEeRecompiler = enableEeRecompiler
         val directIopRecompiler = enableIopRecompiler
         val directVu0Recompiler = enableVu0Recompiler
@@ -358,7 +376,7 @@ object EmulatorBridge {
             "android jit: requested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem} mtvuRequested=$mtvu direct={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu fastmem:$enableFastmem}"
         )
         NativeApp.logCrashBreadcrumb(
-            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$gpuDriverType hwDownload=$hwDownloadMode mtvuRequested=$mtvu directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu fastmem:$enableFastmem} fastCdvd=$fastCdvd jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
+            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode mtvuRequested=$mtvu directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu fastmem:$enableFastmem} fastCdvd=$fastCdvd jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
         )
         val prefs = AppPreferences(context)
         val padVibrationEnabled = prefs.padVibration.first()
@@ -460,7 +478,7 @@ object EmulatorBridge {
                 add(settingOp("Achievements", "ChallengeMode", "bool", prefs.getAchievementsHardcoreSync().toString()))
                 add(settingOp("Achievements", "Username", "string", prefs.getAchievementsUsernameSync().orEmpty()))
                 add(settingOp("Achievements", "Token", "string", prefs.getAchievementsTokenSync().orEmpty()))
-                add(customDriverOp(if (gpuDriverType == 1) customDriverPath.orEmpty() else ""))
+                add(customDriverOp(resolvedCustomDriverPath))
             }
         )
     }
@@ -799,8 +817,13 @@ object EmulatorBridge {
     }
 
     suspend fun setCustomDriverPath(path: String) {
-        settingsCache["EmuCore/GS:CustomDriverPath"] = path
-        performRuntimeOps(listOf(customDriverOp(path)))
+        val resolvedPath = if (GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()) {
+            prepareCustomDriverLibrary(path)
+        } else {
+            ""
+        }
+        settingsCache["EmuCore/GS:CustomDriverPath"] = resolvedPath
+        performRuntimeOps(listOf(customDriverOp(resolvedPath)))
     }
 
     suspend fun setFrameLimitEnabled(enabled: Boolean) {

@@ -2,10 +2,12 @@ package com.sbro.emucorex.core
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.util.Locale
 import java.util.zip.ZipInputStream
 
 data class InstalledGpuDriver(
@@ -26,6 +28,9 @@ class GpuDriverManager(private val context: Context) {
             .mapNotNull { driverDir ->
                 val mainLibrary = readMainLibraryName(driverDir) ?: return@mapNotNull null
                 val mainLibraryFile = File(driverDir, mainLibrary)
+                if (mainLibraryFile.isFile) {
+                    ensureDriverLibraryPermissions(mainLibraryFile)
+                }
                 InstalledGpuDriver(
                     name = driverDir.name,
                     mainLibrary = mainLibrary,
@@ -61,6 +66,25 @@ class GpuDriverManager(private val context: Context) {
         return File(driverDir, mainLibrary).absolutePath
     }
 
+    fun resolveUsableDriverPath(preferredPath: String?): String? {
+        if (!GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()) {
+            return null
+        }
+
+        preferredPath
+            ?.takeIf { it.isNotBlank() }
+            ?.let(::File)
+            ?.takeIf { it.isFile }
+            ?.let { file ->
+                ensureDriverLibraryPermissions(file)
+                return file.absolutePath
+            }
+
+        return listInstalledDrivers()
+            .firstOrNull { it.isUsable }
+            ?.mainLibraryPath
+    }
+
     private fun installFromArchive(input: InputStream, archiveName: String): String {
         val driverName = archiveName.substringBeforeLast('.').ifBlank { "custom-driver" }
         val targetDir = File(driversRoot(), driverName)
@@ -89,6 +113,9 @@ class GpuDriverManager(private val context: Context) {
                 FileOutputStream(outFile).use { output ->
                     zip.copyTo(output)
                 }
+                if (outFile.extension.equals("so", ignoreCase = true)) {
+                    ensureDriverLibraryPermissions(outFile)
+                }
                 extractedFiles += normalizedEntryName
             }
         }
@@ -113,6 +140,12 @@ class GpuDriverManager(private val context: Context) {
             .firstOrNull { it.isNotEmpty() }
     }
 
+    private fun ensureDriverLibraryPermissions(file: File) {
+        file.setReadable(true, true)
+        file.setWritable(true, true)
+        file.setExecutable(true, true)
+    }
+
     private fun selectMainDriverFile(extractedFiles: List<String>): String? {
         val sharedLibraries = extractedFiles
             .filter { it.endsWith(".so", ignoreCase = true) }
@@ -135,5 +168,62 @@ class GpuDriverManager(private val context: Context) {
             val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
         }
+    }
+}
+
+object GpuDriverCompatibility {
+    fun supportsAdrenoToolsCustomDrivers(): Boolean {
+        val deviceInfo = buildList {
+            add(Build.BOARD)
+            add(Build.BRAND)
+            add(Build.DEVICE)
+            add(Build.HARDWARE)
+            add(Build.MANUFACTURER)
+            add(Build.MODEL)
+            add(Build.PRODUCT)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(Build.SOC_MANUFACTURER)
+                add(Build.SOC_MODEL)
+            }
+        }
+            .joinToString(" ")
+            .lowercase(Locale.US)
+
+        val qualcommSignals = listOf(
+            "adreno",
+            "qcom",
+            "qualcomm",
+            "qti",
+            "snapdragon",
+            "msm",
+            "sdm",
+            "sm8",
+            "sm7",
+            "sm6",
+            "kalama",
+            "lahaina",
+            "taro",
+            "waipio"
+        )
+        if (qualcommSignals.any { it in deviceInfo }) {
+            return true
+        }
+
+        val knownNonAdrenoSignals = listOf(
+            "mediatek",
+            "mtk",
+            "dimensity",
+            "helio",
+            "exynos",
+            "mali",
+            "kirin",
+            "hisilicon",
+            "tensor",
+            "unisoc",
+            "spreadtrum",
+            "powervr",
+            "imgtec"
+        )
+        return knownNonAdrenoSignals.none { it in deviceInfo } && Regex("""\bsm[0-9]{3,4}\b""").containsMatchIn(deviceInfo)
     }
 }

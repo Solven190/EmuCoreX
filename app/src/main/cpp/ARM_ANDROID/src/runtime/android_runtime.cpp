@@ -21,6 +21,7 @@
 #include <android/native_window.h>
 
 #include <chrono>
+#include <cstdlib>
 #include <iomanip>
 #include <memory>
 #include <mutex>
@@ -36,6 +37,22 @@ std::mutex s_game_metadata_mutex;
 std::string SettingKey(const std::string& section, const std::string& key)
 {
 	return section + '\n' + key;
+}
+
+void ApplyCustomDriverPathEnvironment(const std::string& value)
+{
+	if (!value.empty())
+	{
+		setenv("LIBVULKAN_PATH", value.c_str(), 1);
+		const std::size_t slash = value.find_last_of("/\\");
+		__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "Runtime custom Vulkan driver path set: %s",
+			value.c_str() + ((slash == std::string::npos) ? 0 : slash + 1));
+	}
+	else
+	{
+		unsetenv("LIBVULKAN_PATH");
+		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Runtime custom Vulkan driver path cleared");
+	}
 }
 
 std::string BasenameWithoutExtension(const std::string& path)
@@ -232,6 +249,16 @@ void AndroidRuntime::SetNativeLibraryDir(std::string path)
 {
 	std::lock_guard lock(mutex_);
 	paths_.native_library_dir = std::move(path);
+	if (!paths_.native_library_dir.empty())
+	{
+		setenv("ANDROID_NATIVE_LIB_DIR", paths_.native_library_dir.c_str(), 1);
+		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Native library directory environment set");
+	}
+	else
+	{
+		unsetenv("ANDROID_NATIVE_LIB_DIR");
+		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Native library directory environment cleared");
+	}
 }
 
 void AndroidRuntime::BeginSettingsBatch()
@@ -263,6 +290,8 @@ void AndroidRuntime::EndSettingsBatch()
 void AndroidRuntime::SetSetting(std::string section, std::string key, std::string, std::string value)
 {
 	std::lock_guard lock(mutex_);
+	if (section == "EmuCoreX" && key == "CustomDriverPath")
+		ApplyCustomDriverPathEnvironment(value);
 	settings_[SettingKey(section, key)] = std::move(value);
 }
 
