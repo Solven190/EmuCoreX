@@ -219,6 +219,33 @@ static __fi OakMemOperand mVUClampOakGlobMem(s64 offset)
 	return mVUIrOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, mVUglob)) + offset);
 }
 
+static __fi void mVUClampDenormalScalarBits_oaknut(int reg)
+{
+	oak::Label done;
+
+	oakAsm->FMOV(OAK_WSCRATCH, oakSRegister(reg));
+	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH, 0x7f800000u);
+	oakAsm->CBNZ(OAK_WSCRATCH2, done);
+	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x80000000u);
+	oakAsm->FMOV(oakSRegister(reg), OAK_WSCRATCH);
+	oakAsm->l(done);
+}
+
+static __fi void mVUClampDenormalVectorBits_oaknut(int reg)
+{
+	const oak::QReg reg_q = oakQRegister(reg);
+
+	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, exponent)));
+	oakAsm->AND(OAK_QSCRATCH.B16(), reg_q.B16(), OAK_QSCRATCH3.B16());
+
+	oakAsm->EOR(OAK_QSCRATCH2.B16(), OAK_QSCRATCH2.B16(), OAK_QSCRATCH2.B16());
+	oakAsm->CMEQ(OAK_QSCRATCH2.S4(), OAK_QSCRATCH.S4(), OAK_QSCRATCH2.S4());
+	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, signbit)));
+	oakAsm->AND(OAK_QSCRATCH3.B16(), reg_q.B16(), OAK_QSCRATCH3.B16());
+	oakAsm->BSL(OAK_QSCRATCH2.B16(), OAK_QSCRATCH3.B16(), reg_q.B16());
+	oakAsm->MOV(reg_q.B16(), OAK_QSCRATCH2.B16());
+}
+
 static __fi void mVUClamp1ScalarBits_oaknut(int reg)
 {
 	oak::Label check_infinity;

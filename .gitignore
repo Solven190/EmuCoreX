@@ -73,6 +73,7 @@ Thumbs.db
 emulog.txt
 # Local investigation notes and profiling captures
 docs/
+docs/vu0-camera-progress.md
 profiling-runs/
 /local-traces/
 

@@ -815,6 +815,16 @@ public:
 		}
 	}
 
+	void clearRegVFDuplicates(int keepReg, int VFreg)
+	{
+        int i;
+		for (i = 0; i < xmmTotal; ++i)
+		{
+			if (i != keepReg && !xmmMap[i].isNeeded && xmmMap[i].VFreg == VFreg)
+				clearReg(i);
+		}
+	}
+
 	void clearRegCOP2(int xmmReg)
 	{
 		if (regAllocCOP2)
@@ -951,6 +961,50 @@ public:
 			pxAssert(pxmmregs[reg_code].type == XMMTYPE_VFREG);
 			pxmmregs[reg_code].inuse = false;
 		}
+	}
+
+	void clearNeededVu0AccXForNextMaddaiX(int reg_code, bool keepForNextMaddaiX)
+	{
+		if (!keepForNextMaddaiX || (reg_code < 0) || (reg_code >= xmmTotal))
+		{
+			clearNeededXmmId(reg_code);
+			return;
+		}
+
+		microMapXMM& reg = xmmMap[reg_code];
+		if (index == 0 && !regAllocCOP2 && reg.VFreg == 32 && reg.xyzw == 0x8)
+		{
+			clearRegVFDuplicates(reg_code, 32);
+			reg.isNeeded = false;
+			reg.count = counter;
+			updateCOP2AllocState(reg_code);
+			return;
+		}
+
+		clearNeededXmmId(reg_code);
+	}
+
+	int allocRegIdVu0AccX()
+	{
+		counter++;
+		if (index == 0 && !regAllocCOP2)
+		{
+            int i;
+			for (i = 0; i < xmmTotal; ++i)
+			{
+				microMapXMM& reg = xmmMap[i];
+				if (isAllocatableXmm(i) && !reg.isNeeded && reg.VFreg == 32 && reg.xyzw == 0x8)
+				{
+					reg.count = counter;
+					reg.isNeeded = true;
+					updateCOP2AllocState(i);
+					return i;
+				}
+			}
+		}
+
+		counter--;
+		return allocRegId(32, 32, 0x8, false);
 	}
 
 	// vfLoadReg  = VF reg to be loaded to the xmm register

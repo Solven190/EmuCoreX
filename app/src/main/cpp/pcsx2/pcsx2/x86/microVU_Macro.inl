@@ -7,6 +7,10 @@
 extern void _vu0WaitMicro();
 extern void _vu0FinishMicro();
 
+static constexpr bool VU0_FORCE_INTERP_COP2_MACRO_TEST = false;
+static constexpr bool VU0_FORCE_INTERP_COP2_TRANSFER_TEST = false;
+static constexpr bool VU0_FORCE_COP2_SYNC_TEST = false;
+
 //static VURegs& vu0Regs = g_cpuRegistersPack.vuRegs[0];
 
 //------------------------------------------------------------------
@@ -1137,6 +1141,46 @@ void recVWAITQ() {}
 INTERPRETATE_COP2_FUNC(CALLMS);
 INTERPRETATE_COP2_FUNC(CALLMSR);
 
+static void recCOP2InterpreterCall(void (*func)())
+{
+	iFlushCall(FLUSH_FOR_POSSIBLE_MICRO_EXEC);
+	mVUAddBlockCyclesToCpuCycle_emit_oaknut(oak::util::W0);
+	recCall(func);
+}
+
+static bool recCOP2TryInterpSPEC1()
+{
+	if (!VU0_FORCE_INTERP_COP2_MACRO_TEST)
+		return false;
+
+	if (_Funct_ >= 0x3c)
+	{
+		recCOP2InterpreterCall(Int_COP2SPECIAL2PrintTable[(cpuRegs.code & 3) | ((cpuRegs.code >> 4) & 0x7c)]);
+		return true;
+	}
+
+	recCOP2InterpreterCall(Int_COP2SPECIAL1PrintTable[_Funct_]);
+	return true;
+}
+
+static bool recCOP2TryInterpSPEC2()
+{
+	if (!VU0_FORCE_INTERP_COP2_MACRO_TEST)
+		return false;
+
+	recCOP2InterpreterCall(Int_COP2SPECIAL2PrintTable[(cpuRegs.code & 3) | ((cpuRegs.code >> 4) & 0x7c)]);
+	return true;
+}
+
+static bool recCOP2TryInterpTransfer(void (*func)())
+{
+	if (!VU0_FORCE_INTERP_COP2_TRANSFER_TEST)
+		return false;
+
+	recCOP2InterpreterCall(func);
+	return true;
+}
+
 //------------------------------------------------------------------
 // Macro VU - Branches
 //------------------------------------------------------------------
@@ -1404,6 +1448,9 @@ static void recCFC2_emit_oaknut()
 
 static void recCFC2()
 {
+	if (recCOP2TryInterpTransfer(CFC2))
+		return;
+
 	recCFC2_emit_oaknut();
 }
 
@@ -1628,6 +1675,9 @@ static void recCTC2_emit_oaknut()
 
 static void recCTC2()
 {
+	if (recCOP2TryInterpTransfer(CTC2))
+		return;
+
 	recCTC2_emit_oaknut();
 }
 
@@ -1712,6 +1762,9 @@ static void recQMFC2_emit_oaknut()
 
 static void recQMFC2()
 {
+	if (recCOP2TryInterpTransfer(QMFC2))
+		return;
+
 	recQMFC2_emit_oaknut();
 }
 
@@ -1769,6 +1822,9 @@ static void recQMTC2_emit_oaknut()
 
 static void recQMTC2()
 {
+	if (recCOP2TryInterpTransfer(QMTC2))
+		return;
+
 	recQMTC2_emit_oaknut();
 }
 
@@ -1833,7 +1889,13 @@ void (*recCOP2SPECIAL2t[128])() = {
 namespace R5900 {
 namespace Dynarec {
 namespace OpcodeImpl {
-void recCOP2() { recCOP2t[_Rs_](); }
+void recCOP2()
+{
+	if (VU0_FORCE_COP2_SYNC_TEST)
+		mVUFinishVU0();
+
+	recCOP2t[_Rs_]();
+}
 
 #if defined(LOADSTORE_RECOMPILE) && defined(CP2_RECOMPILE)
 
@@ -1960,6 +2022,15 @@ static void recLQC2_emit_oaknut()
 
 void recLQC2()
 {
+	if (VU0_FORCE_COP2_SYNC_TEST)
+		mVUSyncVU0();
+
+	if (recCOP2TryInterpTransfer(R5900::Interpreter::OpcodeImpl::LQC2))
+	{
+		EE::Profiler.EmitOp(eeOpcode::LQC2);
+		return;
+	}
+
 	recLQC2_emit_oaknut();
 	EE::Profiler.EmitOp(eeOpcode::LQC2);
 }
@@ -1997,6 +2068,15 @@ static void recSQC2_emit_oaknut()
 
 void recSQC2()
 {
+	if (VU0_FORCE_COP2_SYNC_TEST)
+		mVUSyncVU0();
+
+	if (recCOP2TryInterpTransfer(R5900::Interpreter::OpcodeImpl::SQC2))
+	{
+		EE::Profiler.EmitOp(eeOpcode::SQC2);
+		return;
+	}
+
 	recSQC2_emit_oaknut();
 	EE::Profiler.EmitOp(eeOpcode::SQC2);
 }
@@ -2018,7 +2098,16 @@ void recCOP2_SPEC1()
 	if (g_pCurInstInfo->info & (EEINST_COP2_SYNC_VU0 | EEINST_COP2_FINISH_VU0))
 		mVUFinishVU0();
 
+	if (recCOP2TryInterpSPEC1())
+		return;
+
 	recCOP2SPECIAL1t[_Funct_]();
 
 }
-void recCOP2_SPEC2() { recCOP2SPECIAL2t[(cpuRegs.code & 3) | ((cpuRegs.code >> 4) & 0x7c)](); }
+void recCOP2_SPEC2()
+{
+	if (recCOP2TryInterpSPEC2())
+		return;
+
+	recCOP2SPECIAL2t[(cpuRegs.code & 3) | ((cpuRegs.code >> 4) & 0x7c)]();
+}
