@@ -113,6 +113,7 @@ struct microProfiler
 	u64 jumpCacheHits = 0;
 	u64 jumpCacheMisses = 0;
 	u64 createPrograms = 0;
+	u64 retiredPrograms = 0;
 	u64 clears = 0;
 	u64 resets = 0;
 	u64 compiledInstructions = 0;
@@ -146,6 +147,7 @@ struct microProfiler
 		jumpCacheHits = 0;
 		jumpCacheMisses = 0;
 		createPrograms = 0;
+		retiredPrograms = 0;
 		clears = 0;
 		resets = 0;
 		compiledInstructions = 0;
@@ -241,6 +243,7 @@ struct microProfiler
 		const u64 jump_hits = take(jumpCacheHits);
 		const u64 jump_misses = take(jumpCacheMisses);
 		const u64 programs = take(createPrograms);
+		const u64 retired = take(retiredPrograms);
 		const u64 clear_count = take(clears);
 		const u64 reset_count = take(resets);
 		const u64 instructions = take(compiledInstructions);
@@ -254,7 +257,7 @@ struct microProfiler
 		std::snprintf(line, sizeof(line),
 			"VU1JIT exec=%llu search=%llu quick_hit=%llu list_hit=%llu prog_miss=%llu "
 			"fetch=%llu block_hit=%llu block_miss=%llu compile=%llu jit_call=%llu "
-			"jump_hit=%llu jump_miss=%llu create_prog=%llu clear=%llu reset=%llu "
+			"jump_hit=%llu jump_miss=%llu create_prog=%llu retired_prog=%llu clear=%llu reset=%llu "
 			"compiled_ins=%llu compiled_bytes=%llu",
 			static_cast<unsigned long long>(execute),
 			static_cast<unsigned long long>(searches),
@@ -269,6 +272,7 @@ struct microProfiler
 			static_cast<unsigned long long>(jump_hits),
 			static_cast<unsigned long long>(jump_misses),
 			static_cast<unsigned long long>(programs),
+			static_cast<unsigned long long>(retired),
 			static_cast<unsigned long long>(clear_count),
 			static_cast<unsigned long long>(reset_count),
 			static_cast<unsigned long long>(instructions),

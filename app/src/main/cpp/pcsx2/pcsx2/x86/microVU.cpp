@@ -14,6 +14,9 @@
 alignas(64) vuRegistersPack g_vuRegistersPack;
 VU_Thread& vu1Thread = g_vuRegistersPack.vu1Thread;
 
+static constexpr size_t mVUmaxProgramsPerStartPc = 32;
+static constexpr size_t mVUmaxRetirePerTrim = 4;
+
 //------------------------------------------------------------------
 // Micro VU - Main Functions
 //------------------------------------------------------------------
@@ -108,6 +111,8 @@ void mVUreset(microVU& mVU, bool resetReserve)
 	}
 	mVU.prog.garbage_programs.clear();
 	mVU.prog.prog_lookup.clear(); // Clear O(1) lookup map
+	if (mVU.index)
+		mVU.prog.prog_lookup.reserve(1024);
 	std::memset(mVU.prog.active_mask, 0, sizeof(mVU.prog.active_mask));
 }
 
@@ -152,6 +157,81 @@ static __fi bool mVUprogOverlapsRange(const microProgram& prog, u32 start, u32 e
 			return true;
 	}
 	return false;
+}
+
+static __fi bool mVUquickReferencesProg(const microVU& mVU, const microProgram& prog)
+{
+	for (u16 i : *prog.active_blocks)
+	{
+		if (mVU.prog.quick[i].prog == &prog)
+			return true;
+	}
+	return false;
+}
+
+static void mVUremoveLookupEntriesForProg(microVU& mVU, const microProgram& prog)
+{
+	for (auto it = mVU.prog.prog_lookup.begin(); it != mVU.prog.prog_lookup.end();)
+	{
+		if (it->second == &prog)
+			it = mVU.prog.prog_lookup.erase(it);
+		else
+			++it;
+	}
+}
+
+static void mVUretireProgFromLookup(microVU& mVU, microProgram* prog)
+{
+	mVUremoveLookupEntriesForProg(mVU, *prog);
+	mVU.prog.garbage_programs.push_back(prog);
+	mVU.profiler.Add(mVU.profiler.retiredPrograms);
+}
+
+static void mVUtrimProgramList(microVU& mVU, microProgramList& list)
+{
+	if (list.size() <= mVUmaxProgramsPerStartPc)
+		return;
+
+	size_t retired = 0;
+	for (auto it = list.end(); it != list.begin() && list.size() > mVUmaxProgramsPerStartPc && retired < mVUmaxRetirePerTrim;)
+	{
+		--it;
+		microProgram* prog = *it;
+		if (prog == mVU.prog.cur || mVUquickReferencesProg(mVU, *prog))
+			continue;
+
+		it = list.erase(it);
+		mVUretireProgFromLookup(mVU, prog);
+		retired++;
+	}
+}
+
+static u32 mVUcountActiveQuickEntries(const microVU& mVU)
+{
+	u32 count = 0;
+	for (u64 mask : mVU.prog.active_mask)
+		count += static_cast<u32>(__builtin_popcountll(mask));
+	return count;
+}
+
+static std::string mVUformatCacheState(const microVU& mVU)
+{
+	const u64 cache_used = (mVU.prog.x86ptr > mVU.prog.x86start) ?
+		static_cast<u64>(mVU.prog.x86ptr - mVU.prog.x86start) : 0;
+	const u64 cache_limit = (mVU.prog.x86end > mVU.prog.x86start) ?
+		static_cast<u64>(mVU.prog.x86end - mVU.prog.x86start) : 0;
+	const u64 cache_free = (cache_limit > cache_used) ? (cache_limit - cache_used) : 0;
+
+	char line[256];
+	std::snprintf(line, sizeof(line),
+		"cache_used=%llu cache_limit=%llu cache_free=%llu lookup=%llu garbage=%llu active_quick=%u",
+		static_cast<unsigned long long>(cache_used),
+		static_cast<unsigned long long>(cache_limit),
+		static_cast<unsigned long long>(cache_free),
+		static_cast<unsigned long long>(mVU.prog.prog_lookup.size()),
+		static_cast<unsigned long long>(mVU.prog.garbage_programs.size()),
+		mVUcountActiveQuickEntries(mVU));
+	return line;
 }
 
 // Clears Block Data in specified range
@@ -464,8 +544,8 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 					mVU.profiler.Add(mVU.profiler.blockMisses);
 					return mVUcompile(mVU, startPC, pState);
 				}
-				// mVUcmpProg failed → stale map entry, nullify and fall through to deque
-				mapIt->second = nullptr;
+				// mVUcmpProg failed: stale map entry, erase and fall through to deque.
+				mVU.prog.prog_lookup.erase(mapIt);
 			}
 		}
 
@@ -534,6 +614,7 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 		quick.cachedBlockQuick = 0;
 		mVU.prog.active_mask[start_pc_8 / 64] |= (1ULL << (start_pc_8 % 64));
 		list->push_front(mVU.prog.cur);
+		mVUtrimProgramList(mVU, *list);
 		// Store new program in O(1) map so next search is instant
 		if (liveStartHash != 0)
 			mVU.prog.prog_lookup[mapKey] = mVU.prog.cur;
@@ -703,5 +784,11 @@ bool SaveStateBase::vuJITFreeze()
 
 std::string mVUGetVU1ProfilerStatsAndReset()
 {
-	return microVU1.profiler.GetJitStatsAndReset();
+	std::string stats = microVU1.profiler.GetJitStatsAndReset();
+	if (!stats.empty())
+	{
+		stats += ' ';
+		stats += mVUformatCacheState(microVU1);
+	}
+	return stats;
 }
