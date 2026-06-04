@@ -1,5 +1,4 @@
 #include "emucorex/android_runtime.h"
-#include "emucorex/native_profiler.h"
 
 #include "GS/GS.h"
 #include "MTGS.h"
@@ -262,14 +261,6 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPerfo
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getPerformanceMetricsSnapshot(JNIEnv* env, jclass)
 {
 	return StringToJString(env, emucorex::android::GetPerformanceMetricsSnapshot());
-}
-extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setNativeProfilerEnabled(JNIEnv*, jclass, jboolean enabled)
-{
-	emucorex::android::profiler::SetEnabled(enabled == JNI_TRUE);
-}
-extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getNativeProfilerStatus(JNIEnv* env, jclass)
-{
-	return StringToJString(env, emucorex::android::profiler::GetStatus());
 }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_queueGsDump(JNIEnv*, jclass, jint frames)
 {

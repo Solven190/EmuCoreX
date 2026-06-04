@@ -177,7 +177,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         frameLimitEnabled = optBoolean("frameLimitEnabled", true),
         targetFps = optInt("targetFps", 0).let { if (it <= 0) 0 else it.coerceIn(20, 120) },
         textureFiltering = optInt("textureFiltering", GsHackDefaults.BILINEAR_FILTERING_DEFAULT),
-        trilinearFiltering = optInt("trilinearFiltering", GsHackDefaults.TRILINEAR_FILTERING_DEFAULT),
+        trilinearFiltering = readTrilinearFiltering(),
         blendingAccuracy = optInt("blendingAccuracy", GsHackDefaults.BLENDING_ACCURACY_DEFAULT),
         texturePreloading = optInt("texturePreloading", GsHackDefaults.TEXTURE_PRELOADING_DEFAULT),
         enableFxaa = optBoolean("enableFxaa", false),
@@ -252,7 +252,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("frameLimitEnabled")) put("frameLimitEnabled", frameLimitEnabled)
         if (shouldWrite("targetFps")) put("targetFps", targetFps)
         if (shouldWrite("textureFiltering")) put("textureFiltering", textureFiltering)
-        if (shouldWrite("trilinearFiltering")) put("trilinearFiltering", trilinearFiltering)
+        if (shouldWrite("trilinearFiltering")) put("trilinearFiltering", GsHackDefaults.coerceTrilinearFiltering(trilinearFiltering))
         if (shouldWrite("blendingAccuracy")) put("blendingAccuracy", blendingAccuracy)
         if (shouldWrite("texturePreloading")) put("texturePreloading", texturePreloading)
         if (shouldWrite("enableFxaa")) put("enableFxaa", enableFxaa)
@@ -313,6 +313,12 @@ private fun JSONObject.readUpscaleMultiplier(): Float {
         has("upscaleMultiplier") -> optInt("upscaleMultiplier", 1).toFloat()
         else -> 1f
     }.let(::normalizeUpscale)
+}
+
+private fun JSONObject.readTrilinearFiltering(): Int {
+    return GsHackDefaults.coerceTrilinearFiltering(
+        optInt("trilinearFiltering", GsHackDefaults.TRILINEAR_FILTERING_DEFAULT)
+    )
 }
 
 private fun isShadeBoostActive(

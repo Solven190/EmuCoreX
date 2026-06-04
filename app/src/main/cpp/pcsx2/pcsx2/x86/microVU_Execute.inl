@@ -450,8 +450,6 @@ _mVUt void* mVUexecute(u32 startPC, u32 cycles)
 
 	mVU.cycles = cycles;
 	mVU.totalCycles = cycles;
-
-	EMUCOREX_PROFILE_SCOPE(vuIndex ? "microVU1 Search Program" : "microVU0 Search Program");
 	return mVUsearchProg<vuIndex>(startPC & vuLimit, (uptr)&mVU.prog.lpState); // Find and set correct program
 }
 
@@ -489,7 +487,6 @@ _mVUt void mVUcleanUp()
 				VU0.cycle += cycles_passed;
 		}
 	}
-	mVU.profiler.Print();
 }
 
 //------------------------------------------------------------------

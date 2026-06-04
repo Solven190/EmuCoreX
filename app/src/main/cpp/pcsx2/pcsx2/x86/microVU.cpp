@@ -48,7 +48,6 @@ void mVUinit(microVU& mVU, uint vuIndex)
 // Resets Rec Data
 void mVUreset(microVU& mVU, bool resetReserve)
 {
-	mVU.profiler.Add(mVU.profiler.resets);
 
 	if (THREAD_VU1)
 	{
@@ -74,7 +73,6 @@ void mVUreset(microVU& mVU, bool resetReserve)
 
 	mVU.regs().nextBlockCycles = 0;
 	memset(&mVU.prog.lpState, 0, sizeof(mVU.prog.lpState));
-	mVU.profiler.Reset(mVU.index);
 
 	// Program Variables
 	mVU.prog.cleared  =  1;
@@ -230,7 +228,6 @@ static void mVUretireProgFromLookup(microVU& mVU, microProgram* prog)
 {
 	mVUremoveLookupEntriesForProg(mVU, *prog);
 	mVU.prog.garbage_programs.push_back(prog);
-	mVU.profiler.Add(mVU.profiler.retiredPrograms);
 }
 
 static void mVUtrimProgramList(microVU& mVU, microProgramList& list)
@@ -283,7 +280,6 @@ static std::string mVUformatCacheState(const microVU& mVU)
 // Clears Block Data in specified range
 __fi void mVUclear(mV, u32 addr, u32 size)
 {
-	mVU.profiler.Add(mVU.profiler.clears);
 
 	const u32 clear_start = std::min(addr, mVU.microMemSize);
 	const u32 clear_end = std::min(addr + size, mVU.microMemSize);
@@ -372,8 +368,6 @@ __ri void mVUdeleteProg(microVU& mVU, microProgram*& prog)
 // Creates a new Micro Program
 __ri microProgram* mVUcreateProg(microVU& mVU, int startPC)
 {
-	EMUCOREX_PROFILE_SCOPE(mVU.index ? "microVU1 Create Program" : "microVU0 Create Program");
-	mVU.profiler.Add(mVU.profiler.createPrograms);
 	auto* prog = (microProgram*)_aligned_malloc(sizeof(microProgram), 64);
 	memset(prog, 0, sizeof(microProgram));
 	prog->idx = mVU.prog.total++;
@@ -517,7 +511,6 @@ __fi bool mVUcmpProg(microVU& mVU, microProgram& prog, u64 liveStartHash)
 _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 {
 	microVU& mVU = mVUx;
-	mVU.profiler.Add(mVU.profiler.searchCalls);
 
     u32 start_pc_8 = startPC >> 3; // startPC / 8
     u32 regs_start_pc_8 = mVU.regs().start_pc >> 3; // mVU.regs().start_pc / 8
@@ -554,7 +547,6 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 				if (mVUcmpProg(mVU, *candidate, liveStartHash))
 				{
 					// Found via O(1) map lookup!
-					mVU.profiler.Add(mVU.profiler.searchListHits);
 					microProgram* prog = candidate;
 					for (u16 i : *prog->active_blocks)
 					{
@@ -578,12 +570,10 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 					microBlock* pBlock = quick.block->search(mVU, (microRegInfo*)pState);
 					if (pBlock)
 					{
-						mVU.profiler.Add(mVU.profiler.blockHits);
 						if (!((microRegInfo*)pState)->needExactMatch)
 							mVUquickCacheBlock(quick, quick.block, pBlock, ((microRegInfo*)pState)->quick64[0]);
 						return pBlock->x86ptrStart;
 					}
-					mVU.profiler.Add(mVU.profiler.blockMisses);
 					return mVUcompile(mVU, startPC, pState);
 				}
 				// mVUcmpProg failed: stale map entry, erase and fall through to deque.
@@ -599,7 +589,6 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 
 			if (b)
 			{
-				mVU.profiler.Add(mVU.profiler.searchListHits);
 				microProgram* prog = it[0];
 				for (u16 i : *prog->active_blocks)
 				{
@@ -630,18 +619,15 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 				microBlock* pBlock = quick.block->search(mVU, (microRegInfo*)pState);
 				if (pBlock)
 				{
-					mVU.profiler.Add(mVU.profiler.blockHits);
 					if (!((microRegInfo*)pState)->needExactMatch)
 						mVUquickCacheBlock(quick, quick.block, pBlock, ((microRegInfo*)pState)->quick64[0]);
 					return pBlock->x86ptrStart;
 				}
-				mVU.profiler.Add(mVU.profiler.blockMisses);
 				return mVUcompile(mVU, startPC, pState);
 			}
 		}
 
 		// If cleared and program not found, make a new program instance
-		mVU.profiler.Add(mVU.profiler.searchMisses);
 		mVU.prog.cleared = 0;
 		mVU.prog.isSame  = 1;
 		mVU.prog.cur     = mVUcreateProg(mVU, regs_start_pc_8);
@@ -660,7 +646,6 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 	}
 
 	// If list.quick, then we've already found and recompiled the program ;)
-	mVU.profiler.Add(mVU.profiler.searchQuickHits);
 	mVU.prog.isSame = -1;
 	mVU.prog.cur = quick.prog;
 	// Because the VU's can now run in sections and not whole programs at once
@@ -677,7 +662,6 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 	{
 		if (microBlock* cached_block = mVUquickFindCachedBlock(quick, quick.block, ((microRegInfo*)pState)->quick64[0]))
 		{
-			mVU.profiler.Add(mVU.profiler.blockHits);
 			return cached_block->x86ptrStart;
 		}
 	}
@@ -685,12 +669,10 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 	microBlock* pBlock = quick.block->search(mVU, (microRegInfo*)pState);
 	if (pBlock)
 	{
-		mVU.profiler.Add(mVU.profiler.blockHits);
 		if (!((microRegInfo*)pState)->needExactMatch)
 			mVUquickCacheBlock(quick, quick.block, pBlock, ((microRegInfo*)pState)->quick64[0]);
 		return pBlock->x86ptrStart;
 	}
-	mVU.profiler.Add(mVU.profiler.blockMisses);
 	return mVUcompile(mVU, startPC, pState);
 }
 
@@ -774,7 +756,6 @@ void recMicroVU1::Step()
 
 void recMicroVU1::Execute(u32 cycles)
 {
-	microVU1.profiler.Add(microVU1.profiler.executeCalls);
 
 	if (!THREAD_VU1)
 	{
@@ -815,15 +796,4 @@ bool SaveStateBase::vuJITFreeze()
 	Freeze(microVU0.prog.lpState);
 	Freeze(microVU1.prog.lpState);
 	return IsOkay();
-}
-
-std::string mVUGetVU1ProfilerStatsAndReset()
-{
-	std::string stats = microVU1.profiler.GetJitStatsAndReset();
-	if (!stats.empty())
-	{
-		stats += ' ';
-		stats += mVUformatCacheState(microVU1);
-	}
-	return stats;
 }

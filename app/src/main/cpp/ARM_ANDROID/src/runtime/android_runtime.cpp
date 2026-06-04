@@ -1,5 +1,4 @@
 #include "emucorex/android_runtime.h"
-#include "emucorex/native_profiler.h"
 #include "emucorex/upstream_vm_bridge.h"
 
 #include "common/Error.h"
@@ -711,7 +710,6 @@ VmLaunchConfig AndroidRuntime::CreateLaunchConfigLocked(std::string path, bool b
 
 void AndroidRuntime::VmThreadMain(VmLaunchConfig config)
 {
-	EMUCOREX_PROFILE_SCOPE("EmuCoreX VM Thread");
 	const bool result = RunUpstreamVm(config, &AndroidRuntime::NotifyVmStartupThunk, this);
 	{
 		std::lock_guard lock(mutex_);

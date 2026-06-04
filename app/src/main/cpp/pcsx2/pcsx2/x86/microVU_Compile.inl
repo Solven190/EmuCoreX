@@ -775,8 +775,6 @@ static void mvuPreloadRegisters(microVU& mVU, u32 endCount)
 
 void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 {
-	EMUCOREX_PROFILE_SCOPE(mVU.index ? "microVU1 Compile Block" : "microVU0 Compile Block");
-	mVU.profiler.Add(mVU.profiler.compiles);
 	microFlagCycles mFC{};
 
 	u8* thisPtr;
@@ -1096,8 +1094,6 @@ perf_and_return:
 	if (mVU.regs().start_pc == startPC)
 	{
 		const u8* currentPtr = oakGetCurrentCodePointer();
-		mVU.profiler.Add(mVU.profiler.compiledInstructions, mVUcount);
-		mVU.profiler.Add(mVU.profiler.compiledBytes, static_cast<u64>(currentPtr - thisPtr));
 		if (mVU.index)
 			Perf::vu1.RegisterPC(thisPtr, static_cast<u32>(currentPtr - thisPtr), startPC);
 		else
@@ -1116,12 +1112,10 @@ __fi void* mVUentryGet(microVU& mVU, microBlockManager* block, u32 startPC, uptr
 	microBlock* pBlock = block->search(mVU, (microRegInfo*)pState);
 	if (pBlock)
 	{
-		mVU.profiler.Add(mVU.profiler.blockHits);
 		return pBlock->x86ptrStart;
 	}
 	else
 	{
-		mVU.profiler.Add(mVU.profiler.blockMisses);
 		return mVUcompile(mVU, startPC, pState);
 	}
 }
@@ -1129,7 +1123,6 @@ __fi void* mVUentryGet(microVU& mVU, microBlockManager* block, u32 startPC, uptr
 // Search for Existing Compiled Block (if found, return x86ptr; else, compile and return x86ptr)
 __fi void* mVUblockFetch(microVU& mVU, u32 startPC, uptr pState)
 {
-	mVU.profiler.Add(mVU.profiler.blockFetches);
 	pxAssert((startPC & 7) == 0);
 	pxAssert(startPC <= mVU.microMemSize - 8);
 	startPC &= mVU.microMemSize - 8;
@@ -1142,7 +1135,6 @@ __fi void* mVUblockFetch(microVU& mVU, u32 startPC, uptr pState)
 // mVUcompileJIT() - Called By JR/JALR during execution
 _mVUt void* mVUcompileJIT(u32 startPC, uptr ptr)
 {
-	mVUx.profiler.Add(mVUx.profiler.compileJitCalls);
     u32 startPC_8 = startPC >> 3; // startPC / 8
 
 	if (doJumpAsSameProgram) // Treat jump as part of same microProgram
@@ -1154,10 +1146,8 @@ _mVUt void* mVUcompileJIT(u32 startPC, uptr ptr)
 			microJumpCache& jc = pBlock->jumpCache[startPC_8];
 			if (jc.prog && jc.prog == mVU.prog.quick[startPC_8].prog)
 			{
-				mVU.profiler.Add(mVU.profiler.jumpCacheHits);
 				return jc.x86ptrStart;
 			}
-			mVU.profiler.Add(mVU.profiler.jumpCacheMisses);
 			void* v = mVUblockFetch(mVUx, startPC, (uptr)&pBlock->pStateEnd);
 			jc.prog = mVU.prog.quick[startPC_8].prog;
 			jc.x86ptrStart = v;
@@ -1173,10 +1163,8 @@ _mVUt void* mVUcompileJIT(u32 startPC, uptr ptr)
 		microJumpCache& jc = pBlock->jumpCache[startPC_8];
 		if (jc.prog && jc.prog == mVU.prog.quick[startPC_8].prog)
 		{
-			mVU.profiler.Add(mVU.profiler.jumpCacheHits);
 			return jc.x86ptrStart;
 		}
-		mVU.profiler.Add(mVU.profiler.jumpCacheMisses);
 		void* v = mVUsearchProg<vuIndex>(startPC, (uptr)&pBlock->pStateEnd);
 		jc.prog = mVU.prog.quick[startPC_8].prog;
 		jc.x86ptrStart = v;

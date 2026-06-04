@@ -1667,9 +1667,6 @@
     <ClInclude Include="Gif_Unit.h">
       <Filter>System\Ps2\GS\GIF</Filter>
     </ClInclude>
-    <ClInclude Include="x86\microVU_Profiler.h">
-      <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
-    </ClInclude>
     <ClInclude Include="DebugTools\DebugInterface.h">
       <Filter>System\Ps2\Debug</Filter>
     </ClInclude>

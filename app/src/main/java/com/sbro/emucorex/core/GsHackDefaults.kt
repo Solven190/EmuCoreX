@@ -2,7 +2,9 @@ package com.sbro.emucorex.core
 
 object GsHackDefaults {
     const val BILINEAR_FILTERING_DEFAULT = 2
-    const val TRILINEAR_FILTERING_DEFAULT = 0
+    const val TRILINEAR_FILTERING_DEFAULT = -1
+    const val TRILINEAR_FILTERING_MIN = -1
+    const val TRILINEAR_FILTERING_MAX = 2
     const val BLENDING_ACCURACY_DEFAULT = 1
     const val TEXTURE_PRELOADING_DEFAULT = 2
     const val ANISOTROPIC_FILTERING_DEFAULT = 0
@@ -18,6 +20,10 @@ object GsHackDefaults {
     const val CPU_SPRITE_RENDER_SIZE_DEFAULT = 0
     const val CPU_SPRITE_RENDER_LEVEL_DEFAULT = 0
     const val SOFTWARE_CLUT_RENDER_DEFAULT = 0
+
+    fun coerceTrilinearFiltering(value: Int): Int {
+        return value.coerceIn(TRILINEAR_FILTERING_MIN, TRILINEAR_FILTERING_MAX)
+    }
 
     fun shouldEnableManualHardwareFixes(
         cpuSpriteRenderSize: Int,

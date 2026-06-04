@@ -987,7 +987,6 @@ fun EmulationScreen(
                     onToggleFps = { viewModel.toggleFpsVisibility() },
                     onSetFpsOverlayMode = { viewModel.setFpsOverlayMode(it) },
                     onSetFpsOverlayCorner = { viewModel.setFpsOverlayCorner(it) },
-                    onToggleVu1JitProfilerFileLogging = { viewModel.toggleVu1JitProfilerFileLogging() },
                     onSetOverlayScale = { viewModel.setOverlayScale(it) },
                     onSetOverlayOpacity = { viewModel.setOverlayOpacity(it) },
                     onSetHideOverlayOnGamepad = { viewModel.setHideOverlayOnGamepad(it) },
@@ -1718,7 +1717,6 @@ private fun EmulationSidebarMenu(
     onToggleFps: () -> Unit,
     onSetFpsOverlayMode: (Int) -> Unit,
     onSetFpsOverlayCorner: (Int) -> Unit,
-    onToggleVu1JitProfilerFileLogging: () -> Unit,
     onSetOverlayScale: (Int) -> Unit,
     onSetOverlayOpacity: (Int) -> Unit,
     onSetHideOverlayOnGamepad: (Boolean) -> Unit,
@@ -2386,18 +2384,6 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetFpsOverlayCorner(globalDefaults.fpsOverlayCorner) }
                         )
 
-                        MenuButton(
-                            icon = Icons.Rounded.Save,
-                            text = stringResource(R.string.emulation_vu1_profiler_start),
-                            onClick = onToggleVu1JitProfilerFileLogging,
-                            enabled = !uiState.vu1JitProfilerEnabled,
-                            containerColor = if (uiState.vu1JitProfilerEnabled) {
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.50f)
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
-                            }
-                        )
-
                         SidebarSectionTitle(
                             text = stringResource(R.string.settings_speed_hacks).uppercase(),
                             color = sectionTitleColor,
@@ -2616,10 +2602,10 @@ private fun EmulationSidebarMenu(
                         LiveChipsSelectionRow(
                             title = stringResource(R.string.settings_trilinear_filtering),
                             options = listOf(
-                                0 to stringResource(R.string.settings_trilinear_filtering_auto),
-                                1 to stringResource(R.string.settings_trilinear_filtering_off),
-                                2 to stringResource(R.string.settings_trilinear_filtering_ps2),
-                                3 to stringResource(R.string.settings_trilinear_filtering_forced)
+                                -1 to stringResource(R.string.settings_trilinear_filtering_auto),
+                                0 to stringResource(R.string.settings_trilinear_filtering_off),
+                                1 to stringResource(R.string.settings_trilinear_filtering_ps2),
+                                2 to stringResource(R.string.settings_trilinear_filtering_forced)
                             ),
                             currentValue = uiState.trilinearFiltering,
                             onValueChange = onSetTrilinearFiltering,

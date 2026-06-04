@@ -47,8 +47,6 @@ object NativeApp {
     @JvmStatic external fun setPadVibration(enabled: Boolean)
     @JvmStatic external fun setPerformanceOverlayMode(visible: Boolean, detailed: Boolean)
     @JvmStatic external fun getPerformanceMetricsSnapshot(): String?
-    @JvmStatic external fun setNativeProfilerEnabled(enabled: Boolean)
-    @JvmStatic external fun getNativeProfilerStatus(): String?
     @JvmStatic external fun queueGsDump(frames: Int)
     @JvmStatic external fun setPadButton(padIndex: Int, index: Int, range: Int, pressed: Boolean)
     @JvmStatic external fun onHostKeyEvent(keyCode: Int, pressed: Boolean)

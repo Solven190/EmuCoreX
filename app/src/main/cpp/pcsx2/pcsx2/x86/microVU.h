@@ -13,7 +13,6 @@
 #include "Common.h"
 #include "VU.h"
 #include "MTVU.h"
-#include "emucorex/native_profiler.h"
 #include "GS.h"
 #include "Gif_Unit.h"
 #include "iR5900.h"
@@ -21,7 +20,6 @@
 #include "common/emitter/x86emitter.h"
 #include "microVU_Misc.h"
 #include "microVU_IR.h"
-#include "microVU_Profiler.h"
 #include "common/Perf.h"
 
 class microBlockManager;
@@ -113,7 +111,6 @@ struct microVU
 	u32 cacheSize;    // VU Cache Size
 
 	microProgManager               prog;     // Micro Program Data
-	microProfiler                  profiler; // Opcode Profiler
 	std::unique_ptr<microRegAlloc> regAlloc; // Reg Alloc Class
 	u8* cache;        // Dynarec Cache Start (where we will start writing the recompiled code to)
 	u8* startFunct;   // Function Ptr to the recompiler dispatcher (start)

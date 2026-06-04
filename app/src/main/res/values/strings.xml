@@ -1052,7 +1052,6 @@
     <string name="game_settings_overlay_profile_note">Changes made in the in-game menu are stored for this game instead of changing every title.</string>
     <string name="game_settings_overlay_save">Save profile</string>
     <string name="game_settings_overlay_reset">Reset to global</string>
-    <string name="emulation_vu1_profiler_start">Start VU1 JIT log</string>
     <string name="home_game_menu_start">Start game</string>
     <string name="home_game_menu_continue">Continue game</string>
     <string name="home_game_menu_continue_unavailable">No save states found for this game.</string>

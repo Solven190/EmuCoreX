@@ -660,7 +660,8 @@ class AppPreferences(private val context: Context) {
                 frameSkip = prefs[FRAME_SKIP] ?: 0,
                 skipDuplicateFrames = prefs[SKIP_DUPLICATE_FRAMES] ?: false,
                 textureFiltering = prefs[TEXTURE_FILTERING] ?: GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
-                trilinearFiltering = prefs[TRILINEAR_FILTERING] ?: GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
+                trilinearFiltering = prefs[TRILINEAR_FILTERING]?.let(GsHackDefaults::coerceTrilinearFiltering)
+                    ?: GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
                 blendingAccuracy = prefs[BLENDING_ACCURACY] ?: GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
                 texturePreloading = prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
                 enableFxaa = prefs[ENABLE_FXAA] ?: false,
@@ -1209,11 +1210,12 @@ class AppPreferences(private val context: Context) {
     }
 
     val trilinearFiltering: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[TRILINEAR_FILTERING] ?: GsHackDefaults.TRILINEAR_FILTERING_DEFAULT
+        prefs[TRILINEAR_FILTERING]?.let(GsHackDefaults::coerceTrilinearFiltering)
+            ?: GsHackDefaults.TRILINEAR_FILTERING_DEFAULT
     }
 
     suspend fun setTrilinearFiltering(value: Int) {
-        context.dataStore.edit { it[TRILINEAR_FILTERING] = value.coerceIn(0, 3) }
+        context.dataStore.edit { it[TRILINEAR_FILTERING] = GsHackDefaults.coerceTrilinearFiltering(value) }
     }
 
     val blendingAccuracy: Flow<Int> = context.dataStore.data.map { prefs ->
@@ -1958,7 +1960,11 @@ class AppPreferences(private val context: Context) {
             put("frameSkip", prefs[FRAME_SKIP] ?: 0)
             put("skipDuplicateFrames", prefs[SKIP_DUPLICATE_FRAMES] ?: false)
             put("textureFiltering", prefs[TEXTURE_FILTERING] ?: GsHackDefaults.BILINEAR_FILTERING_DEFAULT)
-            put("trilinearFiltering", prefs[TRILINEAR_FILTERING] ?: GsHackDefaults.TRILINEAR_FILTERING_DEFAULT)
+            put(
+                "trilinearFiltering",
+                prefs[TRILINEAR_FILTERING]?.let(GsHackDefaults::coerceTrilinearFiltering)
+                    ?: GsHackDefaults.TRILINEAR_FILTERING_DEFAULT
+            )
             put("blendingAccuracy", prefs[BLENDING_ACCURACY] ?: GsHackDefaults.BLENDING_ACCURACY_DEFAULT)
             put("texturePreloading", prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT)
             put("enableFxaa", prefs[ENABLE_FXAA] ?: false)
@@ -2080,7 +2086,9 @@ class AppPreferences(private val context: Context) {
             prefs[FRAME_SKIP] = json.optInt("frameSkip", 0)
             prefs[SKIP_DUPLICATE_FRAMES] = json.optBoolean("skipDuplicateFrames", false)
             prefs[TEXTURE_FILTERING] = json.optInt("textureFiltering", GsHackDefaults.BILINEAR_FILTERING_DEFAULT).coerceIn(0, 3)
-            prefs[TRILINEAR_FILTERING] = json.optInt("trilinearFiltering", GsHackDefaults.TRILINEAR_FILTERING_DEFAULT).coerceIn(0, 3)
+            prefs[TRILINEAR_FILTERING] = GsHackDefaults.coerceTrilinearFiltering(
+                json.optInt("trilinearFiltering", GsHackDefaults.TRILINEAR_FILTERING_DEFAULT)
+            )
             prefs[BLENDING_ACCURACY] = json.optInt("blendingAccuracy", GsHackDefaults.BLENDING_ACCURACY_DEFAULT).coerceIn(0, 5)
             prefs[TEXTURE_PRELOADING] = json.optInt("texturePreloading", GsHackDefaults.TEXTURE_PRELOADING_DEFAULT).coerceIn(0, 2)
             prefs[ENABLE_FXAA] = json.optBoolean("enableFxaa", false)

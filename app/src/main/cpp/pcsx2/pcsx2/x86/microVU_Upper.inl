@@ -514,7 +514,6 @@ static void mVU_ADD_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Ft);
-	mVU.profiler.EmitOp(opADD);
 }
 
 static void mVU_ADD_emit(mP)
@@ -594,7 +593,6 @@ static void mVU_ADDA_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Ft);
-	mVU.profiler.EmitOp(opADDA);
 }
 
 static void mVU_ADDA_emit(mP)
@@ -657,7 +655,6 @@ static void mVU_ADDAi_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
-	mVU.profiler.EmitOp(opADDAi);
 }
 
 static void mVU_ADDAi_emit(mP)
@@ -735,7 +732,6 @@ static void mVU_ADDAq_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fq);
-	mVU.profiler.EmitOp(opADDAq);
 }
 
 static void mVU_ADDAq_emit(mP)
@@ -804,7 +800,6 @@ static void mVU_ADDAx_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtX);
-	mVU.profiler.EmitOp(opADDAx);
 }
 
 static void mVU_ADDAx_emit(mP)
@@ -868,7 +863,6 @@ static void mVU_ADDAy_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtY);
-	mVU.profiler.EmitOp(opADDAy);
 }
 
 static void mVU_ADDAy_emit(mP)
@@ -932,7 +926,6 @@ static void mVU_ADDAz_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtZ);
-	mVU.profiler.EmitOp(opADDAz);
 }
 
 static void mVU_ADDAz_emit(mP)
@@ -996,7 +989,6 @@ static void mVU_ADDAw_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtW);
-	mVU.profiler.EmitOp(opADDAw);
 }
 
 static void mVU_ADDAw_emit(mP)
@@ -1060,7 +1052,6 @@ static void mVU_MADDAi_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
-	mVU.profiler.EmitOp(opMADDAi);
 }
 
 static void mVU_MADDAi_emit(mP)
@@ -1144,7 +1135,6 @@ static void mVU_MADDA_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Ft);
-	mVU.profiler.EmitOp(opMADDA);
 }
 
 static void mVU_MADDA_emit(mP)
@@ -1226,7 +1216,6 @@ static void mVU_MADDAq_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fq);
-	mVU.profiler.EmitOp(opMADDAq);
 }
 
 static void mVU_MADDAq_emit(mP)
@@ -1305,7 +1294,6 @@ static void mVU_MADDAx_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtX);
-	mVU.profiler.EmitOp(opMADDAx);
 }
 
 static void mVU_MADDAx_emit(mP)
@@ -1403,7 +1391,6 @@ static void mVU_MADDAy_direct_emit_oaknut(mP)
 		mVU.regAlloc->clearNeededXmmId(FtRaw);
 	else
 		mVU.regAlloc->clearNeededXmmId(FtY);
-	mVU.profiler.EmitOp(opMADDAy);
 }
 
 static void mVU_MADDAy_emit(mP)
@@ -1477,7 +1464,6 @@ static void mVU_MADDAz_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtZ);
-	mVU.profiler.EmitOp(opMADDAz);
 }
 
 static void mVU_MADDAz_emit(mP)
@@ -1558,7 +1544,6 @@ static void mVU_MADDAw_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtW);
-	mVU.profiler.EmitOp(opMADDAw);
 }
 
 static void mVU_MADDAw_emit(mP)
@@ -1612,7 +1597,6 @@ static void mVU_MADD_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Ft);
 	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.profiler.EmitOp(opMADD);
 }
 
 static void mVU_MADD_emit(mP)
@@ -1654,7 +1638,6 @@ static void mVU_MADDi_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
 	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.profiler.EmitOp(opMADDi);
 }
 
 static void mVU_MADDi_emit(mP)
@@ -1711,7 +1694,6 @@ static void mVU_MADDq_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fq);
 	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.profiler.EmitOp(opMADDq);
 }
 
 static void mVU_MADDq_emit(mP)
@@ -1763,7 +1745,6 @@ static void mVU_MADDx_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtX);
 	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.profiler.EmitOp(opMADDx);
 }
 
 static void mVU_MADDx_emit(mP)
@@ -1806,7 +1787,6 @@ static void mVU_MADDy_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtY);
 	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.profiler.EmitOp(opMADDy);
 }
 
 static void mVU_MADDy_emit(mP)
@@ -1866,7 +1846,6 @@ static void mVU_MADDz_direct_emit_oaknut(mP)
 	else
 		mVU.regAlloc->clearNeededXmmId(FtZ);
 	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.profiler.EmitOp(opMADDz);
 }
 
 static void mVU_MADDz_emit(mP)
@@ -1909,7 +1888,6 @@ static void mVU_MADDw_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtW);
 	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.profiler.EmitOp(opMADDw);
 }
 
 static void mVU_MADDw_emit(mP)
@@ -1963,7 +1941,6 @@ static void mVU_MSUB_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fd);
 	mVU.regAlloc->clearNeededXmmId(Ft);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opMSUB);
 }
 
 static void mVU_MSUB_emit(mP)
@@ -1998,7 +1975,6 @@ static void mVU_MSUBi_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fd);
 	mVU.regAlloc->clearNeededXmmId(Fi);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opMSUBi);
 }
 
 static void mVU_MSUBi_emit(mP)
@@ -2048,7 +2024,6 @@ static void mVU_MSUBq_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fd);
 	mVU.regAlloc->clearNeededXmmId(Fq);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opMSUBq);
 }
 
 static void mVU_MSUBq_emit(mP)
@@ -2089,7 +2064,6 @@ static void mVU_MSUBx_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fd);
 	mVU.regAlloc->clearNeededXmmId(FtX);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opMSUBx);
 }
 
 static void mVU_MSUBx_emit(mP)
@@ -2125,7 +2099,6 @@ static void mVU_MSUBy_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fd);
 	mVU.regAlloc->clearNeededXmmId(FtY);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opMSUBy);
 }
 
 static void mVU_MSUBy_emit(mP)
@@ -2161,7 +2134,6 @@ static void mVU_MSUBz_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fd);
 	mVU.regAlloc->clearNeededXmmId(FtZ);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opMSUBz);
 }
 
 static void mVU_MSUBz_emit(mP)
@@ -2197,7 +2169,6 @@ static void mVU_MSUBw_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fd);
 	mVU.regAlloc->clearNeededXmmId(FtW);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opMSUBw);
 }
 
 static void mVU_MSUBw_emit(mP)
@@ -2287,7 +2258,6 @@ static void mVU_MSUBA_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Ft);
-	mVU.profiler.EmitOp(opMSUBA);
 }
 
 static void mVU_MSUBA_emit(mP)
@@ -2354,7 +2324,6 @@ static void mVU_MSUBAi_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
-	mVU.profiler.EmitOp(opMSUBAi);
 }
 
 static void mVU_MSUBAi_emit(mP)
@@ -2436,7 +2405,6 @@ static void mVU_MSUBAq_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fq);
-	mVU.profiler.EmitOp(opMSUBAq);
 }
 
 static void mVU_MSUBAq_emit(mP)
@@ -2509,7 +2477,6 @@ static void mVU_MSUBAx_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtX);
-	mVU.profiler.EmitOp(opMSUBAx);
 }
 
 static void mVU_MSUBAx_emit(mP)
@@ -2577,7 +2544,6 @@ static void mVU_MSUBAy_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtY);
-	mVU.profiler.EmitOp(opMSUBAy);
 }
 
 static void mVU_MSUBAy_emit(mP)
@@ -2645,7 +2611,6 @@ static void mVU_MSUBAz_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtZ);
-	mVU.profiler.EmitOp(opMSUBAz);
 }
 
 static void mVU_MSUBAz_emit(mP)
@@ -2713,7 +2678,6 @@ static void mVU_MSUBAw_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtW);
-	mVU.profiler.EmitOp(opMSUBAw);
 }
 
 static void mVU_MSUBAw_emit(mP)
@@ -2758,7 +2722,6 @@ static void mVU_MAX_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Ft);
-	mVU.profiler.EmitOp(opMAX);
 }
 
 static void mVU_MAX_emit(mP)
@@ -2804,7 +2767,6 @@ static void mVU_MAXi_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
-	mVU.profiler.EmitOp(opMAXi);
 }
 
 static void mVU_MAXi_emit(mP)
@@ -2856,7 +2818,6 @@ static void mVU_MAXx_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtX);
-	mVU.profiler.EmitOp(opMAXx);
 }
 
 static void mVU_MAXx_emit(mP)
@@ -2903,7 +2864,6 @@ static void mVU_MAXy_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtY);
-	mVU.profiler.EmitOp(opMAXy);
 }
 
 static void mVU_MAXy_emit(mP)
@@ -2950,7 +2910,6 @@ static void mVU_MAXz_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtZ);
-	mVU.profiler.EmitOp(opMAXz);
 }
 
 static void mVU_MAXz_emit(mP)
@@ -2997,7 +2956,6 @@ static void mVU_MAXw_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtW);
-	mVU.profiler.EmitOp(opMAXw);
 }
 
 static void mVU_MAXw_emit(mP)
@@ -3044,7 +3002,6 @@ static void mVU_MINIw_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtW);
-	mVU.profiler.EmitOp(opMINIw);
 }
 
 static void mVU_MINIw_emit(mP)
@@ -3092,7 +3049,6 @@ static void mVU_MINI_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Ft);
-	mVU.profiler.EmitOp(opMINI);
 }
 
 static void mVU_MINI_emit(mP)
@@ -3138,7 +3094,6 @@ static void mVU_MINIi_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
-	mVU.profiler.EmitOp(opMINIi);
 }
 
 static void mVU_MINIi_emit(mP)
@@ -3190,7 +3145,6 @@ static void mVU_MINIx_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtX);
-	mVU.profiler.EmitOp(opMINIx);
 }
 
 static void mVU_MINIx_emit(mP)
@@ -3237,7 +3191,6 @@ static void mVU_MINIy_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtY);
-	mVU.profiler.EmitOp(opMINIy);
 }
 
 static void mVU_MINIy_emit(mP)
@@ -3284,7 +3237,6 @@ static void mVU_MINIz_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtZ);
-	mVU.profiler.EmitOp(opMINIz);
 }
 
 static void mVU_MINIz_emit(mP)
@@ -3358,7 +3310,6 @@ static void mVU_ADDi_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
-	mVU.profiler.EmitOp(opADDi);
 }
 
 static void mVU_ADDi_emit(mP)
@@ -3409,7 +3360,6 @@ static void mVU_ADDq_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fq);
-	mVU.profiler.EmitOp(opADDq);
 }
 
 static void mVU_ADDq_emit(mP)
@@ -3449,7 +3399,6 @@ static void mVU_ADDx_direct_emit_oaknut(mP)
 	mVUupdateFlags_oaknut(mVU, Fs, FtX);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtX);
-	mVU.profiler.EmitOp(opADDx);
 }
 
 static void mVU_ADDx_emit(mP)
@@ -3484,7 +3433,6 @@ static void mVU_ADDy_direct_emit_oaknut(mP)
 	mVUupdateFlags_oaknut(mVU, Fs, FtY);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtY);
-	mVU.profiler.EmitOp(opADDy);
 }
 
 static void mVU_ADDy_emit(mP)
@@ -3519,7 +3467,6 @@ static void mVU_ADDz_direct_emit_oaknut(mP)
 	mVUupdateFlags_oaknut(mVU, Fs, FtZ);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtZ);
-	mVU.profiler.EmitOp(opADDz);
 }
 
 static void mVU_ADDz_emit(mP)
@@ -3554,7 +3501,6 @@ static void mVU_ADDw_direct_emit_oaknut(mP)
 	mVUupdateFlags_oaknut(mVU, Fs, FtW);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtW);
-	mVU.profiler.EmitOp(opADDw);
 }
 
 static void mVU_ADDw_emit(mP)
@@ -3628,7 +3574,6 @@ static void mVU_SUB_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Ft);
-	mVU.profiler.EmitOp(opSUB);
 }
 
 static void mVU_SUB_emit(mP)
@@ -3677,7 +3622,6 @@ static void mVU_SUBi_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
-	mVU.profiler.EmitOp(opSUBi);
 }
 
 static void mVU_SUBi_emit(mP)
@@ -3741,7 +3685,6 @@ static void mVU_SUBq_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fq);
-	mVU.profiler.EmitOp(opSUBq);
 }
 
 static void mVU_SUBq_emit(mP)
@@ -3796,7 +3739,6 @@ static void mVU_SUBx_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtX);
-	mVU.profiler.EmitOp(opSUBx);
 }
 
 static void mVU_SUBx_emit(mP)
@@ -3846,7 +3788,6 @@ static void mVU_SUBy_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtY);
-	mVU.profiler.EmitOp(opSUBy);
 }
 
 static void mVU_SUBy_emit(mP)
@@ -3896,7 +3837,6 @@ static void mVU_SUBz_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtZ);
-	mVU.profiler.EmitOp(opSUBz);
 }
 
 static void mVU_SUBz_emit(mP)
@@ -3946,7 +3886,6 @@ static void mVU_SUBw_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtW);
-	mVU.profiler.EmitOp(opSUBw);
 }
 
 static void mVU_SUBw_emit(mP)
@@ -4032,7 +3971,6 @@ static void mVU_SUBA_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Ft);
-	mVU.profiler.EmitOp(opSUBA);
 }
 
 static void mVU_SUBA_emit(mP)
@@ -4095,7 +4033,6 @@ static void mVU_SUBAi_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
-	mVU.profiler.EmitOp(opSUBAi);
 }
 
 static void mVU_SUBAi_emit(mP)
@@ -4173,7 +4110,6 @@ static void mVU_SUBAq_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fq);
-	mVU.profiler.EmitOp(opSUBAq);
 }
 
 static void mVU_SUBAq_emit(mP)
@@ -4242,7 +4178,6 @@ static void mVU_SUBAx_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtX);
-	mVU.profiler.EmitOp(opSUBAx);
 }
 
 static void mVU_SUBAx_emit(mP)
@@ -4306,7 +4241,6 @@ static void mVU_SUBAy_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtY);
-	mVU.profiler.EmitOp(opSUBAy);
 }
 
 static void mVU_SUBAy_emit(mP)
@@ -4370,7 +4304,6 @@ static void mVU_SUBAz_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtZ);
-	mVU.profiler.EmitOp(opSUBAz);
 }
 
 static void mVU_SUBAz_emit(mP)
@@ -4434,7 +4367,6 @@ static void mVU_SUBAw_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtW);
-	mVU.profiler.EmitOp(opSUBAw);
 }
 
 static void mVU_SUBAw_emit(mP)
@@ -4495,7 +4427,6 @@ static void mVU_MUL_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Ft);
-	mVU.profiler.EmitOp(opMUL);
 }
 
 static void mVU_MUL_emit(mP)
@@ -4571,7 +4502,6 @@ static void mVU_MULA_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Ft);
-	mVU.profiler.EmitOp(opMULA);
 }
 
 static void mVU_MULA_emit(mP)
@@ -4630,7 +4560,6 @@ static void mVU_MULAi_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
-	mVU.profiler.EmitOp(opMULAi);
 }
 
 static void mVU_MULAi_emit(mP)
@@ -4704,7 +4633,6 @@ static void mVU_MULAq_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fq);
-	mVU.profiler.EmitOp(opMULAq);
 }
 
 static void mVU_MULAq_emit(mP)
@@ -4774,7 +4702,6 @@ static void mVU_MULAx_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtX);
-	mVU.profiler.EmitOp(opMULAx);
 }
 
 static void mVU_MULAx_emit(mP)
@@ -4839,7 +4766,6 @@ static void mVU_MULAy_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtY);
-	mVU.profiler.EmitOp(opMULAy);
 }
 
 static void mVU_MULAy_emit(mP)
@@ -4904,7 +4830,6 @@ static void mVU_MULAz_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtZ);
-	mVU.profiler.EmitOp(opMULAz);
 }
 
 static void mVU_MULAz_emit(mP)
@@ -4970,7 +4895,6 @@ static void mVU_MULAw_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtW);
-	mVU.profiler.EmitOp(opMULAw);
 }
 
 static void mVU_MULAw_emit(mP)
@@ -5011,7 +4935,6 @@ static void mVU_MULi_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
-	mVU.profiler.EmitOp(opMULi);
 }
 
 static void mVU_MULi_emit(mP)
@@ -5080,7 +5003,6 @@ static void mVU_MULq_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	if (Fq != VU_HOST_NO_XMM)
 		mVU.regAlloc->clearNeededXmmId(Fq);
-	mVU.profiler.EmitOp(opMULq);
 }
 
 static void mVU_MULq_emit(mP)
@@ -5132,7 +5054,6 @@ static void mVU_MULx_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtX);
-	mVU.profiler.EmitOp(opMULx);
 }
 
 static void mVU_MULx_emit(mP)
@@ -5179,7 +5100,6 @@ static void mVU_MULy_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtY);
-	mVU.profiler.EmitOp(opMULy);
 }
 
 static void mVU_MULy_emit(mP)
@@ -5226,7 +5146,6 @@ static void mVU_MULz_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtZ);
-	mVU.profiler.EmitOp(opMULz);
 }
 
 static void mVU_MULz_emit(mP)
@@ -5273,7 +5192,6 @@ static void mVU_MULw_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(FtW);
-	mVU.profiler.EmitOp(opMULw);
 }
 
 static void mVU_MULw_emit(mP)
@@ -5298,7 +5216,6 @@ static void mVU_ABS_direct_emit_oaknut(mP)
 	oakAsm->AND(oakQRegister(Fs).B16(), oakQRegister(Fs).B16(), OAK_QSCRATCH3.B16());
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opABS);
 }
 
 static void mVU_ABS_emit(mP)
@@ -5408,7 +5325,6 @@ static void mVU_CLIP_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Ft);
 	mVU.regAlloc->clearNeededXmmId(t1);
 	mVU.regAlloc->clearNeededXmmId(t2);
-	mVU.profiler.EmitOp(opCLIP);
 }
 
 static void mVU_CLIP_emit(mP)
@@ -5440,7 +5356,6 @@ static void mVU_OPMULA_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Ft);
 	mVUupdateFlags_oaknut(mVU, Fs);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opOPMULA);
 }
 
 static void mVU_OPMULA_emit(mP)
@@ -5478,7 +5393,6 @@ static void mVU_OPMSUB_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Ft);
 	mVUupdateFlags_oaknut(mVU, ACC);
 	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.profiler.EmitOp(opOPMSUB);
 }
 
 static void mVU_OPMSUB_emit(mP)
@@ -5534,7 +5448,6 @@ static void mVU_FTOI0_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(t1);
 	mVU.regAlloc->clearNeededXmmId(t2);
-	mVU.profiler.EmitOp(opFTOI0);
 }
 
 static void mVU_FTOI0_emit(mP)
@@ -5567,7 +5480,6 @@ static void mVU_FTOI4_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(t1);
 	mVU.regAlloc->clearNeededXmmId(t2);
-	mVU.profiler.EmitOp(opFTOI4);
 }
 
 static void mVU_FTOI4_emit(mP)
@@ -5600,7 +5512,6 @@ static void mVU_FTOI12_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(t1);
 	mVU.regAlloc->clearNeededXmmId(t2);
-	mVU.profiler.EmitOp(opFTOI12);
 }
 
 static void mVU_FTOI12_emit(mP)
@@ -5633,7 +5544,6 @@ static void mVU_FTOI15_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(t1);
 	mVU.regAlloc->clearNeededXmmId(t2);
-	mVU.profiler.EmitOp(opFTOI15);
 }
 
 static void mVU_FTOI15_emit(mP)
@@ -5660,7 +5570,6 @@ static void mVU_ITOF0_direct_emit_oaknut(mP)
 	oakAsm->SCVTF(oakQRegister(Fs).S4(), oakQRegister(Fs).S4());
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opITOF0);
 }
 
 static void mVU_ITOF0_emit(mP)
@@ -5689,7 +5598,6 @@ static void mVU_ITOF4_direct_emit_oaknut(mP)
 	oakAsm->FMUL(oakQRegister(Fs).S4(), oakQRegister(Fs).S4(), OAK_QSCRATCH3.S4());
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opITOF4);
 }
 
 static void mVU_ITOF4_emit(mP)
@@ -5718,7 +5626,6 @@ static void mVU_ITOF12_direct_emit_oaknut(mP)
 	oakAsm->FMUL(oakQRegister(Fs).S4(), oakQRegister(Fs).S4(), OAK_QSCRATCH3.S4());
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opITOF12);
 }
 
 static void mVU_ITOF12_emit(mP)
@@ -5747,7 +5654,6 @@ static void mVU_ITOF15_direct_emit_oaknut(mP)
 	oakAsm->FMUL(oakQRegister(Fs).S4(), oakQRegister(Fs).S4(), OAK_QSCRATCH3.S4());
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.profiler.EmitOp(opITOF15);
 }
 
 static void mVU_ITOF15_emit(mP)
@@ -5767,7 +5673,6 @@ static void mVU_ITOF15_emit(mP)
 // NOP Opcode
 static void mVU_NOP_emit(mP)
 {
-	pass2 { mVU.profiler.EmitOp(opNOP); }
 	pass3 { mVUlog("NOP"); }
 }
 

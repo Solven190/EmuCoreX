@@ -2859,10 +2859,10 @@ private fun bilinearFilteringOptions(): List<Pair<Int, String>> = listOf(
 
 @Composable
 private fun trilinearFilteringOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_trilinear_filtering_auto),
-    1 to stringResource(R.string.settings_trilinear_filtering_off),
-    2 to stringResource(R.string.settings_trilinear_filtering_ps2),
-    3 to stringResource(R.string.settings_trilinear_filtering_forced)
+    -1 to stringResource(R.string.settings_trilinear_filtering_auto),
+    0 to stringResource(R.string.settings_trilinear_filtering_off),
+    1 to stringResource(R.string.settings_trilinear_filtering_ps2),
+    2 to stringResource(R.string.settings_trilinear_filtering_forced)
 )
 
 private fun resolveManualTargetFps(currentTargetFps: Int, defaultTargetFps: Int): Int {
