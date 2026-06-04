@@ -292,6 +292,8 @@ struct mVU_SSE4
         {0x00000000, 0x40000000, 0x00000000, 0x40000000},
         {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff},
     };
+    ////
+    u32 mac_mask[4] = {1, 2, 4, 8};
 };
 
 #endif //PCSX2_VUDEF_H

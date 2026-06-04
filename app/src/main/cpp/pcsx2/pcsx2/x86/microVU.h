@@ -6,6 +6,7 @@
 
 
 #include <deque>
+#include <unordered_map>
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -47,12 +48,18 @@ struct microRange
 #define mProgSizeHalf (mProgSize >> 1)  // mProgSize / 2
 struct microProgram
 {
-	u32                data [mProgSize];     // Holds a copy of the VU microProgram
-	microBlockManager* block[mProgSizeHalf]; // Array of Block Managers
+	// Hot metadata first – all fits in first 2 cache lines (≤128 bytes).
+	// These are accessed on every mVUcmpProg comparison so must be cache-hot.
+	u64                startHash;            // Fast-reject key: XOR of first 16 bytes at startPC
+	u32                startPC;              // Start PC of this program
+	u32                microMemVersion;      // Fast VU1 key for unchanged micro-memory
+	int                idx;                  // Program index
+	// Pointers are small, keep near the hot metadata
 	std::deque<microRange>* ranges;          // The ranges of the microProgram that have already been recompiled
-	u32 startPC; // Start PC of this program
-	u32 microMemVersion; // Fast VU1 key for unchanged micro-memory
-	int idx;     // Program index
+	std::vector<u16>*       active_blocks;   // Indices of active blocks for fast iteration
+	// Large arrays last – only needed during compilation/range-compare, not on every search
+	microBlockManager* block[mProgSizeHalf]; // Array of Block Managers
+	u32                data [mProgSize];     // Holds a copy of the VU microProgram
 };
 
 typedef std::deque<microProgram*> microProgramList;
@@ -61,6 +68,9 @@ struct microProgramQuick
 {
 	microBlockManager* block; // Quick reference to valid microBlockManager for current startPC
 	microProgram*      prog;  // The microProgram who is the owner of 'block'
+	microBlockManager* cachedBlockManager;
+	microBlock*        cachedBlock;
+	u64                cachedBlockQuick;
 };
 
 struct microProgManager
@@ -77,6 +87,11 @@ struct microProgManager
 	u8*                x86start;           // Start of program's rec-cache
 	u8*                x86end;             // Limit of program's rec-cache
 	microRegInfo       lpState;            // Pipeline state from where program left off (useful for continuing execution)
+	u64                active_mask[mProgSizeHalf / 64]; // Bitmask of populated quick cache items
+	std::vector<microProgram*> garbage_programs; // Programs deferred for deletion
+	// O(1) lookup map: key = startHash ^ (startPC * magic). Value = most-recently-valid program.
+	// Used before the deque scan to skip O(N) linear search. Falls back to deque on collision.
+	std::unordered_map<u64, microProgram*> prog_lookup;
 };
 
 static const uint mVUcacheSafeZone =  3; // Safe-Zone for program recompilation (in megabytes)

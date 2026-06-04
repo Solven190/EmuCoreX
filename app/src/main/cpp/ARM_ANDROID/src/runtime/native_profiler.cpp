@@ -4,6 +4,8 @@
 
 #include <atomic>
 
+std::string mVUGetVU1ProfilerStatsAndReset();
+
 namespace emucorex::android::profiler
 {
 namespace
@@ -19,12 +21,19 @@ void SetEnabled(bool enabled)
 
 bool IsEnabled()
 {
-	return s_enabled.load(std::memory_order_acquire);
+	return s_enabled.load(std::memory_order_relaxed);
 }
 
 std::string GetStatus()
 {
-	return IsEnabled() ? "native_profiler=on backend=atrace/perfetto" : "native_profiler=off backend=atrace/perfetto";
+	std::string status = IsEnabled() ? "native_profiler=on backend=atrace/perfetto" : "native_profiler=off backend=atrace/perfetto";
+	const std::string vu1_stats = mVUGetVU1ProfilerStatsAndReset();
+	if (!vu1_stats.empty())
+	{
+		status += ' ';
+		status += vu1_stats;
+	}
+	return status;
 }
 
 void BeginSection(const char* name)

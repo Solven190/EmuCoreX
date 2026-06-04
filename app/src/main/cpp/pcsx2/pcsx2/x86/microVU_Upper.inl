@@ -52,17 +52,11 @@ static __fi void mVUUpperPshufd_oaknut(int dst, int src, u8 imm)
 
 static __fi void mVUUpperMovmskps_oaknut(const oak::WReg& dst, const oak::QReg& src)
 {
-	oakAsm->UMOV(dst, src.Selem()[0]);
-	oakAsm->LSR(dst, dst, 31);
-	oakAsm->UMOV(OAK_WSCRATCH, src.Selem()[1]);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH, 31);
-	oakAsm->BFI(dst, OAK_WSCRATCH, 1, 1);
-	oakAsm->UMOV(OAK_WSCRATCH, src.Selem()[2]);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH, 31);
-	oakAsm->BFI(dst, OAK_WSCRATCH, 2, 1);
-	oakAsm->UMOV(OAK_WSCRATCH, src.Selem()[3]);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH, 31);
-	oakAsm->BFI(dst, OAK_WSCRATCH, 3, 1);
+	oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, mac_mask)));
+	oakAsm->SSHR(OAK_QSCRATCH2.S4(), src.S4(), 31);
+	oakAsm->AND(OAK_QSCRATCH2.B16(), OAK_QSCRATCH2.B16(), OAK_QSCRATCH3.B16());
+	oakAsm->ADDV(OAK_SSCRATCH, OAK_QSCRATCH2.S4());
+	oakAsm->FMOV(dst, OAK_SSCRATCH);
 }
 
 static __fi void mVUUpperClamp1Vector_oaknut(mV, int reg, bool bClampE)

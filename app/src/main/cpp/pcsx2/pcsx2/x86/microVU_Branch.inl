@@ -243,6 +243,49 @@ static __fi void mVUBranchLoadJumpArgs_emit_oaknut(mV, bool isEvilJump, const vo
 	recEndOaknutEmit();
 }
 
+static __fi void mVUBranchTryJumpCacheFastPath_emit_oaknut(mV)
+{
+	static_assert(sizeof(microJumpCache) == 16);
+	static_assert(offsetof(microJumpCache, prog) == 0);
+	static_assert(offsetof(microJumpCache, x86ptrStart) == 8);
+
+	recBeginOaknutEmit();
+
+	oak::Label miss;
+	const oak::XReg start_pc = oak::util::X0;
+	const oak::XReg block = oak::util::X1;
+	const oak::XReg jump_cache = oak::util::X2;
+	const oak::XReg pc_index = oak::util::X3;
+	const oak::XReg cached_prog = oak::util::X4;
+	const oak::XReg quick_prog = oak::util::X5;
+
+	oakLoad64(jump_cache, {block, static_cast<s64>(offsetof(microBlock, jumpCache))});
+	oakAsm->CBZ(jump_cache, miss);
+
+	oakAsm->LSR(pc_index, start_pc, 3);
+	oakAsm->ADD(jump_cache, jump_cache, pc_index, oak::util::LSL, 4);
+	oakLoad64(cached_prog, {jump_cache, static_cast<s64>(offsetof(microJumpCache, prog))});
+	oakAsm->CBZ(cached_prog, miss);
+
+	oakMoveAddressToReg(quick_prog, mVU.prog.quick);
+	static_assert(sizeof(microProgramQuick) == 40);
+	oakAsm->ADD(quick_prog, quick_prog, pc_index, oak::util::LSL, 5);
+	oakAsm->ADD(quick_prog, quick_prog, pc_index, oak::util::LSL, 3);
+	oakLoad64(quick_prog, {quick_prog, static_cast<s64>(offsetof(microProgramQuick, prog))});
+	oakAsm->CMP(cached_prog, quick_prog);
+	oakAsm->B(oak::Cond::NE, miss);
+
+	oakLoad64(oakXRegister(VU_HOST_T1), {jump_cache, static_cast<s64>(offsetof(microJumpCache, x86ptrStart))});
+	recEndOaknutEmit();
+
+	mVUrestoreRegs(mVU);
+	mVUBranchEmitBrT1_oaknut();
+
+	recBeginOaknutEmit();
+	oakAsm->l(miss);
+	recEndOaknutEmit();
+}
+
 static __fi void mVUBranchCopyPipelineState_emit_oaknut(mV, const void* state)
 {
 	mVUbackupRegs(mVU, true, true);
@@ -496,6 +539,9 @@ void normJumpCompile(mV, microFlagCycles& mFC, bool isEvilJump)
         }
 		mVUBranchEmitJmp_oaknut(mVU.exitFunct);
 	}
+
+	if (doJumpCaching && !doJumpAsSameProgram)
+		mVUBranchTryJumpCacheFastPath_emit_oaknut(mVU);
 
 	if (!mVU.index) {
 		mVUBranchEmitCall_oaknut(reinterpret_cast<const void*>(mVUcompileJIT<0>));

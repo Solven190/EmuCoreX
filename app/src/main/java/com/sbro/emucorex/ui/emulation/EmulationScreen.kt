@@ -994,6 +994,7 @@ fun EmulationScreen(
                     onToggleFps = { viewModel.toggleFpsVisibility() },
                     onSetFpsOverlayMode = { viewModel.setFpsOverlayMode(it) },
                     onSetFpsOverlayCorner = { viewModel.setFpsOverlayCorner(it) },
+                    onToggleVu1JitProfilerFileLogging = { viewModel.toggleVu1JitProfilerFileLogging() },
                     onSetOverlayScale = { viewModel.setOverlayScale(it) },
                     onSetOverlayOpacity = { viewModel.setOverlayOpacity(it) },
                     onSetHideOverlayOnGamepad = { viewModel.setHideOverlayOnGamepad(it) },
@@ -1724,6 +1725,7 @@ private fun EmulationSidebarMenu(
     onToggleFps: () -> Unit,
     onSetFpsOverlayMode: (Int) -> Unit,
     onSetFpsOverlayCorner: (Int) -> Unit,
+    onToggleVu1JitProfilerFileLogging: () -> Unit,
     onSetOverlayScale: (Int) -> Unit,
     onSetOverlayOpacity: (Int) -> Unit,
     onSetHideOverlayOnGamepad: (Boolean) -> Unit,
@@ -2389,6 +2391,18 @@ private fun EmulationSidebarMenu(
                             onValueChange = onSetFpsOverlayCorner,
                             helpText = stringResource(R.string.settings_help_fps_overlay_position),
                             onResetToDefault = { onSetFpsOverlayCorner(globalDefaults.fpsOverlayCorner) }
+                        )
+
+                        MenuButton(
+                            icon = Icons.Rounded.Save,
+                            text = stringResource(R.string.emulation_vu1_profiler_start),
+                            onClick = onToggleVu1JitProfilerFileLogging,
+                            enabled = !uiState.vu1JitProfilerEnabled,
+                            containerColor = if (uiState.vu1JitProfilerEnabled) {
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.50f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
+                            }
                         )
 
                         SidebarSectionTitle(

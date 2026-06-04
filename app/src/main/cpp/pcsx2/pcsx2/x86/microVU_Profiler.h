@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "arm64/OaknutHelpers.h"
+#include "emucorex/native_profiler.h"
 
 static constexpr bool mVUProfileOpcodes = false;
 
@@ -99,12 +100,62 @@ static const char microOpcodeName[][16] = {
 struct microProfiler
 {
 	u64 opStats[opLastOpcode];
+	u64 executeCalls = 0;
+	u64 searchCalls = 0;
+	u64 searchQuickHits = 0;
+	u64 searchListHits = 0;
+	u64 searchMisses = 0;
+	u64 blockFetches = 0;
+	u64 blockHits = 0;
+	u64 blockMisses = 0;
+	u64 compiles = 0;
+	u64 compileJitCalls = 0;
+	u64 jumpCacheHits = 0;
+	u64 jumpCacheMisses = 0;
+	u64 createPrograms = 0;
+	u64 clears = 0;
+	u64 resets = 0;
+	u64 compiledInstructions = 0;
+	u64 compiledBytes = 0;
 	int index;
 
 	void Reset(int _index)
 	{
 		std::memset(opStats, 0, sizeof(opStats));
 		index = _index;
+		ResetStats();
+	}
+
+	bool IsVu1ProfilerEnabled() const
+	{
+		return index == 1 && emucorex::android::profiler::IsEnabled();
+	}
+
+	void ResetStats()
+	{
+		executeCalls = 0;
+		searchCalls = 0;
+		searchQuickHits = 0;
+		searchListHits = 0;
+		searchMisses = 0;
+		blockFetches = 0;
+		blockHits = 0;
+		blockMisses = 0;
+		compiles = 0;
+		compileJitCalls = 0;
+		jumpCacheHits = 0;
+		jumpCacheMisses = 0;
+		createPrograms = 0;
+		clears = 0;
+		resets = 0;
+		compiledInstructions = 0;
+		compiledBytes = 0;
+	}
+
+	void Add(u64& counter, u64 amount = 1)
+	{
+		if (IsVu1ProfilerEnabled())
+			counter += amount;
 	}
 
 	void EmitOp(microOpcode op)
@@ -112,7 +163,7 @@ struct microProfiler
 		if constexpr (!mVUProfileOpcodes)
 			return;
 
-		if (index != 1 || op == opNOP || !oakHasBlock())
+		if (!IsVu1ProfilerEnabled() || op == opNOP || !oakHasBlock())
 			return;
 
 		recBeginOaknutEmit();
@@ -165,6 +216,69 @@ struct microProfiler
 				static_cast<unsigned long long>(count),
 				percent);
 			out += line;
+		}
+		return out;
+	}
+
+	std::string GetJitStatsAndReset()
+	{
+		auto take = [](u64& counter) {
+			const u64 value = counter;
+			counter = 0;
+			return value;
+		};
+
+		const u64 execute = take(executeCalls);
+		const u64 searches = take(searchCalls);
+		const u64 quick_hits = take(searchQuickHits);
+		const u64 list_hits = take(searchListHits);
+		const u64 misses = take(searchMisses);
+		const u64 fetches = take(blockFetches);
+		const u64 hits = take(blockHits);
+		const u64 block_misses = take(blockMisses);
+		const u64 compile_count = take(compiles);
+		const u64 jit_calls = take(compileJitCalls);
+		const u64 jump_hits = take(jumpCacheHits);
+		const u64 jump_misses = take(jumpCacheMisses);
+		const u64 programs = take(createPrograms);
+		const u64 clear_count = take(clears);
+		const u64 reset_count = take(resets);
+		const u64 instructions = take(compiledInstructions);
+		const u64 bytes = take(compiledBytes);
+		const std::string op_stats = GetStatsAndReset();
+
+		if ((execute | searches | fetches | compile_count | jit_calls | programs | clear_count | reset_count | instructions | bytes) == 0 && op_stats.empty())
+			return {};
+
+		char line[1024];
+		std::snprintf(line, sizeof(line),
+			"VU1JIT exec=%llu search=%llu quick_hit=%llu list_hit=%llu prog_miss=%llu "
+			"fetch=%llu block_hit=%llu block_miss=%llu compile=%llu jit_call=%llu "
+			"jump_hit=%llu jump_miss=%llu create_prog=%llu clear=%llu reset=%llu "
+			"compiled_ins=%llu compiled_bytes=%llu",
+			static_cast<unsigned long long>(execute),
+			static_cast<unsigned long long>(searches),
+			static_cast<unsigned long long>(quick_hits),
+			static_cast<unsigned long long>(list_hits),
+			static_cast<unsigned long long>(misses),
+			static_cast<unsigned long long>(fetches),
+			static_cast<unsigned long long>(hits),
+			static_cast<unsigned long long>(block_misses),
+			static_cast<unsigned long long>(compile_count),
+			static_cast<unsigned long long>(jit_calls),
+			static_cast<unsigned long long>(jump_hits),
+			static_cast<unsigned long long>(jump_misses),
+			static_cast<unsigned long long>(programs),
+			static_cast<unsigned long long>(clear_count),
+			static_cast<unsigned long long>(reset_count),
+			static_cast<unsigned long long>(instructions),
+			static_cast<unsigned long long>(bytes));
+
+		std::string out(line);
+		if (!op_stats.empty())
+		{
+			out += ' ';
+			out += op_stats;
 		}
 		return out;
 	}

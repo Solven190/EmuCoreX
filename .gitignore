@@ -39,6 +39,7 @@ key/
 # Logs / diagnostics
 Logs/
 *.log
+build_output.txt
 hs_err_pid*
 autotests/
 tests/
@@ -73,6 +74,7 @@ emulog.txt
 # Local investigation notes and profiling captures
 docs/
 profiling-runs/
+/local-traces/
 
 # Third-party and upstream docs (not needed in repo)
 **/third_party/**/docs/

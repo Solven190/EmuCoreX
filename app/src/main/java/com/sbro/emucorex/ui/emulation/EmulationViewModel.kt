@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.DocumentPathResolver
+import com.sbro.emucorex.core.EmulatorStorage
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.NativeApp
@@ -25,6 +26,7 @@ import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.pcsx2.Pcsx2CompatibilityRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +37,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class EmulationUiState(
     val isRunning: Boolean = false,
@@ -138,7 +143,9 @@ data class EmulationUiState(
     val autoSaveIntervalMinutes: Int = 1,
     val autoSaveLastModified: Long = 0L,
     val isAutoSaveInProgress: Boolean = false,
-    val activePlayTimeMs: Long = 0L
+    val activePlayTimeMs: Long = 0L,
+    val vu1JitProfilerEnabled: Boolean = false,
+    val vu1JitProfilerLastPath: String = ""
 )
 
 private data class EmulationLaunchConfig(
@@ -303,6 +310,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     @Volatile
     private var currentGameSource: String = ""
     private var lastAutoSavePlayTimeMs: Long = 0L
+    private var vu1JitProfilerJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -1425,6 +1433,51 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setShowFps(newValue)
             }
         }
+    }
+
+    fun toggleVu1JitProfilerFileLogging() {
+        if (vu1JitProfilerJob?.isActive == true) {
+            return
+        }
+
+        vu1JitProfilerJob = viewModelScope.launch(Dispatchers.IO) {
+            val file = vu1JitProfilerFile()
+            file.parentFile?.mkdirs()
+            file.writeText("")
+            runCatching { NativeApp.setNativeProfilerEnabled(true) }
+            runCatching { NativeApp.getNativeProfilerStatus() }
+            _uiState.value = _uiState.value.copy(
+                vu1JitProfilerEnabled = true,
+                vu1JitProfilerLastPath = file.absolutePath
+            )
+            appendVu1JitProfilerSnapshot(file, "start")
+
+            while (isActive) {
+                delay(2000)
+                appendVu1JitProfilerSnapshot(file, "sample")
+            }
+        }
+    }
+
+    private fun vu1JitProfilerFile(): File {
+        return File(EmulatorStorage.logDir(getApplication()), "vu1_jit_profile.txt")
+    }
+
+    private fun appendVu1JitProfilerSnapshot(file: File, label: String) {
+        val status = runCatching { NativeApp.getNativeProfilerStatus().orEmpty() }.getOrDefault("")
+        val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS Z", Locale.US).format(Date())
+        val state = _uiState.value
+        file.appendText(
+            buildString {
+                appendLine("[$label] timestamp=$now")
+                appendLine("gameTitle=${state.currentGameTitle}")
+                appendLine("gameSerial=$currentGameSerial")
+                appendLine("gameCrc=$currentGameCrc")
+                appendLine("gamePath=${currentGamePath.orEmpty()}")
+                appendLine(status.ifBlank { "native_profiler_status=empty" })
+                appendLine()
+            }
+        )
     }
 
     fun setFpsOverlayMode(mode: Int) {

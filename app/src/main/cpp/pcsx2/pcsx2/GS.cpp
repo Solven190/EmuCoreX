@@ -19,7 +19,10 @@ static __fi void gsSyncMTVUReadback()
 	if (!THREAD_VU1)
 		return;
 
-	vu1Thread.WaitVU();
+	// Do not synchronously wait for VU1 to finish here.
+	// Waking up the EE thread on every spin-loop read of GS_SIGLBLID causes massive FPS drops (e.g., God of War II drops to 20 FPS).
+	// Polling Get_MTVUChanges() asynchronously is sufficient.
+	// vu1Thread.WaitVU();
 	vu1Thread.Get_MTVUChanges();
 }
 

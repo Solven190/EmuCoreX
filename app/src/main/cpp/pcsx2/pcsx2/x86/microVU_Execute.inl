@@ -105,6 +105,62 @@ static void mVUExecuteOakEndStackFrame(bool save_fpr = true)
 	oakAsm->ADD(SP, SP, save_fpr ? 160 : 96);
 }
 
+static void mVUExecuteTryEntryFastPath_emit_oaknut(mV, oak::Label& miss, oak::Label& done)
+{
+	if (!isVU1)
+		return;
+
+	static_assert(sizeof(microProgramQuick) == 40);
+
+	const oak::XReg start_pc = oak::util::X6;
+	const oak::XReg pc_index = oak::util::X7;
+	const oak::XReg quick_ptr = oak::util::X8;
+	const oak::XReg quick_prog = oak::util::X9;
+	const oak::XReg cached_block = oak::util::X10;
+	const oak::XReg cached_manager = oak::util::X11;
+	const oak::XReg quick_manager = oak::util::X12;
+	const oak::XReg state_quick = oak::util::X13;
+	const oak::XReg cached_quick = oak::util::X14;
+
+	oakAsm->AND(start_pc.toW(), oak::util::W0, 0x3ff8u);
+	oakAsm->LSR(pc_index, start_pc, 3);
+
+	oakMoveAddressToReg(quick_ptr, mVU.prog.quick);
+	oakAsm->ADD(quick_ptr, quick_ptr, pc_index, oak::util::LSL, 5);
+	oakAsm->ADD(quick_ptr, quick_ptr, pc_index, oak::util::LSL, 3);
+
+	oakLoad64(quick_prog, {quick_ptr, static_cast<s64>(offsetof(microProgramQuick, prog))});
+	oakAsm->CBZ(quick_prog, miss);
+	oakLoad64(cached_block, {quick_ptr, static_cast<s64>(offsetof(microProgramQuick, cachedBlock))});
+	oakAsm->CBZ(cached_block, miss);
+	oakLoad64(cached_manager, {quick_ptr, static_cast<s64>(offsetof(microProgramQuick, cachedBlockManager))});
+	oakLoad64(quick_manager, {quick_ptr, static_cast<s64>(offsetof(microProgramQuick, block))});
+	oakAsm->CMP(cached_manager, quick_manager);
+	oakAsm->B(oak::Cond::NE, miss);
+
+	oakLoad32(state_quick.toW(),
+		mVUExecuteOakMvuMem(static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].prog.lpState.needExactMatch))));
+	oakAsm->CBNZ(state_quick.toW(), miss);
+	oakLoad64(state_quick,
+		mVUExecuteOakMvuMem(static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].prog.lpState.quick64[0]))));
+	oakLoad64(cached_quick, {quick_ptr, static_cast<s64>(offsetof(microProgramQuick, cachedBlockQuick))});
+	oakAsm->CMP(state_quick, cached_quick);
+	oakAsm->B(oak::Cond::NE, miss);
+
+	oakStore32(oak::util::W1,
+		mVUExecuteOakMvuMem(static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].cycles))));
+	oakStore32(oak::util::W1,
+		mVUExecuteOakMvuMem(static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].totalCycles))));
+	oakStore64(quick_prog,
+		mVUExecuteOakMvuMem(static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].prog.cur))));
+	oakAsm->MOV(state_quick.toW(), static_cast<u32>(-1));
+	oakStore32(state_quick.toW(),
+		mVUExecuteOakMvuMem(static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].prog.isSame))));
+
+	oakLoad64(oak::util::X0, {cached_block, static_cast<s64>(offsetof(microBlock, x86ptrStart))});
+	oakAsm->B(oak::Cond::AL, done);
+}
+
 // Generates the code for entering/exit recompiled blocks
 void mVUdispatcherAB(mV)
 {
@@ -120,7 +176,12 @@ void mVUdispatcherAB(mV)
             oakEmitCall(reinterpret_cast<void*>(mVUexecuteVU0));
         }
         else        {
+			oak::Label entry_fast_path_miss;
+			oak::Label entry_fast_path_done;
+			mVUExecuteTryEntryFastPath_emit_oaknut(mVU, entry_fast_path_miss, entry_fast_path_done);
+			oakAsm->l(entry_fast_path_miss);
             oakEmitCall(reinterpret_cast<void*>(mVUexecuteVU1));
+			oakAsm->l(entry_fast_path_done);
         }
 
 		// Load VU's MXCSR state
