@@ -480,6 +480,24 @@ static __fi void mVU_EFUsqrtNonnegative_oaknut(int PQ, int Fs)
 	oakAsm->l(done);
 }
 
+static __fi void mVU_EFUsqrtNonnegativeDouble_oaknut(int PQ)
+{
+	oak::Label negative;
+	oak::Label done;
+
+	oakAsm->FCMP(oakSRegister(PQ), 0.0);
+	oakAsm->B(oak::util::VS, negative);
+	oakAsm->B(oak::util::LT, negative);
+	oakAsm->FCVT(OAK_DSCRATCH, oakSRegister(PQ));
+	oakAsm->FSQRT(OAK_DSCRATCH, OAK_DSCRATCH);
+	oakAsm->FCVT(OAK_SSCRATCH, OAK_DSCRATCH);
+	oakAsm->MOV(oakQRegister(PQ).Selem()[0], OAK_QSCRATCH.Selem()[0]);
+	oakAsm->B(done);
+
+	oakAsm->l(negative);
+	oakAsm->l(done);
+}
+
 static __fi void mVU_EFUrsqrtNonnegativeOrZero_oaknut(mV, int PQ, int Fs, int t1)
 {
 	oak::Label negative;
@@ -1065,9 +1083,10 @@ static void mVU_ESQRT_direct_emit_oaknut(mP)
 {
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, (1 << (3 - _Fsf_)));
 	recBeginOaknutEmit();
-	mVU_EFUvuDoubleSS_oaknut(Fs);
 	mVU_flipPQ_oaknut(mVU);
-	mVU_EFUsqrtNonnegative_oaknut(VU_HOST_XMMPQ, Fs);
+	oakAsm->MOV(oakQRegister(VU_HOST_XMMPQ).Selem()[0], oakQRegister(Fs).Selem()[0]);
+	mVU_EFUvuDoubleSS_oaknut(VU_HOST_XMMPQ);
+	mVU_EFUsqrtNonnegativeDouble_oaknut(VU_HOST_XMMPQ);
 	mVU_flipPQ_oaknut(mVU);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(Fs);
