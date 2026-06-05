@@ -409,17 +409,259 @@ static __fi bool mVUKeepVu0AccXForNextMADDAiX(mV)
 	return mVUIsMADDAiXCode(next_code);
 }
 
-static void mVUExactVu0UpperOp_emit_oaknut(mP, const void* op)
+enum class mVUExactVu0AccOp
+{
+	MAdd,
+	MSub,
+};
+
+enum class mVUExactVu0FtMode
+{
+	PerLane,
+	Y,
+	Z,
+};
+
+static __fi OakMemOperand mVUExactVu0CpuMem(s64 offset)
+{
+	return mVUAllocOakCpuMem(offset);
+}
+
+static __fi s64 mVUExactVu0AccLaneOffset(int lane)
+{
+	return static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[0].ACC.UL)) + lane * static_cast<s64>(sizeof(u32));
+}
+
+static __fi s64 mVUExactVu0VfLaneOffset(int vf, int lane)
+{
+	return static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[0].VF[0].UL)) +
+		vf * static_cast<s64>(sizeof(VECTOR)) + lane * static_cast<s64>(sizeof(u32));
+}
+
+static __fi s64 mVUExactVu0MacFlagOffset()
+{
+	return static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[0].macflag));
+}
+
+static __fi s64 mVUExactVu0StatusFlagOffset()
+{
+	return static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[0].statusflag));
+}
+
+static __fi int mVUExactVu0LaneShift(int lane)
+{
+	return 3 - lane;
+}
+
+static __fi int mVUExactVu0FtLane(mVUExactVu0FtMode mode, int lane)
+{
+	switch (mode)
+	{
+		case mVUExactVu0FtMode::Y:
+			return 1;
+		case mVUExactVu0FtMode::Z:
+			return 2;
+		default:
+			return lane;
+	}
+}
+
+static __fi void mVUExactVu0AndImm_oaknut(const oak::WReg& dst, const oak::WReg& src, u32 imm)
+{
+	oakAsm->MOV(oak::util::W2, imm);
+	oakAsm->AND(dst, src, oak::util::W2);
+}
+
+static __fi void mVUExactVu0OrrImm_oaknut(const oak::WReg& dst, const oak::WReg& src, u32 imm)
+{
+	oakAsm->MOV(oak::util::W2, imm);
+	oakAsm->ORR(dst, src, oak::util::W2);
+}
+
+static __fi void mVUExactVu0TstImm_oaknut(const oak::WReg& src, u32 imm)
+{
+	oakAsm->MOV(oak::util::W2, imm);
+	oakAsm->TST(src, oak::util::W2);
+}
+
+static __fi void mVUExactVu0VuDoubleScalar_oaknut(const oak::SReg& reg)
+{
+	oak::Label done;
+	oak::Label check_overflow;
+
+	oakAsm->FMOV(oak::util::W0, reg);
+	oakAsm->MOV(oak::util::W1, 0x7f800000);
+	oakAsm->AND(oak::util::W1, oak::util::W0, oak::util::W1);
+	oakAsm->CBNZ(oak::util::W1, check_overflow);
+
+	mVUExactVu0AndImm_oaknut(oak::util::W0, oak::util::W0, 0x80000000u);
+	oakAsm->FMOV(reg, oak::util::W0);
+	oakAsm->B(done);
+
+	oakAsm->l(check_overflow);
+	if (CHECK_VU_OVERFLOW(0))
+	{
+		oakAsm->MOV(oak::util::W0, 0x7f800000);
+		oakAsm->CMP(oak::util::W1, oak::util::W0);
+		oakAsm->B(oak::util::NE, done);
+		oakAsm->FMOV(oak::util::W0, reg);
+		mVUExactVu0AndImm_oaknut(oak::util::W0, oak::util::W0, 0x80000000u);
+		oakAsm->MOV(oak::util::W1, 0x7f7fffff);
+		oakAsm->ORR(oak::util::W0, oak::util::W0, oak::util::W1);
+		oakAsm->FMOV(reg, oak::util::W0);
+	}
+
+	oakAsm->l(done);
+}
+
+static __fi void mVUExactVu0LoadVuDoubleLane_oaknut(const oak::SReg& dst, s64 offset)
+{
+	oakLoad32(oak::util::W0, mVUExactVu0CpuMem(offset));
+	oakAsm->FMOV(dst, oak::util::W0);
+	mVUExactVu0VuDoubleScalar_oaknut(dst);
+}
+
+static __fi void mVUExactVu0ClearMacLane_oaknut(const oak::WReg& mac, int lane)
+{
+	const u32 clear_mask = 0x1111u << mVUExactVu0LaneShift(lane);
+	mVUExactVu0AndImm_oaknut(mac, mac, static_cast<u32>(~clear_mask));
+}
+
+static __fi void mVUExactVu0StoreMacResultLane_oaknut(int lane, const oak::SReg& result, const oak::WReg& mac)
+{
+	const int shift = mVUExactVu0LaneShift(lane);
+	const u32 sign_mask = 0x0010u << shift;
+	const u32 zero_clear_mask = 0x1100u << shift;
+	const u32 denorm_clear_mask = 0x1000u << shift;
+	const u32 denorm_set_mask = 0x0101u << shift;
+	const u32 inf_clear_mask = 0x0101u << shift;
+	const u32 inf_set_mask = 0x1000u << shift;
+	const u32 normal_clear_mask = 0x1101u << shift;
+	const OakMemOperand acc_mem = mVUExactVu0CpuMem(mVUExactVu0AccLaneOffset(lane));
+
+	oak::Label sign_done;
+	oak::Label positive;
+	oak::Label not_zero;
+	oak::Label not_denorm;
+	oak::Label normal;
+	oak::Label done;
+
+	oakAsm->FMOV(oak::util::W0, result);
+	mVUExactVu0TstImm_oaknut(oak::util::W0, 0x80000000u);
+	oakAsm->B(oak::util::EQ, positive);
+	mVUExactVu0OrrImm_oaknut(mac, mac, sign_mask);
+	oakAsm->B(sign_done);
+
+	oakAsm->l(positive);
+	mVUExactVu0AndImm_oaknut(mac, mac, static_cast<u32>(~sign_mask));
+
+	oakAsm->l(sign_done);
+	oakAsm->FMOV(oak::util::W0, result);
+	mVUExactVu0AndImm_oaknut(oak::util::W1, oak::util::W0, 0x7fffffffu);
+	oakAsm->CBNZ(oak::util::W1, not_zero);
+	mVUExactVu0AndImm_oaknut(mac, mac, static_cast<u32>(~zero_clear_mask));
+	mVUExactVu0OrrImm_oaknut(mac, mac, 0x0001u << shift);
+	oakStore32(oak::util::W0, acc_mem);
+	oakAsm->B(done);
+
+	oakAsm->l(not_zero);
+	oakAsm->FMOV(oak::util::W0, result);
+	oakAsm->LSR(oak::util::W1, oak::util::W0, 23);
+	oakAsm->AND(oak::util::W1, oak::util::W1, 0xff);
+	oakAsm->CBNZ(oak::util::W1, not_denorm);
+	mVUExactVu0AndImm_oaknut(mac, mac, static_cast<u32>(~denorm_clear_mask));
+	mVUExactVu0OrrImm_oaknut(mac, mac, denorm_set_mask);
+	mVUExactVu0AndImm_oaknut(oak::util::W0, oak::util::W0, 0x80000000u);
+	oakStore32(oak::util::W0, acc_mem);
+	oakAsm->B(done);
+
+	oakAsm->l(not_denorm);
+	oakAsm->CMP(oak::util::W1, 255);
+	oakAsm->B(oak::util::NE, normal);
+	mVUExactVu0AndImm_oaknut(mac, mac, static_cast<u32>(~inf_clear_mask));
+	mVUExactVu0OrrImm_oaknut(mac, mac, inf_set_mask);
+	oakAsm->FMOV(oak::util::W0, result);
+	if (CHECK_VU_OVERFLOW(0))
+	{
+		mVUExactVu0AndImm_oaknut(oak::util::W0, oak::util::W0, 0x80000000u);
+		oakAsm->MOV(oak::util::W1, 0x7f7fffff);
+		oakAsm->ORR(oak::util::W0, oak::util::W0, oak::util::W1);
+	}
+	oakStore32(oak::util::W0, acc_mem);
+	oakAsm->B(done);
+
+	oakAsm->l(normal);
+	mVUExactVu0AndImm_oaknut(mac, mac, static_cast<u32>(~normal_clear_mask));
+	oakAsm->FMOV(oak::util::W0, result);
+	oakStore32(oak::util::W0, acc_mem);
+
+	oakAsm->l(done);
+}
+
+static __fi void mVUExactVu0EmitAccLane_oaknut(int lane, int fs, int ft, mVUExactVu0AccOp op, mVUExactVu0FtMode ftMode, const oak::WReg& mac)
+{
+	mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH, mVUExactVu0AccLaneOffset(lane));
+	mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH2, mVUExactVu0VfLaneOffset(fs, lane));
+	mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH3, mVUExactVu0VfLaneOffset(ft, mVUExactVu0FtLane(ftMode, lane)));
+
+	oakAsm->FMUL(OAK_SSCRATCH2, OAK_SSCRATCH2, OAK_SSCRATCH3);
+	if (op == mVUExactVu0AccOp::MAdd)
+		oakAsm->FADD(OAK_SSCRATCH, OAK_SSCRATCH, OAK_SSCRATCH2);
+	else
+		oakAsm->FSUB(OAK_SSCRATCH, OAK_SSCRATCH, OAK_SSCRATCH2);
+
+	mVUExactVu0StoreMacResultLane_oaknut(lane, OAK_SSCRATCH, mac);
+}
+
+static __fi void mVUExactVu0SetStatusBitIf_oaknut(const oak::WReg& status, const oak::WReg& mac, u32 test_mask, u32 status_bit)
+{
+	oak::Label skip;
+	mVUExactVu0TstImm_oaknut(mac, test_mask);
+	oakAsm->B(oak::util::EQ, skip);
+	mVUExactVu0OrrImm_oaknut(status, status, status_bit);
+	oakAsm->l(skip);
+}
+
+static __fi void mVUExactVu0StatUpdate_oaknut(const oak::WReg& mac)
+{
+	oakAsm->MOV(oak::util::W0, 0);
+	mVUExactVu0SetStatusBitIf_oaknut(oak::util::W0, mac, 0x000fu, 0x1);
+	mVUExactVu0SetStatusBitIf_oaknut(oak::util::W0, mac, 0x00f0u, 0x2);
+	mVUExactVu0SetStatusBitIf_oaknut(oak::util::W0, mac, 0x0f00u, 0x4);
+	mVUExactVu0SetStatusBitIf_oaknut(oak::util::W0, mac, 0xf000u, 0x8);
+	oakStore32(oak::util::W0, mVUExactVu0CpuMem(mVUExactVu0StatusFlagOffset()));
+}
+
+static void mVUExactVu0AccOp_emit_oaknut(mP, mVUExactVu0AccOp op, mVUExactVu0FtMode ftMode)
 {
 	mVU.regAlloc->flushAll();
-	mVUbackupRegs(mVU, true);
 
 	recBeginOaknutEmit();
-	oakAsm->MOV(oak::util::W0, mVU.code);
-	oakEmitCall(op);
-	recEndOaknutEmit();
+	oakLoad32(OAK_WSCRATCH2, mVUExactVu0CpuMem(mVUExactVu0MacFlagOffset()));
 
-	mVUrestoreRegs(mVU, true);
+	if (_X)
+		mVUExactVu0EmitAccLane_oaknut(0, _Fs_, _Ft_, op, ftMode, OAK_WSCRATCH2);
+	else
+		mVUExactVu0ClearMacLane_oaknut(OAK_WSCRATCH2, 0);
+
+	if (_Y)
+		mVUExactVu0EmitAccLane_oaknut(1, _Fs_, _Ft_, op, ftMode, OAK_WSCRATCH2);
+	else
+		mVUExactVu0ClearMacLane_oaknut(OAK_WSCRATCH2, 1);
+
+	if (_Z)
+		mVUExactVu0EmitAccLane_oaknut(2, _Fs_, _Ft_, op, ftMode, OAK_WSCRATCH2);
+	else
+		mVUExactVu0ClearMacLane_oaknut(OAK_WSCRATCH2, 2);
+
+	if (_W)
+		mVUExactVu0EmitAccLane_oaknut(3, _Fs_, _Ft_, op, ftMode, OAK_WSCRATCH2);
+	else
+		mVUExactVu0ClearMacLane_oaknut(OAK_WSCRATCH2, 3);
+
+	oakStore32(OAK_WSCRATCH2, mVUExactVu0CpuMem(mVUExactVu0MacFlagOffset()));
+	mVUExactVu0StatUpdate_oaknut(OAK_WSCRATCH2);
+	recEndOaknutEmit();
 }
 
 static void mVUupdateFlags_oaknut(mV, int reg, int regT1in = VU_HOST_NO_XMM, int regT2in = VU_HOST_NO_XMM, bool modXYZW = true)
@@ -1429,7 +1671,7 @@ static void mVU_MADDAy_emit(mP)
 	pass2
 	{
 		if (isVU0 && !isCOP2)
-			mVUExactVu0UpperOp_emit_oaknut(mVU, recPass, reinterpret_cast<const void*>(vu0ExactMADDAyUpperOpcode));
+			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y);
 		else
 			mVU_MADDAy_direct_emit_oaknut(mVU, recPass);
 	}
@@ -2299,7 +2541,7 @@ static void mVU_MSUBA_direct_emit_oaknut(mP)
 static void mVU_MSUBA_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (isVU0 && !isCOP2) mVUExactVu0UpperOp_emit_oaknut(mVU, recPass, reinterpret_cast<const void*>(vu0ExactMSUBAUpperOpcode)); else mVU_MSUBA_direct_emit_oaknut(mVU, recPass); }
+	pass2 { if (isVU0 && !isCOP2) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::PerLane); else mVU_MSUBA_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("MSUBA");
@@ -2585,7 +2827,7 @@ static void mVU_MSUBAy_direct_emit_oaknut(mP)
 static void mVU_MSUBAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (isVU0 && !isCOP2) mVUExactVu0UpperOp_emit_oaknut(mVU, recPass, reinterpret_cast<const void*>(vu0ExactMSUBAyUpperOpcode)); else mVU_MSUBAy_direct_emit_oaknut(mVU, recPass); }
+	pass2 { if (isVU0 && !isCOP2) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Y); else mVU_MSUBAy_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -2652,7 +2894,7 @@ static void mVU_MSUBAz_direct_emit_oaknut(mP)
 static void mVU_MSUBAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (isVU0 && !isCOP2) mVUExactVu0UpperOp_emit_oaknut(mVU, recPass, reinterpret_cast<const void*>(vu0ExactMSUBAzUpperOpcode)); else mVU_MSUBAz_direct_emit_oaknut(mVU, recPass); }
+	pass2 { if (isVU0 && !isCOP2) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Z); else mVU_MSUBAz_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }

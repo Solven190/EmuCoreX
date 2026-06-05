@@ -37,7 +37,3 @@ extern void _vuTestLowerStalls(VURegs * VU, _VURegsNum *VUregsn);
 extern void _vuAddUpperStalls(VURegs * VU, _VURegsNum *VUregsn);
 extern void _vuAddLowerStalls(VURegs * VU, _VURegsNum *VUregsn);
 extern void _vuXGKICKTransfer(s32 cycles, bool flush);
-extern void vu0ExactMADDAyUpperOpcode(u32 code);
-extern void vu0ExactMSUBAUpperOpcode(u32 code);
-extern void vu0ExactMSUBAyUpperOpcode(u32 code);
-extern void vu0ExactMSUBAzUpperOpcode(u32 code);

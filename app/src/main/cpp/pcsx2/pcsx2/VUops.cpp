@@ -2988,53 +2988,6 @@ static void VU0MI_ITOF12() { _vuITOF12(&VU0); }
 static void VU0MI_ITOF15() { _vuITOF15(&VU0); }
 static void VU0MI_CLIP() { _vuCLIP(&VU0); }
 
-void vu0ExactMADDAyUpperOpcode(u32 code)
-{
-	VURegs* VU = &VU0;
-	VU0.code = code;
-	const u32 fty = VU0.VF[_Ft_].i.y;
-	if (_X) { VU0.ACC.i.x = VU_MACx_UPDATE(VU, _vuOpMADD(VU0.ACC.i.x, VU0.VF[_Fs_].i.x, fty)); } else VU_MACx_CLEAR(VU);
-	if (_Y) { VU0.ACC.i.y = VU_MACy_UPDATE(VU, _vuOpMADD(VU0.ACC.i.y, VU0.VF[_Fs_].i.y, fty)); } else VU_MACy_CLEAR(VU);
-	if (_Z) { VU0.ACC.i.z = VU_MACz_UPDATE(VU, _vuOpMADD(VU0.ACC.i.z, VU0.VF[_Fs_].i.z, fty)); } else VU_MACz_CLEAR(VU);
-	if (_W) { VU0.ACC.i.w = VU_MACw_UPDATE(VU, _vuOpMADD(VU0.ACC.i.w, VU0.VF[_Fs_].i.w, fty)); } else VU_MACw_CLEAR(VU);
-	VU_STAT_UPDATE(VU);
-}
-
-void vu0ExactMSUBAUpperOpcode(u32 code)
-{
-	VURegs* VU = &VU0;
-	VU0.code = code;
-	if (_X) { VU0.ACC.i.x = VU_MACx_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.x, VU0.VF[_Fs_].i.x, VU0.VF[_Ft_].i.x)); } else VU_MACx_CLEAR(VU);
-	if (_Y) { VU0.ACC.i.y = VU_MACy_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.y, VU0.VF[_Fs_].i.y, VU0.VF[_Ft_].i.y)); } else VU_MACy_CLEAR(VU);
-	if (_Z) { VU0.ACC.i.z = VU_MACz_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.z, VU0.VF[_Fs_].i.z, VU0.VF[_Ft_].i.z)); } else VU_MACz_CLEAR(VU);
-	if (_W) { VU0.ACC.i.w = VU_MACw_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.w, VU0.VF[_Fs_].i.w, VU0.VF[_Ft_].i.w)); } else VU_MACw_CLEAR(VU);
-	VU_STAT_UPDATE(VU);
-}
-
-void vu0ExactMSUBAyUpperOpcode(u32 code)
-{
-	VURegs* VU = &VU0;
-	VU0.code = code;
-	const u32 fty = VU0.VF[_Ft_].i.y;
-	if (_X) { VU0.ACC.i.x = VU_MACx_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.x, VU0.VF[_Fs_].i.x, fty)); } else VU_MACx_CLEAR(VU);
-	if (_Y) { VU0.ACC.i.y = VU_MACy_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.y, VU0.VF[_Fs_].i.y, fty)); } else VU_MACy_CLEAR(VU);
-	if (_Z) { VU0.ACC.i.z = VU_MACz_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.z, VU0.VF[_Fs_].i.z, fty)); } else VU_MACz_CLEAR(VU);
-	if (_W) { VU0.ACC.i.w = VU_MACw_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.w, VU0.VF[_Fs_].i.w, fty)); } else VU_MACw_CLEAR(VU);
-	VU_STAT_UPDATE(VU);
-}
-
-void vu0ExactMSUBAzUpperOpcode(u32 code)
-{
-	VURegs* VU = &VU0;
-	VU0.code = code;
-	const u32 ftz = VU0.VF[_Ft_].i.z;
-	if (_X) { VU0.ACC.i.x = VU_MACx_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.x, VU0.VF[_Fs_].i.x, ftz)); } else VU_MACx_CLEAR(VU);
-	if (_Y) { VU0.ACC.i.y = VU_MACy_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.y, VU0.VF[_Fs_].i.y, ftz)); } else VU_MACy_CLEAR(VU);
-	if (_Z) { VU0.ACC.i.z = VU_MACz_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.z, VU0.VF[_Fs_].i.z, ftz)); } else VU_MACz_CLEAR(VU);
-	if (_W) { VU0.ACC.i.w = VU_MACw_UPDATE(VU, _vuOpMSUB(VU0.ACC.i.w, VU0.VF[_Fs_].i.w, ftz)); } else VU_MACw_CLEAR(VU);
-	VU_STAT_UPDATE(VU);
-}
-
 /*****************************************/
 /*   VU Micromode Lower instructions    */
 /*****************************************/
