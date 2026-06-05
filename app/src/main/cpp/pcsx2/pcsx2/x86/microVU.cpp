@@ -213,6 +213,19 @@ static __fi void mVUquickCacheBlock(microProgramQuick& quick, microBlockManager*
 	quick.cachedBlockQuick = state;
 }
 
+static __fi u64 mVUcomputeLiveStartHash(microVU& mVU, u32 start_pc_8)
+{
+	u64 liveStartHash = 0;
+	const u32 startByteOff = start_pc_8 * 8;
+	if (startByteOff + 16 <= mVU.microMemSize)
+	{
+		const u64* p = reinterpret_cast<const u64*>(
+			reinterpret_cast<const u8*>(mVU.regs().Micro) + startByteOff);
+		liveStartHash = p[0] ^ p[1];
+	}
+	return liveStartHash;
+}
+
 static void mVUremoveLookupEntriesForProg(microVU& mVU, const microProgram& prog)
 {
 	for (auto it = mVU.prog.prog_lookup.begin(); it != mVU.prog.prog_lookup.end();)
@@ -521,16 +534,7 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 	if (!quick.prog) // If null, we need to search for new program
 	{
 		// Pre-compute startHash ONCE: XOR of first 16 bytes at the program entry point.
-		u64 liveStartHash = 0;
-		{
-			const u32 startByteOff = regs_start_pc_8 * 8;
-			if (startByteOff + 16 <= mVU.microMemSize)
-			{
-				const u64* p = reinterpret_cast<const u64*>(
-					reinterpret_cast<const u8*>(mVU.regs().Micro) + startByteOff);
-				liveStartHash = p[0] ^ p[1];
-			}
-		}
+		const u64 liveStartHash = mVUcomputeLiveStartHash(mVU, regs_start_pc_8);
 
 		// Build the O(1) map key: mix startHash with PC to avoid cross-slot collisions.
 		const u64 mapKey = liveStartHash ^ (u64(regs_start_pc_8) * 6364136223846793005ULL);
@@ -648,6 +652,22 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 	// If list.quick, then we've already found and recompiled the program ;)
 	mVU.prog.isSame = -1;
 	mVU.prog.cur = quick.prog;
+
+	if (!mVU.index)
+	{
+		const u64 liveStartHash = mVUcomputeLiveStartHash(mVU, regs_start_pc_8);
+		if (quick.prog->startHash != 0 && quick.prog->startHash != liveStartHash)
+		{
+			quick.block = nullptr;
+			quick.prog = nullptr;
+			mVUquickClearCachedBlocks(quick);
+			mVU.prog.active_mask[regs_start_pc_8 / 64] &= ~(1ULL << (regs_start_pc_8 % 64));
+			mVU.prog.cleared = 1;
+			std::memset(&mVU.prog.lpState, 0, sizeof(mVU.prog.lpState));
+			return mVUsearchProg<vuIndex>(startPC, pState);
+		}
+	}
+
 	// Because the VU's can now run in sections and not whole programs at once
 	// we need to set the current block so it gets the right program back
 	quick.block = mVU.prog.cur->block[start_pc_8];
@@ -734,6 +754,7 @@ void recMicroVU0::Execute(u32 cycles)
 
 	if (!(VU0.VI[REG_VPU_STAT].UL & 1))
 		return;
+
 	VU0.VI[REG_TPC].UL <<= 3;
 
 	((mVUrecCall)microVU0.startFunct)(VU0.VI[REG_TPC].UL, cycles);
