@@ -409,6 +409,19 @@ static __fi bool mVUKeepVu0AccXForNextMADDAiX(mV)
 	return mVUIsMADDAiXCode(next_code);
 }
 
+static void mVUExactVu0UpperOp_emit_oaknut(mP, const void* op)
+{
+	mVU.regAlloc->flushAll();
+	mVUbackupRegs(mVU, true);
+
+	recBeginOaknutEmit();
+	oakAsm->MOV(oak::util::W0, mVU.code);
+	oakEmitCall(op);
+	recEndOaknutEmit();
+
+	mVUrestoreRegs(mVU, true);
+}
+
 static void mVUupdateFlags_oaknut(mV, int reg, int regT1in = VU_HOST_NO_XMM, int regT2in = VU_HOST_NO_XMM, bool modXYZW = true)
 {
 	const int mReg = VU_HOST_T1;
@@ -632,10 +645,7 @@ static void mVU_ADDA_direct_emit_oaknut(mP)
 static void mVU_ADDA_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_ADDA_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_ADDA_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("ADDA");
@@ -694,10 +704,7 @@ static void mVU_ADDAi_direct_emit_oaknut(mP)
 static void mVU_ADDAi_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, 0); }
-	pass2
-	{
-		mVU_ADDAi_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_ADDAi_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("ADDAi");
@@ -771,10 +778,7 @@ static void mVU_ADDAq_direct_emit_oaknut(mP)
 static void mVU_ADDAq_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, 0); }
-	pass2
-	{
-		mVU_ADDAq_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_ADDAq_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("ADDAq");
@@ -839,10 +843,7 @@ static void mVU_ADDAx_direct_emit_oaknut(mP)
 static void mVU_ADDAx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_ADDAx_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_ADDAx_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("ADDA"); mVUlogACC(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -902,10 +903,7 @@ static void mVU_ADDAy_direct_emit_oaknut(mP)
 static void mVU_ADDAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_ADDAy_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_ADDAy_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("ADDA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -965,10 +963,7 @@ static void mVU_ADDAz_direct_emit_oaknut(mP)
 static void mVU_ADDAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_ADDAz_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_ADDAz_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("ADDA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -1028,10 +1023,7 @@ static void mVU_ADDAw_direct_emit_oaknut(mP)
 static void mVU_ADDAw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_ADDAw_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_ADDAw_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("ADDA"); mVUlogACC(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -1434,7 +1426,13 @@ static void mVU_MADDAy_direct_emit_oaknut(mP)
 static void mVU_MADDAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_MADDAy_direct_emit_oaknut(mVU, recPass); }
+	pass2
+	{
+		if (isVU0 && !isCOP2)
+			mVUExactVu0UpperOp_emit_oaknut(mVU, recPass, reinterpret_cast<const void*>(vu0ExactMADDAyUpperOpcode));
+		else
+			mVU_MADDAy_direct_emit_oaknut(mVU, recPass);
+	}
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -2301,7 +2299,7 @@ static void mVU_MSUBA_direct_emit_oaknut(mP)
 static void mVU_MSUBA_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_MSUBA_direct_emit_oaknut(mVU, recPass); }
+	pass2 { if (isVU0 && !isCOP2) mVUExactVu0UpperOp_emit_oaknut(mVU, recPass, reinterpret_cast<const void*>(vu0ExactMSUBAUpperOpcode)); else mVU_MSUBA_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("MSUBA");
@@ -2587,7 +2585,7 @@ static void mVU_MSUBAy_direct_emit_oaknut(mP)
 static void mVU_MSUBAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_MSUBAy_direct_emit_oaknut(mVU, recPass); }
+	pass2 { if (isVU0 && !isCOP2) mVUExactVu0UpperOp_emit_oaknut(mVU, recPass, reinterpret_cast<const void*>(vu0ExactMSUBAyUpperOpcode)); else mVU_MSUBAy_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -2654,7 +2652,7 @@ static void mVU_MSUBAz_direct_emit_oaknut(mP)
 static void mVU_MSUBAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_MSUBAz_direct_emit_oaknut(mVU, recPass); }
+	pass2 { if (isVU0 && !isCOP2) mVUExactVu0UpperOp_emit_oaknut(mVU, recPass, reinterpret_cast<const void*>(vu0ExactMSUBAzUpperOpcode)); else mVU_MSUBAz_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -4014,10 +4012,7 @@ static void mVU_SUBA_direct_emit_oaknut(mP)
 static void mVU_SUBA_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_SUBA_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_SUBA_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("SUBA");
@@ -4076,10 +4071,7 @@ static void mVU_SUBAi_direct_emit_oaknut(mP)
 static void mVU_SUBAi_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, 0); }
-	pass2
-	{
-		mVU_SUBAi_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_SUBAi_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("SUBAi");
@@ -4153,10 +4145,7 @@ static void mVU_SUBAq_direct_emit_oaknut(mP)
 static void mVU_SUBAq_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, 0); }
-	pass2
-	{
-		mVU_SUBAq_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_SUBAq_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("SUBAq");
@@ -4221,10 +4210,7 @@ static void mVU_SUBAx_direct_emit_oaknut(mP)
 static void mVU_SUBAx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_SUBAx_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_SUBAx_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("SUBA"); mVUlogACC(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -4284,10 +4270,7 @@ static void mVU_SUBAy_direct_emit_oaknut(mP)
 static void mVU_SUBAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_SUBAy_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_SUBAy_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("SUBA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -4347,10 +4330,7 @@ static void mVU_SUBAz_direct_emit_oaknut(mP)
 static void mVU_SUBAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_SUBAz_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_SUBAz_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("SUBA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -4410,10 +4390,7 @@ static void mVU_SUBAw_direct_emit_oaknut(mP)
 static void mVU_SUBAw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_SUBAw_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_SUBAw_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("SUBA"); mVUlogACC(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -4545,10 +4522,7 @@ static void mVU_MULA_direct_emit_oaknut(mP)
 static void mVU_MULA_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_MULA_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_MULA_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("MULA");
@@ -4603,10 +4577,7 @@ static void mVU_MULAi_direct_emit_oaknut(mP)
 static void mVU_MULAi_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, 0); }
-	pass2
-	{
-		mVU_MULAi_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_MULAi_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("MULAi");
@@ -4676,10 +4647,7 @@ static void mVU_MULAq_direct_emit_oaknut(mP)
 static void mVU_MULAq_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, 0); }
-	pass2
-	{
-		mVU_MULAq_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_MULAq_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("MULAq");
@@ -4745,10 +4713,7 @@ static void mVU_MULAx_direct_emit_oaknut(mP)
 static void mVU_MULAx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_MULAx_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_MULAx_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("MULA"); mVUlogACC(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -4809,10 +4774,7 @@ static void mVU_MULAy_direct_emit_oaknut(mP)
 static void mVU_MULAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_MULAy_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_MULAy_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("MULA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -4873,10 +4835,7 @@ static void mVU_MULAz_direct_emit_oaknut(mP)
 static void mVU_MULAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_MULAz_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_MULAz_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("MULA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -4938,10 +4897,7 @@ static void mVU_MULAw_direct_emit_oaknut(mP)
 static void mVU_MULAw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_MULAw_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_MULAw_direct_emit_oaknut(mVU, recPass); }
 	pass3 { mVUlog("MULA"); mVUlogACC(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -5410,10 +5366,7 @@ static void mVU_OPMULA_emit(mP)
 		mVUanalyzeFMAC1(mVU, 0, _Fs_, _Ft_);
 		mVU.code = original_code;
 	}
-	pass2
-	{
-		mVU_OPMULA_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_OPMULA_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("OPMULA");
