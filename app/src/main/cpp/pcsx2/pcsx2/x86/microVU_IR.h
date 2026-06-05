@@ -963,50 +963,6 @@ public:
 		}
 	}
 
-	void clearNeededVu0AccXForNextMaddaiX(int reg_code, bool keepForNextMaddaiX)
-	{
-		if (!keepForNextMaddaiX || (reg_code < 0) || (reg_code >= xmmTotal))
-		{
-			clearNeededXmmId(reg_code);
-			return;
-		}
-
-		microMapXMM& reg = xmmMap[reg_code];
-		if (index == 0 && !regAllocCOP2 && reg.VFreg == 32 && reg.xyzw == 0x8)
-		{
-			clearRegVFDuplicates(reg_code, 32);
-			reg.isNeeded = false;
-			reg.count = counter;
-			updateCOP2AllocState(reg_code);
-			return;
-		}
-
-		clearNeededXmmId(reg_code);
-	}
-
-	int allocRegIdVu0AccX()
-	{
-		counter++;
-		if (index == 0 && !regAllocCOP2)
-		{
-            int i;
-			for (i = 0; i < xmmTotal; ++i)
-			{
-				microMapXMM& reg = xmmMap[i];
-				if (isAllocatableXmm(i) && !reg.isNeeded && reg.VFreg == 32 && reg.xyzw == 0x8)
-				{
-					reg.count = counter;
-					reg.isNeeded = true;
-					updateCOP2AllocState(i);
-					return i;
-				}
-			}
-		}
-
-		counter--;
-		return allocRegId(32, 32, 0x8, false);
-	}
-
 	// vfLoadReg  = VF reg to be loaded to the xmm register
 	// vfWriteReg = VF reg that the returned xmm register will be considered as
 	// xyzw       = XYZW vectors that will be modified (and loaded)

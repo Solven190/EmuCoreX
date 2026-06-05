@@ -395,20 +395,6 @@ static __fi void mVUUpperGetQreg_oaknut(int dest, int qInstance)
 
 static constexpr int VU_HOST_NO_XMM = -1;
 
-static __fi bool mVUIsMADDAiXCode(u32 code)
-{
-	return (code & 0x3f) == 0x3f && ((code >> 6) & 0x1f) == 8 && ((code >> 21) & 0xf) == 0x8;
-}
-
-static __fi bool mVUKeepVu0AccXForNextMADDAiX(mV)
-{
-	if (!isVU0 || isCOP2 || mVUinfo.isEOB || mVUlow.branch || mVUinfo.isBdelay)
-		return false;
-
-	const u32 next_code = reinterpret_cast<u32*>(mVU.regs().Micro)[(iPC + 2) & mVU.progMemMask];
-	return mVUIsMADDAiXCode(next_code);
-}
-
 enum class mVUExactVu0AccOp
 {
 	MAdd,
@@ -420,6 +406,7 @@ enum class mVUExactVu0FtMode
 	PerLane,
 	Y,
 	Z,
+	I,
 };
 
 static __fi OakMemOperand mVUExactVu0CpuMem(s64 offset)
@@ -436,6 +423,11 @@ static __fi s64 mVUExactVu0VfLaneOffset(int vf, int lane)
 {
 	return static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[0].VF[0].UL)) +
 		vf * static_cast<s64>(sizeof(VECTOR)) + lane * static_cast<s64>(sizeof(u32));
+}
+
+static __fi s64 mVUExactVu0ViOffset(int vi)
+{
+	return static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[0].VI[0].UL)) + vi * static_cast<s64>(sizeof(REG_VI));
 }
 
 static __fi s64 mVUExactVu0MacFlagOffset()
@@ -602,7 +594,10 @@ static __fi void mVUExactVu0EmitAccLane_oaknut(int lane, int fs, int ft, mVUExac
 {
 	mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH, mVUExactVu0AccLaneOffset(lane));
 	mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH2, mVUExactVu0VfLaneOffset(fs, lane));
-	mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH3, mVUExactVu0VfLaneOffset(ft, mVUExactVu0FtLane(ftMode, lane)));
+	if (ftMode == mVUExactVu0FtMode::I)
+		mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH3, mVUExactVu0ViOffset(REG_I));
+	else
+		mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH3, mVUExactVu0VfLaneOffset(ft, mVUExactVu0FtLane(ftMode, lane)));
 
 	oakAsm->FMUL(OAK_SSCRATCH2, OAK_SSCRATCH2, OAK_SSCRATCH3);
 	if (op == mVUExactVu0AccOp::MAdd)
@@ -1275,8 +1270,7 @@ static void mVU_MADDAi_direct_emit_oaknut(mP)
 {
 	const int Fi = mVU.regAlloc->allocRegId(33, 0, _X_Y_Z_W);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const bool vu0MicroMaddaIX = isVU0 && !isCOP2 && _XYZW_SS && _X;
-	const int ACC = vu0MicroMaddaIX ? mVU.regAlloc->allocRegIdVu0AccX() : mVU.regAlloc->allocRegId(32, 32, 0xf, false);
+	const int ACC = mVU.regAlloc->allocRegId(32, 32, 0xf, false);
 
 	if (_XYZW_SS || _X_Y_Z_W == 0xf)
 	{
@@ -1318,10 +1312,7 @@ static void mVU_MADDAi_direct_emit_oaknut(mP)
 		mVU.regAlloc->clearNeededXmmId(tempACC);
 	}
 
-	if (vu0MicroMaddaIX)
-		mVU.regAlloc->clearNeededVu0AccXForNextMaddaiX(ACC, mVUKeepVu0AccXForNextMADDAiX(mVU));
-	else
-		mVU.regAlloc->clearNeededXmmId(ACC);
+	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
 }
@@ -1329,7 +1320,13 @@ static void mVU_MADDAi_direct_emit_oaknut(mP)
 static void mVU_MADDAi_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, 0); }
-	pass2 { mVU_MADDAi_direct_emit_oaknut(mVU, recPass); }
+	pass2
+	{
+		if (isVU0 && !isCOP2)
+			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::I);
+		else
+			mVU_MADDAi_direct_emit_oaknut(mVU, recPass);
+	}
 	pass3
 	{
 		mVUlog("MADDAi");
