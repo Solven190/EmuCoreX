@@ -14,7 +14,7 @@ extern const char* const bios[256];
 }
 
 extern s32 EEsCycle;
-extern u64 EEoCycle;
+extern u32 EEoCycle;
 
 // used for optimization
 union GPR_reg64 {
@@ -259,9 +259,9 @@ extern void cpuClearInt(uint n);
 extern void GoemonPreloadTlb();
 extern void GoemonUnloadTlb(u32 key);
 
-extern void cpuSetNextEvent( u64 startCycle, s32 delta );
+extern void cpuSetNextEvent( u32 startCycle, s32 delta );
 extern void cpuSetNextEventDelta( s32 delta );
-extern int  cpuTestCycle( u64 startCycle, s32 delta );
+extern int  cpuTestCycle( u32 startCycle, s32 delta );
 extern void cpuSetEvent();
 extern int cpuGetCycles(int interrupt);
 

@@ -113,8 +113,8 @@ static void recMiscMoveGPRtoOakX(oak::XReg to, int fromgpr)
 static void recTrapScheduleImmediateTest_emit_oaknut()
 {
 	recBeginOaknutEmit();
-	oakLoad64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakStore64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
 	recEndOaknutEmit();
 }
 
