@@ -67,55 +67,6 @@ MULTI_ISA_UNSHARED_START
 static void ipu_csc(macroblock_8& mb8, macroblock_rgb32& rgb32, int sgn);
 static void ipu_vq(macroblock_rgb16& rgb16, u8* indx4);
 
-static __fi bool ipuTryEnterDeferredOutputWarmup(bool& ready_to_decode, int& resume_pos, int resume_value)
-{
-	if (!ready_to_decode)
-		return false;
-
-	resume_pos = resume_value;
-	ready_to_decode = false;
-	ipuRequestDecodeWarmup();
-	return true;
-}
-
-static __fi bool ipuWritePendingDecoderOutputAndArmDrain(int& resume_pos, int retry_pos, int advance_pos, int* macroblock_count)
-{
-	pxAssert(decoder.ipu0_data > 0);
-
-	const uint read = ipu_fifo.out.write((u32*)decoder.GetIpuDataPtr(), decoder.ipu0_data);
-	decoder.AdvanceIpuDataBy(read);
-
-	if (decoder.ipu0_data != 0)
-	{
-		ipuArmOutputDrainWait();
-		resume_pos = retry_pos;
-		return true;
-	}
-
-	if (macroblock_count)
-		*macroblock_count = 0;
-	if (read)
-	{
-		ipuArmOutputDrainWait();
-		resume_pos = advance_pos;
-		return true;
-	}
-
-	return false;
-}
-
-static __fi bool ipuWriteOutputChunkAndArmDrain(const u32* src, int& progress, int total_units)
-{
-	progress += ipu_fifo.out.write(src + (4 * progress), total_units - progress);
-	if (progress < total_units)
-	{
-		ipuArmOutputDrainWait();
-		return false;
-	}
-
-	return true;
-}
-
 // --------------------------------------------------------------------------------------
 //  Buffer reader
 // --------------------------------------------------------------------------------------
@@ -1034,8 +985,11 @@ __ri static bool mpeg2sliceIDEC()
 		while (1)
 		{
 			// IPU0 isn't ready for data, so let's wait for it to be
-			if (ipuTryWaitForOutputChannel(ipu0ch.chcr.STR, ipuRegs.ctrl.OFC, ipu0ch.qwc, ipu_cmd.pos[1], 2))
+			if ((!ipu0ch.chcr.STR || ipuRegs.ctrl.OFC || ipu0ch.qwc == 0) && ipu_cmd.pos[1] <= 2)
+			{
+				IPUCoreStatus.WaitingOnIPUFrom = true;
 				return false;
+			}
 			macroblock_8& mb8 = decoder.mb8;
 			macroblock_rgb16& rgb16 = decoder.rgb16;
 			macroblock_rgb32& rgb32 = decoder.rgb32;
@@ -1144,11 +1098,34 @@ __ri static bool mpeg2sliceIDEC()
 				[[fallthrough]];
 			case 2:
 			{
-				if (ipuTryEnterDeferredOutputWarmup(ready_to_decode, ipu_cmd.pos[1], 2))
+				if (ready_to_decode == true)
+				{
+					ready_to_decode = false;
+					IPUCoreStatus.WaitingOnIPUFrom = false;
+					IPUCoreStatus.WaitingOnIPUTo = false;
+					IPU_INT_PROCESS( 64); // Should probably be much higher, but myst 3 doesn't like it right now.
+					ipu_cmd.pos[1] = 2;
 					return false;
+				}
+				pxAssert(decoder.ipu0_data > 0);
+				uint read = ipu_fifo.out.write((u32*)decoder.GetIpuDataPtr(), decoder.ipu0_data);
+				decoder.AdvanceIpuDataBy(read);
 
-				if (ipuWritePendingDecoderOutputAndArmDrain(ipu_cmd.pos[1], 2, 3, &mbaCount))
+				if (decoder.ipu0_data != 0)
+				{
+					// IPU FIFO filled up -- Will have to finish transferring later.
+					IPUCoreStatus.WaitingOnIPUFrom = true;
+					ipu_cmd.pos[1] = 2;
 					return false;
+				}
+
+				mbaCount = 0;
+				if (read)
+				{
+					IPUCoreStatus.WaitingOnIPUFrom = true;
+					ipu_cmd.pos[1] = 3;
+					return false;
+				}
 			}
 				[[fallthrough]];
 
@@ -1311,8 +1288,11 @@ __fi static bool mpeg2_slice()
 		ipu_cmd.pos[0] = 2;
 
 		// IPU0 isn't ready for data, so let's wait for it to be
-		if (ipuTryWaitForOutputChannel(ipu0ch.chcr.STR, ipuRegs.ctrl.OFC, ipu0ch.qwc, ipu_cmd.pos[0], 3))
+		if ((!ipu0ch.chcr.STR || ipuRegs.ctrl.OFC || ipu0ch.qwc == 0) && ipu_cmd.pos[0] <= 3)
+		{
+			IPUCoreStatus.WaitingOnIPUFrom = true;
 			return false;
+		}
 
 		if (decoder.macroblock_modes & DCT_TYPE_INTERLACED)
 		{
@@ -1532,11 +1512,35 @@ __fi static bool mpeg2_slice()
 		[[fallthrough]];
 	case 3:
 	{
-		if (ipuTryEnterDeferredOutputWarmup(ready_to_decode, ipu_cmd.pos[0], 3))
+		if (ready_to_decode == true)
+		{
+			ipu_cmd.pos[0] = 3;
+			ready_to_decode = false;
+			IPUCoreStatus.WaitingOnIPUFrom = false;
+			IPUCoreStatus.WaitingOnIPUTo = false;
+			IPU_INT_PROCESS( 64); // Should probably be much higher, but myst 3 doesn't like it right now.
 			return false;
+		}
 
-		if (ipuWritePendingDecoderOutputAndArmDrain(ipu_cmd.pos[0], 3, 4, &mbaCount))
+		pxAssert(decoder.ipu0_data > 0);
+		uint read = ipu_fifo.out.write((u32*)decoder.GetIpuDataPtr(), decoder.ipu0_data);
+		decoder.AdvanceIpuDataBy(read);
+
+		if (decoder.ipu0_data != 0)
+		{
+			// IPU FIFO filled up -- Will have to finish transferring later.
+			IPUCoreStatus.WaitingOnIPUFrom = true;
+			ipu_cmd.pos[0] = 3;
 			return false;
+		}
+
+		mbaCount = 0;
+		if (read)
+		{
+			IPUCoreStatus.WaitingOnIPUFrom = true;
+			ipu_cmd.pos[0] = 4;
+			return false;
+		}
 	}
 		[[fallthrough]];
 
@@ -1802,13 +1806,21 @@ __ri static bool ipuCSC(tIPU_CMD_CSC csc)
 
 		if (csc.OFM)
 		{
-			if (!ipuWriteOutputChunkAndArmDrain((u32*)&decoder.rgb16, ipu_cmd.pos[1], 32))
+			ipu_cmd.pos[1] += ipu_fifo.out.write(((u32*) & decoder.rgb16) + 4 * ipu_cmd.pos[1], 32 - ipu_cmd.pos[1]);
+			if (ipu_cmd.pos[1] < 32)
+			{
+				IPUCoreStatus.WaitingOnIPUFrom = true;
 				return false;
+			}
 		}
 		else
 		{
-			if (!ipuWriteOutputChunkAndArmDrain((u32*)&decoder.rgb32, ipu_cmd.pos[1], 64))
+			ipu_cmd.pos[1] += ipu_fifo.out.write(((u32*) & decoder.rgb32) + 4 * ipu_cmd.pos[1], 64 - ipu_cmd.pos[1]);
+			if (ipu_cmd.pos[1] < 64)
+			{
+				IPUCoreStatus.WaitingOnIPUFrom = true;
 				return false;
+			}
 		}
 
 		ipu_cmd.pos[0] = 0;
@@ -1835,13 +1847,21 @@ __ri static bool ipuPACK(tIPU_CMD_CSC csc)
 
 		if (csc.OFM)
 		{
-			if (!ipuWriteOutputChunkAndArmDrain((u32*)&decoder.rgb16, ipu_cmd.pos[1], 32))
+			ipu_cmd.pos[1] += ipu_fifo.out.write(((u32*) & decoder.rgb16) + 4 * ipu_cmd.pos[1], 32 - ipu_cmd.pos[1]);
+			if (ipu_cmd.pos[1] < 32)
+			{
+				IPUCoreStatus.WaitingOnIPUFrom = true;
 				return false;
+			}
 		}
 		else
 		{
-			if (!ipuWriteOutputChunkAndArmDrain((u32*)g_ipu_indx4, ipu_cmd.pos[1], 8))
+			ipu_cmd.pos[1] += ipu_fifo.out.write(((u32*)g_ipu_indx4) + 4 * ipu_cmd.pos[1], 8 - ipu_cmd.pos[1]);
+			if (ipu_cmd.pos[1] < 8)
+			{
+				IPUCoreStatus.WaitingOnIPUFrom = true;
 				return false;
+			}
 		}
 
 		ipu_cmd.pos[0] = 0;
