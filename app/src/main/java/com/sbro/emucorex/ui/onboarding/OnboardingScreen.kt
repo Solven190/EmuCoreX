@@ -53,6 +53,7 @@ import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Gamepad
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.RadioButtonChecked
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -81,6 +82,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -115,6 +117,12 @@ fun OnboardingScreen(
     val scope = rememberCoroutineScope()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val horizontalSystemBarPadding = navigationBarsHorizontalPaddingValues()
+    val landscapeSetupScrollState = rememberScrollState()
+    val landscapeSetupScrollProgress = if (landscapeSetupScrollState.maxValue > 0) {
+        landscapeSetupScrollState.value.toFloat() / landscapeSetupScrollState.maxValue.toFloat()
+    } else {
+        0f
+    }
     
     val pagerState = rememberPagerState(pageCount = { uiState.totalPages })
     
@@ -189,12 +197,20 @@ fun OnboardingScreen(
         }
     )
     
-    val nextClick = rememberDebouncedClick {
-        viewModel.goToNextPage()
+    val goToPage: (Int) -> Unit = { page ->
+        val targetPage = page.coerceIn(0, uiState.totalPages - 1)
+        scope.launch {
+            pagerState.animateScrollToPage(targetPage)
+            viewModel.setCurrentPage(targetPage)
+        }
+    }
+
+    val nextClick = {
+        goToPage(pagerState.currentPage + 1)
     }
     
-    val previousClick = rememberDebouncedClick {
-        viewModel.goToPreviousPage()
+    val previousClick = {
+        goToPage(pagerState.currentPage - 1)
     }
 
     val contentAlpha by animateFloatAsState(
@@ -283,141 +299,167 @@ fun OnboardingScreen(
         )
 
         if (isLandscape) {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontalSystemBarPadding)
                     .graphicsLayer {
                         alpha = contentAlpha
                         translationY = contentOffset
-                    },
-                horizontalArrangement = Arrangement.spacedBy(32.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize()
-                        .statusBarsPadding()
-                        .displayCutoutPadding()
-                        .padding(start = 24.dp, bottom = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (uiState.currentPage < 3) {
-                        OnboardingHero(
-                            page = uiState.currentPage, 
-                            showSubtitle = false,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    } else if (uiState.currentPage == 3) {
-                        OnboardingHeroProfile(
-                            showSubtitle = false,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    } else {
-                        OnboardingHeroSetup(
-                            showSubtitle = false,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
                     }
-                }
-
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.Center
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(32.dp)
                     ) {
-                        if (uiState.currentPage < 3) {
-                            val subtitleRes = when (uiState.currentPage) {
-                                0 -> R.string.onboarding_page_1_subtitle
-                                1 -> R.string.onboarding_page_2_subtitle
-                                2 -> R.string.onboarding_page_3_subtitle
-                                else -> R.string.onboarding_page_4_subtitle
-                            }
-                            Text(
-                                text = stringResource(subtitleRes),
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    lineHeight = 28.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    letterSpacing = 0.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 40.dp)
-                                    .statusBarsPadding()
-                                    .padding(top = 32.dp)
-                            )
-                        } else if (uiState.currentPage == 3) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(rememberScrollState()),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                OnboardingPerformanceProfileContent(
-                                    selectedProfile = uiState.performanceProfile,
-                                    onSelectProfile = viewModel::setPerformanceProfile,
-                                    modifier = Modifier.padding(horizontal = 32.dp)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxSize()
+                                .statusBarsPadding()
+                                .displayCutoutPadding()
+                                .padding(start = 24.dp, bottom = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            when {
+                                page < 3 -> OnboardingHero(
+                                    page = page,
+                                    showSubtitle = false,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                page == 3 -> OnboardingHeroProfile(
+                                    showSubtitle = false,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                else -> OnboardingHeroSetup(
+                                    showSubtitle = false,
+                                    modifier = Modifier.padding(bottom = 8.dp)
                                 )
                             }
-                        } else {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(rememberScrollState()),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Top
-                            ) {
-                                Spacer(modifier = Modifier.statusBarsPadding().height(24.dp))
-                                
-                                OnboardingSetupContent(
-                                    biosPath = uiState.biosPath,
-                                    gamePath = uiState.gamePath,
-                                    biosValid = uiState.biosValid,
-                                    gamePathValid = uiState.gamePathValid,
-                                    allFilesAccessGranted = uiState.allFilesAccessGranted,
-                                    context = context,
-                                    launchBiosPicker = launchBiosPicker,
-                                    launchGamePicker = launchGamePicker,
-                                    launchAllFilesAccess = launchAllFilesAccess,
-                                    endInset = 0.dp,
-                                    bottomInset = 0.dp,
-                                    modifier = Modifier.padding(horizontal = 32.dp)
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxSize()
+                                .padding(bottom = 106.dp + bottomInset),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (page < 3) {
+                                val subtitleRes = when (page) {
+                                    0 -> R.string.onboarding_page_1_subtitle
+                                    1 -> R.string.onboarding_page_2_subtitle
+                                    2 -> R.string.onboarding_page_3_subtitle
+                                    else -> R.string.onboarding_page_4_subtitle
+                                }
+                                Text(
+                                    text = stringResource(subtitleRes),
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        lineHeight = 28.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        letterSpacing = 0.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 40.dp)
+                                        .statusBarsPadding()
+                                        .padding(top = 32.dp)
                                 )
-                                
-                                Spacer(modifier = Modifier.height(24.dp))
+                            } else if (page == 3) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .verticalScroll(rememberScrollState()),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    OnboardingPerformanceProfileContent(
+                                        selectedProfile = uiState.performanceProfile,
+                                        onSelectProfile = viewModel::setPerformanceProfile,
+                                        modifier = Modifier.padding(horizontal = 32.dp)
+                                    )
+                                }
+                            } else {
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .verticalScroll(landscapeSetupScrollState),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Top
+                                    ) {
+                                        Spacer(modifier = Modifier.statusBarsPadding().height(24.dp))
+                                        
+                                        OnboardingSetupContent(
+                                            biosPath = uiState.biosPath,
+                                            gamePath = uiState.gamePath,
+                                            biosValid = uiState.biosValid,
+                                            gamePathValid = uiState.gamePathValid,
+                                            allFilesAccessGranted = uiState.allFilesAccessGranted,
+                                            context = context,
+                                            launchBiosPicker = launchBiosPicker,
+                                            launchGamePicker = launchGamePicker,
+                                            launchAllFilesAccess = launchAllFilesAccess,
+                                            endInset = 0.dp,
+                                            bottomInset = 0.dp,
+                                            reserveScrollHintSpace = true,
+                                            modifier = Modifier.padding(horizontal = 32.dp)
+                                        )
+                                        
+                                        Spacer(modifier = Modifier.height(24.dp))
+                                    }
+
+                                    OnboardingSetupScrollHint(
+                                        visible = landscapeSetupScrollState.canScrollForward,
+                                        scrollProgress = landscapeSetupScrollProgress,
+                                        modifier = Modifier
+                                            .align(Alignment.TopStart)
+                                            .statusBarsPadding()
+                                            .padding(start = 32.dp, top = 80.dp)
+                                            .width(36.dp)
+                                    )
+                                }
                             }
                         }
                     }
+                }
 
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .displayCutoutPadding()
+                        .padding(bottom = 16.dp + bottomInset),
+                    horizontalArrangement = Arrangement.spacedBy(32.dp)
+                ) {
+                    Spacer(modifier = Modifier.weight(1f))
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
+                            .weight(1f)
                             .fillMaxWidth()
-                            .displayCutoutPadding()
-                            .padding(bottom = 16.dp + bottomInset, top = 8.dp)
                     ) {
                         OnboardingPageIndicator(
-                            currentPage = uiState.currentPage,
+                            currentPage = pagerState.currentPage,
                             totalPages = uiState.totalPages,
                             modifier = Modifier.padding(bottom = 20.dp)
                         )
                         OnboardingNavigation(
-                            currentPage = uiState.currentPage,
+                            currentPage = pagerState.currentPage,
                             totalPages = uiState.totalPages,
                             canContinue = uiState.canContinue,
                             onNext = nextClick,
                             onPrevious = previousClick,
                             onContinue = continueClick,
-                            modifier = Modifier.widthIn(max = 420.dp)
+                            modifier = Modifier
+                                .widthIn(max = 420.dp)
+                                .padding(horizontal = 32.dp)
                         )
                     }
                 }
@@ -824,105 +866,179 @@ private fun OnboardingSetupContent(
     launchAllFilesAccess: () -> Unit,
     endInset: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
-    bottomInset: androidx.compose.ui.unit.Dp = 0.dp
+    bottomInset: androidx.compose.ui.unit.Dp = 0.dp,
+    reserveScrollHintSpace: Boolean = false,
 ) {
     val completionProgress = listOf(biosValid, gamePathValid, allFilesAccessGranted).count { it }
-    Column(
+    Row(
         modifier = modifier.padding(end = endInset),
-        horizontalAlignment = Alignment.CenterHorizontally
+        verticalAlignment = Alignment.Top
     ) {
-        SetupCard(
-            icon = Icons.Rounded.Memory,
-            title = stringResource(R.string.onboarding_bios_title),
-            description = if (biosPath == null) {
-                stringResource(R.string.onboarding_bios_desc)
-            } else {
-                DocumentPathResolver.getDisplayName(context, biosPath)
-            },
-            status = when {
-                biosPath == null -> stringResource(R.string.onboarding_status_required)
-                biosValid -> stringResource(R.string.onboarding_status_ready)
-                else -> stringResource(R.string.onboarding_status_invalid_bios)
-            },
-            statusColor = when {
-                biosPath == null -> MaterialTheme.colorScheme.tertiary
-                biosValid -> Color(0xFF1B8A5A)
-                else -> MaterialTheme.colorScheme.error
-            },
-            onClick = launchBiosPicker
-        )
+        if (reserveScrollHintSpace) {
+            Spacer(modifier = Modifier.width(36.dp))
+        }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SetupCard(
-            icon = Icons.Rounded.FolderOpen,
-            title = stringResource(R.string.onboarding_games_title),
-            description = gamePath?.let { DocumentPathResolver.getDisplayName(context, it) }
-                ?: stringResource(R.string.onboarding_games_desc),
-            status = when {
-                gamePath == null -> stringResource(R.string.onboarding_status_required)
-                gamePathValid -> stringResource(R.string.onboarding_status_ready)
-                else -> stringResource(R.string.onboarding_status_invalid_folder)
-            },
-            statusColor = when {
-                gamePath == null -> MaterialTheme.colorScheme.tertiary
-                gamePathValid -> Color(0xFF1B8A5A)
-                else -> MaterialTheme.colorScheme.error
-            },
-            onClick = launchGamePicker
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        SetupCard(
-            icon = Icons.Rounded.CheckCircle,
-            title = stringResource(R.string.onboarding_all_files_title),
-            description = stringResource(R.string.onboarding_all_files_desc),
-            status = if (allFilesAccessGranted) {
-                stringResource(R.string.onboarding_status_ready)
-            } else {
-                stringResource(R.string.onboarding_status_required)
-            },
-            statusColor = if (allFilesAccessGranted) {
-                Color(0xFF1B8A5A)
-            } else {
-                MaterialTheme.colorScheme.tertiary
-            },
-            onClick = launchAllFilesAccess
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-            tonalElevation = 4.dp
+        Column(
+            modifier = if (reserveScrollHintSpace) Modifier.weight(1f) else Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Rounded.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
+            SetupCard(
+                icon = Icons.Rounded.Memory,
+                title = stringResource(R.string.onboarding_bios_title),
+                description = if (biosPath == null) {
+                    stringResource(R.string.onboarding_bios_desc)
+                } else {
+                    DocumentPathResolver.getDisplayName(context, biosPath)
+                },
+                status = when {
+                    biosPath == null -> stringResource(R.string.onboarding_status_required)
+                    biosValid -> stringResource(R.string.onboarding_status_ready)
+                    else -> stringResource(R.string.onboarding_status_invalid_bios)
+                },
+                statusColor = when {
+                    biosPath == null -> MaterialTheme.colorScheme.tertiary
+                    biosValid -> Color(0xFF1B8A5A)
+                    else -> MaterialTheme.colorScheme.error
+                },
+                onClick = launchBiosPicker
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SetupCard(
+                icon = Icons.Rounded.FolderOpen,
+                title = stringResource(R.string.onboarding_games_title),
+                description = gamePath?.let { DocumentPathResolver.getDisplayName(context, it) }
+                    ?: stringResource(R.string.onboarding_games_desc),
+                status = when {
+                    gamePath == null -> stringResource(R.string.onboarding_status_required)
+                    gamePathValid -> stringResource(R.string.onboarding_status_ready)
+                    else -> stringResource(R.string.onboarding_status_invalid_folder)
+                },
+                statusColor = when {
+                    gamePath == null -> MaterialTheme.colorScheme.tertiary
+                    gamePathValid -> Color(0xFF1B8A5A)
+                    else -> MaterialTheme.colorScheme.error
+                },
+                onClick = launchGamePicker
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SetupCard(
+                icon = Icons.Rounded.CheckCircle,
+                title = stringResource(R.string.onboarding_all_files_title),
+                description = stringResource(R.string.onboarding_all_files_desc),
+                status = if (allFilesAccessGranted) {
+                    stringResource(R.string.onboarding_status_ready)
+                } else {
+                    stringResource(R.string.onboarding_status_required)
+                },
+                statusColor = if (allFilesAccessGranted) {
+                    Color(0xFF1B8A5A)
+                } else {
+                    MaterialTheme.colorScheme.tertiary
+                },
+                onClick = launchAllFilesAccess
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                tonalElevation = 4.dp
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Rounded.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = stringResource(R.string.onboarding_hint_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = stringResource(R.string.onboarding_hint_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = stringResource(R.string.onboarding_hint_body, completionProgress, 3),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = stringResource(R.string.onboarding_hint_body, completionProgress, 3),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(bottomInset))
+        }
+    }
+}
+
+@Composable
+private fun OnboardingSetupScrollHint(
+    visible: Boolean,
+    scrollProgress: Float,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val scrollTravelPx = with(density) { 112.dp.toPx() }
+    val clampedScrollProgress = scrollProgress.coerceIn(0f, 1f)
+    val bottomFade = (1f - ((clampedScrollProgress - 0.7f) / 0.3f).coerceIn(0f, 1f))
+    val hintMotion = rememberInfiniteTransition(label = "onboarding-setup-scroll-hint")
+    val arrowOffsetY by hintMotion.animateFloat(
+        initialValue = 0f,
+        targetValue = 10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 680),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "onboarding-setup-scroll-hint-offset"
+    )
+    val arrowAlpha by hintMotion.animateFloat(
+        initialValue = 0.54f,
+        targetValue = 0.92f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 680),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "onboarding-setup-scroll-hint-alpha"
+    )
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.TopCenter
+    ) {
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.9f, animationSpec = tween(180)),
+            exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.9f, animationSpec = tween(120))
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.graphicsLayer {
+                    translationY = clampedScrollProgress * scrollTravelPx + arrowOffsetY
+                    alpha = arrowAlpha * bottomFade
+                }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .height(58.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                )
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(30.dp)
                 )
             }
         }
-
-        Spacer(modifier = Modifier.height(10.dp))
-        Spacer(modifier = Modifier.height(bottomInset))
     }
 }
 
