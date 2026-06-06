@@ -23,6 +23,7 @@
 #include "GSDumpReplayer.h"
 
 #include "DebugTools/Breakpoints.h"
+#include "DebugTools/Debug.h"
 #include "DebugTools/MIPSAnalyst.h"
 #include "DebugTools/SymbolGuardian.h"
 #include "R5900OpcodeTables.h"
@@ -32,7 +33,7 @@
 using namespace R5900;	// for R5900 disasm tools
 
 s32 EEsCycle;		// used to sync the IOP to the EE
-u32 EEoCycle;
+u64 EEoCycle;
 
 alignas(64) cpuRegistersPack g_cpuRegistersPack;
 cpuRegisters& cpuRegs = g_cpuRegistersPack.cpuRegs;
@@ -206,7 +207,7 @@ void cpuTlbMissW(u32 addr, u32 bd) {
 }
 
 // sets a branch test to occur some time from an arbitrary starting point.
-__fi void cpuSetNextEvent( u32 startCycle, s32 delta )
+__fi void cpuSetNextEvent( u64 startCycle, s32 delta )
 {
 	// typecast the conditional to signed so that things don't blow up
 	// if startCycle is greater than our next branch cycle.
@@ -237,7 +238,7 @@ __fi int cpuGetCycles(int interrupt)
 
 // tests the cpu cycle against the given start and delta values.
 // Returns true if the delta time has passed.
-__fi int cpuTestCycle( u32 startCycle, s32 delta )
+__fi int cpuTestCycle( u64 startCycle, s32 delta )
 {
 	// typecast the conditional to signed so that things don't explode
 	// if the startCycle is ahead of our current cpu cycle.

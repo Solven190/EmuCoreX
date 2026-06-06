@@ -1157,18 +1157,18 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 
 	if (EmuConfig.Speedhacks.WaitLoop && s_nBlockFF && newpc == s_branchTo)
 	{
-		oakLoad32(OAK_EAX, IOP_CPU(psxRegs.cycle));
-		oakAsm->MOV(OAK_ECX, OAK_EAX);
+		oakLoad64(oak::util::X0, IOP_CPU(psxRegs.cycle));
+		oakAsm->MOV(oak::util::X1, oak::util::X0);
 		oakLoad32(OAK_EDX, IOP_CPU(psxRegs.iopCycleEE));
 		oakAsm->ADD(OAK_EDX, OAK_EDX, 7);
 		oakAsm->LSR(OAK_EDX, OAK_EDX, 3);
-		oakAsm->ADD(OAK_EAX, OAK_EAX, OAK_EDX);
-		oakLoad32(OAK_EEX, IOP_CPU(psxRegs.iopNextEventCycle));
-		oakAsm->CMP(OAK_EAX, OAK_EEX);
-		oakAsm->CSEL(OAK_EAX, OAK_EEX, OAK_EAX, oak::Cond::PL);
-		oakStore32(OAK_EAX, IOP_CPU(psxRegs.cycle));
-		oakAsm->SUB(OAK_EAX, OAK_EAX, OAK_ECX);
-		oakAsm->LSL(OAK_EAX, OAK_EAX, 3);
+		oakAsm->ADD(oak::util::X0, oak::util::X0, oak::util::X2);
+		oakLoad64(oak::util::X4, IOP_CPU(psxRegs.iopNextEventCycle));
+		oakAsm->CMP(oak::util::X0, oak::util::X4);
+		oakAsm->CSEL(oak::util::X0, oak::util::X4, oak::util::X0, oak::Cond::PL);
+		oakStore64(oak::util::X0, IOP_CPU(psxRegs.cycle));
+		oakAsm->SUB(oak::util::X0, oak::util::X0, oak::util::X1);
+		oakAsm->LSL(oak::util::X0, oak::util::X0, 3);
 		iPsxAddEECycles(0xFFFFFFFF);
 		oakEmitCondBranch(oak::Cond::LE, iopExitRecompiledCode);
 
@@ -1184,17 +1184,17 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 	}
 	else
 	{
-		oakLoad32(OAK_EBX, IOP_CPU(psxRegs.cycle));
-		oakAsm->ADD(OAK_EBX, OAK_EBX, blockCycles);
-		oakStore32(OAK_EBX, IOP_CPU(psxRegs.cycle));
+		oakLoad64(oak::util::X3, IOP_CPU(psxRegs.cycle));
+		oakAsm->ADD(oak::util::X3, oak::util::X3, blockCycles);
+		oakStore64(oak::util::X3, IOP_CPU(psxRegs.cycle));
 
 		// jump if iopCycleEE <= 0  (iop's timeslice timed out, so time to return control to the EE)
 		iPsxAddEECycles(blockCycles);
 		oakEmitCondBranch(oak::Cond::LE, iopExitRecompiledCode);
 
 		// check if an event is pending
-		oakLoad32(OAK_EEX, IOP_CPU(psxRegs.iopNextEventCycle));
-		oakAsm->SUBS(OAK_EBX, OAK_EBX, OAK_EEX);
+		oakLoad64(oak::util::X4, IOP_CPU(psxRegs.iopNextEventCycle));
+		oakAsm->SUBS(oak::util::X3, oak::util::X3, oak::util::X4);
 		oak::Label nointerruptpending;
 		oakAsm->B(oak::Cond::MI, nointerruptpending);
 
@@ -1243,9 +1243,9 @@ static void rpsxSYSCALL_emit_oaknut()
 	oakAsm->MOV(OAK_WSCRATCH2, exception_pc);
 	oakAsm->CMP(OAK_WSCRATCH, OAK_WSCRATCH2);
 	oakAsm->B(oak::Cond::EQ, skip_cycle_update);
-	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.cycle))});
-	oakAsm->ADD(OAK_WSCRATCH, OAK_WSCRATCH, block_cycles);
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.cycle))});
+	oakLoad64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.cycle))});
+	oakAsm->ADD(OAK_XSCRATCH, OAK_XSCRATCH, block_cycles);
+	oakStore64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.cycle))});
 	iPsxAddEECycles_emit_oaknut(block_cycles);
 	oakEmitJmp(iopDispatcherReg);
 	oakAsm->l(skip_cycle_update);
@@ -1280,9 +1280,9 @@ static void rpsxBREAK_emit_oaknut()
 	oakAsm->MOV(OAK_WSCRATCH2, exception_pc);
 	oakAsm->CMP(OAK_WSCRATCH, OAK_WSCRATCH2);
 	oakAsm->B(oak::Cond::EQ, skip_cycle_update);
-	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.cycle))});
-	oakAsm->ADD(OAK_WSCRATCH, OAK_WSCRATCH, block_cycles);
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.cycle))});
+	oakLoad64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.cycle))});
+	oakAsm->ADD(OAK_XSCRATCH, OAK_XSCRATCH, block_cycles);
+	oakStore64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.cycle))});
 	iPsxAddEECycles_emit_oaknut(block_cycles);
 	oakEmitJmp(iopDispatcherReg);
 	oakAsm->l(skip_cycle_update);
@@ -1685,9 +1685,9 @@ StartRecomp:
 			pxAssert(!willbranch3);
 		else
 		{
-			oakLoad32(OAK_WSCRATCH, IOP_CPU(psxRegs.cycle));
-			oakAsm->ADD(OAK_WSCRATCH, OAK_WSCRATCH, psxScaleBlockCycles());
-			oakStore32(OAK_WSCRATCH, IOP_CPU(psxRegs.cycle));
+			oakLoad64(OAK_XSCRATCH, IOP_CPU(psxRegs.cycle));
+			oakAsm->ADD(OAK_XSCRATCH, OAK_XSCRATCH, psxScaleBlockCycles());
+			oakStore64(OAK_XSCRATCH, IOP_CPU(psxRegs.cycle));
 			iPsxAddEECycles(psxScaleBlockCycles());
 		}
 

@@ -33,7 +33,7 @@
 
 psxCounter psxCounters[NUM_COUNTERS];
 s32 psxNextDeltaCounter;
-u32 psxNextStartCounter;
+u64 psxNextStartCounter;
 
 bool hBlanking = false;
 bool vBlanking = false;

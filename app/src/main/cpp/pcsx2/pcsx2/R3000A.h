@@ -50,12 +50,12 @@
 #define _SetLink(x)     psxRegs.GPR.r[x] = _PC_ + 4;       // Sets the return address in the link register
 
 extern s32 EEsCycle;
-extern u32 EEoCycle;
+extern u64 EEoCycle;
 
 #endif
 
 extern s32 psxNextDeltaCounter;
-extern u32 psxNextStartCounter;
+extern u64 psxNextStartCounter;
 extern bool iopEventAction;
 extern bool iopEventTestIsActive;
 

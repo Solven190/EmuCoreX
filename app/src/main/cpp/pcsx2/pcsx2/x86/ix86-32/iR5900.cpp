@@ -185,8 +185,8 @@ void _eeMoveGPRtoR(int to, int fromgpr, bool allow_preload)
 static void recBranchCallScheduleImmediateTest_emit_oaknut()
 {
 	recBeginOaknutEmit();
-	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	oakLoad64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakStore64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
 	recEndOaknutEmit();
 }
 
@@ -590,8 +590,8 @@ void R5900::Dynarec::OpcodeImpl::recSYSCALL()
 static void recSYSCALL_emit_oaknut()
 {
 	recBeginOaknutEmit();
-	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	oakLoad64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakStore64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
 	oakEmitCall(reinterpret_cast<void*>(eeExecuteSyscallInstruction));
 	recEndOaknutEmit();
 }
@@ -599,8 +599,8 @@ static void recSYSCALL_emit_oaknut()
 static void recBREAK_emit_oaknut()
 {
 	recBeginOaknutEmit();
-	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	oakLoad64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakStore64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
 	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc))});
 	oakAsm->SUB(OAK_WSCRATCH, OAK_WSCRATCH, 4);
 	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc))});
@@ -1208,26 +1208,26 @@ static void recJumpDispatcherReg_emit_oaknut()
 static void iBranchTestWaitLoopCycles_emit_oaknut(u32 scaled_cycles)
 {
 	recBeginOaknutEmit();
-	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakAsm->MOV(OAK_WSCRATCH2, scaled_cycles);
-	oakAsm->ADD(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakLoad32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
-	oakAsm->CMP(OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->CSEL(OAK_WSCRATCH2, OAK_WSCRATCH, OAK_WSCRATCH2, oak::Cond::MI);
-	oakStore32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakLoad64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakAsm->MOV(OAK_XSCRATCH2, static_cast<u64>(scaled_cycles));
+	oakAsm->ADD(OAK_XSCRATCH, OAK_XSCRATCH, OAK_XSCRATCH2);
+	oakStore64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	oakAsm->CMP(OAK_XSCRATCH2, OAK_XSCRATCH);
+	oakAsm->CSEL(OAK_XSCRATCH2, OAK_XSCRATCH, OAK_XSCRATCH2, oak::Cond::MI);
+	oakStore64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
 	recEndOaknutEmit();
 }
 
 static void iBranchTestUpdateCycleAndCompareEvent_emit_oaknut(u32 scaled_cycles)
 {
 	recBeginOaknutEmit();
-	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakAsm->MOV(OAK_WSCRATCH2, scaled_cycles);
-	oakAsm->ADD(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakLoad32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
-	oakAsm->SUBS(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
+	oakLoad64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakAsm->MOV(OAK_XSCRATCH2, static_cast<u64>(scaled_cycles));
+	oakAsm->ADD(OAK_XSCRATCH, OAK_XSCRATCH, OAK_XSCRATCH2);
+	oakStore64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	oakAsm->SUBS(OAK_XSCRATCH, OAK_XSCRATCH, OAK_XSCRATCH2);
 	recEndOaknutEmit();
 }
 
@@ -2000,24 +2000,24 @@ static u8* recSkipTimeoutLoop_emit_oaknut(s32 reg)
 	u8* link_patch = nullptr;
 
 	recBeginOaknutEmit();
-	oakLoad32(oak::util::W0, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakLoad32(oak::util::W1, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
-	oakAsm->CMP(oak::util::W0, oak::util::W1);
+	oakLoad64(oak::util::X0, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakLoad64(oak::util::X1, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	oakAsm->CMP(oak::util::X0, oak::util::X1);
 
 	oak::Label not_dispatcher;
 	oakAsm->B(oak::Cond::CC, not_dispatcher);
-	oakAsm->ADD(oak::util::W0, oak::util::W0, 8);
-	oakStore32(oak::util::W0, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakAsm->ADD(oak::util::X0, oak::util::X0, 8);
+	oakStore64(oak::util::X0, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
 	oakEmitJmp(DispatcherEvent);
 
 	oakAsm->l(not_dispatcher);
 	oakLoad32(oak::util::W2, {oak::util::X27, v0_offset});
-	oakAsm->ADD(oak::util::W3, oak::util::W0, oak::util::W2, oak::AddSubShift::LSL, 3);
-	oakAsm->CMP(oak::util::W1, oak::util::W3);
-	oakAsm->CSEL(oak::util::W3, oak::util::W1, oak::util::W3, oak::Cond::CC);
-	oakStore32(oak::util::W3, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakAsm->SUB(oak::util::W3, oak::util::W3, oak::util::W0);
-	oakAsm->LSR(oak::util::W3, oak::util::W3, 3);
+	oakAsm->ADD(oak::util::X3, oak::util::X0, oak::util::X2, oak::AddSubShift::LSL, 3);
+	oakAsm->CMP(oak::util::X1, oak::util::X3);
+	oakAsm->CSEL(oak::util::X3, oak::util::X1, oak::util::X3, oak::Cond::CC);
+	oakStore64(oak::util::X3, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakAsm->SUB(oak::util::X3, oak::util::X3, oak::util::X0);
+	oakAsm->LSR(oak::util::X3, oak::util::X3, 3);
 	oakAsm->SUBS(oak::util::W2, oak::util::W2, oak::util::W3);
 	oakStore32(oak::util::W2, {oak::util::X27, v0_offset});
 	oakEmitCondBranch(oak::Cond::NE, DispatcherEvent);
@@ -2096,10 +2096,10 @@ static u8* recShortBlockLink_emit_oaknut(u32 next_pc, u32 scaled_cycles)
 	recBeginOaknutEmit();
 	oakAsm->MOV(OAK_WSCRATCH, next_pc);
 	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc))});
-	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakAsm->MOV(OAK_WSCRATCH2, scaled_cycles);
-	oakAsm->ADD(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakLoad64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakAsm->MOV(OAK_XSCRATCH2, static_cast<u64>(scaled_cycles));
+	oakAsm->ADD(OAK_XSCRATCH, OAK_XSCRATCH, OAK_XSCRATCH2);
+	oakStore64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
 	link_patch = oakGetCurrentCodePointer();
 	oakAsm->NOP();
 	recEndOaknutEmit();
