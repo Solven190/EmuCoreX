@@ -268,9 +268,8 @@ static __fi void mVUBranchTryJumpCacheFastPath_emit_oaknut(mV)
 	oakAsm->CBZ(cached_prog, miss);
 
 	oakMoveAddressToReg(quick_prog, mVU.prog.quick);
-	static_assert(sizeof(microProgramQuick) == 40);
-	oakAsm->ADD(quick_prog, quick_prog, pc_index, oak::util::LSL, 5);
-	oakAsm->ADD(quick_prog, quick_prog, pc_index, oak::util::LSL, 3);
+	static_assert(sizeof(microProgramQuick) == 16);
+	oakAsm->ADD(quick_prog, quick_prog, pc_index, oak::util::LSL, 4);
 	oakLoad64(quick_prog, {quick_prog, static_cast<s64>(offsetof(microProgramQuick, prog))});
 	oakAsm->CMP(cached_prog, quick_prog);
 	oakAsm->B(oak::Cond::NE, miss);

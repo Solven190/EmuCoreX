@@ -14,11 +14,6 @@
 alignas(64) vuRegistersPack g_vuRegistersPack;
 VU_Thread& vu1Thread = g_vuRegistersPack.vu1Thread;
 
-static constexpr size_t mVUmaxProgramsPerStartPc = 32;
-static constexpr size_t mVUmaxRetirePerTrim = 4;
-
-static __fi void mVUquickClearCachedBlocks(microProgramQuick& quick);
-
 //------------------------------------------------------------------
 // Micro VU - Main Functions
 //------------------------------------------------------------------
@@ -27,11 +22,6 @@ static __fi void mVUquickClearCachedBlocks(microProgramQuick& quick);
 void mVUinit(microVU& mVU, uint vuIndex)
 {
 	std::memset(&mVU.prog, 0, sizeof(mVU.prog));
-	// std::vector survives memset ({nullptr,0,0} = valid empty vector).
-	// std::unordered_map does NOT – bucket list must be properly initialized.
-	// Re-run constructors in-place after zeroing to fix the crash.
-	new (&mVU.prog.garbage_programs) std::vector<microProgram*>();
-	new (&mVU.prog.prog_lookup) std::unordered_map<u64, microProgram*>();
 
 	mVU.index        =  vuIndex;
 	mVU.cop2         =  0;
@@ -101,17 +91,7 @@ void mVUreset(microVU& mVU, bool resetReserve)
 		mVU.prog.prog[i]->clear();
 		mVU.prog.quick[i].block = nullptr;
 		mVU.prog.quick[i].prog = nullptr;
-		mVUquickClearCachedBlocks(mVU.prog.quick[i]);
 	}
-	for (microProgram* p : mVU.prog.garbage_programs)
-	{
-		mVUdeleteProg(mVU, p);
-	}
-	mVU.prog.garbage_programs.clear();
-	mVU.prog.prog_lookup.clear(); // Clear O(1) lookup map
-	if (mVU.index)
-		mVU.prog.prog_lookup.reserve(1024);
-	std::memset(mVU.prog.active_mask, 0, sizeof(mVU.prog.active_mask));
 }
 
 // Free Allocated Resources
@@ -130,223 +110,16 @@ void mVUclose(microVU& mVU)
 		}
 		safe_delete(mVU.prog.prog[i]);
 	}
-	for (microProgram* p : mVU.prog.garbage_programs)
-	{
-		mVUdeleteProg(mVU, p);
-	}
-	mVU.prog.garbage_programs.clear();
-}
-
-static __fi bool mVUrangeOverlaps(const microRange& range, u32 start, u32 end)
-{
-	if (range.start < 0 || range.end < 0)
-		return true;
-	return start < static_cast<u32>(range.end) && static_cast<u32>(range.start) < end;
-}
-
-static __fi bool mVUprogOverlapsRange(const microProgram& prog, u32 start, u32 end)
-{
-	if (!prog.ranges || prog.ranges->empty())
-		return true;
-
-	for (const microRange& range : *prog.ranges)
-	{
-		if (mVUrangeOverlaps(range, start, end))
-			return true;
-	}
-	return false;
-}
-
-static __fi bool mVUprogChangedInRange(const microVU& mVU, const microProgram& prog, u32 start, u32 end)
-{
-	if (!prog.ranges || prog.ranges->empty())
-		return true;
-
-	const u8* prog_data = reinterpret_cast<const u8*>(prog.data);
-	const u8* micro_mem = reinterpret_cast<const u8*>(mVU.regs().Micro);
-
-	for (const microRange& range : *prog.ranges)
-	{
-		if (range.start < 0 || range.end < 0)
-			return true;
-
-		const u32 range_start = static_cast<u32>(range.start);
-		const u32 range_end = static_cast<u32>(range.end);
-		const u32 check_start = std::max(start, range_start);
-		const u32 check_end = std::min(end, range_end);
-
-		if (check_start < check_end && std::memcmp(prog_data + check_start, micro_mem + check_start, check_end - check_start) != 0)
-			return true;
-	}
-
-	return false;
-}
-
-static __fi bool mVUquickReferencesProg(const microVU& mVU, const microProgram& prog)
-{
-	for (u16 i : *prog.active_blocks)
-	{
-		if (mVU.prog.quick[i].prog == &prog)
-			return true;
-	}
-	return false;
-}
-
-static __fi void mVUquickClearCachedBlocks(microProgramQuick& quick)
-{
-	quick.cachedBlockManager = nullptr;
-	quick.cachedBlock = nullptr;
-	quick.cachedBlockQuick = 0;
-}
-
-static __fi microBlock* mVUquickFindCachedBlock(const microProgramQuick& quick, const microBlockManager* manager, u64 state)
-{
-	if (quick.cachedBlockManager == manager && quick.cachedBlock && quick.cachedBlockQuick == state)
-		return quick.cachedBlock;
-	return nullptr;
-}
-
-static __fi void mVUquickCacheBlock(microProgramQuick& quick, microBlockManager* manager, microBlock* block, u64 state)
-{
-	quick.cachedBlockManager = manager;
-	quick.cachedBlock = block;
-	quick.cachedBlockQuick = state;
-}
-
-static __fi u64 mVUcomputeLiveStartHash(microVU& mVU, u32 start_pc_8)
-{
-	u64 liveStartHash = 0;
-	const u32 startByteOff = start_pc_8 * 8;
-	if (startByteOff + 16 <= mVU.microMemSize)
-	{
-		const u64* p = reinterpret_cast<const u64*>(
-			reinterpret_cast<const u8*>(mVU.regs().Micro) + startByteOff);
-		liveStartHash = p[0] ^ p[1];
-	}
-	return liveStartHash;
-}
-
-static void mVUremoveLookupEntriesForProg(microVU& mVU, const microProgram& prog)
-{
-	for (auto it = mVU.prog.prog_lookup.begin(); it != mVU.prog.prog_lookup.end();)
-	{
-		if (it->second == &prog)
-			it = mVU.prog.prog_lookup.erase(it);
-		else
-			++it;
-	}
-}
-
-static void mVUretireProgFromLookup(microVU& mVU, microProgram* prog)
-{
-	mVUremoveLookupEntriesForProg(mVU, *prog);
-	mVU.prog.garbage_programs.push_back(prog);
-}
-
-static void mVUtrimProgramList(microVU& mVU, microProgramList& list)
-{
-	if (list.size() <= mVUmaxProgramsPerStartPc)
-		return;
-
-	size_t retired = 0;
-	for (auto it = list.end(); it != list.begin() && list.size() > mVUmaxProgramsPerStartPc && retired < mVUmaxRetirePerTrim;)
-	{
-		--it;
-		microProgram* prog = *it;
-		if (prog == mVU.prog.cur || mVUquickReferencesProg(mVU, *prog))
-			continue;
-
-		it = list.erase(it);
-		mVUretireProgFromLookup(mVU, prog);
-		retired++;
-	}
-}
-
-static u32 mVUcountActiveQuickEntries(const microVU& mVU)
-{
-	u32 count = 0;
-	for (u64 mask : mVU.prog.active_mask)
-		count += static_cast<u32>(__builtin_popcountll(mask));
-	return count;
-}
-
-static std::string mVUformatCacheState(const microVU& mVU)
-{
-	const u64 cache_used = (mVU.prog.x86ptr > mVU.prog.x86start) ?
-		static_cast<u64>(mVU.prog.x86ptr - mVU.prog.x86start) : 0;
-	const u64 cache_limit = (mVU.prog.x86end > mVU.prog.x86start) ?
-		static_cast<u64>(mVU.prog.x86end - mVU.prog.x86start) : 0;
-	const u64 cache_free = (cache_limit > cache_used) ? (cache_limit - cache_used) : 0;
-
-	char line[256];
-	std::snprintf(line, sizeof(line),
-		"cache_used=%llu cache_limit=%llu cache_free=%llu lookup=%llu garbage=%llu active_quick=%u",
-		static_cast<unsigned long long>(cache_used),
-		static_cast<unsigned long long>(cache_limit),
-		static_cast<unsigned long long>(cache_free),
-		static_cast<unsigned long long>(mVU.prog.prog_lookup.size()),
-		static_cast<unsigned long long>(mVU.prog.garbage_programs.size()),
-		mVUcountActiveQuickEntries(mVU));
-	return line;
 }
 
 // Clears Block Data in specified range
 __fi void mVUclear(mV, u32 addr, u32 size)
 {
-
-	const u32 clear_start = std::min(addr, mVU.microMemSize);
-	const u32 clear_end = std::min(addr + size, mVU.microMemSize);
-	bool invalidated = false;
-
-	microProgram* last_prog = nullptr;
-	bool last_overlaps = false;
-
-	for (u32 mask_idx = 0; mask_idx < (mProgSizeHalf / 64); ++mask_idx)
+	if (!mVU.prog.cleared)
 	{
-		u64 mask = mVU.prog.active_mask[mask_idx];
-		while (mask)
-		{
-			u32 bit = __builtin_ctzll(mask);
-			mask &= mask - 1; // Clear lowest bit
-			u32 i = mask_idx * 64 + bit;
-
-			microProgramQuick& quick = mVU.prog.quick[i];
-			if (!quick.prog)
-			{
-				mVU.prog.active_mask[mask_idx] &= ~(1ULL << bit);
-				continue;
-			}
-
-			bool overlaps;
-			if (quick.prog == last_prog)
-			{
-				overlaps = last_overlaps;
-			}
-			else
-			{
-				overlaps = mVUprogOverlapsRange(*quick.prog, clear_start, clear_end);
-				last_prog = quick.prog;
-				last_overlaps = overlaps;
-			}
-
-			if (!overlaps)
-				continue;
-
-			if (!mVUprogChangedInRange(mVU, *quick.prog, clear_start, clear_end))
-				continue;
-
-			quick.block = nullptr;
-			quick.prog = nullptr;
-			mVUquickClearCachedBlocks(quick);
-			mVU.prog.active_mask[mask_idx] &= ~(1ULL << bit);
-			invalidated = true;
-		}
-	}
-
-	if (invalidated)
-	{
-		mVU.prog.cleared = 1;
+		mVU.prog.cleared = 1; // Next execution searches/creates a new microprogram
 		std::memset(&mVU.prog.lpState, 0, sizeof(mVU.prog.lpState)); // Clear pipeline state
+		std::memset(mVU.prog.quick, 0, (mVU.progSize >> 1) * sizeof(microProgramQuick)); // mVU.progSize / 2
 	}
 }
 
@@ -357,24 +130,12 @@ __fi void mVUclear(mV, u32 addr, u32 size)
 // Deletes a program
 __ri void mVUdeleteProg(microVU& mVU, microProgram*& prog)
 {
-	for (u16 i : *prog->active_blocks)
-	{
-		microProgramQuick& quick = mVU.prog.quick[i];
-		if (quick.prog == prog)
-		{
-			quick.block = nullptr;
-			quick.prog = nullptr;
-			mVUquickClearCachedBlocks(quick);
-			mVU.prog.active_mask[i / 64] &= ~(1ULL << (i % 64));
-		}
-	}
-
-	for (u16 i : *prog->active_blocks)
+    u32 i, e = (mVU.progSize >> 1); // mVU.progSize / 2
+	for (i = 0; i < e; ++i)
 	{
 		safe_delete(prog->block[i]);
 	}
 	safe_delete(prog->ranges);
-	safe_delete(prog->active_blocks);
 	safe_aligned_free(prog);
 }
 
@@ -385,9 +146,7 @@ __ri microProgram* mVUcreateProg(microVU& mVU, int startPC)
 	memset(prog, 0, sizeof(microProgram));
 	prog->idx = mVU.prog.total++;
 	prog->ranges = new std::deque<microRange>();
-	prog->active_blocks = new std::vector<u16>();
 	prog->startPC = startPC;
-	prog->microMemVersion = (mVU.index && THREAD_VU1) ? vu1Thread.microMemVersion : 0;
 	if(doWholeProgCompare)
 		mVUcacheProg(mVU, *prog); // Cache Micro Program
 	return prog;
@@ -407,15 +166,6 @@ __ri void mVUcacheProg(microVU& mVU, microProgram& prog)
 			memcpy(prog.data, mVU.regs().Micro, 0x1000);
 		else
 			memcpy(prog.data, mVU.regs().Micro, 0x4000);
-	}
-	// Update the fast-reject hash from prog.data at startPC.
-	// startPC is in 8-byte units; we XOR the first two u64 words there (16 bytes = 2 VU instructions).
-	// This is safe because the first compiled range always covers startPC.
-	const u32 startByteOff = prog.startPC * 8;
-	if (startByteOff + 16 <= mVU.microMemSize)
-	{
-		const u64* p = reinterpret_cast<const u64*>(reinterpret_cast<const u8*>(prog.data) + startByteOff);
-		prog.startHash = p[0] ^ p[1];
 	}
 }
 
@@ -471,22 +221,8 @@ void mVUprintUniqueRatio(microVU& mVU)
 }
 
 // Compare Cached microProgram to mVU.regs().Micro
-// liveStartHash: XOR of first 16 bytes of live micro-memory at startPC, pre-computed once per search.
-__fi bool mVUcmpProg(microVU& mVU, microProgram& prog, u64 liveStartHash)
+__fi bool mVUcmpProg(microVU& mVU, microProgram& prog)
 {
-	if (mVU.index && THREAD_VU1 && prog.microMemVersion == vu1Thread.microMemVersion)
-	{
-		mVU.prog.cleared = 0;
-		mVU.prog.cur = &prog;
-		mVU.prog.isSame = 1;
-		return true;
-	}
-
-	// Fast O(1) reject: if the first two instructions at startPC differ, skip memcmp entirely.
-	// prog.startHash == 0 means not yet computed (brand-new program) – allow through.
-	if (prog.startHash != 0 && prog.startHash != liveStartHash)
-		return false;
-
 	if (doWholeProgCompare)
 	{
 		if (memcmp((u8*)prog.data, mVU.regs().Micro, mVU.microMemSize))
@@ -502,21 +238,13 @@ __fi bool mVUcmpProg(microVU& mVU, microProgram& prog, u64 liveStartHash)
 #endif
 			auto cmpOffset = [&](void* x) { return (u8*)x + range.start; };
 
-			u8* pData = cmpOffset(prog.data);
-			u8* pMem  = cmpOffset(mVU.regs().Micro);
-			u32 len   = range.end - range.start;
-
-			if (len >= 4 && *(u32*)pData != *(u32*)pMem)
-				return false;
-
-			if (memcmp(pData, pMem, len))
+			if (memcmp(cmpOffset(prog.data), cmpOffset(mVU.regs().Micro), (range.end - range.start)))
 				return false;
 		}
 	}
 	mVU.prog.cleared = 0;
 	mVU.prog.cur = &prog;
 	mVU.prog.isSame = doWholeProgCompare ? 1 : -1;
-	prog.microMemVersion = (mVU.index && THREAD_VU1) ? vu1Thread.microMemVersion : 0;
 	return true;
 }
 
@@ -533,86 +261,17 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 
 	if (!quick.prog) // If null, we need to search for new program
 	{
-		// Pre-compute startHash ONCE: XOR of first 16 bytes at the program entry point.
-		const u64 liveStartHash = mVUcomputeLiveStartHash(mVU, regs_start_pc_8);
-
-		// Build the O(1) map key: mix startHash with PC to avoid cross-slot collisions.
-		const u64 mapKey = liveStartHash ^ (u64(regs_start_pc_8) * 6364136223846793005ULL);
-
-		// ── Fast path: O(1) hash map lookup ──────────────────────────────────────────
-		// Avoids O(N) deque scan entirely when the program was seen before.
-		// Falls back to deque only for hash collisions (probability ~1/2^64).
-		if (liveStartHash != 0)
-		{
-			auto mapIt = mVU.prog.prog_lookup.find(mapKey);
-			if (mapIt != mVU.prog.prog_lookup.end() && mapIt->second != nullptr)
-			{
-				microProgram* candidate = mapIt->second;
-				if (mVUcmpProg(mVU, *candidate, liveStartHash))
-				{
-					// Found via O(1) map lookup!
-					microProgram* prog = candidate;
-					for (u16 i : *prog->active_blocks)
-					{
-						if (prog->block[i])
-						{
-							microProgramQuick& q = mVU.prog.quick[i];
-							microBlockManager* block = prog->block[i];
-							const bool keep_cached_block = q.prog == prog && q.block == block;
-							mVU.prog.active_mask[i / 64] |= (1ULL << (i % 64));
-							q.block = block;
-							q.prog = prog;
-							if (!keep_cached_block)
-								mVUquickClearCachedBlocks(q);
-						}
-					}
-					if (quick.block == nullptr)
-					{
-						void* entryPoint = mVUblockFetch(mVU, startPC, pState);
-						return entryPoint;
-					}
-					microBlock* pBlock = quick.block->search(mVU, (microRegInfo*)pState);
-					if (pBlock)
-					{
-						if (!((microRegInfo*)pState)->needExactMatch)
-							mVUquickCacheBlock(quick, quick.block, pBlock, ((microRegInfo*)pState)->quick64[0]);
-						return pBlock->x86ptrStart;
-					}
-					return mVUcompile(mVU, startPC, pState);
-				}
-				// mVUcmpProg failed: stale map entry, erase and fall through to deque.
-				mVU.prog.prog_lookup.erase(mapIt);
-			}
-		}
-
-		// ── Fallback: O(N) deque scan (hash collision or liveStartHash == 0) ─────────
 		auto it(list->begin());
 		for (; it != list->end(); ++it)
 		{
-			bool b = mVUcmpProg(mVU, *it[0], liveStartHash);
+			bool b = mVUcmpProg(mVU, *it[0]);
 
 			if (b)
 			{
-				microProgram* prog = it[0];
-				for (u16 i : *prog->active_blocks)
-				{
-					if (prog->block[i])
-					{
-						microProgramQuick& q = mVU.prog.quick[i];
-						microBlockManager* block = prog->block[i];
-						const bool keep_cached_block = q.prog == prog && q.block == block;
-						mVU.prog.active_mask[i / 64] |= (1ULL << (i % 64));
-						q.block = block;
-						q.prog = prog;
-						if (!keep_cached_block)
-							mVUquickClearCachedBlocks(q);
-					}
-				}
+				quick.block = it[0]->block[start_pc_8];
+				quick.prog  = it[0];
 				list->erase(it);
-				list->push_front(prog);
-				// Update map so next search for this program is O(1)
-				if (liveStartHash != 0)
-					mVU.prog.prog_lookup[mapKey] = prog;
+				list->push_front(quick.prog);
 
 				// Sanity check, in case for some reason the program compilation aborted half way through (JALR for example)
 				if (quick.block == nullptr)
@@ -620,14 +279,7 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 					void* entryPoint = mVUblockFetch(mVU, startPC, pState);
 					return entryPoint;
 				}
-				microBlock* pBlock = quick.block->search(mVU, (microRegInfo*)pState);
-				if (pBlock)
-				{
-					if (!((microRegInfo*)pState)->needExactMatch)
-						mVUquickCacheBlock(quick, quick.block, pBlock, ((microRegInfo*)pState)->quick64[0]);
-					return pBlock->x86ptrStart;
-				}
-				return mVUcompile(mVU, startPC, pState);
+				return mVUentryGet(mVU, quick.block, startPC, pState);
 			}
 		}
 
@@ -638,13 +290,7 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 		void* entryPoint = mVUblockFetch(mVU,  startPC, pState);
 		quick.block      = mVU.prog.cur->block[start_pc_8];
 		quick.prog       = mVU.prog.cur;
-		mVUquickClearCachedBlocks(quick);
-		mVU.prog.active_mask[start_pc_8 / 64] |= (1ULL << (start_pc_8 % 64));
 		list->push_front(mVU.prog.cur);
-		mVUtrimProgramList(mVU, *list);
-		// Store new program in O(1) map so next search is instant
-		if (liveStartHash != 0)
-			mVU.prog.prog_lookup[mapKey] = mVU.prog.cur;
 		//mVUprintUniqueRatio(mVU);
 		return entryPoint;
 	}
@@ -652,22 +298,6 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 	// If list.quick, then we've already found and recompiled the program ;)
 	mVU.prog.isSame = -1;
 	mVU.prog.cur = quick.prog;
-
-	if (!mVU.index)
-	{
-		const u64 liveStartHash = mVUcomputeLiveStartHash(mVU, regs_start_pc_8);
-		if (quick.prog->startHash != 0 && quick.prog->startHash != liveStartHash)
-		{
-			quick.block = nullptr;
-			quick.prog = nullptr;
-			mVUquickClearCachedBlocks(quick);
-			mVU.prog.active_mask[regs_start_pc_8 / 64] &= ~(1ULL << (regs_start_pc_8 % 64));
-			mVU.prog.cleared = 1;
-			std::memset(&mVU.prog.lpState, 0, sizeof(mVU.prog.lpState));
-			return mVUsearchProg<vuIndex>(startPC, pState);
-		}
-	}
-
 	// Because the VU's can now run in sections and not whole programs at once
 	// we need to set the current block so it gets the right program back
 	quick.block = mVU.prog.cur->block[start_pc_8];
@@ -678,22 +308,7 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 		void* entryPoint = mVUblockFetch(mVU, startPC, pState);
 		return entryPoint;
 	}
-	if (!((microRegInfo*)pState)->needExactMatch)
-	{
-		if (microBlock* cached_block = mVUquickFindCachedBlock(quick, quick.block, ((microRegInfo*)pState)->quick64[0]))
-		{
-			return cached_block->x86ptrStart;
-		}
-	}
-
-	microBlock* pBlock = quick.block->search(mVU, (microRegInfo*)pState);
-	if (pBlock)
-	{
-		if (!((microRegInfo*)pState)->needExactMatch)
-			mVUquickCacheBlock(quick, quick.block, pBlock, ((microRegInfo*)pState)->quick64[0]);
-		return pBlock->x86ptrStart;
-	}
-	return mVUcompile(mVU, startPC, pState);
+	return mVUentryGet(mVU, quick.block, startPC, pState);
 }
 
 //------------------------------------------------------------------
