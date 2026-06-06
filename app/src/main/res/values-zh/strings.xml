@@ -1053,4 +1053,16 @@
     <string name="settings_help_pad_vibration_fallback">一些掌机控件识别为游戏手柄，但仅通过设备振动器提供振动。此回退可使这些设备上的震动保持工作，但没有震动功能的外部手柄将使手机或掌机振动。</string>
     <string name="onboarding_all_files_title">授予完全文件访问权限</string>
     <string name="onboarding_all_files_desc">允许 EmuCoreX 直接读取游戏文件，以便扫描的游戏能够在每台设备上可靠地启动。</string>
+    <string name="settings_wait_loop_speedhack_desc">快进重复的 EE 等待循环</string>
+    <string name="settings_intc_stat_speedhack_desc">优化中断状态轮询</string>
+    <string name="settings_vu_flag_hack_desc">使用更快的 VU 标志时序</string>
+    <string name="settings_instant_vu1_desc">以更宽松的时序运行 VU1 工作</string>
+    <string name="settings_wait_loop_speedhack">等待循环检测</string>
+    <string name="settings_intc_stat_speedhack">INTC 状态破解</string>
+    <string name="settings_vu_flag_hack">VU 标志破解</string>
+    <string name="settings_instant_vu1">即时 VU1</string>
+    <string name="settings_help_wait_loop_speedhack">快进紧凑的 EE 等待循环。在调试周期性状态跳转、挂起或似乎错过时间敏感工作的游戏时，请禁用此选项。</string>
+    <string name="settings_help_intc_stat_speedhack">优化中断状态寄存器的读取。禁用此选项以测试在启动或过场动画期间非常密切地轮询中断的游戏。</string>
+    <string name="settings_help_vu_flag_hack">对 VU 标志时序使用更快的近似值。禁用此选项以检查物理、动画或相机密集型场景中的 VU 状态发散。</string>
+    <string name="settings_help_instant_vu1">尽可能快地运行 VU1 工作，而不是保留更严格的时序。禁用此选项以测试过场动画、动画以及对 VU/GS 同步敏感的游戏。</string>
 </resources>

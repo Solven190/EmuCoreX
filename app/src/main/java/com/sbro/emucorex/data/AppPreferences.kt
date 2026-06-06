@@ -63,6 +63,10 @@ data class SettingsSnapshot(
     val enableIopRecompiler: Boolean = true,
     val enableVu0Recompiler: Boolean = true,
     val enableVu1Recompiler: Boolean = true,
+    val enableWaitLoopSpeedhack: Boolean = true,
+    val enableIntcStatSpeedhack: Boolean = true,
+    val enableVuFlagHack: Boolean = true,
+    val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
@@ -263,6 +267,10 @@ class AppPreferences(private val context: Context) {
         private val ENABLE_IOP_RECOMPILER = booleanPreferencesKey("enable_iop_recompiler")
         private val ENABLE_VU0_RECOMPILER = booleanPreferencesKey("enable_vu0_recompiler")
         private val ENABLE_VU1_RECOMPILER = booleanPreferencesKey("enable_vu1_recompiler")
+        private val ENABLE_WAIT_LOOP_SPEEDHACK = booleanPreferencesKey("enable_wait_loop_speedhack")
+        private val ENABLE_INTC_STAT_SPEEDHACK = booleanPreferencesKey("enable_intc_stat_speedhack")
+        private val ENABLE_VU_FLAG_HACK = booleanPreferencesKey("enable_vu_flag_hack")
+        private val ENABLE_INSTANT_VU1 = booleanPreferencesKey("enable_instant_vu1")
         private val ENABLE_MTVU = booleanPreferencesKey("enable_mtvu")
         private val ENABLE_FAST_CDVD = booleanPreferencesKey("enable_fast_cdvd")
         private val ENABLE_CHEATS = booleanPreferencesKey("enable_cheats")
@@ -653,6 +661,10 @@ class AppPreferences(private val context: Context) {
                 enableIopRecompiler = prefs[ENABLE_IOP_RECOMPILER] ?: true,
                 enableVu0Recompiler = prefs[ENABLE_VU0_RECOMPILER] ?: true,
                 enableVu1Recompiler = prefs[ENABLE_VU1_RECOMPILER] ?: true,
+                enableWaitLoopSpeedhack = prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true,
+                enableIntcStatSpeedhack = prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true,
+                enableVuFlagHack = prefs[ENABLE_VU_FLAG_HACK] ?: true,
+                enableInstantVu1 = prefs[ENABLE_INSTANT_VU1] ?: true,
                 enableMtvu = prefs[ENABLE_MTVU] ?: true,
                 enableFastCdvd = prefs[ENABLE_FAST_CDVD] ?: false,
                 enableCheats = prefs[ENABLE_CHEATS] ?: false,
@@ -1154,6 +1166,38 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setEnableVu1Recompiler(enabled: Boolean) {
         context.dataStore.edit { it[ENABLE_VU1_RECOMPILER] = enabled }
+    }
+
+    val enableWaitLoopSpeedhack: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true
+    }
+
+    suspend fun setEnableWaitLoopSpeedhack(enabled: Boolean) {
+        context.dataStore.edit { it[ENABLE_WAIT_LOOP_SPEEDHACK] = enabled }
+    }
+
+    val enableIntcStatSpeedhack: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true
+    }
+
+    suspend fun setEnableIntcStatSpeedhack(enabled: Boolean) {
+        context.dataStore.edit { it[ENABLE_INTC_STAT_SPEEDHACK] = enabled }
+    }
+
+    val enableVuFlagHack: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ENABLE_VU_FLAG_HACK] ?: true
+    }
+
+    suspend fun setEnableVuFlagHack(enabled: Boolean) {
+        context.dataStore.edit { it[ENABLE_VU_FLAG_HACK] = enabled }
+    }
+
+    val enableInstantVu1: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ENABLE_INSTANT_VU1] ?: true
+    }
+
+    suspend fun setEnableInstantVu1(enabled: Boolean) {
+        context.dataStore.edit { it[ENABLE_INSTANT_VU1] = enabled }
     }
 
     // MTVU (Multi-Threaded VU1)
@@ -1954,6 +1998,10 @@ class AppPreferences(private val context: Context) {
             put("enableIopRecompiler", prefs[ENABLE_IOP_RECOMPILER] ?: true)
             put("enableVu0Recompiler", prefs[ENABLE_VU0_RECOMPILER] ?: true)
             put("enableVu1Recompiler", prefs[ENABLE_VU1_RECOMPILER] ?: true)
+            put("enableWaitLoopSpeedhack", prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true)
+            put("enableIntcStatSpeedhack", prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true)
+            put("enableVuFlagHack", prefs[ENABLE_VU_FLAG_HACK] ?: true)
+            put("enableInstantVu1", prefs[ENABLE_INSTANT_VU1] ?: true)
             put("enableMtvu", prefs[ENABLE_MTVU] ?: true)
             put("enableFastCdvd", prefs[ENABLE_FAST_CDVD] ?: false)
             put("hwDownloadMode", prefs[HW_DOWNLOAD_MODE] ?: 0)
@@ -2080,6 +2128,10 @@ class AppPreferences(private val context: Context) {
             prefs[ENABLE_IOP_RECOMPILER] = json.optBoolean("enableIopRecompiler", true)
             prefs[ENABLE_VU0_RECOMPILER] = json.optBoolean("enableVu0Recompiler", true)
             prefs[ENABLE_VU1_RECOMPILER] = json.optBoolean("enableVu1Recompiler", true)
+            prefs[ENABLE_WAIT_LOOP_SPEEDHACK] = json.optBoolean("enableWaitLoopSpeedhack", true)
+            prefs[ENABLE_INTC_STAT_SPEEDHACK] = json.optBoolean("enableIntcStatSpeedhack", true)
+            prefs[ENABLE_VU_FLAG_HACK] = json.optBoolean("enableVuFlagHack", true)
+            prefs[ENABLE_INSTANT_VU1] = json.optBoolean("enableInstantVu1", true)
             prefs[ENABLE_MTVU] = json.optBoolean("enableMtvu", true)
             prefs[ENABLE_FAST_CDVD] = json.optBoolean("enableFastCdvd", false)
             prefs[HW_DOWNLOAD_MODE] = json.optInt("hwDownloadMode", 0).coerceIn(0, 3)

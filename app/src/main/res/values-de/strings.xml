@@ -1053,4 +1053,16 @@
     <string name="settings_help_pad_vibration_fallback">Einige Handheld-Steuerungen melden sich als Gamepad, stellen die Vibration jedoch nur über den Gerätevibrator bereit. Dieses Fallback sorgt dafür, dass die Vibration auf diesen Geräten weiterhin funktioniert, aber externe Controller ohne Vibration lassen stattdessen das Telefon oder Handheld vibrieren.</string>
     <string name="onboarding_all_files_title">Vollen Dateizugriff gewähren</string>
     <string name="onboarding_all_files_desc">Erlauben Sie EmuCoreX, Spieldateien direkt zu lesen, damit gescannte Spiele auf jedem Gerät zuverlässig gestartet werden können.</string>
+    <string name="settings_wait_loop_speedhack_desc">Spult wiederholte EE-Warteschleifen vor</string>
+    <string name="settings_intc_stat_speedhack_desc">Optimiert das Abfragen des Interrupt-Status</string>
+    <string name="settings_vu_flag_hack_desc">Verwendet schnelleres VU-Flag-Timing</string>
+    <string name="settings_instant_vu1_desc">Führt VU1-Arbeit mit lockererem Timing aus</string>
+    <string name="settings_wait_loop_speedhack">Warteschleifen-Erkennung</string>
+    <string name="settings_intc_stat_speedhack">INTC-Status-Hack</string>
+    <string name="settings_vu_flag_hack">VU-Flag-Hack</string>
+    <string name="settings_instant_vu1">Sofortiges VU1</string>
+    <string name="settings_help_wait_loop_speedhack">Spult enge EE-Warteschleifen vor. Deaktivieren Sie dies beim Debuggen von periodischen Zustandssprüngen, Hängern oder Spielen, die zeitkritische Arbeiten zu verpassen scheinen.</string>
+    <string name="settings_help_intc_stat_speedhack">Optimiert das Lesen aus dem Interrupt-Statusregister. Deaktivieren Sie dies, um Spiele zu testen, die Interrupts während des Starts oder in Zwischensequenzen sehr genau abfragen.</string>
+    <string name="settings_help_vu_flag_hack">Verwendet eine schnellere Näherung für das VU-Flag-Timing. Deaktivieren Sie dies, um auf VU-Zustandsabweichungen in physik-, animations- oder kameralastigen Szenen zu prüfen.</string>
+    <string name="settings_help_instant_vu1">Führt VU1-Arbeit so schnell wie möglich aus, anstatt ein strikteres Timing beizubehalten. Deaktivieren Sie dies, um Zwischensequenzen, Animationen und Spiele zu testen, die empfindlich auf die VU/GS-Synchronisation reagieren.</string>
 </resources>

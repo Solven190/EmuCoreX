@@ -1051,4 +1051,16 @@
     <string name="settings_help_pad_vibration_fallback">कुछ हैंडहेल्ड नियंत्रण गेमपैड के रूप में रिपोर्ट करते हैं लेकिन केवल डिवाइस वाइब्रेटर के माध्यम से कंपन करते हैं। यह फ़ॉलबैक उन उपकरणों पर रंबल को चालू रखता है, लेकिन बिना रंबल वाले बाहरी नियंत्रक इसके बजाय फोन या हैंडहेल्ड को कंपन करेंगे。</string>
     <string name="onboarding_all_files_title">फ़ाइलों तक पूर्ण पहुंच प्रदान करें</string>
     <string name="onboarding_all_files_desc">EmuCoreX को सीधे गेम फ़ाइलों को पढ़ने की अनुमति दें ताकि स्कैन किए गए गेम हर डिवाइस पर मज़बूती से लॉन्च हो सकें।</string>
+    <string name="settings_wait_loop_speedhack_desc">बार-बार होने वाले EE प्रतीक्षा लूप को फ़ास्ट-फ़ॉरवर्ड करता है</string>
+    <string name="settings_intc_stat_speedhack_desc">इंटरप्ट स्थिति पोलिंग को अनुकूलित करता है</string>
+    <string name="settings_vu_flag_hack_desc">तेज़ VU फ़्लैग टाइमिंग का उपयोग करता है</string>
+    <string name="settings_instant_vu1_desc">कम सख्त टाइमिंग के साथ VU1 कार्य चलाता है</string>
+    <string name="settings_wait_loop_speedhack">वेट लूप डिटेक्शन</string>
+    <string name="settings_intc_stat_speedhack">INTC स्टेटस हैक</string>
+    <string name="settings_vu_flag_hack">VU फ़्लैग हैक</string>
+    <string name="settings_instant_vu1">इंस्टेंट VU1</string>
+    <string name="settings_help_wait_loop_speedhack">टाइट EE वेट लूप्स को फ़ास्ट-फ़ॉरवर्ड करता है। आवधिक स्टेट जंप, हैंग, या ऐसे गेम जो समय-संवेदनशील कार्य को मिस करते हुए प्रतीत होते हैं, को डीबग करते समय इसे अक्षम करें।</string>
+    <string name="settings_help_intc_stat_speedhack">इंटरप्ट स्टेटस रजिस्टर से रीड्स को अनुकूलित करता है। स्टार्टअप या कटसीन के दौरान इंटरप्ट्स को बहुत करीब से पोल करने वाले गेम का परीक्षण करने के लिए इसे अक्षम करें।</string>
+    <string name="settings_help_vu_flag_hack">VU फ़्लैग टाइमिंग के लिए तेज़ सन्निकटन का उपयोग करता है। भौतिकी, एनीमेशन, या कैमरा-भारी दृश्यों में VU स्थिति विचलन की जांच करने के लिए इसे अक्षम करें।</string>
+    <string name="settings_help_instant_vu1">अधिक सख्त टाइमिंग को संरक्षित करने के बजाय VU1 के काम को यथासंभव तेज़ी से चलाता है। कटसीन, एनीमेशन, और VU/GS सिंक्रनाइज़ेशन के प्रति संवेदनशील गेम का परीक्षण करने के लिए इसे अक्षम करें。</string>
 </resources>

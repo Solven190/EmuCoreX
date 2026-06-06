@@ -64,6 +64,10 @@ data class SettingsUiState(
     val enableIopRecompiler: Boolean = true,
     val enableVu0Recompiler: Boolean = true,
     val enableVu1Recompiler: Boolean = true,
+    val enableWaitLoopSpeedhack: Boolean = true,
+    val enableIntcStatSpeedhack: Boolean = true,
+    val enableVuFlagHack: Boolean = true,
+    val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
@@ -208,6 +212,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             enableIopRecompiler = snapshot.enableIopRecompiler,
             enableVu0Recompiler = snapshot.enableVu0Recompiler,
             enableVu1Recompiler = snapshot.enableVu1Recompiler,
+            enableWaitLoopSpeedhack = snapshot.enableWaitLoopSpeedhack,
+            enableIntcStatSpeedhack = snapshot.enableIntcStatSpeedhack,
+            enableVuFlagHack = snapshot.enableVuFlagHack,
+            enableInstantVu1 = snapshot.enableInstantVu1,
             enableMtvu = snapshot.enableMtvu,
             enableFastCdvd = snapshot.enableFastCdvd,
             enableCheats = snapshot.enableCheats,
@@ -689,6 +697,38 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 preferences.setEnableMtvu(false)
                 EmulatorBridge.setSetting("EmuCore/Speedhacks", "vuThread", "bool", "false")
             }
+        }
+    }
+
+    fun setEnableWaitLoopSpeedhack(enabled: Boolean) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            preferences.setEnableWaitLoopSpeedhack(enabled)
+            EmulatorBridge.setSetting("EmuCore/Speedhacks", "WaitLoop", "bool", enabled.toString())
+        }
+    }
+
+    fun setEnableIntcStatSpeedhack(enabled: Boolean) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            preferences.setEnableIntcStatSpeedhack(enabled)
+            EmulatorBridge.setSetting("EmuCore/Speedhacks", "IntcStat", "bool", enabled.toString())
+        }
+    }
+
+    fun setEnableVuFlagHack(enabled: Boolean) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            preferences.setEnableVuFlagHack(enabled)
+            EmulatorBridge.setSetting("EmuCore/Speedhacks", "vuFlagHack", "bool", enabled.toString())
+        }
+    }
+
+    fun setEnableInstantVu1(enabled: Boolean) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            preferences.setEnableInstantVu1(enabled)
+            EmulatorBridge.setSetting("EmuCore/Speedhacks", "vu1Instant", "bool", enabled.toString())
         }
     }
 
@@ -1234,6 +1274,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 enableIopRecompiler = _uiState.value.enableIopRecompiler,
                 enableVu0Recompiler = _uiState.value.enableVu0Recompiler,
                 enableVu1Recompiler = _uiState.value.enableVu1Recompiler,
+                waitLoopSpeedhack = _uiState.value.enableWaitLoopSpeedhack,
+                intcStatSpeedhack = _uiState.value.enableIntcStatSpeedhack,
+                vuFlagHack = _uiState.value.enableVuFlagHack,
+                instantVu1 = _uiState.value.enableInstantVu1,
                 hwDownloadMode = _uiState.value.hwDownloadMode,
                 textureFiltering = _uiState.value.textureFiltering,
                 trilinearFiltering = _uiState.value.trilinearFiltering,

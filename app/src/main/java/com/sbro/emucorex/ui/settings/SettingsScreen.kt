@@ -1621,6 +1621,42 @@ private fun SettingsContent(
                         )
                         ToggleItem(
                             icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_wait_loop_speedhack),
+                            subtitle = stringResource(R.string.settings_wait_loop_speedhack_desc),
+                            checked = uiState.enableWaitLoopSpeedhack,
+                            onCheckedChange = viewModel::setEnableWaitLoopSpeedhack,
+                            helpText = stringResource(R.string.settings_help_wait_loop_speedhack),
+                            onResetToDefault = { viewModel.setEnableWaitLoopSpeedhack(defaults.enableWaitLoopSpeedhack) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_intc_stat_speedhack),
+                            subtitle = stringResource(R.string.settings_intc_stat_speedhack_desc),
+                            checked = uiState.enableIntcStatSpeedhack,
+                            onCheckedChange = viewModel::setEnableIntcStatSpeedhack,
+                            helpText = stringResource(R.string.settings_help_intc_stat_speedhack),
+                            onResetToDefault = { viewModel.setEnableIntcStatSpeedhack(defaults.enableIntcStatSpeedhack) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_vu_flag_hack),
+                            subtitle = stringResource(R.string.settings_vu_flag_hack_desc),
+                            checked = uiState.enableVuFlagHack,
+                            onCheckedChange = viewModel::setEnableVuFlagHack,
+                            helpText = stringResource(R.string.settings_help_vu_flag_hack),
+                            onResetToDefault = { viewModel.setEnableVuFlagHack(defaults.enableVuFlagHack) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_instant_vu1),
+                            subtitle = stringResource(R.string.settings_instant_vu1_desc),
+                            checked = uiState.enableInstantVu1,
+                            onCheckedChange = viewModel::setEnableInstantVu1,
+                            helpText = stringResource(R.string.settings_help_instant_vu1),
+                            onResetToDefault = { viewModel.setEnableInstantVu1(defaults.enableInstantVu1) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Speed,
                             title = stringResource(R.string.settings_skip_duplicate_frames),
                             subtitle = stringResource(R.string.settings_skip_duplicate_frames_desc),
                             checked = uiState.skipDuplicateFrames,

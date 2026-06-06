@@ -484,6 +484,10 @@
     <string name="settings_help_ee_cycle_skip">Lets the emulator skip part of the EE workload to gain speed. It is stronger and riskier than Cycle Rate: useful when a game is close to full speed, but aggressive values can cause stutter, input delay, missing effects, or unstable behavior.</string>
     <string name="settings_help_mtvu">Runs VU1 work on another CPU thread. This often helps on modern multi-core devices, especially in heavier 3D games, but a few titles may show instability or odd timing with it enabled.</string>
     <string name="settings_help_fast_cdvd">Uses looser virtual disc timing to shorten load-related overhead. It can improve performance and reduce long loads in some games, but titles that depend on stricter timing may hang, loop, or fail to load certain scenes correctly.</string>
+    <string name="settings_help_wait_loop_speedhack">Fast-forwards tight EE wait loops. Disable this when debugging periodic state jumps, hangs, or games that appear to miss timing-sensitive work.</string>
+    <string name="settings_help_intc_stat_speedhack">Optimizes reads from the interrupt status register. Disable this to test games that poll interrupts very closely during startup or cutscenes.</string>
+    <string name="settings_help_vu_flag_hack">Uses a faster approximation for VU flag timing. Disable this to check for VU state divergence in physics, animation, or camera-heavy scenes.</string>
+    <string name="settings_help_instant_vu1">Runs VU1 work as quickly as possible instead of preserving stricter timing. Disable this to test cutscenes, animation, and games sensitive to VU/GS synchronization.</string>
     <string name="settings_help_hw_download_mode">Controls how the hardware renderer handles GPU readbacks. Faster modes reduce stalls and can help performance in lightweight scenes, but they are more likely to break games that read the framebuffer for shadows, post-processing, or HUD effects. If a game has missing effects, try a safer mode.</string>
     <string name="settings_help_blending_accuracy">Controls how closely hardware rendering matches PS2 alpha blending. Raise it if you see broken fog, halos, light shafts, ghosting, or missing transparency. Lower levels are faster, so leave it low unless the game shows real blending bugs.</string>
     <string name="settings_help_texture_preloading">Preloads textures before the game asks for them. It can reduce streaming pop-in or stutter in texture-heavy areas, but higher levels use more memory and may do nothing for simpler games. Best left modest unless a game clearly benefits.</string>
@@ -575,6 +579,10 @@
     <string name="settings_ee_cycle_skip">EE Cycle Skip</string>
     <string name="settings_mtvu">MTVU (Multi-Threaded VU1)</string>
     <string name="settings_fast_cdvd">Fast CDVD</string>
+    <string name="settings_wait_loop_speedhack">Wait Loop Detection</string>
+    <string name="settings_intc_stat_speedhack">INTC Status Hack</string>
+    <string name="settings_vu_flag_hack">VU Flag Hack</string>
+    <string name="settings_instant_vu1">Instant VU1</string>
     <string name="settings_hw_download_mode">Hardware Download Mode</string>
     <string name="settings_frame_skip">Frame Skip</string>
     <string name="settings_texture_filtering">Texture Filtering</string>
@@ -639,6 +647,10 @@
     <string name="settings_ee_cycle_maximum">Maximum</string>
     <string name="settings_mtvu_desc">Uses a second thread for VU1 - speeds up most games</string>
     <string name="settings_fast_cdvd_desc">Faster disc access - may cause issues in some games</string>
+    <string name="settings_wait_loop_speedhack_desc">Fast-forwards repeated EE wait loops</string>
+    <string name="settings_intc_stat_speedhack_desc">Optimizes interrupt status polling</string>
+    <string name="settings_vu_flag_hack_desc">Uses faster VU flag timing</string>
+    <string name="settings_instant_vu1_desc">Runs VU1 work with looser timing</string>
     <string name="settings_hw_download_mode_desc">Changes synchronization behavior for hardware GS downloads. Accurate is the safest option.</string>
     <string name="settings_hw_download_mode_accurate">Accurate</string>
     <string name="settings_hw_download_mode_no_readbacks">No Readbacks</string>

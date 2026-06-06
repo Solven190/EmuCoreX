@@ -1053,4 +1053,16 @@
     <string name="settings_help_pad_vibration_fallback">Некоторые элементы управления портативных консолей определяются как геймпад, но обеспечивают вибрацию только через вибромотор устройства. Этот запасной вариант позволяет сохранить вибрацию на таких устройствах, однако внешние контроллеры без вибрации будут вместо этого вызывать вибрацию телефона или консоли.</string>
     <string name="onboarding_all_files_title">Предоставить полный доступ к файлам</string>
     <string name="onboarding_all_files_desc">Разрешите EmuCoreX напрямую читать файлы игр, чтобы отсканированные игры надежно запускались на каждом устройстве.</string>
+    <string name="settings_wait_loop_speedhack_desc">Ускоряет повторяющиеся циклы ожидания EE</string>
+    <string name="settings_intc_stat_speedhack_desc">Оптимизирует опрос состояния прерываний</string>
+    <string name="settings_vu_flag_hack_desc">Использует более быстрые тайминги флагов VU</string>
+    <string name="settings_instant_vu1_desc">Выполняет работу VU1 с менее строгими таймингами</string>
+    <string name="settings_wait_loop_speedhack">Обнаружение циклов ожидания</string>
+    <string name="settings_intc_stat_speedhack">Хак статуса INTC</string>
+    <string name="settings_vu_flag_hack">Хак флагов VU</string>
+    <string name="settings_instant_vu1">Мгновенный VU1</string>
+    <string name="settings_help_wait_loop_speedhack">Ускоряет плотные циклы ожидания EE. Отключите это при отладке периодических скачков состояний, зависаний или игр, которые, кажется, пропускают чувствительную к таймингам работу.</string>
+    <string name="settings_help_intc_stat_speedhack">Оптимизирует чтение из регистра состояния прерываний. Отключите это для тестирования игр, которые очень часто опрашивают прерывания во время запуска или катсцен.</string>
+    <string name="settings_help_vu_flag_hack">Использует более быстрое приближение для таймингов флагов VU. Отключите это для проверки расхождения состояний VU в сценах с физикой, анимацией или сильной нагрузкой на камеру.</string>
+    <string name="settings_help_instant_vu1">Выполняет работу VU1 максимально быстро вместо сохранения более строгих таймингов. Отключите это для тестирования катсцен, анимации и игр, чувствительных к синхронизации VU/GS.</string>
 </resources>

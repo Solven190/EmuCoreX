@@ -102,13 +102,22 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "EnableFastmem", true));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "EnableEECache",
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "EnableEECache", false));
-	si.SetBoolValue("EmuCore/Speedhacks", "WaitLoop", true);
-	si.SetBoolValue("EmuCore/Speedhacks", "IntcStat", true);
-	si.SetBoolValue("EmuCore/Speedhacks", "vuFlagHack", true);
+	const bool wait_loop_speedhack = GetBoolSetting(config.settings, "EmuCore/Speedhacks", "WaitLoop", true);
+	const bool intc_stat_speedhack = GetBoolSetting(config.settings, "EmuCore/Speedhacks", "IntcStat", true);
+	const bool vu_flag_hack = GetBoolSetting(config.settings, "EmuCore/Speedhacks", "vuFlagHack", true);
+	const bool instant_vu1 = GetBoolSetting(config.settings, "EmuCore/Speedhacks", "vu1Instant", true);
+	const bool vu_thread = GetBoolSetting(config.settings, "EmuCore/Speedhacks", "vuThread", true);
+	si.SetBoolValue("EmuCore/Speedhacks", "WaitLoop", wait_loop_speedhack);
+	si.SetBoolValue("EmuCore/Speedhacks", "IntcStat", intc_stat_speedhack);
+	si.SetBoolValue("EmuCore/Speedhacks", "vuFlagHack", vu_flag_hack);
 	si.SetBoolValue("EmuCore/Speedhacks", "vu1Instant",
-		GetBoolSetting(config.settings, "EmuCore/Speedhacks", "vu1Instant", true));
+		instant_vu1);
 	si.SetBoolValue("EmuCore/Speedhacks", "vuThread",
-		GetBoolSetting(config.settings, "EmuCore/Speedhacks", "vuThread", true));
+		vu_thread);
+	__android_log_print(ANDROID_LOG_INFO, LOG_TAG,
+		"Effective speedhacks waitLoop=%d intcStat=%d vuFlag=%d instantVu1=%d vuThread=%d",
+		wait_loop_speedhack ? 1 : 0, intc_stat_speedhack ? 1 : 0,
+		vu_flag_hack ? 1 : 0, instant_vu1 ? 1 : 0, vu_thread ? 1 : 0);
 	si.SetIntValue("EmuCore/Speedhacks", "EECycleRate",
 		GetIntSetting(config.settings, "EmuCore/Speedhacks", "EECycleRate", 0));
 	si.SetIntValue("EmuCore/Speedhacks", "EECycleSkip",

@@ -253,6 +253,10 @@ object EmulatorBridge {
         enableVu0Recompiler: Boolean = true,
         enableVu1Recompiler: Boolean = true,
         enableFastmem: Boolean = true,
+        waitLoopSpeedhack: Boolean = true,
+        intcStatSpeedhack: Boolean = true,
+        vuFlagHack: Boolean = true,
+        instantVu1: Boolean = true,
         mtvu: Boolean = true,
         fastCdvd: Boolean = false,
         enableCheats: Boolean = false,
@@ -371,12 +375,13 @@ object EmulatorBridge {
         val directVu0Recompiler = enableVu0Recompiler
         val directVu1Recompiler = enableVu1Recompiler
         val directMtvu = mtvu && directVu1Recompiler
+        val directInstantVu1 = instantVu1
         Log.i(
             "EmuCoreX",
-            "android jit: requested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem} mtvuRequested=$mtvu direct={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu fastmem:$enableFastmem}"
+            "android jit: requested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack mtvu:$mtvu instantVu1:$instantVu1} direct={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem}"
         )
         NativeApp.logCrashBreadcrumb(
-            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode mtvuRequested=$mtvu directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu fastmem:$enableFastmem} fastCdvd=$fastCdvd jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
+            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack fastCdvd:$fastCdvd} gameFixes=true jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
         )
         val prefs = AppPreferences(context)
         val padVibrationEnabled = prefs.padVibration.first()
@@ -402,9 +407,9 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableVU0", "bool", directVu0Recompiler.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableVU1", "bool", directVu1Recompiler.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableFastmem", "bool", enableFastmem.toString()))
-                add(settingOp("EmuCore/Speedhacks", "WaitLoop", "bool", "true"))
-                add(settingOp("EmuCore/Speedhacks", "IntcStat", "bool", "true"))
-                add(settingOp("EmuCore/Speedhacks", "vuFlagHack", "bool", "true"))
+                add(settingOp("EmuCore/Speedhacks", "WaitLoop", "bool", waitLoopSpeedhack.toString()))
+                add(settingOp("EmuCore/Speedhacks", "IntcStat", "bool", intcStatSpeedhack.toString()))
+                add(settingOp("EmuCore/Speedhacks", "vuFlagHack", "bool", vuFlagHack.toString()))
                 add(settingOp("EmuCore/Speedhacks", "vuThread", "bool", directMtvu.toString()))
                 add(settingOp("EmuCore/Speedhacks", "vu1Instant", "bool", "true"))
                 add(settingOp("EmuCore/Speedhacks", "fastCDVD", "bool", fastCdvd.toString()))

@@ -1051,4 +1051,16 @@
     <string name="settings_help_pad_vibration_fallback">Alcuni controlli per console portatili vengono riconosciuti come gamepad ma espongono la vibrazione solo attraverso il vibratore del dispositivo. Questa alternativa mantiene in funzione la vibrazione su quei dispositivi, ma i controller esterni senza vibrazione faranno invece vibrare il telefono o la console portatile.</string>
     <string name="onboarding_all_files_title">Concedi accesso completo ai file</string>
     <string name="onboarding_all_files_desc">Consenti a EmuCoreX di leggere i file di gioco direttamente in modo che i giochi scansionati possano essere avviati in modo affidabile su ogni dispositivo.</string>
+    <string name="settings_wait_loop_speedhack_desc">Manda avanti velocemente i cicli di attesa EE ripetuti</string>
+    <string name="settings_intc_stat_speedhack_desc">Ottimizza il polling dello stato di interruzione</string>
+    <string name="settings_vu_flag_hack_desc">Utilizza un tempismo del flag VU più veloce</string>
+    <string name="settings_instant_vu1_desc">Esegue il lavoro VU1 con un tempismo più flessibile</string>
+    <string name="settings_wait_loop_speedhack">Rilevamento ciclo di attesa</string>
+    <string name="settings_intc_stat_speedhack">Hack stato INTC</string>
+    <string name="settings_vu_flag_hack">Hack flag VU</string>
+    <string name="settings_instant_vu1">VU1 istantaneo</string>
+    <string name="settings_help_wait_loop_speedhack">Manda avanti velocemente i cicli di attesa EE ristretti. Disabilita questa opzione durante il debug di salti di stato periodici, blocchi o giochi che sembrano perdere lavoro sensibile al tempismo.</string>
+    <string name="settings_help_intc_stat_speedhack">Ottimizza le letture dal registro dello stato di interruzione. Disabilita questa opzione per testare i giochi che interrogano le interruzioni molto da vicino durante l\'avvio o i filmati.</string>
+    <string name="settings_help_vu_flag_hack">Utilizza un\'approssimazione più veloce per il tempismo del flag VU. Disabilita questa opzione per verificare la divergenza dello stato VU in scene fisiche, animazioni o con un uso intenso della telecamera.</string>
+    <string name="settings_help_instant_vu1">Esegue il lavoro VU1 il più rapidamente possibile anziché preservare un tempismo più rigoroso. Disabilita questa opzione per testare filmati, animazioni e giochi sensibili alla sincronizzazione VU/GS.</string>
 </resources>

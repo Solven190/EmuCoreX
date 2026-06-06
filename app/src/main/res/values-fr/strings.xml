@@ -1053,4 +1053,16 @@
     <string name="settings_help_pad_vibration_fallback">Certaines commandes de consoles portables sont reconnues comme une manette mais n\'exposent les vibrations que via le vibreur de l\'appareil. Cette solution de repli permet de conserver les vibrations sur ces appareils, mais les manettes externes sans vibrations feront vibrer le téléphone ou la console portable à la place.</string>
     <string name="onboarding_all_files_title">Accorder un accès complet aux fichiers</string>
     <string name="onboarding_all_files_desc">Autorisez EmuCoreX à lire directement les fichiers de jeu afin que les jeux analysés puissent se lancer de manière fiable sur chaque appareil.</string>
+    <string name="settings_wait_loop_speedhack_desc">Avance rapidement les boucles d\'attente EE répétées</string>
+    <string name="settings_intc_stat_speedhack_desc">Optimise l\'interrogation de l\'état d\'interruption</string>
+    <string name="settings_vu_flag_hack_desc">Utilise un timing de drapeau VU plus rapide</string>
+    <string name="settings_instant_vu1_desc">Exécute le travail VU1 avec un timing plus souple</string>
+    <string name="settings_wait_loop_speedhack">Détection de boucle d\'attente</string>
+    <string name="settings_intc_stat_speedhack">Hack d\'état INTC</string>
+    <string name="settings_vu_flag_hack">Hack de drapeau VU</string>
+    <string name="settings_instant_vu1">VU1 instantané</string>
+    <string name="settings_help_wait_loop_speedhack">Avance rapidement les boucles d\'attente EE serrées. Désactivez cette option lors du débogage de sauts d\'état périodiques, de blocages ou de jeux qui semblent manquer des tâches sensibles au timing.</string>
+    <string name="settings_help_intc_stat_speedhack">Optimise les lectures du registre d\'état d\'interruption. Désactivez cette option pour tester les jeux qui interrogent les interruptions de très près pendant le démarrage ou les cinématiques.</string>
+    <string name="settings_help_vu_flag_hack">Utilise une approximation plus rapide pour le timing des drapeaux VU. Désactivez cette option pour vérifier la divergence d\'état du VU dans les scènes de physique, d\'animation ou chargées en caméra.</string>
+    <string name="settings_help_instant_vu1">Exécute le travail VU1 aussi rapidement que possible au lieu de conserver un timing plus strict. Désactivez cette option pour tester les cinématiques, les animations et les jeux sensibles à la synchronisation VU/GS.</string>
 </resources>

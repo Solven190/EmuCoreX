@@ -1053,4 +1053,16 @@
     <string name="settings_help_pad_vibration_fallback">Alguns controles de consoles portáteis são identificados como um gamepad, mas expõem a vibração apenas através do vibrador do dispositivo. Esta alternativa mantém a vibração funcionando nesses dispositivos, mas os controles externos sem vibração farão vibrar o telefone ou o console portátil em vez disso.</string>
     <string name="onboarding_all_files_title">Conceder acesso total aos arquivos</string>
     <string name="onboarding_all_files_desc">Permita que o EmuCoreX leia os arquivos dos jogos diretamente para que os jogos verificados possam ser iniciados de forma confiável em todos os dispositivos.</string>
+    <string name="settings_wait_loop_speedhack_desc">Avança rapidamente loops de espera EE repetidos</string>
+    <string name="settings_intc_stat_speedhack_desc">Otimiza a sondagem do status de interrupção</string>
+    <string name="settings_vu_flag_hack_desc">Usa um tempo de sinalizador VU mais rápido</string>
+    <string name="settings_instant_vu1_desc">Executa o trabalho VU1 com um tempo mais frouxo</string>
+    <string name="settings_wait_loop_speedhack">Detecção de loop de espera</string>
+    <string name="settings_intc_stat_speedhack">Hack de status INTC</string>
+    <string name="settings_vu_flag_hack">Hack de sinalizador VU</string>
+    <string name="settings_instant_vu1">VU1 instantâneo</string>
+    <string name="settings_help_wait_loop_speedhack">Avança rapidamente loops de espera EE estreitos. Desative isso ao depurar saltos de estado periódicos, travamentos ou jogos que parecem perder o trabalho sensível ao tempo.</string>
+    <string name="settings_help_intc_stat_speedhack">Otimiza as leituras do registro de status de interrupção. Desative isso para testar jogos que pesquisam interrupções muito de perto durante a inicialização ou cenas.</string>
+    <string name="settings_help_vu_flag_hack">Usa uma aproximação mais rápida para o tempo do sinalizador VU. Desative isso para verificar a divergência de estado VU em cenas de física, animação ou uso intenso de câmera.</string>
+    <string name="settings_help_instant_vu1">Executa o trabalho VU1 o mais rápido possível em vez de preservar um tempo mais rigoroso. Desative isso para testar cenas, animações e jogos sensíveis à sincronização VU/GS.</string>
 </resources>
