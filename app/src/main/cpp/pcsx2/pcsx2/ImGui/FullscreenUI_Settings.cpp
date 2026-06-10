@@ -2633,7 +2633,7 @@ void FullscreenUI::DrawClampingModeSetting(SettingsInterface* bsi, const char* t
 	std::optional<bool> second = bsi->GetOptionalBoolValue("EmuCore/CPU/Recompiler",
 		(vunum >= 0 ? ((vunum == 0) ? "vu0ExtraOverflow" : "vu1ExtraOverflow") : "fpuExtraOverflow"), default_false);
 	std::optional<bool> first = bsi->GetOptionalBoolValue(
-		"EmuCore/CPU/Recompiler", (vunum >= 0 ? ((vunum == 0) ? "vu0Overflow" : "vu1Overflow") : "fpuOverflow"), default_true);
+		"EmuCore/CPU/Recompiler", (vunum >= 0 ? ((vunum == 0) ? "vu0Overflow" : "vu1Overflow") : "fpuOverflow"), (vunum == 1) ? default_false : default_true);
 
 	int index;
 	if (third.has_value() && third.value())

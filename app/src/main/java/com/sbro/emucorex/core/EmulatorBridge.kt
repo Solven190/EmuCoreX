@@ -252,6 +252,7 @@ object EmulatorBridge {
         enableIopRecompiler: Boolean = true,
         enableVu0Recompiler: Boolean = true,
         enableVu1Recompiler: Boolean = true,
+        vu1Clamping: Boolean = false,
         enableFastmem: Boolean = true,
         waitLoopSpeedhack: Boolean = true,
         intcStatSpeedhack: Boolean = true,
@@ -406,6 +407,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableIOP", "bool", directIopRecompiler.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableVU0", "bool", directVu0Recompiler.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableVU1", "bool", directVu1Recompiler.toString()))
+                add(settingOp("EmuCore/CPU/Recompiler", "vu1Overflow", "bool", vu1Clamping.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableFastmem", "bool", enableFastmem.toString()))
                 add(settingOp("EmuCore/Speedhacks", "WaitLoop", "bool", waitLoopSpeedhack.toString()))
                 add(settingOp("EmuCore/Speedhacks", "IntcStat", "bool", intcStatSpeedhack.toString()))

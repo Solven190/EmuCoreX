@@ -63,6 +63,7 @@ data class SettingsSnapshot(
     val enableIopRecompiler: Boolean = true,
     val enableVu0Recompiler: Boolean = true,
     val enableVu1Recompiler: Boolean = true,
+    val enableVu1Clamping: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
     val enableVuFlagHack: Boolean = true,
@@ -267,6 +268,7 @@ class AppPreferences(private val context: Context) {
         private val ENABLE_IOP_RECOMPILER = booleanPreferencesKey("enable_iop_recompiler")
         private val ENABLE_VU0_RECOMPILER = booleanPreferencesKey("enable_vu0_recompiler")
         private val ENABLE_VU1_RECOMPILER = booleanPreferencesKey("enable_vu1_recompiler")
+        private val ENABLE_VU1_CLAMPING = booleanPreferencesKey("enable_vu1_clamping")
         private val ENABLE_WAIT_LOOP_SPEEDHACK = booleanPreferencesKey("enable_wait_loop_speedhack")
         private val ENABLE_INTC_STAT_SPEEDHACK = booleanPreferencesKey("enable_intc_stat_speedhack")
         private val ENABLE_VU_FLAG_HACK = booleanPreferencesKey("enable_vu_flag_hack")
@@ -661,6 +663,7 @@ class AppPreferences(private val context: Context) {
                 enableIopRecompiler = prefs[ENABLE_IOP_RECOMPILER] ?: true,
                 enableVu0Recompiler = prefs[ENABLE_VU0_RECOMPILER] ?: true,
                 enableVu1Recompiler = prefs[ENABLE_VU1_RECOMPILER] ?: true,
+                enableVu1Clamping = prefs[ENABLE_VU1_CLAMPING] ?: false,
                 enableWaitLoopSpeedhack = prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true,
                 enableIntcStatSpeedhack = prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true,
                 enableVuFlagHack = prefs[ENABLE_VU_FLAG_HACK] ?: true,
@@ -1166,6 +1169,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setEnableVu1Recompiler(enabled: Boolean) {
         context.dataStore.edit { it[ENABLE_VU1_RECOMPILER] = enabled }
+    }
+
+    val enableVu1Clamping: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ENABLE_VU1_CLAMPING] ?: false
+    }
+
+    suspend fun setEnableVu1Clamping(enabled: Boolean) {
+        context.dataStore.edit { it[ENABLE_VU1_CLAMPING] = enabled }
     }
 
     val enableWaitLoopSpeedhack: Flow<Boolean> = context.dataStore.data.map { prefs ->

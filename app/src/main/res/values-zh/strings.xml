@@ -1065,4 +1065,7 @@
     <string name="settings_help_intc_stat_speedhack">优化中断状态寄存器的读取。禁用此选项以测试在启动或过场动画期间非常密切地轮询中断的游戏。</string>
     <string name="settings_help_vu_flag_hack">对 VU 标志时序使用更快的近似值。禁用此选项以检查物理、动画或相机密集型场景中的 VU 状态发散。</string>
     <string name="settings_help_instant_vu1">尽可能快地运行 VU1 工作，而不是保留更严格的时序。禁用此选项以测试过场动画、动画以及对 VU/GS 同步敏感的游戏。</string>
+    <string name="settings_enable_vu1_clamping">VU1 箝位 (Clamping)</string>
+    <string name="settings_enable_vu1_clamping_desc">启用 VU1 浮点运算的溢出箝位。禁用它能显著减小生成的代码体积并提升性能。</string>
+    <string name="settings_help_enable_vu1_clamping">控制 VU1 重编译器是否发出箝位指令以处理 IEEE 754 溢出情况。禁用时，生成的 ARM64 代码会更小、更快，因为每个 VU1 指令不再需要约 72 个额外的箝位操作。大多数游戏在不启用箝位的情况下也能正常运行。仅在特定游戏中遇到图形错误或几何体显示不正确时才启用此选项。</string>
 </resources>

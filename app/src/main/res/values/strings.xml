@@ -228,6 +228,9 @@
     <string name="settings_enable_vu1_recompiler">VU1 Recompiler</string>
     <string name="settings_enable_vu1_recompiler_desc">Vector Unit 1 micro recompiler. Disable it to force the VU1 interpreter.</string>
     <string name="settings_help_enable_vu1_recompiler">Controls the Vector Unit 1 recompiler. VU1 drives a large amount of transform and geometry work in many games. Disable it when you need to compare JIT output against the interpreter, investigate rendering corruption, or capture VU1 traces for debugging.</string>
+    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
+    <string name="settings_enable_vu1_clamping_desc">Enables overflow clamping for VU1 float operations. Disabling it significantly reduces generated code size and improves performance.</string>
+    <string name="settings_help_enable_vu1_clamping">Controls whether the VU1 recompiler emits clamping instructions to handle IEEE 754 overflow cases. When disabled, generated ARM64 code is much smaller and faster because each VU1 instruction no longer needs ~72 extra clamping operations. Most games work fine without clamping. Enable it only if you see graphical glitches or incorrect geometry in a specific game.</string>
     <string name="settings_jit_mtvu_note">If you disable VU1 recompiler, also turn off MTVU below. MTVU only makes sense with VU1 recompilation enabled.</string>
     <string name="settings_renderer">Graphics Mode</string>
     <string name="settings_renderer_auto">Auto</string>

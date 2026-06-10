@@ -1065,4 +1065,7 @@
     <string name="settings_help_intc_stat_speedhack">Otimiza as leituras do registro de status de interrupção. Desative isso para testar jogos que pesquisam interrupções muito de perto durante a inicialização ou cenas.</string>
     <string name="settings_help_vu_flag_hack">Usa uma aproximação mais rápida para o tempo do sinalizador VU. Desative isso para verificar a divergência de estado VU em cenas de física, animação ou uso intenso de câmera.</string>
     <string name="settings_help_instant_vu1">Executa o trabalho VU1 o mais rápido possível em vez de preservar um tempo mais rigoroso. Desative isso para testar cenas, animações e jogos sensíveis à sincronização VU/GS.</string>
+    <string name="settings_enable_vu1_clamping">Limitação VU1 (Clamping)</string>
+    <string name="settings_enable_vu1_clamping_desc">Ativa a limitação de estouro (clamping) para operações de ponto flutuante VU1. Desativá-lo reduz significativamente o tamanho do código gerado e melhora o desempenho.</string>
+    <string name="settings_help_enable_vu1_clamping">Controla se o recompilador VU1 emite instruções de limitação para lidar com casos de estouro IEEE 754. Quando desativado, o código ARM64 gerado é muito menor e mais rápido porque cada instrução VU1 não precisa mais de ~72 operações de limitação extras. A maioria dos jogos funciona bem sem limitação. Ative apenas se notar falhas gráficas ou geometria incorreta em um jogo específico.</string>
 </resources>

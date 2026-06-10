@@ -64,6 +64,7 @@ data class SettingsUiState(
     val enableIopRecompiler: Boolean = true,
     val enableVu0Recompiler: Boolean = true,
     val enableVu1Recompiler: Boolean = true,
+    val enableVu1Clamping: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
     val enableVuFlagHack: Boolean = true,
@@ -212,6 +213,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             enableIopRecompiler = snapshot.enableIopRecompiler,
             enableVu0Recompiler = snapshot.enableVu0Recompiler,
             enableVu1Recompiler = snapshot.enableVu1Recompiler,
+            enableVu1Clamping = snapshot.enableVu1Clamping,
             enableWaitLoopSpeedhack = snapshot.enableWaitLoopSpeedhack,
             enableIntcStatSpeedhack = snapshot.enableIntcStatSpeedhack,
             enableVuFlagHack = snapshot.enableVuFlagHack,
@@ -697,6 +699,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 preferences.setEnableMtvu(false)
                 EmulatorBridge.setSetting("EmuCore/Speedhacks", "vuThread", "bool", "false")
             }
+        }
+    }
+
+    fun setEnableVu1Clamping(enabled: Boolean) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            preferences.setEnableVu1Clamping(enabled)
+            EmulatorBridge.setSetting("EmuCore/CPU/Recompiler", "vu1Overflow", "bool", enabled.toString())
         }
     }
 
@@ -1274,6 +1284,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 enableIopRecompiler = _uiState.value.enableIopRecompiler,
                 enableVu0Recompiler = _uiState.value.enableVu0Recompiler,
                 enableVu1Recompiler = _uiState.value.enableVu1Recompiler,
+                vu1Clamping = _uiState.value.enableVu1Clamping,
                 waitLoopSpeedhack = _uiState.value.enableWaitLoopSpeedhack,
                 intcStatSpeedhack = _uiState.value.enableIntcStatSpeedhack,
                 vuFlagHack = _uiState.value.enableVuFlagHack,

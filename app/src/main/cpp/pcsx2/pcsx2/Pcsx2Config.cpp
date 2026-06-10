@@ -460,7 +460,7 @@ Pcsx2Config::RecompilerOptions::RecompilerOptions()
 	//vu0ExtraOverflow = false;
 	//vu0SignOverflow = false;
 	//vu0Underflow = false;
-	vu1Overflow = true;
+	vu1Overflow = false;
 	//vu1ExtraOverflow = false;
 	//vu1SignOverflow = false;
 	//vu1Underflow = false;

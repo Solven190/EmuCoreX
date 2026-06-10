@@ -1065,4 +1065,7 @@
     <string name="settings_help_intc_stat_speedhack">Optimiert das Lesen aus dem Interrupt-Statusregister. Deaktivieren Sie dies, um Spiele zu testen, die Interrupts während des Starts oder in Zwischensequenzen sehr genau abfragen.</string>
     <string name="settings_help_vu_flag_hack">Verwendet eine schnellere Näherung für das VU-Flag-Timing. Deaktivieren Sie dies, um auf VU-Zustandsabweichungen in physik-, animations- oder kameralastigen Szenen zu prüfen.</string>
     <string name="settings_help_instant_vu1">Führt VU1-Arbeit so schnell wie möglich aus, anstatt ein strikteres Timing beizubehalten. Deaktivieren Sie dies, um Zwischensequenzen, Animationen und Spiele zu testen, die empfindlich auf die VU/GS-Synchronisation reagieren.</string>
+    <string name="settings_enable_vu1_clamping">VU1-Begrenzung (Clamping)</string>
+    <string name="settings_enable_vu1_clamping_desc">Aktiviert die Überlaufbegrenzung für VU1-Gleitkommaoperationen. Das Deaktivieren reduziert die Größe des generierten Codes erheblich und verbessert die Leistung.</string>
+    <string name="settings_help_enable_vu1_clamping">Steuert, ob der VU1-Recompiler Begrenzungsanweisungen ausgibt, um IEEE 754-Überlauffälle zu behandeln. Wenn deaktiviert, ist der generierte ARM64-Code viel kleiner und schneller, da jede VU1-Anweisung keine ~72 zusätzlichen Begrenzungsoperationen mehr benötigt. Die meisten Spiele funktionieren ohne Begrenzung einwandfrei. Aktivieren Sie es nur, wenn Sie in einem bestimmten Spiel Grafikfehler oder fehlerhafte Geometrie feststellen.</string>
 </resources>

@@ -1529,6 +1529,15 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_enable_vu1_recompiler),
                             onResetToDefault = { viewModel.setEnableVu1Recompiler(defaults.enableVu1Recompiler) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.settings_enable_vu1_clamping),
+                            subtitle = stringResource(R.string.settings_enable_vu1_clamping_desc),
+                            checked = uiState.enableVu1Clamping,
+                            onCheckedChange = viewModel::setEnableVu1Clamping,
+                            helpText = stringResource(R.string.settings_help_enable_vu1_clamping),
+                            onResetToDefault = { viewModel.setEnableVu1Clamping(defaults.enableVu1Clamping) }
+                        )
                         SettingsInlineNote(
                             text = stringResource(R.string.settings_jit_section_note)
                         )
