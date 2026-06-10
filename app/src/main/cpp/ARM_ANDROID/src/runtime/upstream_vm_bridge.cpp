@@ -98,6 +98,8 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "EnableVU0", true));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "EnableVU1",
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "EnableVU1", true));
+	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu1Overflow",
+		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu1Overflow", false));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "EnableFastmem",
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "EnableFastmem", true));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "EnableEECache",
