@@ -1552,15 +1552,6 @@ std::string GSDeviceOGL::GenGlslHeader(const std::string_view entry, GLenum type
 				header += "#extension GL_EXT_shader_pixel_local_storage : require\n";
 		}
 
-#ifdef __ANDROID__
-		header += "precision mediump float;\n";
-		header += "precision mediump int;\n";
-		header += "precision mediump sampler2D;\n";
-		if (GLAD_GL_ES_VERSION_3_1)
-			header += "precision mediump sampler2DMS;\n";
-		if (GLAD_GL_ES_VERSION_3_2)
-			header += "precision mediump usamplerBuffer;\n";
-#else
 		header += "precision highp float;\n";
 		header += "precision highp int;\n";
 		header += "precision highp sampler2D;\n";
@@ -1568,7 +1559,6 @@ std::string GSDeviceOGL::GenGlslHeader(const std::string_view entry, GLenum type
 			header += "precision highp sampler2DMS;\n";
 		if (GLAD_GL_ES_VERSION_3_2)
 			header += "precision highp usamplerBuffer;\n";
-#endif
 
 		if (!GLAD_GL_EXT_blend_func_extended && !GLAD_GL_ARB_blend_func_extended)
 			header += "#define DISABLE_DUAL_SOURCE\n";
@@ -2403,17 +2393,10 @@ bool GSDeviceOGL::CreateCASPrograms()
 			return false;
 		}
 
-#ifdef __ANDROID__
-		header += "precision mediump float;\n";
-		header += "precision mediump int;\n";
-		header += "precision mediump sampler2D;\n";
-		header += "precision mediump image2D;\n";
-#else
 		header += "precision highp float;\n";
 		header += "precision highp int;\n";
 		header += "precision highp sampler2D;\n";
 		header += "precision highp image2D;\n";
-#endif
 	}
 	else
 	{

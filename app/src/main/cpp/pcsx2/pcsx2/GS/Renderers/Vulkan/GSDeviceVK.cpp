@@ -1000,19 +1000,6 @@ bool GSDeviceVK::CreateCommandBuffers()
 
 bool GSDeviceVK::CreateGlobalDescriptorPool()
 {
-#ifdef __ANDROID__
-	static constexpr const VkDescriptorPoolSize pool_sizes[] = {
-		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 16},
-		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 16},
-		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8192},
-		{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4096},
-		{VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 2048},
-		{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 128},
-		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 2},
-		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2},
-	};
-	uint32_t max_sets = 16384;
-#else
 	static constexpr const VkDescriptorPoolSize pool_sizes[] = {
 		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 128},
 		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 128},
@@ -1023,12 +1010,10 @@ bool GSDeviceVK::CreateGlobalDescriptorPool()
 		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 2},
 		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2},
 	};
-	uint32_t max_sets = 131072;
-#endif
 
 	VkDescriptorPoolCreateInfo pool_create_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, nullptr,
 		VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-		max_sets, // Expanded pool limit for mobile fallback rendering
+		131072, // Expanded pool limit for mobile fallback rendering
 		static_cast<u32>(std::size(pool_sizes)), pool_sizes};
 
 	VkResult res = vkCreateDescriptorPool(m_device, &pool_create_info, nullptr, &m_global_descriptor_pool);
@@ -2747,10 +2732,6 @@ bool GSDeviceVK::CheckFeatures()
 
 	const bool has_framebuffer_fetch_extension = m_optional_extensions.vk_ext_rasterization_order_attachment_access;
 	bool framebuffer_fetch = has_framebuffer_fetch_extension && !GSConfig.DisableFramebufferFetch;
-#ifdef __ANDROID__
-	framebuffer_fetch = false;
-#endif
-
 	bool texture_barrier = (GSConfig.OverrideTextureBarriers != 0);
 	m_features.multidraw_fb_copy = false;
 	m_features.broken_point_sampler = false;
