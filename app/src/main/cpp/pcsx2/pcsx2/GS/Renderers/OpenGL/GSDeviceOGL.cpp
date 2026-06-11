@@ -1030,6 +1030,16 @@ bool GSDeviceOGL::CheckFeatures()
 		Console.Warning("GLAD_GL_ARB_conservative_depth is not supported. This will reduce performance.");
 	}
 
+	if (m_is_gles)
+	{
+		if (!glad_glGetQueryObjectui64v && glad_glGetQueryObjectui64vEXT)
+			glad_glGetQueryObjectui64v = (PFNGLGETQUERYOBJECTUI64VPROC)glad_glGetQueryObjectui64vEXT;
+		if (!glad_glDrawElementsBaseVertex && glad_glDrawElementsBaseVertexOES)
+			glad_glDrawElementsBaseVertex = (PFNGLDRAWELEMENTSBASEVERTEXPROC)glad_glDrawElementsBaseVertexOES;
+		if (!glad_glDrawElementsBaseVertex && glad_glDrawElementsBaseVertexEXT)
+			glad_glDrawElementsBaseVertex = (PFNGLDRAWELEMENTSBASEVERTEXPROC)glad_glDrawElementsBaseVertexEXT;
+	}
+
 	return true;
 }
 
@@ -1277,6 +1287,13 @@ void GSDeviceOGL::KickTimestampQuery()
 
 bool GSDeviceOGL::SetGPUTimingEnabled(bool enabled)
 {
+	// On GLES, glGetQueryObjectiv (signed) is NOT part of the core spec — only glGetQueryObjectuiv is.
+	// Even if GL_EXT_disjoint_timer_query is present and glGetQueryObjectui64v is loaded,
+	// calling glGetQueryObjectiv in PopTimestampQuery will crash with a null pointer dereference.
+	// Guard against all three functions being present before enabling GPU timing.
+	if (enabled && (!GLAD_GL_EXT_disjoint_timer_query || !glad_glGetQueryObjectiv || !glad_glGetQueryObjectui64v))
+		return false;
+
 	if (m_gpu_timing_enabled == enabled)
 		return true;
 
@@ -1553,13 +1570,14 @@ std::string GSDeviceOGL::GenGlslHeader(const std::string_view entry, GLenum type
 		}
 
 #ifdef __ANDROID__
-		header += "precision mediump float;\n";
-		header += "precision mediump int;\n";
-		header += "precision mediump sampler2D;\n";
+		// highp is required for correct PS2 GS rendering — mediump causes visual corruption
+		header += "precision highp float;\n";
+		header += "precision highp int;\n";
+		header += "precision highp sampler2D;\n";
 		if (GLAD_GL_ES_VERSION_3_1)
-			header += "precision mediump sampler2DMS;\n";
+			header += "precision highp sampler2DMS;\n";
 		if (GLAD_GL_ES_VERSION_3_2)
-			header += "precision mediump usamplerBuffer;\n";
+			header += "precision highp usamplerBuffer;\n";
 #else
 		header += "precision highp float;\n";
 		header += "precision highp int;\n";
@@ -2404,10 +2422,10 @@ bool GSDeviceOGL::CreateCASPrograms()
 		}
 
 #ifdef __ANDROID__
-		header += "precision mediump float;\n";
-		header += "precision mediump int;\n";
-		header += "precision mediump sampler2D;\n";
-		header += "precision mediump image2D;\n";
+		header += "precision highp float;\n";
+		header += "precision highp int;\n";
+		header += "precision highp sampler2D;\n";
+		header += "precision highp image2D;\n";
 #else
 		header += "precision highp float;\n";
 		header += "precision highp int;\n";
@@ -2483,7 +2501,6 @@ bool GSDeviceOGL::CreateImGuiProgram()
 	prog->SetName("ImGui Render");
 	prog->RegisterUniform("ProjMtx");
 	m_imgui.ps = std::move(prog.value());
-
 	// Need a different VAO because the layout doesn't match GS
 	glGenVertexArrays(1, &m_imgui.vao);
 	glBindVertexArray(m_imgui.vao);
@@ -2497,6 +2514,11 @@ bool GSDeviceOGL::CreateImGuiProgram()
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, uv));
 	glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, col));
 
+	// Check once whether glDrawElementsBaseVertex is available on this device
+	// (on GLES 3.1 without OES/EXT extension it may be null)
+	m_imgui.use_bind_vertex_buffer = (glDrawElementsBaseVertex == nullptr);
+
+
 	glBindVertexArray(GLState::vao);
 	return true;
 }
@@ -2505,7 +2527,7 @@ void GSDeviceOGL::RenderImGui()
 {
 	ImGui::Render();
 	const ImDrawData* draw_data = ImGui::GetDrawData();
-	if (draw_data->CmdListsCount == 0)
+	if (!draw_data || draw_data->CmdListsCount == 0)
 		return;
 
 	UpdateImGuiTextures();
@@ -2584,10 +2606,14 @@ void GSDeviceOGL::RenderImGui()
 			}
 			else
 			{
-				size_t vtx_offset_bytes = (pcmd->VtxOffset + vertex_start) * sizeof(ImDrawVert);
+				// GLES fallback: glDrawElementsBaseVertex is unavailable.
+				// Re-specify attrib pointers with the vertex base offset baked in.
+				const size_t vtx_offset_bytes = (pcmd->VtxOffset + vertex_start) * sizeof(ImDrawVert);
+				m_vertex_stream_buffer->Bind();
 				glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)(offsetof(ImDrawVert, pos) + vtx_offset_bytes));
 				glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)(offsetof(ImDrawVert, uv) + vtx_offset_bytes));
 				glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ImDrawVert), (GLvoid*)(offsetof(ImDrawVert, col) + vtx_offset_bytes));
+				m_index_stream_buffer->Bind();
 				glDrawElements(GL_TRIANGLES, (GLsizei)pcmd->ElemCount, GL_UNSIGNED_SHORT,
 					(void*)(intptr_t)((pcmd->IdxOffset + m_index.start) * sizeof(ImDrawIdx)));
 			}

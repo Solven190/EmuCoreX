@@ -215,6 +215,7 @@ private:
 	{
 		GLProgram ps;
 		GLuint vao = 0;
+		bool use_bind_vertex_buffer = false; ///< GLES 3.1: use glBindVertexBuffer to emulate base vertex
 	} m_imgui;
 
 	GLuint m_ps_ss[1 << 8];

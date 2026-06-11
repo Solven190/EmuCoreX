@@ -2748,6 +2748,8 @@ bool GSDeviceVK::CheckFeatures()
 	const bool has_framebuffer_fetch_extension = m_optional_extensions.vk_ext_rasterization_order_attachment_access;
 	bool framebuffer_fetch = has_framebuffer_fetch_extension && !GSConfig.DisableFramebufferFetch;
 #ifdef __ANDROID__
+	// Rasterization order attachment access is unreliable on Adreno/Mali Vulkan drivers.
+	// Keep it disabled until validated on Android.
 	framebuffer_fetch = false;
 #endif
 
@@ -2755,12 +2757,6 @@ bool GSDeviceVK::CheckFeatures()
 	m_features.multidraw_fb_copy = false;
 	m_features.broken_point_sampler = false;
 
-#ifdef __ANDROID__
-	// Prefer the explicit Android Vulkan feedback route for now. This keeps texture barriers on,
-	// but avoids the fb-fetch/raster-order path until it is revalidated against the newer GS core.
-	if (ShouldUseConservativeAndroidVulkanFeedbackPath())
-		framebuffer_fetch = false;
-#endif
 
 	m_features.framebuffer_fetch = framebuffer_fetch;
 	m_features.texture_barrier = texture_barrier;
