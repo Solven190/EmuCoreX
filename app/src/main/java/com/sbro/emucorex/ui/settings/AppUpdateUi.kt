@@ -74,8 +74,8 @@ import java.util.Locale
 @Composable
 fun AppUpdateTab(
     state: AppUpdateUiState,
-    onCheckForUpdates: () -> Unit,
-    onLoadReleaseHistory: () -> Unit,
+    onCheckForUpdates: (force: Boolean) -> Unit,
+    onLoadReleaseHistory: (force: Boolean) -> Unit,
     onShowCleanInstallDialog: () -> Unit,
     onDismissCleanInstallDialog: () -> Unit,
     onDownloadUpdate: () -> Unit,
@@ -89,17 +89,17 @@ fun AppUpdateTab(
 
     LaunchedEffect(Unit) {
         if (!state.checkedOnce && !state.checking) {
-            onCheckForUpdates()
+            onCheckForUpdates(false)
         }
         if (state.releaseHistory.isEmpty() && !state.historyLoading) {
-            onLoadReleaseHistory()
+            onLoadReleaseHistory(false)
         }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         UpdateHeroCard(
             state = state,
-            onCheckForUpdates = onCheckForUpdates,
+            onCheckForUpdates = { onCheckForUpdates(true) },
             onDownloadUpdate = onShowCleanInstallDialog,
             onInstallDownloadedUpdate = onShowCleanInstallDialog,
             onOpenRelease = {
@@ -125,7 +125,7 @@ fun AppUpdateTab(
             releases = state.releaseHistory,
             loading = state.historyLoading,
             errorMessage = state.historyErrorMessage,
-            onRetry = onLoadReleaseHistory,
+            onRetry = { onLoadReleaseHistory(true) },
             onReleaseClick = { selectedHistoryRelease = it }
         )
 

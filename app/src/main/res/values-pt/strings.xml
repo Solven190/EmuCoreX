@@ -1091,4 +1091,5 @@
     <string name="settings_language_native_japanese">日本語</string>
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
+    <string name="settings_updates_rate_limit_error">A verificação de atualizações está temporariamente indisponível. Tente novamente em %1$d minutos.</string>
 </resources>

@@ -2023,8 +2023,8 @@ private fun SettingsContent(
                 SettingsTab.Updates -> {
                     AppUpdateTab(
                         state = uiState.appUpdate,
-                        onCheckForUpdates = { viewModel.checkForAppUpdates(showErrors = true) },
-                        onLoadReleaseHistory = { viewModel.loadAppReleaseHistory(showErrors = true) },
+                        onCheckForUpdates = { force -> viewModel.checkForAppUpdates(showErrors = true, force = force) },
+                        onLoadReleaseHistory = { force -> viewModel.loadAppReleaseHistory(showErrors = true, force = force) },
                         onShowCleanInstallDialog = viewModel::showCleanInstallDialog,
                         onDismissCleanInstallDialog = viewModel::dismissCleanInstallDialog,
                         onDownloadUpdate = { viewModel.downloadAppUpdate() },

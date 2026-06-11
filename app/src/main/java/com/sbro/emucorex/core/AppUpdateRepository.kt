@@ -12,6 +12,8 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
+class RateLimitException(val resetTimestampMs: Long) : IOException("Rate limit exceeded")
+
 data class AppUpdateRelease(
     val tagName: String,
     val name: String,
@@ -32,12 +34,41 @@ data class AppUpdateRelease(
 
 class AppUpdateRepository(private val context: Context) {
 
-    fun checkLatestRelease(): AppUpdateRelease? {
-        if (!hasNetwork()) return null
+    fun checkLatestRelease(force: Boolean = false): AppUpdateRelease? {
+        val cacheFile = File(context.cacheDir, "latest_release.json")
+        if (!force && isCacheValid(cacheFile)) {
+            val cachedJson = runCatching { cacheFile.readText() }.getOrNull()
+            if (cachedJson != null) {
+                return parseRelease(cachedJson).takeIf { isNewerThanCurrent(it.tagName) }
+            }
+        }
+
+        if (!hasNetwork()) {
+            val cachedJson = runCatching { cacheFile.readText() }.getOrNull()
+            if (cachedJson != null) {
+                return parseRelease(cachedJson).takeIf { isNewerThanCurrent(it.tagName) }
+            }
+            return null
+        }
+        
         val connection = openConnection(LATEST_RELEASE_URL, "application/vnd.github+json,application/json,*/*")
+        val etagFile = File(context.cacheDir, "latest_release.etag")
+        if (etagFile.exists() && cacheFile.exists()) {
+            val etag = runCatching { etagFile.readText() }.getOrNull()
+            if (!etag.isNullOrBlank()) {
+                connection.setRequestProperty("If-None-Match", etag)
+            }
+        }
+        
         return try {
-            ensureSuccess(connection, "latest release")
+            ensureSuccess(connection, "latest release", allow304 = true)
+            if (connection.responseCode == 304) {
+                val json = cacheFile.readText()
+                return parseRelease(json).takeIf { isNewerThanCurrent(it.tagName) }
+            }
             val json = connection.inputStream.bufferedReader().use { it.readText() }
+            cacheFile.writeText(json)
+            connection.getHeaderField("ETag")?.let { etagFile.writeText(it) }
             parseRelease(json).takeIf { isNewerThanCurrent(it.tagName) }
         } finally {
             connection.disconnect()
@@ -56,12 +87,41 @@ class AppUpdateRepository(private val context: Context) {
         )
     }
 
-    fun loadReleaseHistory(): List<AppUpdateRelease> {
-        if (!hasNetwork()) return emptyList()
+    fun loadReleaseHistory(force: Boolean = false): List<AppUpdateRelease> {
+        val cacheFile = File(context.cacheDir, "release_history.json")
+        if (!force && isCacheValid(cacheFile)) {
+            val cachedJson = runCatching { cacheFile.readText() }.getOrNull()
+            if (cachedJson != null) {
+                return parseReleaseList(cachedJson)
+            }
+        }
+
+        if (!hasNetwork()) {
+            val cachedJson = runCatching { cacheFile.readText() }.getOrNull()
+            if (cachedJson != null) {
+                return parseReleaseList(cachedJson)
+            }
+            return emptyList()
+        }
+
         val connection = openConnection(RELEASES_URL, "application/vnd.github+json,application/json,*/*")
+        val etagFile = File(context.cacheDir, "release_history.etag")
+        if (etagFile.exists() && cacheFile.exists()) {
+            val etag = runCatching { etagFile.readText() }.getOrNull()
+            if (!etag.isNullOrBlank()) {
+                connection.setRequestProperty("If-None-Match", etag)
+            }
+        }
+
         return try {
-            ensureSuccess(connection, "release history")
+            ensureSuccess(connection, "release history", allow304 = true)
+            if (connection.responseCode == 304) {
+                val json = cacheFile.readText()
+                return parseReleaseList(json)
+            }
             val json = connection.inputStream.bufferedReader().use { it.readText() }
+            cacheFile.writeText(json)
+            connection.getHeaderField("ETag")?.let { etagFile.writeText(it) }
             parseReleaseList(json)
         } finally {
             connection.disconnect()
@@ -253,8 +313,25 @@ class AppUpdateRepository(private val context: Context) {
         }
     }
 
-    private fun ensureSuccess(connection: HttpURLConnection, label: String) {
+    private fun isCacheValid(file: File): Boolean {
+        if (!file.exists()) return false
+        val age = System.currentTimeMillis() - file.lastModified()
+        return age < 4 * 60 * 60 * 1000L // 4 hours
+    }
+
+    private fun ensureSuccess(connection: HttpURLConnection, label: String, allow304: Boolean = false) {
+        val remaining = connection.getHeaderField("x-ratelimit-remaining")?.toIntOrNull() ?: -1
+        val reset = connection.getHeaderField("x-ratelimit-reset")?.toLongOrNull() ?: 0L
         val responseCode = connection.responseCode
+
+        if (responseCode == 403 && remaining == 0) {
+            throw RateLimitException(reset * 1000L)
+        }
+
+        if (responseCode == 304 && allow304) {
+            return
+        }
+
         if (responseCode !in 200..299) {
             val responseMessage = connection.responseMessage.orEmpty().ifBlank { "HTTP $responseCode" }
             throw IOException("Could not load $label: $responseMessage")

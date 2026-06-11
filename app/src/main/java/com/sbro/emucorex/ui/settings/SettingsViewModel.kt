@@ -437,7 +437,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
-    fun checkForAppUpdates(showErrors: Boolean = true, showStartupDialog: Boolean = false) {
+    fun checkForAppUpdates(showErrors: Boolean = true, showStartupDialog: Boolean = false, force: Boolean = false) {
         if (_uiState.value.appUpdate.checking) return
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(
@@ -447,7 +447,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 )
             )
             runCatching {
-                appUpdateRepository.checkLatestRelease()
+                appUpdateRepository.checkLatestRelease(force)
             }.onSuccess { release ->
                 val startupDialogVisible = showStartupDialog &&
                     release != null &&
@@ -462,11 +462,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     )
                 )
             }.onFailure { error ->
+                val errorMsg = if (showErrors) {
+                    if (error is com.sbro.emucorex.core.RateLimitException) {
+                        val minutes = ((error.resetTimestampMs - System.currentTimeMillis()) / 60000).coerceAtLeast(1)
+                        getApplication<Application>().getString(com.sbro.emucorex.R.string.settings_updates_rate_limit_error, minutes)
+                    } else {
+                        error.message ?: "Could not check for updates"
+                    }
+                } else null
+
                 _uiState.value = _uiState.value.copy(
                     appUpdate = _uiState.value.appUpdate.copy(
                         checking = false,
                         checkedOnce = true,
-                        errorMessage = if (showErrors) error.message ?: "Could not check for updates" else null,
+                        errorMessage = errorMsg,
                         startupDialogVisible = false
                     )
                 )
@@ -480,7 +489,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         checkForAppUpdates(showErrors = false, showStartupDialog = true)
     }
 
-    fun loadAppReleaseHistory(showErrors: Boolean = true) {
+    fun loadAppReleaseHistory(showErrors: Boolean = true, force: Boolean = false) {
         if (_uiState.value.appUpdate.historyLoading) return
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(
@@ -490,7 +499,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 )
             )
             runCatching {
-                appUpdateRepository.loadReleaseHistory()
+                appUpdateRepository.loadReleaseHistory(force)
             }.onSuccess { releases ->
                 _uiState.value = _uiState.value.copy(
                     appUpdate = _uiState.value.appUpdate.copy(
@@ -500,10 +509,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     )
                 )
             }.onFailure { error ->
+                val errorMsg = if (showErrors) {
+                    if (error is com.sbro.emucorex.core.RateLimitException) {
+                        val minutes = ((error.resetTimestampMs - System.currentTimeMillis()) / 60000).coerceAtLeast(1)
+                        getApplication<Application>().getString(com.sbro.emucorex.R.string.settings_updates_rate_limit_error, minutes)
+                    } else {
+                        error.message ?: "Could not load release history"
+                    }
+                } else null
+
                 _uiState.value = _uiState.value.copy(
                     appUpdate = _uiState.value.appUpdate.copy(
                         historyLoading = false,
-                        historyErrorMessage = if (showErrors) error.message ?: "Could not load release history" else null
+                        historyErrorMessage = errorMsg
                     )
                 )
             }

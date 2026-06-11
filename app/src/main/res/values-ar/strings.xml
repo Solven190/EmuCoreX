@@ -1089,4 +1089,5 @@
     <string name="settings_language_native_japanese">日本語</string>
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
+    <string name="settings_updates_rate_limit_error">التحقق من التحديثات غير متاح مؤقتًا. حاول مرة أخرى خلال %1$d دقيقة.</string>
 </resources>

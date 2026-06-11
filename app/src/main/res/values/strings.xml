@@ -322,6 +322,7 @@
     <string name="settings_updates_dialog_skip">Skip this version</string>
     <string name="settings_updates_history_title">Update history</string>
     <string name="settings_updates_history_body">Browse GitHub releases, release dates, and changelogs.</string>
+    <string name="settings_updates_rate_limit_error">Update check temporarily unavailable. Try again in %1$d minutes.</string>
     <string name="settings_updates_history_loading">Loading release history</string>
     <string name="settings_updates_history_empty">No releases were found.</string>
     <string name="settings_updates_history_error">Could not load release history</string>

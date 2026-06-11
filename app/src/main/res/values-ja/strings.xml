@@ -1089,4 +1089,5 @@
     <string name="settings_language_native_japanese">日本語</string>
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
+    <string name="settings_updates_rate_limit_error">アップデートの確認は一時的に利用できません。%1$d分後にもう一度お試しください。</string>
 </resources>
