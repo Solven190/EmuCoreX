@@ -327,7 +327,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private fun syncNativePerformanceOverlayState(state: EmulationUiState) {
         NativeApp.setPerformanceOverlayMode(
             visible = state.showFps,
-            detailed = state.showFps && state.fpsOverlayMode != FPS_OVERLAY_MODE_SIMPLE
+            detailed = state.showFps && state.fpsOverlayMode != FPS_OVERLAY_MODE_SIMPLE,
+            corner = state.fpsOverlayCorner
         )
     }
 
@@ -3072,7 +3073,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     override fun onCleared() {
-        NativeApp.setPerformanceOverlayMode(visible = false, detailed = false)
+        NativeApp.setPerformanceOverlayMode(visible = false, detailed = false, corner = 0)
         if (_uiState.value.isRunning) {
             EmulatorBridge.resetKeyStatus()
             runCatching {

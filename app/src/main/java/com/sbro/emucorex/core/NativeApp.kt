@@ -45,7 +45,7 @@ object NativeApp {
     @JvmStatic external fun reloadDataRoot(path: String)
     @JvmStatic external fun getGameTitle(path: String): String?
     @JvmStatic external fun setPadVibration(enabled: Boolean)
-    @JvmStatic external fun setPerformanceOverlayMode(visible: Boolean, detailed: Boolean)
+    @JvmStatic external fun setPerformanceOverlayMode(visible: Boolean, detailed: Boolean, corner: Int)
     @JvmStatic external fun getPerformanceMetricsSnapshot(): String?
     @JvmStatic external fun queueGsDump(frames: Int)
     @JvmStatic external fun setPadButton(padIndex: Int, index: Int, range: Int, pressed: Boolean)

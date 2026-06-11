@@ -248,15 +248,26 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_initiali
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_reloadDataRoot(JNIEnv* env, jclass, jstring path) { AndroidRuntime::Instance().ReloadDataRoot(JStringToString(env, path)); }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getGameTitle(JNIEnv* env, jclass, jstring path) { return StringToJString(env, AndroidRuntime::Instance().GetGameTitle(JStringToString(env, path))); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPadVibration(JNIEnv*, jclass, jboolean enabled) { AndroidRuntime::Instance().SetSetting("InputSources", "PadVibration", "bool", enabled == JNI_TRUE ? "true" : "false"); }
-extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPerformanceOverlayMode(JNIEnv*, jclass, jboolean visible, jboolean detailed)
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPerformanceOverlayMode(JNIEnv*, jclass, jboolean visible, jboolean detailed, jint corner)
 {
-	emucorex::android::SetPerformanceMetricsCallbackEnabled(visible == JNI_TRUE, detailed == JNI_TRUE);
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowFPS", "bool", "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowVPS", "bool", "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowSpeed", "bool", "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowCPU", "bool", "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowGPU", "bool", "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowGSStats", "bool", "false");
+	emucorex::android::SetPerformanceMetricsCallbackEnabled(false, false);
+	int osd_pos = 3;
+	switch (corner) {
+		case 0: osd_pos = 1; break; // TopLeft
+		case 1: osd_pos = 3; break; // TopRight
+		case 2: osd_pos = 7; break; // BottomLeft
+		case 3: osd_pos = 9; break; // BottomRight
+	}
+	AndroidRuntime::Instance().BeginSettingsBatch();
+	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowFPS", "bool", visible == JNI_TRUE ? "true" : "false");
+	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowVPS", "bool", visible == JNI_TRUE ? "true" : "false");
+	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowSpeed", "bool", visible == JNI_TRUE ? "true" : "false");
+	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowCPU", "bool", detailed == JNI_TRUE ? "true" : "false");
+	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowGPU", "bool", detailed == JNI_TRUE ? "true" : "false");
+	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowResolution", "bool", detailed == JNI_TRUE ? "true" : "false");
+	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowGSStats", "bool", detailed == JNI_TRUE ? "true" : "false");
+	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdPerformancePos", "int", std::to_string(osd_pos));
+	AndroidRuntime::Instance().EndSettingsBatch();
 }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getPerformanceMetricsSnapshot(JNIEnv* env, jclass)
 {

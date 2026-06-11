@@ -695,36 +695,7 @@ fun EmulationScreen(
             }
         }
 
-        AnimatedVisibility(
-            visible = !uiState.showMenu && uiState.showFps,
-            enter = fadeIn(tween(200)),
-            exit = fadeOut(tween(200)),
-            modifier = Modifier
-                .align(uiState.fpsOverlayCorner.toOverlayAlignment())
-                .padding(
-                    top = if (uiState.fpsOverlayCorner.isTopOverlayCorner()) overlayTopSafeInset + 8.dp else 0.dp,
-                    bottom = if (uiState.fpsOverlayCorner.isBottomOverlayCorner()) {
-                        overlayBottomSafeInset + 8.dp + if (uiState.controlsVisible) 96.dp else 0.dp
-                    } else {
-                        0.dp
-                    },
-                    start = overlayHorizontalSafeInset + 6.dp,
-                    end = overlayHorizontalSafeInset + 6.dp
-                )
-        ) {
-            if (uiState.fpsOverlayMode == FPS_OVERLAY_MODE_SIMPLE) {
-                SimpleFpsCounter(fps = uiState.fps)
-            } else {
-                SystemPerformanceHud(
-                    alignToEnd = uiState.fpsOverlayCorner.isRightOverlayCorner(),
-                    speedPercent = uiState.speedPercent,
-                    text = uiState.performanceOverlayText.ifBlank {
-                        "VPS: ${uiState.fps}"
-                    }
-                )
-            }
-        }
-
+        // Native PCSX2 OSD will handle drawing performance stats natively
         // Toast notifications
         AnimatedVisibility(
             visible = showOverlayShortcut && !uiState.showMenu,
