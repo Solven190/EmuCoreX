@@ -1068,4 +1068,27 @@
     <string name="settings_enable_vu1_clamping">Ограничение VU1 (Clamping)</string>
     <string name="settings_enable_vu1_clamping_desc">Включает ограничение переполнения (clamping) для операций с плавающей запятой VU1. Отключение этой опции значительно уменьшает размер генерируемого кода и повышает производительность.</string>
     <string name="settings_help_enable_vu1_clamping">Управляет тем, генерирует ли рекомпилятор VU1 инструкции ограничения для обработки случаев переполнения IEEE 754. Если опция отключена, создаваемый код ARM64 становится намного меньше и быстрее, так как каждой инструкции VU1 больше не требуется около 72 дополнительных операций ограничения. Большинство игр отлично работают без ограничений. Включайте её только в том случае, если в конкретной игре вы заметили графические артефакты или некорректную геометрию.</string>
+    <string name="settings_updates_history_title">История обновлений</string>
+    <string name="settings_updates_history_body">Просмотр релизов GitHub, дат выпуска и списков изменений.</string>
+    <string name="settings_updates_history_loading">Загрузка истории релизов</string>
+    <string name="settings_updates_history_empty">Релизы не найдены.</string>
+    <string name="settings_updates_history_error">Не удалось загрузить историю релизов</string>
+    <string name="settings_updates_published_label">Опубликовано</string>
+    <string name="settings_updates_parallel_title">Параллельные версии</string>
+    <string name="settings_updates_parallel_body">Android может установить несколько версий EmuCoreX только в том случае, если релиз включает специальный APK, собранный с уникальным именем пакета и меткой приложения, например EmuCoreX (1.0.0). Обычные старые APK заменяют или откатывают текущее приложение.</string>
+    <string name="settings_updates_parallel_package">Отдельный пакет приложения</string>
+    <string name="settings_updates_parallel_download">Скачать</string>
+    <string name="settings_updates_parallel_install">Установить как отдельное приложение</string>
+    <string name="settings_updates_parallel_install_ready">Установить</string>
+    <string name="settings_updates_parallel_downloading">Загрузка отдельного APK %1$d%%</string>
+    <string name="settings_updates_parallel_unavailable">Отдельный APK недоступен для этого релиза.</string>
+    <string name="common_close">Закрыть</string>
+    <string name="settings_language_arabic">Арабский</string>
+    <string name="settings_language_japanese">Японский</string>
+    <string name="settings_language_korean">Корейский</string>
+    <string name="settings_language_turkish">Турецкий</string>
+    <string name="settings_language_native_arabic">العربية</string>
+    <string name="settings_language_native_japanese">日本語</string>
+    <string name="settings_language_native_korean">한국어</string>
+    <string name="settings_language_native_turkish">Türkçe</string>
 </resources>

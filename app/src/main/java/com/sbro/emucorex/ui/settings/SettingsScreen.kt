@@ -2024,10 +2024,13 @@ private fun SettingsContent(
                     AppUpdateTab(
                         state = uiState.appUpdate,
                         onCheckForUpdates = { viewModel.checkForAppUpdates(showErrors = true) },
+                        onLoadReleaseHistory = { viewModel.loadAppReleaseHistory(showErrors = true) },
                         onShowCleanInstallDialog = viewModel::showCleanInstallDialog,
                         onDismissCleanInstallDialog = viewModel::dismissCleanInstallDialog,
                         onDownloadUpdate = { viewModel.downloadAppUpdate() },
-                        onInstallDownloadedUpdate = { viewModel.installDownloadedAppUpdate() }
+                        onInstallDownloadedUpdate = { viewModel.installDownloadedAppUpdate() },
+                        onDownloadParallelRelease = { release -> viewModel.downloadParallelAppRelease(release) },
+                        onInstallDownloadedParallelRelease = { release -> viewModel.installDownloadedParallelAppRelease(release) }
                     )
                 }
 
@@ -3274,7 +3277,11 @@ private fun rememberLanguageOptions(): List<LanguageUiOption> {
             LanguageUiOption("pt", "PT", R.string.settings_language_portuguese, R.string.settings_language_native_portuguese),
             LanguageUiOption("it", "IT", R.string.settings_language_italian, R.string.settings_language_native_italian),
             LanguageUiOption("hi", "HI", R.string.settings_language_hindi, R.string.settings_language_native_hindi),
-            LanguageUiOption("zh", "繁", R.string.settings_language_traditional_chinese, R.string.settings_language_native_traditional_chinese)
+            LanguageUiOption("zh", "繁", R.string.settings_language_traditional_chinese, R.string.settings_language_native_traditional_chinese),
+            LanguageUiOption("ar", "AR", R.string.settings_language_arabic, R.string.settings_language_native_arabic),
+            LanguageUiOption("ja", "JA", R.string.settings_language_japanese, R.string.settings_language_native_japanese),
+            LanguageUiOption("ko", "KO", R.string.settings_language_korean, R.string.settings_language_native_korean),
+            LanguageUiOption("tr", "TR", R.string.settings_language_turkish, R.string.settings_language_native_turkish)
         )
     }
 }
@@ -3292,6 +3299,10 @@ private fun languageLabel(tag: String?): String {
         "it" -> stringResource(R.string.settings_language_italian)
         "hi" -> stringResource(R.string.settings_language_hindi)
         "zh", "zh-TW", "zh-Hant", "zh-Hant-TW" -> stringResource(R.string.settings_language_traditional_chinese)
+        "ar" -> stringResource(R.string.settings_language_arabic)
+        "ja" -> stringResource(R.string.settings_language_japanese)
+        "ko" -> stringResource(R.string.settings_language_korean)
+        "tr" -> stringResource(R.string.settings_language_turkish)
         else -> stringResource(R.string.settings_language_system)
     }
 }

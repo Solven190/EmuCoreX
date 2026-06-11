@@ -1068,4 +1068,27 @@
     <string name="settings_enable_vu1_clamping">Обмеження VU1 (Clamping)</string>
     <string name="settings_enable_vu1_clamping_desc">Вмикає обмеження переповнення (clamping) для операцій із плаваючою комою VU1. Вимкнення цієї опції значно зменшує розмір згенерованого коду та покращує продуктивність.</string>
     <string name="settings_help_enable_vu1_clamping">Керує тим, чи генерує рекомпілятор VU1 інструкції обмеження для обробки випадків переповнення IEEE 754. Якщо опцію вимкнено, згенерований код ARM64 стає набагато меншим і швидшим, оскільки кожна інструкція VU1 більше не потребує близько 72 додаткових операцій обмеження. Більшість ігор чудово працюють без обмежень. Вмикайте її лише тоді, коли помітите графічні артефакти або некоректну геометрію у конкретній грі.</string>
+    <string name="settings_updates_history_title">Історія оновлень</string>
+    <string name="settings_updates_history_body">Переглядайте релізи GitHub, дати випуску та списки змін.</string>
+    <string name="settings_updates_history_loading">Завантаження історії релізів</string>
+    <string name="settings_updates_history_empty">Релізів не знайдено.</string>
+    <string name="settings_updates_history_error">Не вдалося завантажити історію релізів</string>
+    <string name="settings_updates_published_label">Опубліковано</string>
+    <string name="settings_updates_parallel_title">Паралельні версії</string>
+    <string name="settings_updates_parallel_body">Android може встановити кілька версій EmuCoreX лише тоді, коли реліз містить спеціальний APK, зібраний з унікальним іменем пакета та міткою програми, наприклад EmuCoreX (1.0.0). Звичайні старі APK замінюють або відкочують поточну програму.</string>
+    <string name="settings_updates_parallel_package">Окремий пакет програми</string>
+    <string name="settings_updates_parallel_download">Завантажити</string>
+    <string name="settings_updates_parallel_install">Встановити як окрему програму</string>
+    <string name="settings_updates_parallel_install_ready">Встановити</string>
+    <string name="settings_updates_parallel_downloading">Завантаження окремого APK %1$d%%</string>
+    <string name="settings_updates_parallel_unavailable">Окремий APK недоступний для цього релізу.</string>
+    <string name="common_close">Закрити</string>
+    <string name="settings_language_arabic">Арабська</string>
+    <string name="settings_language_japanese">Японська</string>
+    <string name="settings_language_korean">Корейська</string>
+    <string name="settings_language_turkish">Турецька</string>
+    <string name="settings_language_native_arabic">العربية</string>
+    <string name="settings_language_native_japanese">日本語</string>
+    <string name="settings_language_native_korean">한국어</string>
+    <string name="settings_language_native_turkish">Türkçe</string>
 </resources>

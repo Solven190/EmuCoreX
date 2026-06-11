@@ -1068,4 +1068,27 @@
     <string name="settings_enable_vu1_clamping">VU1 箝位 (Clamping)</string>
     <string name="settings_enable_vu1_clamping_desc">启用 VU1 浮点运算的溢出箝位。禁用它能显著减小生成的代码体积并提升性能。</string>
     <string name="settings_help_enable_vu1_clamping">控制 VU1 重编译器是否发出箝位指令以处理 IEEE 754 溢出情况。禁用时，生成的 ARM64 代码会更小、更快，因为每个 VU1 指令不再需要约 72 个额外的箝位操作。大多数游戏在不启用箝位的情况下也能正常运行。仅在特定游戏中遇到图形错误或几何体显示不正确时才启用此选项。</string>
+    <string name="settings_updates_history_title">更新历史</string>
+    <string name="settings_updates_history_body">浏览 GitHub 发布版本、发布日期和更新日志。</string>
+    <string name="settings_updates_history_loading">正在加载发布历史</string>
+    <string name="settings_updates_history_empty">未找到任何发布版本。</string>
+    <string name="settings_updates_history_error">无法加载发布历史</string>
+    <string name="settings_updates_published_label">已发布</string>
+    <string name="settings_updates_parallel_title">并行版本</string>
+    <string name="settings_updates_parallel_body">只有当发布版本包含使用唯一的包名和应用标签（如 EmuCoreX (1.0.0)）构建的特殊 APK 时，Android 才能安装多个 EmuCoreX 版本。普通的旧版 APK 会替换或降级当前应用。</string>
+    <string name="settings_updates_parallel_package">独立应用包</string>
+    <string name="settings_updates_parallel_download">下载</string>
+    <string name="settings_updates_parallel_install">作为独立应用安装</string>
+    <string name="settings_updates_parallel_install_ready">安装</string>
+    <string name="settings_updates_parallel_downloading">正在下载独立 APK %1$d%%</string>
+    <string name="settings_updates_parallel_unavailable">此发布版本不提供独立 APK。</string>
+    <string name="common_close">关闭</string>
+    <string name="settings_language_arabic">阿拉伯语</string>
+    <string name="settings_language_japanese">日语</string>
+    <string name="settings_language_korean">韩语</string>
+    <string name="settings_language_turkish">土耳其语</string>
+    <string name="settings_language_native_arabic">العربية</string>
+    <string name="settings_language_native_japanese">日本語</string>
+    <string name="settings_language_native_korean">한국어</string>
+    <string name="settings_language_native_turkish">Türkçe</string>
 </resources>

@@ -1068,4 +1068,27 @@
     <string name="settings_enable_vu1_clamping">Limitation VU1 (Clamping)</string>
     <string name="settings_enable_vu1_clamping_desc">Active la limitation de dépassement pour les opérations à virgule flottante VU1. Sa désactivation réduit considérablement la taille du code généré et améliore les performances.</string>
     <string name="settings_help_enable_vu1_clamping">Contrôle si le recompilateur VU1 émet des instructions de limitation pour gérer les cas de dépassement IEEE 754. Lorsqu\'il est désactivé, le code ARM64 généré est beaucoup plus petit et plus rapide car chaque instruction VU1 n\'a plus besoin d\'environ 72 opérations de limitation supplémentaires. La plupart des jeux fonctionnent correctement sans limitation. Activez-le uniquement si vous constatez des bugs graphiques ou une géométrie incorrecte dans un jeu spécifique.</string>
+    <string name="settings_updates_history_title">Historique des mises à jour</string>
+    <string name="settings_updates_history_body">Parcourez les versions, les dates de sortie et les journaux des modifications sur GitHub.</string>
+    <string name="settings_updates_history_loading">Chargement de l\'historique des versions</string>
+    <string name="settings_updates_history_empty">Aucune version n\'a été trouvée.</string>
+    <string name="settings_updates_history_error">Impossible de charger l\'historique des versions</string>
+    <string name="settings_updates_published_label">Publié</string>
+    <string name="settings_updates_parallel_title">Versions parallèles</string>
+    <string name="settings_updates_parallel_body">Android ne peut installer plusieurs versions d\'EmuCoreX que si une version inclut un APK spécial compilé avec un nom de package et une étiquette d\'application uniques, tel que EmuCoreX (1.0.0). Les anciens APK normaux remplacent ou rétrogradent l\'application actuelle.</string>
+    <string name="settings_updates_parallel_package">Package d\'application séparé</string>
+    <string name="settings_updates_parallel_download">Télécharger</string>
+    <string name="settings_updates_parallel_install">Installer comme application séparée</string>
+    <string name="settings_updates_parallel_install_ready">Installer</string>
+    <string name="settings_updates_parallel_downloading">Téléchargement de l\'APK séparé %1$d%%</string>
+    <string name="settings_updates_parallel_unavailable">L\'APK séparé n\'est pas disponible pour cette version.</string>
+    <string name="common_close">Fermer</string>
+    <string name="settings_language_arabic">Arabe</string>
+    <string name="settings_language_japanese">Japonais</string>
+    <string name="settings_language_korean">Coréen</string>
+    <string name="settings_language_turkish">Turc</string>
+    <string name="settings_language_native_arabic">العربية</string>
+    <string name="settings_language_native_japanese">日本語</string>
+    <string name="settings_language_native_korean">한국어</string>
+    <string name="settings_language_native_turkish">Türkçe</string>
 </resources>

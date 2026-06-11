@@ -1068,4 +1068,27 @@
     <string name="settings_enable_vu1_clamping">Limitación VU1 (Clamping)</string>
     <string name="settings_enable_vu1_clamping_desc">Activa la limitación de desbordamiento para operaciones de coma flotante VU1. Desactivarlo reduce significativamente el tamaño del código generado y mejora el rendimiento.</string>
     <string name="settings_help_enable_vu1_clamping">Controla si el recompilador VU1 emite instrucciones de limitación para manejar casos de desbordamiento IEEE 754. Cuando está desactivado, el código ARM64 generado es mucho más pequeño y rápido porque cada instrucción VU1 ya no necesita ~72 operaciones de limitación adicionales. La mayoría de los juegos funcionan bien sin limitación. Actívalo solo si ves fallos gráficos o geometría incorrecta en un juego específico.</string>
+    <string name="settings_updates_history_title">Historial de actualizaciones</string>
+    <string name="settings_updates_history_body">Explora los lanzamientos, fechas de publicación y registros de cambios de GitHub.</string>
+    <string name="settings_updates_history_loading">Cargando historial de lanzamientos</string>
+    <string name="settings_updates_history_empty">No se encontraron lanzamientos.</string>
+    <string name="settings_updates_history_error">No se pudo cargar el historial de lanzamientos</string>
+    <string name="settings_updates_published_label">Publicado</string>
+    <string name="settings_updates_parallel_title">Versiones paralelas</string>
+    <string name="settings_updates_parallel_body">Android solo puede instalar varias versiones de EmuCoreX cuando un lanzamiento incluye un APK especial compilado con un nombre de paquete y etiqueta de aplicación únicos, como EmuCoreX (1.0.0). Los APK antiguos normales reemplazan o desactualizan la aplicación actual.</string>
+    <string name="settings_updates_parallel_package">Paquete de aplicación separado</string>
+    <string name="settings_updates_parallel_download">Descargar</string>
+    <string name="settings_updates_parallel_install">Instalar como aplicación separada</string>
+    <string name="settings_updates_parallel_install_ready">Instalar</string>
+    <string name="settings_updates_parallel_downloading">Descargando APK separado %1$d%%</string>
+    <string name="settings_updates_parallel_unavailable">El APK separado no está disponible para este lanzamiento.</string>
+    <string name="common_close">Cerrar</string>
+    <string name="settings_language_arabic">Árabe</string>
+    <string name="settings_language_japanese">Japonés</string>
+    <string name="settings_language_korean">Coreano</string>
+    <string name="settings_language_turkish">Turco</string>
+    <string name="settings_language_native_arabic">العربية</string>
+    <string name="settings_language_native_japanese">日本語</string>
+    <string name="settings_language_native_korean">한국어</string>
+    <string name="settings_language_native_turkish">Türkçe</string>
 </resources>
