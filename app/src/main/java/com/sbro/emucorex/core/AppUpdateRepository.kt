@@ -316,7 +316,7 @@ class AppUpdateRepository(private val context: Context) {
     private fun isCacheValid(file: File): Boolean {
         if (!file.exists()) return false
         val age = System.currentTimeMillis() - file.lastModified()
-        return age < 1 * 60 * 60 * 1000L // 1 hour
+        return age < 15 * 60 * 1000L // 15 minutes
     }
 
     private fun ensureSuccess(connection: HttpURLConnection, label: String, allow304: Boolean = false) {
