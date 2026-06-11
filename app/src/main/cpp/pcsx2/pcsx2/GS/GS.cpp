@@ -141,6 +141,12 @@ static bool OpenGSDevice(GSRendererType renderer, bool clear_state_on_fail, bool
 	}
 
 	bool okay = g_gs_device->Create(vsync_mode, allow_present_throttle);
+#ifdef __ANDROID__
+	if (!okay)
+	{
+		Console.Error("Failed to create GS device");
+	}
+#else
 	if (okay)
 	{
 		okay = ImGuiManager::Initialize();
@@ -151,17 +157,24 @@ static bool OpenGSDevice(GSRendererType renderer, bool clear_state_on_fail, bool
 	{
 		Console.Error("Failed to create GS device");
 	}
+#endif
 
 	if (!okay)
 	{
+#ifndef __ANDROID__
 		ImGuiManager::Shutdown(clear_state_on_fail);
+#endif
 		g_gs_device->Destroy();
 		g_gs_device.reset();
 		Host::ReleaseRenderWindow();
 		return false;
 	}
 
+#ifdef __ANDROID__
+	GSConfig.OsdShowGPU = false;
+#else
 	GSConfig.OsdShowGPU = GSConfig.OsdShowGPU && g_gs_device->SetGPUTimingEnabled(true);
+#endif
 
 	Console.WriteLn(Color_StrongGreen, "%s Graphics Driver Info:", GSDevice::RenderAPIToString(new_api));
 	Console.WriteLn(g_gs_device->GetDriverInfo());
@@ -174,7 +187,9 @@ static void CloseGSDevice(bool clear_state)
 	if (!g_gs_device)
 		return;
 
+#ifndef __ANDROID__
 	ImGuiManager::Shutdown(clear_state);
+#endif
 	g_gs_device->Destroy();
 	g_gs_device.reset();
 }
@@ -539,7 +554,9 @@ bool GSHasDisplayWindow()
 void GSResizeDisplayWindow(u32 width, u32 height, float scale)
 {
 	g_gs_device->ResizeWindow(width, height, scale);
+#ifndef __ANDROID__
 	ImGuiManager::WindowResized();
+#endif
 }
 
 void GSUpdateDisplayWindow()
@@ -550,7 +567,9 @@ void GSUpdateDisplayWindow()
 		return;
 	}
 
+#ifndef __ANDROID__
 	ImGuiManager::WindowResized();
+#endif
 }
 
 void GSSetVSyncMode(GSVSyncMode mode, bool allow_present_throttle)
@@ -783,12 +802,14 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 	if (!g_gs_renderer)
 		return;
 
+#ifndef __ANDROID__
 	// Handle OSD scale changes by pushing a window resize through.
 	if (new_config.OsdScale != old_config.OsdScale)
 		ImGuiManager::RequestScaleUpdate();
 
 	if (new_config.OsdFontPath != old_config.OsdFontPath)
 		ImGuiManager::ReloadFonts();
+#endif
 
 	// Options which need a full teardown/recreate.
 	if (!GSConfig.RestartOptionsAreEqual(old_config))
@@ -863,8 +884,12 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 
 	if (GSConfig.OsdShowGPU != old_config.OsdShowGPU)
 	{
+#ifdef __ANDROID__
+		GSConfig.OsdShowGPU = false;
+#else
 		if (!g_gs_device->SetGPUTimingEnabled(GSConfig.OsdShowGPU))
 			GSConfig.OsdShowGPU = false;
+#endif
 	}
 }
 
@@ -1154,6 +1179,10 @@ static void HotkeyAdjustUpscaleMultiplier(const float delta)
 
 static void HotkeyToggleOSD()
 {
+#ifdef __ANDROID__
+	return;
+#endif
+
 	GSConfig.OsdShowSettings ^= EmuConfig.GS.OsdShowSettings;
 	GSConfig.OsdshowPatches ^= EmuConfig.GS.OsdshowPatches;
 	GSConfig.OsdShowInputs ^= EmuConfig.GS.OsdShowInputs;

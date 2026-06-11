@@ -529,9 +529,11 @@ bool GSRenderer::BeginPresentFrame(bool frame_skip)
 	const GSDevice::PresentResult res = g_gs_device->BeginPresent(frame_skip);
 	if (res == GSDevice::PresentResult::FrameSkipped)
 	{
+#ifndef __ANDROID__
 		// If we're skipping a frame, we need to reset imgui's state, since
 		// we won't be calling EndPresentFrame().
 		ImGuiManager::SkipFrame();
+#endif
 		return false;
 	}
 	else if (res == GSDevice::PresentResult::OK)
@@ -568,13 +570,17 @@ bool GSRenderer::BeginPresentFrame(bool frame_skip)
 
 void GSRenderer::EndPresentFrame()
 {
+#ifndef __ANDROID__
 	if (GSDumpReplayer::IsReplayingDump())
 		GSDumpReplayer::RenderUI();
 
 	FullscreenUI::Render();
 	ImGuiManager::RenderOSD();
+#endif
 	g_gs_device->EndPresent();
+#ifndef __ANDROID__
 	ImGuiManager::NewFrame();
+#endif
 }
 
 void GSRenderer::VSync(u32 field, bool registers_written, bool idle_frame)

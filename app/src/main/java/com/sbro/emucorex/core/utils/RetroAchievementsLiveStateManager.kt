@@ -10,13 +10,22 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+data class RetroAchievementsNotification(
+    val id: Long,
+    val kind: String,
+    val title: String,
+    val message: String,
+    val imagePath: String?
+)
+
 data class RetroAchievementsLiveUiState(
     val isSupported: Boolean = EmulatorBridge.isNativeLoaded,
     val enabled: Boolean = false,
     val hardcorePreference: Boolean = false,
     val hardcoreActive: Boolean = false,
     val user: RetroAchievementsUserState? = null,
-    val game: RetroAchievementsGameState? = null
+    val game: RetroAchievementsGameState? = null,
+    val notification: RetroAchievementsNotification? = null
 )
 
 object RetroAchievementsLiveStateManager {
@@ -122,5 +131,29 @@ object RetroAchievementsLiveStateManager {
 
     internal fun onHardcoreModeChanged(enabled: Boolean) {
         _state.update { it.copy(hardcoreActive = enabled) }
+    }
+
+    internal fun onNotification(kind: String?, title: String?, message: String?, imagePath: String?) {
+        val cleanTitle = title?.trim().orEmpty()
+        val cleanMessage = message?.trim().orEmpty()
+        if (cleanTitle.isBlank() && cleanMessage.isBlank()) return
+
+        _state.update { current ->
+            current.copy(
+                notification = RetroAchievementsNotification(
+                    id = System.nanoTime(),
+                    kind = kind?.trim()?.takeIf { it.isNotBlank() } ?: "info",
+                    title = cleanTitle.ifBlank { "RetroAchievements" },
+                    message = cleanMessage,
+                    imagePath = imagePath?.trim()?.takeIf { it.isNotBlank() }
+                )
+            )
+        }
+    }
+
+    fun dismissNotification(id: Long) {
+        _state.update { current ->
+            if (current.notification?.id == id) current.copy(notification = null) else current
+        }
     }
 }

@@ -417,6 +417,25 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/Speedhacks", "fastCDVD", "bool", fastCdvd.toString()))
                 add(settingOp("EmuCore", "EnableCheats", "bool", enableCheats.toString()))
                 add(settingOp("EmuCore/GS", "HWDownloadMode", "int", hwDownloadMode.toString()))
+                add(settingOp("EmuCore/GS", "OsdShowSpeed", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowFPS", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowVPS", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowResolution", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowGSStats", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowCPU", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowGPU", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowGPUDebug", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowIndicators", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowFrameTimes", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowHardwareInfo", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowVersion", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowSettings", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowInputs", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowVideoCapture", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowInputRec", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdShowTextureReplacements", "bool", "false"))
+                add(settingOp("EmuCore/GS", "OsdMessagesPos", "int", "0"))
+                add(settingOp("EmuCore/GS", "OsdPerformancePos", "int", "0"))
                 add(settingOp("EmuCore/Speedhacks", "EECycleRate", "int", eeCycleRate.toString()))
                 add(settingOp("EmuCore/Speedhacks", "EECycleSkip", "int", eeCycleSkip.toString()))
                 add(settingOp("EmuCore/GS", "FrameLimitEnable", "bool", frameLimitEnabled.toString()))
@@ -805,6 +824,13 @@ object EmulatorBridge {
     suspend fun setRenderer(gpuType: Int) {
         val resolvedRenderer = normalizeRenderer(gpuType)
         settingsCache["EmuCore/GS:Renderer"] = resolvedRenderer.toString()
+        if (isVmActive && runCatching { NativeApp.hasValidVm() }.getOrDefault(false)) {
+            NativeApp.logCrashBreadcrumb(
+                "renderer change deferred until restart renderer=${rendererName(resolvedRenderer)}($resolvedRenderer)"
+            )
+            Log.i(TAG, "Renderer change deferred until restart: ${rendererName(resolvedRenderer)}($resolvedRenderer)")
+            return
+        }
         performRuntimeOps(listOf(rendererOp(resolvedRenderer), settingOp("EmuCore/GS", "Renderer", "int", resolvedRenderer.toString())))
     }
 

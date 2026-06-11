@@ -194,6 +194,56 @@ void DispatchPadVibration(int pad_index, float large_motor, float small_motor)
 		java_vm->DetachCurrentThread();
 }
 
+void DispatchRetroAchievementsNotification(const char* kind, const char* title, const char* message, const char* image_path)
+{
+	JavaVM* java_vm = nullptr;
+	jclass native_app_class = nullptr;
+	{
+		std::lock_guard lock(s_callback_mutex);
+		java_vm = s_java_vm;
+		native_app_class = s_native_app_class;
+	}
+
+	if (!java_vm || !native_app_class)
+		return;
+
+	JNIEnv* env = nullptr;
+	bool did_attach = false;
+	if (java_vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK)
+	{
+		if (java_vm->AttachCurrentThread(&env, nullptr) != JNI_OK || !env)
+			return;
+		did_attach = true;
+	}
+
+	jmethodID method = env->GetStaticMethodID(native_app_class, "onRetroAchievementsNotification",
+		"(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+	if (method)
+	{
+		jstring j_kind = env->NewStringUTF(kind ? kind : "");
+		jstring j_title = env->NewStringUTF(title ? title : "");
+		jstring j_message = env->NewStringUTF(message ? message : "");
+		jstring j_image_path = env->NewStringUTF(image_path ? image_path : "");
+		if (j_kind && j_title && j_message && j_image_path)
+			env->CallStaticVoidMethod(native_app_class, method, j_kind, j_title, j_message, j_image_path);
+
+		if (j_kind)
+			env->DeleteLocalRef(j_kind);
+		if (j_title)
+			env->DeleteLocalRef(j_title);
+		if (j_message)
+			env->DeleteLocalRef(j_message);
+		if (j_image_path)
+			env->DeleteLocalRef(j_image_path);
+	}
+
+	if (env->ExceptionCheck())
+		env->ExceptionClear();
+
+	if (did_attach)
+		java_vm->DetachCurrentThread();
+}
+
 }
 
 int FileSystem::OpenFDFileContent(const char* filename)
@@ -250,26 +300,9 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_reloadDa
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setSystemCaBundlePath(JNIEnv* env, jclass, jstring path) { HTTPDownloaderCurl::SetCABundlePath(JStringToString(env, path)); }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getGameTitle(JNIEnv* env, jclass, jstring path) { return StringToJString(env, AndroidRuntime::Instance().GetGameTitle(JStringToString(env, path))); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPadVibration(JNIEnv*, jclass, jboolean enabled) { AndroidRuntime::Instance().SetSetting("InputSources", "PadVibration", "bool", enabled == JNI_TRUE ? "true" : "false"); }
-extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPerformanceOverlayMode(JNIEnv*, jclass, jboolean visible, jboolean detailed, jint corner)
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPerformanceMetricsEnabled(JNIEnv*, jclass, jboolean visible, jboolean detailed)
 {
-	emucorex::android::SetPerformanceMetricsCallbackEnabled(false, false);
-	int osd_pos = 3;
-	switch (corner) {
-		case 0: osd_pos = 1; break; // TopLeft
-		case 1: osd_pos = 3; break; // TopRight
-		case 2: osd_pos = 7; break; // BottomLeft
-		case 3: osd_pos = 9; break; // BottomRight
-	}
-	AndroidRuntime::Instance().BeginSettingsBatch();
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowFPS", "bool", visible == JNI_TRUE ? "true" : "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowVPS", "bool", visible == JNI_TRUE ? "true" : "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowSpeed", "bool", visible == JNI_TRUE ? "true" : "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowCPU", "bool", detailed == JNI_TRUE ? "true" : "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowGPU", "bool", detailed == JNI_TRUE ? "true" : "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowResolution", "bool", detailed == JNI_TRUE ? "true" : "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdShowGSStats", "bool", detailed == JNI_TRUE ? "true" : "false");
-	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "OsdPerformancePos", "int", std::to_string(osd_pos));
-	AndroidRuntime::Instance().EndSettingsBatch();
+	emucorex::android::SetPerformanceMetricsCallbackEnabled(visible == JNI_TRUE, detailed == JNI_TRUE);
 }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getPerformanceMetricsSnapshot(JNIEnv* env, jclass)
 {

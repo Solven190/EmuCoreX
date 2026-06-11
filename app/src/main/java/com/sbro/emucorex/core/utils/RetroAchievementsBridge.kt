@@ -100,6 +100,11 @@ object RetroAchievementsBridge {
     }
 
     @JvmStatic
+    fun notifyNotification(kind: String?, title: String?, message: String?, imagePath: String?) {
+        RetroAchievementsLiveStateManager.onNotification(kind, title, message, imagePath)
+    }
+
+    @JvmStatic
     fun notifySettingsChanged(section: String, key: String, value: String) {
         val context = NativeApp.getContext() ?: return
         val prefs = AppPreferences(context)

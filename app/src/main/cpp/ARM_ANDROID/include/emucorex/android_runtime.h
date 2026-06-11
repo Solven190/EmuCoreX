@@ -107,6 +107,7 @@ jstring StringToJString(JNIEnv* env, const std::string& value);
 void ConfigureNativeAppCallbacks(JNIEnv* env, jclass native_app_class);
 JavaVM* GetJavaVM();
 void DispatchPadVibration(int pad_index, float large_motor, float small_motor);
+void DispatchRetroAchievementsNotification(const char* kind, const char* title, const char* message, const char* image_path);
 void SetPerformanceMetricsCallbackEnabled(bool enabled, bool detailed);
 std::string GetPerformanceMetricsSnapshot();
 void RequestCurrentVmStop();

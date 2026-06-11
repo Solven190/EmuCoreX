@@ -14,6 +14,7 @@ import java.util.Base64
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 import androidx.core.net.toUri
+import com.sbro.emucorex.core.utils.RetroAchievementsBridge
 
 object NativeApp {
 
@@ -46,7 +47,7 @@ object NativeApp {
     @JvmStatic external fun setSystemCaBundlePath(path: String)
     @JvmStatic external fun getGameTitle(path: String): String?
     @JvmStatic external fun setPadVibration(enabled: Boolean)
-    @JvmStatic external fun setPerformanceOverlayMode(visible: Boolean, detailed: Boolean, corner: Int)
+    @JvmStatic external fun setPerformanceMetricsEnabled(visible: Boolean, detailed: Boolean)
     @JvmStatic external fun getPerformanceMetricsSnapshot(): String?
     @JvmStatic external fun queueGsDump(frames: Int)
     @JvmStatic external fun setPadButton(padIndex: Int, index: Int, range: Int, pressed: Boolean)
@@ -131,6 +132,11 @@ object NativeApp {
     @JvmStatic
     fun onPadVibration(index: Int, largeMotor: Float, smallMotor: Float) {
         GamepadManager.onPadVibration(index, largeMotor, smallMotor)
+    }
+
+    @JvmStatic
+    fun onRetroAchievementsNotification(kind: String?, title: String?, message: String?, imagePath: String?) {
+        RetroAchievementsBridge.notifyNotification(kind, title, message, imagePath)
     }
 
     @JvmStatic

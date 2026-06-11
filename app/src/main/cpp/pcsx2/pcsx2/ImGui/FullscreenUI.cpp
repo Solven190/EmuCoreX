@@ -484,6 +484,10 @@ void FullscreenUI::PauseForMenuOpen(bool set_pause_menu_open)
 
 void FullscreenUI::OpenPauseMenu()
 {
+#ifdef __ANDROID__
+	return;
+#endif
+
 	if (!VMManager::HasValidVM())
 		return;
 
@@ -567,6 +571,10 @@ void FullscreenUI::Shutdown(bool clear_state)
 
 void FullscreenUI::Render()
 {
+#ifdef __ANDROID__
+	return;
+#endif
+
 	if (!s_initialized)
 		return;
 

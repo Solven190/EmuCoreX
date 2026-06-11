@@ -4,11 +4,9 @@
 #include "emucorex/android_runtime.h"
 
 #include "pcsx2/Achievements.h"
+#include "pcsx2/Counters.h"
 #include "pcsx2/GS/GS.h"
 #include "pcsx2/Host.h"
-#include "pcsx2/ImGui/FullscreenUI.h"
-#include "pcsx2/ImGui/ImGuiFullscreen.h"
-#include "pcsx2/ImGui/ImGuiManager.h"
 #include "pcsx2/Input/InputManager.h"
 #include "pcsx2/MTGS.h"
 #include "pcsx2/PerformanceMetrics.h"
@@ -33,9 +31,27 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <string_view>
 #include <thread>
+#include <vector>
 
 extern void QueryAndNotifyAchievementsState();
+
+namespace Host
+{
+using FileSelectorCallback = std::function<void(const std::string& path)>;
+using FileSelectorFilters = std::vector<std::string>;
+void BeginTextInput();
+void EndTextInput();
+void RequestExitApplication(bool allow_confirm);
+void RequestExitBigPicture();
+void OnCoverDownloaderOpenRequested();
+void OnCreateMemoryCardOpenRequested();
+bool LocaleCircleConfirm();
+bool ShouldPreferHostFileSelector();
+void OpenHostFileSelectorAsync(std::string_view title, bool select_directory, FileSelectorCallback callback,
+	FileSelectorFilters filters = FileSelectorFilters(), std::string_view initial_directory = std::string_view());
+}
 
 namespace
 {
@@ -92,6 +108,20 @@ void AppendProcessorStat(std::string& text, const char* label, double usage, dou
 		AppendFormat(text, "100%% (%.2fms)", time);
 	else
 		AppendFormat(text, "%.1f%% (%.2fms)", usage, time);
+}
+
+const char* GetInternalFpsMethodSuffix()
+{
+	switch (PerformanceMetrics::GetInternalFPSMethod())
+	{
+		case PerformanceMetrics::InternalFPSMethod::GSPrivilegedRegister:
+			return " [P]";
+		case PerformanceMetrics::InternalFPSMethod::DISPFBBlit:
+			return " [B]";
+		case PerformanceMetrics::InternalFPSMethod::None:
+		default:
+			return "";
+	}
 }
 
 std::string GetFirstStatsSegment(const SmallStringBase& stats)
@@ -341,19 +371,19 @@ void Host::OnPerformanceMetricsUpdated()
 
 	std::string overlay;
 	std::string line;
-	AppendFormat(line, "FPS %.2f SPD %.0f%%", display_fps, std::round(speed));
+	if (internal_fps_valid)
+		AppendFormat(line, "FPS: %.2f%s | VPS: %.2f", display_fps, GetInternalFpsMethodSuffix(), vps);
+	else
+		AppendFormat(line, "FPS: N/A | VPS: %.2f", vps);
 	AppendLine(overlay, line);
 
 	line.clear();
-	AppendProcessorStat(line, "EE: ", PerformanceMetrics::GetCPUThreadUsage(), PerformanceMetrics::GetCPUThreadAverageTime());
-	AppendLine(overlay, line);
-
-	line.clear();
-	AppendProcessorStat(line, "VU: ", PerformanceMetrics::GetVUThreadUsage(), PerformanceMetrics::GetVUThreadAverageTime());
-	AppendLine(overlay, line);
-
-	line.clear();
-	AppendProcessorStat(line, "GS: ", PerformanceMetrics::GetGSThreadUsage(), PerformanceMetrics::GetGSThreadAverageTime());
+	AppendFormat(line, "Speed: %.0f%%", std::round(speed));
+	const float target_speed = VMManager::GetTargetSpeed();
+	if (target_speed == 0.0f)
+		line.append(" | Target: Max");
+	else
+		AppendFormat(line, " | Target: %.0f%%", target_speed * 100.0f);
 	AppendLine(overlay, line);
 
 	if (s_performance_metrics_detailed.load(std::memory_order_relaxed))
@@ -365,19 +395,51 @@ void Host::OnPerformanceMetricsUpdated()
 
 		std::string renderer = GetFirstStatsSegment(gs_stats_line);
 		std::string memory = GetFirstStatsSegment(gs_memory_stats_line);
-		if (!renderer.empty() && !memory.empty())
-		{
-			renderer.append(" | ");
-			renderer.append(memory);
+		if (!renderer.empty())
 			AppendLine(overlay, renderer);
-		}
-		else if (!renderer.empty())
-		{
-			AppendLine(overlay, renderer);
-		}
-		else if (!memory.empty())
-		{
+		if (!memory.empty())
 			AppendLine(overlay, memory);
+
+		line.clear();
+		AppendFormat(line, "Frame: %.2f / %.2f / %.2f ms",
+			PerformanceMetrics::GetMinimumFrameTime(),
+			PerformanceMetrics::GetAverageFrameTime(),
+			PerformanceMetrics::GetMaximumFrameTime());
+		AppendLine(overlay, line);
+
+		line.clear();
+		AppendFormat(line, "Queue: %d", std::max(MTGS::GetCurrentVsyncQueueSize() - 1, 0));
+		AppendLine(overlay, line);
+
+		int internal_width = 0;
+		int internal_height = 0;
+		GSgetInternalResolution(&internal_width, &internal_height);
+		if (internal_width > 0 && internal_height > 0)
+		{
+			line.clear();
+			AppendFormat(line, "Res: %dx%d %s %s", internal_width, internal_height, ReportVideoMode(), ReportInterlaceMode());
+			AppendLine(overlay, line);
+		}
+
+		line.clear();
+		AppendProcessorStat(line, "EE: ", PerformanceMetrics::GetCPUThreadUsage(), PerformanceMetrics::GetCPUThreadAverageTime());
+		AppendLine(overlay, line);
+
+		line.clear();
+		AppendProcessorStat(line, "GS: ", PerformanceMetrics::GetGSThreadUsage(), PerformanceMetrics::GetGSThreadAverageTime());
+		AppendLine(overlay, line);
+
+		line.clear();
+		AppendProcessorStat(line, "VU: ", PerformanceMetrics::GetVUThreadUsage(), PerformanceMetrics::GetVUThreadAverageTime());
+		AppendLine(overlay, line);
+
+		const u32 gs_sw_threads = PerformanceMetrics::GetGSSWThreadCount();
+		for (u32 thread = 0; thread < gs_sw_threads; thread++)
+		{
+			line.clear();
+			AppendFormat(line, "SW-%u: ", thread);
+			AppendProcessorStat(line, "", PerformanceMetrics::GetGSSWThreadUsage(thread), PerformanceMetrics::GetGSSWThreadAverageTime(thread));
+			AppendLine(overlay, line);
 		}
 	}
 

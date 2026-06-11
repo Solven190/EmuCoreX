@@ -36,6 +36,10 @@
 #include "rc_client.h"
 #include "rc_consoles.h"
 
+#if defined(__ANDROID__)
+#include "emucorex/android_runtime.h"
+#endif
+
 #include <algorithm>
 #include <array>
 #include <cstdarg>
@@ -85,6 +89,14 @@ namespace Achievements
 
 	namespace
 	{
+#if defined(__ANDROID__)
+		void AddAndroidNotification(std::string kind, std::string title, std::string message, std::string image_path)
+		{
+			emucorex::android::DispatchRetroAchievementsNotification(
+				kind.c_str(), title.c_str(), message.c_str(), image_path.c_str());
+		}
+#endif
+
 		struct LoginWithPasswordParameters
 		{
 			const char* username;
@@ -276,20 +288,28 @@ std::unique_lock<std::recursive_mutex> Achievements::GetLock()
 
 void Achievements::BeginLoadingScreen(const char* text, bool* was_running_idle)
 {
+#if !defined(__ANDROID__)
 	MTGS::RunOnGSThread(&ImGuiManager::InitializeFullscreenUI);
 	ImGuiFullscreen::OpenProgressDialog("achievements_loading", text, 0, 0, 0);
+#endif
 }
 
 void Achievements::EndLoadingScreen(bool was_running_idle)
 {
+#if !defined(__ANDROID__)
 	ImGuiFullscreen::CloseProgressDialog("achievements_loading");
+#endif
 }
 
 void Achievements::ReportError(const std::string_view sv)
 {
 	std::string error = fmt::format("Achievements error: {}", sv);
 	Console.Error(error);
+#if defined(__ANDROID__)
+	AddAndroidNotification("error", TRANSLATE_STR("Achievements", "Achievements Error"), std::move(error), s_game_icon);
+#else
 	Host::AddOSDMessage(std::move(error), Host::OSD_CRITICAL_ERROR_DURATION);
+#endif
 }
 
 template <typename... T>
@@ -1105,7 +1125,9 @@ void Achievements::ClientLoadGameCallback(int result, const char* error_message,
 	s_game_icon_url = info->badge_url;
 
 	// ensure fullscreen UI is ready for notifications
+#if !defined(__ANDROID__)
 	MTGS::RunOnGSThread(&ImGuiManager::InitializeFullscreenUI);
+#endif
 
 	if (const std::string_view badge_name = info->badge_name; !badge_name.empty())
 	{
@@ -1181,6 +1203,9 @@ void Achievements::DisplayAchievementSummary()
 			summary = TRANSLATE_STR("Achievements", "This game has no achievements.");
 		}
 
+#if defined(__ANDROID__)
+		AddAndroidNotification("summary", std::move(title), std::move(summary), s_game_icon);
+#else
 		MTGS::RunOnGSThread([title = std::move(title), summary = std::move(summary), icon = s_game_icon]() {
 			if (ImGuiManager::InitializeFullscreenUI())
 			{
@@ -1188,6 +1213,7 @@ void Achievements::DisplayAchievementSummary()
 					"achievement_summary", ACHIEVEMENT_SUMMARY_NOTIFICATION_TIME, std::move(title), std::move(summary), std::move(icon));
 			}
 		});
+#endif
 	}
 
 	if (EmuConfig.Achievements.SoundEffects && EmuConfig.Achievements.InfoSound)
@@ -1200,6 +1226,13 @@ void Achievements::DisplayAchievementSummary()
 
 void Achievements::DisplayHardcoreDeferredMessage()
 {
+#if defined(__ANDROID__)
+	if (VMManager::HasValidVM() && EmuConfig.Achievements.HardcoreMode && !s_hardcore_mode)
+	{
+		AddAndroidNotification("hardcore", TRANSLATE_STR("Achievements", "Hardcore Mode"),
+			TRANSLATE_STR("Achievements", "Hardcore mode will be enabled on system reset."), s_game_icon);
+	}
+#else
 	MTGS::RunOnGSThread([]() {
 		if (VMManager::HasValidVM() && EmuConfig.Achievements.HardcoreMode && !s_hardcore_mode &&
 			ImGuiManager::InitializeFullscreenUI())
@@ -1209,6 +1242,7 @@ void Achievements::DisplayHardcoreDeferredMessage()
 				Host::OSD_WARNING_DURATION);
 		}
 	});
+#endif
 }
 
 void Achievements::HandleResetEvent(const rc_client_event_t* event)
@@ -1239,11 +1273,15 @@ void Achievements::HandleUnlockEvent(const rc_client_event_t* event)
 
 		std::string badge_path = GetAchievementBadgePath(cheevo, cheevo->state);
 
+#if defined(__ANDROID__)
+		AddAndroidNotification("unlock", std::move(title), std::string(cheevo->description), std::move(badge_path));
+#else
 		MTGS::RunOnGSThread(
 			[title = std::move(title), summary = std::string(cheevo->description), badge_path = std::move(badge_path), id = cheevo->id]() {
 				ImGuiFullscreen::AddNotification(fmt::format("achievement_unlock_{}", id), EmuConfig.Achievements.NotificationsDuration,
 					std::move(title), std::move(summary), std::move(badge_path));
 			});
+#endif
 	}
 
 	if (EmuConfig.Achievements.SoundEffects && EmuConfig.Achievements.UnlockSound)
@@ -1268,6 +1306,9 @@ void Achievements::HandleGameCompleteEvent(const rc_client_event_t* event)
 				s_game_summary.num_unlocked_achievements),
 			TRANSLATE_PLURAL_STR("Achievements", "%n points", "Mastery popup", s_game_summary.points_unlocked));
 
+#if defined(__ANDROID__)
+		AddAndroidNotification("mastery", std::move(title), std::move(message), s_game_icon);
+#else
 		MTGS::RunOnGSThread([title = std::move(title), message = std::move(message), icon = s_game_icon]() {
 			if (ImGuiManager::InitializeFullscreenUI())
 			{
@@ -1275,6 +1316,7 @@ void Achievements::HandleGameCompleteEvent(const rc_client_event_t* event)
 					"achievement_mastery", GAME_COMPLETE_NOTIFICATION_TIME, std::move(title), std::move(message), std::move(icon));
 			}
 		});
+#endif
 	}
 }
 
@@ -1295,6 +1337,9 @@ void Achievements::HandleSubsetCompleteEvent(const rc_client_event_t* event)
 
 		std::string badge_path = GetSubsetBadgePath(subset);
 
+#if defined(__ANDROID__)
+		AddAndroidNotification("mastery", std::move(title), std::move(message), std::move(badge_path));
+#else
 		MTGS::RunOnGSThread([title = std::move(title), message = std::move(message), badge_path = std::move(badge_path)]() {
 			if (ImGuiManager::InitializeFullscreenUI())
 			{
@@ -1302,6 +1347,7 @@ void Achievements::HandleSubsetCompleteEvent(const rc_client_event_t* event)
 					"achievement_subset_mastery", GAME_COMPLETE_NOTIFICATION_TIME, std::move(title), std::move(message), std::move(badge_path));
 			}
 		});
+#endif
 	}
 }
 
@@ -1314,6 +1360,9 @@ void Achievements::HandleLeaderboardStartedEvent(const rc_client_event_t* event)
 		std::string title = event->leaderboard->title;
 		std::string message = TRANSLATE_STR("Achievements", "Leaderboard attempt started.");
 
+#if defined(__ANDROID__)
+		AddAndroidNotification("leaderboard", std::move(title), std::move(message), s_game_icon);
+#else
 		MTGS::RunOnGSThread([title = std::move(title), message = std::move(message), icon = s_game_icon, id = event->leaderboard->id]() {
 			if (ImGuiManager::InitializeFullscreenUI())
 			{
@@ -1321,6 +1370,7 @@ void Achievements::HandleLeaderboardStartedEvent(const rc_client_event_t* event)
 					std::move(message), std::move(icon));
 			}
 		});
+#endif
 	}
 }
 
@@ -1333,6 +1383,9 @@ void Achievements::HandleLeaderboardFailedEvent(const rc_client_event_t* event)
 		std::string title = event->leaderboard->title;
 		std::string message = TRANSLATE_STR("Achievements", "Leaderboard attempt failed.");
 
+#if defined(__ANDROID__)
+		AddAndroidNotification("leaderboard", std::move(title), std::move(message), s_game_icon);
+#else
 		MTGS::RunOnGSThread([title = std::move(title), message = std::move(message), icon = s_game_icon, id = event->leaderboard->id]() {
 			if (ImGuiManager::InitializeFullscreenUI())
 			{
@@ -1340,6 +1393,7 @@ void Achievements::HandleLeaderboardFailedEvent(const rc_client_event_t* event)
 					std::move(message), std::move(icon));
 			}
 		});
+#endif
 	}
 }
 
@@ -1362,6 +1416,9 @@ void Achievements::HandleLeaderboardSubmittedEvent(const rc_client_event_t* even
 				event->leaderboard->tracker_value ? event->leaderboard->tracker_value : "Unknown",
 				EmuConfig.Achievements.SpectatorMode ? std::string_view() : TRANSLATE_SV("Achievements", " (Submitting)"));
 
+#if defined(__ANDROID__)
+		AddAndroidNotification("leaderboard", std::move(title), std::move(message), s_game_icon);
+#else
 		MTGS::RunOnGSThread([title = std::move(title), message = std::move(message), icon = s_game_icon, id = event->leaderboard->id]() {
 			if (ImGuiManager::InitializeFullscreenUI())
 			{
@@ -1369,6 +1426,7 @@ void Achievements::HandleLeaderboardSubmittedEvent(const rc_client_event_t* even
 					std::move(title), std::move(message), std::move(icon));
 			}
 		});
+#endif
 	}
 
 	if (EmuConfig.Achievements.SoundEffects && EmuConfig.Achievements.LBSubmitSound)
@@ -1399,6 +1457,9 @@ void Achievements::HandleLeaderboardScoreboardEvent(const rc_client_event_t* eve
 				event->leaderboard_scoreboard->submitted_score, event->leaderboard_scoreboard->best_score),
 			event->leaderboard_scoreboard->new_rank, event->leaderboard_scoreboard->num_entries);
 
+#if defined(__ANDROID__)
+		AddAndroidNotification("leaderboard", std::move(title), std::move(message), s_game_icon);
+#else
 		MTGS::RunOnGSThread([title = std::move(title), message = std::move(message), icon = s_game_icon, id = event->leaderboard->id]() {
 			if (ImGuiManager::InitializeFullscreenUI())
 			{
@@ -1406,6 +1467,7 @@ void Achievements::HandleLeaderboardScoreboardEvent(const rc_client_event_t* eve
 					std::move(title), std::move(message), std::move(icon));
 			}
 		});
+#endif
 	}
 }
 
@@ -1519,13 +1581,21 @@ void Achievements::HandleServerErrorEvent(const rc_client_event_t* event)
 		event->server_error->api ? event->server_error->api : "UNKNOWN",
 		event->server_error->error_message ? event->server_error->error_message : "UNKNOWN");
 	Console.Error("Achievements: %s", message.c_str());
+#if defined(__ANDROID__)
+	AddAndroidNotification("error", TRANSLATE_STR("Achievements", "Achievements Error"), std::move(message), s_game_icon);
+#else
 	Host::AddOSDMessage(std::move(message), Host::OSD_ERROR_DURATION);
+#endif
 }
 
 void Achievements::HandleServerDisconnectedEvent(const rc_client_event_t* event)
 {
 	Console.Warning("Achievements: Server disconnected.");
 
+#if defined(__ANDROID__)
+	AddAndroidNotification("error", TRANSLATE_STR("Achievements", "Achievements Disconnected"),
+		TRANSLATE_STR("Achievements", "An unlock request could not be completed. We will keep retrying to submit this request."), s_game_icon);
+#else
 	MTGS::RunOnGSThread([]() {
 		if (ImGuiManager::InitializeFullscreenUI())
 		{
@@ -1533,12 +1603,17 @@ void Achievements::HandleServerDisconnectedEvent(const rc_client_event_t* event)
 				TRANSLATE_STR("Achievements", "An unlock request could not be completed. We will keep retrying to submit this request."), s_game_icon);
 		}
 	});
+#endif
 }
 
 void Achievements::HandleServerReconnectedEvent(const rc_client_event_t* event)
 {
 	Console.Warning("Achievements: Server reconnected.");
 
+#if defined(__ANDROID__)
+	AddAndroidNotification("info", TRANSLATE_STR("Achievements", "Achievements Reconnected"),
+		TRANSLATE_STR("Achievements", "All pending unlock requests have completed."), s_game_icon);
+#else
 	MTGS::RunOnGSThread([]() {
 		if (ImGuiManager::InitializeFullscreenUI())
 		{
@@ -1546,6 +1621,7 @@ void Achievements::HandleServerReconnectedEvent(const rc_client_event_t* event)
 				TRANSLATE_STR("Achievements", "All pending unlock requests have completed."), s_game_icon);
 		}
 	});
+#endif
 }
 
 
@@ -1644,6 +1720,12 @@ void Achievements::SetHardcoreMode(bool enabled, bool force_display_message)
 
 	if (VMManager::HasValidVM() && (HasActiveGame() || force_display_message))
 	{
+#if defined(__ANDROID__)
+		AddAndroidNotification("hardcore", TRANSLATE_STR("Achievements", "Hardcore Mode"),
+			enabled ? TRANSLATE_STR("Achievements", "Hardcore mode is now enabled.") :
+					  TRANSLATE_STR("Achievements", "Hardcore mode is now disabled."),
+			s_game_icon);
+#else
 		MTGS::RunOnGSThread([enabled]() {
 			if (ImGuiManager::InitializeFullscreenUI())
 			{
@@ -1653,6 +1735,7 @@ void Achievements::SetHardcoreMode(bool enabled, bool force_display_message)
 					Host::OSD_INFO_DURATION);
 			}
 		});
+#endif
 	}
 
 	rc_client_set_hardcore_enabled(s_client, enabled);
@@ -2227,6 +2310,9 @@ void Achievements::ShowLoginSuccess(const rc_client_t* client)
 		std::string summary = fmt::format(TRANSLATE_FS("Achievements", "Score: {0} pts (softcore: {1} pts)\nUnread messages: {2}"), user->score,
 			user->score_softcore, user->num_unread_messages);
 
+#if defined(__ANDROID__)
+		AddAndroidNotification("login", std::move(title), std::move(summary), std::move(badge_path));
+#else
 		MTGS::RunOnGSThread([title = std::move(title), summary = std::move(summary), badge_path = std::move(badge_path)]() {
 			if (ImGuiManager::InitializeFullscreenUI())
 			{
@@ -2234,6 +2320,7 @@ void Achievements::ShowLoginSuccess(const rc_client_t* client)
 					"achievements_login", LOGIN_NOTIFICATION_TIME, std::move(title), std::move(summary), std::move(badge_path));
 			}
 		});
+#endif
 	}
 }
 
@@ -3904,8 +3991,12 @@ void Achievements::LeaderboardFetchNearbyCallback(
 
 	if (result != RC_OK)
 	{
+#if defined(__ANDROID__)
+		AddAndroidNotification("error", TRANSLATE("Achievements", "Leaderboard Download Failed"), error_message ? error_message : "", s_game_icon);
+#else
 		ImGuiFullscreen::AddNotification("leaderboard_dl_fail", Host::OSD_INFO_DURATION,
 			TRANSLATE("Achievements", "Leaderboard Download Failed"), error_message, s_game_icon);
+#endif
 		CloseLeaderboard();
 		return;
 	}
@@ -3924,8 +4015,12 @@ void Achievements::LeaderboardFetchAllCallback(
 
 	if (result != RC_OK)
 	{
+#if defined(__ANDROID__)
+		AddAndroidNotification("error", TRANSLATE("Achievements", "Leaderboard Download Failed"), error_message ? error_message : "", s_game_icon);
+#else
 		ImGuiFullscreen::AddNotification("leaderboard_dl_fail", Host::OSD_INFO_DURATION,
 			TRANSLATE("Achievements", "Leaderboard Download Failed"), error_message, s_game_icon);
+#endif
 		CloseLeaderboard();
 		return;
 	}

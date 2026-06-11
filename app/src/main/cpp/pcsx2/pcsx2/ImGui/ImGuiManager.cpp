@@ -131,6 +131,10 @@ void ImGuiManager::SetFonts(std::vector<FontInfo> info)
 
 bool ImGuiManager::Initialize()
 {
+#ifdef __ANDROID__
+	return false;
+#endif
+
 	if (!LoadFontData())
 	{
 		pxFailRel("Failed to load font data");
@@ -188,12 +192,23 @@ bool ImGuiManager::Initialize()
 
 bool ImGuiManager::InitializeFullscreenUI()
 {
+#ifdef __ANDROID__
+	s_fullscreen_ui_was_initialized = false;
+	return false;
+#endif
+
 	s_fullscreen_ui_was_initialized = !ImGui::GetCurrentContext() || FullscreenUI::Initialize();
 	return s_fullscreen_ui_was_initialized;
 }
 
 void ImGuiManager::Shutdown(bool clear_state)
 {
+#ifdef __ANDROID__
+	if (clear_state)
+		s_fullscreen_ui_was_initialized = false;
+	return;
+#endif
+
 	DestroySoftwareCursorTextures();
 
 	FullscreenUI::Shutdown(clear_state);
@@ -761,7 +776,12 @@ static std::mutex s_osd_messages_lock;
 
 void Host::AddOSDMessage(std::string message, float duration /*= 2.0f*/)
 {
+#if defined(__ANDROID__) || defined(EMUCOREX_ANDROID_JIT)
+	Console.WriteLn(Color_StrongGreen, fmt::format("OSD ignored on Android: {}", message));
+	return;
+#else
 	AddKeyedOSDMessage(std::string(), std::move(message), duration);
+#endif
 }
 
 void Host::AddKeyedOSDMessage(std::string key, std::string message, float duration /* = 2.0f */)
@@ -771,7 +791,7 @@ void Host::AddKeyedOSDMessage(std::string key, std::string message, float durati
 	else
 		Console.WriteLn(Color_StrongGreen, fmt::format("OSD: {}", message));
 
-#if defined(EMUCOREX_ANDROID_JIT)
+#if defined(__ANDROID__) || defined(EMUCOREX_ANDROID_JIT)
 	return;
 #endif
 
@@ -797,7 +817,7 @@ void Host::AddIconOSDMessage(std::string key, const char* icon, const std::strin
 	else
 		Console.WriteLn(Color_StrongGreen, fmt::format("OSD: {}", message));
 
-#if defined(EMUCOREX_ANDROID_JIT)
+#if defined(__ANDROID__) || defined(EMUCOREX_ANDROID_JIT)
 	return;
 #endif
 
@@ -818,6 +838,10 @@ void Host::AddIconOSDMessage(std::string key, const char* icon, const std::strin
 
 void Host::RemoveKeyedOSDMessage(std::string key)
 {
+#if defined(__ANDROID__) || defined(EMUCOREX_ANDROID_JIT)
+	return;
+#endif
+
 	OSDMessage msg = {};
 	msg.key = std::move(key);
 	msg.duration = 0.0f;
@@ -1020,6 +1044,10 @@ void ImGuiManager::DrawOSDMessages(Common::Timer::Value current_time)
 
 void ImGuiManager::RenderOSD()
 {
+#ifdef __ANDROID__
+	return;
+#endif
+
 	// acquire for IO.MousePos.
 	std::atomic_thread_fence(std::memory_order_acquire);
 

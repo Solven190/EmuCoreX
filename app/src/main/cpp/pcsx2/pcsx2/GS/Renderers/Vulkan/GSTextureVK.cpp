@@ -194,7 +194,21 @@ std::unique_ptr<GSTextureVK> GSTextureVK::Adopt(
 
 void GSTextureVK::Destroy(bool defer)
 {
-	GSDeviceVK::GetInstance()->UnbindTexture(this);
+	GSDeviceVK* dev = GSDeviceVK::GetInstance();
+
+	// Device may already be destroyed during a renderer switch (GSreopen).
+	// In that case we can't defer — all Vulkan handles will be freed with the device,
+	// so just mark our members as null and return safely.
+	if (!dev)
+	{
+		m_view = VK_NULL_HANDLE;
+		m_image = VK_NULL_HANDLE;
+		m_allocation = VK_NULL_HANDLE;
+		m_framebuffers.clear();
+		return;
+	}
+
+	dev->UnbindTexture(this);
 
 	if (m_type == Type::RenderTarget || m_type == Type::DepthStencil)
 	{
@@ -213,9 +227,9 @@ void GSTextureVK::Destroy(bool defer)
 			}
 
 			if (defer)
-				GSDeviceVK::GetInstance()->DeferFramebufferDestruction(fb);
+				dev->DeferFramebufferDestruction(fb);
 			else
-				vkDestroyFramebuffer(GSDeviceVK::GetInstance()->GetDevice(), fb, nullptr);
+				vkDestroyFramebuffer(dev->GetDevice(), fb, nullptr);
 		}
 		m_framebuffers.clear();
 	}
@@ -223,9 +237,9 @@ void GSTextureVK::Destroy(bool defer)
 	if (m_view != VK_NULL_HANDLE)
 	{
 		if (defer)
-			GSDeviceVK::GetInstance()->DeferImageViewDestruction(m_view);
+			dev->DeferImageViewDestruction(m_view);
 		else
-			vkDestroyImageView(GSDeviceVK::GetInstance()->GetDevice(), m_view, nullptr);
+			vkDestroyImageView(dev->GetDevice(), m_view, nullptr);
 		m_view = VK_NULL_HANDLE;
 	}
 
@@ -233,13 +247,14 @@ void GSTextureVK::Destroy(bool defer)
 	if (m_allocation != VK_NULL_HANDLE)
 	{
 		if (defer)
-			GSDeviceVK::GetInstance()->DeferImageDestruction(m_image, m_allocation);
+			dev->DeferImageDestruction(m_image, m_allocation);
 		else
-			vmaDestroyImage(GSDeviceVK::GetInstance()->GetAllocator(), m_image, m_allocation);
+			vmaDestroyImage(dev->GetAllocator(), m_image, m_allocation);
 		m_image = VK_NULL_HANDLE;
 		m_allocation = VK_NULL_HANDLE;
 	}
 }
+
 
 VkImageLayout GSTextureVK::GetVkLayout() const
 {

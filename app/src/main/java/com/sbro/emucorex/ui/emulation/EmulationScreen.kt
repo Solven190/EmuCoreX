@@ -110,6 +110,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -294,6 +295,7 @@ fun EmulationScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val retroAchievementsState by RetroAchievementsLiveStateManager.state.collectAsState()
+    val retroAchievementsNotification = retroAchievementsState.notification
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val preferences = remember(context) { AppPreferences(context) }
@@ -561,6 +563,12 @@ fun EmulationScreen(
         }
     }
 
+    LaunchedEffect(retroAchievementsNotification?.id) {
+        val notification = retroAchievementsNotification ?: return@LaunchedEffect
+        delay(if (notification.kind == "mastery") 6500 else 4300)
+        RetroAchievementsLiveStateManager.dismissNotification(notification.id)
+    }
+
     LaunchedEffect(showControlsEditor) {
         if (showControlsEditor && !uiState.isPaused) {
             resumeAfterEditor = true
@@ -769,6 +777,36 @@ fun EmulationScreen(
             }
         }
 
+        val raNotificationAlignment = if (
+            uiState.showFps &&
+            uiState.fpsOverlayCorner == AppPreferences.FPS_OVERLAY_CORNER_TOP_LEFT
+        ) {
+            Alignment.TopEnd
+        } else {
+            Alignment.TopStart
+        }
+        AnimatedVisibility(
+            visible = retroAchievementsNotification != null && !uiState.showMenu && !showControlsEditor,
+            enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.92f, animationSpec = tween(180)),
+            exit = fadeOut(tween(160)) + scaleOut(targetScale = 0.92f, animationSpec = tween(160)),
+            modifier = Modifier
+                .align(raNotificationAlignment)
+                .padding(
+                    start = if (raNotificationAlignment == Alignment.TopStart) overlayHorizontalSafeInset + 12.dp else 0.dp,
+                    top = overlayTopSafeInset + 12.dp,
+                    end = if (raNotificationAlignment == Alignment.TopEnd) overlayHorizontalSafeInset + 12.dp else 0.dp
+                )
+                .zIndex(35f)
+        ) {
+            retroAchievementsNotification?.let { notification ->
+                RetroAchievementsNotificationToast(
+                    notification = notification,
+                    isRightAligned = raNotificationAlignment == Alignment.TopEnd,
+                    onDismiss = { RetroAchievementsLiveStateManager.dismissNotification(notification.id) }
+                )
+            }
+        }
+
         // Full screen loading overlay specifically for loading save state
         AnimatedVisibility(
             visible = (uiState.isActionInProgress && uiState.actionLabel == "loading") || uiState.statusMessage == "status_loading_state",
@@ -872,6 +910,35 @@ fun EmulationScreen(
                         color = Color.White
                     )
                 }
+            }
+        }
+
+        val showPerformanceHud = uiState.showFps &&
+            !uiState.showMenu &&
+            !showControlsEditor &&
+            (uiState.fpsOverlayMode == FPS_OVERLAY_MODE_SIMPLE || uiState.performanceOverlayText.isNotBlank())
+        AnimatedVisibility(
+            visible = showPerformanceHud,
+            enter = fadeIn(tween(160)),
+            exit = fadeOut(tween(160)),
+            modifier = Modifier
+                .align(uiState.fpsOverlayCorner.toOverlayAlignment())
+                .padding(
+                    start = if (uiState.fpsOverlayCorner.isRightOverlayCorner()) 0.dp else overlayHorizontalSafeInset + 12.dp,
+                    top = if (uiState.fpsOverlayCorner.isTopOverlayCorner()) overlayTopSafeInset + 12.dp else 0.dp,
+                    end = if (uiState.fpsOverlayCorner.isRightOverlayCorner()) overlayHorizontalSafeInset + 12.dp else 0.dp,
+                    bottom = if (uiState.fpsOverlayCorner.isBottomOverlayCorner()) overlayBottomSafeInset + 12.dp else 0.dp
+                )
+                .zIndex(30f)
+        ) {
+            if (uiState.fpsOverlayMode == FPS_OVERLAY_MODE_SIMPLE) {
+                SimpleFpsCounter(uiState.fps)
+            } else {
+                SystemPerformanceHud(
+                    speedPercent = uiState.speedPercent,
+                    text = uiState.performanceOverlayText,
+                    isRightCorner = uiState.fpsOverlayCorner.isRightOverlayCorner()
+                )
             }
         }
 
@@ -1494,6 +1561,80 @@ private fun OnScreenControls(
         val centerSpecs = runtimeSpecs(layout.centerButtons)
         if (centerSpecs.isNotEmpty()) {
             TouchButtonGroup(specs = centerSpecs)
+        }
+    }
+}
+
+@Composable
+private fun RetroAchievementsNotificationToast(
+    notification: com.sbro.emucorex.core.utils.RetroAchievementsNotification,
+    isRightAligned: Boolean,
+    onDismiss: () -> Unit
+) {
+    val accent = when (notification.kind) {
+        "unlock", "mastery" -> Color(0xFFFFD35A)
+        "leaderboard" -> Color(0xFF86D7FF)
+        "hardcore" -> Color(0xFFFF7A7A)
+        "error" -> Color(0xFFFF6B83)
+        else -> Color(0xFF7DDFA8)
+    }
+
+    Surface(
+        onClick = onDismiss,
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xE614151A),
+        tonalElevation = 6.dp,
+        shadowElevation = 10.dp,
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.42f)),
+        modifier = Modifier.widthIn(min = 260.dp, max = 420.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            BitmapPathImage(
+                imagePath = notification.imagePath,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(accent.copy(alpha = 0.16f)),
+                fallback = {
+                    Icon(
+                        imageVector = Icons.Rounded.Star,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            )
+
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = if (isRightAligned) Alignment.End else Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = notification.title,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = if (isRightAligned) TextAlign.End else TextAlign.Start,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                if (notification.message.isNotBlank()) {
+                    Text(
+                        text = notification.message,
+                        color = Color.White.copy(alpha = 0.78f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = if (isRightAligned) TextAlign.End else TextAlign.Start,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
         }
     }
 }
@@ -3826,34 +3967,96 @@ private fun SimpleFpsCounter(fps: String) {
 
 @Composable
 private fun SystemPerformanceHud(
-    alignToEnd: Boolean,
     speedPercent: Float,
-    text: String
+    text: String,
+    isRightCorner: Boolean = false
 ) {
-    val displayText = remember(text, speedPercent) {
-        buildSpeedAnnotatedText(text, speedPercent)
+    val lines = remember(text) {
+        fun isRendererLine(line: String): Boolean {
+            return line.endsWith(" HW") ||
+                line.endsWith(" SW") ||
+                line.endsWith(" Null") ||
+                line.contains(" HW |") ||
+                line.contains(" SW |") ||
+                line.contains(" Null |")
+        }
+
+        val rawLines = text.lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toMutableList()
+        rawLines.removeAll { it.startsWith("Queue:") }
+        val rendererIdx = rawLines.indexOfFirst(::isRendererLine)
+        if (rendererIdx >= 0 && rendererIdx + 1 < rawLines.size && rawLines[rendererIdx + 1].startsWith("VRAM:")) {
+            rawLines[rendererIdx] = rawLines[rendererIdx] + " | " + rawLines[rendererIdx + 1]
+            rawLines.removeAt(rendererIdx + 1)
+        }
+        val topLines    = rawLines.filter { l -> l.startsWith("FPS:") || l.startsWith("Speed:") }
+        val middleLines = rawLines.filter { l -> l.startsWith("EE:") || l.startsWith("GS:") || l.startsWith("VU:") || l.startsWith("SW-") }
+        val bottomLines = rawLines.filter { l -> isRendererLine(l) || l.startsWith("VRAM:") || l.startsWith("Frame:") || l.startsWith("Res:") }
+        val ordered = (topLines + middleLines + bottomLines).ifEmpty { rawLines.toList() }
+        Pair(topLines + middleLines, bottomLines).let { (main, bottom) ->
+            Pair(main.ifEmpty { ordered }, bottom)
+        }
     }
-    Text(
-        text = displayText,
-        modifier = Modifier,
-        style = MaterialTheme.typography.labelMedium.copy(
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Medium,
-            fontSize = 11.sp,
-            lineHeight = 13.sp,
-            letterSpacing = 0.sp,
-            shadow = Shadow(
-                color = Color.Black.copy(alpha = 0.9f),
-                offset = Offset(1.5f, 1.5f),
-                blurRadius = 2f
+    val mainLines   = lines.first
+    val bottomLines = lines.second
+    val textAlign = if (isRightCorner) TextAlign.End else TextAlign.Start
+    Column(
+        modifier = Modifier
+            .widthIn(min = 190.dp, max = 330.dp)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp)
+    ) {
+        mainLines.forEach { line ->
+            Text(
+                text = buildPerformanceAnnotatedText(line, speedPercent),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp,
+                    lineHeight = 13.sp,
+                    letterSpacing = 0.sp,
+                    shadow = Shadow(
+                        color = Color.Black.copy(alpha = 1f),
+                        offset = Offset(0f, 0f),
+                        blurRadius = 6f
+                    )
+                ),
+                color = Color.White.copy(alpha = 0.97f),
+                textAlign = textAlign,
+                softWrap = true
             )
-        ),
-        color = Color.White,
-        textAlign = if (alignToEnd) TextAlign.End else TextAlign.Start
-    )
+        }
+        if (bottomLines.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(4.dp))
+            bottomLines.forEach { line ->
+                Text(
+                    text = buildPerformanceAnnotatedText(line, speedPercent),
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 8.5.sp,
+                        lineHeight = 11.sp,
+                        letterSpacing = 0.sp,
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 1f),
+                            offset = Offset(0f, 0f),
+                            blurRadius = 5f
+                        )
+                    ),
+                    color = Color.White.copy(alpha = 0.97f),
+                    textAlign = textAlign,
+                    softWrap = true
+                )
+            }
+        }
+    }
 }
 
-private fun buildSpeedAnnotatedText(text: String, speedPercent: Float): AnnotatedString {
+private fun buildPerformanceAnnotatedText(text: String, speedPercent: Float): AnnotatedString {
     val speedColor = when {
         speedPercent < 90f -> Color(0xFFFF5A5A)
         speedPercent < 99f -> Color(0xFFFFC04D)
@@ -3861,21 +4064,54 @@ private fun buildSpeedAnnotatedText(text: String, speedPercent: Float): Annotate
         speedPercent <= 110f -> Color(0xFF9BE870)
         else -> Color(0xFF59D2FF)
     }
-
-    val speedLabel = "Speed:"
-    val speedStart = text.indexOf(speedLabel)
-    if (speedStart < 0) return AnnotatedString(text)
-
-    val valueStart = speedStart + speedLabel.length
-    val valueEnd = text.indexOf('\n', startIndex = valueStart).let { if (it == -1) text.length else it }
     return buildAnnotatedString {
         append(text)
-        addStyle(
-            style = SpanStyle(color = speedColor),
-            start = valueStart,
-            end = valueEnd
+        addRepeatedStyle(
+            text,
+            listOf("FPS:", "VPS:", "Speed:", "Target:", "Frame:", "Res:", "EE:", "GS:", "VU:", "SW-", "VRAM:"),
+            SpanStyle(color = Color(0xFF9DD7FF))
         )
+        addRepeatedStyle(
+            text,
+            listOf("Vulkan", "OpenGL", "Software", "Null"),
+            SpanStyle(color = Color(0xFF9DD7FF))
+        )
+        addLineValueStyle(text, "Speed:", speedColor)
+        addLineValueStyle(text, "FPS:", Color(0xFFB9F7CF), stopAt = " | ")
+        addLineValueStyle(text, "VPS:", Color(0xFFB9F7CF), stopAt = " | ")
+        addLineValueStyle(text, "Target:", Color(0xFFB9F7CF), stopAt = " | ")
     }
+}
+
+private fun AnnotatedString.Builder.addRepeatedStyle(
+    text: String,
+    tokens: List<String>,
+    style: SpanStyle
+) {
+    tokens.forEach { token ->
+        var start = text.indexOf(token)
+        while (start >= 0) {
+            addStyle(style, start, start + token.length)
+            start = text.indexOf(token, startIndex = start + token.length)
+        }
+    }
+}
+
+private fun AnnotatedString.Builder.addLineValueStyle(
+    text: String,
+    label: String,
+    color: Color,
+    stopAt: String? = null
+) {
+    val labelStart = text.indexOf(label)
+    if (labelStart < 0) return
+    val valueStart = labelStart + label.length
+    val lineEnd = text.indexOf('\n', startIndex = valueStart).let { if (it == -1) text.length else it }
+    val valueEnd = stopAt
+        ?.let { separator -> text.indexOf(separator, startIndex = valueStart).takeIf { it >= 0 && it < lineEnd } }
+        ?: lineEnd
+    if (valueStart < valueEnd)
+        addStyle(SpanStyle(color = color), valueStart, valueEnd)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
