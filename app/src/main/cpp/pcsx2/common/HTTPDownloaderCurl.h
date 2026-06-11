@@ -8,6 +8,7 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <curl/curl.h>
 
 class HTTPDownloaderCurl final : public HTTPDownloader
@@ -17,6 +18,10 @@ public:
 	~HTTPDownloaderCurl() override;
 
 	bool Initialize(std::string user_agent);
+
+#ifdef __ANDROID__
+	static void SetCABundlePath(std::string path);
+#endif
 
 protected:
 	Request* InternalCreateRequest() override;
@@ -28,6 +33,10 @@ private:
 	struct Request : HTTPDownloader::Request
 	{
 		CURL* handle = nullptr;
+		curl_slist* headers = nullptr;
+#ifdef __ANDROID__
+		std::string ca_info_path;
+#endif
 	};
 
 	static size_t WriteCallback(char* ptr, size_t size, size_t nmemb, void* userdata);

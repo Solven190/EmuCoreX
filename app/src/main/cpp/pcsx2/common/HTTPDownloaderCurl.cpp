@@ -10,9 +10,15 @@
 #include "fmt/format.h"
 
 #include <algorithm>
+#include <cstring>
 #include <functional>
 #include <pthread.h>
 #include <signal.h>
+#include <string_view>
+
+#ifdef __ANDROID__
+#include <unistd.h>
+#endif
 
 HTTPDownloaderCurl::HTTPDownloaderCurl()
 	: HTTPDownloader()
@@ -36,6 +42,23 @@ std::unique_ptr<HTTPDownloader> HTTPDownloader::Create(std::string user_agent)
 
 static bool s_curl_initialized = false;
 static std::once_flag s_curl_initialized_once_flag;
+
+#ifdef __ANDROID__
+static std::mutex s_android_ca_bundle_mutex;
+static std::string s_android_ca_bundle_path;
+
+static std::string GetAndroidCABundlePath()
+{
+	std::lock_guard lock(s_android_ca_bundle_mutex);
+	return s_android_ca_bundle_path;
+}
+
+void HTTPDownloaderCurl::SetCABundlePath(std::string path)
+{
+	std::lock_guard lock(s_android_ca_bundle_mutex);
+	s_android_ca_bundle_path = std::move(path);
+}
+#endif
 
 bool HTTPDownloaderCurl::Initialize(std::string user_agent)
 {
@@ -155,6 +178,13 @@ void HTTPDownloaderCurl::InternalPollRequests()
 			long response_code = 0;
 			curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &response_code);
 			const char* error_text = curl_easy_strerror(msg->data.result);
+			req->status_code = HTTP_STATUS_ERROR;
+			if (error_text && *error_text)
+			{
+				const std::string_view error_message(error_text);
+				req->data.assign(error_message.begin(), error_message.end());
+				req->data.push_back('\0');
+			}
 			Console.Error(fmt::format(
 				"Request for '{}' returned error {} ({})", req->url, static_cast<int>(msg->data.result), error_text ? error_text : ""));
 		}
@@ -176,16 +206,35 @@ bool HTTPDownloaderCurl::StartRequest(HTTPDownloader::Request* request)
 	curl_easy_setopt(req->handle, CURLOPT_NOSIGNAL, 1L);
 	curl_easy_setopt(req->handle, CURLOPT_PRIVATE, req);
 	curl_easy_setopt(req->handle, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(req->handle, CURLOPT_ACCEPT_ENCODING, "");
 
 #ifdef __ANDROID__
-	curl_easy_setopt(req->handle, CURLOPT_CAPATH, "/system/etc/security/cacerts");
+	req->ca_info_path = GetAndroidCABundlePath();
+	if (!req->ca_info_path.empty() && access(req->ca_info_path.c_str(), R_OK) == 0)
+	{
+		curl_easy_setopt(req->handle, CURLOPT_CAINFO, req->ca_info_path.c_str());
+	}
+	else
+	{
+		const char* ca_path = nullptr;
+		if (access("/apex/com.android.conscrypt/cacerts", R_OK) == 0)
+			ca_path = "/apex/com.android.conscrypt/cacerts";
+		else if (access("/system/etc/security/cacerts", R_OK) == 0)
+			ca_path = "/system/etc/security/cacerts";
+		if (ca_path)
+			curl_easy_setopt(req->handle, CURLOPT_CAPATH, ca_path);
+	}
 #endif
 
+	req->headers = curl_slist_append(req->headers, "Accept: application/json");
 	if (request->type == Request::Type::Post)
 	{
+		req->headers = curl_slist_append(req->headers, "Content-Type: application/x-www-form-urlencoded");
 		curl_easy_setopt(req->handle, CURLOPT_POST, 1L);
 		curl_easy_setopt(req->handle, CURLOPT_POSTFIELDS, request->post_data.c_str());
 	}
+	if (req->headers)
+		curl_easy_setopt(req->handle, CURLOPT_HTTPHEADER, req->headers);
 
 	DevCon.WriteLn(fmt::format("Started HTTP request for '{}'", req->url));
 	req->state.store(Request::State::Started, std::memory_order_release);
@@ -210,5 +259,7 @@ void HTTPDownloaderCurl::CloseRequest(HTTPDownloader::Request* request)
 	pxAssert(req->handle);
 	curl_multi_remove_handle(m_multi_handle, req->handle);
 	curl_easy_cleanup(req->handle);
+	if (req->headers)
+		curl_slist_free_all(req->headers);
 	delete req;
 }

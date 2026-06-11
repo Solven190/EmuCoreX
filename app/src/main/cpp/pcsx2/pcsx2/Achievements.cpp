@@ -41,6 +41,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <functional>
 #include <limits>
 #include <map>
@@ -793,7 +794,9 @@ void Achievements::ClientServerCall(
 		                                                   RC_API_SERVER_RESPONSE_RETRYABLE_CLIENT_ERROR)
 		                                         : status_code;
 		rr.body_length = data.size();
-		rr.body = reinterpret_cast<const char*>(data.data());
+		rr.body = data.empty() ? nullptr : reinterpret_cast<const char*>(data.data());
+		if (status_code <= 0 && rr.body_length > 0 && rr.body[rr.body_length - 1] == '\0')
+			rr.body_length--;
 
 		callback(&rr, callback_data);
 	};
@@ -2135,8 +2138,13 @@ void Achievements::ClientLoginWithPasswordCallback(int result, const char* error
 
 	if (result != RC_OK)
 	{
-		Console.Error("Login failed: %s: %s", rc_error_str(result), error_message ? error_message : "Unknown");
-		Error::SetString(params->error, fmt::format("{}: {}", rc_error_str(result), error_message ? error_message : "Unknown"));
+		const char* result_message = rc_error_str(result);
+		const char* detail_message = (error_message && *error_message) ? error_message : "Unknown";
+		const std::string login_error = (std::strcmp(result_message, detail_message) == 0) ?
+			std::string(result_message) :
+			fmt::format("{}: {}", result_message, detail_message);
+		Console.Error("Login failed: %s", login_error.c_str());
+		Error::SetString(params->error, login_error);
 		params->result = false;
 		return;
 	}

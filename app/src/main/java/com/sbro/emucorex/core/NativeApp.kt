@@ -43,6 +43,7 @@ object NativeApp {
 
     @JvmStatic external fun initialize(path: String, apiVer: Int)
     @JvmStatic external fun reloadDataRoot(path: String)
+    @JvmStatic external fun setSystemCaBundlePath(path: String)
     @JvmStatic external fun getGameTitle(path: String): String?
     @JvmStatic external fun setPadVibration(enabled: Boolean)
     @JvmStatic external fun setPerformanceOverlayMode(visible: Boolean, detailed: Boolean, corner: Int)
@@ -118,7 +119,9 @@ object NativeApp {
         contextRef = WeakReference(context.applicationContext)
         val dataRoot = resolveDataRoot(context.applicationContext)
         copyAssetTree(context.applicationContext, RESOURCE_ROOT, File(dataRoot, RESOURCE_ROOT))
-        exportSystemCaBundle(File(dataRoot, "system-ca-bundle.pem"))
+        val caBundle = File(dataRoot, "system-ca-bundle.pem")
+        exportSystemCaBundle(caBundle)
+        setSystemCaBundlePath(caBundle.absolutePath)
         initialize(dataRoot, android.os.Build.VERSION.SDK_INT)
     }
 

@@ -4,6 +4,7 @@
 #include "MTGS.h"
 #include "common/FileSystem.h"
 #include "common/HostSys.h"
+#include "common/HTTPDownloaderCurl.h"
 #include "arm64/OaknutHelpers.h"
 #include "pcsx2/Achievements.h"
 
@@ -246,6 +247,7 @@ int FileSystem::OpenFDFileContent(const char* filename)
 
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_initialize(JNIEnv* env, jclass clazz, jstring path, jint api_ver) { emucorex::android::ConfigureNativeAppCallbacks(env, clazz); AndroidRuntime::Instance().Initialize(JStringToString(env, path), api_ver); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_reloadDataRoot(JNIEnv* env, jclass, jstring path) { AndroidRuntime::Instance().ReloadDataRoot(JStringToString(env, path)); }
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setSystemCaBundlePath(JNIEnv* env, jclass, jstring path) { HTTPDownloaderCurl::SetCABundlePath(JStringToString(env, path)); }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getGameTitle(JNIEnv* env, jclass, jstring path) { return StringToJString(env, AndroidRuntime::Instance().GetGameTitle(JStringToString(env, path))); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPadVibration(JNIEnv*, jclass, jboolean enabled) { AndroidRuntime::Instance().SetSetting("InputSources", "PadVibration", "bool", enabled == JNI_TRUE ? "true" : "false"); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPerformanceOverlayMode(JNIEnv*, jclass, jboolean visible, jboolean detailed, jint corner)
