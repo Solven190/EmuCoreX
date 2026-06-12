@@ -23,6 +23,23 @@ static bool oakIsUnsignedScaled(s64 value, u32 scale, u32 bits)
 	return encoded < (1ull << bits);
 }
 
+static oak::XReg oakScratchAvoiding(oak::XReg reg)
+{
+	return (reg.index() == OAK_XSCRATCH.index()) ? OAK_XSCRATCH2 : OAK_XSCRATCH;
+}
+
+static oak::XReg oakScratchAvoiding(oak::XReg first, oak::XReg second)
+{
+	if (first.index() != OAK_XSCRATCH.index() && second.index() != OAK_XSCRATCH.index())
+		return OAK_XSCRATCH;
+
+	if (first.index() != OAK_XSCRATCH2.index() && second.index() != OAK_XSCRATCH2.index())
+		return OAK_XSCRATCH2;
+
+	pxFailRel("No free oak scratch register for memory helper");
+	return OAK_XSCRATCH;
+}
+
 oak::WReg oakWRegister(int n)
 {
 	pxAssert(static_cast<unsigned>(n) < 32);
@@ -234,9 +251,10 @@ void oakLoad32(oak::WReg dst, OakMemOperand mem)
 	if (oakIsSigned9(mem.offset))
 		return oakAsm->LDUR(dst, mem.base, oak::SOffset<9, 0>(mem.offset));
 
-	oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(mem.offset));
-	oakAsm->ADD(OAK_XSCRATCH, mem.base, OAK_XSCRATCH);
-	oakAsm->LDR(dst, OAK_XSCRATCH);
+	const oak::XReg scratch = oakScratchAvoiding(mem.base);
+	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
+	oakAsm->ADD(scratch, mem.base, scratch);
+	oakAsm->LDR(dst, scratch);
 }
 
 void oakLoad64(oak::XReg dst, OakMemOperand mem)
@@ -247,9 +265,10 @@ void oakLoad64(oak::XReg dst, OakMemOperand mem)
 	if (oakIsSigned9(mem.offset))
 		return oakAsm->LDUR(dst, mem.base, oak::SOffset<9, 0>(mem.offset));
 
-	oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(mem.offset));
-	oakAsm->ADD(OAK_XSCRATCH, mem.base, OAK_XSCRATCH);
-	oakAsm->LDR(dst, OAK_XSCRATCH);
+	const oak::XReg scratch = oakScratchAvoiding(mem.base);
+	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
+	oakAsm->ADD(scratch, mem.base, scratch);
+	oakAsm->LDR(dst, scratch);
 }
 
 void oakLoad16(oak::WReg dst, OakMemOperand mem)
@@ -260,9 +279,10 @@ void oakLoad16(oak::WReg dst, OakMemOperand mem)
 	if (oakIsSigned9(mem.offset))
 		return oakAsm->LDURH(dst, mem.base, oak::SOffset<9, 0>(mem.offset));
 
-	oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(mem.offset));
-	oakAsm->ADD(OAK_XSCRATCH, mem.base, OAK_XSCRATCH);
-	oakAsm->LDRH(dst, OAK_XSCRATCH);
+	const oak::XReg scratch = oakScratchAvoiding(mem.base);
+	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
+	oakAsm->ADD(scratch, mem.base, scratch);
+	oakAsm->LDRH(dst, scratch);
 }
 
 void oakLoad128(oak::QReg dst, OakMemOperand mem)
@@ -273,9 +293,10 @@ void oakLoad128(oak::QReg dst, OakMemOperand mem)
 	if (oakIsSigned9(mem.offset))
 		return oakAsm->LDUR(dst, mem.base, oak::SOffset<9, 0>(mem.offset));
 
-	oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(mem.offset));
-	oakAsm->ADD(OAK_XSCRATCH, mem.base, OAK_XSCRATCH);
-	oakAsm->LDR(dst, OAK_XSCRATCH);
+	const oak::XReg scratch = oakScratchAvoiding(mem.base);
+	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
+	oakAsm->ADD(scratch, mem.base, scratch);
+	oakAsm->LDR(dst, scratch);
 }
 
 void oakStore32(oak::WReg src, OakMemOperand mem)
@@ -283,16 +304,17 @@ void oakStore32(oak::WReg src, OakMemOperand mem)
 	pxAssert(oakAsm);
 	if (src.index() == mem.base.index())
 	{
-		oakAsm->MOV(OAK_XSCRATCH2, static_cast<u64>(mem.offset));
-		oakAsm->ADD(OAK_XSCRATCH2, mem.base, OAK_XSCRATCH2);
-		return oakAsm->STR(src, OAK_XSCRATCH2);
+		const oak::XReg scratch = oakScratchAvoiding(mem.base);
+		oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
+		oakAsm->ADD(scratch, mem.base, scratch);
+		return oakAsm->STR(src, scratch);
 	}
 	if (oakIsUnsignedScaled(mem.offset, 4, 12))
 		return oakAsm->STR(src, mem.base, oak::POffset<14, 2>(mem.offset));
 	if (oakIsSigned9(mem.offset))
 		return oakAsm->STUR(src, mem.base, oak::SOffset<9, 0>(mem.offset));
 
-	const oak::XReg scratch = (src.index() == OAK_XSCRATCH.index()) ? OAK_XSCRATCH2 : OAK_XSCRATCH;
+	const oak::XReg scratch = oakScratchAvoiding(src.toX(), mem.base);
 	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
 	oakAsm->ADD(scratch, mem.base, scratch);
 	oakAsm->STR(src, scratch);
@@ -303,16 +325,17 @@ void oakStore64(oak::XReg src, OakMemOperand mem)
 	pxAssert(oakAsm);
 	if (src.index() == mem.base.index())
 	{
-		oakAsm->MOV(OAK_XSCRATCH2, static_cast<u64>(mem.offset));
-		oakAsm->ADD(OAK_XSCRATCH2, mem.base, OAK_XSCRATCH2);
-		return oakAsm->STR(src, OAK_XSCRATCH2);
+		const oak::XReg scratch = oakScratchAvoiding(mem.base);
+		oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
+		oakAsm->ADD(scratch, mem.base, scratch);
+		return oakAsm->STR(src, scratch);
 	}
 	if (oakIsUnsignedScaled(mem.offset, 8, 12))
 		return oakAsm->STR(src, mem.base, oak::POffset<15, 3>(mem.offset));
 	if (oakIsSigned9(mem.offset))
 		return oakAsm->STUR(src, mem.base, oak::SOffset<9, 0>(mem.offset));
 
-	const oak::XReg scratch = (src.index() == OAK_XSCRATCH.index()) ? OAK_XSCRATCH2 : OAK_XSCRATCH;
+	const oak::XReg scratch = oakScratchAvoiding(src, mem.base);
 	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
 	oakAsm->ADD(scratch, mem.base, scratch);
 	oakAsm->STR(src, scratch);
@@ -323,16 +346,17 @@ void oakStore16(oak::WReg src, OakMemOperand mem)
 	pxAssert(oakAsm);
 	if (src.index() == mem.base.index())
 	{
-		oakAsm->MOV(OAK_XSCRATCH2, static_cast<u64>(mem.offset));
-		oakAsm->ADD(OAK_XSCRATCH2, mem.base, OAK_XSCRATCH2);
-		return oakAsm->STRH(src, OAK_XSCRATCH2);
+		const oak::XReg scratch = oakScratchAvoiding(mem.base);
+		oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
+		oakAsm->ADD(scratch, mem.base, scratch);
+		return oakAsm->STRH(src, scratch);
 	}
 	if (oakIsUnsignedScaled(mem.offset, 2, 12))
 		return oakAsm->STRH(src, mem.base, oak::POffset<13, 1>(mem.offset));
 	if (oakIsSigned9(mem.offset))
 		return oakAsm->STURH(src, mem.base, oak::SOffset<9, 0>(mem.offset));
 
-	const oak::XReg scratch = (src.index() == OAK_XSCRATCH.index()) ? OAK_XSCRATCH2 : OAK_XSCRATCH;
+	const oak::XReg scratch = oakScratchAvoiding(src.toX(), mem.base);
 	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
 	oakAsm->ADD(scratch, mem.base, scratch);
 	oakAsm->STRH(src, scratch);
@@ -346,9 +370,10 @@ void oakStore128(oak::QReg src, OakMemOperand mem)
 	if (oakIsSigned9(mem.offset))
 		return oakAsm->STUR(src, mem.base, oak::SOffset<9, 0>(mem.offset));
 
-	oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(mem.offset));
-	oakAsm->ADD(OAK_XSCRATCH, mem.base, OAK_XSCRATCH);
-	oakAsm->STR(src, OAK_XSCRATCH);
+	const oak::XReg scratch = oakScratchAvoiding(mem.base);
+	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
+	oakAsm->ADD(scratch, mem.base, scratch);
+	oakAsm->STR(src, scratch);
 }
 
 void oakEmitSmokeReturn42()
