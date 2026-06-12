@@ -598,6 +598,15 @@ fun EmulationScreen(
         GamepadManager.setEmulationInputEnabled(!gamepadUiActive)
     }
 
+    DisposableEffect(touchPadIndex, shouldShowOverlay, uiState.showMenu, showControlsEditor) {
+        val activeTouchPadIndex = touchPadIndex?.takeIf {
+            shouldShowOverlay && !uiState.showMenu && !showControlsEditor
+        }
+        onDispose {
+            activeTouchPadIndex?.let(EmulatorBridge::resetPadState)
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             GamepadManager.setEmulationInputEnabled(false)
@@ -1690,6 +1699,16 @@ private fun TouchButtonGroup(
             if (!alreadyActive) {
                 specById[newTarget]?.onPressChange?.invoke(true)
             }
+        }
+    }
+
+    DisposableEffect(specs) {
+        onDispose {
+            activeTargets.values.toSet().forEach { targetId ->
+                specById[targetId]?.onPressChange?.invoke(false)
+            }
+            activeTargets.clear()
+            downTargets.clear()
         }
     }
 

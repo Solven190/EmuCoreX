@@ -111,9 +111,13 @@ object GamepadManager {
         MotionEvent.AXIS_X,
         MotionEvent.AXIS_Y,
         MotionEvent.AXIS_Z,
+        MotionEvent.AXIS_RX,
+        MotionEvent.AXIS_RY,
         MotionEvent.AXIS_RZ,
         MotionEvent.AXIS_LTRIGGER,
         MotionEvent.AXIS_RTRIGGER,
+        MotionEvent.AXIS_BRAKE,
+        MotionEvent.AXIS_GAS,
         MotionEvent.AXIS_HAT_X,
         MotionEvent.AXIS_HAT_Y
     )
@@ -402,8 +406,14 @@ object GamepadManager {
             state.prevLeftY = leftY
         }
 
-        val rightX = processStickAxis(event.getAxisValue(MotionEvent.AXIS_Z), rightStickSensitivity)
-        val rightY = processStickAxis(event.getAxisValue(MotionEvent.AXIS_RZ), rightStickSensitivity)
+        val rightX = processStickAxis(
+            getAxisValueWithFallback(event, MotionEvent.AXIS_Z, MotionEvent.AXIS_RX),
+            rightStickSensitivity
+        )
+        val rightY = processStickAxis(
+            getAxisValueWithFallback(event, MotionEvent.AXIS_RZ, MotionEvent.AXIS_RY),
+            rightStickSensitivity
+        )
         if (rightX != state.prevRightX || rightY != state.prevRightY) {
             dispatchAnalogStick(
                 padIndex = padIndex,
@@ -418,8 +428,8 @@ object GamepadManager {
             state.prevRightY = rightY
         }
 
-        val lt = event.getAxisValue(MotionEvent.AXIS_LTRIGGER)
-        val rt = event.getAxisValue(MotionEvent.AXIS_RTRIGGER)
+        val lt = getAxisValueWithFallback(event, MotionEvent.AXIS_LTRIGGER, MotionEvent.AXIS_BRAKE)
+        val rt = getAxisValueWithFallback(event, MotionEvent.AXIS_RTRIGGER, MotionEvent.AXIS_GAS)
         if (lt != state.prevLT) {
             dispatchAnalogButton(padIndex, PadKey.L2, lt)
             state.prevLT = lt
@@ -564,6 +574,14 @@ object GamepadManager {
         return (deadzoned * sensitivity.coerceIn(0.5f, 2f)).coerceIn(-1f, 1f)
     }
 
+    private fun getAxisValueWithFallback(event: MotionEvent, primaryAxis: Int, fallbackAxis: Int): Float {
+        return if (hasJoystickAxis(event.device, primaryAxis)) {
+            event.getAxisValue(primaryAxis)
+        } else {
+            event.getAxisValue(fallbackAxis)
+        }
+    }
+
     private fun applyDeadzone(value: Float): Float {
         val deadzone = analogDeadzone.coerceIn(0f, 0.35f)
         val magnitude = abs(value)
@@ -594,6 +612,13 @@ object GamepadManager {
             (range.source and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK &&
                 range.axis in JOYSTICK_AXIS_CODES
         }
+    }
+
+    private fun hasJoystickAxis(device: InputDevice?, axis: Int): Boolean {
+        return device?.motionRanges?.any { range ->
+            (range.source and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK &&
+                range.axis == axis
+        } == true
     }
 
     private fun resolvePadIndexForDevice(deviceId: Int): Int? {
