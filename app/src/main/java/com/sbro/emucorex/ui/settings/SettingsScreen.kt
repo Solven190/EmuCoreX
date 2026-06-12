@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -110,9 +111,11 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.DocumentPathResolver
+import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.buildUpscaleOptions
+import com.sbro.emucorex.core.upscaleKeyToMultiplier
 import com.sbro.emucorex.core.upscaleMultiplierValue
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
@@ -979,11 +982,15 @@ private fun SettingsContent(
                             value = activeDriverName ?: stringResource(R.string.settings_gpu_driver_system),
                             onClick = onOpenGpuDriverManager ?: launchDriverPicker
                         )
+                        val maxUpscaleMultiplier = remember(uiState.renderer) {
+                            EmulatorBridge.getMaxUpscaleMultiplier(uiState.renderer)
+                        }
+                        val nativeUpscaleLabel = stringResource(R.string.settings_upscale_native)
                         ChoiceSection(
                             title = stringResource(R.string.settings_upscale),
-                            options = buildUpscaleOptions(stringResource(R.string.settings_upscale_native)),
+                            options = buildUpscaleOptions(nativeUpscaleLabel, maxUpscaleMultiplier),
                             selectedValue = upscaleMultiplierValue(uiState.upscaleMultiplier),
-                            onSelect = { viewModel.setUpscaleMultiplier(it.toFloat()) },
+                            onSelect = { viewModel.setUpscaleMultiplier(upscaleKeyToMultiplier(it)) },
                             helpText = stringResource(R.string.settings_help_upscale),
                             onResetToDefault = { viewModel.setUpscaleMultiplier(defaults.upscaleMultiplier) }
                         )

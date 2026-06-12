@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -48,6 +49,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -111,6 +114,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -142,6 +146,7 @@ import com.sbro.emucorex.R
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.buildUpscaleOptions
+import com.sbro.emucorex.core.upscaleKeyToMultiplier
 import com.sbro.emucorex.core.upscaleMultiplierValue
 import com.sbro.emucorex.core.utils.RetroAchievementsLiveStateManager
 import com.sbro.emucorex.data.AppPreferences
@@ -2637,11 +2642,15 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetRenderer(globalDefaults.renderer) }
                         )
 
+                        val maxUpscaleMultiplier = remember(uiState.renderer) {
+                            EmulatorBridge.getMaxUpscaleMultiplier(uiState.renderer)
+                        }
+                        val nativeUpscaleLabel = stringResource(R.string.settings_upscale_native)
                         LiveChipsSelectionRow(
                             title = stringResource(R.string.settings_upscale),
-                            options = buildUpscaleOptions(stringResource(R.string.settings_upscale_native)),
+                            options = buildUpscaleOptions(nativeUpscaleLabel, maxUpscaleMultiplier),
                             currentValue = upscaleMultiplierValue(uiState.upscale),
-                            onValueChange = { onSetUpscale(it.toFloat()) },
+                            onValueChange = { onSetUpscale(upscaleKeyToMultiplier(it)) },
                             helpText = stringResource(R.string.settings_help_upscale),
                             onResetToDefault = { onSetUpscale(globalDefaults.upscaleMultiplier) }
                         )
@@ -4174,7 +4183,6 @@ private fun AnnotatedString.Builder.addLineValueStyle(
         addStyle(SpanStyle(color = color), valueStart, valueEnd)
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LiveChipsSelectionRow(
     title: String,
@@ -4215,19 +4223,34 @@ private fun LiveChipsSelectionRow(
                 SettingHelpButton(title = title, description = it)
             }
         }
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalViewportBleed(18.dp),
+            contentPadding = PaddingValues(horizontal = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            options.forEach { (value, label) ->
+            items(options) { (value, label) ->
                 FilterChip(
                     selected = currentValue == value,
                     onClick = { onValueChange(value) },
                     label = { Text(text = label) }
                 )
-            } 
+            }
         }
+    }
+}
+
+private fun Modifier.horizontalViewportBleed(inset: Dp): Modifier = layout { measurable, constraints ->
+    val insetPx = inset.roundToPx()
+    val expandedMaxWidth = if (constraints.hasBoundedWidth) {
+        constraints.maxWidth + (insetPx * 2)
+    } else {
+        constraints.maxWidth
+    }
+    val placeable = measurable.measure(constraints.copy(maxWidth = expandedMaxWidth))
+    layout(constraints.maxWidth, placeable.height) {
+        placeable.placeRelative(-insetPx, 0)
     }
 }
 

@@ -59,6 +59,7 @@ object NativeApp {
     @JvmStatic external fun resetPadState(padIndex: Int)
     @JvmStatic external fun setAspectRatio(type: Int)
     @JvmStatic external fun renderUpscalemultiplier(value: Float)
+    @JvmStatic external fun getMaxUpscaleMultiplier(renderer: Int): Int
     @JvmStatic external fun renderGpu(value: Int)
     @JvmStatic external fun setCustomDriverPath(path: String)
     @JvmStatic external fun setNativeLibraryDir(path: String)

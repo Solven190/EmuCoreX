@@ -196,6 +196,14 @@ object EmulatorBridge {
         return if (renderer <= 0) DEFAULT_RENDERER else renderer
     }
 
+    fun getMaxUpscaleMultiplier(renderer: Int): Int {
+        if (!isNativeLoaded) return UPSCALE_MAX.toInt()
+        val resolvedRenderer = normalizeRenderer(renderer)
+        return runCatching { NativeApp.getMaxUpscaleMultiplier(resolvedRenderer) }
+            .getOrDefault(UPSCALE_MAX.toInt())
+            .coerceAtLeast(UPSCALE_MIN.toInt())
+    }
+
     private fun toCoreSettingValue(section: String, key: String, value: String): String {
         if (section == "EmuCore/GS" && key == "TriFilter") {
             return when (value.toIntOrNull()) {

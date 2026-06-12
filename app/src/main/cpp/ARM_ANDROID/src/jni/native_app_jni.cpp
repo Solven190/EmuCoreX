@@ -12,6 +12,7 @@
 #include <android/native_window_jni.h>
 #include <jni.h>
 #include <zip.h>
+#include <algorithm>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -336,6 +337,15 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setAspec
 	AndroidRuntime::Instance().SetSetting("EmuCore/GS", "AspectRatio", "string", value);
 }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_renderUpscalemultiplier(JNIEnv*, jclass, jfloat value) { AndroidRuntime::Instance().SetSetting("EmuCore/GS", "upscale_multiplier", "float", std::to_string(value)); }
+extern "C" JNIEXPORT jint JNICALL Java_com_sbro_emucorex_core_NativeApp_getMaxUpscaleMultiplier(JNIEnv*, jclass, jint renderer)
+{
+	const GSRendererType resolved_renderer = renderer <= 0 ? GSRendererType::VK : static_cast<GSRendererType>(renderer);
+	const std::vector<GSAdapterInfo> adapters = GSGetAdapterInfo(resolved_renderer);
+	u32 max_multiplier = 12;
+	if (!adapters.empty())
+		max_multiplier = std::max<u32>(adapters.front().max_upscale_multiplier, 1);
+	return static_cast<jint>(max_multiplier);
+}
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_renderGpu(JNIEnv*, jclass, jint value) { AndroidRuntime::Instance().SetSetting("EmuCore/GS", "Renderer", "int", std::to_string(value)); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setCustomDriverPath(JNIEnv* env, jclass, jstring path) { AndroidRuntime::Instance().SetSetting("EmuCoreX", "CustomDriverPath", "string", JStringToString(env, path)); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setNativeLibraryDir(JNIEnv* env, jclass, jstring path) { AndroidRuntime::Instance().SetNativeLibraryDir(JStringToString(env, path)); }

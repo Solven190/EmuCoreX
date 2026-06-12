@@ -71,6 +71,7 @@ import androidx.compose.ui.window.Dialog
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.buildUpscaleOptions
 import com.sbro.emucorex.core.formatUpscaleLabel
+import com.sbro.emucorex.core.upscaleKeyToMultiplier
 import com.sbro.emucorex.core.upscaleMultiplierValue
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.GameItem
@@ -467,6 +468,9 @@ private fun GameSettingsEditorDialog(
         }
     }
     Dialog(onDismissRequest = onDismiss) {
+        val maxUpscaleMultiplier = remember(draft.renderer) {
+            EmulatorBridge.getMaxUpscaleMultiplier(normalizeManagerRenderer(draft.renderer))
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -520,9 +524,9 @@ private fun GameSettingsEditorDialog(
                             )
                             SelectionRow(
                                 title = stringResource(R.string.settings_upscale),
-                                options = buildUpscaleOptions(nativeUpscaleLabel),
+                                options = buildUpscaleOptions(nativeUpscaleLabel, maxUpscaleMultiplier),
                                 selectedValue = upscaleMultiplierValue(draft.upscaleMultiplier),
-                                onSelected = { draft = draft.copy(upscaleMultiplier = it.toFloat()) },
+                                onSelected = { draft = draft.copy(upscaleMultiplier = upscaleKeyToMultiplier(it)) },
                                 helpText = stringResource(R.string.settings_help_upscale),
                                 onResetToDefault = { draft = draft.copy(upscaleMultiplier = defaultProfile.upscaleMultiplier) }
                             )
