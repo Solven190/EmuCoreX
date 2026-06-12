@@ -1216,7 +1216,9 @@ GSDevice::PresentResult GSDeviceOGL::BeginPresent(bool frame_skip)
 
 void GSDeviceOGL::EndPresent()
 {
+#ifndef __ANDROID__
 	RenderImGui();
+#endif
 
 	if (m_gpu_timing_enabled)
 		PopTimestampQuery();

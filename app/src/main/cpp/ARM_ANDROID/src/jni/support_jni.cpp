@@ -222,6 +222,8 @@ void QueryAndNotifyAchievementsState()
 	u32 earned_achievements = 0;
 	u32 score = 0;
 	u32 sc_score = 0;
+	bool has_leaderboards = false;
+	bool has_rich_presence = false;
 
 	if (have_game)
 	{
@@ -233,6 +235,8 @@ void QueryAndNotifyAchievementsState()
 		earned_achievements = Achievements::GetEarnedAchievements();
 		score = Achievements::GetEarnedPoints();
 		sc_score = Achievements::GetGamePoints();
+		has_leaderboards = Achievements::HasLeaderboards();
+		has_rich_presence = Achievements::HasRichPresence();
 	}
 
 	NotifyStateChanged(
@@ -243,7 +247,7 @@ void QueryAndNotifyAchievementsState()
 		rich_presence.empty() ? nullptr : rich_presence.c_str(),
 		icon_path.empty() ? nullptr : icon_path.c_str(),
 		game_id, num_achievements, earned_achievements, score, sc_score,
-		hardcore_pref, EmuConfig.Achievements.LeaderboardNotifications, EmuConfig.Achievements.LeaderboardNotifications
+		hardcore_active, has_leaderboards, has_rich_presence
 	);
 }
 

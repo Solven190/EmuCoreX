@@ -615,6 +615,7 @@ void Host::OnAchievementsLoginRequested(Achievements::LoginRequestReason reason)
 void Host::OnAchievementsLoginSuccess(const char* display_name, u32 points, u32 sc_points, u32 unread_messages)
 {
 	NotifyLoginSuccess(display_name, points, sc_points, unread_messages);
+	QueryAndNotifyAchievementsState();
 }
 
 void Host::OnAchievementsRefreshed()
@@ -625,6 +626,7 @@ void Host::OnAchievementsRefreshed()
 void Host::OnAchievementsHardcoreModeChanged(bool enabled)
 {
 	NotifyHardcoreModeChanged(enabled);
+	QueryAndNotifyAchievementsState();
 }
 
 void Host::OnCoverDownloaderOpenRequested()

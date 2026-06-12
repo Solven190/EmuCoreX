@@ -824,13 +824,10 @@ object EmulatorBridge {
     suspend fun setRenderer(gpuType: Int) {
         val resolvedRenderer = normalizeRenderer(gpuType)
         settingsCache["EmuCore/GS:Renderer"] = resolvedRenderer.toString()
-        if (isVmActive && runCatching { NativeApp.hasValidVm() }.getOrDefault(false)) {
-            NativeApp.logCrashBreadcrumb(
-                "renderer change deferred until restart renderer=${rendererName(resolvedRenderer)}($resolvedRenderer)"
-            )
-            Log.i(TAG, "Renderer change deferred until restart: ${rendererName(resolvedRenderer)}($resolvedRenderer)")
-            return
-        }
+        NativeApp.logCrashBreadcrumb(
+            "renderer change requested renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) vmActive=$isVmActive"
+        )
+        Log.i(TAG, "Renderer change requested: ${rendererName(resolvedRenderer)}($resolvedRenderer) vmActive=$isVmActive")
         performRuntimeOps(listOf(rendererOp(resolvedRenderer), settingOp("EmuCore/GS", "Renderer", "int", resolvedRenderer.toString())))
     }
 

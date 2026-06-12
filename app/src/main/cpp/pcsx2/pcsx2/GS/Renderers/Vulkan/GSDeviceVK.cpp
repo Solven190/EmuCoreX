@@ -2501,7 +2501,9 @@ GSDevice::PresentResult GSDeviceVK::BeginPresent(bool frame_skip)
 
 void GSDeviceVK::EndPresent()
 {
+#ifndef __ANDROID__
 	RenderImGui();
+#endif
 
 	VkCommandBuffer cmdbuffer = GetCurrentCommandBuffer();
 	vkCmdEndRenderPass(cmdbuffer);

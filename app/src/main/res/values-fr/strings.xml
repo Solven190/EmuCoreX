@@ -1092,4 +1092,8 @@
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">La recherche de mises à jour est temporairement indisponible. Réessayez dans %1$d minutes.</string>
+    <string name="settings_ra_hardcore_active">HARDCORE ACTIF</string>
+    <string name="settings_ra_hardcore_pending">HARDCORE APRÈS RÉINITIALISATION</string>
+    <string name="settings_ra_softcore_active">SOFTCORE</string>
+    <string name="settings_ra_hardcore_pending_desc">Le mode Hardcore est activé dans les paramètres, mais il deviendra actif une fois le jeu réinitialisé ou redémarré.</string>
 </resources>

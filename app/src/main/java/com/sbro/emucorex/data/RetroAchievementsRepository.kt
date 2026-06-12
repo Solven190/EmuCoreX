@@ -85,6 +85,18 @@ data class LibraryAchievementGame(
     val gameData: RetroAchievementGameData
 )
 
+private data class RemoteAccountProgressEntry(
+    val gameId: Long,
+    val earnedAchievements: Int,
+    val earnedHardcoreAchievements: Int,
+    val totalAchievements: Int
+)
+
+private data class RemoteGameTitle(
+    val title: String,
+    val imageUrl: String?
+)
+
 class RetroAchievementsRepository(private val context: Context) {
 
     private val preferences = AppPreferences(context)
@@ -94,29 +106,16 @@ class RetroAchievementsRepository(private val context: Context) {
         if (gamePath.isBlank()) return null
 
         return withContext(Dispatchers.IO) {
+            if (gamePath == ACTIVE_GAME_LOOKUP_KEY) {
+                return@withContext loadActiveGameData()
+            }
+
             val activeCachedData = findCachedGameData(gamePath)
-            val accountCachedData = if (gamePath != ACTIVE_GAME_LOOKUP_KEY) {
-                loadAccountProgressGames()
-                findAccountCachedGameData(gamePath)
-            } else {
-                null
-            }
-            val data = activeCachedData?.takeIf { it.achievements.isNotEmpty() || gamePath == ACTIVE_GAME_LOOKUP_KEY }
-                ?: if (gamePath != ACTIVE_GAME_LOOKUP_KEY) {
-                    accountCachedData?.let { fetchRemoteGameDataById(it) ?: it }
-                } else {
-                    null
-                }
-                ?: buildLookupCandidates(gamePath).firstNotNullOfOrNull { candidate ->
-                    safeLoadGameDataCandidate(candidate)
-                }
+            loadAccountProgressGames()
+            val accountCachedData = findAccountCachedGameData(gamePath)
+            activeCachedData?.takeIf { it.achievements.isNotEmpty() }
+                ?: accountCachedData?.let { fetchRemoteGameDataById(it) ?: it }
                 ?: activeCachedData
-            if (data != null && data.totalCount > 0) {
-                if (data.achievements.isNotEmpty()) {
-                    lastActiveGameData = data
-                }
-            }
-            data
         }
     }
 
@@ -202,7 +201,7 @@ class RetroAchievementsRepository(private val context: Context) {
         )
         achievementGamesCache[cachedCacheKey]?.let { return it }
 
-        val activeData = cachedActiveData ?: runCatching { loadGameData(ACTIVE_GAME_LOOKUP_KEY) }.getOrNull()
+        val activeData = cachedActiveData ?: runCatching { loadActiveGameData() }.getOrNull()
             ?.takeIf { it.totalCount > 0 }
         val resolvedActiveTitle = activeData?.title?.ifBlank { activeGameTitle.orEmpty() }
             ?.takeIf { it.isNotBlank() }
@@ -293,28 +292,6 @@ class RetroAchievementsRepository(private val context: Context) {
         return unlockedAchievementsCache[buildUnlockedCacheKey(libraryPath)]
     }
 
-    private fun buildLookupCandidates(gamePath: String): List<String> {
-        if (!gamePath.startsWith("content://")) {
-            return listOf(DocumentPathResolver.resolveFilePath(context, gamePath) ?: gamePath)
-        }
-
-        val displayName = runCatching { DocumentPathResolver.getDisplayName(context, gamePath) }.getOrNull()
-            ?.takeIf { it.isNotBlank() }
-        val contentCandidate = displayName?.let { "$gamePath|$it" } ?: gamePath
-        val resolvedPath = DocumentPathResolver.resolveFilePath(context, gamePath)
-        return listOfNotNull(contentCandidate, resolvedPath).distinct()
-    }
-
-    private suspend fun safeLoadGameDataCandidate(candidate: String): RetroAchievementGameData? {
-        if (candidate.isBlank()) return null
-
-        return nativeLoadMutex.withLock {
-            runCatching {
-                NativeApp.getRetroAchievementGameData(candidate)?.toRetroAchievementGameData()
-            }.getOrNull()
-        }
-    }
-
     private fun scanLibraryGames(libraryPath: String): List<GameItem> {
         return if (libraryPath.startsWith("content://")) {
             gameRepository.scanDirectoryFromUri(libraryPath.toUri(), context)
@@ -350,23 +327,32 @@ class RetroAchievementsRepository(private val context: Context) {
     private suspend fun loadAccountProgressGames(): List<RetroAchievementAccountProgress> {
         lastAccountProgress.takeIf { it.isNotEmpty() }?.let { return it }
 
-        nativeLoadMutex.withLock {
+        val nativeProgress = nativeLoadMutex.withLock {
             val nativeJson = runCatching { NativeApp.getRetroAchievementsAccountData() }.getOrNull()
                 ?.takeIf { it.isNotBlank() }
-            if (nativeJson != null) {
-                val progress = nativeJson.toRetroAchievementAccountProgress()
-                preferences.setAchievementsAccountProgressJson(nativeJson)
-                lastAccountProgress = progress
-                return progress
-            }
+            nativeJson?.toRetroAchievementAccountProgress().orEmpty()
+        }
+
+        val remoteJson = fetchRemoteAccountProgressJson()
+        val remoteProgress = remoteJson.toRetroAchievementAccountProgress()
+        if (remoteProgress.isNotEmpty()) {
+            preferences.setAchievementsAccountProgressJson(remoteJson)
+            lastAccountProgress = remoteProgress
+            return remoteProgress
+        }
+
+        if (nativeProgress.isNotEmpty()) {
+            lastAccountProgress = nativeProgress
+            return nativeProgress
         }
 
         val cachedJson = preferences.getAchievementsAccountProgressJson().orEmpty()
         val cachedProgress = cachedJson.toRetroAchievementAccountProgress()
         if (cachedProgress.isNotEmpty()) {
             lastAccountProgress = cachedProgress
+            return cachedProgress
         }
-        return cachedProgress
+        return emptyList()
     }
 
     private fun findAccountCachedGameData(gamePath: String): RetroAchievementGameData? {
@@ -438,6 +424,60 @@ class RetroAchievementsRepository(private val context: Context) {
         )?.also { remoteGameDataCache[summary.gameId] = it }
     }
 
+    private fun fetchRemoteAccountProgressJson(): String {
+        val username = preferences.getAchievementsUsernameSync().orEmpty()
+        val token = preferences.getAchievementsTokenSync().orEmpty()
+        if (username.isBlank() || token.isBlank()) return ""
+
+        val progressJson = postRetroAchievementsRequest(
+            "r" to "allprogress",
+            "u" to username,
+            "t" to token,
+            "c" to PLAYSTATION_2_CONSOLE_ID.toString()
+        ) ?: return ""
+
+        val progressEntries = progressJson.toRemoteAccountProgressEntries()
+        if (progressEntries.isEmpty()) return ""
+
+        val titleMap = fetchRemoteGameTitleMap(progressEntries.keys)
+        val games = JSONArray()
+        progressEntries.values
+            .filter { it.totalAchievements > 0 }
+            .sortedBy { entry -> titleMap[entry.gameId]?.title?.lowercase() ?: entry.gameId.toString() }
+            .forEach { entry ->
+                val info = titleMap[entry.gameId]
+                games.put(
+                    JSONObject()
+                        .put("gameId", entry.gameId)
+                        .put("title", info?.title?.takeIf { it.isNotBlank() } ?: "Game ${entry.gameId}")
+                        .put("gameImageUrl", normalizeRetroAchievementsImageUrl(info?.imageUrl).orEmpty())
+                        .put("earnedAchievements", entry.earnedAchievements)
+                        .put("earnedHardcoreAchievements", entry.earnedHardcoreAchievements)
+                        .put("totalAchievements", entry.totalAchievements)
+                )
+            }
+
+        return JSONObject().put("games", games).toString()
+    }
+
+    private fun fetchRemoteGameTitleMap(gameIds: Set<Long>): Map<Long, RemoteGameTitle> {
+        if (gameIds.isEmpty()) return emptyMap()
+        val username = preferences.getAchievementsUsernameSync().orEmpty()
+        val token = preferences.getAchievementsTokenSync().orEmpty()
+
+        return buildMap {
+            gameIds.chunked(100).forEach { chunk ->
+                val titlesJson = postRetroAchievementsRequest(
+                    "r" to "gameinfolist",
+                    "u" to username,
+                    "t" to token,
+                    "g" to chunk.joinToString(",")
+                ) ?: return@forEach
+                putAll(titlesJson.toRemoteGameTitleMap())
+            }
+        }
+    }
+
     private fun postRetroAchievementsRequest(vararg params: Pair<String, String>): String? {
         var connection: HttpURLConnection? = null
         return runCatching {
@@ -474,6 +514,7 @@ class RetroAchievementsRepository(private val context: Context) {
         private var lastAccountAchievementGames: List<LibraryAchievementGame> = emptyList()
         private var lastAccountAchievementGamesLibraryPath: String? = null
         private val remoteGameDataCache = mutableMapOf<Long, RetroAchievementGameData>()
+        private const val PLAYSTATION_2_CONSOLE_ID = 21
         private const val ACTIVE_GAME_LOOKUP_KEY = "__active_retroachievements_game__"
 
         fun invalidateUnlockedAchievementsCache() {
@@ -513,7 +554,7 @@ private fun String.toRetroAchievementGameData(): RetroAchievementGameData? {
         RetroAchievementGameData(
             gameId = root.optLong("gameId"),
             title = root.optString("title"),
-            gameImageUrl = root.optString("gameImageUrl").takeIf { it.isNotBlank() },
+            gameImageUrl = normalizeRetroAchievementsImageUrl(root.optString("gameImageUrl")),
             achievements = achievements,
             resolvedOnly = root.optBoolean("resolvedOnly")
         )
@@ -530,7 +571,7 @@ private fun String.toRetroAchievementAccountProgress(): List<RetroAchievementAcc
                     RetroAchievementAccountProgress(
                         gameId = item.optLong("gameId"),
                         title = item.optString("title"),
-                        gameImageUrl = item.optString("gameImageUrl").takeIf { it.isNotBlank() },
+                        gameImageUrl = normalizeRetroAchievementsImageUrl(item.optString("gameImageUrl")),
                         earnedAchievements = item.optInt("earnedAchievements"),
                         earnedHardcoreAchievements = item.optInt("earnedHardcoreAchievements"),
                         totalAchievements = item.optInt("totalAchievements")
@@ -539,6 +580,64 @@ private fun String.toRetroAchievementAccountProgress(): List<RetroAchievementAcc
             }
         }
     }.getOrDefault(emptyList())
+}
+
+private fun String.toRemoteAccountProgressEntries(): Map<Long, RemoteAccountProgressEntry> {
+    return runCatching {
+        val root = JSONObject(this)
+        if (!root.optBoolean("Success", true)) return@runCatching emptyMap()
+        val response = root.optJSONObject("Response") ?: return@runCatching emptyMap()
+        buildMap {
+            response.keys().forEach { gameIdKey ->
+                val gameId = gameIdKey.toLongOrNull() ?: return@forEach
+                val item = response.optJSONObject(gameIdKey) ?: return@forEach
+                put(
+                    gameId,
+                    RemoteAccountProgressEntry(
+                        gameId = gameId,
+                        earnedAchievements = item.optInt("Unlocked"),
+                        earnedHardcoreAchievements = item.optInt("UnlockedHardcore"),
+                        totalAchievements = item.optInt("Achievements")
+                    )
+                )
+            }
+        }
+    }.getOrDefault(emptyMap())
+}
+
+private fun String.toRemoteGameTitleMap(): Map<Long, RemoteGameTitle> {
+    return runCatching {
+        val root = JSONObject(this)
+        if (!root.optBoolean("Success", true)) return@runCatching emptyMap()
+        buildMap {
+            root.optJSONArray("Response")?.let { response ->
+                for (index in 0 until response.length()) {
+                    val item = response.optJSONObject(index) ?: continue
+                    putRemoteGameTitle(item.optLong("ID"), item)
+                }
+            } ?: root.optJSONObject("Response")?.let { response ->
+                response.keys().forEach { gameIdKey ->
+                    val item = response.optJSONObject(gameIdKey) ?: return@forEach
+                    putRemoteGameTitle(gameIdKey.toLongOrNull() ?: item.optLong("ID"), item)
+                }
+            }
+        }
+    }.getOrDefault(emptyMap())
+}
+
+private fun MutableMap<Long, RemoteGameTitle>.putRemoteGameTitle(gameId: Long, item: JSONObject) {
+    if (gameId <= 0) return
+    put(
+        gameId,
+        RemoteGameTitle(
+            title = item.optString("Title"),
+            imageUrl = normalizeRetroAchievementsImageUrl(
+                item.optString("ImageUrl").takeIf { it.isNotBlank() }
+                    ?: item.optString("ImageIcon").takeIf { it.isNotBlank() }
+                    ?: item.optString("ImageIconURL").takeIf { it.isNotBlank() }
+            )
+        )
+    )
 }
 
 private fun String.toRetroAchievementPatchGameData(
@@ -558,7 +657,7 @@ private fun String.toRetroAchievementPatchGameData(
         RetroAchievementGameData(
             gameId = patchData.optLong("ID", fallback.gameId),
             title = patchData.optString("Title").takeIf { it.isNotBlank() } ?: fallback.title,
-            gameImageUrl = patchData.optString("ImageIconURL").takeIf { it.isNotBlank() } ?: fallback.gameImageUrl,
+            gameImageUrl = normalizeRetroAchievementsImageUrl(patchData.optString("ImageIconURL")) ?: fallback.gameImageUrl,
             achievements = achievements,
             resolvedOnly = false
         )
@@ -588,6 +687,11 @@ private fun JSONArray?.toPatchAchievementEntries(
         for (index in 0 until length()) {
             val item = optJSONObject(index) ?: continue
             val id = item.optLong("ID")
+            val title = item.optString("Title")
+            val description = item.optString("Description")
+            if (isRetroAchievementsUnsupportedEmulatorWarning(title, description)) {
+                continue
+            }
             val type = when (item.optString("Type")) {
                 "missable" -> 1
                 "progression" -> 2
@@ -597,8 +701,8 @@ private fun JSONArray?.toPatchAchievementEntries(
             add(
                 RetroAchievementEntry(
                     id = id,
-                    title = item.optString("Title"),
-                    description = item.optString("Description"),
+                    title = title,
+                    description = description,
                     points = item.optInt("Points"),
                     category = item.optInt("Flags"),
                     type = type,
@@ -606,9 +710,9 @@ private fun JSONArray?.toPatchAchievementEntries(
                     rarityHardcore = item.optDouble("RarityHardcore", 100.0).toFloat(),
                     earnedSoftcore = id in softcoreUnlocks || id in hardcoreUnlocks,
                     earnedHardcore = id in hardcoreUnlocks,
-                    badgeUrl = item.optString("BadgeURL").takeIf { it.isNotBlank() }
+                    badgeUrl = normalizeRetroAchievementsImageUrl(item.optString("BadgeURL"))
                         ?: item.optString("BadgeName").takeIf { it.isNotBlank() }?.let { "https://media.retroachievements.org/Badge/$it.png" },
-                    badgeLockedUrl = item.optString("BadgeLockedURL").takeIf { it.isNotBlank() }
+                    badgeLockedUrl = normalizeRetroAchievementsImageUrl(item.optString("BadgeLockedURL"))
                         ?: item.optString("BadgeName").takeIf { it.isNotBlank() }?.let { "https://media.retroachievements.org/Badge/${it}_lock.png" }
                 )
             )
@@ -636,11 +740,16 @@ private fun JSONArray?.toRetroAchievementEntries(): List<RetroAchievementEntry> 
     return buildList {
         for (index in 0 until length()) {
             val item = optJSONObject(index) ?: continue
+            val title = item.optString("title")
+            val description = item.optString("description")
+            if (isRetroAchievementsUnsupportedEmulatorWarning(title, description)) {
+                continue
+            }
             add(
                 RetroAchievementEntry(
                     id = item.optLong("id"),
-                    title = item.optString("title"),
-                    description = item.optString("description"),
+                    title = title,
+                    description = description,
                     points = item.optInt("points"),
                     category = item.optInt("category"),
                     type = item.optInt("type"),
@@ -648,10 +757,34 @@ private fun JSONArray?.toRetroAchievementEntries(): List<RetroAchievementEntry> 
                     rarityHardcore = item.optDouble("rarityHardcore").toFloat(),
                     earnedSoftcore = item.optBoolean("earnedSoftcore"),
                     earnedHardcore = item.optBoolean("earnedHardcore"),
-                    badgeUrl = item.optString("badgeUrl").takeIf { it.isNotBlank() },
-                    badgeLockedUrl = item.optString("badgeLockedUrl").takeIf { it.isNotBlank() }
+                    badgeUrl = normalizeRetroAchievementsImageUrl(item.optString("badgeUrl")),
+                    badgeLockedUrl = normalizeRetroAchievementsImageUrl(item.optString("badgeLockedUrl"))
                 )
             )
         }
+    }
+}
+
+private fun isRetroAchievementsUnsupportedEmulatorWarning(title: String, description: String): Boolean {
+    return title.equals("Warning: Unknown Emulator", ignoreCase = true) ||
+        description.contains("Hardcore unlocks cannot be earned using this emulator", ignoreCase = true)
+}
+
+private fun normalizeRetroAchievementsImageUrl(value: String?): String? {
+    val clean = value?.trim().orEmpty()
+    if (clean.isBlank()) return null
+
+    return when {
+        clean.startsWith("http://", ignoreCase = true) ||
+            clean.startsWith("https://", ignoreCase = true) ||
+            clean.startsWith("content://", ignoreCase = true) -> clean
+
+        clean.startsWith("/Images/", ignoreCase = true) ||
+            clean.startsWith("/Badge/", ignoreCase = true) -> "https://media.retroachievements.org$clean"
+
+        clean.startsWith("Images/", ignoreCase = true) ||
+            clean.startsWith("Badge/", ignoreCase = true) -> "https://media.retroachievements.org/$clean"
+
+        else -> clean
     }
 }

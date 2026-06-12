@@ -1090,4 +1090,8 @@
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">Güncelleme kontrolü geçici olarak kullanılamıyor. %1$d dakika sonra tekrar deneyin.</string>
+    <string name="settings_ra_hardcore_active">HARDCORE AKTİF</string>
+    <string name="settings_ra_hardcore_pending">SIFIRLAMADAN SONRA HARDCORE</string>
+    <string name="settings_ra_softcore_active">SOFTCORE</string>
+    <string name="settings_ra_hardcore_pending_desc">Hardcore ayarlarda etkinleştirildi, ancak oyun sıfırlandıktan veya yeniden başlatıldıktan sonra aktif hale gelecektir.</string>
 </resources>

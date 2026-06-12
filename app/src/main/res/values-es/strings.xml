@@ -1092,4 +1092,8 @@
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">La búsqueda de actualizaciones no está disponible temporalmente. Vuelve a intentarlo en %1$d minutos.</string>
+    <string name="settings_ra_hardcore_active">HARDCORE ACTIVO</string>
+    <string name="settings_ra_hardcore_pending">HARDCORE TRAS REINICIO</string>
+    <string name="settings_ra_softcore_active">SOFTCORE</string>
+    <string name="settings_ra_hardcore_pending_desc">Hardcore está activado en los ajustes, pero se activará después de reiniciar o restablecer el juego.</string>
 </resources>

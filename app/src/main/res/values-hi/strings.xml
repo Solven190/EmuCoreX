@@ -1090,4 +1090,8 @@
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">अपडेट की जांच अस्थायी रूप से अनुपलब्ध है। %1$d मिनट में फिर से प्रयास करें।</string>
+    <string name="settings_ra_hardcore_active">हार्डकोर सक्रिय</string>
+    <string name="settings_ra_hardcore_pending">रीसेट के बाद हार्डकोर</string>
+    <string name="settings_ra_softcore_active">सॉफ़्टकोर</string>
+    <string name="settings_ra_hardcore_pending_desc">सेटिंग्स में हार्डकोर सक्षम है, लेकिन गेम को रीसेट या पुनरारंभ करने के बाद यह सक्रिय हो जाएगा।</string>
 </resources>

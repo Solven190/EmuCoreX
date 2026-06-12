@@ -119,6 +119,7 @@ object NativeApp {
     fun initializeOnce(context: Context) {
         contextRef = WeakReference(context.applicationContext)
         val dataRoot = resolveDataRoot(context.applicationContext)
+        prepareNativeDataRoot(File(dataRoot))
         copyAssetTree(context.applicationContext, RESOURCE_ROOT, File(dataRoot, RESOURCE_ROOT))
         val caBundle = File(dataRoot, "system-ca-bundle.pem")
         exportSystemCaBundle(caBundle)
@@ -172,18 +173,50 @@ object NativeApp {
         val override = dataRootOverride
         if (!override.isNullOrBlank()) {
             val dir = File(override)
-            if (!dir.exists()) {
-                dir.mkdirs()
+            if (prepareNativeDataRoot(dir)) {
+                return dir.absolutePath
             }
-            return dir.absolutePath
+            Log.w(TAG, "Configured data root is not writable, falling back to app internal files: $override")
         }
 
         val external = context.getExternalFilesDir(null)
-        if (external != null) {
+        if (external != null && prepareNativeDataRoot(external)) {
             return external.absolutePath
         }
 
-        return context.dataDir.absolutePath
+        val internal = context.filesDir
+        prepareNativeDataRoot(internal)
+        return internal.absolutePath
+    }
+
+    private fun prepareNativeDataRoot(root: File): Boolean {
+        return runCatching {
+            if (!root.exists() && !root.mkdirs()) {
+                return@runCatching false
+            }
+
+            val requiredDirectories = arrayOf(
+                File(root, "cache"),
+                File(root, "cache/achievement_images"),
+                File(root, "resources"),
+                File(root, "inis"),
+                File(root, "sstates"),
+                File(root, "memcards")
+            )
+            requiredDirectories.forEach { dir ->
+                if (!dir.exists() && !dir.mkdirs()) {
+                    return@runCatching false
+                }
+            }
+
+            val probe = File(root, ".native-write-probe")
+            probe.writeText("ok")
+            probe.delete()
+            true
+        }.getOrElse { error ->
+            Log.w(TAG, "Native data root is not writable: ${root.absolutePath}", error)
+            false
+        }
     }
 
     private fun copyAssetTree(context: Context, assetPath: String, target: File) {

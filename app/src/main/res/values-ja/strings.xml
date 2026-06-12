@@ -1090,4 +1090,8 @@
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">アップデートの確認は一時的に利用できません。%1$d分後にもう一度お試しください。</string>
+    <string name="settings_ra_hardcore_active">ハードコア アクティブ</string>
+    <string name="settings_ra_hardcore_pending">リセット後にハードコア</string>
+    <string name="settings_ra_softcore_active">ソフトコア</string>
+    <string name="settings_ra_hardcore_pending_desc">設定でハードコアが有効になっていますが、ゲームをリセットまたは再起動した後にアクティブになります。</string>
 </resources>

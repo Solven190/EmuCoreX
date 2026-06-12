@@ -1090,4 +1090,8 @@
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">업데이트 확인을 일시적으로 사용할 수 없습니다. %1$d분 후에 다시 시도해 주세요.</string>
+    <string name="settings_ra_hardcore_active">하드코어 활성화됨</string>
+    <string name="settings_ra_hardcore_pending">리셋 후 하드코어</string>
+    <string name="settings_ra_softcore_active">소프트코어</string>
+    <string name="settings_ra_hardcore_pending_desc">설정에서 하드코어가 활성화되어 있지만, 게임을 리셋하거나 재시작한 후에 활성화됩니다.</string>
 </resources>

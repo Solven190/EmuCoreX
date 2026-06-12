@@ -3257,6 +3257,7 @@ private fun OverlayAchievementsPane(
             isLoading = gamePath != null && retroState.enabled && retroState.user != null
         ),
         gamePath,
+        currentGameTitle,
         retroState.enabled,
         retroState.user?.username,
         retroState.game?.gameId
@@ -3269,7 +3270,11 @@ private fun OverlayAchievementsPane(
         value = withContext(Dispatchers.IO) {
             OverlayAchievementsContentState(
                 isLoading = false,
-                gameData = runCatching { repository.loadActiveGameData() }.getOrNull()
+                gameData = loadOverlayRetroAchievementsGameDataWithFallback(
+                    repository = repository,
+                    gamePath = gamePath,
+                    gameTitle = currentGameTitle
+                )
             )
         }
     }
@@ -3296,6 +3301,10 @@ private fun OverlayAchievementsPane(
 
         retroState.user == null -> {
             OverlayAchievementsNotice(stringResource(R.string.achievements_login_to_sync))
+        }
+
+        contentState.isLoading -> {
+            OverlayAchievementsNotice(stringResource(R.string.achievements_loading))
         }
 
         contentState.gameData == null && retroState.game == null -> {
@@ -3406,6 +3415,38 @@ private fun OverlayAchievementsPane(
             }
         }
     }
+}
+
+private suspend fun loadActiveRetroAchievementsGameDataWithRetry(
+    repository: RetroAchievementsRepository
+): RetroAchievementGameData? {
+    repeat(8) { attempt ->
+        val data = runCatching { repository.loadActiveGameData() }.getOrNull()
+        if (data != null && (data.achievements.isNotEmpty() || data.totalCount > 0)) {
+            return data
+        }
+        if (attempt < 7) {
+            delay(500)
+            RetroAchievementsLiveStateManager.refreshFromNative()
+        }
+    }
+    return null
+}
+
+private suspend fun loadOverlayRetroAchievementsGameDataWithFallback(
+    repository: RetroAchievementsRepository,
+    gamePath: String,
+    gameTitle: String
+): RetroAchievementGameData? {
+    val activeData = loadActiveRetroAchievementsGameDataWithRetry(repository)
+    if (activeData != null && (activeData.achievements.isNotEmpty() || activeData.totalCount > 0)) {
+        return activeData
+    }
+
+    return runCatching { repository.loadGameData(gamePath) }.getOrNull()
+        ?: gameTitle.takeIf { it.isNotBlank() }?.let { title ->
+            runCatching { repository.loadGameData(title) }.getOrNull()
+        }
 }
 
 @Composable

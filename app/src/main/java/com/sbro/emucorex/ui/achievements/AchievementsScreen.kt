@@ -94,6 +94,7 @@ import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.shimmer
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -411,17 +412,35 @@ fun GameAchievementsScreen(
     val listState = rememberLazyListState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val showScrollToTop = listState.firstVisibleItemIndex > 2 || listState.firstVisibleItemScrollOffset > 900
+    val activeRetroGame = retroState.game
     val contentState by produceState(
-        initialValue = GameContentState(),
-        key1 = gamePath,
-        key2 = retroState.user?.username,
-        key3 = retroState.enabled
+        GameContentState(),
+        gamePath,
+        retroState.user?.username,
+        retroState.enabled,
+        activeRetroGame?.gameId,
+        activeRetroGame?.title,
+        activeRetroGame?.totalAchievements
     ) {
         value = GameContentState(isLoading = true)
         value = withContext(Dispatchers.IO) {
+            val activeData = if (
+                retroState.enabled &&
+                isRetroAchievementsActiveGameRequest(
+                    context = context,
+                    gamePath = gamePath,
+                    gameTitle = gameTitle,
+                    activeTitle = activeRetroGame?.title
+                )
+            ) {
+                loadActiveRetroAchievementsGameDataWithRetry(repository)
+            } else {
+                null
+            }
             GameContentState(
                 isLoading = false,
-                gameData = runCatching { repository.loadGameData(gamePath) }.getOrNull()
+                gameData = activeData
+                    ?: runCatching { repository.loadGameData(gamePath) }.getOrNull()
                     ?: gameTitle?.let { title ->
                         runCatching { repository.loadGameData(title) }.getOrNull()
                     }
@@ -429,8 +448,11 @@ fun GameAchievementsScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(gamePath, retroState.enabled) {
         RetroAchievementsStateManager.initialize()
+        if (retroState.enabled) {
+            RetroAchievementsStateManager.refreshState(invalidateCaches = false)
+        }
     }
 
     if (contentState.isLoading) {
@@ -532,6 +554,22 @@ fun GameAchievementsScreen(
     }
 }
 
+private suspend fun loadActiveRetroAchievementsGameDataWithRetry(
+    repository: RetroAchievementsRepository
+): RetroAchievementGameData? {
+    repeat(8) { attempt ->
+        val data = runCatching { repository.loadActiveGameData() }.getOrNull()
+        if (data != null && (data.achievements.isNotEmpty() || data.totalCount > 0)) {
+            return data
+        }
+        if (attempt < 7) {
+            delay(500)
+            RetroAchievementsStateManager.refreshState(invalidateCaches = false)
+        }
+    }
+    return null
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AchievementsTopBar(
@@ -625,6 +663,12 @@ private fun AchievementToggleCard(retroState: RetroAchievementsUiState) {
                 checked = retroState.hardcorePreference,
                 onCheckedChange = RetroAchievementsStateManager::setHardcore
             )
+            if (retroState.hardcorePreference && !retroState.hardcoreActive) {
+                NoticeCard(
+                    text = androidx.compose.ui.res.stringResource(R.string.settings_ra_hardcore_pending_desc),
+                    isError = false
+                )
+            }
         }
     }
 }
@@ -641,6 +685,19 @@ private fun AchievementAccountCard(
     onLogin: () -> Unit,
     onOpenUnlockedAchievements: (() -> Unit)? = null
 ) {
+    val hardcorePending = retroState.hardcorePreference && !retroState.hardcoreActive
+    val hardcoreStatusColor = when {
+        retroState.hardcoreActive -> Color(0xFFF27121)
+        hardcorePending -> Color(0xFFFFB020)
+        else -> MaterialTheme.colorScheme.primary
+    }
+    val hardcoreStatusText = androidx.compose.ui.res.stringResource(
+        when {
+            retroState.hardcoreActive -> R.string.settings_ra_hardcore_active
+            hardcorePending -> R.string.settings_ra_hardcore_pending
+            else -> R.string.settings_ra_softcore_active
+        }
+    )
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -670,20 +727,12 @@ private fun AchievementAccountCard(
                 if (retroState.user != null) {
                     Surface(
                         shape = RoundedCornerShape(99.dp),
-                        color = if (retroState.hardcorePreference) {
-                            Color(0xFFF27121).copy(alpha = 0.2f)
-                        } else {
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-                        }
+                        color = hardcoreStatusColor.copy(alpha = 0.2f)
                     ) {
                         Text(
-                            text = if (retroState.hardcorePreference) "HARDCORE" else "SOFTCORE",
+                            text = hardcoreStatusText,
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = if (retroState.hardcorePreference) {
-                                Color(0xFFF27121)
-                            } else {
-                                MaterialTheme.colorScheme.primary
-                            },
+                            color = hardcoreStatusColor,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                         )
                     }
@@ -697,6 +746,12 @@ private fun AchievementAccountCard(
                 )
             }
             retroState.errorMessage?.let { NoticeCard(text = it, isError = true) }
+            if (retroState.user != null && hardcorePending) {
+                NoticeCard(
+                    text = androidx.compose.ui.res.stringResource(R.string.settings_ra_hardcore_pending_desc),
+                    isError = false
+                )
+            }
 
             retroState.user?.let { user ->
                 Column(
@@ -713,7 +768,7 @@ private fun AchievementAccountCard(
                                 width = 2.dp,
                                 brush = androidx.compose.ui.graphics.Brush.linearGradient(
                                     colors = if (retroState.hardcorePreference) {
-                                        listOf(Color(0xFFE94057), Color(0xFFF27121))
+                                        listOf(hardcoreStatusColor, Color(0xFFF27121))
                                     } else {
                                         listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary)
                                     }
@@ -1556,4 +1611,41 @@ private fun String?.isUsableAchievementTitle(): Boolean {
         !value.startsWith("primary%3A", ignoreCase = true) &&
         !value.contains("%2F", ignoreCase = true) &&
         !value.contains("%3A", ignoreCase = true)
+}
+
+private fun isRetroAchievementsActiveGameRequest(
+    context: android.content.Context,
+    gamePath: String,
+    gameTitle: String?,
+    activeTitle: String?
+): Boolean {
+    val activeKey = activeTitle.toAchievementScreenTitleKey()
+    if (activeKey.isBlank()) return false
+
+    val requestedKeys = buildSet {
+        add(gameTitle.toAchievementScreenTitleKey())
+        add(gamePath.toAchievementScreenTitleKey())
+        if (gamePath.startsWith("content://")) {
+            runCatching { DocumentPathResolver.getDisplayName(context, gamePath) }.getOrNull()
+                ?.substringBeforeLast('.')
+                ?.let { add(it.toAchievementScreenTitleKey()) }
+        } else {
+            File(gamePath).nameWithoutExtension
+                .takeIf { it.isNotBlank() }
+                ?.let { add(it.toAchievementScreenTitleKey()) }
+        }
+    }.filter { it.isNotBlank() }
+
+    return requestedKeys.any { key ->
+        key == activeKey ||
+            (key.length >= 6 && activeKey.length >= 6 && (key.contains(activeKey) || activeKey.contains(key)))
+    }
+}
+
+private fun String?.toAchievementScreenTitleKey(): String {
+    if (this.isNullOrBlank()) return ""
+    return lowercase()
+        .replace(Regex("\\([^)]*\\)"), "")
+        .substringBeforeLast('.')
+        .replace(Regex("[^a-z0-9]+"), "")
 }

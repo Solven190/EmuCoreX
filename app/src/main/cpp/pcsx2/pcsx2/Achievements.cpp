@@ -764,7 +764,11 @@ void Achievements::EnsureCacheDirectoriesExist()
 
 	if (!FileSystem::DirectoryExists(s_image_directory.c_str()) && !FileSystem::CreateDirectoryPath(s_image_directory.c_str(), false))
 	{
+#if defined(__ANDROID__)
+		Console.Warning("Achievements: Failed to create cache directory '%s'", s_image_directory.c_str());
+#else
 		ReportFmtError("Failed to create cache directory '{}'", s_image_directory);
+#endif
 	}
 }
 
@@ -1718,7 +1722,11 @@ void Achievements::SetHardcoreMode(bool enabled, bool force_display_message)
 	// new mode
 	s_hardcore_mode = enabled;
 
-	if (VMManager::HasValidVM() && (HasActiveGame() || force_display_message))
+	if (VMManager::HasValidVM() && (HasActiveGame()
+#if !defined(__ANDROID__)
+		|| force_display_message
+#endif
+	))
 	{
 #if defined(__ANDROID__)
 		AddAndroidNotification("hardcore", TRANSLATE_STR("Achievements", "Hardcore Mode"),

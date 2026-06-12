@@ -84,7 +84,7 @@ object RetroAchievementsLiveStateManager {
                         unreadMessages = unreadMessages
                     )
                 } else {
-                    current.user
+                    null
                 },
                 game = if (haveGame && !gameTitle.isNullOrBlank()) {
                     RetroAchievementsGameState(
@@ -130,7 +130,12 @@ object RetroAchievementsLiveStateManager {
     }
 
     internal fun onHardcoreModeChanged(enabled: Boolean) {
-        _state.update { it.copy(hardcoreActive = enabled) }
+        _state.update { current ->
+            current.copy(
+                hardcoreActive = enabled,
+                game = current.game?.copy(hardcoreMode = enabled)
+            )
+        }
     }
 
     internal fun onNotification(kind: String?, title: String?, message: String?, imagePath: String?) {

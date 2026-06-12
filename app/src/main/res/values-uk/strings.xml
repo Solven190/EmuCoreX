@@ -168,6 +168,10 @@
     <string name="settings_ra_enabled_desc">Активує інтеграцію RetroAchievements для підтримуваних ігор.</string>
     <string name="settings_ra_hardcore">Hardcore Mode</string>
     <string name="settings_ra_hardcore_desc">Застосовує суворіші правила RetroAchievements для hardcore і таблиць лідерів.</string>
+    <string name="settings_ra_hardcore_active">HARDCORE АКТИВНИЙ</string>
+    <string name="settings_ra_hardcore_pending">HARDCORE ПІСЛЯ РЕСТАРТУ</string>
+    <string name="settings_ra_softcore_active">SOFTCORE</string>
+    <string name="settings_ra_hardcore_pending_desc">Hardcore увімкнено в налаштуваннях, але він стане активним після reset або перезапуску гри.</string>
     <string name="settings_ra_profile">Акаунт</string>
     <string name="settings_ra_current_game">Поточна гра</string>
     <string name="settings_ra_username">Імʼя користувача</string>

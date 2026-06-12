@@ -1092,4 +1092,8 @@
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">暂时无法检查更新。请在 %1$d 分钟后重试。</string>
+    <string name="settings_ra_hardcore_active">硬核已激活</string>
+    <string name="settings_ra_hardcore_pending">重置后硬核</string>
+    <string name="settings_ra_softcore_active">软核</string>
+    <string name="settings_ra_hardcore_pending_desc">硬核模式已在设置中启用，但需要在重置或重新启动游戏后才会激活。</string>
 </resources>

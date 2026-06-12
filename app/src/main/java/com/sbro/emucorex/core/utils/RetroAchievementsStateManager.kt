@@ -387,6 +387,7 @@ object RetroAchievementsStateManager {
         _state.update {
             it.copy(
                 hardcoreActive = enabled,
+                game = it.game?.copy(hardcoreMode = enabled),
                 isLoading = false
             )
         }

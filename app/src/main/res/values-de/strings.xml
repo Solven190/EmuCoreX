@@ -1092,4 +1092,8 @@
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">Suche nach Updates vorübergehend nicht verfügbar. Versuchen Sie es in %1$d Minuten erneut.</string>
+    <string name="settings_ra_hardcore_active">HARDCORE AKTIV</string>
+    <string name="settings_ra_hardcore_pending">HARDCORE NACH NEUSTART</string>
+    <string name="settings_ra_softcore_active">SOFTCORE</string>
+    <string name="settings_ra_hardcore_pending_desc">Hardcore ist in den Einstellungen aktiviert, wird aber erst nach einem Zurücksetzen oder Neustart des Spiels aktiv.</string>
 </resources>

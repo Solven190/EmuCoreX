@@ -1092,4 +1092,8 @@
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">A verificação de atualizações está temporariamente indisponível. Tente novamente em %1$d minutos.</string>
+    <string name="settings_ra_hardcore_active">HARDCORE ATIVO</string>
+    <string name="settings_ra_hardcore_pending">HARDCORE APÓS REINÍCIO</string>
+    <string name="settings_ra_softcore_active">SOFTCORE</string>
+    <string name="settings_ra_hardcore_pending_desc">O modo Hardcore está ativado nas configurações, mas só ficará ativo após o jogo ser redefinido ou reiniciado.</string>
 </resources>

@@ -22,6 +22,8 @@
 #include <mutex>
 #include <thread>
 
+extern void QueryAndNotifyAchievementsState();
+
 namespace emucorex::android
 {
 namespace
@@ -79,11 +81,13 @@ bool GetBoolSetting(const RuntimeSettings& settings, const char* section, const 
 void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config)
 {
 	const bool autotest_mode = GetBoolSetting(config.settings, "EmuCoreX", "AutotestMode", false);
+	const std::string data_root = config.paths.data_root.empty() ? EmuFolders::DataRoot : config.paths.data_root;
 
-	EmuFolders::AppRoot = config.paths.data_root;
-	EmuFolders::DataRoot = config.paths.data_root;
-	EmuFolders::Resources = Path::Combine(config.paths.data_root, "resources");
-	EmuFolders::Settings = Path::Combine(config.paths.data_root, "inis");
+	EmuFolders::AppRoot = data_root;
+	EmuFolders::DataRoot = data_root;
+	EmuFolders::Resources = Path::Combine(data_root, "resources");
+	EmuFolders::Settings = Path::Combine(data_root, "inis");
+	EmuFolders::Cache = Path::Combine(data_root, "cache");
 
 	VMManager::SetDefaultSettings(si, true, true, true, true, true);
 
@@ -228,7 +232,7 @@ VMBootParameters CreateBootParameters(const VmLaunchConfig& config)
 	params.fullscreen = false;
 	params.start_turbo = false;
 	params.start_unlimited = false;
-	params.disable_achievements_hardcore_mode = true;
+	params.disable_achievements_hardcore_mode = false;
 
 	if (config.boot_irx)
 	{
@@ -297,6 +301,7 @@ bool RunUpstreamVm(const VmLaunchConfig& config, VmStartupCallback startup_callb
 	if (startup_callback)
 		startup_callback(startup_userdata, true);
 	VMManager::SetState(VMState::Running);
+	QueryAndNotifyAchievementsState();
 	for (;;)
 	{
 		Host::PumpMessagesOnCPUThread();
