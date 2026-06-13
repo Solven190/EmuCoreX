@@ -166,33 +166,11 @@ static void rpsxADDIU_(int info)
 
 PSXRECOMPILE_CONSTCODE1(ADDIU, XMMINFO_WRITET | XMMINFO_READS);
 
-static void rpsxADDI_const()
-{
-	g_psxConstRegs[_Rt_] = g_psxConstRegs[_Rs_] + _Imm_;
-}
-
-static void rpsxADDI_emit_direct(int info)
-{
-	// Existing IOPrec semantics match ADDIU here.
-	recBeginOaknutEmit();
-	rpsxMoveStoT_emit_oaknut(info);
-	if (_Imm_ > 0)
-	{
-		oakAsm->MOV(OAK_WSCRATCH, static_cast<u32>(_Imm_));
-		oakAsm->ADD(oakWRegister(EEREC_T), oakWRegister(EEREC_T), OAK_WSCRATCH);
-	}
-	else if (_Imm_ < 0)
-	{
-		oakAsm->MOV(OAK_WSCRATCH, static_cast<u32>(-_Imm_));
-		oakAsm->SUB(oakWRegister(EEREC_T), oakWRegister(EEREC_T), OAK_WSCRATCH);
-	}
-	recEndOaknutEmit();
-}
-
 void rpsxADDI()
 {
-	psxRecompileCodeConst1(rpsxADDI_const, rpsxADDI_emit_direct, XMMINFO_WRITET | XMMINFO_READS);
+	rpsxADDIU();
 }
+
 
 //// SLTI
 static void rpsxSLTI_const()

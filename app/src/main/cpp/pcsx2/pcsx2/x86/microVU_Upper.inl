@@ -1025,13 +1025,12 @@ static void mVU_ADDAq_emit(mP)
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
 
-// ADDAx Opcode
-static void mVU_ADDAx_direct_emit_oaknut(mP)
+static void mVU_ADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtX = mVU.regAlloc->allocRegId();
+	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtX, FtRaw, 0);
+	mVUUpperDupLane_oaknut(FtL, FtRaw, lane);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(FtRaw);
 
@@ -1044,10 +1043,10 @@ static void mVU_ADDAx_direct_emit_oaknut(mP)
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-		mVUUpperAddSs_oaknut(mVU, Fs, FtX);
+		mVUUpperAddSs_oaknut(mVU, Fs, FtL);
 		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
 		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtX);
+		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 		recBeginOaknutEmit();
 		const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
 		oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
@@ -1060,207 +1059,51 @@ static void mVU_ADDAx_direct_emit_oaknut(mP)
 		recBeginOaknutEmit();
 		if (_XYZW_SS)
 		{
-			mVUUpperAddSs_oaknut(mVU, Fs, FtX);
+			mVUUpperAddSs_oaknut(mVU, Fs, FtL);
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
 		}
 		else
 		{
-			mVUUpperAddPs_oaknut(mVU, Fs, FtX);
+			mVUUpperAddPs_oaknut(mVU, Fs, FtL);
 			mVUUpperMergeRegs_oaknut(ACC, Fs, _X_Y_Z_W);
 		}
 		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtX);
+		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 	}
 
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtX);
+	mVU.regAlloc->clearNeededXmmId(FtL);
 }
 
 static void mVU_ADDAx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_ADDAx_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_ADDA_lane_direct_emit_oaknut(mVU, recPass, 0); }
 	pass3 { mVUlog("ADDA"); mVUlogACC(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// ADDAy Opcode
-static void mVU_ADDAy_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtY = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtY, FtRaw, 1);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int ACC = mVU.regAlloc->allocRegId((_X_Y_Z_W == 0xf) ? -1 : 32, 32, 0xf, 0);
-
-	if (_XYZW_SS2)
-	{
-		const int tempACC = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-		mVUUpperAddSs_oaknut(mVU, Fs, FtY);
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtY);
-		recBeginOaknutEmit();
-		const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
-		oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
-		oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(tempACC);
-	}
-	else
-	{
-		recBeginOaknutEmit();
-		if (_XYZW_SS)
-		{
-			mVUUpperAddSs_oaknut(mVU, Fs, FtY);
-			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		}
-		else
-		{
-			mVUUpperAddPs_oaknut(mVU, Fs, FtY);
-			mVUUpperMergeRegs_oaknut(ACC, Fs, _X_Y_Z_W);
-		}
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtY);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtY);
 }
 
 static void mVU_ADDAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_ADDAy_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_ADDA_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("ADDA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// ADDAz Opcode
-static void mVU_ADDAz_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtZ = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtZ, FtRaw, 2);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int ACC = mVU.regAlloc->allocRegId((_X_Y_Z_W == 0xf) ? -1 : 32, 32, 0xf, 0);
-
-	if (_XYZW_SS2)
-	{
-		const int tempACC = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-		mVUUpperAddSs_oaknut(mVU, Fs, FtZ);
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtZ);
-		recBeginOaknutEmit();
-		const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
-		oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
-		oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(tempACC);
-	}
-	else
-	{
-		recBeginOaknutEmit();
-		if (_XYZW_SS)
-		{
-			mVUUpperAddSs_oaknut(mVU, Fs, FtZ);
-			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		}
-		else
-		{
-			mVUUpperAddPs_oaknut(mVU, Fs, FtZ);
-			mVUUpperMergeRegs_oaknut(ACC, Fs, _X_Y_Z_W);
-		}
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtZ);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtZ);
 }
 
 static void mVU_ADDAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_ADDAz_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_ADDA_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("ADDA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// ADDAw Opcode
-static void mVU_ADDAw_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtW = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtW, FtRaw, 3);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int ACC = mVU.regAlloc->allocRegId((_X_Y_Z_W == 0xf) ? -1 : 32, 32, 0xf, 0);
-
-	if (_XYZW_SS2)
-	{
-		const int tempACC = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-		mVUUpperAddSs_oaknut(mVU, Fs, FtW);
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtW);
-		recBeginOaknutEmit();
-		const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
-		oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
-		oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(tempACC);
-	}
-	else
-	{
-		recBeginOaknutEmit();
-		if (_XYZW_SS)
-		{
-			mVUUpperAddSs_oaknut(mVU, Fs, FtW);
-			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		}
-		else
-		{
-			mVUUpperAddPs_oaknut(mVU, Fs, FtW);
-			mVUUpperMergeRegs_oaknut(ACC, Fs, _X_Y_Z_W);
-		}
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtW);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtW);
 }
 
 static void mVU_ADDAw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_ADDAw_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_ADDA_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("ADDA"); mVUlogACC(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -2314,13 +2157,12 @@ static void mVU_MSUBq_emit(mP)
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
 
-// MSUBx Opcode
-static void mVU_MSUBx_direct_emit_oaknut(mP)
+static void mVU_MSUB_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtX = mVU.regAlloc->allocRegId();
+	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtX, FtRaw, 0);
+	mVUUpperDupLane_oaknut(FtL, FtRaw, lane);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(FtRaw);
 
@@ -2329,127 +2171,46 @@ static void mVU_MSUBx_direct_emit_oaknut(mP)
 
 	recBeginOaknutEmit();
 	if (_XYZW_SS)
-		mVUUpperFmlsSs_oaknut(mVU, Fd, Fs, FtX);
+		mVUUpperFmlsSs_oaknut(mVU, Fd, Fs, FtL);
 	else
-		mVUUpperFmlsPs_oaknut(mVU, Fd, Fs, FtX);
+		mVUUpperFmlsPs_oaknut(mVU, Fd, Fs, FtL);
 	recEndOaknutEmit();
 
-	mVUupdateFlags_oaknut(mVU, Fd, Fs, FtX);
+	mVUupdateFlags_oaknut(mVU, Fd, Fs, FtL);
 
 	mVU.regAlloc->clearNeededXmmId(Fd);
-	mVU.regAlloc->clearNeededXmmId(FtX);
+	mVU.regAlloc->clearNeededXmmId(FtL);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 }
 
 static void mVU_MSUBx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2 { mVU_MSUBx_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MSUB_lane_direct_emit_oaknut(mVU, recPass, 0); }
 	pass3 { mVUlog("MSUB"); mVUlogFd(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// MSUBy Opcode
-static void mVU_MSUBy_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtY = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtY, FtRaw, 1);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int Fd = mVU.regAlloc->allocRegId(32, _Fd_, _X_Y_Z_W);
-
-	recBeginOaknutEmit();
-	if (_XYZW_SS)
-		mVUUpperFmlsSs_oaknut(mVU, Fd, Fs, FtY);
-	else
-		mVUUpperFmlsPs_oaknut(mVU, Fd, Fs, FtY);
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fd, Fs, FtY);
-
-	mVU.regAlloc->clearNeededXmmId(Fd);
-	mVU.regAlloc->clearNeededXmmId(FtY);
-	mVU.regAlloc->clearNeededXmmId(Fs);
 }
 
 static void mVU_MSUBy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2 { mVU_MSUBy_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MSUB_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("MSUB"); mVUlogFd(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// MSUBz Opcode
-static void mVU_MSUBz_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtZ = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtZ, FtRaw, 2);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int Fd = mVU.regAlloc->allocRegId(32, _Fd_, _X_Y_Z_W);
-
-	recBeginOaknutEmit();
-	if (_XYZW_SS)
-		mVUUpperFmlsSs_oaknut(mVU, Fd, Fs, FtZ);
-	else
-		mVUUpperFmlsPs_oaknut(mVU, Fd, Fs, FtZ);
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fd, Fs, FtZ);
-
-	mVU.regAlloc->clearNeededXmmId(Fd);
-	mVU.regAlloc->clearNeededXmmId(FtZ);
-	mVU.regAlloc->clearNeededXmmId(Fs);
 }
 
 static void mVU_MSUBz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2 { mVU_MSUBz_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MSUB_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("MSUB"); mVUlogFd(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// MSUBw Opcode
-static void mVU_MSUBw_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtW = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtW, FtRaw, 3);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int Fd = mVU.regAlloc->allocRegId(32, _Fd_, _X_Y_Z_W);
-
-	recBeginOaknutEmit();
-	if (_XYZW_SS)
-		mVUUpperFmlsSs_oaknut(mVU, Fd, Fs, FtW);
-	else
-		mVUUpperFmlsPs_oaknut(mVU, Fd, Fs, FtW);
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fd, Fs, FtW);
-
-	mVU.regAlloc->clearNeededXmmId(Fd);
-	mVU.regAlloc->clearNeededXmmId(FtW);
-	mVU.regAlloc->clearNeededXmmId(Fs);
 }
 
 static void mVU_MSUBw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2 { mVU_MSUBw_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MSUB_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("MSUB"); mVUlogFd(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -2695,13 +2456,12 @@ static void mVU_MSUBAq_emit(mP)
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
 
-// MSUBAx Opcode
-static void mVU_MSUBAx_direct_emit_oaknut(mP)
+static void mVU_MSUBA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtX = mVU.regAlloc->allocRegId();
+	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtX, FtRaw, 0);
+	mVUUpperDupLane_oaknut(FtL, FtRaw, lane);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(FtRaw);
 
@@ -2716,9 +2476,9 @@ static void mVU_MSUBAx_direct_emit_oaknut(mP)
 			recBeginOaknutEmit();
 			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtX);
+			mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtL);
 			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtX);
+			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 			recBeginOaknutEmit();
 			const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
 			oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
@@ -2730,11 +2490,11 @@ static void mVU_MSUBAx_direct_emit_oaknut(mP)
 		{
 			recBeginOaknutEmit();
 			if (_XYZW_SS)
-				mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtX);
+				mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtL);
 			else
-				mVUUpperFmlsPs_oaknut(mVU, ACC, Fs, FtX);
+				mVUUpperFmlsPs_oaknut(mVU, ACC, Fs, FtL);
 			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtX);
+			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 		}
 	}
 	else
@@ -2742,223 +2502,46 @@ static void mVU_MSUBAx_direct_emit_oaknut(mP)
 		const int tempACC = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		mVUUpperFmlsPs_oaknut(mVU, tempACC, Fs, FtX);
+		mVUUpperFmlsPs_oaknut(mVU, tempACC, Fs, FtL);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtX);
+		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 		mVU.regAlloc->clearNeededXmmId(tempACC);
 	}
 
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtX);
+	mVU.regAlloc->clearNeededXmmId(FtL);
 }
 
 static void mVU_MSUBAx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_MSUBAx_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 0); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// MSUBAy Opcode
-static void mVU_MSUBAy_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtY = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtY, FtRaw, 1);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int ACC = mVU.regAlloc->allocRegId(32, 32, 0xf, false);
-
-	if (_XYZW_SS || _X_Y_Z_W == 0xf)
-	{
-		if (_XYZW_SS2)
-		{
-			const int tempACC = mVU.regAlloc->allocRegId();
-			recBeginOaknutEmit();
-			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtY);
-			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtY);
-			recBeginOaknutEmit();
-			const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
-			oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
-			oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-			recEndOaknutEmit();
-			mVU.regAlloc->clearNeededXmmId(tempACC);
-		}
-		else
-		{
-			recBeginOaknutEmit();
-			if (_XYZW_SS)
-				mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtY);
-			else
-				mVUUpperFmlsPs_oaknut(mVU, ACC, Fs, FtY);
-			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtY);
-		}
-	}
-	else
-	{
-		const int tempACC = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		mVUUpperFmlsPs_oaknut(mVU, tempACC, Fs, FtY);
-		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtY);
-		mVU.regAlloc->clearNeededXmmId(tempACC);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtY);
 }
 
 static void mVU_MSUBAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (isVU0 && !isCOP2) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Y); else mVU_MSUBAy_direct_emit_oaknut(mVU, recPass); }
+	pass2 { if (isVU0 && !isCOP2) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Y); else mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// MSUBAz Opcode
-static void mVU_MSUBAz_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtZ = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtZ, FtRaw, 2);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int ACC = mVU.regAlloc->allocRegId(32, 32, 0xf, false);
-
-	if (_XYZW_SS || _X_Y_Z_W == 0xf)
-	{
-		if (_XYZW_SS2)
-		{
-			const int tempACC = mVU.regAlloc->allocRegId();
-			recBeginOaknutEmit();
-			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtZ);
-			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtZ);
-			recBeginOaknutEmit();
-			const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
-			oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
-			oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-			recEndOaknutEmit();
-			mVU.regAlloc->clearNeededXmmId(tempACC);
-		}
-		else
-		{
-			recBeginOaknutEmit();
-			if (_XYZW_SS)
-				mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtZ);
-			else
-				mVUUpperFmlsPs_oaknut(mVU, ACC, Fs, FtZ);
-			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtZ);
-		}
-	}
-	else
-	{
-		const int tempACC = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		mVUUpperFmlsPs_oaknut(mVU, tempACC, Fs, FtZ);
-		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtZ);
-		mVU.regAlloc->clearNeededXmmId(tempACC);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtZ);
 }
 
 static void mVU_MSUBAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (isVU0 && !isCOP2) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Z); else mVU_MSUBAz_direct_emit_oaknut(mVU, recPass); }
+	pass2 { if (isVU0 && !isCOP2) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Z); else mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// MSUBAw Opcode
-static void mVU_MSUBAw_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtW = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtW, FtRaw, 3);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int ACC = mVU.regAlloc->allocRegId(32, 32, 0xf, false);
-
-	if (_XYZW_SS || _X_Y_Z_W == 0xf)
-	{
-		if (_XYZW_SS2)
-		{
-			const int tempACC = mVU.regAlloc->allocRegId();
-			recBeginOaknutEmit();
-			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtW);
-			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtW);
-			recBeginOaknutEmit();
-			const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
-			oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
-			oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-			recEndOaknutEmit();
-			mVU.regAlloc->clearNeededXmmId(tempACC);
-		}
-		else
-		{
-			recBeginOaknutEmit();
-			if (_XYZW_SS)
-				mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtW);
-			else
-				mVUUpperFmlsPs_oaknut(mVU, ACC, Fs, FtW);
-			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtW);
-		}
-	}
-	else
-	{
-		const int tempACC = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		mVUUpperFmlsPs_oaknut(mVU, tempACC, Fs, FtW);
-		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtW);
-		mVU.regAlloc->clearNeededXmmId(tempACC);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtW);
 }
 
 static void mVU_MSUBAw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_MSUBAw_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -3060,13 +2643,12 @@ static void mVU_MAXi_emit(mP)
 	}
 }
 
-// MAXx Opcode
-static void mVU_MAXx_direct_emit_oaknut(mP)
+static void mVU_MAX_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtX = mVU.regAlloc->allocRegId();
+	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtX, FtRaw, 0);
+	mVUUpperDupLane_oaknut(FtL, FtRaw, lane);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(FtRaw);
 
@@ -3076,7 +2658,7 @@ static void mVU_MAXx_direct_emit_oaknut(mP)
 	{
 		const int t1 = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
-		mVUUpperMaxScalar_oaknut(Fs, FtX, t1);
+		mVUUpperMaxScalar_oaknut(Fs, FtL, t1);
 		recEndOaknutEmit();
 		mVU.regAlloc->clearNeededXmmId(t1);
 	}
@@ -3085,14 +2667,14 @@ static void mVU_MAXx_direct_emit_oaknut(mP)
 		const int t1 = mVU.regAlloc->allocRegId();
 		const int t2 = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
-		mVUUpperMaxVector_oaknut(Fs, FtX, t1, t2);
+		mVUUpperMaxVector_oaknut(Fs, FtL, t1, t2);
 		recEndOaknutEmit();
 		mVU.regAlloc->clearNeededXmmId(t1);
 		mVU.regAlloc->clearNeededXmmId(t2);
 	}
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtX);
+	mVU.regAlloc->clearNeededXmmId(FtL);
 }
 
 static void mVU_MAXx_emit(mP)
@@ -3102,43 +2684,8 @@ static void mVU_MAXx_emit(mP)
 		mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_);
 		sFLAG.doFlag = false;
 	}
-	pass2 { mVU_MAXx_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MAX_lane_direct_emit_oaknut(mVU, recPass, 0); }
 	pass3 { mVUlog("MAX"); mVUlogFd(); mVUlog(", vf%02dx", _Ft_); }
-}
-
-// MAXy Opcode
-static void mVU_MAXy_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtY = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtY, FtRaw, 1);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	if (_XYZW_SS)
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMaxScalar_oaknut(Fs, FtY, t1);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-	}
-	else
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		const int t2 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMaxVector_oaknut(Fs, FtY, t1, t2);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-		mVU.regAlloc->clearNeededXmmId(t2);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtY);
 }
 
 static void mVU_MAXy_emit(mP)
@@ -3148,43 +2695,8 @@ static void mVU_MAXy_emit(mP)
 		mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_);
 		sFLAG.doFlag = false;
 	}
-	pass2 { mVU_MAXy_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MAX_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("MAX"); mVUlogFd(); mVUlog(", vf%02dy", _Ft_); }
-}
-
-// MAXz Opcode
-static void mVU_MAXz_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtZ = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtZ, FtRaw, 2);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	if (_XYZW_SS)
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMaxScalar_oaknut(Fs, FtZ, t1);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-	}
-	else
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		const int t2 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMaxVector_oaknut(Fs, FtZ, t1, t2);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-		mVU.regAlloc->clearNeededXmmId(t2);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtZ);
 }
 
 static void mVU_MAXz_emit(mP)
@@ -3194,43 +2706,8 @@ static void mVU_MAXz_emit(mP)
 		mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_);
 		sFLAG.doFlag = false;
 	}
-	pass2 { mVU_MAXz_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MAX_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("MAX"); mVUlogFd(); mVUlog(", vf%02dz", _Ft_); }
-}
-
-// MAXw Opcode
-static void mVU_MAXw_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtW = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtW, FtRaw, 3);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	if (_XYZW_SS)
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMaxScalar_oaknut(Fs, FtW, t1);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-	}
-	else
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		const int t2 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMaxVector_oaknut(Fs, FtW, t1, t2);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-		mVU.regAlloc->clearNeededXmmId(t2);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtW);
 }
 
 static void mVU_MAXw_emit(mP)
@@ -3240,17 +2717,16 @@ static void mVU_MAXw_emit(mP)
 		mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_);
 		sFLAG.doFlag = false;
 	}
-	pass2 { mVU_MAXw_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MAX_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("MAX"); mVUlogFd(); mVUlog(", vf%02dw", _Ft_); }
 }
 
-// MINIw Opcode
-static void mVU_MINIw_direct_emit_oaknut(mP)
+static void mVU_MINI_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtW = mVU.regAlloc->allocRegId();
+	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtW, FtRaw, 3);
+	mVUUpperDupLane_oaknut(FtL, FtRaw, lane);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(FtRaw);
 
@@ -3260,7 +2736,7 @@ static void mVU_MINIw_direct_emit_oaknut(mP)
 	{
 		const int t1 = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
-		mVUUpperMiniScalar_oaknut(Fs, FtW, t1);
+		mVUUpperMiniScalar_oaknut(Fs, FtL, t1);
 		recEndOaknutEmit();
 		mVU.regAlloc->clearNeededXmmId(t1);
 	}
@@ -3269,14 +2745,14 @@ static void mVU_MINIw_direct_emit_oaknut(mP)
 		const int t1 = mVU.regAlloc->allocRegId();
 		const int t2 = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
-		mVUUpperMiniVector_oaknut(Fs, FtW, t1, t2);
+		mVUUpperMiniVector_oaknut(Fs, FtL, t1, t2);
 		recEndOaknutEmit();
 		mVU.regAlloc->clearNeededXmmId(t1);
 		mVU.regAlloc->clearNeededXmmId(t2);
 	}
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtW);
+	mVU.regAlloc->clearNeededXmmId(FtL);
 }
 
 static void mVU_MINIw_emit(mP)
@@ -3286,7 +2762,7 @@ static void mVU_MINIw_emit(mP)
 		mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_);
 		sFLAG.doFlag = false;
 	}
-	pass2 { mVU_MINIw_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MINI_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("MINI"); mVUlogFd(); mVUlog(", vf%02dw", _Ft_); }
 }
 
@@ -3387,41 +2863,6 @@ static void mVU_MINIi_emit(mP)
 	}
 }
 
-// MINIx Opcode
-static void mVU_MINIx_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtX = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtX, FtRaw, 0);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	if (_XYZW_SS)
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMiniScalar_oaknut(Fs, FtX, t1);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-	}
-	else
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		const int t2 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMiniVector_oaknut(Fs, FtX, t1, t2);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-		mVU.regAlloc->clearNeededXmmId(t2);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtX);
-}
-
 static void mVU_MINIx_emit(mP)
 {
 	pass1
@@ -3429,43 +2870,8 @@ static void mVU_MINIx_emit(mP)
 		mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_);
 		sFLAG.doFlag = false;
 	}
-	pass2 { mVU_MINIx_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MINI_lane_direct_emit_oaknut(mVU, recPass, 0); }
 	pass3 { mVUlog("MINI"); mVUlogFd(); mVUlog(", vf%02dx", _Ft_); }
-}
-
-// MINIy Opcode
-static void mVU_MINIy_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtY = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtY, FtRaw, 1);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	if (_XYZW_SS)
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMiniScalar_oaknut(Fs, FtY, t1);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-	}
-	else
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		const int t2 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMiniVector_oaknut(Fs, FtY, t1, t2);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-		mVU.regAlloc->clearNeededXmmId(t2);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtY);
 }
 
 static void mVU_MINIy_emit(mP)
@@ -3475,43 +2881,8 @@ static void mVU_MINIy_emit(mP)
 		mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_);
 		sFLAG.doFlag = false;
 	}
-	pass2 { mVU_MINIy_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MINI_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("MINI"); mVUlogFd(); mVUlog(", vf%02dy", _Ft_); }
-}
-
-// MINIz Opcode
-static void mVU_MINIz_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtZ = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtZ, FtRaw, 2);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	if (_XYZW_SS)
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMiniScalar_oaknut(Fs, FtZ, t1);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-	}
-	else
-	{
-		const int t1 = mVU.regAlloc->allocRegId();
-		const int t2 = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperMiniVector_oaknut(Fs, FtZ, t1, t2);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(t1);
-		mVU.regAlloc->clearNeededXmmId(t2);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtZ);
 }
 
 static void mVU_MINIz_emit(mP)
@@ -3521,7 +2892,7 @@ static void mVU_MINIz_emit(mP)
 		mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_);
 		sFLAG.doFlag = false;
 	}
-	pass2 { mVU_MINIz_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MINI_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("MINI"); mVUlogFd(); mVUlog(", vf%02dz", _Ft_); }
 }
 
@@ -3653,138 +3024,56 @@ static void mVU_ADDq_emit(mP)
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
 
-// ADDx Opcode
-static void mVU_ADDx_direct_emit_oaknut(mP)
+static void mVU_ADD_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtX = mVU.regAlloc->allocRegId();
+	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtX, FtRaw, 0);
+	mVUUpperDupLane_oaknut(FtL, FtRaw, lane);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(FtRaw);
 
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
 	recBeginOaknutEmit();
 	if (_XYZW_SS)
-		mVUUpperAddSs_oaknut(mVU, Fs, FtX);
+		mVUUpperAddSs_oaknut(mVU, Fs, FtL);
 	else
-		mVUUpperAddPs_oaknut(mVU, Fs, FtX);
+		mVUUpperAddPs_oaknut(mVU, Fs, FtL);
 	recEndOaknutEmit();
 
-	mVUupdateFlags_oaknut(mVU, Fs, FtX);
+	mVUupdateFlags_oaknut(mVU, Fs, FtL);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtX);
+	mVU.regAlloc->clearNeededXmmId(FtL);
 }
 
 static void mVU_ADDx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_ADDx_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_ADD_lane_direct_emit_oaknut(mVU, recPass, 0); }
 	pass3 { mVUlog("ADD"); mVUlogFd(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// ADDy Opcode
-static void mVU_ADDy_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtY = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtY, FtRaw, 1);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-	recBeginOaknutEmit();
-	if (_XYZW_SS)
-		mVUUpperAddSs_oaknut(mVU, Fs, FtY);
-	else
-		mVUUpperAddPs_oaknut(mVU, Fs, FtY);
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fs, FtY);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtY);
 }
 
 static void mVU_ADDy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_ADDy_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_ADD_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("ADD"); mVUlogFd(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// ADDz Opcode
-static void mVU_ADDz_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtZ = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtZ, FtRaw, 2);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-	recBeginOaknutEmit();
-	if (_XYZW_SS)
-		mVUUpperAddSs_oaknut(mVU, Fs, FtZ);
-	else
-		mVUUpperAddPs_oaknut(mVU, Fs, FtZ);
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fs, FtZ);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtZ);
 }
 
 static void mVU_ADDz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_ADDz_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_ADD_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("ADD"); mVUlogFd(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// ADDw Opcode
-static void mVU_ADDw_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtW = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtW, FtRaw, 3);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-	recBeginOaknutEmit();
-	if (_XYZW_SS)
-		mVUUpperAddSs_oaknut(mVU, Fs, FtW);
-	else
-		mVUUpperAddPs_oaknut(mVU, Fs, FtW);
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fs, FtW);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtW);
 }
 
 static void mVU_ADDw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_ADDw_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_ADD_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("ADD"); mVUlogFd(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -3978,13 +3267,12 @@ static void mVU_SUBq_emit(mP)
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
 
-// SUBx Opcode
-static void mVU_SUBx_direct_emit_oaknut(mP)
+static void mVU_SUB_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtX = mVU.regAlloc->allocRegId();
+	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtX, FtRaw, 0);
+	mVUUpperDupLane_oaknut(FtL, FtRaw, lane);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(FtRaw);
 
@@ -3995,181 +3283,55 @@ static void mVU_SUBx_direct_emit_oaknut(mP)
 	{
 		if (_XYZW_SS)
 		{
-			mVUUpperClamp2Scalar_oaknut(mVU, FtX, false);
+			mVUUpperClamp2Scalar_oaknut(mVU, FtL, false);
 			mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
 		}
 		else
 		{
-			mVUUpperClamp2Vector_oaknut(mVU, FtX, false);
+			mVUUpperClamp2Vector_oaknut(mVU, FtL, false);
 			mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
 		}
 	}
 	if (_XYZW_SS)
-		mVUUpperSubSs_oaknut(mVU, Fs, FtX);
+		mVUUpperSubSs_oaknut(mVU, Fs, FtL);
 	else
-		mVUUpperSubPs_oaknut(mVU, Fs, FtX);
+		mVUUpperSubPs_oaknut(mVU, Fs, FtL);
 	recEndOaknutEmit();
 
-	mVUupdateFlags_oaknut(mVU, Fs, FtX);
+	mVUupdateFlags_oaknut(mVU, Fs, FtL);
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtX);
+	mVU.regAlloc->clearNeededXmmId(FtL);
 }
 
 static void mVU_SUBx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_SUBx_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_SUB_lane_direct_emit_oaknut(mVU, recPass, 0); }
 	pass3 { mVUlog("SUB"); mVUlogFd(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// SUBy Opcode
-static void mVU_SUBy_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtY = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtY, FtRaw, 1);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	recBeginOaknutEmit();
-	if (_XYZW_PS)
-	{
-		if (_XYZW_SS)
-		{
-			mVUUpperClamp2Scalar_oaknut(mVU, FtY, false);
-			mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-		}
-		else
-		{
-			mVUUpperClamp2Vector_oaknut(mVU, FtY, false);
-			mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
-		}
-	}
-	if (_XYZW_SS)
-		mVUUpperSubSs_oaknut(mVU, Fs, FtY);
-	else
-		mVUUpperSubPs_oaknut(mVU, Fs, FtY);
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fs, FtY);
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtY);
 }
 
 static void mVU_SUBy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_SUBy_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_SUB_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("SUB"); mVUlogFd(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// SUBz Opcode
-static void mVU_SUBz_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtZ = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtZ, FtRaw, 2);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	recBeginOaknutEmit();
-	if (_XYZW_PS)
-	{
-		if (_XYZW_SS)
-		{
-			mVUUpperClamp2Scalar_oaknut(mVU, FtZ, false);
-			mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-		}
-		else
-		{
-			mVUUpperClamp2Vector_oaknut(mVU, FtZ, false);
-			mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
-		}
-	}
-	if (_XYZW_SS)
-		mVUUpperSubSs_oaknut(mVU, Fs, FtZ);
-	else
-		mVUUpperSubPs_oaknut(mVU, Fs, FtZ);
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fs, FtZ);
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtZ);
 }
 
 static void mVU_SUBz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_SUBz_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_SUB_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("SUB"); mVUlogFd(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// SUBw Opcode
-static void mVU_SUBw_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtW = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtW, FtRaw, 3);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	recBeginOaknutEmit();
-	if (_XYZW_PS)
-	{
-		if (_XYZW_SS)
-		{
-			mVUUpperClamp2Scalar_oaknut(mVU, FtW, false);
-			mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-		}
-		else
-		{
-			mVUUpperClamp2Vector_oaknut(mVU, FtW, false);
-			mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
-		}
-	}
-	if (_XYZW_SS)
-		mVUUpperSubSs_oaknut(mVU, Fs, FtW);
-	else
-		mVUUpperSubPs_oaknut(mVU, Fs, FtW);
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fs, FtW);
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtW);
 }
 
 static void mVU_SUBw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_SUBw_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_SUB_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("SUB"); mVUlogFd(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -4394,13 +3556,12 @@ static void mVU_SUBAq_emit(mP)
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
 
-// SUBAx Opcode
-static void mVU_SUBAx_direct_emit_oaknut(mP)
+static void mVU_SUBA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtX = mVU.regAlloc->allocRegId();
+	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtX, FtRaw, 0);
+	mVUUpperDupLane_oaknut(FtL, FtRaw, lane);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(FtRaw);
 
@@ -4413,10 +3574,10 @@ static void mVU_SUBAx_direct_emit_oaknut(mP)
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-		mVUUpperSubSs_oaknut(mVU, Fs, FtX);
+		mVUUpperSubSs_oaknut(mVU, Fs, FtL);
 		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
 		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtX);
+		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 		recBeginOaknutEmit();
 		const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
 		oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
@@ -4429,207 +3590,51 @@ static void mVU_SUBAx_direct_emit_oaknut(mP)
 		recBeginOaknutEmit();
 		if (_XYZW_SS)
 		{
-			mVUUpperSubSs_oaknut(mVU, Fs, FtX);
+			mVUUpperSubSs_oaknut(mVU, Fs, FtL);
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
 		}
 		else
 		{
-			mVUUpperSubPs_oaknut(mVU, Fs, FtX);
+			mVUUpperSubPs_oaknut(mVU, Fs, FtL);
 			mVUUpperMergeRegs_oaknut(ACC, Fs, _X_Y_Z_W);
 		}
 		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtX);
+		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 	}
 
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtX);
+	mVU.regAlloc->clearNeededXmmId(FtL);
 }
 
 static void mVU_SUBAx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_SUBAx_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_SUBA_lane_direct_emit_oaknut(mVU, recPass, 0); }
 	pass3 { mVUlog("SUBA"); mVUlogACC(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// SUBAy Opcode
-static void mVU_SUBAy_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtY = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtY, FtRaw, 1);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int ACC = mVU.regAlloc->allocRegId((_X_Y_Z_W == 0xf) ? -1 : 32, 32, 0xf, 0);
-
-	if (_XYZW_SS2)
-	{
-		const int tempACC = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-		mVUUpperSubSs_oaknut(mVU, Fs, FtY);
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtY);
-		recBeginOaknutEmit();
-		const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
-		oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
-		oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(tempACC);
-	}
-	else
-	{
-		recBeginOaknutEmit();
-		if (_XYZW_SS)
-		{
-			mVUUpperSubSs_oaknut(mVU, Fs, FtY);
-			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		}
-		else
-		{
-			mVUUpperSubPs_oaknut(mVU, Fs, FtY);
-			mVUUpperMergeRegs_oaknut(ACC, Fs, _X_Y_Z_W);
-		}
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtY);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtY);
 }
 
 static void mVU_SUBAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_SUBAy_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_SUBA_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("SUBA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// SUBAz Opcode
-static void mVU_SUBAz_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtZ = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtZ, FtRaw, 2);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int ACC = mVU.regAlloc->allocRegId((_X_Y_Z_W == 0xf) ? -1 : 32, 32, 0xf, 0);
-
-	if (_XYZW_SS2)
-	{
-		const int tempACC = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-		mVUUpperSubSs_oaknut(mVU, Fs, FtZ);
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtZ);
-		recBeginOaknutEmit();
-		const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
-		oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
-		oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(tempACC);
-	}
-	else
-	{
-		recBeginOaknutEmit();
-		if (_XYZW_SS)
-		{
-			mVUUpperSubSs_oaknut(mVU, Fs, FtZ);
-			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		}
-		else
-		{
-			mVUUpperSubPs_oaknut(mVU, Fs, FtZ);
-			mVUUpperMergeRegs_oaknut(ACC, Fs, _X_Y_Z_W);
-		}
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtZ);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtZ);
 }
 
 static void mVU_SUBAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_SUBAz_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_SUBA_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("SUBA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// SUBAw Opcode
-static void mVU_SUBAw_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtW = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtW, FtRaw, 3);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int ACC = mVU.regAlloc->allocRegId((_X_Y_Z_W == 0xf) ? -1 : 32, 32, 0xf, 0);
-
-	if (_XYZW_SS2)
-	{
-		const int tempACC = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-		mVUUpperSubSs_oaknut(mVU, Fs, FtW);
-		oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtW);
-		recBeginOaknutEmit();
-		const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
-		oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
-		oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(tempACC);
-	}
-	else
-	{
-		recBeginOaknutEmit();
-		if (_XYZW_SS)
-		{
-			mVUUpperSubSs_oaknut(mVU, Fs, FtW);
-			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(Fs).Selem()[0]);
-		}
-		else
-		{
-			mVUUpperSubPs_oaknut(mVU, Fs, FtW);
-			mVUUpperMergeRegs_oaknut(ACC, Fs, _X_Y_Z_W);
-		}
-		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtW);
-	}
-
-	mVU.regAlloc->clearNeededXmmId(ACC);
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtW);
 }
 
 static void mVU_SUBAw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_SUBAw_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_SUBA_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("SUBA"); mVUlogACC(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -5254,13 +4259,12 @@ static void mVU_MULq_emit(mP)
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
 
-// MULx Opcode
-static void mVU_MULx_direct_emit_oaknut(mP)
+static void mVU_MUL_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtX = mVU.regAlloc->allocRegId();
+	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtX, FtRaw, 0);
+	mVUUpperDupLane_oaknut(FtL, FtRaw, lane);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(FtRaw);
 
@@ -5270,170 +4274,53 @@ static void mVU_MULx_direct_emit_oaknut(mP)
 	if (_XYZW_SS)
 	{
 		if (_XYZW_PS)
-			mVUUpperClamp2Scalar_oaknut(mVU, FtX, false);
+			mVUUpperClamp2Scalar_oaknut(mVU, FtL, false);
 		mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-		mVUUpperMulSs_oaknut(mVU, Fs, FtX);
+		mVUUpperMulSs_oaknut(mVU, Fs, FtL);
 	}
 	else
 	{
 		if (_XYZW_PS)
-			mVUUpperClamp2Vector_oaknut(mVU, FtX, false);
+			mVUUpperClamp2Vector_oaknut(mVU, FtL, false);
 		mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
-		mVUUpperMulPs_oaknut(mVU, Fs, FtX);
+		mVUUpperMulPs_oaknut(mVU, Fs, FtL);
 	}
 	recEndOaknutEmit();
 
-	mVUupdateFlags_oaknut(mVU, Fs, FtX);
+	mVUupdateFlags_oaknut(mVU, Fs, FtL);
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtX);
+	mVU.regAlloc->clearNeededXmmId(FtL);
 }
 
 static void mVU_MULx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_MULx_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_MUL_lane_direct_emit_oaknut(mVU, recPass, 0); }
 	pass3 { mVUlog("MUL"); mVUlogFd(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// MULy Opcode
-static void mVU_MULy_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtY = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtY, FtRaw, 1);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	recBeginOaknutEmit();
-	if (_XYZW_SS)
-	{
-		if (_XYZW_PS)
-			mVUUpperClamp2Scalar_oaknut(mVU, FtY, false);
-		mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-		mVUUpperMulSs_oaknut(mVU, Fs, FtY);
-	}
-	else
-	{
-		if (_XYZW_PS)
-			mVUUpperClamp2Vector_oaknut(mVU, FtY, false);
-		mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
-		mVUUpperMulPs_oaknut(mVU, Fs, FtY);
-	}
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fs, FtY);
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtY);
 }
 
 static void mVU_MULy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_MULy_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_MUL_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("MUL"); mVUlogFd(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// MULz Opcode
-static void mVU_MULz_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtZ = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtZ, FtRaw, 2);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	recBeginOaknutEmit();
-	if (_XYZW_SS)
-	{
-		if (_XYZW_PS)
-			mVUUpperClamp2Scalar_oaknut(mVU, FtZ, false);
-		mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-		mVUUpperMulSs_oaknut(mVU, Fs, FtZ);
-	}
-	else
-	{
-		if (_XYZW_PS)
-			mVUUpperClamp2Vector_oaknut(mVU, FtZ, false);
-		mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
-		mVUUpperMulPs_oaknut(mVU, Fs, FtZ);
-	}
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fs, FtZ);
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtZ);
 }
 
 static void mVU_MULz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_MULz_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_MUL_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("MUL"); mVUlogFd(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
-}
-
-// MULw Opcode
-static void mVU_MULw_direct_emit_oaknut(mP)
-{
-	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	const int FtW = mVU.regAlloc->allocRegId();
-	recBeginOaknutEmit();
-	mVUUpperDupLane_oaknut(FtW, FtRaw, 3);
-	recEndOaknutEmit();
-	mVU.regAlloc->clearNeededXmmId(FtRaw);
-
-	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
-
-	recBeginOaknutEmit();
-	if (_XYZW_SS)
-	{
-		if (_XYZW_PS)
-			mVUUpperClamp2Scalar_oaknut(mVU, FtW, false);
-		mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-		mVUUpperMulSs_oaknut(mVU, Fs, FtW);
-	}
-	else
-	{
-		if (_XYZW_PS)
-			mVUUpperClamp2Vector_oaknut(mVU, FtW, false);
-		mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
-		mVUUpperMulPs_oaknut(mVU, Fs, FtW);
-	}
-	recEndOaknutEmit();
-
-	mVUupdateFlags_oaknut(mVU, Fs, FtW);
-
-	mVU.regAlloc->clearNeededXmmId(Fs);
-	mVU.regAlloc->clearNeededXmmId(FtW);
 }
 
 static void mVU_MULw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2
-	{
-		mVU_MULw_direct_emit_oaknut(mVU, recPass);
-	}
+	pass2 { mVU_MUL_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("MUL"); mVUlogFd(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
