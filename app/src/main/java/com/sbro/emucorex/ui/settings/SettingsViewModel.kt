@@ -309,17 +309,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun setGpuDriverType(value: Int) {
-        viewModelScope.launch {
-            preferences.setGpuDriverType(value)
-            if (value == 0) {
-                EmulatorBridge.setCustomDriverPath("")
-            } else {
-                _uiState.value.customDriverPath?.let { EmulatorBridge.setCustomDriverPath(it) }
-            }
-        }
-    }
-
     fun setCustomDriverPath(path: String?) {
         viewModelScope.launch {
             preferences.setCustomDriverPath(path)
@@ -968,14 +957,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             markPerformancePresetCustom()
             preferences.setCasSharpness(value)
             EmulatorBridge.setSetting("EmuCore/GS", "CASSharpness", "int", value.toString())
-        }
-    }
-
-    fun setShadeBoostEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            markPerformancePresetCustom()
-            preferences.setShadeBoostEnabled(enabled)
-            EmulatorBridge.setSetting("EmuCore/GS", "ShadeBoost", "bool", enabled.toString())
         }
     }
 

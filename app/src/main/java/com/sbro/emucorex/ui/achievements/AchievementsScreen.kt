@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -70,6 +69,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -127,7 +127,7 @@ fun AchievementsHubScreen(
     onOpenUnlockedAchievements: () -> Unit,
     onBackClick: () -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val repository = remember(context) { RetroAchievementsRepository(context) }
     val preferences = remember(context) { AppPreferences(context) }
     val uiScope = rememberCoroutineScope()
@@ -312,7 +312,7 @@ fun AccountUnlockedAchievementsScreen(
     onOpenGameAchievements: (String, String?) -> Unit,
     onBackClick: () -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val repository = remember(context) { RetroAchievementsRepository(context) }
     val retroState by RetroAchievementsStateManager.state.collectAsState()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -404,13 +404,13 @@ fun GameAchievementsScreen(
     gameTitle: String?,
     onBackClick: () -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val repository = remember(context) { RetroAchievementsRepository(context) }
     val retroState by RetroAchievementsStateManager.state.collectAsState()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val horizontalSystemBarPadding = navigationBarsHorizontalPaddingValues()
     val listState = rememberLazyListState()
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     val showScrollToTop = listState.firstVisibleItemIndex > 2 || listState.firstVisibleItemScrollOffset > 900
     val activeRetroGame = retroState.game
     val contentState by produceState(
@@ -1338,80 +1338,6 @@ private fun LibraryAchievementGameCard(item: LibraryAchievementGame, onClick: ()
             )
         }
     }
-}
-
-@Composable
-private fun LibraryUnlockedCard(item: LibraryUnlockedAchievement, onClick: () -> Unit) {
-    val cleanAchievementTitle = item.achievement.title.takeUnless { it.isTechnicalAchievementMessage() }
-    val cleanAchievementDescription = item.achievement.description.takeUnless { it.isTechnicalAchievementMessage() }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-        ),
-        onClick = onClick
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {
-                AchievementBadge(
-                    imagePath = item.achievement.badgeUrl ?: item.achievement.badgeLockedUrl,
-                    earned = true
-                )
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = item.gameTitle,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    cleanAchievementTitle?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    cleanAchievementDescription?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MiniBadge(text = "${item.achievement.points} pts")
-                MiniBadge(text = androidx.compose.ui.res.stringResource(R.string.achievements_open_game))
-            }
-        }
-    }
-}
-
-private fun String.isTechnicalAchievementMessage(): Boolean {
-    val normalized = trim().lowercase()
-    if (normalized.isBlank()) return true
-    return normalized.startsWith("warning:") ||
-        normalized.contains("outdated emulator") ||
-        normalized.contains("hardcore unlocks cannot be earned")
 }
 
 @Composable

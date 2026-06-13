@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.combinedClickable
@@ -25,7 +24,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -96,9 +94,9 @@ fun PerGameSettingsManagerScreen(
     val context = LocalContext.current
     val repository = remember(context) { PerGameSettingsRepository(context) }
     var profiles by remember { mutableStateOf(repository.getAll()) }
-    var editingProfile by remember { mutableStateOf<PerGameSettings?>(null) }
-    var pendingDeleteProfile by remember { mutableStateOf<PerGameSettings?>(null) }
-    var showResetAllDialog by remember { mutableStateOf(false) }
+    val editingProfile = remember { mutableStateOf<PerGameSettings?>(null) }
+    val pendingDeleteProfile = remember { mutableStateOf<PerGameSettings?>(null) }
+    val showResetAllDialog = remember { mutableStateOf(false) }
     val topInset = WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding() + 10.dp
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val horizontalSystemBarPadding = navigationBarsHorizontalPaddingValues()
@@ -201,7 +199,7 @@ fun PerGameSettingsManagerScreen(
                             modifier = Modifier.fillMaxWidth(),
                             icon = Icons.Rounded.Restore,
                             title = stringResource(R.string.game_settings_manager_reset_all_title),
-                            onClick = { showResetAllDialog = true },
+                            onClick = { showResetAllDialog.value = true },
                             destructive = true
                         )
                     }
@@ -247,46 +245,46 @@ fun PerGameSettingsManagerScreen(
                 items(profiles, key = { it.gameKey }) { profile ->
                     GameSettingsProfileCard(
                         profile = profile,
-                        onEdit = { editingProfile = profile },
+                        onEdit = { editingProfile.value = profile },
                         onReset = {
                             repository.delete(profile.gameKey)
                             refreshProfiles()
                         },
-                        onDelete = { pendingDeleteProfile = profile }
+                        onDelete = { pendingDeleteProfile.value = profile }
                     )
                 }
             }
     }
 
-    if (editingProfile != null) {
+    editingProfile.value?.let { profile ->
         GameSettingsEditorDialog(
-            profile = editingProfile!!,
-            onDismiss = { editingProfile = null },
+            profile = profile,
+            onDismiss = { editingProfile.value = null },
             onSave = { updated ->
                 repository.save(updated)
                 refreshProfiles()
-                editingProfile = null
+                editingProfile.value = null
             }
         )
     }
 
-    if (pendingDeleteProfile != null) {
+    pendingDeleteProfile.value?.let { profile ->
         AlertDialog(
-            onDismissRequest = { pendingDeleteProfile = null },
+            onDismissRequest = { pendingDeleteProfile.value = null },
             title = { Text(stringResource(R.string.game_settings_manager_delete_title)) },
             text = {
                 Text(
                     stringResource(
                         R.string.game_settings_manager_delete_desc,
-                        pendingDeleteProfile!!.gameTitle
+                        profile.gameTitle
                     )
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        repository.delete(pendingDeleteProfile!!.gameKey)
-                        pendingDeleteProfile = null
+                        repository.delete(profile.gameKey)
+                        pendingDeleteProfile.value = null
                         refreshProfiles()
                     }
                 ) {
@@ -294,16 +292,16 @@ fun PerGameSettingsManagerScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDeleteProfile = null }) {
+                TextButton(onClick = { pendingDeleteProfile.value = null }) {
                     Text(stringResource(R.string.cancel))
                 }
             }
         )
     }
 
-    if (showResetAllDialog) {
+    if (showResetAllDialog.value) {
         AlertDialog(
-            onDismissRequest = { showResetAllDialog = false },
+            onDismissRequest = { showResetAllDialog.value = false },
             title = { Text(stringResource(R.string.game_settings_manager_reset_all_title)) },
             text = { Text(stringResource(R.string.game_settings_manager_reset_all_desc)) },
             confirmButton = {
@@ -311,14 +309,14 @@ fun PerGameSettingsManagerScreen(
                     onClick = {
                         repository.deleteAll()
                         refreshProfiles()
-                        showResetAllDialog = false
+                        showResetAllDialog.value = false
                     }
                 ) {
                     Text(stringResource(R.string.game_settings_manager_reset_all_confirm))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showResetAllDialog = false }) {
+                TextButton(onClick = { showResetAllDialog.value = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             }
@@ -447,7 +445,7 @@ private fun GameSettingsEditorDialog(
     val scope = rememberCoroutineScope()
     val nativeUpscaleLabel = stringResource(R.string.settings_upscale_native)
     var draft by remember(profile) { mutableStateOf(profile) }
-    var showScreenSettingsResetHint by rememberSaveable(profile.gameKey) { mutableStateOf(false) }
+    val showScreenSettingsResetHint = rememberSaveable(profile.gameKey) { mutableStateOf(false) }
     val defaultProfile = remember(settingsSnapshot, profile.gameKey, profile.gameTitle, profile.gameSerial) {
         settingsSnapshot.toPerGameSettings(
             GameItem(
@@ -462,8 +460,8 @@ private fun GameSettingsEditorDialog(
     }
     LaunchedEffect(profile.gameKey, screenSettingsResetHintShown) {
         when (screenSettingsResetHintShown) {
-            false -> showScreenSettingsResetHint = true
-            true -> showScreenSettingsResetHint = false
+            false -> showScreenSettingsResetHint.value = true
+            true -> showScreenSettingsResetHint.value = false
             null -> Unit
         }
     }
@@ -1100,10 +1098,10 @@ private fun GameSettingsEditorDialog(
             }
         }
     }
-    if (showScreenSettingsResetHint) {
+    if (showScreenSettingsResetHint.value) {
         ScreenSettingsResetHintDialog(
             onDismiss = {
-                showScreenSettingsResetHint = false
+                showScreenSettingsResetHint.value = false
                 scope.launch {
                     preferences.setScreenSettingsResetHintShown(true)
                 }

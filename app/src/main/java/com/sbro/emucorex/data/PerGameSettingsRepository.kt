@@ -97,17 +97,6 @@ class PerGameSettingsRepository(context: Context) {
         writeAll(emptyList())
     }
 
-    fun clearManualHardwareFixesForAllProfiles(): Boolean {
-        val items = loadAll()
-        if (items.isEmpty()) return false
-
-        val normalized = items.map { it.withManualHardwareFixesCleared() }
-        if (normalized == items) return false
-
-        writeAll(normalized.sortedBy { it.gameTitle.lowercase() })
-        return true
-    }
-
     fun exportJson(): JSONObject {
         return JSONObject().put(
             "profiles",
@@ -328,36 +317,4 @@ private fun isShadeBoostActive(
     gamma: Int
 ): Boolean {
     return brightness != 50 || contrast != 50 || saturation != 50 || gamma != 50
-}
-
-private fun PerGameSettings.withManualHardwareFixesCleared(): PerGameSettings {
-    return copy(
-        cpuSpriteRenderSize = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
-        cpuSpriteRenderLevel = GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT,
-        softwareClutRender = GsHackDefaults.SOFTWARE_CLUT_RENDER_DEFAULT,
-        gpuTargetClutMode = GsHackDefaults.GPU_TARGET_CLUT_DEFAULT,
-        skipDrawStart = 0,
-        skipDrawEnd = 0,
-        autoFlushHardware = GsHackDefaults.AUTO_FLUSH_DEFAULT,
-        cpuFramebufferConversion = false,
-        disableDepthConversion = false,
-        disableSafeFeatures = false,
-        disableRenderFixes = false,
-        preloadFrameData = false,
-        disablePartialInvalidation = false,
-        textureInsideRt = GsHackDefaults.TEXTURE_INSIDE_RT_DEFAULT,
-        readTargetsOnClose = false,
-        estimateTextureRegion = false,
-        gpuPaletteConversion = false,
-        halfPixelOffset = GsHackDefaults.HALF_PIXEL_OFFSET_DEFAULT,
-        nativeScaling = GsHackDefaults.NATIVE_SCALING_DEFAULT,
-        roundSprite = GsHackDefaults.ROUND_SPRITE_DEFAULT,
-        bilinearUpscale = GsHackDefaults.BILINEAR_UPSCALE_DEFAULT,
-        textureOffsetX = 0,
-        textureOffsetY = 0,
-        alignSprite = false,
-        mergeSprite = false,
-        forceEvenSpritePosition = false,
-        nativePaletteDraw = false
-    )
 }

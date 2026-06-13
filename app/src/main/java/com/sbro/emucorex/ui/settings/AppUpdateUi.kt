@@ -85,7 +85,7 @@ fun AppUpdateTab(
 ) {
     val uriHandler = LocalUriHandler.current
     val release = state.latestRelease
-    var selectedHistoryRelease by remember { mutableStateOf<AppUpdateRelease?>(null) }
+    val selectedHistoryRelease = remember { mutableStateOf<AppUpdateRelease?>(null) }
 
     LaunchedEffect(Unit) {
         if (!state.checkedOnce && !state.checking) {
@@ -126,7 +126,7 @@ fun AppUpdateTab(
             loading = state.historyLoading,
             errorMessage = state.historyErrorMessage,
             onRetry = { onLoadReleaseHistory(true) },
-            onReleaseClick = { selectedHistoryRelease = it }
+            onReleaseClick = { selectedHistoryRelease.value = it }
         )
 
         UpdateSectionCard(
@@ -167,14 +167,14 @@ fun AppUpdateTab(
         )
     }
 
-    selectedHistoryRelease?.let { historyRelease ->
+    selectedHistoryRelease.value?.let { historyRelease ->
         ReleaseHistoryDialog(
             release = historyRelease,
             parallelDownloadProgress = state.parallelDownloadProgress[historyRelease.updateKey()],
             parallelDownloaded = state.downloadedParallelApkPaths.containsKey(historyRelease.updateKey()),
-            onDismiss = { selectedHistoryRelease = null },
+            onDismiss = { selectedHistoryRelease.value = null },
             onOpenRelease = {
-                selectedHistoryRelease = null
+                selectedHistoryRelease.value = null
                 historyRelease.htmlUrl.takeIf(String::isNotBlank)?.let(uriHandler::openUri)
             },
             onDownloadParallelRelease = { onDownloadParallelRelease(historyRelease) },
@@ -1100,7 +1100,7 @@ private fun formatBytes(bytes: Long?): String {
         value /= 1024.0
         unitIndex++
     }
-    return String.format(java.util.Locale.US, "%.1f %s", value, units[unitIndex])
+    return String.format(Locale.US, "%.1f %s", value, units[unitIndex])
 }
 
 private fun releaseSummary(release: AppUpdateRelease): String {

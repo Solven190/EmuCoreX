@@ -31,27 +31,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ViewCarousel
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -469,14 +467,14 @@ private fun ShelfCoverCard(
 ) {
     val debouncedClick = rememberDebouncedClick(onClick = onClick)
     val interactionSource = remember { MutableInteractionSource() }
-    var showMenu by remember(game.path) { mutableStateOf(false) }
+    val showMenu = remember(game.path) { mutableStateOf(false) }
     val shape = RoundedCornerShape(24.dp)
     val coverAspectRatio = 2f / 3f
     val horizontalCoverPadding = if (isActive) 6.dp else 8.dp
     val verticalCoverPadding = if (isActive) 6.dp else 4.dp
     val shelfCoverPath = rememberShelfCoverPath(game, isCoverArtDisabled)
     fun dismissMenu(action: () -> Unit) {
-        showMenu = false
+        showMenu.value = false
         action()
     }
 
@@ -520,7 +518,7 @@ private fun ShelfCoverCard(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = debouncedClick,
-                onLongClick = { showMenu = true }
+                onLongClick = { showMenu.value = true }
             )
             .gamepadFocusableCard(
                 shape = shape,
@@ -552,9 +550,9 @@ private fun ShelfCoverCard(
     }
 
     GameCardContextMenu(
-        expanded = showMenu,
+        expanded = showMenu.value,
         offset = DpOffset.Zero,
-        onDismiss = { showMenu = false },
+        onDismiss = { showMenu.value = false },
         onStart = { dismissMenu(onLongClickStart) },
         onContinue = { dismissMenu(onLongClickContinue) },
         onLoadSave = { dismissMenu(onLongClickLoadSave) },

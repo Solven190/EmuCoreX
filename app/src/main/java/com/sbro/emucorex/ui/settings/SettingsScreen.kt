@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -172,17 +171,17 @@ fun SettingsScreen(
     var selectedTab by rememberSaveable(initialTab) { mutableStateOf(initialTab.toSettingsTab()) }
     val cheatRepository = remember(context) { CheatRepository(context) }
     var cheatEntries by remember { mutableStateOf(cheatRepository.listImportedCheatFiles()) }
-    var cheatEditorGameKey by remember { mutableStateOf<String?>(null) }
-    var cheatEditorFileName by remember { mutableStateOf<String?>(null) }
-    var cheatEditorText by remember { mutableStateOf("") }
-    var pendingGamepadActionId by remember { mutableStateOf<String?>(null) }
+    val cheatEditorGameKey = remember { mutableStateOf<String?>(null) }
+    val cheatEditorFileName = remember { mutableStateOf<String?>(null) }
+    val cheatEditorText = remember { mutableStateOf("") }
+    val pendingGamepadActionId = remember { mutableStateOf<String?>(null) }
     var pendingGamepadPadIndex by rememberSaveable { mutableIntStateOf(0) }
     var showTopBarMenu by remember { mutableStateOf(false) }
-    var showResetAllSettingsDialog by remember { mutableStateOf(false) }
-    var showCoverUrlDialog by remember { mutableStateOf(false) }
-    var showBiosDialog by remember { mutableStateOf(false) }
-    var showScreenSettingsResetHint by rememberSaveable { mutableStateOf(false) }
-    var pendingCoverUrl by remember { mutableStateOf("") }
+    val showResetAllSettingsDialog = remember { mutableStateOf(false) }
+    val showCoverUrlDialog = remember { mutableStateOf(false) }
+    val showBiosDialog = remember { mutableStateOf(false) }
+    val showScreenSettingsResetHint = rememberSaveable { mutableStateOf(false) }
+    val pendingCoverUrl = remember { mutableStateOf("") }
     var searchEnabled by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     val selectedTabFocusRequester = remember { FocusRequester() }
@@ -211,8 +210,8 @@ fun SettingsScreen(
 
     LaunchedEffect(screenSettingsResetHintShown) {
         when (screenSettingsResetHintShown) {
-            false -> showScreenSettingsResetHint = true
-            true -> showScreenSettingsResetHint = false
+            false -> showScreenSettingsResetHint.value = true
+            true -> showScreenSettingsResetHint.value = false
             null -> Unit
         }
     }
@@ -242,7 +241,7 @@ fun SettingsScreen(
     ) { uri: Uri? -> uri?.let(viewModel::setGamePath) }
 
     val launchBiosPicker = rememberDebouncedClick(onClick = { biosPicker.launch(arrayOf("*/*")) })
-    val openBiosDialog = rememberDebouncedClick(onClick = { showBiosDialog = true })
+    val openBiosDialog = rememberDebouncedClick(onClick = { showBiosDialog.value = true })
     val launchGamePicker = rememberDebouncedClick(onClick = { gamePicker.launch(null) })
     val openLanguageSheet = rememberDebouncedClick(onClick = { onOpenLanguageScreen?.invoke() })
     val refreshCheatEntries = remember {
@@ -268,12 +267,12 @@ fun SettingsScreen(
         focusRequester = selectedTabFocusRequester,
         enabled = shouldRequestGamepadFocus
     )
-    DisposableEffect(pendingGamepadActionId) {
-        val actionId = pendingGamepadActionId
+    DisposableEffect(pendingGamepadActionId.value) {
+        val actionId = pendingGamepadActionId.value
         if (actionId != null) {
             GamepadManager.startBindingCapture(pendingGamepadPadIndex) { keyCode ->
                 viewModel.setGamepadBinding(pendingGamepadPadIndex, actionId, keyCode)
-                pendingGamepadActionId = null
+                pendingGamepadActionId.value = null
             }
         } else {
             GamepadManager.cancelBindingCapture()
@@ -372,7 +371,7 @@ fun SettingsScreen(
                 onMenuExpandedChange = { showTopBarMenu = it },
                 onResetAllSettingsClick = {
                     showTopBarMenu = false
-                    showResetAllSettingsDialog = true
+                    showResetAllSettingsDialog.value = true
                 },
                 searchEnabled = searchEnabled,
                 searchQuery = searchQuery,
@@ -399,8 +398,8 @@ fun SettingsScreen(
                 launchBiosPicker = openBiosDialog,
                 launchGamePicker = launchGamePicker,
                 onOpenCoverUrlEditor = {
-                    pendingCoverUrl = uiState.coverDownloadBaseUrl.orEmpty()
-                    showCoverUrlDialog = true
+                    pendingCoverUrl.value = uiState.coverDownloadBaseUrl.orEmpty()
+                    showCoverUrlDialog.value = true
                 },
                 launchDriverPicker = { driverPicker.launch(arrayOf("*/*")) },
                 launchSettingsBackupExport = { settingsBackupExporter.launch("emucorex-settings-backup.zip") },
@@ -409,15 +408,15 @@ fun SettingsScreen(
                 openLanguageSheet = openLanguageSheet,
                 cheatEntries = cheatEntries,
                 onOpenCheatEditor = { gameKey ->
-                    cheatEditorGameKey = gameKey
-                    cheatEditorFileName = cheatRepository.listImportedCheatFiles()
+                    cheatEditorGameKey.value = gameKey
+                    cheatEditorFileName.value = cheatRepository.listImportedCheatFiles()
                         .firstOrNull { it.gameKey == gameKey }
                         ?.fileName ?: "$gameKey.pnach"
-                    cheatEditorText = cheatRepository.getImportedCheatText(gameKey).orEmpty()
+                    cheatEditorText.value = cheatRepository.getImportedCheatText(gameKey).orEmpty()
                 },
                 onRequestGamepadBinding = { padIndex, actionId ->
                     pendingGamepadPadIndex = padIndex
-                    pendingGamepadActionId = actionId
+                    pendingGamepadActionId.value = actionId
                 },
                 searchQuery = searchQuery,
                 onSearchResultSelected = { tab ->
@@ -437,40 +436,40 @@ fun SettingsScreen(
         }
     }
 
-    if (cheatEditorGameKey != null) {
+    if (cheatEditorGameKey.value != null) {
         CheatEditorSheet(
-            fileName = cheatEditorFileName.orEmpty(),
-            value = cheatEditorText,
-            onValueChange = { cheatEditorText = it },
+            fileName = cheatEditorFileName.value.orEmpty(),
+            value = cheatEditorText.value,
+            onValueChange = { cheatEditorText.value = it },
             onDismiss = {
-                cheatEditorGameKey = null
-                cheatEditorFileName = null
-                cheatEditorText = ""
+                cheatEditorGameKey.value = null
+                cheatEditorFileName.value = null
+                cheatEditorText.value = ""
             },
             onSave = {
-                cheatEditorGameKey?.let { gameKey ->
-                    cheatRepository.updateImportedCheatText(gameKey, cheatEditorText)
+                cheatEditorGameKey.value?.let { gameKey ->
+                    cheatRepository.updateImportedCheatText(gameKey, cheatEditorText.value)
                     refreshCheatEntries()
                     Toast.makeText(context, cheatsSavedMessage, Toast.LENGTH_SHORT).show()
-                    cheatEditorGameKey = null
-                    cheatEditorFileName = null
-                    cheatEditorText = ""
+                    cheatEditorGameKey.value = null
+                    cheatEditorFileName.value = null
+                    cheatEditorText.value = ""
                 }
             },
             onDelete = {
-                cheatEditorGameKey?.let { gameKey ->
+                cheatEditorGameKey.value?.let { gameKey ->
                     cheatRepository.deleteImportedCheats(gameKey, null, null)
                     refreshCheatEntries()
                     Toast.makeText(context, cheatsDeletedMessage, Toast.LENGTH_SHORT).show()
-                    cheatEditorGameKey = null
-                    cheatEditorFileName = null
-                    cheatEditorText = ""
+                    cheatEditorGameKey.value = null
+                    cheatEditorFileName.value = null
+                    cheatEditorText.value = ""
                 }
             }
         )
     }
 
-    if (pendingGamepadActionId != null) {
+    if (pendingGamepadActionId.value != null) {
         val dialogFocusRequester = remember { FocusRequester() }
 
         LaunchedEffect(Unit) {
@@ -478,7 +477,7 @@ fun SettingsScreen(
         }
 
         AlertDialog(
-            onDismissRequest = { pendingGamepadActionId = null },
+            onDismissRequest = { pendingGamepadActionId.value = null },
             modifier = Modifier
                 .focusRequester(dialogFocusRequester)
                 .focusable()
@@ -493,21 +492,21 @@ fun SettingsScreen(
                     stringResource(
                         R.string.settings_gamepad_mapping_listening_player_desc,
                         gamepadPlayerLabel(pendingGamepadPadIndex),
-                        gamepadActionLabel(pendingGamepadActionId.orEmpty())
+                        gamepadActionLabel(pendingGamepadActionId.value.orEmpty())
                     )
                 )
             },
             confirmButton = {
-                TextButton(onClick = { pendingGamepadActionId = null }) {
+                TextButton(onClick = { pendingGamepadActionId.value = null }) {
                     Text(stringResource(android.R.string.cancel))
                 }
             }
         )
     }
 
-    if (showResetAllSettingsDialog) {
+    if (showResetAllSettingsDialog.value) {
         AlertDialog(
-            onDismissRequest = { showResetAllSettingsDialog = false },
+            onDismissRequest = { showResetAllSettingsDialog.value = false },
             title = {
                 Text(stringResource(R.string.settings_reset_all_title))
             },
@@ -517,7 +516,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        showResetAllSettingsDialog = false
+                        showResetAllSettingsDialog.value = false
                         viewModel.resetAllSettings()
                     }
                 ) {
@@ -525,18 +524,18 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showResetAllSettingsDialog = false }) {
+                TextButton(onClick = { showResetAllSettingsDialog.value = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             }
         )
     }
 
-    if (showBiosDialog) {
+    if (showBiosDialog.value) {
         val biosDisplayName = uiState.biosPath?.let { DocumentPathResolver.getDisplayName(context, it) }
             ?: stringResource(R.string.settings_not_set)
         AlertDialog(
-            onDismissRequest = { showBiosDialog = false },
+            onDismissRequest = { showBiosDialog.value = false },
             title = {
                 Text(stringResource(R.string.settings_bios_picker_title))
             },
@@ -573,7 +572,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        showBiosDialog = false
+                        showBiosDialog.value = false
                         launchBiosPicker()
                     }
                 ) {
@@ -581,17 +580,17 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showBiosDialog = false }) {
+                TextButton(onClick = { showBiosDialog.value = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             }
         )
     }
 
-    if (showScreenSettingsResetHint) {
+    if (showScreenSettingsResetHint.value) {
         ScreenSettingsResetHintDialog(
             onDismiss = {
-                showScreenSettingsResetHint = false
+                showScreenSettingsResetHint.value = false
                 scope.launch {
                     preferences.setScreenSettingsResetHintShown(true)
                 }
@@ -599,18 +598,18 @@ fun SettingsScreen(
         )
     }
 
-    if (showCoverUrlDialog) {
+    if (showCoverUrlDialog.value) {
         val coverUrlFocusRequester = remember { FocusRequester() }
         val exampleBundle = remember {
             "${CoverArtRepository.DEFAULT_COVER_BASE_URL} ${CoverArtRepository.DEFAULT_COVER_3D_BASE_URL}"
         }
-        LaunchedEffect(showCoverUrlDialog) {
-            if (showCoverUrlDialog) {
+        LaunchedEffect(showCoverUrlDialog.value) {
+            if (showCoverUrlDialog.value) {
                 coverUrlFocusRequester.requestFocus()
             }
         }
         AlertDialog(
-            onDismissRequest = { showCoverUrlDialog = false },
+            onDismissRequest = { showCoverUrlDialog.value = false },
             title = {
                 Text(stringResource(R.string.settings_cover_download_url_dialog_title))
             },
@@ -622,8 +621,8 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     OutlinedTextField(
-                        value = pendingCoverUrl,
-                        onValueChange = { pendingCoverUrl = it },
+                        value = pendingCoverUrl.value,
+                        onValueChange = { pendingCoverUrl.value = it },
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(coverUrlFocusRequester),
@@ -650,7 +649,7 @@ fun SettingsScreen(
                             CoverUrlExampleRow(
                                 label = stringResource(R.string.settings_cover_download_url_example_hint),
                                 onClick = {
-                                    pendingCoverUrl = exampleBundle
+                                    pendingCoverUrl.value = exampleBundle
                                     scope.launch { coverUrlFocusRequester.requestFocus() }
                                 },
                                 onLongClick = {
@@ -672,7 +671,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val parts = pendingCoverUrl.trim()
+                        val parts = pendingCoverUrl.value.trim()
                             .split(Regex("\\s+"))
                             .filter { it.isNotBlank() }
                         val value = parts.joinToString(" ")
@@ -688,7 +687,7 @@ fun SettingsScreen(
                             return@TextButton
                         }
                         viewModel.setCoverDownloadBaseUrl(value.ifBlank { null })
-                        showCoverUrlDialog = false
+                        showCoverUrlDialog.value = false
                     }
                 ) {
                     Text(stringResource(R.string.save))
@@ -698,14 +697,14 @@ fun SettingsScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(
                         onClick = {
-                            pendingCoverUrl = ""
+                            pendingCoverUrl.value = ""
                             viewModel.setCoverDownloadBaseUrl(null)
-                            showCoverUrlDialog = false
+                            showCoverUrlDialog.value = false
                         }
                     ) {
                         Text(stringResource(R.string.settings_cover_download_url_use_default))
                     }
-                    TextButton(onClick = { showCoverUrlDialog = false }) {
+                    TextButton(onClick = { showCoverUrlDialog.value = false }) {
                         Text(stringResource(R.string.cancel))
                     }
                 }
@@ -2282,8 +2281,6 @@ private fun CoverUrlExampleRow(
     onLongClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    val context = LocalContext.current
-    val resetToast = stringResource(R.string.settings_reset_to_default_toast)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -2943,15 +2940,6 @@ private fun texturePreloadingOptions(): List<Pair<Int, String>> = listOf(
     0 to stringResource(R.string.settings_texture_preloading_none),
     1 to stringResource(R.string.settings_texture_preloading_partial),
     2 to stringResource(R.string.settings_texture_preloading_full)
-)
-
-@Composable
-private fun anisotropicFilteringOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_aniso_off),
-    2 to "2x",
-    4 to "4x",
-    8 to "8x",
-    16 to "16x"
 )
 
 @Composable

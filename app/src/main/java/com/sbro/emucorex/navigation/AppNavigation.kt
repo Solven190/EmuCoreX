@@ -120,9 +120,6 @@ object CatalogSearchRoute
 object SupportedFormatsRoute
 
 @Serializable
-object ControlsEditorRoute
-
-@Serializable
 data class SaveManagerRoute(val gamePath: String? = null, val gameTitle: String? = null)
 
 @Serializable
@@ -262,11 +259,6 @@ fun AppNavigation(
         StartupDestination.HOME -> HomeRoute
         else -> {}
     }
-    val navigateCheats: () -> Unit = {
-        navController.navigate(SettingsRoute(tab = "cheats")) {
-            launchSingleTop = true
-        }
-    }
     val navigateGameSettingsManager: () -> Unit = {
         navController.navigate(GameSettingsManagerRoute) {
             launchSingleTop = true
@@ -368,7 +360,6 @@ fun AppNavigation(
                             launchSingleTop = true
                         }
                     },
-                    onNavigateCheats = navigateCheats,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -378,11 +369,6 @@ fun AppNavigation(
                         }
                     },
                     onNavigateMemoryCardManager = navigateMemoryCardManager,
-                    onOpenManageFolders = {
-                        navController.navigate(SettingsRoute(tab = "paths")) {
-                            launchSingleTop = true
-                        }
-                    },
                     onLaunchGame = launchGamePickerAction,
                     onLaunchBios = {
                         navController.navigate(EmulationRoute(bootBios = true)) {
@@ -458,7 +444,6 @@ fun AppNavigation(
                             launchSingleTop = true
                         }
                     },
-                    onNavigateCheats = navigateCheats,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -469,11 +454,6 @@ fun AppNavigation(
                     },
                     onNavigateMemoryCardManager = navigateMemoryCardManager,
                     onBackClick = { navController.popBackStack() },
-                    onOpenManageFolders = {
-                        navController.navigate(SettingsRoute(tab = "paths")) {
-                            launchSingleTop = true
-                        }
-                    },
                     onLaunchGame = launchGamePickerAction
                 ) {
                     CatalogSearchScreen(
@@ -541,7 +521,6 @@ fun AppNavigation(
                             launchSingleTop = true
                         }
                     },
-                    onNavigateCheats = navigateCheats,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -552,11 +531,6 @@ fun AppNavigation(
                     },
                     onNavigateMemoryCardManager = navigateMemoryCardManager,
                     onBackClick = { navController.popBackStack() },
-                    onOpenManageFolders = {
-                        navController.navigate(SettingsRoute(tab = "paths")) {
-                            launchSingleTop = true
-                        }
-                    },
                     onLaunchGame = launchGamePickerAction
                 ) {
                     SupportedFormatsScreen(
@@ -591,7 +565,6 @@ fun AppNavigation(
                             launchSingleTop = true
                         }
                     },
-                    onNavigateCheats = navigateCheats,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -602,11 +575,6 @@ fun AppNavigation(
                     },
                     onNavigateMemoryCardManager = navigateMemoryCardManager,
                     onBackClick = { navController.popBackStack() },
-                    onOpenManageFolders = {
-                        navController.navigate(SettingsRoute(tab = "paths")) {
-                            launchSingleTop = true
-                        }
-                    },
                     onLaunchGame = launchGamePickerAction
                 ) {
                     SettingsScreen(
@@ -672,7 +640,6 @@ fun AppNavigation(
                         }
                     },
                     onNavigateAchievements = { },
-                    onNavigateCheats = navigateCheats,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -683,11 +650,6 @@ fun AppNavigation(
                     },
                     onNavigateMemoryCardManager = navigateMemoryCardManager,
                     onBackClick = { navController.popBackStack() },
-                    onOpenManageFolders = {
-                        navController.navigate(SettingsRoute(tab = "paths")) {
-                            launchSingleTop = true
-                        }
-                    },
                     onLaunchGame = launchGamePickerAction
                 ) {
                     AchievementsHubScreen(

@@ -1204,7 +1204,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     fun togglePause() {
         val state = _uiState.value
         if (state.showMenu) {
-            closeMenu(resumeVm = true)
+            closeMenu()
             return
         }
 
@@ -1239,15 +1239,14 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 } catch (_: Exception) { }
             }
         } else {
-            closeMenu(resumeVm = true)
+            closeMenu()
         }
     }
 
-    private fun closeMenu(resumeVm: Boolean) {
+    private fun closeMenu() {
         pausedForBackground = false
-        _uiState.value = _uiState.value.copy(showMenu = false, isPaused = !resumeVm)
-        updateCrashContext(launchState = if (resumeVm) "running" else "paused")
-        if (!resumeVm) return
+        _uiState.value = _uiState.value.copy(showMenu = false, isPaused = false)
+        updateCrashContext(launchState = "running")
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 EmulatorBridge.resume()
@@ -1685,18 +1684,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setCasSharpness(clamped)
             }
             EmulatorBridge.setSetting("EmuCore/GS", "CASSharpness", "int", clamped.toString())
-            updateCrashContext()
-        }
-    }
-
-    fun setShadeBoostEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            val newState = markPerformancePresetCustom(_uiState.value).copy(shadeBoostEnabled = enabled)
-            persistRuntimeState(newState) {
-                preferences.setPerformancePreset(PerformancePresets.CUSTOM)
-                preferences.setShadeBoostEnabled(enabled)
-            }
-            EmulatorBridge.setSetting("EmuCore/GS", "ShadeBoost", "bool", enabled.toString())
             updateCrashContext()
         }
     }

@@ -30,7 +30,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Menu
@@ -99,15 +98,12 @@ fun AdaptiveShell(
     onNavigateFormats: () -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateAchievements: () -> Unit,
-    onNavigateCheats: (() -> Unit)? = null,
     onNavigateGameSettingsManager: (() -> Unit)? = null,
-    onNavigateControlsEditor: (() -> Unit)? = null,
     onNavigateDataTransfer: (() -> Unit)? = null,
     onResetAllSettings: (() -> Unit)? = null,
     onNavigateSaveManager: (() -> Unit)? = null,
     onNavigateMemoryCardManager: (() -> Unit)? = null,
     onBackClick: (() -> Unit)? = null,
-    onOpenManageFolders: (() -> Unit)? = null,
     onLaunchGame: (() -> Unit)? = null,
     onLaunchBios: (() -> Unit)? = null,
     content: @Composable ((() -> Unit)?) -> Unit
@@ -120,13 +116,11 @@ fun AdaptiveShell(
             onNavigateFormats = onNavigateFormats,
             onNavigateSettings = onNavigateSettings,
             onNavigateAchievements = onNavigateAchievements,
-            onNavigateCheats = onNavigateCheats,
             onNavigateGameSettingsManager = onNavigateGameSettingsManager,
             onNavigateDataTransfer = onNavigateDataTransfer,
             onResetAllSettings = onResetAllSettings,
             onNavigateSaveManager = onNavigateSaveManager,
             onNavigateMemoryCardManager = onNavigateMemoryCardManager,
-            onOpenManageFolders = onOpenManageFolders,
             onLaunchGame = onLaunchGame,
             onLaunchBios = onLaunchBios,
             onCloseDrawer = { }
@@ -167,15 +161,12 @@ fun AdaptiveShell(
             onNavigateFormats = onNavigateFormats,
             onNavigateSettings = onNavigateSettings,
             onNavigateAchievements = onNavigateAchievements,
-            onNavigateCheats = onNavigateCheats,
             onNavigateGameSettingsManager = onNavigateGameSettingsManager,
-            onNavigateControlsEditor = onNavigateControlsEditor,
             onNavigateDataTransfer = onNavigateDataTransfer,
             onResetAllSettings = onResetAllSettings,
             onNavigateSaveManager = onNavigateSaveManager,
             onNavigateMemoryCardManager = onNavigateMemoryCardManager,
             onBackClick = onBackClick,
-            onOpenManageFolders = onOpenManageFolders,
             onLaunchGame = onLaunchGame,
             onLaunchBios = onLaunchBios,
             content = content
@@ -194,15 +185,12 @@ private fun CompactAdaptiveShell(
     onNavigateFormats: () -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateAchievements: () -> Unit,
-    onNavigateCheats: (() -> Unit)?,
     onNavigateGameSettingsManager: (() -> Unit)?,
-    onNavigateControlsEditor: (() -> Unit)?,
     onNavigateDataTransfer: (() -> Unit)?,
     onResetAllSettings: (() -> Unit)?,
     onNavigateSaveManager: (() -> Unit)?,
     onNavigateMemoryCardManager: (() -> Unit)?,
     onBackClick: (() -> Unit)?,
-    onOpenManageFolders: (() -> Unit)?,
     onLaunchGame: (() -> Unit)?,
     onLaunchBios: (() -> Unit)?,
     content: @Composable ((() -> Unit)?) -> Unit
@@ -290,13 +278,11 @@ private fun CompactAdaptiveShell(
                     onNavigateFormats = onNavigateFormats,
                     onNavigateSettings = onNavigateSettings,
                     onNavigateAchievements = onNavigateAchievements,
-                    onNavigateCheats = onNavigateCheats,
                     onNavigateGameSettingsManager = onNavigateGameSettingsManager,
                     onNavigateDataTransfer = onNavigateDataTransfer,
                     onResetAllSettings = onResetAllSettings,
                     onNavigateSaveManager = onNavigateSaveManager,
                     onNavigateMemoryCardManager = onNavigateMemoryCardManager,
-                    onOpenManageFolders = onOpenManageFolders,
                     onLaunchGame = onLaunchGame,
                     onLaunchBios = onLaunchBios,
                     selectedItemFocusRequester = selectedDrawerItemFocusRequester,
@@ -352,13 +338,11 @@ private fun SideNavigation(
     onNavigateFormats: () -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateAchievements: () -> Unit,
-    onNavigateCheats: (() -> Unit)?,
     onNavigateGameSettingsManager: (() -> Unit)?,
     onNavigateDataTransfer: (() -> Unit)?,
     onResetAllSettings: (() -> Unit)?,
     onNavigateSaveManager: (() -> Unit)?,
     onNavigateMemoryCardManager: (() -> Unit)?,
-    onOpenManageFolders: (() -> Unit)?,
     onLaunchGame: (() -> Unit)?,
     onLaunchBios: (() -> Unit)?,
     selectedItemFocusRequester: FocusRequester? = null,
@@ -418,11 +402,6 @@ private fun SideNavigation(
     }
     val navigateSearch = rememberDebouncedClick {
         closeDrawerThen(onNavigateSearch)
-    }
-    val openManageFolders = onOpenManageFolders?.let {
-        rememberDebouncedClick {
-            closeDrawerThen(it)
-        }
     }
     val launchGame = onLaunchGame?.let {
         rememberDebouncedClick {

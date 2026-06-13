@@ -72,7 +72,7 @@ class MemoryCardRepository(
         )
     }
 
-    suspend fun listCards(): List<MemoryCardInfo> {
+    fun listCards(): List<MemoryCardInfo> {
         syncNativeMemoryCardDirectory()
         return NativeApp.parseMemoryCardList(NativeApp.listMemoryCards()).map {
             MemoryCardInfo(
@@ -154,7 +154,7 @@ class MemoryCardRepository(
         return true
     }
 
-    suspend fun exportCard(card: MemoryCardInfo, destination: Uri): Boolean {
+    fun exportCard(card: MemoryCardInfo, destination: Uri): Boolean {
         return runCatching {
             val source = File(card.path)
             if (!source.exists()) return false
@@ -164,7 +164,7 @@ class MemoryCardRepository(
         }.getOrDefault(false)
     }
 
-    suspend fun backupCards(cards: List<MemoryCardInfo>, destination: Uri): Boolean {
+    fun backupCards(cards: List<MemoryCardInfo>, destination: Uri): Boolean {
         val existingCards = cards.map { File(it.path) }.filter(File::exists)
         if (existingCards.isEmpty()) return false
         return runCatching {
@@ -180,7 +180,7 @@ class MemoryCardRepository(
         }.getOrDefault(false)
     }
 
-    suspend fun restoreCards(source: Uri): Boolean {
+    fun restoreCards(source: Uri): Boolean {
         val displayName = DocumentPathResolver.getDisplayName(context, source.toString())
         val mimeType = context.contentResolver.getType(source).orEmpty().lowercase(Locale.ROOT)
         val looksLikeZip = mimeType.contains("zip") || displayName.endsWith(".zip", ignoreCase = true)

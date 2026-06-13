@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -223,10 +222,10 @@ private data class OverlayAchievementsContentState(
 private data class TouchButtonSpec(
     val id: String,
     val drawableRes: Int,
-    val width: androidx.compose.ui.unit.Dp,
-    val height: androidx.compose.ui.unit.Dp,
-    val x: androidx.compose.ui.unit.Dp,
-    val y: androidx.compose.ui.unit.Dp,
+    val width: Dp,
+    val height: Dp,
+    val x: Dp,
+    val y: Dp,
     val shape: androidx.compose.ui.graphics.Shape,
     val onPressChange: ((Boolean) -> Unit)? = null,
     val onClick: (() -> Unit)? = null
@@ -969,7 +968,6 @@ fun EmulationScreen(
                 stickScaleFactor = uiState.stickScale / 100f,
                 leftStickSensitivity = uiState.leftStickSensitivity / 100f,
                 rightStickSensitivity = uiState.rightStickSensitivity / 100f,
-                stickSurfaceMode = uiState.stickSurfaceMode,
                 dpadOffset = uiState.dpadOffset,
                 lstickOffset = uiState.lstickOffset,
                 rstickOffset = uiState.rstickOffset,
@@ -1072,7 +1070,6 @@ fun EmulationScreen(
                     onSetEnableFxaa = { viewModel.setEnableFxaa(it) },
                     onSetCasMode = { viewModel.setCasMode(it) },
                     onSetCasSharpness = { viewModel.setCasSharpness(it) },
-                    onSetShadeBoostEnabled = { viewModel.setShadeBoostEnabled(it) },
                     onSetShadeBoostBrightness = { viewModel.setShadeBoostBrightness(it) },
                     onSetShadeBoostContrast = { viewModel.setShadeBoostContrast(it) },
                     onSetShadeBoostSaturation = { viewModel.setShadeBoostSaturation(it) },
@@ -1417,7 +1414,6 @@ private fun OnScreenControls(
     stickScaleFactor: Float = 1.0f,
     leftStickSensitivity: Float = 1.0f,
     rightStickSensitivity: Float = 1.0f,
-    stickSurfaceMode: Boolean = false,
     dpadOffset: Pair<Float, Float>,
     lstickOffset: Pair<Float, Float>,
     rstickOffset: Pair<Float, Float>,
@@ -1493,13 +1489,17 @@ private fun OnScreenControls(
             }
         }
 
+        fun stickIsSurfaceOnly(stick: com.sbro.emucorex.ui.common.OverlayCanvasStickSpec): Boolean {
+            return controlLayouts[stick.id]?.surfaceOnly == true
+        }
+
         fun stickPanelWidth(stick: com.sbro.emucorex.ui.common.OverlayCanvasStickSpec): Dp {
-            return if (stickSurfaceMode) stick.size * (stick.widthScale / 100f) else stick.size
+            return if (stickIsSurfaceOnly(stick)) stick.size * (stick.widthScale / 100f) else stick.size
         }
 
         fun stickPanelX(stick: com.sbro.emucorex.ui.common.OverlayCanvasStickSpec): Dp {
             val width = stickPanelWidth(stick)
-            return if (stickSurfaceMode) stick.x - ((width - stick.size) / 2f) else stick.x
+            return if (stickIsSurfaceOnly(stick)) stick.x - ((width - stick.size) / 2f) else stick.x
         }
 
         val leftShoulderSpecs = runtimeSpecs(layout.leftShoulders)
@@ -1523,7 +1523,7 @@ private fun OnScreenControls(
                 analogSize = stick.size,
                 analogWidth = panelWidth,
                 analogHeight = stick.size,
-                surfaceOnly = stickSurfaceMode,
+                surfaceOnly = stickIsSurfaceOnly(stick),
                 onValueChange = { x, y ->
                     updateAnalogStick(
                         x = x,
@@ -1553,7 +1553,7 @@ private fun OnScreenControls(
                 analogSize = stick.size,
                 analogWidth = panelWidth,
                 analogHeight = stick.size,
-                surfaceOnly = stickSurfaceMode,
+                surfaceOnly = stickIsSurfaceOnly(stick),
                 onValueChange = { x, y ->
                     updateAnalogStick(
                         x = x,
@@ -1886,7 +1886,6 @@ private fun EmulationSidebarMenu(
     onSetEnableFxaa: (Boolean) -> Unit,
     onSetCasMode: (Int) -> Unit,
     onSetCasSharpness: (Int) -> Unit,
-    onSetShadeBoostEnabled: (Boolean) -> Unit,
     onSetShadeBoostBrightness: (Int) -> Unit,
     onSetShadeBoostContrast: (Int) -> Unit,
     onSetShadeBoostSaturation: (Int) -> Unit,
@@ -3403,9 +3402,7 @@ private fun OverlayAchievementsPane(
                             label = stringResource(R.string.settings_ra_points_label)
                         )
                     }
-                    if (contentState.isLoading && visibleAchievements.isEmpty()) {
-                        OverlayAchievementsNotice(stringResource(R.string.achievements_loading))
-                    } else if (visibleAchievements.isEmpty()) {
+                    if (visibleAchievements.isEmpty()) {
                         OverlayAchievementsNotice(stringResource(R.string.achievements_game_empty))
                     } else {
                         visibleAchievements.forEach { achievement ->
@@ -3839,8 +3836,8 @@ private fun SettingsToggle(
 private fun SidebarSectionTitle(
     text: String,
     color: Color,
-    topPadding: androidx.compose.ui.unit.Dp,
-    horizontalInset: androidx.compose.ui.unit.Dp
+    topPadding: Dp,
+    horizontalInset: Dp
 ) {
     Text(
         text = text,
@@ -4177,7 +4174,7 @@ private fun AnnotatedString.Builder.addLineValueStyle(
     val valueStart = labelStart + label.length
     val lineEnd = text.indexOf('\n', startIndex = valueStart).let { if (it == -1) text.length else it }
     val valueEnd = stopAt
-        ?.let { separator -> text.indexOf(separator, startIndex = valueStart).takeIf { it >= 0 && it < lineEnd } }
+        ?.let { separator -> text.indexOf(separator, startIndex = valueStart).takeIf { it in 0..<lineEnd } }
         ?: lineEnd
     if (valueStart < valueEnd)
         addStyle(SpanStyle(color = color), valueStart, valueEnd)

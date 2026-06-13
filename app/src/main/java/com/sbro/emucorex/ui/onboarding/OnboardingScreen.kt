@@ -69,6 +69,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -92,6 +93,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.net.toUri
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.PerformanceProfiles
@@ -118,10 +120,14 @@ fun OnboardingScreen(
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val horizontalSystemBarPadding = navigationBarsHorizontalPaddingValues()
     val landscapeSetupScrollState = rememberScrollState()
-    val landscapeSetupScrollProgress = if (landscapeSetupScrollState.maxValue > 0) {
-        landscapeSetupScrollState.value.toFloat() / landscapeSetupScrollState.maxValue.toFloat()
-    } else {
-        0f
+    val landscapeSetupScrollProgress by remember(landscapeSetupScrollState) {
+        derivedStateOf {
+            if (landscapeSetupScrollState.maxValue > 0) {
+                landscapeSetupScrollState.value.toFloat() / landscapeSetupScrollState.maxValue.toFloat()
+            } else {
+                0f
+            }
+        }
     }
     
     val pagerState = rememberPagerState(pageCount = { uiState.totalPages })
@@ -163,7 +169,7 @@ fun OnboardingScreen(
                 return@rememberDebouncedClick
             }
 
-            val packageUri = Uri.parse("package:${context.packageName}")
+            val packageUri = "package:${context.packageName}".toUri()
             val appSettingsIntent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, packageUri)
             val fallbackIntent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
             try {

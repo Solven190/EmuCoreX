@@ -108,11 +108,11 @@ fun MemoryCardManagerScreen(
     var assignments by remember { mutableStateOf(MemoryCardAssignments(slot1 = null, slot2 = null)) }
     var isLoading by remember { mutableStateOf(true) }
     var isWorking by remember { mutableStateOf(false) }
-    var showCreateDialog by remember { mutableStateOf(false) }
-    var pendingRename by remember { mutableStateOf<MemoryCardInfo?>(null) }
-    var pendingDuplicate by remember { mutableStateOf<MemoryCardInfo?>(null) }
-    var pendingDelete by remember { mutableStateOf<MemoryCardInfo?>(null) }
-    var pendingExport by remember { mutableStateOf<MemoryCardInfo?>(null) }
+    val showCreateDialog = remember { mutableStateOf(false) }
+    val pendingRename = remember { mutableStateOf<MemoryCardInfo?>(null) }
+    val pendingDuplicate = remember { mutableStateOf<MemoryCardInfo?>(null) }
+    val pendingDelete = remember { mutableStateOf<MemoryCardInfo?>(null) }
+    val pendingExport = remember { mutableStateOf<MemoryCardInfo?>(null) }
 
     fun refresh() {
         scope.launch {
@@ -168,8 +168,8 @@ fun MemoryCardManagerScreen(
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri ->
-        val card = pendingExport
-        pendingExport = null
+        val card = pendingExport.value
+        pendingExport.value = null
         if (uri == null || card == null) return@rememberLauncherForActivityResult
         scope.launch {
             isWorking = true
@@ -184,9 +184,9 @@ fun MemoryCardManagerScreen(
         }
     }
 
-    pendingDelete?.let { card ->
+    pendingDelete.value?.let { card ->
         AlertDialog(
-            onDismissRequest = { pendingDelete = null },
+            onDismissRequest = { pendingDelete.value = null },
             title = { Text(stringResource(R.string.memory_card_delete_confirm_title)) },
             text = {
                 Text(
@@ -203,7 +203,7 @@ fun MemoryCardManagerScreen(
                             isWorking = true
                             val success = withContext(Dispatchers.IO) { repository.deleteCard(card) }
                             isWorking = false
-                            pendingDelete = null
+                            pendingDelete.value = null
                             Toast.makeText(
                                 context,
                                 if (success) deleteSuccessMessage else deleteFailureMessage,
@@ -217,26 +217,26 @@ fun MemoryCardManagerScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) {
+                TextButton(onClick = { pendingDelete.value = null }) {
                     Text(stringResource(android.R.string.cancel))
                 }
             }
         )
     }
 
-    if (showCreateDialog) {
+    if (showCreateDialog.value) {
         MemoryCardNameDialog(
             title = stringResource(R.string.memory_card_create_title),
             confirmLabel = stringResource(R.string.memory_card_create_action),
             initialName = "",
             showSizeOptions = true,
-            onDismiss = { showCreateDialog = false },
+            onDismiss = { showCreateDialog.value = false },
             onConfirm = { name, sizeMb ->
                 scope.launch {
                     isWorking = true
                     val success = withContext(Dispatchers.IO) { repository.createPs2Card(name, sizeMb) }
                     isWorking = false
-                    showCreateDialog = false
+                    showCreateDialog.value = false
                     Toast.makeText(
                         context,
                         if (success) createSuccessMessage else createFailureMessage,
@@ -248,18 +248,18 @@ fun MemoryCardManagerScreen(
         )
     }
 
-    pendingRename?.let { card ->
+    pendingRename.value?.let { card ->
         MemoryCardNameDialog(
             title = stringResource(R.string.memory_card_rename_title),
             confirmLabel = stringResource(R.string.memory_card_rename_action),
             initialName = card.name.removeSuffix(".ps2"),
-            onDismiss = { pendingRename = null },
+            onDismiss = { pendingRename.value = null },
             onConfirm = { name, _ ->
                 scope.launch {
                     isWorking = true
                     val success = withContext(Dispatchers.IO) { repository.renameCard(card, name) }
                     isWorking = false
-                    pendingRename = null
+                    pendingRename.value = null
                     Toast.makeText(
                         context,
                         if (success) renameSuccessMessage else renameFailureMessage,
@@ -271,18 +271,18 @@ fun MemoryCardManagerScreen(
         )
     }
 
-    pendingDuplicate?.let { card ->
+    pendingDuplicate.value?.let { card ->
         MemoryCardNameDialog(
             title = stringResource(R.string.memory_card_duplicate_title),
             confirmLabel = stringResource(R.string.memory_card_duplicate_action),
             initialName = card.name.removeSuffix(".ps2") + " Copy",
-            onDismiss = { pendingDuplicate = null },
+            onDismiss = { pendingDuplicate.value = null },
             onConfirm = { name, _ ->
                 scope.launch {
                     isWorking = true
                     val success = withContext(Dispatchers.IO) { repository.duplicateCard(card, name) }
                     isWorking = false
-                    pendingDuplicate = null
+                    pendingDuplicate.value = null
                     Toast.makeText(
                         context,
                         if (success) duplicateSuccessMessage else duplicateFailureMessage,
@@ -325,7 +325,7 @@ fun MemoryCardManagerScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     FilledTonalButton(
-                        onClick = { showCreateDialog = true },
+                        onClick = { showCreateDialog.value = true },
                         enabled = !isWorking,
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
@@ -396,12 +396,12 @@ fun MemoryCardManagerScreen(
                             }
                         },
                         onExport = {
-                            pendingExport = card
+                            pendingExport.value = card
                             exportLauncher.launch(card.name)
                         },
-                        onDuplicate = { pendingDuplicate = card },
-                        onRename = { pendingRename = card },
-                        onDelete = { pendingDelete = card }
+                        onDuplicate = { pendingDuplicate.value = card },
+                        onRename = { pendingRename.value = card },
+                        onDelete = { pendingDelete.value = card }
                     )
                 }
             }

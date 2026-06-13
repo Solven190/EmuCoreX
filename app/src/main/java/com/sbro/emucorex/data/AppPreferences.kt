@@ -11,7 +11,6 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sbro.emucorex.core.BiosValidator
-import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.PerformanceProfiles
@@ -162,7 +161,8 @@ data class OverlayControlLayout(
     val offset: Pair<Float, Float> = 0f to 0f,
     val scale: Int = 100,
     val widthScale: Int = 100,
-    val visible: Boolean = true
+    val visible: Boolean = true,
+    val surfaceOnly: Boolean = false
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -173,7 +173,7 @@ class AppPreferences(private val context: Context) {
     private val appUpdatePrefs = context.getSharedPreferences("app_update", Context.MODE_PRIVATE)
 
     companion object {
-        private const val CURRENT_OVERLAY_LAYOUT_VERSION = 15
+        private const val CURRENT_OVERLAY_LAYOUT_VERSION = 16
         private const val LEGACY_DEFAULT_LSTICK_OFFSET_X = 18f
         private const val LEGACY_DEFAULT_LSTICK_OFFSET_Y = -214f
         private const val LEFT_SIDE_LAYOUT_SHIFT_X = -8f
@@ -323,7 +323,6 @@ class AppPreferences(private val context: Context) {
         private val FORCE_EVEN_SPRITE_POSITION = booleanPreferencesKey("force_even_sprite_position")
         private val NATIVE_PALETTE_DRAW = booleanPreferencesKey("native_palette_draw")
         private val PERFORMANCE_PRESET = intPreferencesKey("performance_preset")
-        private val MANUAL_HACKS_BASELINE_VERSION = intPreferencesKey("manual_hacks_baseline_version")
         private val ENABLE_AUTO_GAMEPAD = booleanPreferencesKey("enable_auto_gamepad")
         private val HIDE_OVERLAY_ON_GAMEPAD = booleanPreferencesKey("hide_overlay_on_gamepad")
         private val GAMEPAD_STICK_DEADZONE = intPreferencesKey("gamepad_stick_deadzone")
@@ -1001,9 +1000,7 @@ class AppPreferences(private val context: Context) {
                     if (bindings.isNotEmpty()) put(padIndex.coerceIn(0, 1), bindings)
                 }
             }
-            if (nested.isNotEmpty()) {
-                nested
-            } else {
+            nested.ifEmpty {
                 val legacy = buildMap {
                     json.keys().forEach { key ->
                         val value = json.optInt(key, Int.MIN_VALUE)
@@ -1035,15 +1032,7 @@ class AppPreferences(private val context: Context) {
         }.toString()
     }
 
-    private fun encodeGamepadBindings(bindings: Map<String, Int>): String {
-        return encodeGamepadBindingsByPad(if (bindings.isEmpty()) emptyMap() else mapOf(0 to bindings))
-    }
-
     private fun normalizeGamepadPadIndex(padIndex: Int): Int = padIndex.coerceIn(0, 1)
-
-    private fun decodeGamepadBindingsForPad(raw: String?, padIndex: Int): Map<String, Int> {
-        return decodeGamepadBindingsByPad(raw)[normalizeGamepadPadIndex(padIndex)].orEmpty()
-    }
 
     private fun updateGamepadBindingsForPad(
         prefs: MutablePreferences,
@@ -1617,50 +1606,6 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[PERFORMANCE_PRESET] = value }
     }
 
-    suspend fun ensureManualHardwareFixesBaseline(version: Int = 1): Boolean {
-        var changed = false
-        context.dataStore.edit { prefs ->
-            if ((prefs[MANUAL_HACKS_BASELINE_VERSION] ?: 0) >= version) {
-                return@edit
-            }
-
-            resetManualHardwareFixes(prefs)
-            prefs[MANUAL_HACKS_BASELINE_VERSION] = version
-            changed = true
-        }
-        return changed
-    }
-
-    private fun resetManualHardwareFixes(prefs: MutablePreferences) {
-        prefs[CPU_SPRITE_RENDER_SIZE] = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT
-        prefs[CPU_SPRITE_RENDER_LEVEL] = GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT
-        prefs[SOFTWARE_CLUT_RENDER] = GsHackDefaults.SOFTWARE_CLUT_RENDER_DEFAULT
-        prefs[GPU_TARGET_CLUT_MODE] = GsHackDefaults.GPU_TARGET_CLUT_DEFAULT
-        prefs[SKIP_DRAW_START] = 0
-        prefs[SKIP_DRAW_END] = 0
-        prefs[AUTO_FLUSH_HARDWARE] = GsHackDefaults.AUTO_FLUSH_DEFAULT
-        prefs[CPU_FRAMEBUFFER_CONVERSION] = false
-        prefs[DISABLE_DEPTH_CONVERSION] = false
-        prefs[DISABLE_SAFE_FEATURES] = false
-        prefs[DISABLE_RENDER_FIXES] = false
-        prefs[PRELOAD_FRAME_DATA] = false
-        prefs[DISABLE_PARTIAL_INVALIDATION] = false
-        prefs[TEXTURE_INSIDE_RT] = GsHackDefaults.TEXTURE_INSIDE_RT_DEFAULT
-        prefs[READ_TARGETS_ON_CLOSE] = false
-        prefs[ESTIMATE_TEXTURE_REGION] = false
-        prefs[GPU_PALETTE_CONVERSION] = false
-        prefs[HALF_PIXEL_OFFSET] = GsHackDefaults.HALF_PIXEL_OFFSET_DEFAULT
-        prefs[NATIVE_SCALING] = GsHackDefaults.NATIVE_SCALING_DEFAULT
-        prefs[ROUND_SPRITE] = GsHackDefaults.ROUND_SPRITE_DEFAULT
-        prefs[BILINEAR_UPSCALE] = GsHackDefaults.BILINEAR_UPSCALE_DEFAULT
-        prefs[TEXTURE_OFFSET_X] = 0
-        prefs[TEXTURE_OFFSET_Y] = 0
-        prefs[ALIGN_SPRITE] = false
-        prefs[MERGE_SPRITE] = false
-        prefs[FORCE_EVEN_SPRITE_POSITION] = false
-        prefs[NATIVE_PALETTE_DRAW] = false
-    }
-
     // Gamepad auto-detect
     val enableAutoGamepad: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[ENABLE_AUTO_GAMEPAD] ?: true
@@ -1679,16 +1624,8 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[HIDE_OVERLAY_ON_GAMEPAD] = enabled }
     }
 
-    val gamepadBindings: Flow<Map<String, Int>> = context.dataStore.data.map { prefs ->
-        decodeGamepadBindings(prefs[GAMEPAD_BINDINGS])
-    }
-
     val gamepadBindingsByPad: Flow<Map<Int, Map<String, Int>>> = context.dataStore.data.map { prefs ->
         decodeGamepadBindingsByPad(prefs[GAMEPAD_BINDINGS])
-    }
-
-    suspend fun setGamepadBinding(actionId: String, keyCode: Int) {
-        setGamepadBinding(0, actionId, keyCode)
     }
 
     suspend fun setGamepadBinding(padIndex: Int, actionId: String, keyCode: Int) {
@@ -1700,10 +1637,6 @@ class AppPreferences(private val context: Context) {
         }
     }
 
-    suspend fun clearGamepadBinding(actionId: String) {
-        clearGamepadBinding(0, actionId)
-    }
-
     suspend fun clearGamepadBinding(padIndex: Int, actionId: String) {
         context.dataStore.edit { prefs ->
             updateGamepadBindingsForPad(prefs, padIndex) { updated ->
@@ -1712,21 +1645,11 @@ class AppPreferences(private val context: Context) {
         }
     }
 
-    suspend fun resetGamepadBindings() {
-        resetGamepadBindingsForPad(0)
-    }
-
     suspend fun resetGamepadBindingsForPad(padIndex: Int) {
         context.dataStore.edit { prefs ->
             updateGamepadBindingsForPad(prefs, padIndex) { updated ->
                 updated.clear()
             }
-        }
-    }
-
-    suspend fun resetAllGamepadBindings() {
-        context.dataStore.edit { prefs ->
-            prefs.remove(GAMEPAD_BINDINGS)
         }
     }
 
@@ -1758,7 +1681,8 @@ class AppPreferences(private val context: Context) {
                                 "widthScale",
                                 if (id.contains("stick")) 160 else 100
                             ).coerceIn(100, 240),
-                            visible = item.optBoolean("visible", true)
+                            visible = item.optBoolean("visible", true),
+                            surfaceOnly = item.optBoolean("surfaceOnly", false)
                         )
                     )
                 }
@@ -1778,10 +1702,25 @@ class AppPreferences(private val context: Context) {
                         put("scale", layout.scale.coerceIn(50, 200))
                         put("widthScale", layout.widthScale.coerceIn(100, 240))
                         put("visible", layout.visible)
+                        put("surfaceOnly", layout.surfaceOnly)
                     }
                 )
             }
         }.toString()
+    }
+
+    private fun migrateGlobalStickSurfaceMode(prefs: MutablePreferences) {
+        if (prefs[STICK_SURFACE_MODE] == true) {
+            val stickScale = prefs[STICK_SCALE] ?: 100
+            val defaults = defaultOverlayControlLayouts(stickScale)
+            val layouts = decodeControlLayouts(prefs[CONTROL_LAYOUTS]).toMutableMap()
+            listOf("left_stick", "right_stick").forEach { id ->
+                val current = layouts[id] ?: defaults[id] ?: OverlayControlLayout(scale = stickScale)
+                layouts[id] = current.copy(surfaceOnly = true)
+            }
+            encodeControlLayouts(layouts)?.let { prefs[CONTROL_LAYOUTS] = it }
+        }
+        prefs.remove(STICK_SURFACE_MODE)
     }
 
     val dpadOffset: Flow<Pair<Float, Float>> = context.dataStore.data.map {
@@ -1808,12 +1747,6 @@ class AppPreferences(private val context: Context) {
     
     val stickScale: Flow<Int> = context.dataStore.data.map { it[STICK_SCALE] ?: 100 }
 
-    suspend fun setStickScale(scale: Int) {
-        context.dataStore.edit { prefs ->
-            prefs[STICK_SCALE] = scale.coerceIn(50, 200)
-        }
-    }
-
     val leftStickSensitivity: Flow<Int> = context.dataStore.data.map { it[LEFT_STICK_SENSITIVITY] ?: 100 }
 
     suspend fun setLeftStickSensitivity(value: Int) {
@@ -1827,12 +1760,6 @@ class AppPreferences(private val context: Context) {
     suspend fun setRightStickSensitivity(value: Int) {
         context.dataStore.edit { prefs ->
             prefs[RIGHT_STICK_SENSITIVITY] = value.coerceIn(50, 200)
-        }
-    }
-
-    suspend fun setStickSurfaceMode(enabled: Boolean) {
-        context.dataStore.edit { prefs ->
-            prefs[STICK_SURFACE_MODE] = enabled
         }
     }
 
@@ -1966,6 +1893,7 @@ class AppPreferences(private val context: Context) {
                     prefs.remove(CONTROL_LAYOUTS)
                 }
             }
+            migrateGlobalStickSurfaceMode(prefs)
             prefs[OVERLAY_LAYOUT_VERSION] = CURRENT_OVERLAY_LAYOUT_VERSION
         }
     }
@@ -2224,6 +2152,7 @@ class AppPreferences(private val context: Context) {
             prefs[RIGHT_STICK_SENSITIVITY] = json.optInt("rightStickSensitivity", 100).coerceIn(50, 200)
             prefs[STICK_SURFACE_MODE] = json.optBoolean("stickSurfaceMode", false)
             json.optString("controlLayouts").takeIf { it.isNotBlank() }?.let { prefs[CONTROL_LAYOUTS] = it } ?: prefs.remove(CONTROL_LAYOUTS)
+            migrateGlobalStickSurfaceMode(prefs)
             json.optString("memoryCardSlot1").takeIf { it.isNotBlank() }?.let { prefs[MEMORY_CARD_SLOT1] = it } ?: prefs.remove(MEMORY_CARD_SLOT1)
             json.optString("memoryCardSlot2").takeIf { it.isNotBlank() }?.let { prefs[MEMORY_CARD_SLOT2] = it } ?: prefs.remove(MEMORY_CARD_SLOT2)
         }

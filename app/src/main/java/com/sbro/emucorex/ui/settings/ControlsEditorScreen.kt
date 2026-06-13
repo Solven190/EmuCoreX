@@ -110,6 +110,8 @@ fun ControlsEditorScreen(
         editorControlLayouts[id] ?: defaultLayouts[id] ?: OverlayControlLayout()
     }
     val selectedIsGroup = selectedControlId?.let { it in ControlGroupIds } == true
+    val selectedIsStick = selectedControlId == "left_stick" || selectedControlId == "right_stick"
+    val selectedStickSurfaceMode = selectedIsStick && (selectedLayout?.surfaceOnly == true)
     val originalOrientation = remember(activity) {
         activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
@@ -168,6 +170,15 @@ fun ControlsEditorScreen(
             put(controlId, current.copy(widthScale = nextWidthScale))
         }
         viewModel.updateControlWidthScale(controlId, nextWidthScale)
+    }
+
+    fun setStickSurfaceModeLocally(controlId: String, enabled: Boolean) {
+        if (controlId != "left_stick" && controlId != "right_stick") return
+        val current = currentLayoutFor(controlId, state.stickScale)
+        editorControlLayouts = editorControlLayouts.toMutableMap().apply {
+            put(controlId, current.copy(surfaceOnly = enabled))
+        }
+        viewModel.setStickSurfaceMode(controlId, enabled)
     }
 
     BackHandler(onBack = onBackClick)
@@ -294,16 +305,21 @@ fun ControlsEditorScreen(
                 }
 
                 OutlinedButton(
-                    onClick = { viewModel.setStickSurfaceMode(!state.stickSurfaceMode) },
+                    onClick = {
+                        selectedControlId?.let { controlId ->
+                            setStickSurfaceModeLocally(controlId, !selectedStickSurfaceMode)
+                        }
+                    },
+                    enabled = selectedIsStick,
                     shape = RoundedCornerShape(16.dp),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = if (state.stickSurfaceMode) {
+                        containerColor = if (selectedStickSurfaceMode) {
                             Color(0xFF3565FF).copy(alpha = 0.78f)
                         } else {
                             Color.White.copy(alpha = 0.06f)
                         },
-                        contentColor = if (state.stickSurfaceMode) Color.White else Color.White.copy(alpha = 0.58f)
+                        contentColor = if (selectedStickSurfaceMode) Color.White else Color.White.copy(alpha = 0.58f)
                     )
                 ) {
                     Icon(Icons.Rounded.TouchApp, contentDescription = null)
@@ -324,7 +340,8 @@ fun ControlsEditorScreen(
 
             selectedControlId?.takeUnless { it in ControlGroupIds }?.let { controlId ->
                 val scale = selectedLayout?.scale ?: if (controlId.contains("stick")) state.stickScale else 100
-                val isStickPanel = controlId.contains("stick") && state.stickSurfaceMode
+                val isStickPanel = (controlId == "left_stick" || controlId == "right_stick") &&
+                    (selectedLayout?.surfaceOnly == true)
                 Surface(
                     modifier = Modifier.padding(top = 8.dp),
                     color = Color(0xFF111827).copy(alpha = 0.82f),
@@ -369,7 +386,7 @@ fun ControlsEditorScreen(
                 }
 
                 if (isStickPanel) {
-                    val widthScale = selectedLayout?.widthScale ?: 160
+                    val widthScale = selectedLayout.widthScale
                     Surface(
                         modifier = Modifier.padding(top = 8.dp),
                         color = Color(0xFF111827).copy(alpha = 0.82f),
@@ -540,18 +557,26 @@ private fun PreviewLayout(
             )
         }
 
+        fun stickSurfaceMode(controlId: String): Boolean {
+            return (
+                controlLayouts[controlId]
+                    ?: AppPreferences.defaultOverlayControlLayouts(state.stickScale)[controlId]
+                    ?: OverlayControlLayout(scale = state.stickScale)
+                ).surfaceOnly
+        }
+
         fun stickPanelWidth(spec: OverlayCanvasStickSpec): Dp {
-            return if (state.stickSurfaceMode) spec.size * (spec.widthScale / 100f) else spec.size
+            return if (stickSurfaceMode(spec.id)) spec.size * (spec.widthScale / 100f) else spec.size
         }
 
         fun stickPanelX(spec: OverlayCanvasStickSpec): Dp {
             val width = stickPanelWidth(spec)
-            return if (state.stickSurfaceMode) spec.x - ((width - spec.size) / 2f) else spec.x
+            return if (stickSurfaceMode(spec.id)) spec.x - ((width - spec.size) / 2f) else spec.x
         }
 
         fun stickPanelBaseX(spec: OverlayCanvasStickSpec): Dp {
             val width = stickPanelWidth(spec)
-            return if (state.stickSurfaceMode) spec.baseX - ((width - spec.size) / 2f) else spec.baseX
+            return if (stickSurfaceMode(spec.id)) spec.baseX - ((width - spec.size) / 2f) else spec.baseX
         }
 
         fun moveStick(controlId: String, spec: OverlayCanvasStickSpec, delta: Pair<Float, Float>) {
@@ -657,7 +682,7 @@ private fun PreviewLayout(
             PreviewCanvasStick(
                 spec = spec,
                 selected = selectedControlId == spec.id,
-                surfaceOnly = state.stickSurfaceMode,
+                surfaceOnly = stickSurfaceMode(spec.id),
                 panelWidth = stickPanelWidth(spec),
                 panelX = stickPanelX(spec),
                 onSelectControl = onSelectControl,
@@ -671,7 +696,7 @@ private fun PreviewLayout(
             PreviewCanvasStick(
                 spec = spec,
                 selected = selectedControlId == spec.id,
-                surfaceOnly = state.stickSurfaceMode,
+                surfaceOnly = stickSurfaceMode(spec.id),
                 panelWidth = stickPanelWidth(spec),
                 panelX = stickPanelX(spec),
                 onSelectControl = onSelectControl,

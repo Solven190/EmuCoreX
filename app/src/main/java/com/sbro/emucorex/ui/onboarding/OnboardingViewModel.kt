@@ -97,20 +97,6 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun goToNextPage() {
-        val currentState = _uiState.value
-        if (currentState.currentPage < currentState.totalPages - 1) {
-            _uiState.value = currentState.copy(currentPage = currentState.currentPage + 1)
-        }
-    }
-
-    fun goToPreviousPage() {
-        val currentState = _uiState.value
-        if (currentState.currentPage > 0) {
-            _uiState.value = currentState.copy(currentPage = currentState.currentPage - 1)
-        }
-    }
-
     fun setCurrentPage(page: Int) {
         val currentState = _uiState.value
         _uiState.value = currentState.copy(currentPage = page.coerceIn(0, currentState.totalPages - 1))

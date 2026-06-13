@@ -159,10 +159,16 @@ class ControlsEditorViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
-    fun setStickSurfaceMode(enabled: Boolean) {
+    fun setStickSurfaceMode(controlId: String, enabled: Boolean) {
+        if (controlId != "left_stick" && controlId != "right_stick") return
         viewModelScope.launch {
-            _layoutState.value = _layoutState.value.copy(stickSurfaceMode = enabled)
-            preferences.setStickSurfaceMode(enabled)
+            commitLayout { current ->
+                val updated = current.controlLayouts.toMutableMap()
+                val controlDefaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+                val control = updated[controlId] ?: controlDefaults[controlId] ?: OverlayControlLayout()
+                updated[controlId] = control.copy(surfaceOnly = enabled)
+                current.copy(controlLayouts = updated)
+            }
         }
     }
 

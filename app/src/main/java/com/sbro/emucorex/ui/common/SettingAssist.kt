@@ -20,10 +20,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -38,7 +36,7 @@ fun SettingHelpButton(
     description: String,
     modifier: Modifier = Modifier
 ) {
-    var showDialog by remember(title, description) { mutableStateOf(false) }
+    val showDialog = remember(title, description) { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
 
     Box(
@@ -47,7 +45,7 @@ fun SettingHelpButton(
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = { showDialog = true }
+                onClick = { showDialog.value = true }
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -59,8 +57,8 @@ fun SettingHelpButton(
         )
     }
 
-    if (showDialog) {
-        Dialog(onDismissRequest = { showDialog = false }) {
+    if (showDialog.value) {
+        Dialog(onDismissRequest = { showDialog.value = false }) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
@@ -92,7 +90,7 @@ fun SettingHelpButton(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        TextButton(onClick = { showDialog = false }) {
+                        TextButton(onClick = { showDialog.value = false }) {
                             Text(stringResource(R.string.ok))
                         }
                     }

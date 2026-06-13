@@ -97,7 +97,7 @@ fun SaveManagerScreen(
     var isWorking by remember { mutableStateOf(false) }
     var isPreparingEntries by remember(gamePath, gameTitle) { mutableStateOf(true) }
     var isResolvingEntries by remember(gamePath, gameTitle) { mutableStateOf(false) }
-    var pendingDelete by remember { mutableStateOf<SaveStateEntryInfo?>(null) }
+    val pendingDelete = remember { mutableStateOf<SaveStateEntryInfo?>(null) }
     var refreshGeneration by remember(gamePath, gameTitle) { mutableIntStateOf(0) }
 
     val isFiltered = !gamePath.isNullOrBlank()
@@ -199,9 +199,9 @@ fun SaveManagerScreen(
         }
     }
 
-    pendingDelete?.let { entry ->
+    pendingDelete.value?.let { entry ->
         AlertDialog(
-            onDismissRequest = { pendingDelete = null },
+            onDismissRequest = { pendingDelete.value = null },
             title = { Text(stringResource(R.string.save_manager_delete_confirm_title)) },
             text = {
                 Text(
@@ -229,7 +229,7 @@ fun SaveManagerScreen(
                                 repository.deleteEntry(entry)
                             }
                             isWorking = false
-                            pendingDelete = null
+                            pendingDelete.value = null
                             Toast.makeText(
                                 context,
                                 if (success) deleteSuccessMessage else deleteFailureMessage,
@@ -243,7 +243,7 @@ fun SaveManagerScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) {
+                TextButton(onClick = { pendingDelete.value = null }) {
                     Text(stringResource(android.R.string.cancel))
                 }
             }
@@ -350,7 +350,7 @@ fun SaveManagerScreen(
                                 val path = entry.gamePath ?: return@SaveEntryCard
                                 onLoadClick(path, entry.slot)
                             },
-                            onDeleteClick = { pendingDelete = entry }
+                            onDeleteClick = { pendingDelete.value = entry }
                         )
                     }
                 }

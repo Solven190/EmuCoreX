@@ -2,12 +2,12 @@ package com.sbro.emucorex.data
 
 import android.content.Context
 import android.net.Uri
-import androidx.core.net.toUri
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.EmulatorStorage
 import com.sbro.emucorex.core.NativeApp
 import com.sbro.emucorex.data.pcsx2.Pcsx2CompatibilityRepository
+import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -17,7 +17,6 @@ import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
-import kotlinx.coroutines.flow.first
 
 private const val AUTO_SAVE_SLOT = 0
 
@@ -75,7 +74,7 @@ class SaveStateRepository(private val context: Context) {
             ?.slot
     }
 
-    suspend fun listEntries(filterGamePath: String? = null, filterGameTitle: String? = null): List<SaveStateEntryInfo> {
+    fun listEntries(filterGamePath: String? = null, filterGameTitle: String? = null): List<SaveStateEntryInfo> {
         return if (filterGamePath.isNullOrBlank()) {
             listAllEntriesFast()
         } else {

@@ -5,11 +5,11 @@ import android.app.Activity
 import android.content.ContentValues
 import android.content.Context
 import android.content.ContextWrapper
-import android.text.format.DateFormat
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
 import android.provider.MediaStore
+import android.text.format.DateFormat
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,7 +38,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
@@ -66,7 +64,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,7 +81,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -119,8 +115,8 @@ import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import com.sbro.emucorex.ui.common.shimmer
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
@@ -143,8 +139,8 @@ fun GameDetailScreen(
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val horizontalSystemBarPadding = navigationBarsHorizontalPaddingValues()
     val debouncedBack = rememberDebouncedClick(onClick = onBackClick)
-    var selectedScreenshotIndex by rememberSaveable { mutableIntStateOf(-1) }
-    var selectedVideoIndex by rememberSaveable { mutableIntStateOf(-1) }
+    val selectedScreenshotIndex = rememberSaveable { mutableIntStateOf(-1) }
+    val selectedVideoIndex = rememberSaveable { mutableIntStateOf(-1) }
     val horizontalInset = ScreenHorizontalPadding
     val contentMaxWidth = if (isLandscape) 760.dp else Dp.Unspecified
     val heroMaxWidth = if (isLandscape) 240.dp else Dp.Unspecified
@@ -330,7 +326,7 @@ fun GameDetailScreen(
                             ScreenshotCard(
                                 imageUrl = screenshot,
                                 title = title,
-                                onClick = { selectedScreenshotIndex = index }
+                                onClick = { selectedScreenshotIndex.intValue = index }
                             )
                         }
                     }
@@ -356,7 +352,7 @@ fun GameDetailScreen(
                             VideoCard(
                                 youtubeId = video,
                                 title = title,
-                                onClick = { selectedVideoIndex = index }
+                                onClick = { selectedVideoIndex.intValue = index }
                             )
                         }
                     }
@@ -380,21 +376,21 @@ fun GameDetailScreen(
         Spacer(modifier = Modifier.height(bottomInset))
     }
 
-    if (catalog != null && selectedScreenshotIndex >= 0) {
+    if (catalog != null && selectedScreenshotIndex.intValue >= 0) {
         ScreenshotViewerOverlay(
             title = catalog.name,
             screenshots = catalog.screenshots,
-            startIndex = selectedScreenshotIndex,
-            onDismiss = { selectedScreenshotIndex = -1 }
+            startIndex = selectedScreenshotIndex.intValue,
+            onDismiss = { selectedScreenshotIndex.intValue = -1 }
         )
     }
 
-    if (catalog != null && selectedVideoIndex >= 0) {
+    if (catalog != null && selectedVideoIndex.intValue >= 0) {
         VideoPlayerOverlay(
             title = catalog.name,
             videoIds = catalog.videos,
-            startIndex = selectedVideoIndex,
-            onDismiss = { selectedVideoIndex = -1 }
+            startIndex = selectedVideoIndex.intValue,
+            onDismiss = { selectedVideoIndex.intValue = -1 }
         )
     }
 }

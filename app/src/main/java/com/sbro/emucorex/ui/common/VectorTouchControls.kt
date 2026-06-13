@@ -141,9 +141,9 @@ fun VectorOverlayButton(
 @Composable
 fun VectorAnalogStick(
     analogSize: Dp,
+    modifier: Modifier = Modifier,
     analogWidth: Dp = analogSize,
     analogHeight: Dp = analogSize,
-    modifier: Modifier = Modifier,
     alpha: Float = 1f,
     selected: Boolean = false,
     surfaceOnly: Boolean = false,
@@ -175,7 +175,7 @@ fun VectorAnalogStick(
         val deadZone = 0.12f
         val raw = position - center
         val distance = raw.getDistance()
-        val clamped = if (distance > maxDistance && distance > 0f) {
+        val clamped = if (distance > maxDistance) {
             raw * (maxDistance / distance)
         } else {
             raw
