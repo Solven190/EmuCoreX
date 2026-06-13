@@ -20,6 +20,7 @@
 
 #include "Config.h"
 #include "arm64/OaknutHelpers.h"
+#include "JitProfiler.h"
 
 #include "common/AlignedMalloc.h"
 #include "common/FileSystem.h"
@@ -1524,6 +1525,11 @@ static void iopRecRecompile(const u32 startpc)
 	if (!s_pCurBlockEx || s_pCurBlockEx->startpc != HWADDR(startpc))
 		s_pCurBlockEx = recBlocks.New(HWADDR(startpc), (uptr)recPtr);
 
+	if (JitProfiler::IsActive())
+	{
+		JitProfiler::EmitBlockIncrement(&s_pCurBlockEx->execution_count);
+	}
+
 	psxbranch = 0;
 
 	s_pCurBlock->SetFnptr((uptr)oakGetCurrentCodePointer());
@@ -1717,6 +1723,22 @@ StartRecomp:
 
 	s_pCurBlock = NULL;
 	s_pCurBlockEx = NULL;
+}
+
+void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& outBlocks)
+{
+	for (u32 i = 0; i < recBlocks.GetBlockCount(); i++)
+	{
+		BASEBLOCKEX* b = recBlocks[i];
+		if (!b) continue;
+		JitBlockProfile p;
+		p.startpc = b->startpc;
+		p.size = b->size;
+		p.host_size = b->x86size;
+		p.execution_count = b->execution_count;
+		p.type = 1; // IOP
+		outBlocks.push_back(p);
+	}
 }
 
 R3000Acpu psxRec = {

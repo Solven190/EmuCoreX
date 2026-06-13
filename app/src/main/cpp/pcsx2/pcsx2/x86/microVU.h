@@ -143,6 +143,8 @@ private:
 
 public:
 	inline int getFullListCount() const { return fListI; }
+	inline microBlockLink* getQBlockList() const { return qBlockList; }
+	inline microBlockLink* getFBlockList() const { return fBlockList; }
 	microBlockManager()
 	{
 		qListI = fListI = 0;
@@ -200,6 +202,9 @@ public:
 			}
 
 			std::memcpy(&newBlock->block, pBlock, sizeof(microBlock));
+			newBlock->block.execution_count = 0;
+			newBlock->block.guest_size = 0;
+			newBlock->block.host_size = 0;
 			thisBlock = &newBlock->block;
 
 			quickLookup.push_back({&newBlock->block, pBlock->pState.quick64[0]});

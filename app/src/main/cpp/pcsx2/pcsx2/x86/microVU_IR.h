@@ -207,6 +207,9 @@ struct alignas(16) microBlock
 	microRegInfo    pStateEnd;   // Detailed State of Pipeline at End of Block (needed by JR/JALR opcodes)
 	u8*             x86ptrStart; // Start of code (Entry point for block)
 	microJumpCache* jumpCache;   // Will point to an array of entry points of size [16k/8] if block ends in JR/JALR
+	u64             execution_count;
+	u32             guest_size;
+	u32             host_size;
 };
 
 struct microTempRegInfo

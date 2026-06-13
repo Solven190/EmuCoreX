@@ -27,6 +27,7 @@ struct BASEBLOCKEX
 	u32 startpc;
 	u32 size;    // The size in dwords (equivalent to the number of instructions)
 	u32 x86size; // The size in byte of the translated x86 instructions
+	u64 execution_count;
 
 #ifdef PCSX2_DEVBUILD
 	// Could be useful to instrument the block
@@ -179,6 +180,11 @@ public:
 			return -1;
 		else
 			return idx;
+	}
+
+	[[nodiscard]] __fi u32 GetBlockCount() const
+	{
+		return blocks.size();
 	}
 
 	__fi BASEBLOCKEX* operator[](int idx)

@@ -7,6 +7,7 @@
 #include "common/HTTPDownloaderCurl.h"
 #include "arm64/OaknutHelpers.h"
 #include "pcsx2/Achievements.h"
+#include "pcsx2/JitProfiler.h"
 
 #include <android/log.h>
 #include <android/native_window_jni.h>
@@ -395,4 +396,19 @@ extern "C" JNIEXPORT jint JNICALL Java_com_sbro_emucorex_core_NativeApp_convertI
 {
 	LogUnsupported("native ISO to CHD conversion");
 	return -1;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_startJitProfiler(JNIEnv*, jclass)
+{
+	JitProfiler::Start();
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_stopJitProfiler(JNIEnv*, jclass)
+{
+	JitProfiler::Stop();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_isJitProfilerActive(JNIEnv*, jclass)
+{
+	return JitProfiler::IsActive() ? JNI_TRUE : JNI_FALSE;
 }

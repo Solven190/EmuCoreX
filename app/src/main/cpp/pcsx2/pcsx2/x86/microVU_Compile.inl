@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0+
 
 #pragma once
+#include "JitProfiler.h"
 
 //------------------------------------------------------------------
 // Messages Called at Execution Time...
@@ -797,6 +798,10 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 	mVUsetupRange(mVU, startPC, 1); // Setup Program Bounds/Range
 	mVU.regAlloc->reset(false);          // Reset regAlloc
 	mVUinitFirstPass(mVU, pState, thisPtr);
+	if (JitProfiler::IsActive())
+	{
+		JitProfiler::EmitBlockIncrement(&mVUpBlock->execution_count);
+	}
 	mVUbranch = 0;
     int branch;
 	for (branch = 0; mVUcount < endCount;)
@@ -1098,6 +1103,12 @@ perf_and_return:
 			Perf::vu1.RegisterPC(thisPtr, static_cast<u32>(currentPtr - thisPtr), startPC);
 		else
 			Perf::vu0.RegisterPC(thisPtr, static_cast<u32>(currentPtr - thisPtr), startPC);
+	}
+
+	if (mVUpBlock)
+	{
+		mVUpBlock->guest_size = mVUcount;
+		mVUpBlock->host_size = (u32)(oakGetCurrentCodePointer() - thisPtr);
 	}
 
 	if (startedOakBlock)

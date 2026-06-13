@@ -620,6 +620,35 @@ object EmulatorBridge {
         }
     }
 
+    suspend fun startJitProfiler() {
+        if (!isNativeLoaded || !isVmActive) return
+        runSerial {
+            try {
+                NativeApp.startJitProfiler()
+            } catch (_: Exception) { }
+        }
+    }
+
+    suspend fun stopJitProfiler() {
+        if (!isNativeLoaded || !isVmActive) return
+        runSerial {
+            try {
+                NativeApp.stopJitProfiler()
+            } catch (_: Exception) { }
+        }
+    }
+
+    suspend fun isJitProfilerActive(): Boolean {
+        if (!isNativeLoaded || !isVmActive) return false
+        return runSerial {
+            try {
+                NativeApp.isJitProfilerActive()
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
     suspend fun shutdown() {
         if (!isNativeLoaded || !isVmActive || shutdownRequested) return
         runSerial {

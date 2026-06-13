@@ -69,40 +69,12 @@ static void recADDI_(int info)
 EERECOMPILE_CODEX(eeRecompileCodeRC1, ADDI, XMMINFO_WRITET | XMMINFO_READS);
 
 ////////////////////////////////////////////////////
-static void recADDIU_const(void)
+void recADDIU(void)
 {
-	g_cpuConstRegs[_Rt_].SD[0] = s64(s32(g_cpuConstRegs[_Rs_].UL[0] + u32(s32(_Imm_))));
+	EE::Profiler.EmitOp(eeOpcode::ADDIU);
+	eeRecompileCodeRC1(recADDI_const, recADDI_, (XMMINFO_WRITET | XMMINFO_READS));
 }
 
-static void recADDIU_emit_oaknut(int info)
-{
-	using namespace oak::util;
-
-	recBeginOaknutEmit();
-
-	const oak::WReg regt_w = oakWRegister(EEREC_T);
-	const oak::XReg regt_x = oakXRegister(EEREC_T);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(regt_w, oakWRegister(EEREC_S));
-	else
-		oakLoad32(regt_w, {X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UL[0]))});
-
-	oakAsm->MOV(W16, static_cast<u32>(static_cast<s32>(_Imm_)));
-	oakAsm->ADD(regt_w, regt_w, W16);
-	oakAsm->SXTW(regt_x, regt_w);
-
-	recEndOaknutEmit();
-}
-
-static void recADDIU_(int info)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-	recADDIU_emit_oaknut(info);
-}
-
-EERECOMPILE_CODEX(eeRecompileCodeRC1, ADDIU, XMMINFO_WRITET | XMMINFO_READS);
-
-////////////////////////////////////////////////////
 static void recDADDI_const()
 {
 	g_cpuConstRegs[_Rt_].UD[0] = g_cpuConstRegs[_Rs_].UD[0] + u64(s64(_Imm_));
@@ -135,36 +107,11 @@ static void recDADDI_(int info)
 EERECOMPILE_CODEX(eeRecompileCodeRC1, DADDI, XMMINFO_WRITET | XMMINFO_READS | XMMINFO_64BITOP);
 
 //// DADDIU
-static void recDADDIU_const()
+void recDADDIU(void)
 {
-	g_cpuConstRegs[_Rt_].UD[0] = g_cpuConstRegs[_Rs_].UD[0] + u64(s64(_Imm_));
+	EE::Profiler.EmitOp(eeOpcode::DADDIU);
+	eeRecompileCodeRC1(recDADDI_const, recDADDI_, (XMMINFO_WRITET | XMMINFO_READS | XMMINFO_64BITOP));
 }
-
-static void recDADDIU_emit_oaknut(int info)
-{
-	using namespace oak::util;
-
-	recBeginOaknutEmit();
-
-	const oak::XReg regt_x = oakXRegister(EEREC_T);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(regt_x, oakXRegister(EEREC_S));
-	else
-		oakLoad64(regt_x, {X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-
-	oakAsm->MOV(X16, static_cast<u64>(static_cast<s64>(_Imm_)));
-	oakAsm->ADD(regt_x, regt_x, X16);
-
-	recEndOaknutEmit();
-}
-
-static void recDADDIU_(int info)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-	recDADDIU_emit_oaknut(info);
-}
-
-EERECOMPILE_CODEX(eeRecompileCodeRC1, DADDIU, XMMINFO_WRITET | XMMINFO_READS | XMMINFO_64BITOP);
 
 //// SLTIU
 static void recSLTIU_const()

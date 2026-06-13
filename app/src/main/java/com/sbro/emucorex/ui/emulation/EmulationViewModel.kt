@@ -139,7 +139,8 @@ data class EmulationUiState(
     val autoSaveIntervalMinutes: Int = 1,
     val autoSaveLastModified: Long = 0L,
     val isAutoSaveInProgress: Boolean = false,
-    val activePlayTimeMs: Long = 0L
+    val activePlayTimeMs: Long = 0L,
+    val isJitProfilerActive: Boolean = false
 )
 
 private data class EmulationLaunchConfig(
@@ -1198,6 +1199,21 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 delay(2500)
                 _uiState.value = _uiState.value.copy(toastMessage = null)
             }
+        }
+    }
+
+    fun toggleJitProfiler() {
+        val state = _uiState.value
+        val nextState = !state.isJitProfilerActive
+        _uiState.value = state.copy(isJitProfilerActive = nextState)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (nextState) {
+                    EmulatorBridge.startJitProfiler()
+                } else {
+                    EmulatorBridge.stopJitProfiler()
+                }
+            } catch (_: Exception) {}
         }
     }
 

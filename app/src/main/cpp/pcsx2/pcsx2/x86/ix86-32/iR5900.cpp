@@ -16,6 +16,7 @@
 #include "x86/BaseblockEx.h"
 #include "x86/iR5900.h"
 #include "x86/iR5900Analysis.h"
+#include "JitProfiler.h"
 
 #include "common/AlignedMalloc.h"
 #include "common/FastJmp.h"
@@ -2140,6 +2141,11 @@ static void recRecompile(const u32 startpc)
 
 	pxAssert(s_pCurBlockEx);
 
+	if (JitProfiler::IsActive())
+	{
+		JitProfiler::EmitBlockIncrement(&s_pCurBlockEx->execution_count);
+	}
+
 	if (HWADDR(startpc) == EELOAD_START)
 	{
 		// The EELOAD _start function is the same across all BIOS versions
@@ -2620,6 +2626,22 @@ StartRecomp:
 
 	s_pCurBlock = nullptr;
 	s_pCurBlockEx = nullptr;
+}
+
+void EE_JitGetBlockProfiles(std::vector<JitBlockProfile>& outBlocks)
+{
+	for (u32 i = 0; i < recBlocks.GetBlockCount(); i++)
+	{
+		BASEBLOCKEX* b = recBlocks[i];
+		if (!b) continue;
+		JitBlockProfile p;
+		p.startpc = b->startpc;
+		p.size = b->size;
+		p.host_size = b->x86size;
+		p.execution_count = b->execution_count;
+		p.type = 0; // EE
+		outBlocks.push_back(p);
+	}
 }
 
 R5900cpu recCpu = {

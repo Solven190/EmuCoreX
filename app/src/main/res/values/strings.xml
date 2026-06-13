@@ -1107,4 +1107,8 @@
     <string name="save">Save</string>
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
+    <string name="jit_profiler_title">JIT Profiler</string>
+    <string name="jit_profiler_start">Start JIT Profiler</string>
+    <string name="jit_profiler_stop">Stop &amp; Save Profile</string>
+    <string name="jit_profiler_desc">Profiles JIT recompiler execution for EE, IOP, VU0, and VU1.</string>
 </resources>

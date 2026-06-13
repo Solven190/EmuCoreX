@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "microVU.h"
+#include "JitProfiler.h"
 
 #include "common/AlignedMalloc.h"
 #include "common/Perf.h"
@@ -432,4 +433,47 @@ bool SaveStateBase::vuJITFreeze()
 	Freeze(microVU0.prog.lpState);
 	Freeze(microVU1.prog.lpState);
 	return IsOkay();
+}
+
+static void VU_JitGetBlockProfiles(int vuIndex, std::vector<JitBlockProfile>& outBlocks)
+{
+	microVU& mVU = (vuIndex == 0) ? microVU0 : microVU1;
+	for (int i = 0; i < mProgSizeHalf; i++)
+	{
+		microProgramQuick& quick = mVU.prog.quick[i];
+		microProgram* prog = quick.prog;
+		if (!prog) continue;
+
+		for (int j = 0; j < mProgSizeHalf; j++)
+		{
+			microBlockManager* mgr = prog->block[j];
+			if (!mgr) continue;
+
+			auto traverseList = [&](microBlockLink* listHead) {
+				for (microBlockLink* link = listHead; link != nullptr; link = link->next)
+				{
+					microBlock& b = link->block;
+					JitBlockProfile p;
+					p.startpc = j * 8;
+					p.size = b.guest_size;
+					p.host_size = b.host_size;
+					p.execution_count = b.execution_count;
+					p.type = (vuIndex == 0) ? 2 : 3; // VU0 or VU1
+					outBlocks.push_back(p);
+				}
+			};
+			traverseList(mgr->getQBlockList());
+			traverseList(mgr->getFBlockList());
+		}
+	}
+}
+
+void VU0_JitGetBlockProfiles(std::vector<JitBlockProfile>& outBlocks)
+{
+	VU_JitGetBlockProfiles(0, outBlocks);
+}
+
+void VU1_JitGetBlockProfiles(std::vector<JitBlockProfile>& outBlocks)
+{
+	VU_JitGetBlockProfiles(1, outBlocks);
 }
