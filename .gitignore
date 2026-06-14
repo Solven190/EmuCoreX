@@ -75,6 +75,7 @@ emulog.txt
 docs/
 docs/vu0-camera-progress.md
 profiling-runs/
+profiler/
 /local-traces/
 
 # Third-party and upstream docs (not needed in repo)
