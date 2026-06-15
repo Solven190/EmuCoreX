@@ -514,9 +514,9 @@ private fun SaveEntryCard(
             ) {
                 Surface(
                     modifier = Modifier
-                        .width(132.dp)
-                        .height(96.dp),
-                    shape = RoundedCornerShape(18.dp),
+                        .width(116.dp)
+                        .height(86.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
                     tonalElevation = 0.dp,
                     shadowElevation = 0.dp
@@ -526,7 +526,7 @@ private fun SaveEntryCard(
                         fallbackTitle = entry.gameTitle,
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(18.dp)),
+                            .clip(RoundedCornerShape(14.dp)),
                         contentScale = ContentScale.Crop
                     )
                 }
@@ -534,12 +534,12 @@ private fun SaveEntryCard(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(start = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                        .padding(start = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Text(
                         text = entry.gameTitle,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -564,14 +564,10 @@ private fun SaveEntryCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = stringResource(
-                            R.string.save_manager_entry_date,
-                            DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
-                                .format(Date(entry.lastModified))
-                        ),
+                        text = formatSaveEntryDate(entry.lastModified),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
@@ -792,6 +788,11 @@ private fun formatBytes(bytes: Long): String {
         bytes >= 1024L -> String.format("%.0f KB", bytes / 1024.0)
         else -> "$bytes B"
     }
+}
+
+private fun formatSaveEntryDate(timestamp: Long): String {
+    return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+        .format(Date(timestamp))
 }
 
 private fun String?.isUsableDisplayTitle(): Boolean {

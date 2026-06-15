@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
+import com.sbro.emucorex.core.EmulatorStorage
 import com.sbro.emucorex.core.GpuDriverManager
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.NativeApp
@@ -36,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
+import java.util.Locale
 
 data class EmulationUiState(
     val isRunning: Boolean = false,
@@ -291,6 +293,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private companion object {
         const val TAG = "EmulationViewModel"
         private const val AUTO_SAVE_SLOT = 0
+        private val SAVE_STATE_FILE_REGEX = Regex("""^(.+?) \(([0-9A-Fa-f]{8})\)\.(\d{2})\.p2s$""")
     }
 
 
@@ -1287,6 +1290,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         if (showMenu) {
             pausedForBackground = false
             EmulatorBridge.resetKeyStatus()
+            refreshSaveStateMetadata()
             _uiState.value = _uiState.value.copy(showMenu = true, isPaused = true)
             updateCrashContext(launchState = "paused")
             viewModelScope.launch(Dispatchers.IO) {
@@ -2918,24 +2922,58 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun saveStateLastModified(gamePath: String, slot: Int): Long {
-        val statePath = runCatching { NativeApp.getSaveStatePathForFile(gamePath, slot) }.getOrNull()
-            ?: return 0L
-        val file = File(statePath)
+        val file = resolveSaveStateFile(gamePath, slot) ?: return 0L
         return file.takeIf { it.exists() }?.lastModified() ?: 0L
     }
 
     private suspend fun waitForSaveStateUpdate(gamePath: String, slot: Int, previousModified: Long): Boolean {
         val statePath = runCatching { NativeApp.getSaveStatePathForFile(gamePath, slot) }.getOrNull()
             ?: return false
-        val file = File(statePath)
+        val fallbackFile = File(statePath)
         repeat(40) {
+            val file = resolveSaveStateFile(gamePath, slot) ?: fallbackFile
             val modified = file.takeIf { it.exists() }?.lastModified() ?: 0L
             if (modified > 0L && modified != previousModified) {
                 return true
             }
             delay(250)
         }
-        return file.exists()
+        return (resolveSaveStateFile(gamePath, slot) ?: fallbackFile).exists()
+    }
+
+    private fun resolveSaveStateFile(gamePath: String, slot: Int): File? {
+        val nativeFile = runCatching { NativeApp.getSaveStatePathForFile(gamePath, slot) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?.let(::File)
+        if (nativeFile?.exists() == true) return nativeFile
+        return findSaveStateFileForCurrentGame(slot) ?: nativeFile
+    }
+
+    private fun findSaveStateFileForCurrentGame(slot: Int): File? {
+        val targetSerial = currentGameSerial.normalizeSaveSerialKey() ?: return null
+        val targetCrc = currentGameCrc.trim().uppercase(Locale.ROOT)
+        val matches = EmulatorStorage.saveStatesDir(getApplication())
+            .listFiles()
+            .orEmpty()
+            .mapNotNull { file ->
+                if (!file.isFile) return@mapNotNull null
+                val parsed = SAVE_STATE_FILE_REGEX.matchEntire(file.name) ?: return@mapNotNull null
+                val fileSlot = parsed.groupValues[3].toIntOrNull() ?: return@mapNotNull null
+                if (fileSlot != slot) return@mapNotNull null
+                val fileSerial = parsed.groupValues[1].normalizeSaveSerialKey() ?: return@mapNotNull null
+                if (fileSerial != targetSerial) return@mapNotNull null
+                val fileCrc = parsed.groupValues[2].uppercase(Locale.ROOT)
+                file to fileCrc
+            }
+        if (matches.isEmpty()) return null
+        return matches
+            .filter { (_, fileCrc) -> targetCrc.isNotBlank() && fileCrc == targetCrc }
+            .map { it.first }
+            .maxByOrNull { it.lastModified() }
+            ?: matches
+                .map { it.first }
+                .maxByOrNull { it.lastModified() }
     }
 
     fun quickSave() {
@@ -2983,6 +3021,31 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 } else {
                     try {
                         EmulatorBridge.loadState(slot)
+                    } catch (_: Exception) { false }
+                }
+            }
+            _uiState.value = _uiState.value.copy(
+                isActionInProgress = false,
+                actionLabel = null,
+                toastMessage = if (success) "loaded" else null
+            )
+            delay(2000)
+            _uiState.value = _uiState.value.copy(toastMessage = null)
+        }
+    }
+
+    fun loadAutoSave() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.value = _uiState.value.copy(
+                isActionInProgress = true,
+                actionLabel = "loading"
+            )
+            val success = lifecycleMutex.withLock {
+                if (isShuttingDown) {
+                    false
+                } else {
+                    try {
+                        EmulatorBridge.loadState(AUTO_SAVE_SLOT)
                     } catch (_: Exception) { false }
                 }
             }
@@ -3194,4 +3257,18 @@ private fun String?.extractSerialAndCrcKey(): String? {
         .replace(Regex("_[0-9A-Fa-f]{8}$"), "")
         .trim()
     return if (serial.isNotBlank() && !crc.isNullOrBlank()) "${serial}_$crc" else null
+}
+
+private fun String?.normalizeSaveSerialKey(): String? {
+    if (this.isNullOrBlank()) return null
+    val cleanSerial = trim().uppercase(Locale.ROOT)
+    val splitRegex = Regex("([A-Z]{4})[^A-Z0-9]*([0-9]{3})[^A-Z0-9]*([0-9]{2})")
+    val compactRegex = Regex("([A-Z]{4})[^A-Z0-9]*([0-9]{5})")
+    splitRegex.find(cleanSerial)?.let { match ->
+        return "${match.groupValues[1]}-${match.groupValues[2]}${match.groupValues[3]}"
+    }
+    compactRegex.find(cleanSerial)?.let { match ->
+        return "${match.groupValues[1]}-${match.groupValues[2]}"
+    }
+    return cleanSerial.replace(Regex("[^A-Z0-9_-]"), "").takeIf { it.isNotBlank() }
 }

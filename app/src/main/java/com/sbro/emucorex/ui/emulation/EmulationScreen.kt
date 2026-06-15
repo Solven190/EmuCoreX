@@ -349,6 +349,7 @@ fun EmulationScreen(
     var showExitDialog by remember { mutableStateOf(false) }
     var showQuickSaveDialog by remember { mutableStateOf(false) }
     var showQuickLoadDialog by remember { mutableStateOf(false) }
+    var showAutoSaveLoadDialog by remember { mutableStateOf(false) }
     var showCheatsDialog by remember { mutableStateOf(false) }
     var showControlsEditor by remember { mutableStateOf(false) }
     var showGamepadMappingDialog by remember { mutableStateOf(false) }
@@ -374,6 +375,7 @@ fun EmulationScreen(
     val togglePauseClick = rememberDebouncedClick(onClick = { viewModel.togglePause() })
     val requestQuickSaveClick = rememberDebouncedClick(onClick = { showQuickSaveDialog = true })
     val requestQuickLoadClick = rememberDebouncedClick(onClick = { showQuickLoadDialog = true })
+    val requestAutoSaveLoadClick = rememberDebouncedClick(onClick = { showAutoSaveLoadDialog = true })
     val confirmQuickSaveClick = rememberDebouncedClick(onClick = {
         showQuickSaveDialog = false
         viewModel.quickSave()
@@ -382,8 +384,13 @@ fun EmulationScreen(
         showQuickLoadDialog = false
         viewModel.quickLoad()
     })
+    val confirmAutoSaveLoadClick = rememberDebouncedClick(onClick = {
+        showAutoSaveLoadDialog = false
+        viewModel.loadAutoSave()
+    })
     val dismissQuickSaveClick = rememberDebouncedClick(onClick = { showQuickSaveDialog = false })
     val dismissQuickLoadClick = rememberDebouncedClick(onClick = { showQuickLoadDialog = false })
+    val dismissAutoSaveLoadClick = rememberDebouncedClick(onClick = { showAutoSaveLoadDialog = false })
     val requestExitClick = rememberDebouncedClick(onClick = { showExitDialog = true })
     val confirmExitClick = rememberDebouncedClick(onClick = {
         showExitDialog = false
@@ -400,6 +407,7 @@ fun EmulationScreen(
         showExitDialog ||
         showQuickSaveDialog ||
         showQuickLoadDialog ||
+        showAutoSaveLoadDialog ||
         showCheatsDialog ||
         showGamepadMappingDialog ||
         pendingGamepadActionId != null
@@ -427,6 +435,10 @@ fun EmulationScreen(
                 }
                 showQuickLoadDialog -> {
                     showQuickLoadDialog = false
+                    true
+                }
+                showAutoSaveLoadDialog -> {
+                    showAutoSaveLoadDialog = false
                     true
                 }
                 showQuickSaveDialog -> {
@@ -1047,6 +1059,7 @@ fun EmulationScreen(
                     onPauseToggle = togglePauseClick,
                     onQuickSave = requestQuickSaveClick,
                     onQuickLoad = requestQuickLoadClick,
+                    onLoadAutoSave = requestAutoSaveLoadClick,
                     onSetAutoSaveEnabled = { viewModel.setAutoSaveEnabled(it) },
                     onSetAutoSaveIntervalMinutes = { viewModel.setAutoSaveIntervalMinutes(it) },
                     onSaveGameSettingsProfile = { viewModel.saveCurrentGameSettingsProfile() },
@@ -1227,6 +1240,37 @@ fun EmulationScreen(
             },
             dismissButton = {
                 TextButton(onClick = dismissQuickLoadClick) {
+                    Text(stringResource(R.string.no))
+                }
+            }
+        )
+    }
+
+    if (showAutoSaveLoadDialog) {
+        AlertDialog(
+            onDismissRequest = dismissAutoSaveLoadClick,
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Text(
+                    stringResource(R.string.emulation_quick_load_confirm_title),
+                    style = MaterialTheme.typography.titleLarge
+                )
+            },
+            text = {
+                Text(
+                    stringResource(R.string.emulation_quick_load_confirm_desc, 0),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = confirmAutoSaveLoadClick) {
+                    Text(stringResource(R.string.emulation_quick_load))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = dismissAutoSaveLoadClick) {
                     Text(stringResource(R.string.no))
                 }
             }
@@ -1867,6 +1911,7 @@ private fun EmulationSidebarMenu(
     onPauseToggle: () -> Unit,
     onQuickSave: () -> Unit,
     onQuickLoad: () -> Unit,
+    onLoadAutoSave: () -> Unit,
     onSetAutoSaveEnabled: (Boolean) -> Unit,
     onSetAutoSaveIntervalMinutes: (Int) -> Unit,
     onSaveGameSettingsProfile: () -> Unit,
@@ -2202,10 +2247,7 @@ private fun EmulationSidebarMenu(
                                         )
                                         Text(
                                             text = if (uiState.autoSaveLastModified > 0L) {
-                                                stringResource(
-                                                    R.string.emulation_auto_save_last_saved,
-                                                    formatSaveTimestamp(uiState.autoSaveLastModified)
-                                                )
+                                                formatSaveTimestamp(uiState.autoSaveLastModified)
                                             } else {
                                                 stringResource(R.string.emulation_auto_save_empty)
                                             },
@@ -2224,6 +2266,7 @@ private fun EmulationSidebarMenu(
 
                                 AnimatedVisibility(visible = uiState.autoSaveEnabled) {
                                     Row(
+                                        modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
@@ -2252,6 +2295,14 @@ private fun EmulationSidebarMenu(
                                             suffix = {
                                                 Text(stringResource(R.string.emulation_auto_save_interval_suffix))
                                             }
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        CompactIconActionButton(
+                                            icon = Icons.Rounded.Restore,
+                                            contentDescription = stringResource(R.string.emulation_quick_load_desc),
+                                            onClick = onLoadAutoSave,
+                                            enabled = !uiState.isActionInProgress && uiState.autoSaveLastModified > 0L,
+                                            showProgress = uiState.actionLabel == "loading"
                                         )
                                     }
                                 }
@@ -4599,6 +4650,62 @@ private fun QuickIconActionButton(
                     imageVector = icon,
                     contentDescription = contentDescription,
                     tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactIconActionButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    showProgress: Boolean
+) {
+    val shape = RoundedCornerShape(16.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    Surface(
+        modifier = Modifier
+            .size(52.dp)
+            .clickable(
+                enabled = enabled,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .gamepadFocusableCard(
+                enabled = enabled,
+                shape = shape,
+                interactionSource = interactionSource,
+                addFocusTarget = false
+            ),
+        shape = shape,
+        color = if (enabled) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        },
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            if (showProgress) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    tint = if (enabled) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    },
                     modifier = Modifier.size(22.dp)
                 )
             }
