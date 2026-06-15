@@ -1096,4 +1096,13 @@
     <string name="settings_ra_hardcore_pending">重置后硬核</string>
     <string name="settings_ra_softcore_active">软核</string>
     <string name="settings_ra_hardcore_pending_desc">硬核模式已在设置中启用，但需要在重置或重新启动游戏后才会激活。</string>
+    <string name="jit_profiler_title">JIT 分析器</string>
+    <string name="jit_profiler_start">启动 JIT 分析器</string>
+    <string name="jit_profiler_stop">停止并保存分析</string>
+    <string name="jit_profiler_desc">分析 EE、IOP、VU0 和 VU1 的 JIT 重新编译器执行情况。</string>
+    <string name="hang_trace_title">挂起追踪</string>
+    <string name="hang_trace_desc">在重现加载挂起时，将最近的 EE、IOP、VU0 和 VU1 操作码记录到 data/hang_trace.txt。</string>
+    <string name="settings_fast_boot_desc">跳过 BIOS 光盘启动 - 针对启动前挂起的游戏禁用</string>
+    <string name="settings_fast_boot">快速启动</string>
+    <string name="settings_help_fast_boot">跳过常规的 BIOS 光盘启动路径并更快地进入游戏。对大多数游戏保持开启；对于在游戏进入前挂起、在加载屏幕上循环，或者在游戏开始前似乎无休止等待的标题，请将其关闭。</string>
 </resources>

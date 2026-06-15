@@ -1094,4 +1094,13 @@
     <string name="settings_ra_hardcore_pending">هاردكور بعد إعادة الضبط</string>
     <string name="settings_ra_softcore_active">سوفتكور</string>
     <string name="settings_ra_hardcore_pending_desc">تم تفعيل وضع هاردكور في الإعدادات، ولكنه سيصبح نشطًا بعد إعادة ضبط اللعبة أو إعادة تشغيلها.</string>
+    <string name="jit_profiler_title">أداة تحليل JIT</string>
+    <string name="jit_profiler_start">بدء أداة تحليل JIT</string>
+    <string name="jit_profiler_stop">إيقاف وحفظ التحليل</string>
+    <string name="jit_profiler_desc">يحلل تنفيذ معيد تجميع JIT لـ EE و IOP و VU0 و VU1.</string>
+    <string name="hang_trace_title">تتبع التعليق</string>
+    <string name="hang_trace_desc">يسجل أكواد تشغيل EE و IOP و VU0 و VU1 الأخيرة في data/hang_trace.txt أثناء إعادة إنتاج تعليقات التحميل.</string>
+    <string name="settings_fast_boot_desc">يتخطى تمهيد قرص BIOS - قم بتعطيله للألعاب التي تتوقف قبل البدء</string>
+    <string name="settings_fast_boot">إقلاع سريع</string>
+    <string name="settings_help_fast_boot">يتخطى مسار تمهيد قرص BIOS العادي وينتقل إلى اللعبة بشكل أسرع. أبقه ممكناً لمعظم الألعاب؛ قم بإيقاف تشغيله للعناوين التي تتوقف قبل اللعب، أو تستمر في التكرار على شاشات التحميل، أو تبدو وكأنها تنتظر إلى الأبد قبل بدء اللعبة.</string>
 </resources>

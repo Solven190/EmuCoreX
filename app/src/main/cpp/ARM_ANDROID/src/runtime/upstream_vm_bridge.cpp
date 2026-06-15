@@ -128,11 +128,8 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 		GetIntSetting(config.settings, "EmuCore/Speedhacks", "EECycleRate", 0));
 	si.SetIntValue("EmuCore/Speedhacks", "EECycleSkip",
 		GetIntSetting(config.settings, "EmuCore/Speedhacks", "EECycleSkip", 0));
-	// Match VMBootParameters::fast_boot below: skip the BIOS intro animation
-	// whenever the user actually launches a game/ELF. Leaving this hard-false
-	// while VMBootParameters asks for fast_boot=true left both sides fighting
-	// and the BIOS sequence ran in full every cold launch.
-	si.SetBoolValue("EmuCore", "EnableFastBoot", !config.path.empty() || config.boot_elf);
+	const bool enable_fast_boot = GetBoolSetting(config.settings, "EmuCore", "EnableFastBoot", !config.path.empty() || config.boot_elf);
+	si.SetBoolValue("EmuCore", "EnableFastBoot", enable_fast_boot);
 	si.SetBoolValue("Achievements", "Enabled", GetBoolSetting(config.settings, "Achievements", "Enabled", false));
 	si.SetBoolValue("Achievements", "ChallengeMode", GetBoolSetting(config.settings, "Achievements", "ChallengeMode", false));
 	si.SetBoolValue("Logging", "EnableFileLogging", autotest_mode);
@@ -228,7 +225,7 @@ void InstallHostSettings(const VmLaunchConfig& config)
 VMBootParameters CreateBootParameters(const VmLaunchConfig& config)
 {
 	VMBootParameters params;
-	params.fast_boot = !config.path.empty() || config.boot_elf;
+	params.fast_boot = GetBoolSetting(config.settings, "EmuCore", "EnableFastBoot", !config.path.empty() || config.boot_elf);
 	params.fullscreen = false;
 	params.start_turbo = false;
 	params.start_unlimited = false;

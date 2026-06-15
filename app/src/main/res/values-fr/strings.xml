@@ -1096,4 +1096,13 @@
     <string name="settings_ra_hardcore_pending">HARDCORE APRÈS RÉINITIALISATION</string>
     <string name="settings_ra_softcore_active">SOFTCORE</string>
     <string name="settings_ra_hardcore_pending_desc">Le mode Hardcore est activé dans les paramètres, mais il deviendra actif une fois le jeu réinitialisé ou redémarré.</string>
+    <string name="jit_profiler_title">Profileur JIT</string>
+    <string name="jit_profiler_start">Démarrer le profileur JIT</string>
+    <string name="jit_profiler_stop">Arrêter et enregistrer le profil</string>
+    <string name="jit_profiler_desc">Établit le profil de l\'exécution du recompilateur JIT pour EE, IOP, VU0 et VU1.</string>
+    <string name="hang_trace_title">Trace de plantage</string>
+    <string name="hang_trace_desc">Enregistre les opcodes récents de EE, IOP, VU0 et VU1 dans data/hang_trace.txt lors de la reproduction des blocages de chargement.</string>
+    <string name="settings_fast_boot_desc">Ignore le démarrage du disque BIOS - désactiver pour les jeux qui plantent avant le début</string>
+    <string name="settings_fast_boot">Démarrage rapide</string>
+    <string name="settings_help_fast_boot">Ignore le chemin de démarrage normal du disque BIOS et lance le jeu plus rapidement. Laissez-le activé pour la plupart des jeux ; désactivez-le pour les titres qui plantent avant le gameplay, tournent en boucle sur les écrans de chargement ou semblent attendre indéfiniment avant le démarrage du jeu.</string>
 </resources>

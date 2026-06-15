@@ -7,6 +7,7 @@
 #include "common/HTTPDownloaderCurl.h"
 #include "arm64/OaknutHelpers.h"
 #include "pcsx2/Achievements.h"
+#include "pcsx2/HangTrace.h"
 #include "pcsx2/JitProfiler.h"
 
 #include <android/log.h>
@@ -411,4 +412,19 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_stopJitP
 extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_isJitProfilerActive(JNIEnv*, jclass)
 {
 	return JitProfiler::IsActive() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_startHangTrace(JNIEnv*, jclass)
+{
+	HangTrace::Start();
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_stopHangTrace(JNIEnv*, jclass)
+{
+	HangTrace::Stop();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_isHangTraceActive(JNIEnv*, jclass)
+{
+	return HangTrace::IsActive() ? JNI_TRUE : JNI_FALSE;
 }

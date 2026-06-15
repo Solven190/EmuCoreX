@@ -1094,4 +1094,13 @@
     <string name="settings_ra_hardcore_pending">SIFIRLAMADAN SONRA HARDCORE</string>
     <string name="settings_ra_softcore_active">SOFTCORE</string>
     <string name="settings_ra_hardcore_pending_desc">Hardcore ayarlarda etkinleştirildi, ancak oyun sıfırlandıktan veya yeniden başlatıldıktan sonra aktif hale gelecektir.</string>
+    <string name="jit_profiler_title">JIT Profilleyici</string>
+    <string name="jit_profiler_start">JIT Profilleyiciyi Başlat</string>
+    <string name="jit_profiler_stop">Durdur ve Profili Kaydet</string>
+    <string name="jit_profiler_desc">EE, IOP, VU0 ve VU1 için JIT yeniden derleyici yürütmesinin profilini çıkarır.</string>
+    <string name="hang_trace_title">Takılma İzlemesi</string>
+    <string name="hang_trace_desc">Yükleme takılmalarını yeniden üretirken son EE, IOP, VU0 ve VU1 işlem kodlarını data/hang_trace.txt dosyasına kaydeder.</string>
+    <string name="settings_fast_boot_desc">BIOS disk önyüklemesini atlar - başlamadan önce takılan oyunlar için devre dışı bırakın</string>
+    <string name="settings_fast_boot">Hızlı Başlatma</string>
+    <string name="settings_help_fast_boot">Normal BIOS disk önyükleme yolunu atlar ve oyuna daha hızlı giriş yapar. Çoğu oyun için etkin tutun; oynamadan önce takılan, yükleme ekranlarında döngüye giren veya oyun başlamadan önce sonsuza kadar bekliyor gibi görünen oyunlar için kapatın.</string>
 </resources>

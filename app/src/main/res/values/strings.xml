@@ -514,6 +514,7 @@
     <string name="settings_help_ee_cycle_rate">Adjusts how much EE CPU time the emulator gives the game each frame. Lower values can rescue borderline performance on weak devices, but they also make game timing less accurate and can cause slowdown, audio issues, or broken logic.</string>
     <string name="settings_help_ee_cycle_skip">Lets the emulator skip part of the EE workload to gain speed. It is stronger and riskier than Cycle Rate: useful when a game is close to full speed, but aggressive values can cause stutter, input delay, missing effects, or unstable behavior.</string>
     <string name="settings_help_mtvu">Runs VU1 work on another CPU thread. This often helps on modern multi-core devices, especially in heavier 3D games, but a few titles may show instability or odd timing with it enabled.</string>
+    <string name="settings_help_fast_boot">Skips the normal BIOS disc boot path and jumps into the game faster. Keep it enabled for most games; turn it off for titles that hang before gameplay, loop on loading screens, or appear to wait forever before the game starts.</string>
     <string name="settings_help_fast_cdvd">Uses looser virtual disc timing to shorten load-related overhead. It can improve performance and reduce long loads in some games, but titles that depend on stricter timing may hang, loop, or fail to load certain scenes correctly.</string>
     <string name="settings_help_wait_loop_speedhack">Fast-forwards tight EE wait loops. Disable this when debugging periodic state jumps, hangs, or games that appear to miss timing-sensitive work.</string>
     <string name="settings_help_intc_stat_speedhack">Optimizes reads from the interrupt status register. Disable this to test games that poll interrupts very closely during startup or cutscenes.</string>
@@ -609,6 +610,7 @@
     <string name="settings_ee_cycle_rate">EE Cycle Rate</string>
     <string name="settings_ee_cycle_skip">EE Cycle Skip</string>
     <string name="settings_mtvu">MTVU (Multi-Threaded VU1)</string>
+    <string name="settings_fast_boot">Fast Boot</string>
     <string name="settings_fast_cdvd">Fast CDVD</string>
     <string name="settings_wait_loop_speedhack">Wait Loop Detection</string>
     <string name="settings_intc_stat_speedhack">INTC Status Hack</string>
@@ -677,6 +679,7 @@
     <string name="settings_ee_cycle_moderate">Moderate</string>
     <string name="settings_ee_cycle_maximum">Maximum</string>
     <string name="settings_mtvu_desc">Uses a second thread for VU1 - speeds up most games</string>
+    <string name="settings_fast_boot_desc">Skips the BIOS disc boot - disable for games that hang before starting</string>
     <string name="settings_fast_cdvd_desc">Faster disc access - may cause issues in some games</string>
     <string name="settings_wait_loop_speedhack_desc">Fast-forwards repeated EE wait loops</string>
     <string name="settings_intc_stat_speedhack_desc">Optimizes interrupt status polling</string>
@@ -1111,4 +1114,6 @@
     <string name="jit_profiler_start">Start JIT Profiler</string>
     <string name="jit_profiler_stop">Stop &amp; Save Profile</string>
     <string name="jit_profiler_desc">Profiles JIT recompiler execution for EE, IOP, VU0, and VU1.</string>
+    <string name="hang_trace_title">Hang Trace</string>
+    <string name="hang_trace_desc">Records recent EE, IOP, VU0, and VU1 opcodes to data/hang_trace.txt while reproducing loading hangs.</string>
 </resources>

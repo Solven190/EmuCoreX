@@ -1096,4 +1096,13 @@
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">Проверка обновлений временно недоступна. Повторите попытку через %1$d мин.</string>
+    <string name="jit_profiler_title">Профайлер JIT</string>
+    <string name="jit_profiler_start">Запустить профайлер JIT</string>
+    <string name="jit_profiler_stop">Остановить и сохранить профиль</string>
+    <string name="jit_profiler_desc">Профилирует выполнение рекомпилятора JIT для EE, IOP, VU0 и VU1.</string>
+    <string name="hang_trace_title">Трассировка зависаний</string>
+    <string name="hang_trace_desc">Записывает последние опкоды EE, IOP, VU0 и VU1 в data/hang_trace.txt при воспроизведении зависаний загрузки.</string>
+    <string name="settings_fast_boot_desc">Пропускает загрузку диска BIOS — отключите для игр, которые зависают перед запуском</string>
+    <string name="settings_fast_boot">Быстрая загрузка</string>
+    <string name="settings_help_fast_boot">Пропускает обычный путь загрузки диска BIOS и быстрее запускает игру. Оставьте включенным для большинства игр; отключайте для проектов, которые зависают перед игрой, зацикливаются на экранах загрузки или, кажется, ждут вечно до начала игры.</string>
 </resources>

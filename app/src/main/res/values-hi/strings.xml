@@ -1094,4 +1094,13 @@
     <string name="settings_ra_hardcore_pending">रीसेट के बाद हार्डकोर</string>
     <string name="settings_ra_softcore_active">सॉफ़्टकोर</string>
     <string name="settings_ra_hardcore_pending_desc">सेटिंग्स में हार्डकोर सक्षम है, लेकिन गेम को रीसेट या पुनरारंभ करने के बाद यह सक्रिय हो जाएगा।</string>
+    <string name="jit_profiler_title">JIT प्रोफाइलर</string>
+    <string name="jit_profiler_start">JIT प्रोफाइलर प्रारंभ करें</string>
+    <string name="jit_profiler_stop">रोकें और प्रोफ़ाइल सहेजें</string>
+    <string name="jit_profiler_desc">EE, IOP, VU0 और VU1 के लिए JIT रिकंपाइलर निष्पादन को प्रोफाइल करता है।</string>
+    <string name="hang_trace_title">हैंग ट्रेस</string>
+    <string name="hang_trace_desc">लोडिंग हैंग को पुन: उत्पन्न करते समय हाल के EE, IOP, VU0 और VU1 ऑपकोड को data/hang_trace.txt पर रिकॉर्ड करता है।</string>
+    <string name="settings_fast_boot_desc">BIOS डिस्क बूट को छोड़ देता है - उन खेलों के लिए अक्षम करें जो शुरू होने से पहले हैंग होते हैं</string>
+    <string name="settings_fast_boot">फ़ास्ट बूट</string>
+    <string name="settings_help_fast_boot">सामान्य BIOS डिस्क बूट पथ को छोड़ देता है और गेम में तेज़ी से जाता है। अधिकांश खेलों के लिए इसे सक्षम रखें; उन शीर्षकों के लिए इसे बंद कर दें जो गेमप्ले से पहले हैंग होते हैं, लोडिंग स्क्रीन पर लूप करते हैं, या गेम शुरू होने से पहले हमेशा के लिए प्रतीक्षा करते हुए प्रतीत होते हैं。</string>
 </resources>

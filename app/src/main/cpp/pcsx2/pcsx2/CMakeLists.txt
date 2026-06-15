@@ -1054,6 +1054,8 @@ set(pcsx2x86Headers
 	x86/microVU_Tables.inl
 	x86/microVU_Upper.inl
 	x86/R5900_Profiler.h
+	HangTrace.cpp
+	HangTrace.h
 	JitProfiler.cpp
 	JitProfiler.h
 	)

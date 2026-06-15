@@ -3,6 +3,7 @@
 
 #pragma once
 #include "JitProfiler.h"
+#include "HangTrace.h"
 
 //------------------------------------------------------------------
 // Messages Called at Execution Time...
@@ -801,6 +802,13 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 	if (JitProfiler::IsActive())
 	{
 		JitProfiler::EmitBlockIncrement(&mVUpBlock->execution_count);
+	}
+	if (HangTrace::IsActive())
+	{
+		u32 upper = 0;
+		if (mVU.regs().Micro && startPC + sizeof(upper) <= mVU.microMemSize)
+			std::memcpy(&upper, &mVU.regs().Micro[startPC], sizeof(upper));
+		HangTrace::EmitBlockTrace(isVU1 ? HangTrace::CPU_VU1 : HangTrace::CPU_VU0, startPC, upper);
 	}
 	mVUbranch = 0;
     int branch;

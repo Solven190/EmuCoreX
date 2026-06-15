@@ -70,6 +70,7 @@ data class SettingsUiState(
     val enableVuFlagHack: Boolean = true,
     val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
+    val enableFastBoot: Boolean = true,
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
     val hwDownloadMode: Int = 0,
@@ -224,6 +225,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             enableVuFlagHack = snapshot.enableVuFlagHack,
             enableInstantVu1 = snapshot.enableInstantVu1,
             enableMtvu = snapshot.enableMtvu,
+            enableFastBoot = snapshot.enableFastBoot,
             enableFastCdvd = snapshot.enableFastCdvd,
             enableCheats = snapshot.enableCheats,
             hwDownloadMode = snapshot.hwDownloadMode,
@@ -859,6 +861,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setEnableFastBoot(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setEnableFastBoot(enabled)
+            EmulatorBridge.setSetting("EmuCore", "EnableFastBoot", "bool", enabled.toString())
+        }
+    }
+
     fun setEnableFastCdvd(enabled: Boolean) {
         viewModelScope.launch {
             markPerformancePresetCustom()
@@ -1389,6 +1398,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 intcStatSpeedhack = _uiState.value.enableIntcStatSpeedhack,
                 vuFlagHack = _uiState.value.enableVuFlagHack,
                 instantVu1 = _uiState.value.enableInstantVu1,
+                enableFastBoot = _uiState.value.enableFastBoot,
                 hwDownloadMode = _uiState.value.hwDownloadMode,
                 textureFiltering = _uiState.value.textureFiltering,
                 trilinearFiltering = _uiState.value.trilinearFiltering,

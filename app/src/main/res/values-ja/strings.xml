@@ -1094,4 +1094,13 @@
     <string name="settings_ra_hardcore_pending">リセット後にハードコア</string>
     <string name="settings_ra_softcore_active">ソフトコア</string>
     <string name="settings_ra_hardcore_pending_desc">設定でハードコアが有効になっていますが、ゲームをリセットまたは再起動した後にアクティブになります。</string>
+    <string name="jit_profiler_title">JITプロファイラ</string>
+    <string name="jit_profiler_start">JITプロファイラを開始</string>
+    <string name="jit_profiler_stop">停止してプロファイルを保存</string>
+    <string name="jit_profiler_desc">EE、IOP、VU0、VU1のJITリコンパイラの実行をプロファイルします。</string>
+    <string name="hang_trace_title">ハングトレース</string>
+    <string name="hang_trace_desc">ロード時のハングを再現しながら、最近のEE、IOP、VU0、VU1のオペコードをdata/hang_trace.txtに記録します。</string>
+    <string name="settings_fast_boot_desc">BIOSディスクの起動をスキップします - 起動前にハングするゲームでは無効にしてください</string>
+    <string name="settings_fast_boot">ファストブート</string>
+    <string name="settings_help_fast_boot">通常のBIOSディスクの起動パスをスキップし、より早くゲームを開始します。ほとんどのゲームでは有効にしておきます。ゲームプレイ前にハングしたり、ロード画面でループしたり、ゲームが開始されるまで無限に待機しているように見えるタイトルの場合はオフにしてください。</string>
 </resources>

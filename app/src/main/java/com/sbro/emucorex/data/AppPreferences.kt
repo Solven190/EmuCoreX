@@ -56,6 +56,7 @@ data class SettingsSnapshot(
     val coverDownloadBaseUrl: String? = null,
     val coverArtStyle: Int = AppPreferences.COVER_ART_STYLE_DEFAULT,
     val setupComplete: Boolean = false,
+    val enableFastBoot: Boolean = true,
     val eeCycleRate: Int = PerformanceProfiles.safeConfig.eeCycleRate,
     val eeCycleSkip: Int = PerformanceProfiles.safeConfig.eeCycleSkip,
     val enableEeRecompiler: Boolean = true,
@@ -262,6 +263,7 @@ class AppPreferences(private val context: Context) {
         private val OVERLAY_OPACITY = intPreferencesKey("overlay_opacity")
         private val OVERLAY_SHOW = booleanPreferencesKey("overlay_show")
         // Extended emulator settings
+        private val ENABLE_FAST_BOOT = booleanPreferencesKey("enable_fast_boot")
         private val EE_CYCLE_RATE = intPreferencesKey("ee_cycle_rate")
         private val EE_CYCLE_SKIP = intPreferencesKey("ee_cycle_skip")
         private val ENABLE_EE_RECOMPILER = booleanPreferencesKey("enable_ee_recompiler")
@@ -656,6 +658,7 @@ class AppPreferences(private val context: Context) {
                     else -> COVER_ART_STYLE_DEFAULT
                 },
                 setupComplete = prefs[ONBOARDING_COMPLETED] ?: false,
+                enableFastBoot = prefs[ENABLE_FAST_BOOT] ?: true,
                 eeCycleRate = prefs[EE_CYCLE_RATE] ?: profileConfig.eeCycleRate,
                 eeCycleSkip = prefs[EE_CYCLE_SKIP] ?: profileConfig.eeCycleSkip,
                 enableEeRecompiler = prefs[ENABLE_EE_RECOMPILER] ?: true,
@@ -1126,6 +1129,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setEeCycleSkip(value: Int) {
         context.dataStore.edit { it[EE_CYCLE_SKIP] = value.coerceIn(0, 3) }
+    }
+
+    val enableFastBoot: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ENABLE_FAST_BOOT] ?: true
+    }
+
+    suspend fun setEnableFastBoot(enabled: Boolean) {
+        context.dataStore.edit { it[ENABLE_FAST_BOOT] = enabled }
     }
 
     val enableEeRecompiler: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -1931,6 +1942,7 @@ class AppPreferences(private val context: Context) {
             put("gamepadStickDeadzone", prefs[GAMEPAD_STICK_DEADZONE] ?: DEFAULT_GAMEPAD_STICK_DEADZONE)
             put("gamepadLeftStickSensitivity", prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
             put("gamepadRightStickSensitivity", prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
+            put("enableFastBoot", prefs[ENABLE_FAST_BOOT] ?: true)
             put("eeCycleRate", prefs[EE_CYCLE_RATE] ?: 0)
             put("eeCycleSkip", prefs[EE_CYCLE_SKIP] ?: 0)
             put("enableEeRecompiler", prefs[ENABLE_EE_RECOMPILER] ?: true)
@@ -2061,6 +2073,7 @@ class AppPreferences(private val context: Context) {
             prefs[GAMEPAD_STICK_DEADZONE] = json.optInt("gamepadStickDeadzone", DEFAULT_GAMEPAD_STICK_DEADZONE).coerceIn(0, 35)
             prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] = json.optInt("gamepadLeftStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)
             prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] = json.optInt("gamepadRightStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)
+            prefs[ENABLE_FAST_BOOT] = json.optBoolean("enableFastBoot", true)
             prefs[EE_CYCLE_RATE] = json.optInt("eeCycleRate", 0)
             prefs[EE_CYCLE_SKIP] = json.optInt("eeCycleSkip", 0)
             prefs[ENABLE_EE_RECOMPILER] = json.optBoolean("enableEeRecompiler", true)

@@ -267,6 +267,7 @@ object EmulatorBridge {
         vuFlagHack: Boolean = true,
         instantVu1: Boolean = true,
         mtvu: Boolean = true,
+        enableFastBoot: Boolean = true,
         fastCdvd: Boolean = false,
         enableCheats: Boolean = false,
         hwDownloadMode: Int = 0,
@@ -390,7 +391,7 @@ object EmulatorBridge {
             "android jit: requested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack mtvu:$mtvu instantVu1:$instantVu1} direct={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem}"
         )
         NativeApp.logCrashBreadcrumb(
-            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack fastCdvd:$fastCdvd} gameFixes=true jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
+            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack fastBoot:$enableFastBoot fastCdvd:$fastCdvd} gameFixes=true jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
         )
         val prefs = AppPreferences(context)
         val padVibrationEnabled = prefs.padVibration.first()
@@ -422,6 +423,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/Speedhacks", "vuFlagHack", "bool", vuFlagHack.toString()))
                 add(settingOp("EmuCore/Speedhacks", "vuThread", "bool", directMtvu.toString()))
                 add(settingOp("EmuCore/Speedhacks", "vu1Instant", "bool", "true"))
+                add(settingOp("EmuCore", "EnableFastBoot", "bool", enableFastBoot.toString()))
                 add(settingOp("EmuCore/Speedhacks", "fastCDVD", "bool", fastCdvd.toString()))
                 add(settingOp("EmuCore", "EnableCheats", "bool", enableCheats.toString()))
                 add(settingOp("EmuCore/GS", "HWDownloadMode", "int", hwDownloadMode.toString()))
@@ -643,6 +645,35 @@ object EmulatorBridge {
         return runSerial {
             try {
                 NativeApp.isJitProfilerActive()
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
+    suspend fun startHangTrace() {
+        if (!isNativeLoaded || !isVmActive) return
+        runSerial {
+            try {
+                NativeApp.startHangTrace()
+            } catch (_: Exception) { }
+        }
+    }
+
+    suspend fun stopHangTrace() {
+        if (!isNativeLoaded || !isVmActive) return
+        runSerial {
+            try {
+                NativeApp.stopHangTrace()
+            } catch (_: Exception) { }
+        }
+    }
+
+    suspend fun isHangTraceActive(): Boolean {
+        if (!isNativeLoaded || !isVmActive) return false
+        return runSerial {
+            try {
+                NativeApp.isHangTraceActive()
             } catch (_: Exception) {
                 false
             }

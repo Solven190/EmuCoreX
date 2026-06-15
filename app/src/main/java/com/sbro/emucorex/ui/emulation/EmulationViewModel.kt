@@ -80,8 +80,11 @@ data class EmulationUiState(
     val performancePreset: Int = PerformancePresets.CUSTOM,
     val enableMtvu: Boolean = true,
     val enableFastCdvd: Boolean = false,
+    val enableFastBoot: Boolean = true,
     val enableCheats: Boolean = false,
     val hwDownloadMode: Int = 0,
+    val eeCycleRate: Int = PerformanceProfiles.safeConfig.eeCycleRate,
+    val eeCycleSkip: Int = PerformanceProfiles.safeConfig.eeCycleSkip,
     val frameSkip: Int = 0,
     val skipDuplicateFrames: Boolean = false,
     val textureFiltering: Int = GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
@@ -140,7 +143,8 @@ data class EmulationUiState(
     val autoSaveLastModified: Long = 0L,
     val isAutoSaveInProgress: Boolean = false,
     val activePlayTimeMs: Long = 0L,
-    val isJitProfilerActive: Boolean = false
+    val isJitProfilerActive: Boolean = false,
+    val isHangTraceActive: Boolean = false
 )
 
 private data class EmulationLaunchConfig(
@@ -163,6 +167,7 @@ private data class EmulationLaunchConfig(
     val instantVu1: Boolean,
     val mtvu: Boolean,
     val fastCdvd: Boolean,
+    val enableFastBoot: Boolean,
     val enableCheats: Boolean,
     val hwDownloadMode: Int,
     val eeCycleRate: Int,
@@ -228,8 +233,11 @@ private data class LiveRuntimeSnapshot(
     val performancePreset: Int,
     val enableMtvu: Boolean,
     val enableFastCdvd: Boolean,
+    val enableFastBoot: Boolean,
     val enableCheats: Boolean,
     val hwDownloadMode: Int,
+    val eeCycleRate: Int,
+    val eeCycleSkip: Int,
     val frameSkip: Int,
     val skipDuplicateFrames: Boolean,
     val frameLimitEnabled: Boolean,
@@ -340,8 +348,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
         viewModelScope.launch {
             preferences.showFps.collect { enabled ->
-                _uiState.value = _uiState.value.copy(showFps = enabled)
-                syncNativePerformanceOverlayState(_uiState.value)
+                applyGlobalRuntimePreferenceUpdate { it.copy(showFps = enabled) }
             }
         }
         viewModelScope.launch {
@@ -351,8 +358,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
         viewModelScope.launch {
             preferences.fpsOverlayMode.collect { mode ->
-                _uiState.value = _uiState.value.copy(fpsOverlayMode = mode)
-                syncNativePerformanceOverlayState(_uiState.value)
+                applyGlobalRuntimePreferenceUpdate { it.copy(fpsOverlayMode = mode) }
             }
         }
         viewModelScope.launch {
@@ -396,6 +402,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         viewModelScope.launch {
+            preferences.eeCycleRate.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(eeCycleRate = value) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.eeCycleSkip.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(eeCycleSkip = value) }
+            }
+        }
+        viewModelScope.launch {
             preferences.renderer.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(renderer = value) }
             }
@@ -418,6 +434,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.enableFastCdvd.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(enableFastCdvd = value) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.enableFastBoot.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(enableFastBoot = value) }
             }
         }
         viewModelScope.launch {
@@ -864,6 +885,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     vuFlagHack = config.vuFlagHack,
                     instantVu1 = config.instantVu1,
                     mtvu = enableMtvu,
+                    enableFastBoot = config.enableFastBoot,
                     fastCdvd = config.fastCdvd,
                     enableCheats = config.enableCheats,
                     hwDownloadMode = config.hwDownloadMode,
@@ -1028,8 +1050,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     performancePreset = liveRuntime.performancePreset,
                     enableMtvu = liveRuntime.enableMtvu,
                     enableFastCdvd = liveRuntime.enableFastCdvd,
+                    enableFastBoot = liveRuntime.enableFastBoot,
                     enableCheats = liveRuntime.enableCheats,
                     hwDownloadMode = liveRuntime.hwDownloadMode,
+                    eeCycleRate = liveRuntime.eeCycleRate,
+                    eeCycleSkip = liveRuntime.eeCycleSkip,
                     frameSkip = liveRuntime.frameSkip,
                     skipDuplicateFrames = liveRuntime.skipDuplicateFrames,
                     textureFiltering = liveRuntime.textureFiltering,
@@ -1212,6 +1237,21 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     EmulatorBridge.startJitProfiler()
                 } else {
                     EmulatorBridge.stopJitProfiler()
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun toggleHangTrace() {
+        val state = _uiState.value
+        val nextState = !state.isHangTraceActive
+        _uiState.value = state.copy(isHangTraceActive = nextState)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (nextState) {
+                    EmulatorBridge.startHangTrace()
+                } else {
+                    EmulatorBridge.stopHangTrace()
                 }
             } catch (_: Exception) {}
         }
@@ -1572,6 +1612,32 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setHwDownloadMode(value)
             }
             EmulatorBridge.setSetting("EmuCore/GS", "HWDownloadMode", "int", value.toString())
+            updateCrashContext()
+        }
+    }
+
+    fun setEeCycleRate(value: Int) {
+        viewModelScope.launch {
+            val clamped = value.coerceIn(-3, 3)
+            val newState = markPerformancePresetCustom(_uiState.value).copy(eeCycleRate = clamped)
+            persistRuntimeState(newState) {
+                preferences.setPerformancePreset(PerformancePresets.CUSTOM)
+                preferences.setEeCycleRate(clamped)
+            }
+            EmulatorBridge.setSetting("EmuCore/Speedhacks", "EECycleRate", "int", clamped.toString())
+            updateCrashContext()
+        }
+    }
+
+    fun setEeCycleSkip(value: Int) {
+        viewModelScope.launch {
+            val clamped = value.coerceIn(0, 3)
+            val newState = markPerformancePresetCustom(_uiState.value).copy(eeCycleSkip = clamped)
+            persistRuntimeState(newState) {
+                preferences.setPerformancePreset(PerformancePresets.CUSTOM)
+                preferences.setEeCycleSkip(clamped)
+            }
+            EmulatorBridge.setSetting("EmuCore/Speedhacks", "EECycleSkip", "int", clamped.toString())
             updateCrashContext()
         }
     }
@@ -2365,6 +2431,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             instantVu1 = preferences.enableInstantVu1.first(),
             mtvu = preferences.enableMtvu.first(),
             fastCdvd = preferences.enableFastCdvd.first(),
+            enableFastBoot = preferences.enableFastBoot.first(),
             enableCheats = preferences.enableCheats.first(),
             hwDownloadMode = preferences.hwDownloadMode.first(),
             eeCycleRate = preferences.eeCycleRate.first(),
@@ -2433,8 +2500,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             performancePreset = preferences.performancePreset.first(),
             enableMtvu = preferences.enableMtvu.first(),
             enableFastCdvd = preferences.enableFastCdvd.first(),
+            enableFastBoot = preferences.enableFastBoot.first(),
             enableCheats = preferences.enableCheats.first(),
             hwDownloadMode = preferences.hwDownloadMode.first(),
+            eeCycleRate = preferences.eeCycleRate.first(),
+            eeCycleSkip = preferences.eeCycleSkip.first(),
             frameSkip = preferences.frameSkip.first(),
             skipDuplicateFrames = preferences.skipDuplicateFrames.first(),
             frameLimitEnabled = preferences.frameLimitEnabled.first(),
@@ -2497,6 +2567,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
             mtvu = pick("enableMtvu", mtvu) { enableMtvu },
             fastCdvd = pick("enableFastCdvd", fastCdvd) { enableFastCdvd },
+            enableFastBoot = pick("enableFastBoot", enableFastBoot) { enableFastBoot },
             enableCheats = pick("enableCheats", enableCheats) { enableCheats },
             hwDownloadMode = pick("hwDownloadMode", hwDownloadMode) { hwDownloadMode },
             eeCycleRate = pick("eeCycleRate", eeCycleRate) { eeCycleRate },
@@ -2565,8 +2636,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
             enableMtvu = pick("enableMtvu", enableMtvu) { enableMtvu },
             enableFastCdvd = pick("enableFastCdvd", enableFastCdvd) { enableFastCdvd },
+            enableFastBoot = pick("enableFastBoot", enableFastBoot) { enableFastBoot },
             enableCheats = pick("enableCheats", enableCheats) { enableCheats },
             hwDownloadMode = pick("hwDownloadMode", hwDownloadMode) { hwDownloadMode },
+            eeCycleRate = pick("eeCycleRate", eeCycleRate) { eeCycleRate },
+            eeCycleSkip = pick("eeCycleSkip", eeCycleSkip) { eeCycleSkip },
             frameSkip = pick("frameSkip", frameSkip) { frameSkip },
             skipDuplicateFrames = pick("skipDuplicateFrames", skipDuplicateFrames) { skipDuplicateFrames },
             frameLimitEnabled = pick("frameLimitEnabled", frameLimitEnabled) { frameLimitEnabled },
@@ -2626,6 +2700,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalFpsOverlayMode = preferences.fpsOverlayMode.first()
         val globalEnableMtvu = preferences.enableMtvu.first()
         val globalEnableFastCdvd = preferences.enableFastCdvd.first()
+        val globalEnableFastBoot = preferences.enableFastBoot.first()
         val globalEnableCheats = preferences.enableCheats.first()
         val globalHwDownloadMode = preferences.hwDownloadMode.first()
         val globalEeCycleRate = preferences.eeCycleRate.first()
@@ -2647,10 +2722,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             fpsOverlayMode = fpsOverlayMode,
             enableMtvu = enableMtvu,
             enableFastCdvd = enableFastCdvd,
+            enableFastBoot = enableFastBoot,
             enableCheats = enableCheats,
             hwDownloadMode = hwDownloadMode,
-            eeCycleRate = globalEeCycleRate,
-            eeCycleSkip = globalEeCycleSkip,
+            eeCycleRate = eeCycleRate,
+            eeCycleSkip = eeCycleSkip,
             frameSkip = frameSkip,
             skipDuplicateFrames = skipDuplicateFrames,
             frameLimitEnabled = frameLimitEnabled,
@@ -2708,8 +2784,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (fpsOverlayMode != globalFpsOverlayMode) add("fpsOverlayMode")
             if (enableMtvu != globalEnableMtvu) add("enableMtvu")
             if (enableFastCdvd != globalEnableFastCdvd) add("enableFastCdvd")
+            if (enableFastBoot != globalEnableFastBoot) add("enableFastBoot")
             if (enableCheats != globalEnableCheats) add("enableCheats")
             if (hwDownloadMode != globalHwDownloadMode) add("hwDownloadMode")
+            if (eeCycleRate != globalEeCycleRate) add("eeCycleRate")
+            if (eeCycleSkip != globalEeCycleSkip) add("eeCycleSkip")
             if (profile.frameSkip != preferences.frameSkip.first()) add("frameSkip")
             if (skipDuplicateFrames != globalSkipDuplicateFrames) add("skipDuplicateFrames")
             if (frameLimitEnabled != globalFrameLimitEnabled) add("frameLimitEnabled")
@@ -2981,6 +3060,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     EmulatorBridge.resetKeyStatus()
                 } catch (_: Exception) { }
                 try {
+                    if (_uiState.value.isHangTraceActive) {
+                        EmulatorBridge.stopHangTrace()
+                    }
+                } catch (_: Exception) { }
+                try {
                     EmulatorBridge.shutdown()
                     var waitTime = 0
                     while (EmulatorBridge.isVmActive() && waitTime < 2000) {
@@ -2999,6 +3083,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     fps = "0",
                     performanceOverlayText = "",
                     speedPercent = 100f,
+                    isJitProfilerActive = false,
+                    isHangTraceActive = false,
                     statusMessage = null
                 )
                 syncNativePerformanceOverlayState(_uiState.value)

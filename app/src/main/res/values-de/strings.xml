@@ -1096,4 +1096,13 @@
     <string name="settings_ra_hardcore_pending">HARDCORE NACH NEUSTART</string>
     <string name="settings_ra_softcore_active">SOFTCORE</string>
     <string name="settings_ra_hardcore_pending_desc">Hardcore ist in den Einstellungen aktiviert, wird aber erst nach einem Zurücksetzen oder Neustart des Spiels aktiv.</string>
+    <string name="jit_profiler_title">JIT-Profiler</string>
+    <string name="jit_profiler_start">JIT-Profiler starten</string>
+    <string name="jit_profiler_stop">Stoppen &amp; Profil speichern</string>
+    <string name="jit_profiler_desc">Profiliert die JIT-Recompiler-Ausführung für EE, IOP, VU0 und VU1.</string>
+    <string name="hang_trace_title">Hänger-Trace</string>
+    <string name="hang_trace_desc">Zeichnet aktuelle EE-, IOP-, VU0- und VU1-Opcodes in data/hang_trace.txt auf, während Ladehänger reproduziert werden.</string>
+    <string name="settings_fast_boot_desc">Überspringt den BIOS-Disc-Start – deaktivieren für Spiele, die sich vor dem Start aufhängen</string>
+    <string name="settings_fast_boot">Schnellstart</string>
+    <string name="settings_help_fast_boot">Überspringt den normalen BIOS-Disc-Startpfad und springt schneller ins Spiel. Für die meisten Spiele aktiviert lassen; für Titel deaktivieren, die sich vor dem Spielen aufhängen, in Ladebildschirmen hängen bleiben oder scheinbar ewig warten, bevor das Spiel beginnt.</string>
 </resources>

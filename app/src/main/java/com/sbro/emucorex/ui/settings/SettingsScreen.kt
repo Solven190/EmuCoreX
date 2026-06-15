@@ -1705,6 +1705,15 @@ private fun SettingsContent(
                         )
                         ToggleItem(
                             icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_fast_boot),
+                            subtitle = stringResource(R.string.settings_fast_boot_desc),
+                            checked = uiState.enableFastBoot,
+                            onCheckedChange = viewModel::setEnableFastBoot,
+                            helpText = stringResource(R.string.settings_help_fast_boot),
+                            onResetToDefault = { viewModel.setEnableFastBoot(defaults.enableFastBoot) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Speed,
                             title = stringResource(R.string.settings_fast_cdvd),
                             subtitle = stringResource(R.string.settings_fast_cdvd_desc),
                             checked = uiState.enableFastCdvd,

@@ -6,6 +6,7 @@
 #include "VMManager.h"
 #include "Elfheader.h"
 #include "Cache.h"
+#include "HangTrace.h"
 
 #include "DebugTools/Breakpoints.h"
 
@@ -175,6 +176,8 @@ static void execI()
 
 	// interprete instruction
 	cpuRegs.code = memRead32( pc );
+	if (HangTrace::IsActive())
+		HangTrace::RecordInterpreter(HangTrace::CPU_EE, pc, cpuRegs.code);
 
 	const OPCODE& opcode = GetCurrentInstruction();
 #if 0

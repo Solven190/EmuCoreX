@@ -17,6 +17,7 @@
 #include "x86/iR5900.h"
 #include "x86/iR5900Analysis.h"
 #include "JitProfiler.h"
+#include "HangTrace.h"
 
 #include "common/AlignedMalloc.h"
 #include "common/FastJmp.h"
@@ -2144,6 +2145,11 @@ static void recRecompile(const u32 startpc)
 	if (JitProfiler::IsActive())
 	{
 		JitProfiler::EmitBlockIncrement(&s_pCurBlockEx->execution_count);
+	}
+	if (HangTrace::IsActive())
+	{
+		const u32 first_code = memRead32(startpc);
+		HangTrace::EmitBlockTrace(HangTrace::CPU_EE, HWADDR(startpc), first_code);
 	}
 
 	if (HWADDR(startpc) == EELOAD_START)

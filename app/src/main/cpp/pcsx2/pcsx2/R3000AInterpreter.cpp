@@ -4,6 +4,7 @@
 #include "R3000A.h"
 #include "Common.h"
 #include "Config.h"
+#include "HangTrace.h"
 #include "VMManager.h"
 
 #include "R5900OpcodeTables.h"
@@ -224,6 +225,8 @@ static __fi void execI()
 	}
 
 	psxRegs.code = iopMemRead32(psxRegs.pc);
+	if (HangTrace::IsActive())
+		HangTrace::RecordInterpreter(HangTrace::CPU_IOP, psxRegs.pc, psxRegs.code);
 
 		PSXCPU_LOG("%s", disR3000AF(psxRegs.code, psxRegs.pc));
 

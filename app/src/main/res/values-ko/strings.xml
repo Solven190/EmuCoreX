@@ -1094,4 +1094,13 @@
     <string name="settings_ra_hardcore_pending">리셋 후 하드코어</string>
     <string name="settings_ra_softcore_active">소프트코어</string>
     <string name="settings_ra_hardcore_pending_desc">설정에서 하드코어가 활성화되어 있지만, 게임을 리셋하거나 재시작한 후에 활성화됩니다.</string>
+    <string name="jit_profiler_title">JIT 프로파일러</string>
+    <string name="jit_profiler_start">JIT 프로파일러 시작</string>
+    <string name="jit_profiler_stop">중지 및 프로필 저장</string>
+    <string name="jit_profiler_desc">EE, IOP, VU0 및 VU1에 대한 JIT 리컴파일러 실행을 프로파일링합니다.</string>
+    <string name="hang_trace_title">중단 추적</string>
+    <string name="hang_trace_desc">로딩 중단을 재현하는 동안 최근 EE, IOP, VU0 및 VU1 연산 코드를 data/hang_trace.txt에 기록합니다.</string>
+    <string name="settings_fast_boot_desc">BIOS 디스크 부팅을 건너뜁니다 - 시작하기 전에 멈추는 게임의 경우 비활성화하세요</string>
+    <string name="settings_fast_boot">빠른 부팅</string>
+    <string name="settings_help_fast_boot">일반적인 BIOS 디스크 부팅 경로를 건너뛰고 게임으로 더 빠르게 이동합니다. 대부분의 게임에서는 활성화 상태로 유지하세요. 게임 플레이 전에 멈추거나, 로딩 화면이 반복되거나, 게임이 시작되기 전 무한히 대기하는 것 같은 타이틀에서는 끄세요.</string>
 </resources>

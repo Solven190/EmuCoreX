@@ -21,6 +21,7 @@
 #include "Config.h"
 #include "arm64/OaknutHelpers.h"
 #include "JitProfiler.h"
+#include "HangTrace.h"
 
 #include "common/AlignedMalloc.h"
 #include "common/FileSystem.h"
@@ -1528,6 +1529,11 @@ static void iopRecRecompile(const u32 startpc)
 	if (JitProfiler::IsActive())
 	{
 		JitProfiler::EmitBlockIncrement(&s_pCurBlockEx->execution_count);
+	}
+	if (HangTrace::IsActive())
+	{
+		const u32 first_code = iopMemRead32(startpc);
+		HangTrace::EmitBlockTrace(HangTrace::CPU_IOP, HWADDR(startpc), first_code);
 	}
 
 	psxbranch = 0;

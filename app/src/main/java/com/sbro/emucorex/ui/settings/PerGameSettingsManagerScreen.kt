@@ -444,7 +444,6 @@ private fun GameSettingsEditorDialog(
     }
     val scope = rememberCoroutineScope()
     val nativeUpscaleLabel = stringResource(R.string.settings_upscale_native)
-    var draft by remember(profile) { mutableStateOf(profile) }
     val showScreenSettingsResetHint = rememberSaveable(profile.gameKey) { mutableStateOf(false) }
     val defaultProfile = remember(settingsSnapshot, profile.gameKey, profile.gameTitle, profile.gameSerial) {
         settingsSnapshot.toPerGameSettings(
@@ -458,6 +457,10 @@ private fun GameSettingsEditorDialog(
             )
         )
     }
+    val editableProfile = remember(profile, defaultProfile) {
+        profile.resolveAgainst(defaultProfile)
+    }
+    var draft by remember(editableProfile) { mutableStateOf(editableProfile) }
     LaunchedEffect(profile.gameKey, screenSettingsResetHintShown) {
         when (screenSettingsResetHintShown) {
             false -> showScreenSettingsResetHint.value = true
@@ -550,6 +553,13 @@ private fun GameSettingsEditorDialog(
                                 onCheckedChange = { draft = draft.copy(showFps = it) },
                                 helpText = stringResource(R.string.settings_help_show_fps),
                                 onResetToDefault = { draft = draft.copy(showFps = defaultProfile.showFps) }
+                            )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_fast_boot),
+                                checked = draft.enableFastBoot,
+                                onCheckedChange = { draft = draft.copy(enableFastBoot = it) },
+                                helpText = stringResource(R.string.settings_help_fast_boot),
+                                onResetToDefault = { draft = draft.copy(enableFastBoot = defaultProfile.enableFastBoot) }
                             )
                             SelectionRow(
                                 title = stringResource(R.string.settings_fps_overlay_mode),
@@ -1090,7 +1100,7 @@ private fun GameSettingsEditorDialog(
                         TextButton(onClick = onDismiss) {
                             Text(stringResource(R.string.cancel))
                         }
-                        TextButton(onClick = { onSave(draft) }) {
+                        TextButton(onClick = { onSave(draft.copy(providedKeys = null)) }) {
                             Text(stringResource(R.string.save))
                         }
                     }
@@ -1594,6 +1604,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         aspectRatio = aspectRatio,
         showFps = showFps,
         fpsOverlayMode = fpsOverlayMode,
+        enableFastBoot = enableFastBoot,
         enableMtvu = enableMtvu,
         enableFastCdvd = enableFastCdvd,
         enableCheats = enableCheats,
@@ -1647,5 +1658,76 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         mergeSprite = mergeSprite,
         forceEvenSpritePosition = forceEvenSpritePosition,
         nativePaletteDraw = nativePaletteDraw
+    )
+}
+
+private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): PerGameSettings {
+    val keys = providedKeys ?: return copy(providedKeys = null)
+    fun <T> pick(key: String, current: T, fallback: T): T = if (key in keys) current else fallback
+    return defaultProfile.copy(
+        gameKey = gameKey,
+        gameTitle = gameTitle,
+        gameSerial = gameSerial,
+        renderer = pick("renderer", renderer, defaultProfile.renderer),
+        upscaleMultiplier = pick("upscaleMultiplier", upscaleMultiplier, defaultProfile.upscaleMultiplier),
+        aspectRatio = pick("aspectRatio", aspectRatio, defaultProfile.aspectRatio),
+        showFps = pick("showFps", showFps, defaultProfile.showFps),
+        fpsOverlayMode = pick("fpsOverlayMode", fpsOverlayMode, defaultProfile.fpsOverlayMode),
+        enableFastBoot = pick("enableFastBoot", enableFastBoot, defaultProfile.enableFastBoot),
+        enableMtvu = pick("enableMtvu", enableMtvu, defaultProfile.enableMtvu),
+        enableFastCdvd = pick("enableFastCdvd", enableFastCdvd, defaultProfile.enableFastCdvd),
+        enableCheats = pick("enableCheats", enableCheats, defaultProfile.enableCheats),
+        hwDownloadMode = pick("hwDownloadMode", hwDownloadMode, defaultProfile.hwDownloadMode),
+        eeCycleRate = pick("eeCycleRate", eeCycleRate, defaultProfile.eeCycleRate),
+        eeCycleSkip = pick("eeCycleSkip", eeCycleSkip, defaultProfile.eeCycleSkip),
+        frameSkip = pick("frameSkip", frameSkip, defaultProfile.frameSkip),
+        skipDuplicateFrames = pick("skipDuplicateFrames", skipDuplicateFrames, defaultProfile.skipDuplicateFrames),
+        frameLimitEnabled = pick("frameLimitEnabled", frameLimitEnabled, defaultProfile.frameLimitEnabled),
+        targetFps = pick("targetFps", targetFps, defaultProfile.targetFps),
+        textureFiltering = pick("textureFiltering", textureFiltering, defaultProfile.textureFiltering),
+        trilinearFiltering = pick("trilinearFiltering", trilinearFiltering, defaultProfile.trilinearFiltering),
+        blendingAccuracy = pick("blendingAccuracy", blendingAccuracy, defaultProfile.blendingAccuracy),
+        texturePreloading = pick("texturePreloading", texturePreloading, defaultProfile.texturePreloading),
+        enableFxaa = pick("enableFxaa", enableFxaa, defaultProfile.enableFxaa),
+        casMode = pick("casMode", casMode, defaultProfile.casMode),
+        casSharpness = pick("casSharpness", casSharpness, defaultProfile.casSharpness),
+        shadeBoostEnabled = pick("shadeBoostEnabled", shadeBoostEnabled, defaultProfile.shadeBoostEnabled),
+        shadeBoostBrightness = pick("shadeBoostBrightness", shadeBoostBrightness, defaultProfile.shadeBoostBrightness),
+        shadeBoostContrast = pick("shadeBoostContrast", shadeBoostContrast, defaultProfile.shadeBoostContrast),
+        shadeBoostSaturation = pick("shadeBoostSaturation", shadeBoostSaturation, defaultProfile.shadeBoostSaturation),
+        shadeBoostGamma = pick("shadeBoostGamma", shadeBoostGamma, defaultProfile.shadeBoostGamma),
+        anisotropicFiltering = pick("anisotropicFiltering", anisotropicFiltering, defaultProfile.anisotropicFiltering),
+        enableHwMipmapping = pick("enableHwMipmapping", enableHwMipmapping, defaultProfile.enableHwMipmapping),
+        enableWidescreenPatches = pick("enableWidescreenPatches", enableWidescreenPatches, defaultProfile.enableWidescreenPatches),
+        enableNoInterlacingPatches = pick("enableNoInterlacingPatches", enableNoInterlacingPatches, defaultProfile.enableNoInterlacingPatches),
+        cpuSpriteRenderSize = pick("cpuSpriteRenderSize", cpuSpriteRenderSize, defaultProfile.cpuSpriteRenderSize),
+        cpuSpriteRenderLevel = pick("cpuSpriteRenderLevel", cpuSpriteRenderLevel, defaultProfile.cpuSpriteRenderLevel),
+        softwareClutRender = pick("softwareClutRender", softwareClutRender, defaultProfile.softwareClutRender),
+        gpuTargetClutMode = pick("gpuTargetClutMode", gpuTargetClutMode, defaultProfile.gpuTargetClutMode),
+        skipDrawStart = pick("skipDrawStart", skipDrawStart, defaultProfile.skipDrawStart),
+        skipDrawEnd = pick("skipDrawEnd", skipDrawEnd, defaultProfile.skipDrawEnd),
+        autoFlushHardware = pick("autoFlushHardware", autoFlushHardware, defaultProfile.autoFlushHardware),
+        cpuFramebufferConversion = pick("cpuFramebufferConversion", cpuFramebufferConversion, defaultProfile.cpuFramebufferConversion),
+        disableDepthConversion = pick("disableDepthConversion", disableDepthConversion, defaultProfile.disableDepthConversion),
+        disableSafeFeatures = pick("disableSafeFeatures", disableSafeFeatures, defaultProfile.disableSafeFeatures),
+        disableRenderFixes = pick("disableRenderFixes", disableRenderFixes, defaultProfile.disableRenderFixes),
+        preloadFrameData = pick("preloadFrameData", preloadFrameData, defaultProfile.preloadFrameData),
+        disablePartialInvalidation = pick("disablePartialInvalidation", disablePartialInvalidation, defaultProfile.disablePartialInvalidation),
+        textureInsideRt = pick("textureInsideRt", textureInsideRt, defaultProfile.textureInsideRt),
+        readTargetsOnClose = pick("readTargetsOnClose", readTargetsOnClose, defaultProfile.readTargetsOnClose),
+        estimateTextureRegion = pick("estimateTextureRegion", estimateTextureRegion, defaultProfile.estimateTextureRegion),
+        gpuPaletteConversion = pick("gpuPaletteConversion", gpuPaletteConversion, defaultProfile.gpuPaletteConversion),
+        halfPixelOffset = pick("halfPixelOffset", halfPixelOffset, defaultProfile.halfPixelOffset),
+        nativeScaling = pick("nativeScaling", nativeScaling, defaultProfile.nativeScaling),
+        roundSprite = pick("roundSprite", roundSprite, defaultProfile.roundSprite),
+        bilinearUpscale = pick("bilinearUpscale", bilinearUpscale, defaultProfile.bilinearUpscale),
+        textureOffsetX = pick("textureOffsetX", textureOffsetX, defaultProfile.textureOffsetX),
+        textureOffsetY = pick("textureOffsetY", textureOffsetY, defaultProfile.textureOffsetY),
+        alignSprite = pick("alignSprite", alignSprite, defaultProfile.alignSprite),
+        mergeSprite = pick("mergeSprite", mergeSprite, defaultProfile.mergeSprite),
+        forceEvenSpritePosition = pick("forceEvenSpritePosition", forceEvenSpritePosition, defaultProfile.forceEvenSpritePosition),
+        nativePaletteDraw = pick("nativePaletteDraw", nativePaletteDraw, defaultProfile.nativePaletteDraw),
+        providedKeys = null,
+        updatedAt = updatedAt
     )
 }

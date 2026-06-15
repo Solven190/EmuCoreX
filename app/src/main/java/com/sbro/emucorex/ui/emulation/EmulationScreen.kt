@@ -246,6 +246,25 @@ private fun fpsOverlayCornerLiveOptions(): List<LiveSelectionOption> = listOf(
     LiveSelectionOption(AppPreferences.FPS_OVERLAY_CORNER_BOTTOM_RIGHT, stringResource(R.string.settings_fps_overlay_corner_bottom_right))
 )
 
+@Composable
+private fun eeCycleRateLiveOptions(): List<LiveSelectionOption> = listOf(
+    LiveSelectionOption(-3, "50%"),
+    LiveSelectionOption(-2, "60%"),
+    LiveSelectionOption(-1, "75%"),
+    LiveSelectionOption(0, "100%"),
+    LiveSelectionOption(1, "130%"),
+    LiveSelectionOption(2, "180%"),
+    LiveSelectionOption(3, "300%")
+)
+
+@Composable
+private fun eeCycleSkipLiveOptions(): List<LiveSelectionOption> = listOf(
+    LiveSelectionOption(0, stringResource(R.string.settings_ee_cycle_disabled)),
+    LiveSelectionOption(1, stringResource(R.string.settings_ee_cycle_mild)),
+    LiveSelectionOption(2, stringResource(R.string.settings_ee_cycle_moderate)),
+    LiveSelectionOption(3, stringResource(R.string.settings_ee_cycle_maximum))
+)
+
 private fun Int.toOverlayAlignment(): Alignment = when (this) {
     AppPreferences.FPS_OVERLAY_CORNER_TOP_LEFT -> Alignment.TopStart
     AppPreferences.FPS_OVERLAY_CORNER_BOTTOM_LEFT -> Alignment.BottomStart
@@ -1059,6 +1078,8 @@ fun EmulationScreen(
                     onSetEnableCheats = { viewModel.setEnableCheats(it) },
                     onOpenCheats = { showCheatsDialog = true },
                     onSetHwDownloadMode = { viewModel.setHwDownloadMode(it) },
+                    onSetEeCycleRate = { viewModel.setEeCycleRate(it) },
+                    onSetEeCycleSkip = { viewModel.setEeCycleSkip(it) },
                     onSetFrameSkip = { viewModel.setFrameSkip(it) },
                     onSetSkipDuplicateFrames = { viewModel.setSkipDuplicateFrames(it) },
                     onSetFrameLimitEnabled = { viewModel.setFrameLimitEnabled(it) },
@@ -1106,6 +1127,7 @@ fun EmulationScreen(
                     onSetForceEvenSpritePosition = { viewModel.setForceEvenSpritePosition(it) },
                     onSetNativePaletteDraw = { viewModel.setNativePaletteDraw(it) },
                     onToggleJitProfiler = { viewModel.toggleJitProfiler() },
+                    onToggleHangTrace = { viewModel.toggleHangTrace() },
                     onExit = requestExitClick,
                     modifier = Modifier
                         .fillMaxHeight()
@@ -1876,6 +1898,8 @@ private fun EmulationSidebarMenu(
     onSetEnableCheats: (Boolean) -> Unit,
     onOpenCheats: () -> Unit,
     onSetHwDownloadMode: (Int) -> Unit,
+    onSetEeCycleRate: (Int) -> Unit,
+    onSetEeCycleSkip: (Int) -> Unit,
     onSetFrameSkip: (Int) -> Unit,
     onSetSkipDuplicateFrames: (Boolean) -> Unit,
     onSetFrameLimitEnabled: (Boolean) -> Unit,
@@ -1923,6 +1947,7 @@ private fun EmulationSidebarMenu(
     onSetForceEvenSpritePosition: (Boolean) -> Unit,
     onSetNativePaletteDraw: (Boolean) -> Unit,
     onToggleJitProfiler: () -> Unit,
+    onToggleHangTrace: () -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2293,6 +2318,40 @@ private fun EmulationSidebarMenu(
                             }
                         }
 
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = stringResource(R.string.hang_trace_title),
+                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.hang_trace_desc),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Switch(
+                                        checked = uiState.isHangTraceActive,
+                                        onCheckedChange = { onToggleHangTrace() },
+                                        enabled = !uiState.isActionInProgress
+                                    )
+                                }
+                            }
+                        }
+
                         SidebarSectionTitle(
                             text = stringResource(R.string.game_settings_overlay_section).uppercase(),
                             color = sectionTitleColor,
@@ -2560,6 +2619,24 @@ private fun EmulationSidebarMenu(
                             color = sectionTitleColor,
                             topPadding = sectionLabelTopPadding,
                             horizontalInset = sectionLabelInset
+                        )
+
+                        LiveSelectionRow(
+                            title = stringResource(R.string.settings_ee_cycle_rate),
+                            options = eeCycleRateLiveOptions(),
+                            currentValue = uiState.eeCycleRate,
+                            onValueChange = onSetEeCycleRate,
+                            helpText = stringResource(R.string.settings_help_ee_cycle_rate),
+                            onResetToDefault = { onSetEeCycleRate(globalDefaults.eeCycleRate) }
+                        )
+
+                        LiveSelectionRow(
+                            title = stringResource(R.string.settings_ee_cycle_skip),
+                            options = eeCycleSkipLiveOptions(),
+                            currentValue = uiState.eeCycleSkip,
+                            onValueChange = onSetEeCycleSkip,
+                            helpText = stringResource(R.string.settings_help_ee_cycle_skip),
+                            onResetToDefault = { onSetEeCycleSkip(globalDefaults.eeCycleSkip) }
                         )
 
                         SettingsToggle(

@@ -94,6 +94,9 @@ object NativeApp {
     @JvmStatic external fun startJitProfiler()
     @JvmStatic external fun stopJitProfiler()
     @JvmStatic external fun isJitProfilerActive(): Boolean
+    @JvmStatic external fun startHangTrace()
+    @JvmStatic external fun stopHangTrace()
+    @JvmStatic external fun isHangTraceActive(): Boolean
 
     @JvmStatic
     fun parseMemoryCardList(raw: String?): List<NativeMemoryCardInfo> {
