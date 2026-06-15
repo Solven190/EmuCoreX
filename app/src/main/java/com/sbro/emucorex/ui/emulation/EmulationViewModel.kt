@@ -96,6 +96,7 @@ data class EmulationUiState(
     val enableFxaa: Boolean = false,
     val casMode: Int = 0,
     val casSharpness: Int = 50,
+    val tvShader: Int = GsHackDefaults.TV_SHADER_DEFAULT,
     val shadeBoostEnabled: Boolean = false,
     val shadeBoostBrightness: Int = 50,
     val shadeBoostContrast: Int = 50,
@@ -185,6 +186,7 @@ private data class EmulationLaunchConfig(
     val enableFxaa: Boolean,
     val casMode: Int,
     val casSharpness: Int,
+    val tvShader: Int,
     val shadeBoostEnabled: Boolean,
     val shadeBoostBrightness: Int,
     val shadeBoostContrast: Int,
@@ -251,6 +253,7 @@ private data class LiveRuntimeSnapshot(
     val enableFxaa: Boolean,
     val casMode: Int,
     val casSharpness: Int,
+    val tvShader: Int,
     val shadeBoostEnabled: Boolean,
     val shadeBoostBrightness: Int,
     val shadeBoostContrast: Int,
@@ -492,6 +495,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.casSharpness.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(casSharpness = value) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.tvShader.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(tvShader = value) }
             }
         }
         viewModelScope.launch {
@@ -905,6 +913,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     enableFxaa = config.enableFxaa,
                     casMode = config.casMode,
                     casSharpness = config.casSharpness,
+                    tvShader = config.tvShader,
                     shadeBoostEnabled = config.shadeBoostEnabled,
                     shadeBoostBrightness = config.shadeBoostBrightness,
                     shadeBoostContrast = config.shadeBoostContrast,
@@ -1067,6 +1076,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     enableFxaa = liveRuntime.enableFxaa,
                     casMode = liveRuntime.casMode,
                     casSharpness = liveRuntime.casSharpness,
+                    tvShader = liveRuntime.tvShader,
                     shadeBoostEnabled = liveRuntime.shadeBoostEnabled,
                     shadeBoostBrightness = liveRuntime.shadeBoostBrightness,
                     shadeBoostContrast = liveRuntime.shadeBoostContrast,
@@ -1774,6 +1784,19 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun setTvShader(value: Int) {
+        viewModelScope.launch {
+            val clamped = GsHackDefaults.coerceTvShader(value)
+            val newState = markPerformancePresetCustom(_uiState.value).copy(tvShader = clamped)
+            persistRuntimeState(newState) {
+                preferences.setPerformancePreset(PerformancePresets.CUSTOM)
+                preferences.setTvShader(clamped)
+            }
+            EmulatorBridge.setSetting("EmuCore/GS", "TVShader", "int", clamped.toString())
+            updateCrashContext()
+        }
+    }
+
     fun setShadeBoostBrightness(value: Int) {
         viewModelScope.launch {
             val clamped = value.coerceIn(1, 100)
@@ -2451,6 +2474,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             enableFxaa = preferences.enableFxaa.first(),
             casMode = preferences.casMode.first(),
             casSharpness = preferences.casSharpness.first(),
+            tvShader = preferences.tvShader.first(),
             shadeBoostEnabled = preferences.shadeBoostEnabled.first(),
             shadeBoostBrightness = preferences.shadeBoostBrightness.first(),
             shadeBoostContrast = preferences.shadeBoostContrast.first(),
@@ -2520,6 +2544,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             enableFxaa = preferences.enableFxaa.first(),
             casMode = preferences.casMode.first(),
             casSharpness = preferences.casSharpness.first(),
+            tvShader = preferences.tvShader.first(),
             shadeBoostEnabled = preferences.shadeBoostEnabled.first(),
             shadeBoostBrightness = preferences.shadeBoostBrightness.first(),
             shadeBoostContrast = preferences.shadeBoostContrast.first(),
@@ -2587,6 +2612,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             enableFxaa = pick("enableFxaa", enableFxaa) { enableFxaa },
             casMode = pick("casMode", casMode) { casMode },
             casSharpness = pick("casSharpness", casSharpness) { casSharpness },
+            tvShader = pick("tvShader", tvShader) { tvShader },
             shadeBoostEnabled = pick("shadeBoostEnabled", shadeBoostEnabled) { shadeBoostEnabled },
             shadeBoostBrightness = pick("shadeBoostBrightness", shadeBoostBrightness) { shadeBoostBrightness },
             shadeBoostContrast = pick("shadeBoostContrast", shadeBoostContrast) { shadeBoostContrast },
@@ -2656,6 +2682,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             enableFxaa = pick("enableFxaa", enableFxaa) { enableFxaa },
             casMode = pick("casMode", casMode) { casMode },
             casSharpness = pick("casSharpness", casSharpness) { casSharpness },
+            tvShader = pick("tvShader", tvShader) { tvShader },
             shadeBoostEnabled = pick("shadeBoostEnabled", shadeBoostEnabled) { shadeBoostEnabled },
             shadeBoostBrightness = pick("shadeBoostBrightness", shadeBoostBrightness) { shadeBoostBrightness },
             shadeBoostContrast = pick("shadeBoostContrast", shadeBoostContrast) { shadeBoostContrast },
@@ -2742,6 +2769,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             enableFxaa = enableFxaa,
             casMode = casMode,
             casSharpness = casSharpness,
+            tvShader = tvShader,
             shadeBoostEnabled = shadeBoostEnabled,
             shadeBoostBrightness = shadeBoostBrightness,
             shadeBoostContrast = shadeBoostContrast,
@@ -2804,6 +2832,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (enableFxaa != preferences.enableFxaa.first()) add("enableFxaa")
             if (casMode != preferences.casMode.first()) add("casMode")
             if (casSharpness != preferences.casSharpness.first()) add("casSharpness")
+            if (tvShader != preferences.tvShader.first()) add("tvShader")
             if (shadeBoostEnabled != preferences.shadeBoostEnabled.first()) add("shadeBoostEnabled")
             if (shadeBoostBrightness != preferences.shadeBoostBrightness.first()) add("shadeBoostBrightness")
             if (shadeBoostContrast != preferences.shadeBoostContrast.first()) add("shadeBoostContrast")

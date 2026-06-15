@@ -1103,4 +1103,14 @@
     <string name="settings_fast_boot_desc">BIOSディスクの起動をスキップします - 起動前にハングするゲームでは無効にしてください</string>
     <string name="settings_fast_boot">ファストブート</string>
     <string name="settings_help_fast_boot">通常のBIOSディスクの起動パスをスキップし、より早くゲームを開始します。ほとんどのゲームでは有効にしておきます。ゲームプレイ前にハングしたり、ロード画面でループしたり、ゲームが開始されるまで無限に待機しているように見えるタイトルの場合はオフにしてください。</string>
+    <string name="settings_tv_shader">TVシェーダー</string>
+    <string name="settings_tv_shader_none">なし</string>
+    <string name="settings_tv_shader_scanline">スキャンラインフィルター</string>
+    <string name="settings_tv_shader_diagonal">対角線フィルター</string>
+    <string name="settings_tv_shader_triangular">三角形フィルター</string>
+    <string name="settings_tv_shader_wave">ウェーブフィルター</string>
+    <string name="settings_tv_shader_lottes_crt">Lottes CRT</string>
+    <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
+    <string name="settings_tv_shader_nx_agss">NxAGSS</string>
+    <string name="settings_help_tv_shader">レンダリング後にTV風のプレゼンテーションシェーダーを適用します。三角形フィルターは、2倍の解像度で特によく見える、柔らかいCRTのようなブレンドを提供しますが、一部のモードでは細かいUIテキストがぼやける場合があります。</string>
 </resources>

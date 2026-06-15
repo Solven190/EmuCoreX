@@ -1105,4 +1105,14 @@
     <string name="settings_fast_boot_desc">Pula a inicialização do disco da BIOS - desative para jogos que travam antes de iniciar</string>
     <string name="settings_fast_boot">Inicialização Rápida</string>
     <string name="settings_help_fast_boot">Pula o caminho normal de inicialização do disco da BIOS e entra no jogo mais rapidamente. Mantenha-o ativado para a maioria dos jogos; desative-o para títulos que travam antes do jogo, repetem nas telas de carregamento ou parecem esperar para sempre antes de o jogo começar.</string>
+    <string name="settings_tv_shader">Shader de TV</string>
+    <string name="settings_tv_shader_none">Nenhum</string>
+    <string name="settings_tv_shader_scanline">Filtro Scanline</string>
+    <string name="settings_tv_shader_diagonal">Filtro Diagonal</string>
+    <string name="settings_tv_shader_triangular">Filtro Triangular</string>
+    <string name="settings_tv_shader_wave">Filtro de Onda</string>
+    <string name="settings_tv_shader_lottes_crt">Lottes CRT</string>
+    <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
+    <string name="settings_tv_shader_nx_agss">NxAGSS</string>
+    <string name="settings_help_tv_shader">Aplica um shader de apresentação no estilo de TV após a renderização. O filtro triangular dá uma mistura mais suave semelhante a um CRT que pode parecer especialmente boa na resolução 2x, mas alguns modos podem borrar o texto fino da interface do usuário.</string>
 </resources>

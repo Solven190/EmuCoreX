@@ -1054,6 +1054,14 @@ private fun SettingsContent(
                                 onResetToDefault = { viewModel.setCasSharpness(defaults.casSharpness) }
                             )
                         }
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_tv_shader),
+                            options = tvShaderOptions(),
+                            selectedValue = uiState.tvShader,
+                            onSelect = viewModel::setTvShader,
+                            helpText = stringResource(R.string.settings_help_tv_shader),
+                            onResetToDefault = { viewModel.setTvShader(defaults.tvShader) }
+                        )
                     }
                     SettingsSection(title = stringResource(R.string.settings_rendering_section)) {
                         ChoiceSection(
@@ -2344,6 +2352,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Graphics, R.string.settings_anisotropic_filtering),
         entry(SettingsTab.Graphics, R.string.settings_fxaa),
         entry(SettingsTab.Graphics, R.string.settings_cas),
+        entry(SettingsTab.Graphics, R.string.settings_tv_shader),
         entry(SettingsTab.Graphics, R.string.settings_hw_mipmapping),
         entry(SettingsTab.Graphics, R.string.settings_shadeboost),
         entry(SettingsTab.Fixes, R.string.settings_widescreen_patches),
@@ -2956,6 +2965,18 @@ private fun casModeOptions(): List<Pair<Int, String>> = listOf(
     0 to stringResource(R.string.settings_cas_mode_off),
     1 to stringResource(R.string.settings_cas_mode_sharpen_only),
     2 to stringResource(R.string.settings_cas_mode_sharpen_resize)
+)
+
+@Composable
+private fun tvShaderOptions(): List<Pair<Int, String>> = listOf(
+    0 to stringResource(R.string.settings_tv_shader_none),
+    1 to stringResource(R.string.settings_tv_shader_scanline),
+    2 to stringResource(R.string.settings_tv_shader_diagonal),
+    3 to stringResource(R.string.settings_tv_shader_triangular),
+    4 to stringResource(R.string.settings_tv_shader_wave),
+    5 to stringResource(R.string.settings_tv_shader_lottes_crt),
+    6 to stringResource(R.string.settings_tv_shader_4x_rgss),
+    7 to stringResource(R.string.settings_tv_shader_nx_agss)
 )
 
 @Composable

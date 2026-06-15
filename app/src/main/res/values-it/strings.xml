@@ -1103,4 +1103,14 @@
     <string name="settings_fast_boot_desc">Salta l\'avvio del disco del BIOS: disabilita per i giochi che si bloccano prima dell\'avvio</string>
     <string name="settings_fast_boot">Avvio rapido</string>
     <string name="settings_help_fast_boot">Salta il normale percorso di avvio del disco del BIOS e avvia il gioco più velocemente. Tienilo abilitato per la maggior parte dei giochi; disattivalo per i titoli che si bloccano prima di giocare, si ripetono all\'infinito nelle schermate di caricamento o sembrano aspettare all\'infinito prima che il gioco inizi.</string>
+    <string name="settings_tv_shader">Shader TV</string>
+    <string name="settings_tv_shader_none">Nessuno</string>
+    <string name="settings_tv_shader_scanline">Filtro Scanline</string>
+    <string name="settings_tv_shader_diagonal">Filtro Diagonale</string>
+    <string name="settings_tv_shader_triangular">Filtro Triangolare</string>
+    <string name="settings_tv_shader_wave">Filtro Onda</string>
+    <string name="settings_tv_shader_lottes_crt">Lottes CRT</string>
+    <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
+    <string name="settings_tv_shader_nx_agss">NxAGSS</string>
+    <string name="settings_help_tv_shader">Applica uno shader di presentazione in stile TV dopo il rendering. Il filtro triangolare offre una fusione più morbida simile a un CRT che può apparire particolarmente bene a risoluzione 2x, ma alcune modalità potrebbero sfocare il testo fine dell\'interfaccia utente.</string>
 </resources>

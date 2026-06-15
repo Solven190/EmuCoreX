@@ -1103,4 +1103,14 @@
     <string name="settings_fast_boot_desc">BIOS disk önyüklemesini atlar - başlamadan önce takılan oyunlar için devre dışı bırakın</string>
     <string name="settings_fast_boot">Hızlı Başlatma</string>
     <string name="settings_help_fast_boot">Normal BIOS disk önyükleme yolunu atlar ve oyuna daha hızlı giriş yapar. Çoğu oyun için etkin tutun; oynamadan önce takılan, yükleme ekranlarında döngüye giren veya oyun başlamadan önce sonsuza kadar bekliyor gibi görünen oyunlar için kapatın.</string>
+    <string name="settings_tv_shader">TV Gölgelendirici</string>
+    <string name="settings_tv_shader_none">Yok</string>
+    <string name="settings_tv_shader_scanline">Tarama Çizgisi Filtresi</string>
+    <string name="settings_tv_shader_diagonal">Çapraz Filtre</string>
+    <string name="settings_tv_shader_triangular">Üçgen Filtresi</string>
+    <string name="settings_tv_shader_wave">Dalga Filtresi</string>
+    <string name="settings_tv_shader_lottes_crt">Lottes CRT</string>
+    <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
+    <string name="settings_tv_shader_nx_agss">NxAGSS</string>
+    <string name="settings_help_tv_shader">Oluşturulduktan sonra TV tarzı bir sunum gölgelendiricisi (shader) uygular. Üçgen Filtresi, özellikle 2x çözünürlükte iyi görünebilen daha yumuşak, CRT benzeri bir karışım sunar, ancak bazı modlar ince kullanıcı arayüzü metnini bulanıklaştırabilir.</string>
 </resources>

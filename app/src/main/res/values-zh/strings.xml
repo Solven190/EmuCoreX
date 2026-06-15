@@ -1105,4 +1105,14 @@
     <string name="settings_fast_boot_desc">跳过 BIOS 光盘启动 - 针对启动前挂起的游戏禁用</string>
     <string name="settings_fast_boot">快速启动</string>
     <string name="settings_help_fast_boot">跳过常规的 BIOS 光盘启动路径并更快地进入游戏。对大多数游戏保持开启；对于在游戏进入前挂起、在加载屏幕上循环，或者在游戏开始前似乎无休止等待的标题，请将其关闭。</string>
+    <string name="settings_tv_shader">电视着色器</string>
+    <string name="settings_tv_shader_none">无</string>
+    <string name="settings_tv_shader_scanline">扫描线滤镜</string>
+    <string name="settings_tv_shader_diagonal">对角线滤镜</string>
+    <string name="settings_tv_shader_triangular">三角形滤镜</string>
+    <string name="settings_tv_shader_wave">波浪滤镜</string>
+    <string name="settings_tv_shader_lottes_crt">Lottes CRT</string>
+    <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
+    <string name="settings_tv_shader_nx_agss">NxAGSS</string>
+    <string name="settings_help_tv_shader">在渲染后应用电视风格的呈现着色器。三角形滤镜提供了类似于 CRT 的更柔和混合效果，在 2 倍分辨率下看起来尤其出色，但某些模式可能会模糊精细的用户界面文本。</string>
 </resources>

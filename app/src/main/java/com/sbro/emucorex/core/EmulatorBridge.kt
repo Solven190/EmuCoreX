@@ -284,6 +284,7 @@ object EmulatorBridge {
         enableFxaa: Boolean = false,
         casMode: Int = 0,
         casSharpness: Int = 50,
+        tvShader: Int = GsHackDefaults.TV_SHADER_DEFAULT,
         shadeBoostEnabled: Boolean = false,
         shadeBoostBrightness: Int = 50,
         shadeBoostContrast: Int = 50,
@@ -464,6 +465,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/GS", "fxaa", "bool", enableFxaa.toString()))
                 add(settingOp("EmuCore/GS", "CASMode", "int", casMode.toString()))
                 add(settingOp("EmuCore/GS", "CASSharpness", "int", casSharpness.toString()))
+                add(settingOp("EmuCore/GS", "TVShader", "int", GsHackDefaults.coerceTvShader(tvShader).toString()))
                 add(settingOp("EmuCore/GS", "ShadeBoost", "bool", shadeBoostEnabled.toString()))
                 add(settingOp("EmuCore/GS", "ShadeBoost_Brightness", "int", shadeBoostBrightness.toString()))
                 add(settingOp("EmuCore/GS", "ShadeBoost_Contrast", "int", shadeBoostContrast.toString()))

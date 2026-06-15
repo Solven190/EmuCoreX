@@ -81,6 +81,7 @@ data class SettingsSnapshot(
     val enableFxaa: Boolean = false,
     val casMode: Int = 0,
     val casSharpness: Int = 50,
+    val tvShader: Int = GsHackDefaults.TV_SHADER_DEFAULT,
     val shadeBoostEnabled: Boolean = false,
     val shadeBoostBrightness: Int = 50,
     val shadeBoostContrast: Int = 50,
@@ -288,6 +289,7 @@ class AppPreferences(private val context: Context) {
         private val ENABLE_FXAA = booleanPreferencesKey("enable_fxaa")
         private val CAS_MODE = intPreferencesKey("cas_mode")
         private val CAS_SHARPNESS = intPreferencesKey("cas_sharpness")
+        private val TV_SHADER = intPreferencesKey("tv_shader")
         private val SHADEBOOST_ENABLED = booleanPreferencesKey("shadeboost_enabled")
         private val SHADEBOOST_BRIGHTNESS = intPreferencesKey("shadeboost_brightness")
         private val SHADEBOOST_CONTRAST = intPreferencesKey("shadeboost_contrast")
@@ -684,6 +686,7 @@ class AppPreferences(private val context: Context) {
                 enableFxaa = prefs[ENABLE_FXAA] ?: false,
                 casMode = prefs[CAS_MODE] ?: 0,
                 casSharpness = prefs[CAS_SHARPNESS] ?: 50,
+                tvShader = prefs[TV_SHADER]?.let(GsHackDefaults::coerceTvShader) ?: GsHackDefaults.TV_SHADER_DEFAULT,
                 shadeBoostEnabled = resolveShadeBoostEnabled(
                     explicitValue = prefs[SHADEBOOST_ENABLED],
                     brightness = prefs[SHADEBOOST_BRIGHTNESS] ?: 50,
@@ -1311,6 +1314,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setCasSharpness(value: Int) {
         context.dataStore.edit { it[CAS_SHARPNESS] = value.coerceIn(0, 100) }
+    }
+
+    val tvShader: Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[TV_SHADER]?.let(GsHackDefaults::coerceTvShader) ?: GsHackDefaults.TV_SHADER_DEFAULT
+    }
+
+    suspend fun setTvShader(value: Int) {
+        context.dataStore.edit { it[TV_SHADER] = GsHackDefaults.coerceTvShader(value) }
     }
 
     val shadeBoostEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -1969,6 +1980,7 @@ class AppPreferences(private val context: Context) {
             put("enableFxaa", prefs[ENABLE_FXAA] ?: false)
             put("casMode", prefs[CAS_MODE] ?: 0)
             put("casSharpness", prefs[CAS_SHARPNESS] ?: 50)
+            put("tvShader", prefs[TV_SHADER]?.let(GsHackDefaults::coerceTvShader) ?: GsHackDefaults.TV_SHADER_DEFAULT)
             put("enableWidescreenPatches", prefs[ENABLE_WIDESCREEN_PATCHES] ?: false)
             put("enableNoInterlacingPatches", prefs[ENABLE_NO_INTERLACING_PATCHES] ?: false)
             put("anisotropicFiltering", prefs[ANISOTROPIC_FILTERING] ?: 0)
@@ -2098,6 +2110,9 @@ class AppPreferences(private val context: Context) {
             prefs[ENABLE_FXAA] = json.optBoolean("enableFxaa", false)
             prefs[CAS_MODE] = json.optInt("casMode", 0).coerceIn(0, 2)
             prefs[CAS_SHARPNESS] = json.optInt("casSharpness", 50).coerceIn(0, 100)
+            prefs[TV_SHADER] = GsHackDefaults.coerceTvShader(
+                json.optInt("tvShader", GsHackDefaults.TV_SHADER_DEFAULT)
+            )
             prefs[ENABLE_WIDESCREEN_PATCHES] = json.optBoolean("enableWidescreenPatches", false)
             prefs[ENABLE_NO_INTERLACING_PATCHES] = json.optBoolean("enableNoInterlacingPatches", false)
             prefs[ANISOTROPIC_FILTERING] = json.optInt("anisotropicFiltering", 0)

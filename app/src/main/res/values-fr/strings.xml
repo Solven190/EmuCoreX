@@ -1105,4 +1105,14 @@
     <string name="settings_fast_boot_desc">Ignore le démarrage du disque BIOS - désactiver pour les jeux qui plantent avant le début</string>
     <string name="settings_fast_boot">Démarrage rapide</string>
     <string name="settings_help_fast_boot">Ignore le chemin de démarrage normal du disque BIOS et lance le jeu plus rapidement. Laissez-le activé pour la plupart des jeux ; désactivez-le pour les titres qui plantent avant le gameplay, tournent en boucle sur les écrans de chargement ou semblent attendre indéfiniment avant le démarrage du jeu.</string>
+    <string name="settings_tv_shader">Shader TV</string>
+    <string name="settings_tv_shader_none">Aucun</string>
+    <string name="settings_tv_shader_scanline">Filtre Scanline</string>
+    <string name="settings_tv_shader_diagonal">Filtre diagonal</string>
+    <string name="settings_tv_shader_triangular">Filtre triangulaire</string>
+    <string name="settings_tv_shader_wave">Filtre ondulé</string>
+    <string name="settings_tv_shader_lottes_crt">Lottes CRT</string>
+    <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
+    <string name="settings_tv_shader_nx_agss">NxAGSS</string>
+    <string name="settings_help_tv_shader">Applique un shader de présentation de style TV après le rendu. Le filtre triangulaire donne un mélange plus doux de type CRT qui peut être particulièrement beau en résolution 2x, mais certains modes peuvent rendre flou le texte fin de l\'interface utilisateur.</string>
 </resources>

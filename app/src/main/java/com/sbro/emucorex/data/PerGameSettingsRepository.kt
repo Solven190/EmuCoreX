@@ -36,6 +36,7 @@ data class PerGameSettings(
     val enableFxaa: Boolean = false,
     val casMode: Int = 0,
     val casSharpness: Int = 50,
+    val tvShader: Int = GsHackDefaults.TV_SHADER_DEFAULT,
     val shadeBoostEnabled: Boolean = false,
     val shadeBoostBrightness: Int = 50,
     val shadeBoostContrast: Int = 50,
@@ -174,6 +175,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         enableFxaa = optBoolean("enableFxaa", false),
         casMode = optInt("casMode", 0),
         casSharpness = optInt("casSharpness", 50),
+        tvShader = optInt("tvShader", GsHackDefaults.TV_SHADER_DEFAULT).let(GsHackDefaults::coerceTvShader),
         shadeBoostEnabled = optBoolean("shadeBoostEnabled", false) || isShadeBoostActive(
             brightness = optInt("shadeBoostBrightness", 50).coerceIn(1, 100),
             contrast = optInt("shadeBoostContrast", 50).coerceIn(1, 100),
@@ -250,6 +252,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("enableFxaa")) put("enableFxaa", enableFxaa)
         if (shouldWrite("casMode")) put("casMode", casMode)
         if (shouldWrite("casSharpness")) put("casSharpness", casSharpness)
+        if (shouldWrite("tvShader")) put("tvShader", GsHackDefaults.coerceTvShader(tvShader))
         if (shouldWrite("shadeBoostEnabled")) put("shadeBoostEnabled", shadeBoostEnabled)
         if (shouldWrite("shadeBoostBrightness")) put("shadeBoostBrightness", shadeBoostBrightness)
         if (shouldWrite("shadeBoostContrast")) put("shadeBoostContrast", shadeBoostContrast)

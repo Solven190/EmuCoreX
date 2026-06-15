@@ -83,6 +83,7 @@ data class SettingsUiState(
     val enableFxaa: Boolean = false,
     val casMode: Int = 0,
     val casSharpness: Int = 50,
+    val tvShader: Int = GsHackDefaults.TV_SHADER_DEFAULT,
     val shadeBoostEnabled: Boolean = false,
     val shadeBoostBrightness: Int = 50,
     val shadeBoostContrast: Int = 50,
@@ -238,6 +239,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             enableFxaa = snapshot.enableFxaa,
             casMode = snapshot.casMode,
             casSharpness = snapshot.casSharpness,
+            tvShader = snapshot.tvShader,
             shadeBoostEnabled = snapshot.shadeBoostEnabled,
             shadeBoostBrightness = snapshot.shadeBoostBrightness,
             shadeBoostContrast = snapshot.shadeBoostContrast,
@@ -969,6 +971,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setTvShader(value: Int) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            val clamped = GsHackDefaults.coerceTvShader(value)
+            preferences.setTvShader(clamped)
+            EmulatorBridge.setSetting("EmuCore/GS", "TVShader", "int", clamped.toString())
+        }
+    }
+
     fun setShadeBoostBrightness(value: Int) {
         viewModelScope.launch {
             val clamped = value.coerceIn(1, 100)
@@ -1407,6 +1418,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 enableFxaa = _uiState.value.enableFxaa,
                 casMode = _uiState.value.casMode,
                 casSharpness = _uiState.value.casSharpness,
+                tvShader = _uiState.value.tvShader,
                 anisotropicFiltering = _uiState.value.anisotropicFiltering,
                 enableHwMipmapping = _uiState.value.enableHwMipmapping,
                 cpuSpriteRenderSize = _uiState.value.cpuSpriteRenderSize,

@@ -5,6 +5,10 @@ object GsHackDefaults {
     const val TRILINEAR_FILTERING_DEFAULT = -1
     const val TRILINEAR_FILTERING_MIN = -1
     const val TRILINEAR_FILTERING_MAX = 2
+    const val TV_SHADER_DEFAULT = 0
+    const val TV_SHADER_TRIANGULAR = 3
+    const val TV_SHADER_MIN = 0
+    const val TV_SHADER_MAX = 7
     const val BLENDING_ACCURACY_DEFAULT = 0
     const val TEXTURE_PRELOADING_DEFAULT = 2
     const val ANISOTROPIC_FILTERING_DEFAULT = 0
@@ -23,6 +27,10 @@ object GsHackDefaults {
 
     fun coerceTrilinearFiltering(value: Int): Int {
         return value.coerceIn(TRILINEAR_FILTERING_MIN, TRILINEAR_FILTERING_MAX)
+    }
+
+    fun coerceTvShader(value: Int): Int {
+        return value.coerceIn(TV_SHADER_MIN, TV_SHADER_MAX)
     }
 
     fun shouldEnableManualHardwareFixes(

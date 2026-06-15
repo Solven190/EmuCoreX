@@ -1104,6 +1104,7 @@ fun EmulationScreen(
                     onSetEnableFxaa = { viewModel.setEnableFxaa(it) },
                     onSetCasMode = { viewModel.setCasMode(it) },
                     onSetCasSharpness = { viewModel.setCasSharpness(it) },
+                    onSetTvShader = { viewModel.setTvShader(it) },
                     onSetShadeBoostBrightness = { viewModel.setShadeBoostBrightness(it) },
                     onSetShadeBoostContrast = { viewModel.setShadeBoostContrast(it) },
                     onSetShadeBoostSaturation = { viewModel.setShadeBoostSaturation(it) },
@@ -1956,6 +1957,7 @@ private fun EmulationSidebarMenu(
     onSetEnableFxaa: (Boolean) -> Unit,
     onSetCasMode: (Int) -> Unit,
     onSetCasSharpness: (Int) -> Unit,
+    onSetTvShader: (Int) -> Unit,
     onSetShadeBoostBrightness: (Int) -> Unit,
     onSetShadeBoostContrast: (Int) -> Unit,
     onSetShadeBoostSaturation: (Int) -> Unit,
@@ -2964,6 +2966,24 @@ private fun EmulationSidebarMenu(
                                 onResetToDefault = { onSetCasSharpness(globalDefaults.casSharpness) }
                             )
                         }
+
+                        LiveChipsSelectionRow(
+                            title = stringResource(R.string.settings_tv_shader),
+                            options = listOf(
+                                0 to stringResource(R.string.settings_tv_shader_none),
+                                1 to stringResource(R.string.settings_tv_shader_scanline),
+                                2 to stringResource(R.string.settings_tv_shader_diagonal),
+                                3 to stringResource(R.string.settings_tv_shader_triangular),
+                                4 to stringResource(R.string.settings_tv_shader_wave),
+                                5 to stringResource(R.string.settings_tv_shader_lottes_crt),
+                                6 to stringResource(R.string.settings_tv_shader_4x_rgss),
+                                7 to stringResource(R.string.settings_tv_shader_nx_agss)
+                            ),
+                            currentValue = uiState.tvShader,
+                            onValueChange = onSetTvShader,
+                            helpText = stringResource(R.string.settings_help_tv_shader),
+                            onResetToDefault = { onSetTvShader(globalDefaults.tvShader) }
+                        )
 
                         SettingsToggle(
                             title = stringResource(R.string.settings_hw_mipmapping),

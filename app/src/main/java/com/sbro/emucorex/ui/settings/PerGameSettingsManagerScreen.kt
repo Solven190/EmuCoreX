@@ -744,6 +744,14 @@ private fun GameSettingsEditorDialog(
                                     onResetToDefault = { draft = draft.copy(casSharpness = defaultProfile.casSharpness) }
                                 )
                             }
+                            SelectionRow(
+                                title = stringResource(R.string.settings_tv_shader),
+                                options = tvShaderOptions(),
+                                selectedValue = draft.tvShader,
+                                onSelected = { draft = draft.copy(tvShader = it) },
+                                helpText = stringResource(R.string.settings_help_tv_shader),
+                                onResetToDefault = { draft = draft.copy(tvShader = defaultProfile.tvShader) }
+                            )
                             ToggleRow(
                                 title = stringResource(R.string.settings_hw_mipmapping),
                                 checked = draft.enableHwMipmapping,
@@ -1494,6 +1502,18 @@ private fun casModeOptions(): List<Pair<Int, String>> = listOf(
 )
 
 @Composable
+private fun tvShaderOptions(): List<Pair<Int, String>> = listOf(
+    0 to stringResource(R.string.settings_tv_shader_none),
+    1 to stringResource(R.string.settings_tv_shader_scanline),
+    2 to stringResource(R.string.settings_tv_shader_diagonal),
+    3 to stringResource(R.string.settings_tv_shader_triangular),
+    4 to stringResource(R.string.settings_tv_shader_wave),
+    5 to stringResource(R.string.settings_tv_shader_lottes_crt),
+    6 to stringResource(R.string.settings_tv_shader_4x_rgss),
+    7 to stringResource(R.string.settings_tv_shader_nx_agss)
+)
+
+@Composable
 private fun cpuSpriteRenderSizeOptions(): List<Pair<Int, String>> = (0..10).map { value ->
     value to if (value == 0) stringResource(R.string.settings_disabled_short) else value.toString()
 }
@@ -1622,6 +1642,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         enableFxaa = enableFxaa,
         casMode = casMode,
         casSharpness = casSharpness,
+        tvShader = tvShader,
         shadeBoostEnabled = shadeBoostEnabled,
         shadeBoostBrightness = shadeBoostBrightness,
         shadeBoostContrast = shadeBoostContrast,
@@ -1691,6 +1712,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         enableFxaa = pick("enableFxaa", enableFxaa, defaultProfile.enableFxaa),
         casMode = pick("casMode", casMode, defaultProfile.casMode),
         casSharpness = pick("casSharpness", casSharpness, defaultProfile.casSharpness),
+        tvShader = pick("tvShader", tvShader, defaultProfile.tvShader),
         shadeBoostEnabled = pick("shadeBoostEnabled", shadeBoostEnabled, defaultProfile.shadeBoostEnabled),
         shadeBoostBrightness = pick("shadeBoostBrightness", shadeBoostBrightness, defaultProfile.shadeBoostBrightness),
         shadeBoostContrast = pick("shadeBoostContrast", shadeBoostContrast, defaultProfile.shadeBoostContrast),

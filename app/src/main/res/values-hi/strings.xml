@@ -1103,4 +1103,14 @@
     <string name="settings_fast_boot_desc">BIOS डिस्क बूट को छोड़ देता है - उन खेलों के लिए अक्षम करें जो शुरू होने से पहले हैंग होते हैं</string>
     <string name="settings_fast_boot">फ़ास्ट बूट</string>
     <string name="settings_help_fast_boot">सामान्य BIOS डिस्क बूट पथ को छोड़ देता है और गेम में तेज़ी से जाता है। अधिकांश खेलों के लिए इसे सक्षम रखें; उन शीर्षकों के लिए इसे बंद कर दें जो गेमप्ले से पहले हैंग होते हैं, लोडिंग स्क्रीन पर लूप करते हैं, या गेम शुरू होने से पहले हमेशा के लिए प्रतीक्षा करते हुए प्रतीत होते हैं。</string>
+    <string name="settings_tv_shader">टीवी शेडर</string>
+    <string name="settings_tv_shader_none">कोई नहीं</string>
+    <string name="settings_tv_shader_scanline">स्कैनलाइन फ़िल्टर</string>
+    <string name="settings_tv_shader_diagonal">विकर्ण फ़िल्टर</string>
+    <string name="settings_tv_shader_triangular">त्रिकोणीय फ़िल्टर</string>
+    <string name="settings_tv_shader_wave">वेव फ़िल्टर</string>
+    <string name="settings_tv_shader_lottes_crt">Lottes CRT</string>
+    <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
+    <string name="settings_tv_shader_nx_agss">NxAGSS</string>
+    <string name="settings_help_tv_shader">रेंडरिंग के बाद टीवी-शैली का प्रेजेंटेशन शेडर लागू करता है। त्रिकोणीय फ़िल्टर एक नरम CRT जैसा मिश्रण देता है जो विशेष रूप से 2x रिज़ॉल्यूशन पर अच्छा दिख सकता है, लेकिन कुछ मोड बारीक UI टेक्स्ट को धुंधला कर सकते हैं।</string>
 </resources>

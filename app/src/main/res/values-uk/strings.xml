@@ -1105,4 +1105,14 @@
     <string name="settings_fast_boot_desc">Пропускає завантаження диска BIOS — вимкніть для ігор, які зависають перед запуском</string>
     <string name="settings_fast_boot">Швидке завантаження</string>
     <string name="settings_help_fast_boot">Пропускає звичайний шлях завантаження диска BIOS і швидше запускає гру. Залиште увімкненим для більшості ігор; вимикайте для тих, які зависають перед грою, зациклюються на екранах завантаження або, здається, чекають вічно до початку гри.</string>
+    <string name="settings_tv_shader">ТВ-шейдер</string>
+    <string name="settings_tv_shader_none">Немає</string>
+    <string name="settings_tv_shader_scanline">Фільтр сканлайнів</string>
+    <string name="settings_tv_shader_diagonal">Діагональний фільтр</string>
+    <string name="settings_tv_shader_triangular">Трикутний фільтр</string>
+    <string name="settings_tv_shader_wave">Хвильовий фільтр</string>
+    <string name="settings_tv_shader_lottes_crt">Lottes CRT</string>
+    <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
+    <string name="settings_tv_shader_nx_agss">NxAGSS</string>
+    <string name="settings_help_tv_shader">Застосовує шейдер презентації у стилі ТБ після рендерингу. Трикутний фільтр дає м\'якше змішування, схоже на ЕЛТ, яке може виглядати особливо добре при двократній роздільній здатності (2x), але деякі режими можуть розмивати дрібний текст інтерфейсу.</string>
 </resources>

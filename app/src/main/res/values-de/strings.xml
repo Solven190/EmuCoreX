@@ -1105,4 +1105,14 @@
     <string name="settings_fast_boot_desc">Überspringt den BIOS-Disc-Start – deaktivieren für Spiele, die sich vor dem Start aufhängen</string>
     <string name="settings_fast_boot">Schnellstart</string>
     <string name="settings_help_fast_boot">Überspringt den normalen BIOS-Disc-Startpfad und springt schneller ins Spiel. Für die meisten Spiele aktiviert lassen; für Titel deaktivieren, die sich vor dem Spielen aufhängen, in Ladebildschirmen hängen bleiben oder scheinbar ewig warten, bevor das Spiel beginnt.</string>
+    <string name="settings_tv_shader">TV-Shader</string>
+    <string name="settings_tv_shader_none">Keine</string>
+    <string name="settings_tv_shader_scanline">Scanline-Filter</string>
+    <string name="settings_tv_shader_diagonal">Diagonaler Filter</string>
+    <string name="settings_tv_shader_triangular">Dreieckiger Filter</string>
+    <string name="settings_tv_shader_wave">Wellenfilter</string>
+    <string name="settings_tv_shader_lottes_crt">Lottes CRT</string>
+    <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
+    <string name="settings_tv_shader_nx_agss">NxAGSS</string>
+    <string name="settings_help_tv_shader">Wendet nach dem Rendern einen Präsentations-Shader im TV-Stil an. Der dreieckige Filter sorgt für eine weichere, CRT-ähnliche Mischung, die besonders bei 2-facher Auflösung gut aussehen kann, aber bei einigen Modi können feine Texte der Benutzeroberfläche verschwimmen.</string>
 </resources>

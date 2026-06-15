@@ -1103,4 +1103,14 @@
     <string name="settings_fast_boot_desc">يتخطى تمهيد قرص BIOS - قم بتعطيله للألعاب التي تتوقف قبل البدء</string>
     <string name="settings_fast_boot">إقلاع سريع</string>
     <string name="settings_help_fast_boot">يتخطى مسار تمهيد قرص BIOS العادي وينتقل إلى اللعبة بشكل أسرع. أبقه ممكناً لمعظم الألعاب؛ قم بإيقاف تشغيله للعناوين التي تتوقف قبل اللعب، أو تستمر في التكرار على شاشات التحميل، أو تبدو وكأنها تنتظر إلى الأبد قبل بدء اللعبة.</string>
+    <string name="settings_tv_shader">مظلل التلفزيون</string>
+    <string name="settings_tv_shader_none">لا شيء</string>
+    <string name="settings_tv_shader_scanline">فلتر خطوط المسح</string>
+    <string name="settings_tv_shader_diagonal">فلتر قطري</string>
+    <string name="settings_tv_shader_triangular">فلتر مثلثي</string>
+    <string name="settings_tv_shader_wave">فلتر موجي</string>
+    <string name="settings_tv_shader_lottes_crt">شاشة Lottes CRT</string>
+    <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
+    <string name="settings_tv_shader_nx_agss">NxAGSS</string>
+    <string name="settings_help_tv_shader">يطبق مظلل عرض بأسلوب التلفزيون بعد العرض. يعطي الفلتر المثلثي مزيجاً أنعم يشبه شاشات CRT والذي يمكن أن يبدو جيداً بشكل خاص عند دقة 2x، لكن بعض الأوضاع قد تطمس نص واجهة المستخدم الدقيق.</string>
 </resources>
