@@ -4470,6 +4470,8 @@ private fun LiveSliderRow(
         sliderValue = value
     }
 
+    val displayValue = sliderValue.roundToInt()
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier
@@ -4514,8 +4516,8 @@ private fun LiveSliderRow(
                 }
             }
             Text(
-                text = valueLabelResId?.let { stringResource(it, sliderValue.toInt()) }
-                    ?: valueLabelForValue(sliderValue.toInt()),
+                text = valueLabelResId?.let { stringResource(it, displayValue) }
+                    ?: valueLabelForValue(displayValue),
                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                 color = if (enabled) {
                     MaterialTheme.colorScheme.primary

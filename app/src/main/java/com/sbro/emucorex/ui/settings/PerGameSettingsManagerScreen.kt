@@ -51,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -84,6 +85,7 @@ import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import org.json.JSONObject
 import java.text.DateFormat
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -765,6 +767,7 @@ private fun GameSettingsEditorDialog(
                                 title = stringResource(R.string.settings_shadeboost_brightness),
                                 value = draft.shadeBoostBrightness.toFloat(),
                                 valueLabel = draft.shadeBoostBrightness.toString(),
+                                valueLabelForValue = { it.roundToInt().toString() },
                                 range = 1f..100f,
                                 steps = 98,
                                 onValueChange = {
@@ -791,6 +794,7 @@ private fun GameSettingsEditorDialog(
                                 title = stringResource(R.string.settings_shadeboost_contrast),
                                 value = draft.shadeBoostContrast.toFloat(),
                                 valueLabel = draft.shadeBoostContrast.toString(),
+                                valueLabelForValue = { it.roundToInt().toString() },
                                 range = 1f..100f,
                                 steps = 98,
                                 onValueChange = {
@@ -817,6 +821,7 @@ private fun GameSettingsEditorDialog(
                                 title = stringResource(R.string.settings_shadeboost_saturation),
                                 value = draft.shadeBoostSaturation.toFloat(),
                                 valueLabel = draft.shadeBoostSaturation.toString(),
+                                valueLabelForValue = { it.roundToInt().toString() },
                                 range = 1f..100f,
                                 steps = 98,
                                 onValueChange = {
@@ -843,6 +848,7 @@ private fun GameSettingsEditorDialog(
                                 title = stringResource(R.string.settings_shadeboost_gamma),
                                 value = draft.shadeBoostGamma.toFloat(),
                                 valueLabel = draft.shadeBoostGamma.toString(),
+                                valueLabelForValue = { it.roundToInt().toString() },
                                 range = 1f..100f,
                                 steps = 98,
                                 onValueChange = {
@@ -1272,12 +1278,19 @@ private fun SliderRow(
     range: ClosedFloatingPointRange<Float>,
     steps: Int,
     onValueChange: (Float) -> Unit,
+    valueLabelForValue: ((Float) -> String)? = null,
     helpText: String? = null,
     onResetToDefault: (() -> Unit)? = null
 ) {
+    var sliderValue by remember { mutableFloatStateOf(value) }
     val interactionSource = remember { MutableInteractionSource() }
     val context = LocalContext.current
     val resetToast = stringResource(R.string.settings_reset_to_default_toast)
+
+    LaunchedEffect(value) {
+        sliderValue = value
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             modifier = Modifier
@@ -1311,14 +1324,17 @@ private fun SliderRow(
                 }
             }
             Text(
-                text = valueLabel,
+                text = valueLabelForValue?.invoke(sliderValue) ?: valueLabel,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary
             )
         }
         Slider(
-            value = value,
-            onValueChange = onValueChange,
+            value = sliderValue,
+            onValueChange = {
+                sliderValue = it
+                onValueChange(it)
+            },
             valueRange = range,
             steps = steps
         )
