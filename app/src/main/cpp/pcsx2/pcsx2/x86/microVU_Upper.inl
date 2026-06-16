@@ -1471,16 +1471,14 @@ static void mVU_MADDAz_emit(mP)
 
 static void mVU_MADDAw_vu0_emit_oaknut(mP)
 {
-	if (isCOP2)
-		iFlushCall(FLUSH_FREE_VU0);
-
+	iFlushCall(FLUSH_FREE_VU0);
 	mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::W);
 }
 
 static void mVU_MADDAw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (isVU0) mVU_MADDAw_vu0_emit_oaknut(mVU, recPass); else mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 3); }
+	pass2 { if (isVU0 && isCOP2) mVU_MADDAw_vu0_emit_oaknut(mVU, recPass); else mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
