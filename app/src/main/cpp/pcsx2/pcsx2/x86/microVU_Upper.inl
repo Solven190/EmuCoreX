@@ -1731,10 +1731,16 @@ static void mVU_MADD_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(ACC);
 }
 
+static void mVU_MADD_vu0_emit_oaknut(mP)
+{
+	iFlushCall(FLUSH_FREE_VU0);
+	mVUExactVu0DestOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::PerLane);
+}
+
 static void mVU_MADD_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, _Fd_, _Fs_, _Ft_); }
-	pass2 { mVU_MADD_direct_emit_oaknut(mVU, recPass); }
+	pass2 { if (isVU0 && isCOP2) mVU_MADD_vu0_emit_oaknut(mVU, recPass); else mVU_MADD_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("MADD");
