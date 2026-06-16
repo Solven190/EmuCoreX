@@ -858,29 +858,29 @@ static void mVU_ERCPR_emit(mP)
 static void mVU_ERLENG_direct_emit_oaknut(mP)
 {
 	const int FsRaw = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
-	const int x = mVU.regAlloc->allocRegId();
-	const int y = mVU.regAlloc->allocRegId();
-	const int z = mVU.regAlloc->allocRegId();
+	const int Fs = mVU.regAlloc->allocRegId();
+	const int len = mVU.regAlloc->allocRegId();
+	const int t1 = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
-	oakAsm->MOV(oakQRegister(x).Selem()[0], oakQRegister(FsRaw).Selem()[0]);
-	oakAsm->MOV(oakQRegister(y).Selem()[0], oakQRegister(FsRaw).Selem()[1]);
-	oakAsm->MOV(oakQRegister(z).Selem()[0], oakQRegister(FsRaw).Selem()[2]);
-	mVU_EFUvuDoubleSS_oaknut(x);
-	mVU_EFUvuDoubleSS_oaknut(y);
-	mVU_EFUvuDoubleSS_oaknut(z);
-	oakAsm->FMUL(oakSRegister(y), oakSRegister(y), oakSRegister(y));
-	oakAsm->FMADD(oakSRegister(y), oakSRegister(x), oakSRegister(x), oakSRegister(y));
-	oakAsm->FMADD(oakSRegister(y), oakSRegister(z), oakSRegister(z), oakSRegister(y));
-	oakAsm->FSQRT(oakSRegister(y), oakSRegister(y));
-	mVU_EFUreciprocalOrZero_oaknut(mVU, y, x, z);
+	// Keep FsRaw intact; vector vuDouble avoids three scalar normalizations, while fused accumulation keeps ERLENG rounding stable.
+	oakAsm->MOV(oakQRegister(Fs).B16(), oakQRegister(FsRaw).B16());
+	mVU_EFUvuDoublePS_oaknut(Fs, len, t1);
+	oakAsm->MOV(oakQRegister(len).Selem()[0], oakQRegister(Fs).Selem()[1]);
+	oakAsm->FMUL(oakSRegister(len), oakSRegister(len), oakSRegister(len));
+	oakAsm->MOV(OAK_QSCRATCH.Selem()[0], oakQRegister(Fs).Selem()[0]);
+	oakAsm->FMADD(oakSRegister(len), OAK_SSCRATCH, OAK_SSCRATCH, oakSRegister(len));
+	oakAsm->MOV(OAK_QSCRATCH.Selem()[0], oakQRegister(Fs).Selem()[2]);
+	oakAsm->FMADD(oakSRegister(len), OAK_SSCRATCH, OAK_SSCRATCH, oakSRegister(len));
+	oakAsm->FSQRT(oakSRegister(len), oakSRegister(len));
+	mVU_EFUreciprocalOrZero_oaknut(mVU, len, Fs, t1);
 	mVU_flipPQ_oaknut(mVU);
-	oakAsm->MOV(oakQRegister(VU_HOST_XMMPQ).Selem()[0], oakQRegister(y).Selem()[0]);
+	oakAsm->MOV(oakQRegister(VU_HOST_XMMPQ).Selem()[0], oakQRegister(len).Selem()[0]);
 	mVU_flipPQ_oaknut(mVU);
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(FsRaw);
-	mVU.regAlloc->clearNeededXmmId(x);
-	mVU.regAlloc->clearNeededXmmId(y);
-	mVU.regAlloc->clearNeededXmmId(z);
+	mVU.regAlloc->clearNeededXmmId(Fs);
+	mVU.regAlloc->clearNeededXmmId(len);
+	mVU.regAlloc->clearNeededXmmId(t1);
 }
 
 static void mVU_ERLENG_emit(mP)

@@ -1648,10 +1648,16 @@ static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 		mVU.regAlloc->clearNeededXmmId(FtL);
 }
 
+static __fi bool mVUNeedsVu1MaddaExactFlagsPath(const microVU& mVU)
+{
+	// The VU1 MADDA memory-exact path is expensive, so reserve it for blocks that actually consume precise MAC/status flags.
+	return isVU1 && (sFLAG.doFlag || mFLAG.doFlag);
+}
+
 static void mVU_MADDAx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (isVU1) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::X); else mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 0); }
+	pass2 { if (mVUNeedsVu1MaddaExactFlagsPath(mVU)) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::X); else mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 0); }
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -1659,7 +1665,7 @@ static void mVU_MADDAx_emit(mP)
 static void mVU_MADDAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (isVU1 || (isVU0 && !isCOP2)) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y); else mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 1); }
+	pass2 { if (mVUNeedsVu1MaddaExactFlagsPath(mVU) || (isVU0 && !isCOP2)) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y); else mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -1667,7 +1673,7 @@ static void mVU_MADDAy_emit(mP)
 static void mVU_MADDAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (isVU1 || (isVU0 && !isCOP2)) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Z); else mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 2); }
+	pass2 { if (mVUNeedsVu1MaddaExactFlagsPath(mVU) || (isVU0 && !isCOP2)) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Z); else mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
