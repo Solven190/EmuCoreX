@@ -632,6 +632,13 @@ private fun GameSettingsEditorDialog(
                                 onResetToDefault = { draft = draft.copy(enableMtvu = defaultProfile.enableMtvu) }
                             )
                             ToggleRow(
+                                title = stringResource(R.string.settings_enable_vu1_clamping),
+                                checked = draft.enableVu1Clamping,
+                                onCheckedChange = { draft = draft.copy(enableVu1Clamping = it) },
+                                helpText = stringResource(R.string.settings_help_enable_vu1_clamping),
+                                onResetToDefault = { draft = draft.copy(enableVu1Clamping = defaultProfile.enableVu1Clamping) }
+                            )
+                            ToggleRow(
                                 title = stringResource(R.string.settings_fast_cdvd),
                                 checked = draft.enableFastCdvd,
                                 onCheckedChange = { draft = draft.copy(enableFastCdvd = it) },
@@ -1642,6 +1649,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         fpsOverlayMode = fpsOverlayMode,
         enableFastBoot = enableFastBoot,
         enableMtvu = enableMtvu,
+        enableVu1Clamping = enableVu1Clamping,
         enableFastCdvd = enableFastCdvd,
         enableCheats = enableCheats,
         hwDownloadMode = hwDownloadMode,
@@ -1712,6 +1720,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         fpsOverlayMode = pick("fpsOverlayMode", fpsOverlayMode, defaultProfile.fpsOverlayMode),
         enableFastBoot = pick("enableFastBoot", enableFastBoot, defaultProfile.enableFastBoot),
         enableMtvu = pick("enableMtvu", enableMtvu, defaultProfile.enableMtvu),
+        enableVu1Clamping = pick("enableVu1Clamping", enableVu1Clamping, defaultProfile.enableVu1Clamping),
         enableFastCdvd = pick("enableFastCdvd", enableFastCdvd, defaultProfile.enableFastCdvd),
         enableCheats = pick("enableCheats", enableCheats, defaultProfile.enableCheats),
         hwDownloadMode = pick("hwDownloadMode", hwDownloadMode, defaultProfile.hwDownloadMode),

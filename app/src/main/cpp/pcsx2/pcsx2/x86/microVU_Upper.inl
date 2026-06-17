@@ -1580,7 +1580,11 @@ static void mVU_MADDAw_emit(mP)
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
 	pass2
 	{
-		if (isVU0 && isCOP2)
+		if (isVU0 && !isCOP2)
+		{
+			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::W);
+		}
+		else if (isVU0 && isCOP2)
 		{
 			// COP2 VMADDAw needs the per-lane VU0 exact path, but keeping it scoped here avoids the wider VU1 MADDA cost.
 			iFlushCall(FLUSH_FREE_VU0);
@@ -2405,7 +2409,7 @@ static void mVU_MSUBAz_emit(mP)
 static void mVU_MSUBAw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 3); }
+	pass2 { if (isVU0 && !isCOP2) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::W); else mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }

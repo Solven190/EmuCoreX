@@ -81,6 +81,7 @@ data class EmulationUiState(
     val aspectRatio: Int = 1,
     val performancePreset: Int = PerformancePresets.CUSTOM,
     val enableMtvu: Boolean = true,
+    val vu1Clamping: Boolean = false,
     val enableFastCdvd: Boolean = false,
     val enableFastBoot: Boolean = true,
     val enableCheats: Boolean = false,
@@ -236,6 +237,7 @@ private data class LiveRuntimeSnapshot(
     val aspectRatio: Int,
     val performancePreset: Int,
     val enableMtvu: Boolean,
+    val vu1Clamping: Boolean,
     val enableFastCdvd: Boolean,
     val enableFastBoot: Boolean,
     val enableCheats: Boolean,
@@ -1061,6 +1063,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     aspectRatio = liveRuntime.aspectRatio,
                     performancePreset = liveRuntime.performancePreset,
                     enableMtvu = liveRuntime.enableMtvu,
+                    vu1Clamping = liveRuntime.vu1Clamping,
                     enableFastCdvd = liveRuntime.enableFastCdvd,
                     enableFastBoot = liveRuntime.enableFastBoot,
                     enableCheats = liveRuntime.enableCheats,
@@ -2527,6 +2530,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             aspectRatio = preferences.aspectRatio.first(),
             performancePreset = preferences.performancePreset.first(),
             enableMtvu = preferences.enableMtvu.first(),
+            vu1Clamping = preferences.enableVu1Clamping.first(),
             enableFastCdvd = preferences.enableFastCdvd.first(),
             enableFastBoot = preferences.enableFastBoot.first(),
             enableCheats = preferences.enableCheats.first(),
@@ -2594,6 +2598,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             renderer = pick("renderer", renderer) { renderer },
             upscaleMultiplier = pick("upscaleMultiplier", upscaleMultiplier) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
+            vu1Clamping = pick("enableVu1Clamping", vu1Clamping) { enableVu1Clamping },
             mtvu = pick("enableMtvu", mtvu) { enableMtvu },
             fastCdvd = pick("enableFastCdvd", fastCdvd) { enableFastCdvd },
             enableFastBoot = pick("enableFastBoot", enableFastBoot) { enableFastBoot },
@@ -2665,6 +2670,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             upscale = pick("upscaleMultiplier", upscale) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
             enableMtvu = pick("enableMtvu", enableMtvu) { enableMtvu },
+            vu1Clamping = pick("enableVu1Clamping", vu1Clamping) { enableVu1Clamping },
             enableFastCdvd = pick("enableFastCdvd", enableFastCdvd) { enableFastCdvd },
             enableFastBoot = pick("enableFastBoot", enableFastBoot) { enableFastBoot },
             enableCheats = pick("enableCheats", enableCheats) { enableCheats },
@@ -2730,6 +2736,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalShowFps = preferences.showFps.first()
         val globalFpsOverlayMode = preferences.fpsOverlayMode.first()
         val globalEnableMtvu = preferences.enableMtvu.first()
+        val globalVu1Clamping = preferences.enableVu1Clamping.first()
         val globalEnableFastCdvd = preferences.enableFastCdvd.first()
         val globalEnableFastBoot = preferences.enableFastBoot.first()
         val globalEnableCheats = preferences.enableCheats.first()
@@ -2752,6 +2759,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             showFps = showFps,
             fpsOverlayMode = fpsOverlayMode,
             enableMtvu = enableMtvu,
+            enableVu1Clamping = vu1Clamping,
             enableFastCdvd = enableFastCdvd,
             enableFastBoot = enableFastBoot,
             enableCheats = enableCheats,
@@ -2815,6 +2823,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (showFps != globalShowFps) add("showFps")
             if (fpsOverlayMode != globalFpsOverlayMode) add("fpsOverlayMode")
             if (enableMtvu != globalEnableMtvu) add("enableMtvu")
+            if (vu1Clamping != globalVu1Clamping) add("enableVu1Clamping")
             if (enableFastCdvd != globalEnableFastCdvd) add("enableFastCdvd")
             if (enableFastBoot != globalEnableFastBoot) add("enableFastBoot")
             if (enableCheats != globalEnableCheats) add("enableCheats")
