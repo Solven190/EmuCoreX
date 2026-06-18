@@ -920,17 +920,39 @@ static void mVU_ADD_direct_emit_oaknut(mP)
 	}
 
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
+	const bool needsCOP2VuDouble = isVU0 && isCOP2 && _X_Y_Z_W == 0xe;
+	int FtDouble = Ft;
+	int t1 = VU_HOST_NO_XMM;
+	int t2 = VU_HOST_NO_XMM;
+	if (needsCOP2VuDouble)
+	{
+		FtDouble = mVU.regAlloc->allocRegId();
+		t1 = mVU.regAlloc->allocRegId();
+		t2 = mVU.regAlloc->allocRegId();
+	}
 
 	recBeginOaknutEmit();
+	if (needsCOP2VuDouble)
+	{
+		oakAsm->MOV(oakQRegister(FtDouble).B16(), oakQRegister(Ft).B16());
+		mVUUpperVuDoubleVector_oaknut(Fs, t1, t2);
+		mVUUpperVuDoubleVector_oaknut(FtDouble, t1, t2);
+	}
 	if (_XYZW_SS)
-		mVUUpperAddSs_oaknut(mVU, Fs, Ft);
+		mVUUpperAddSs_oaknut(mVU, Fs, FtDouble);
 	else
-		mVUUpperAddPs_oaknut(mVU, Fs, Ft);
+		mVUUpperAddPs_oaknut(mVU, Fs, FtDouble);
 	recEndOaknutEmit();
 
 	mVUupdateFlags_oaknut(mVU, Fs, tempFt);
 
 	mVU.regAlloc->clearNeededXmmId(Fs);
+	if (needsCOP2VuDouble)
+	{
+		mVU.regAlloc->clearNeededXmmId(t2);
+		mVU.regAlloc->clearNeededXmmId(t1);
+		mVU.regAlloc->clearNeededXmmId(FtDouble);
+	}
 	mVU.regAlloc->clearNeededXmmId(Ft);
 }
 
