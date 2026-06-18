@@ -23,7 +23,7 @@ class SettingsBackupRepository(
                     zip.writeJsonEntry("settings.json", preferences.exportJson())
                     zip.writeJsonEntry("per-game-settings.json", perGameSettingsRepository.exportJson())
                     zip.writeJsonEntry("cheats.json", cheatRepository.exportJson())
-                    zip.writeDirectory("memory-cards", EmulatorStorage.memoryCardsDir(context))
+                    zip.writeDirectory("memory-cards", memoryCardsDir())
                 }
             } != null
         }.getOrDefault(false)
@@ -41,7 +41,7 @@ class SettingsBackupRepository(
                             else -> {
                                 if (entry.name.startsWith("memory-cards/") && !entry.isDirectory) {
                                     val relative = entry.name.removePrefix("memory-cards/")
-                                    val target = File(EmulatorStorage.memoryCardsDir(context), relative)
+                                    val target = File(memoryCardsDir(), relative)
                                     target.parentFile?.mkdirs()
                                     target.outputStream().use { output -> zip.copyTo(output) }
                                 }
@@ -52,6 +52,10 @@ class SettingsBackupRepository(
                 }
             } != null
         }.getOrDefault(false)
+    }
+
+    private fun memoryCardsDir(): File {
+        return EmulatorStorage.memoryCardsDir(context, preferences.getEmulatorDataPathSync())
     }
 }
 

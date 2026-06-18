@@ -251,6 +251,7 @@ object EmulatorBridge {
 
     suspend fun applyRuntimeConfig(
         biosPath: String?,
+        emulatorDataPath: String? = null,
         renderer: Int,
         upscaleMultiplier: Float,
         gpuDriverType: Int = 0,
@@ -337,11 +338,11 @@ object EmulatorBridge {
             ?: biosPath?.let(DocumentPathResolver::resolveDirectoryPath)
         val preferredBiosFile = preparedBios?.fileName
             ?: DocumentPathResolver.findPreferredBiosFileName(resolvedBiosPath)
-        val savestatesDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "sstates").apply { mkdirs() }
-        val memcardsDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "memcards").apply { mkdirs() }
-        val cheatsDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "cheats").apply { mkdirs() }
-        val patchesDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "patches").apply { mkdirs() }
-        val logDir = EmulatorStorage.logDir(context)
+        val savestatesDir = EmulatorStorage.saveStatesDir(context, emulatorDataPath)
+        val memcardsDir = EmulatorStorage.memoryCardsDir(context, emulatorDataPath)
+        val cheatsDir = EmulatorStorage.cheatsDir(context, emulatorDataPath)
+        val patchesDir = EmulatorStorage.patchesDir(context, emulatorDataPath)
+        val logDir = EmulatorStorage.logDir(context, emulatorDataPath)
         val manualHardwareFixes = GsHackDefaults.shouldEnableManualHardwareFixes(
             cpuSpriteRenderSize = cpuSpriteRenderSize,
             cpuSpriteRenderLevel = cpuSpriteRenderLevel,

@@ -49,10 +49,12 @@ data class SettingsSnapshot(
     val keepScreenOn: Boolean = true,
     val showRecentGames: Boolean = true,
     val showHomeSearch: Boolean = false,
+    val showDebugOptions: Boolean = false,
     val preferEnglishGameTitles: Boolean = false,
     val biosPath: String? = null,
     val biosValid: Boolean = false,
     val gamePath: String? = null,
+    val emulatorDataPath: String? = null,
     val coverDownloadBaseUrl: String? = null,
     val coverArtStyle: Int = AppPreferences.COVER_ART_STYLE_DEFAULT,
     val setupComplete: Boolean = false,
@@ -239,6 +241,7 @@ class AppPreferences(private val context: Context) {
         private val UPSCALE_LEGACY = intPreferencesKey("upscale_multiplier")
         private val BIOS_PATH = stringPreferencesKey("bios_path")
         private val GAME_PATH = stringPreferencesKey("game_path")
+        private val EMULATOR_DATA_PATH = stringPreferencesKey("emulator_data_path")
         private val COVER_DOWNLOAD_BASE_URL = stringPreferencesKey("cover_download_base_url")
         private val COVER_ART_STYLE = intPreferencesKey("cover_art_style")
         private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
@@ -255,6 +258,7 @@ class AppPreferences(private val context: Context) {
         private val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         private val SHOW_RECENT_GAMES = booleanPreferencesKey("show_recent_games")
         private val SHOW_HOME_SEARCH = booleanPreferencesKey("show_home_search")
+        private val SHOW_DEBUG_OPTIONS = booleanPreferencesKey("show_debug_options")
         private val PREFER_ENGLISH_GAME_TITLES = booleanPreferencesKey("prefer_english_game_titles")
         private val RECENT_GAMES = stringPreferencesKey("recent_games")
         private val HOME_LIBRARY_VIEW_MODE = intPreferencesKey("home_library_view_mode")
@@ -540,6 +544,24 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[GAME_PATH] = path }
     }
 
+    val emulatorDataPath: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[EMULATOR_DATA_PATH]
+    }
+
+    suspend fun setEmulatorDataPath(path: String?) {
+        context.dataStore.edit { prefs ->
+            path?.takeIf { it.isNotBlank() }?.let {
+                prefs[EMULATOR_DATA_PATH] = it
+            } ?: prefs.remove(EMULATOR_DATA_PATH)
+        }
+    }
+
+    fun getEmulatorDataPathSync(): String? {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[EMULATOR_DATA_PATH] }.first()
+        }
+    }
+
     val coverDownloadBaseUrl: Flow<String?> = context.dataStore.data.map { prefs ->
         prefs[COVER_DOWNLOAD_BASE_URL]
     }
@@ -649,10 +671,12 @@ class AppPreferences(private val context: Context) {
                 keepScreenOn = prefs[KEEP_SCREEN_ON] ?: true,
                 showRecentGames = prefs[SHOW_RECENT_GAMES] ?: true,
                 showHomeSearch = prefs[SHOW_HOME_SEARCH] ?: false,
+                showDebugOptions = prefs[SHOW_DEBUG_OPTIONS] ?: false,
                 preferEnglishGameTitles = prefs[PREFER_ENGLISH_GAME_TITLES] ?: false,
                 biosPath = biosPath,
                 biosValid = BiosValidator.hasUsableBiosFiles(context, biosPath),
                 gamePath = prefs[GAME_PATH],
+                emulatorDataPath = prefs[EMULATOR_DATA_PATH],
                 coverDownloadBaseUrl = prefs[COVER_DOWNLOAD_BASE_URL],
                 coverArtStyle = when (prefs[COVER_ART_STYLE]) {
                     COVER_ART_STYLE_DISABLED -> COVER_ART_STYLE_DISABLED
@@ -904,6 +928,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setShowHomeSearch(enabled: Boolean) {
         context.dataStore.edit { it[SHOW_HOME_SEARCH] = enabled }
+    }
+
+    val showDebugOptions: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SHOW_DEBUG_OPTIONS] ?: false
+    }
+
+    suspend fun setShowDebugOptions(enabled: Boolean) {
+        context.dataStore.edit { it[SHOW_DEBUG_OPTIONS] = enabled }
     }
 
     val preferEnglishGameTitles: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -1929,6 +1961,7 @@ class AppPreferences(private val context: Context) {
             put("upscaleMultiplier", readUpscale(prefs).toDouble())
             put("biosPath", prefs[BIOS_PATH])
             put("gamePath", prefs[GAME_PATH])
+            put("emulatorDataPath", prefs[EMULATOR_DATA_PATH])
             put("coverDownloadBaseUrl", prefs[COVER_DOWNLOAD_BASE_URL])
             put("coverArtStyle", prefs[COVER_ART_STYLE] ?: COVER_ART_STYLE_DEFAULT)
             put("onboardingCompleted", prefs[ONBOARDING_COMPLETED] ?: false)
@@ -1944,6 +1977,7 @@ class AppPreferences(private val context: Context) {
             put("keepScreenOn", prefs[KEEP_SCREEN_ON] ?: true)
             put("showRecentGames", prefs[SHOW_RECENT_GAMES] ?: true)
             put("showHomeSearch", prefs[SHOW_HOME_SEARCH] ?: false)
+            put("showDebugOptions", prefs[SHOW_DEBUG_OPTIONS] ?: false)
             put("preferEnglishGameTitles", prefs[PREFER_ENGLISH_GAME_TITLES] ?: false)
             put("recentGames", prefs[RECENT_GAMES] ?: "[]")
             put("homeLibraryViewMode", prefs[HOME_LIBRARY_VIEW_MODE] ?: 0)
@@ -2052,6 +2086,9 @@ class AppPreferences(private val context: Context) {
             prefs[UPSCALE] = json.readUpscaleMultiplier()
             json.optString("biosPath").takeIf { it.isNotBlank() }?.let { prefs[BIOS_PATH] = it } ?: prefs.remove(BIOS_PATH)
             json.optString("gamePath").takeIf { it.isNotBlank() }?.let { prefs[GAME_PATH] = it } ?: prefs.remove(GAME_PATH)
+            json.optString("emulatorDataPath").takeIf { it.isNotBlank() }?.let {
+                prefs[EMULATOR_DATA_PATH] = it
+            } ?: prefs.remove(EMULATOR_DATA_PATH)
             json.optString("coverDownloadBaseUrl").takeIf { it.isNotBlank() }?.let {
                 prefs[COVER_DOWNLOAD_BASE_URL] = it.trim().trimEnd('/')
             } ?: prefs.remove(COVER_DOWNLOAD_BASE_URL)
@@ -2076,6 +2113,7 @@ class AppPreferences(private val context: Context) {
             prefs[KEEP_SCREEN_ON] = json.optBoolean("keepScreenOn", true)
             prefs[SHOW_RECENT_GAMES] = json.optBoolean("showRecentGames", true)
             prefs[SHOW_HOME_SEARCH] = json.optBoolean("showHomeSearch", false)
+            prefs[SHOW_DEBUG_OPTIONS] = json.optBoolean("showDebugOptions", false)
             prefs[PREFER_ENGLISH_GAME_TITLES] = json.optBoolean("preferEnglishGameTitles", false)
             prefs[RECENT_GAMES] = json.optString("recentGames", "[]")
             prefs[HOME_LIBRARY_VIEW_MODE] = json.optInt("homeLibraryViewMode", 0).coerceIn(0, 2)

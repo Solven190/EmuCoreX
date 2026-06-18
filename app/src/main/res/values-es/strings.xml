@@ -1115,4 +1115,17 @@
     <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
     <string name="settings_tv_shader_nx_agss">NxAGSS</string>
     <string name="settings_help_tv_shader">Aplica un shader de presentación estilo TV después de la renderización. El filtro triangular ofrece una mezcla más suave similar a CRT que puede verse especialmente bien a una resolución de 2x, pero algunos modos pueden desenfocar el texto fino de la interfaz de usuario.</string>
+    <string name="onboarding_status_default_folder">Carpeta predeterminada seleccionada</string>
+    <string name="onboarding_status_custom_folder">Carpeta personalizada seleccionada</string>
+    <string name="onboarding_emulator_folder_title">Elegir carpeta del emulador</string>
+    <string name="onboarding_emulator_folder_desc">Selecciona dónde se almacenan las tarjetas de memoria, los estados guardados, los trucos, los parches y los registros.</string>
+    <string name="settings_help_emulator_data_path">Selecciona dónde almacena EmuCoreX los archivos de tiempo de ejecución del emulador, como tarjetas de memoria, estados guardados, trucos, parches y registros. Déjalo en la carpeta predeterminada a menos que desees mantener los datos del emulador en una ubicación compartida o administrada manualmente.</string>
+    <string name="settings_help_debug_options">Muestra controles de diagnóstico adicionales en el menú del juego, incluyendo el perfilador JIT y el grabador de rastreo de cuelgues. Mantenlo apagado para jugar normalmente.</string>
+    <string name="settings_show_debug_options">Opciones de depuración</string>
+    <string name="settings_show_debug_options_desc">Mostrar herramientas de perfilado para desarrolladores en el menú del juego.</string>
+    <string name="settings_emulator_data_path">Carpeta del emulador</string>
+    <string name="settings_emulator_data_path_desc">Selecciona dónde se almacenan los archivos del emulador.</string>
+    <string name="settings_emulator_data_path_default">Carpeta predeterminada</string>
+    <string name="settings_emulator_data_path_use_default">Usar carpeta predeterminada del emulador</string>
+    <string name="settings_emulator_data_path_use_default_desc">Devolver tarjetas de memoria, estados guardados, trucos, parches y registros a la carpeta predeterminada de la aplicación.</string>
 </resources>

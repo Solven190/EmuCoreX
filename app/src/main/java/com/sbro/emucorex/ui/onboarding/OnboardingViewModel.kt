@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sbro.emucorex.core.BiosValidator
+import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.SetupValidator
@@ -20,6 +21,7 @@ data class OnboardingUiState(
     val performanceProfile: Int = PerformanceProfiles.SAFE,
     val biosPath: String? = null,
     val gamePath: String? = null,
+    val emulatorDataPath: String? = null,
     val biosValid: Boolean = false,
     val gamePathValid: Boolean = false,
     val allFilesAccessGranted: Boolean = StoragePermissionHelper.hasAllFilesAccess(),
@@ -57,6 +59,11 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                     )
                 }
             }
+            launch {
+                preferences.emulatorDataPath.collect { path ->
+                    updateState(emulatorDataPath = path)
+                }
+            }
         }
     }
 
@@ -71,6 +78,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             preferences.setBiosPath(uri.toString())
             EmulatorBridge.applyRuntimeConfig(
                 biosPath = uri.toString(),
+                emulatorDataPath = _uiState.value.emulatorDataPath,
                 renderer = EmulatorBridge.getSetting("EmuCoreX", "Renderer", "int")?.toIntOrNull() ?: 0,
                 upscaleMultiplier = EmulatorBridge.getSetting("EmuCoreX", "UpscaleMultiplier", "float")?.toFloatOrNull()
                     ?: EmulatorBridge.getSetting("EmuCoreX", "UpscaleMultiplier", "int")?.toIntOrNull()?.toFloat()
@@ -88,6 +96,19 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
 
         viewModelScope.launch {
             preferences.setGamePath(uri.toString())
+        }
+    }
+
+    fun setEmulatorDataPath(uri: Uri) {
+        val application = getApplication<Application>()
+        application.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        )
+
+        val resolvedPath = DocumentPathResolver.resolveDirectoryPath(uri.toString()) ?: return
+        viewModelScope.launch {
+            preferences.setEmulatorDataPath(resolvedPath)
         }
     }
 
@@ -122,6 +143,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         performanceProfile: Int = _uiState.value.performanceProfile,
         biosPath: String? = _uiState.value.biosPath,
         gamePath: String? = _uiState.value.gamePath,
+        emulatorDataPath: String? = _uiState.value.emulatorDataPath,
         biosValid: Boolean = _uiState.value.biosValid,
         gamePathValid: Boolean = _uiState.value.gamePathValid,
         allFilesAccessGranted: Boolean = _uiState.value.allFilesAccessGranted,
@@ -131,6 +153,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             performanceProfile = performanceProfile,
             biosPath = biosPath,
             gamePath = gamePath,
+            emulatorDataPath = emulatorDataPath,
             biosValid = biosValid,
             gamePathValid = gamePathValid,
             allFilesAccessGranted = allFilesAccessGranted,

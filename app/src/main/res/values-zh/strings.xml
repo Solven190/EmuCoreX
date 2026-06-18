@@ -1115,4 +1115,17 @@
     <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
     <string name="settings_tv_shader_nx_agss">NxAGSS</string>
     <string name="settings_help_tv_shader">在渲染后应用电视风格的呈现着色器。三角形滤镜提供了类似于 CRT 的更柔和混合效果，在 2 倍分辨率下看起来尤其出色，但某些模式可能会模糊精细的用户界面文本。</string>
+    <string name="onboarding_status_default_folder">已选择默认文件夹</string>
+    <string name="onboarding_status_custom_folder">已选择自定义文件夹</string>
+    <string name="onboarding_emulator_folder_title">选择模拟器文件夹</string>
+    <string name="onboarding_emulator_folder_desc">选择记忆卡、即时存档、金手指、补丁和日志的存储位置。</string>
+    <string name="settings_help_emulator_data_path">选择 EmuCoreX 存储模拟器运行文件的位置，如记忆卡、即时存档、金手指、补丁和日志。除非您希望将模拟器数据保存在共享或手动管理的位置，否则请保留在默认文件夹。</string>
+    <string name="settings_help_debug_options">在游戏菜单中显示额外的诊断控件，包括 JIT 分析器和挂起追踪记录器。正常游玩时请将其关闭。</string>
+    <string name="settings_show_debug_options">调试选项</string>
+    <string name="settings_show_debug_options_desc">在游戏内菜单中显示开发者分析工具。</string>
+    <string name="settings_emulator_data_path">模拟器文件夹</string>
+    <string name="settings_emulator_data_path_desc">选择模拟器文件的存储位置。</string>
+    <string name="settings_emulator_data_path_default">默认文件夹</string>
+    <string name="settings_emulator_data_path_use_default">使用默认模拟器文件夹</string>
+    <string name="settings_emulator_data_path_use_default_desc">将记忆卡、即时存档、金手指、补丁和日志还原到应用默认文件夹。</string>
 </resources>

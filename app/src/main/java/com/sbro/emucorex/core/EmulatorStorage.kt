@@ -5,19 +5,31 @@ import java.io.File
 
 object EmulatorStorage {
 
-    private fun root(context: Context): File {
+    private fun defaultRoot(context: Context): File {
         return context.getExternalFilesDir(null) ?: context.filesDir
     }
 
-    fun saveStatesDir(context: Context): File = File(root(context), "sstates").apply { mkdirs() }
+    private fun root(context: Context, customRootPath: String? = null): File {
+        val customRoot = customRootPath
+            ?.takeIf { it.isNotBlank() }
+            ?.let(::File)
+        return (customRoot ?: defaultRoot(context)).apply { mkdirs() }
+    }
 
-    fun memoryCardsDir(context: Context): File = File(root(context), "memcards").apply { mkdirs() }
+    fun saveStatesDir(context: Context, customRootPath: String? = null): File =
+        File(root(context, customRootPath), "sstates").apply { mkdirs() }
 
-    fun cheatsDir(context: Context): File = File(root(context), "cheats").apply { mkdirs() }
+    fun memoryCardsDir(context: Context, customRootPath: String? = null): File =
+        File(root(context, customRootPath), "memcards").apply { mkdirs() }
 
-    fun patchesDir(context: Context): File = File(root(context), "patches").apply { mkdirs() }
+    fun cheatsDir(context: Context, customRootPath: String? = null): File =
+        File(root(context, customRootPath), "cheats").apply { mkdirs() }
 
-    fun logDir(context: Context): File = File(root(context), "logs").apply { mkdirs() }
+    fun patchesDir(context: Context, customRootPath: String? = null): File =
+        File(root(context, customRootPath), "patches").apply { mkdirs() }
+
+    fun logDir(context: Context, customRootPath: String? = null): File =
+        File(root(context, customRootPath), "logs").apply { mkdirs() }
 
     fun backupsDir(context: Context): File = File(root(context), "backups").apply { mkdirs() }
 
@@ -25,5 +37,7 @@ object EmulatorStorage {
 
     fun importedCheatsDir(context: Context): File = File(appStateDir(context), "imported-cheats").apply { mkdirs() }
 
-    fun dataRoot(context: Context): File = root(context)
+    fun dataRoot(context: Context, customRootPath: String? = null): File = root(context, customRootPath)
+
+    fun defaultDataRoot(context: Context): File = defaultRoot(context).apply { mkdirs() }
 }

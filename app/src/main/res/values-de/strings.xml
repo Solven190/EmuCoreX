@@ -1115,4 +1115,17 @@
     <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
     <string name="settings_tv_shader_nx_agss">NxAGSS</string>
     <string name="settings_help_tv_shader">Wendet nach dem Rendern einen Präsentations-Shader im TV-Stil an. Der dreieckige Filter sorgt für eine weichere, CRT-ähnliche Mischung, die besonders bei 2-facher Auflösung gut aussehen kann, aber bei einigen Modi können feine Texte der Benutzeroberfläche verschwimmen.</string>
+    <string name="onboarding_status_default_folder">Standardordner ausgewählt</string>
+    <string name="onboarding_status_custom_folder">Benutzerdefinierter Ordner ausgewählt</string>
+    <string name="onboarding_emulator_folder_title">Emulator-Ordner auswählen</string>
+    <string name="onboarding_emulator_folder_desc">Wählen Sie aus, wo Speicherkarten, Speicherstände, Cheats, Patches und Protokolle gespeichert werden.</string>
+    <string name="settings_help_emulator_data_path">Wählt aus, wo EmuCoreX Emulator-Laufzeitdateien wie Speicherkarten, Speicherstände, Cheats, Patches und Protokolle speichert. Belassen Sie es auf dem Standardordner, es sei denn, Sie möchten Emulator-Daten an einem freigegebenen oder manuell verwalteten Speicherort aufbewahren.</string>
+    <string name="settings_help_debug_options">Zeigt zusätzliche Diagnosewerkzeuge im In-Game-Menü an, einschließlich JIT-Profiler und Hänger-Trace-Rekorder. Für normales Spielen deaktiviert lassen.</string>
+    <string name="settings_show_debug_options">Debug-Optionen</string>
+    <string name="settings_show_debug_options_desc">Entwickler-Profiling-Tools im In-Game-Menü anzeigen.</string>
+    <string name="settings_emulator_data_path">Emulator-Ordner</string>
+    <string name="settings_emulator_data_path_desc">Wählen Sie aus, wo Emulator-Dateien gespeichert werden.</string>
+    <string name="settings_emulator_data_path_default">Standardordner</string>
+    <string name="settings_emulator_data_path_use_default">Standard-Emulator-Ordner verwenden</string>
+    <string name="settings_emulator_data_path_use_default_desc">Speicherkarten, Speicherstände, Cheats, Patches und Protokolle in den Standard-App-Ordner zurückführen.</string>
 </resources>

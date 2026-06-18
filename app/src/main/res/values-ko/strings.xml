@@ -1113,4 +1113,17 @@
     <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
     <string name="settings_tv_shader_nx_agss">NxAGSS</string>
     <string name="settings_help_tv_shader">렌더링 후 TV 스타일의 프레젠테이션 셰이더를 적용합니다. 삼각형 필터는 2배 해상도에서 특히 좋아 보일 수 있는 더 부드러운 CRT 느낌의 혼합을 제공하지만, 일부 모드에서는 미세한 UI 텍스트가 흐려질 수 있습니다.</string>
+    <string name="onboarding_status_default_folder">기본 폴더가 선택되었습니다</string>
+    <string name="onboarding_status_custom_folder">사용자 지정 폴더가 선택되었습니다</string>
+    <string name="onboarding_emulator_folder_title">에뮬레이터 폴더 선택</string>
+    <string name="onboarding_emulator_folder_desc">메모리 카드, 상태 저장, 치트, 패치 및 로그가 저장될 위치를 선택합니다.</string>
+    <string name="settings_help_emulator_data_path">EmuCoreX가 메모리 카드, 상태 저장, 치트, 패치 및 로그와 같은 에뮬레이터 런타임 파일을 저장할 위치를 선택합니다. 에뮬레이터 데이터를 공유 또는 수동으로 관리되는 위치에 보관하려는 경우가 아니면 기본 폴더로 유지하세요.</string>
+    <string name="settings_help_debug_options">게임 내 메뉴에 JIT 프로파일러 및 중단 추적 레코더를 포함한 추가 진단 컨트롤을 표시합니다. 일반적인 플레이 시에는 꺼두세요.</string>
+    <string name="settings_show_debug_options">디버그 옵션</string>
+    <string name="settings_show_debug_options_desc">게임 내 메뉴에 개발자 프로파일링 도구를 표시합니다.</string>
+    <string name="settings_emulator_data_path">에뮬레이터 폴더</string>
+    <string name="settings_emulator_data_path_desc">에뮬레이터 파일이 저장될 위치를 선택합니다.</string>
+    <string name="settings_emulator_data_path_default">기본 폴더</string>
+    <string name="settings_emulator_data_path_use_default">기본 에뮬레이터 폴더 사용</string>
+    <string name="settings_emulator_data_path_use_default_desc">메모리 카드, 상태 저장, 치트, 패치 및 로그를 앱 기본 폴더로 되돌립니다.</string>
 </resources>

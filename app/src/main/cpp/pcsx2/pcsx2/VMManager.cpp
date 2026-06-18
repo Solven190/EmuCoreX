@@ -726,6 +726,13 @@ void VMManager::WarnAboutUnconfiguredController()
 		TRANSLATE_STR("VMManager", "Controller 1 has no input bindings configured."), Host::OSD_WARNING_DURATION);
 }
 
+static bool ShouldDisableVU0RecompilerForGame(const std::string& serial)
+{
+	return serial == "SLUS-20870" || serial == "SLUS-21285" ||
+	       serial == "SLES-53390" || serial == "SLES-53391" || serial == "SLES-53672" ||
+	       serial == "SLPM-66404" || serial == "TCPS-10158";
+}
+
 void VMManager::ApplyGameFixes()
 {
 	if (!HasBootedELF() && !GSDumpReplayer::IsReplayingDump())
@@ -744,6 +751,12 @@ void VMManager::ApplyGameFixes()
 
 	game->applyGameFixes(EmuConfig, EmuConfig.EnableGameFixes);
 	game->applyGSHardwareFixes(EmuConfig.GS);
+
+	if (ShouldDisableVU0RecompilerForGame(s_disc_serial))
+	{
+		EmuConfig.Cpu.Recompiler.EnableVU0 = false;
+		Console.WriteLn("GameDB: Disabled VU0 recompiler for Ultimate Spider-Man.");
+	}
 
 	// Re-remove upscaling fixes, make sure they don't apply at native res.
 	// We do this in LoadCoreSettings(), but game fixes get applied afterwards because of the unsafe warning.

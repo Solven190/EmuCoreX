@@ -147,12 +147,14 @@ data class EmulationUiState(
     val autoSaveLastModified: Long = 0L,
     val isAutoSaveInProgress: Boolean = false,
     val activePlayTimeMs: Long = 0L,
+    val showDebugOptions: Boolean = false,
     val isJitProfilerActive: Boolean = false,
     val isHangTraceActive: Boolean = false
 )
 
 private data class EmulationLaunchConfig(
     val biosPath: String?,
+    val emulatorDataPath: String?,
     val memoryCardSlot1: String?,
     val memoryCardSlot2: String?,
     val renderer: Int,
@@ -348,6 +350,22 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         )
     }
 
+    private fun stopHiddenDebugTools(state: EmulationUiState) {
+        if (!state.isJitProfilerActive && !state.isHangTraceActive) return
+        viewModelScope.launch {
+            if (state.isJitProfilerActive) {
+                EmulatorBridge.stopJitProfiler()
+            }
+            if (state.isHangTraceActive) {
+                EmulatorBridge.stopHangTrace()
+            }
+            _uiState.value = _uiState.value.copy(
+                isJitProfilerActive = false,
+                isHangTraceActive = false
+            )
+        }
+    }
+
     init {
         viewModelScope.launch {
             preferences.overlayShow.collect { enabled ->
@@ -372,6 +390,15 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.fpsOverlayCorner.collect { corner ->
                 _uiState.value = _uiState.value.copy(fpsOverlayCorner = corner)
+            }
+        }
+        viewModelScope.launch {
+            preferences.showDebugOptions.collect { enabled ->
+                val state = _uiState.value
+                _uiState.value = state.copy(showDebugOptions = enabled)
+                if (!enabled) {
+                    stopHiddenDebugTools(state)
+                }
             }
         }
         viewModelScope.launch {
@@ -880,6 +907,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
                 EmulatorBridge.applyRuntimeConfig(
                     biosPath = config.biosPath,
+                    emulatorDataPath = config.emulatorDataPath,
                     memoryCardSlot1 = config.memoryCardSlot1,
                     memoryCardSlot2 = config.memoryCardSlot2,
                     renderer = renderer,
@@ -2443,6 +2471,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
         return EmulationLaunchConfig(
             biosPath = preferences.biosPath.first(),
+            emulatorDataPath = preferences.emulatorDataPath.first(),
             memoryCardSlot1 = ensuredAssignments.slot1,
             memoryCardSlot2 = ensuredAssignments.slot2,
             renderer = preferences.renderer.first(),
@@ -2991,7 +3020,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private fun findSaveStateFileForCurrentGame(slot: Int): File? {
         val targetSerial = currentGameSerial.normalizeSaveSerialKey() ?: return null
         val targetCrc = currentGameCrc.trim().uppercase(Locale.ROOT)
-        val matches = EmulatorStorage.saveStatesDir(getApplication())
+        val matches = EmulatorStorage.saveStatesDir(getApplication(), preferences.getEmulatorDataPathSync())
             .listFiles()
             .orEmpty()
             .mapNotNull { file ->

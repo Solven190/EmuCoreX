@@ -1115,4 +1115,17 @@
     <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
     <string name="settings_tv_shader_nx_agss">NxAGSS</string>
     <string name="settings_help_tv_shader">Применяет шейдер презентации в стиле ТВ после рендеринга. Треугольный фильтр дает более мягкое смешивание, похожее на ЭЛТ, которое может выглядеть особенно хорошо при двукратном разрешении (2x), но некоторые режимы могут размывать мелкий текст интерфейса.</string>
+    <string name="onboarding_status_default_folder">Выбрана папка по умолчанию</string>
+    <string name="onboarding_status_custom_folder">Выбрана пользовательская папка</string>
+    <string name="onboarding_emulator_folder_title">Выберите папку эмулятора</string>
+    <string name="onboarding_emulator_folder_desc">Выберите, где будут храниться карты памяти, сохранения, читы, патчи и журналы.</string>
+    <string name="settings_help_emulator_data_path">Выбирает, где EmuCoreX хранит файлы эмулятора, такие как карты памяти, сохранения (save states), читы, патчи и логи. Оставьте значение по умолчанию, если не хотите хранить данные эмулятора в общей или управляемой вручную папке.</string>
+    <string name="settings_help_debug_options">Показывает дополнительные элементы управления диагностикой во внутриигровом меню, включая профайлер JIT и запись трассировки зависаний. Держите это выключенным для обычной игры.</string>
+    <string name="settings_show_debug_options">Настройки отладки</string>
+    <string name="settings_show_debug_options_desc">Показывать инструменты профилирования разработчика во внутриигровом меню.</string>
+    <string name="settings_emulator_data_path">Папка эмулятора</string>
+    <string name="settings_emulator_data_path_desc">Выберите, где хранятся файлы эмулятора.</string>
+    <string name="settings_emulator_data_path_default">Папка по умолчанию</string>
+    <string name="settings_emulator_data_path_use_default">Использовать папку эмулятора по умолчанию</string>
+    <string name="settings_emulator_data_path_use_default_desc">Вернуть карты памяти, сохранения, читы, патчи и логи в папку приложения по умолчанию.</string>
 </resources>

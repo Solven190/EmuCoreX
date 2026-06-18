@@ -1113,4 +1113,17 @@
     <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
     <string name="settings_tv_shader_nx_agss">NxAGSS</string>
     <string name="settings_help_tv_shader">レンダリング後にTV風のプレゼンテーションシェーダーを適用します。三角形フィルターは、2倍の解像度で特によく見える、柔らかいCRTのようなブレンドを提供しますが、一部のモードでは細かいUIテキストがぼやける場合があります。</string>
+    <string name="onboarding_status_default_folder">デフォルトのフォルダが選択されました</string>
+    <string name="onboarding_status_custom_folder">カスタムフォルダが選択されました</string>
+    <string name="onboarding_emulator_folder_title">エミュレータのフォルダを選択</string>
+    <string name="onboarding_emulator_folder_desc">メモリーカード、セーブステート、チート、パッチ、ログを保存する場所を選択します。</string>
+    <string name="settings_help_emulator_data_path">EmuCoreXがメモリーカード、セーブステート、チート、パッチ、ログなどのエミュレータ実行時ファイルを保存する場所を選択します。エミュレータのデータを共有または手動で管理する場所に保持したい場合を除き、デフォルトのフォルダのままにしておいてください。</string>
+    <string name="settings_help_debug_options">ゲーム内メニューに、JITプロファイラやハングトレースレコーダーなどの追加の診断コントロールを表示します。通常のプレイではオフにしておいてください。</string>
+    <string name="settings_show_debug_options">デバッグオプション</string>
+    <string name="settings_show_debug_options_desc">ゲーム内メニューに開発者用プロファイリングツールを表示します。</string>
+    <string name="settings_emulator_data_path">エミュレータフォルダ</string>
+    <string name="settings_emulator_data_path_desc">エミュレータのファイルが保存される場所を選択します。</string>
+    <string name="settings_emulator_data_path_default">デフォルトフォルダ</string>
+    <string name="settings_emulator_data_path_use_default">デフォルトのエミュレータフォルダを使用</string>
+    <string name="settings_emulator_data_path_use_default_desc">メモリーカード、セーブステート、チート、パッチ、ログをアプリのデフォルトフォルダに戻します。</string>
 </resources>

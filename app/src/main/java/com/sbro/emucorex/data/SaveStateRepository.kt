@@ -145,7 +145,7 @@ class SaveStateRepository(private val context: Context) {
                     generateSequence { zip.nextEntry }.forEach { entry ->
                         if (!entry.name.startsWith("slots/")) return@forEach
                         val targetName = entry.name.substringAfterLast('/')
-                        val targetFile = File(EmulatorStorage.saveStatesDir(context), targetName)
+                        val targetFile = File(saveStatesDir(), targetName)
                         targetFile.parentFile?.mkdirs()
                         targetFile.outputStream().use { output -> zip.copyTo(output) }
                         zip.closeEntry()
@@ -176,7 +176,7 @@ class SaveStateRepository(private val context: Context) {
     }
 
     private fun listAllEntriesFast(): List<SaveStateEntryInfo> {
-        val files = EmulatorStorage.saveStatesDir(context)
+        val files = saveStatesDir()
             .listFiles()
             .orEmpty()
             .filter { it.isFile && isPrimarySaveState(it.name) }
@@ -189,6 +189,10 @@ class SaveStateRepository(private val context: Context) {
                 .thenBy { it.gameTitle.lowercase(Locale.ROOT) }
                 .thenBy { it.slot }
         )
+    }
+
+    private fun saveStatesDir(): File {
+        return EmulatorStorage.saveStatesDir(context, preferences.getEmulatorDataPathSync())
     }
 
     private fun listEntriesForGame(gamePath: String, gameTitle: String?): List<SaveStateEntryInfo> {

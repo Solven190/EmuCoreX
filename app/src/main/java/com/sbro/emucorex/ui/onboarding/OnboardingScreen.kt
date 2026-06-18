@@ -155,6 +155,11 @@ fun OnboardingScreen(
     ) { uri: Uri? ->
         uri?.let(viewModel::setGamePath)
     }
+    val emulatorDataPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        uri?.let(viewModel::setEmulatorDataPath)
+    }
     val allFilesAccessLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
@@ -162,6 +167,7 @@ fun OnboardingScreen(
     }
     val launchBiosPicker = rememberDebouncedClick(onClick = { biosPicker.launch(arrayOf("*/*")) })
     val launchGamePicker = rememberDebouncedClick(onClick = { gamePicker.launch(null) })
+    val launchEmulatorDataPicker = rememberDebouncedClick(onClick = { emulatorDataPicker.launch(null) })
     val launchAllFilesAccess = rememberDebouncedClick(
         onClick = {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
@@ -405,12 +411,14 @@ fun OnboardingScreen(
                                         OnboardingSetupContent(
                                             biosPath = uiState.biosPath,
                                             gamePath = uiState.gamePath,
+                                            emulatorDataPath = uiState.emulatorDataPath,
                                             biosValid = uiState.biosValid,
                                             gamePathValid = uiState.gamePathValid,
                                             allFilesAccessGranted = uiState.allFilesAccessGranted,
                                             context = context,
                                             launchBiosPicker = launchBiosPicker,
                                             launchGamePicker = launchGamePicker,
+                                            launchEmulatorDataPicker = launchEmulatorDataPicker,
                                             launchAllFilesAccess = launchAllFilesAccess,
                                             endInset = 0.dp,
                                             bottomInset = 0.dp,
@@ -515,12 +523,14 @@ fun OnboardingScreen(
                                 OnboardingSetupContent(
                                     biosPath = uiState.biosPath,
                                     gamePath = uiState.gamePath,
+                                    emulatorDataPath = uiState.emulatorDataPath,
                                     biosValid = uiState.biosValid,
                                     gamePathValid = uiState.gamePathValid,
                                     allFilesAccessGranted = uiState.allFilesAccessGranted,
                                     context = context,
                                     launchBiosPicker = launchBiosPicker,
                                     launchGamePicker = launchGamePicker,
+                                    launchEmulatorDataPicker = launchEmulatorDataPicker,
                                     launchAllFilesAccess = launchAllFilesAccess,
                                     endInset = 0.dp,
                                     bottomInset = 0.dp
@@ -863,12 +873,14 @@ private fun OnboardingNavigation(
 private fun OnboardingSetupContent(
     biosPath: String?,
     gamePath: String?,
+    emulatorDataPath: String?,
     biosValid: Boolean,
     gamePathValid: Boolean,
     allFilesAccessGranted: Boolean,
     context: android.content.Context,
     launchBiosPicker: () -> Unit,
     launchGamePicker: () -> Unit,
+    launchEmulatorDataPicker: () -> Unit,
     launchAllFilesAccess: () -> Unit,
     endInset: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
@@ -927,6 +939,22 @@ private fun OnboardingSetupContent(
                     else -> MaterialTheme.colorScheme.error
                 },
                 onClick = launchGamePicker
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SetupCard(
+                icon = Icons.Rounded.FolderOpen,
+                title = stringResource(R.string.onboarding_emulator_folder_title),
+                description = emulatorDataPath?.let { DocumentPathResolver.getDisplayName(context, it) }
+                    ?: stringResource(R.string.onboarding_emulator_folder_desc),
+                status = if (emulatorDataPath.isNullOrBlank()) {
+                    stringResource(R.string.onboarding_status_default_folder)
+                } else {
+                    stringResource(R.string.onboarding_status_custom_folder)
+                },
+                statusColor = Color(0xFF1B8A5A),
+                onClick = launchEmulatorDataPicker
             )
 
             Spacer(modifier = Modifier.height(10.dp))

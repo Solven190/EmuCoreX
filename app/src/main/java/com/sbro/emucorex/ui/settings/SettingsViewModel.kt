@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sbro.emucorex.core.AppUpdateRelease
 import com.sbro.emucorex.core.AppUpdateRepository
+import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GpuDriverCatalogRepository
 import com.sbro.emucorex.core.GpuDriverManager
@@ -48,9 +49,11 @@ data class SettingsUiState(
     val keepScreenOn: Boolean = true,
     val showRecentGames: Boolean = true,
     val showHomeSearch: Boolean = false,
+    val showDebugOptions: Boolean = false,
     val preferEnglishGameTitles: Boolean = false,
     val biosPath: String? = null,
     val gamePath: String? = null,
+    val emulatorDataPath: String? = null,
     val coverDownloadBaseUrl: String? = null,
     val coverArtStyle: Int = AppPreferences.COVER_ART_STYLE_DEFAULT,
     val biosValid: Boolean = false,
@@ -206,9 +209,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             keepScreenOn = snapshot.keepScreenOn,
             showRecentGames = snapshot.showRecentGames,
             showHomeSearch = snapshot.showHomeSearch,
+            showDebugOptions = snapshot.showDebugOptions,
             preferEnglishGameTitles = snapshot.preferEnglishGameTitles,
             biosPath = snapshot.biosPath,
             gamePath = snapshot.gamePath,
+            emulatorDataPath = snapshot.emulatorDataPath,
             coverDownloadBaseUrl = snapshot.coverDownloadBaseUrl,
             coverArtStyle = snapshot.coverArtStyle,
             biosValid = snapshot.biosValid,
@@ -754,6 +759,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setKeepScreenOn(enabled: Boolean) { viewModelScope.launch { preferences.setKeepScreenOn(enabled) } }
     fun setShowRecentGames(enabled: Boolean) { viewModelScope.launch { preferences.setShowRecentGames(enabled) } }
     fun setShowHomeSearch(enabled: Boolean) { viewModelScope.launch { preferences.setShowHomeSearch(enabled) } }
+    fun setShowDebugOptions(enabled: Boolean) { viewModelScope.launch { preferences.setShowDebugOptions(enabled) } }
     fun setPreferEnglishGameTitles(enabled: Boolean) {
         viewModelScope.launch {
             EmulatorBridge.setSetting("UI", "PreferEnglishGameTitles", "bool", enabled.toString())
@@ -1394,6 +1400,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             preferences.setBiosPath(uri.toString())
             EmulatorBridge.applyRuntimeConfig(
                 biosPath = uri.toString(),
+                emulatorDataPath = _uiState.value.emulatorDataPath,
                 memoryCardSlot1 = preferences.memoryCardSlot1.first(),
                 memoryCardSlot2 = preferences.memoryCardSlot2.first(),
                 renderer = _uiState.value.renderer,
@@ -1459,6 +1466,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             Intent.FLAG_GRANT_READ_URI_PERMISSION
         )
         viewModelScope.launch { preferences.setGamePath(uri.toString()) }
+    }
+
+    fun setEmulatorDataPath(uri: Uri) {
+        val application = getApplication<Application>()
+        application.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        )
+
+        val resolvedPath = DocumentPathResolver.resolveDirectoryPath(uri.toString()) ?: return
+        viewModelScope.launch { preferences.setEmulatorDataPath(resolvedPath) }
+    }
+
+    fun clearEmulatorDataPath() {
+        viewModelScope.launch { preferences.setEmulatorDataPath(null) }
     }
 
     fun setCoverDownloadBaseUrl(url: String?) {

@@ -1115,4 +1115,17 @@
     <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
     <string name="settings_tv_shader_nx_agss">NxAGSS</string>
     <string name="settings_help_tv_shader">Aplica um shader de apresentação no estilo de TV após a renderização. O filtro triangular dá uma mistura mais suave semelhante a um CRT que pode parecer especialmente boa na resolução 2x, mas alguns modos podem borrar o texto fino da interface do usuário.</string>
+    <string name="onboarding_status_default_folder">Pasta padrão selecionada</string>
+    <string name="onboarding_status_custom_folder">Pasta personalizada selecionada</string>
+    <string name="onboarding_emulator_folder_title">Escolher pasta do emulador</string>
+    <string name="onboarding_emulator_folder_desc">Selecione onde cartões de memória, save states, cheats, patches e logs são armazenados.</string>
+    <string name="settings_help_emulator_data_path">Seleciona onde o EmuCoreX armazena arquivos de tempo de execução do emulador, como cartões de memória, save states, cheats, patches e logs. Deixe na pasta padrão, a menos que você queira manter os dados do emulador em um local compartilhado ou gerenciado manualmente.</string>
+    <string name="settings_help_debug_options">Mostra controles de diagnóstico extras no menu do jogo, incluindo o perfilador JIT e o gravador de rastreamento de travamento. Mantenha isso desligado para jogar normalmente.</string>
+    <string name="settings_show_debug_options">Opções de depuração</string>
+    <string name="settings_show_debug_options_desc">Mostrar ferramentas de perfil de desenvolvedor no menu do jogo.</string>
+    <string name="settings_emulator_data_path">Pasta do Emulador</string>
+    <string name="settings_emulator_data_path_desc">Selecione onde os arquivos do emulador são armazenados.</string>
+    <string name="settings_emulator_data_path_default">Pasta padrão</string>
+    <string name="settings_emulator_data_path_use_default">Usar pasta padrão do emulador</string>
+    <string name="settings_emulator_data_path_use_default_desc">Retornar cartões de memória, save states, cheats, patches e logs para a pasta padrão do aplicativo.</string>
 </resources>

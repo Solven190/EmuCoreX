@@ -1115,4 +1115,17 @@
     <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
     <string name="settings_tv_shader_nx_agss">NxAGSS</string>
     <string name="settings_help_tv_shader">Застосовує шейдер презентації у стилі ТБ після рендерингу. Трикутний фільтр дає м\'якше змішування, схоже на ЕЛТ, яке може виглядати особливо добре при двократній роздільній здатності (2x), але деякі режими можуть розмивати дрібний текст інтерфейсу.</string>
+    <string name="onboarding_status_default_folder">Вибрано папку за замовчуванням</string>
+    <string name="onboarding_status_custom_folder">Вибрано користувацьку папку</string>
+    <string name="onboarding_emulator_folder_title">Виберіть папку емулятора</string>
+    <string name="onboarding_emulator_folder_desc">Виберіть, де зберігатимуться карти пам\'яті, збереження, чити, патчі та журнали.</string>
+    <string name="settings_help_emulator_data_path">Вибирає, де EmuCoreX зберігає файли середовища емулятора, такі як карти пам\'яті, збереження стану, чити, патчі та журнали (логи). Залиште папку за замовчуванням, якщо не бажаєте зберігати дані емулятора у спільній або керованій вручну папці.</string>
+    <string name="settings_help_debug_options">Показує додаткові елементи керування діагностикою у внутрішньоігровому меню, включаючи профайлер JIT та запис трасування зависань. Тримайте це вимкненим для звичайної гри.</string>
+    <string name="settings_show_debug_options">Налаштування налагодження</string>
+    <string name="settings_show_debug_options_desc">Показувати інструменти профілювання розробника у внутрішньоігровому меню.</string>
+    <string name="settings_emulator_data_path">Папка емулятора</string>
+    <string name="settings_emulator_data_path_desc">Виберіть, де зберігаються файли емулятора.</string>
+    <string name="settings_emulator_data_path_default">Папка за замовчуванням</string>
+    <string name="settings_emulator_data_path_use_default">Використовувати папку емулятора за замовчуванням</string>
+    <string name="settings_emulator_data_path_use_default_desc">Повернути карти пам\'яті, збереження, чити, патчі та журнали в папку програми за замовчуванням.</string>
 </resources>

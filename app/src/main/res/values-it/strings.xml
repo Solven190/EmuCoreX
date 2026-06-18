@@ -1113,4 +1113,17 @@
     <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
     <string name="settings_tv_shader_nx_agss">NxAGSS</string>
     <string name="settings_help_tv_shader">Applica uno shader di presentazione in stile TV dopo il rendering. Il filtro triangolare offre una fusione più morbida simile a un CRT che può apparire particolarmente bene a risoluzione 2x, ma alcune modalità potrebbero sfocare il testo fine dell\'interfaccia utente.</string>
+    <string name="onboarding_status_default_folder">Cartella predefinita selezionata</string>
+    <string name="onboarding_status_custom_folder">Cartella personalizzata selezionata</string>
+    <string name="onboarding_emulator_folder_title">Scegli cartella dell\'emulatore</string>
+    <string name="onboarding_emulator_folder_desc">Seleziona dove vengono memorizzati memory card, salvataggi di stato, trucchi, patch e log.</string>
+    <string name="settings_help_emulator_data_path">Seleziona dove EmuCoreX memorizza i file di runtime dell\'emulatore come memory card, salvataggi di stato, trucchi, patch e log. Lascia l\'impostazione sulla cartella predefinita a meno che non desideri mantenere i dati dell\'emulatore in una posizione condivisa o gestita manualmente.</string>
+    <string name="settings_help_debug_options">Mostra controlli diagnostici aggiuntivi nel menu di gioco, inclusi il profiler JIT e il registratore di tracce dei blocchi. Tienilo disattivato per giocare normalmente.</string>
+    <string name="settings_show_debug_options">Opzioni di debug</string>
+    <string name="settings_show_debug_options_desc">Mostra gli strumenti di profilazione per sviluppatori nel menu di gioco.</string>
+    <string name="settings_emulator_data_path">Cartella dell\'emulatore</string>
+    <string name="settings_emulator_data_path_desc">Seleziona dove vengono salvati i file dell\'emulatore.</string>
+    <string name="settings_emulator_data_path_default">Cartella predefinita</string>
+    <string name="settings_emulator_data_path_use_default">Usa cartella dell\'emulatore predefinita</string>
+    <string name="settings_emulator_data_path_use_default_desc">Ripristina memory card, salvataggi di stato, trucchi, patch e log nella cartella predefinita dell\'app.</string>
 </resources>

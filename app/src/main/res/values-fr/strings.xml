@@ -1115,4 +1115,17 @@
     <string name="settings_tv_shader_4x_rgss">4xRGSS</string>
     <string name="settings_tv_shader_nx_agss">NxAGSS</string>
     <string name="settings_help_tv_shader">Applique un shader de présentation de style TV après le rendu. Le filtre triangulaire donne un mélange plus doux de type CRT qui peut être particulièrement beau en résolution 2x, mais certains modes peuvent rendre flou le texte fin de l\'interface utilisateur.</string>
+    <string name="onboarding_status_default_folder">Dossier par défaut sélectionné</string>
+    <string name="onboarding_status_custom_folder">Dossier personnalisé sélectionné</string>
+    <string name="onboarding_emulator_folder_title">Choisir le dossier de l\'émulateur</string>
+    <string name="onboarding_emulator_folder_desc">Sélectionnez où les cartes mémoire, les états de sauvegarde, les codes de triche, les correctifs et les journaux sont stockés.</string>
+    <string name="settings_help_emulator_data_path">Sélectionne où EmuCoreX stocke les fichiers d\'exécution de l\'émulateur tels que les cartes mémoire, les états de sauvegarde, les codes de triche, les correctifs et les journaux. Laissez-le sur le dossier par défaut, sauf si vous souhaitez conserver les données de l\'émulateur dans un emplacement partagé ou géré manuellement.</string>
+    <string name="settings_help_debug_options">Affiche des contrôles de diagnostic supplémentaires dans le menu en jeu, notamment le profileur JIT et l\'enregistreur de traces de plantage. Laissez cette option désactivée pour une partie normale.</string>
+    <string name="settings_show_debug_options">Options de débogage</string>
+    <string name="settings_show_debug_options_desc">Afficher les outils de profilage des développeurs dans le menu en jeu.</string>
+    <string name="settings_emulator_data_path">Dossier de l\'émulateur</string>
+    <string name="settings_emulator_data_path_desc">Sélectionnez où les fichiers de l\'émulateur sont stockés.</string>
+    <string name="settings_emulator_data_path_default">Dossier par défaut</string>
+    <string name="settings_emulator_data_path_use_default">Utiliser le dossier de l\'émulateur par défaut</string>
+    <string name="settings_emulator_data_path_use_default_desc">Renvoyer les cartes mémoire, les états de sauvegarde, les codes de triche, les correctifs et les journaux vers le dossier par défaut de l\'application.</string>
 </resources>

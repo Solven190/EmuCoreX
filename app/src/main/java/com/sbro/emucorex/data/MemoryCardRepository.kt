@@ -103,7 +103,7 @@ class MemoryCardRepository(
         val resolvedName = displayName
             ?.takeIf { it.isNotBlank() }
             ?: DocumentPathResolver.getDisplayName(context, uri.toString())
-        val target = File(EmulatorStorage.memoryCardsDir(context), buildUniqueCardName(resolvedName))
+        val target = File(memoryCardsDir(), buildUniqueCardName(resolvedName))
         return runCatching {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 target.outputStream().use { output -> input.copyTo(output) }
@@ -114,7 +114,7 @@ class MemoryCardRepository(
     fun duplicateCard(card: MemoryCardInfo, newName: String): Boolean {
         val source = File(card.path)
         if (!source.exists()) return false
-        val target = File(EmulatorStorage.memoryCardsDir(context), buildUniqueCardName(newName))
+        val target = File(memoryCardsDir(), buildUniqueCardName(newName))
         return runCatching {
             source.inputStream().use { input ->
                 target.outputStream().use { output -> input.copyTo(output) }
@@ -129,7 +129,7 @@ class MemoryCardRepository(
         if (!source.exists()) return false
         val targetName = normalizeName(newName)
         if (targetName.equals(card.name, ignoreCase = true)) return true
-        val target = File(EmulatorStorage.memoryCardsDir(context), buildUniqueCardName(targetName, source.name))
+        val target = File(memoryCardsDir(), buildUniqueCardName(targetName, source.name))
         val renamed = runCatching { source.renameTo(target) }.getOrDefault(false)
         if (!renamed) return false
 
@@ -232,7 +232,7 @@ class MemoryCardRepository(
                             return@forEach
                         }
                         val target = File(
-                            EmulatorStorage.memoryCardsDir(context),
+                            memoryCardsDir(),
                             buildUniqueCardName(rawName)
                         )
                         target.parentFile?.mkdirs()
@@ -247,7 +247,7 @@ class MemoryCardRepository(
 
     private fun buildUniqueCardName(value: String, currentName: String? = null): String {
         val normalized = normalizeName(value)
-        val directory = EmulatorStorage.memoryCardsDir(context)
+        val directory = memoryCardsDir()
         val baseName = normalized.removeSuffix(".ps2")
         var candidate = normalized
         var index = 2
@@ -279,7 +279,7 @@ class MemoryCardRepository(
     }
 
     private fun syncNativeMemoryCardDirectory() {
-        val directory = EmulatorStorage.memoryCardsDir(context).absolutePath
+        val directory = memoryCardsDir().absolutePath
         runCatching {
             NativeApp.beginSettingsBatch()
             NativeApp.setSetting("Folders", "MemoryCards", "string", directory)
@@ -287,6 +287,10 @@ class MemoryCardRepository(
         runCatching {
             NativeApp.endSettingsBatch()
         }
+    }
+
+    private fun memoryCardsDir(): File {
+        return EmulatorStorage.memoryCardsDir(context, preferences.getEmulatorDataPathSync())
     }
 
     private fun migrateLegacyDefaultCardIfNeeded(

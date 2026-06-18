@@ -240,9 +240,14 @@ fun SettingsScreen(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? -> uri?.let(viewModel::setGamePath) }
 
+    val emulatorDataPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? -> uri?.let(viewModel::setEmulatorDataPath) }
+
     val launchBiosPicker = rememberDebouncedClick(onClick = { biosPicker.launch(arrayOf("*/*")) })
     val openBiosDialog = rememberDebouncedClick(onClick = { showBiosDialog.value = true })
     val launchGamePicker = rememberDebouncedClick(onClick = { gamePicker.launch(null) })
+    val launchEmulatorDataPicker = rememberDebouncedClick(onClick = { emulatorDataPicker.launch(null) })
     val openLanguageSheet = rememberDebouncedClick(onClick = { onOpenLanguageScreen?.invoke() })
     val refreshCheatEntries = remember {
         {
@@ -397,6 +402,7 @@ fun SettingsScreen(
                 context = context,
                 launchBiosPicker = openBiosDialog,
                 launchGamePicker = launchGamePicker,
+                launchEmulatorDataPicker = launchEmulatorDataPicker,
                 onOpenCoverUrlEditor = {
                     pendingCoverUrl.value = uiState.coverDownloadBaseUrl.orEmpty()
                     showCoverUrlDialog.value = true
@@ -864,6 +870,7 @@ private fun SettingsContent(
     context: android.content.Context,
     launchBiosPicker: () -> Unit,
     launchGamePicker: () -> Unit,
+    launchEmulatorDataPicker: () -> Unit,
     onOpenCoverUrlEditor: () -> Unit,
     launchDriverPicker: () -> Unit,
     launchSettingsBackupExport: () -> Unit,
@@ -942,6 +949,15 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setShowHomeSearch,
                             helpText = stringResource(R.string.settings_help_home_search),
                             onResetToDefault = { viewModel.setShowHomeSearch(defaults.showHomeSearch) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.SettingsSuggest,
+                            title = stringResource(R.string.settings_show_debug_options),
+                            subtitle = stringResource(R.string.settings_show_debug_options_desc),
+                            checked = uiState.showDebugOptions,
+                            onCheckedChange = viewModel::setShowDebugOptions,
+                            helpText = stringResource(R.string.settings_help_debug_options),
+                            onResetToDefault = { viewModel.setShowDebugOptions(defaults.showDebugOptions) }
                         )
                         ToggleItem(
                             icon = Icons.Rounded.Language,
@@ -1382,6 +1398,9 @@ private fun SettingsContent(
                         uiState.gamePath?.let { DocumentPathResolver.getDisplayName(context, it) }
                             ?: notSetLabel
                     }
+                    val emulatorDataDisplayName = remember(uiState.emulatorDataPath, context) {
+                        uiState.emulatorDataPath?.let { DocumentPathResolver.getDisplayName(context, it) }
+                    }
                     val repository = remember(context) {
                         MemoryCardRepository(context, AppPreferences(context))
                     }
@@ -1422,6 +1441,21 @@ private fun SettingsContent(
                             onClick = launchGamePicker,
                             helpText = stringResource(R.string.settings_help_game_path)
                         )
+                        SettingsItem(
+                            icon = Icons.Rounded.SaveAs,
+                            label = stringResource(R.string.settings_emulator_data_path),
+                            value = emulatorDataDisplayName ?: stringResource(R.string.settings_emulator_data_path_default),
+                            onClick = launchEmulatorDataPicker,
+                            helpText = stringResource(R.string.settings_help_emulator_data_path)
+                        )
+                        if (!uiState.emulatorDataPath.isNullOrBlank()) {
+                            SettingsItem(
+                                icon = Icons.Rounded.Close,
+                                label = stringResource(R.string.settings_emulator_data_path_use_default),
+                                value = stringResource(R.string.settings_emulator_data_path_use_default_desc),
+                                onClick = viewModel::clearEmulatorDataPath
+                            )
+                        }
                     }
 
                     SettingsSection(title = stringResource(R.string.settings_memory_cards_tab)) {
@@ -2376,6 +2410,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Controls, R.string.settings_pad_vibration_fallback),
         entry(SettingsTab.Library, R.string.settings_bios_path),
         entry(SettingsTab.Library, R.string.settings_game_path),
+        entry(SettingsTab.Library, R.string.settings_emulator_data_path),
         entry(SettingsTab.Library, R.string.settings_memory_cards_tab),
         entry(SettingsTab.Library, R.string.settings_cover_art_style),
         entry(SettingsTab.Library, R.string.settings_cover_download_url),

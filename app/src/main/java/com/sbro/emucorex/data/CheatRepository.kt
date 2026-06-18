@@ -28,10 +28,10 @@ data class CheatFileEntry(
     val blockCount: Int
 )
 
-class CheatRepository(context: Context) {
+class CheatRepository(private val context: Context) {
+    private val preferences = AppPreferences(context)
     private val importedDir = EmulatorStorage.importedCheatsDir(context)
     private val stateFile = File(EmulatorStorage.appStateDir(context), "cheat-state.json")
-    private val activeDir = EmulatorStorage.cheatsDir(context)
 
     fun getGameConfig(gameKey: String, serial: String, crc: String?): CheatGameConfig? {
         val sourceFile = importedFile(gameKey)
@@ -117,7 +117,7 @@ class CheatRepository(context: Context) {
             targets.forEach { if (it.exists()) it.delete() }
             return
         }
-        activeDir.mkdirs()
+        activeDir().mkdirs()
         val contents = buildString {
             blocks.forEach { block ->
                 append("// ${block.title}\n")
@@ -164,7 +164,11 @@ class CheatRepository(context: Context) {
         val names = linkedSetOf<String>()
         if (!serial.isNullOrBlank()) names += "${sanitizeFileName(serial)}_$crc.pnach"
         names += "$crc.pnach"
-        return names.map { File(activeDir, it) }
+        return names.map { File(activeDir(), it) }
+    }
+
+    private fun activeDir(): File {
+        return EmulatorStorage.cheatsDir(context, preferences.getEmulatorDataPathSync())
     }
 
     private fun parseCheatBlocks(raw: String): List<CheatBlock> {
