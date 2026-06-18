@@ -1778,7 +1778,13 @@ static void mVU_MADDi_direct_emit_oaknut(mP)
 static void mVU_MADDi_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, _Fd_, _Fs_, 0); }
-	pass2 { mVU_MADDi_direct_emit_oaknut(mVU, recPass); }
+	pass2
+	{
+		if ((_X_Y_Z_W == 0xf) && mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::I))
+			mVUExactVu0DestOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::I);
+		else
+			mVU_MADDi_direct_emit_oaknut(mVU, recPass);
+	}
 	pass3
 	{
 		mVUlog("MADDi");
