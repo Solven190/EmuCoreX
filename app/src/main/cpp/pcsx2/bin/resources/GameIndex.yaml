@@ -5597,6 +5597,7 @@ SCES-52004:
   gameFixes:
     - IbitHack # Reduces VU recompilation.
     - BlitInternalFPSHack # Fixes internal FPS detection.
+    - XGKickHack # Prevents a VU1 JIT startup stall.
   gsHWFixes:
     halfPixelOffset: 4 # Fixes post positioning.
     nativeScaling: 2 # Fixes post effects.

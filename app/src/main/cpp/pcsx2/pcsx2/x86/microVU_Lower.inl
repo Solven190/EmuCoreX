@@ -3068,6 +3068,9 @@ static void mVU_XGKICK_direct_emit_oaknut(mP)
 	{
 		oakAsm->MOV(OAK_WSCRATCH, 1);
 		oakStore32(OAK_WSCRATCH, mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[1].xgkickenable))));
+		oakLoad32(OAK_WSCRATCH, mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[0].VI[REG_VPU_STAT].UL))));
+		oakAsm->ORR(OAK_WSCRATCH, OAK_WSCRATCH, 1 << 12);
+		oakStore32(OAK_WSCRATCH, mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[0].VI[REG_VPU_STAT].UL))));
 		oakAsm->EOR(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH);
 		oakStore32(OAK_WSCRATCH, mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[1].xgkickendpacket))));
 		oakStore32(OAK_WSCRATCH, mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[1].xgkicksizeremaining))));
