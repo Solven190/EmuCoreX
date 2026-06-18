@@ -1160,4 +1160,10 @@
     <string name="texture_manager_clear_dumps">Limpar Dumps</string>
     <string name="texture_manager_clear_dumps_title">Limpar dumps de texturas?</string>
     <string name="texture_manager_clear_dumps_confirm">Excluir as texturas dumpadas para %s e manter as substituições?</string>
+    <string name="settings_invert_left_stick">Inverter analógico esquerdo</string>
+    <string name="settings_invert_left_stick_desc">Inverter o movimento vertical no analógico esquerdo.</string>
+    <string name="settings_invert_right_stick">Inverter analógico direito</string>
+    <string name="settings_invert_right_stick_desc">Inverter o movimento vertical no analógico direito.</string>
+    <string name="settings_help_invert_left_stick">Inverte o eixo vertical para o analógico esquerdo.</string>
+    <string name="settings_help_invert_right_stick">Inverte o eixo vertical para o analógico direito.</string>
 </resources>

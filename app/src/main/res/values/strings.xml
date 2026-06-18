@@ -511,6 +511,8 @@
     <string name="settings_help_overlay_opacity">Controls how solid or transparent the touch controls look. Lower opacity keeps the game view cleaner, while higher opacity makes buttons easier to see in dark or busy scenes.</string>
     <string name="settings_help_left_stick_sensitivity">Adjusts how quickly the left touch stick reaches stronger movement input. Higher values react faster, while lower values make small movement corrections easier.</string>
     <string name="settings_help_right_stick_sensitivity">Adjusts how quickly the right touch stick reaches stronger input. Higher values make camera or aim changes react faster, while lower values give you finer control.</string>
+    <string name="settings_help_invert_left_stick">Inverts the vertical axis for the left analog stick.</string>
+    <string name="settings_help_invert_right_stick">Inverts the vertical axis for the right analog stick.</string>
     <string name="settings_help_gamepad_stick_deadzone">Ignores small physical stick movements near the center. Raise it if your controller drifts on its own; keep it lower if you want faster response around center.</string>
     <string name="settings_help_gamepad_left_stick_sensitivity">Adjusts how strongly the physical left stick responds after deadzone processing. Higher values reach full movement faster, while lower values make fine movement easier.</string>
     <string name="settings_help_gamepad_right_stick_sensitivity">Adjusts how strongly the physical right stick responds after deadzone processing. Higher values make camera or aim movement react faster, while lower values give you finer control.</string>
@@ -636,6 +638,10 @@
     <string name="settings_overlay_opacity">Overlay Opacity</string>
     <string name="settings_left_stick_sensitivity">Left Stick Sensitivity</string>
     <string name="settings_right_stick_sensitivity">Right Stick Sensitivity</string>
+    <string name="settings_invert_left_stick">Invert Left Stick</string>
+    <string name="settings_invert_left_stick_desc">Invert vertical movement on the left analog stick.</string>
+    <string name="settings_invert_right_stick">Invert Right Stick</string>
+    <string name="settings_invert_right_stick_desc">Invert vertical movement on the right analog stick.</string>
     <string name="settings_touch_controls_section">Touch Controls</string>
     <string name="settings_gamepad_controls_section">Physical Gamepad</string>
     <string name="settings_gamepad_controls_disconnected_hint">Connect a gamepad to adjust physical stick settings.</string>

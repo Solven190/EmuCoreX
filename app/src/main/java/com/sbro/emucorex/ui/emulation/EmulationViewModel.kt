@@ -64,6 +64,8 @@ data class EmulationUiState(
     val stickScale: Int = 100,
     val leftStickSensitivity: Int = 100,
     val rightStickSensitivity: Int = 100,
+    val invertLeftStick: Boolean = false,
+    val invertRightStick: Boolean = false,
     val gamepadStickDeadzone: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE,
     val gamepadLeftStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
     val gamepadRightStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
@@ -409,6 +411,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.gamepadStickDeadzone.collect { value ->
                 _uiState.value = _uiState.value.copy(gamepadStickDeadzone = value)
+            }
+        }
+        viewModelScope.launch {
+            preferences.invertLeftStick.collect { enabled ->
+                _uiState.value = _uiState.value.copy(invertLeftStick = enabled)
+            }
+        }
+        viewModelScope.launch {
+            preferences.invertRightStick.collect { enabled ->
+                _uiState.value = _uiState.value.copy(invertRightStick = enabled)
             }
         }
         viewModelScope.launch {
@@ -1463,6 +1475,20 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun setInvertLeftStick(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setInvertLeftStick(enabled)
+            _uiState.value = _uiState.value.copy(invertLeftStick = enabled)
+        }
+    }
+
+    fun setInvertRightStick(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setInvertRightStick(enabled)
+            _uiState.value = _uiState.value.copy(invertRightStick = enabled)
+        }
+    }
+
     fun setGamepadStickDeadzone(value: Int) {
         viewModelScope.launch {
             val normalized = value.coerceIn(0, 35)
@@ -2388,6 +2414,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             stickScale = snapshot.stickScale,
             leftStickSensitivity = snapshot.leftStickSensitivity,
             rightStickSensitivity = snapshot.rightStickSensitivity,
+            invertLeftStick = snapshot.invertLeftStick,
+            invertRightStick = snapshot.invertRightStick,
             stickSurfaceMode = snapshot.stickSurfaceMode,
             controlLayouts = snapshot.controlLayouts
         )

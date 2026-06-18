@@ -1160,4 +1160,10 @@
     <string name="texture_manager_clear_dumps">Borrar volcados</string>
     <string name="texture_manager_clear_dumps_title">¿Borrar volcados de texturas?</string>
     <string name="texture_manager_clear_dumps_confirm">¿Eliminar las texturas volcadas de %s y conservar los reemplazos?</string>
+    <string name="settings_invert_left_stick">Invertir joystick izquierdo</string>
+    <string name="settings_invert_left_stick_desc">Invertir el movimiento vertical en el joystick analógico izquierdo.</string>
+    <string name="settings_invert_right_stick">Invertir joystick derecho</string>
+    <string name="settings_invert_right_stick_desc">Invertir el movimiento vertical en el joystick analógico derecho.</string>
+    <string name="settings_help_invert_left_stick">Invierte el eje vertical para el joystick analógico izquierdo.</string>
+    <string name="settings_help_invert_right_stick">Invierte el eje vertical para el joystick analógico derecho.</string>
 </resources>

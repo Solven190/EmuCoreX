@@ -999,6 +999,8 @@ fun EmulationScreen(
                 stickScaleFactor = uiState.stickScale / 100f,
                 leftStickSensitivity = uiState.leftStickSensitivity / 100f,
                 rightStickSensitivity = uiState.rightStickSensitivity / 100f,
+                invertLeftStick = uiState.invertLeftStick,
+                invertRightStick = uiState.invertRightStick,
                 dpadOffset = uiState.dpadOffset,
                 lstickOffset = uiState.lstickOffset,
                 rstickOffset = uiState.rstickOffset,
@@ -1077,6 +1079,8 @@ fun EmulationScreen(
                     onSetStickScale = { viewModel.setStickScale(it) },
                     onSetLeftStickSensitivity = { viewModel.setLeftStickSensitivity(it) },
                     onSetRightStickSensitivity = { viewModel.setRightStickSensitivity(it) },
+                    onSetInvertLeftStick = { viewModel.setInvertLeftStick(it) },
+                    onSetInvertRightStick = { viewModel.setInvertRightStick(it) },
                     onSetGamepadStickDeadzone = { viewModel.setGamepadStickDeadzone(it) },
                     onSetGamepadLeftStickSensitivity = { viewModel.setGamepadLeftStickSensitivity(it) },
                     onSetGamepadRightStickSensitivity = { viewModel.setGamepadRightStickSensitivity(it) },
@@ -1482,6 +1486,8 @@ private fun OnScreenControls(
     stickScaleFactor: Float = 1.0f,
     leftStickSensitivity: Float = 1.0f,
     rightStickSensitivity: Float = 1.0f,
+    invertLeftStick: Boolean = false,
+    invertRightStick: Boolean = false,
     dpadOffset: Pair<Float, Float>,
     lstickOffset: Pair<Float, Float>,
     rstickOffset: Pair<Float, Float>,
@@ -1595,7 +1601,7 @@ private fun OnScreenControls(
                 onValueChange = { x, y ->
                     updateAnalogStick(
                         x = x,
-                        y = y,
+                        y = if (invertLeftStick) -y else y,
                         sensitivity = leftStickSensitivity,
                         upKey = PadKey.LEFT_STICK_UP,
                         rightKey = PadKey.LEFT_STICK_RIGHT,
@@ -1625,7 +1631,7 @@ private fun OnScreenControls(
                 onValueChange = { x, y ->
                     updateAnalogStick(
                         x = x,
-                        y = y,
+                        y = if (invertRightStick) -y else y,
                         sensitivity = rightStickSensitivity,
                         upKey = PadKey.RIGHT_STICK_UP,
                         rightKey = PadKey.RIGHT_STICK_RIGHT,
@@ -1930,6 +1936,8 @@ private fun EmulationSidebarMenu(
     onSetStickScale: (Int) -> Unit,
     onSetLeftStickSensitivity: (Int) -> Unit,
     onSetRightStickSensitivity: (Int) -> Unit,
+    onSetInvertLeftStick: (Boolean) -> Unit,
+    onSetInvertRightStick: (Boolean) -> Unit,
     onSetGamepadStickDeadzone: (Int) -> Unit,
     onSetGamepadLeftStickSensitivity: (Int) -> Unit,
     onSetGamepadRightStickSensitivity: (Int) -> Unit,
@@ -2564,6 +2572,22 @@ private fun EmulationSidebarMenu(
                             onValueChange = { onSetRightStickSensitivity(it.toInt()) },
                             helpText = stringResource(R.string.settings_help_right_stick_sensitivity),
                             onResetToDefault = { onSetRightStickSensitivity(AppPreferences.DEFAULT_STICK_SENSITIVITY) }
+                        )
+
+                        SettingsToggle(
+                            title = stringResource(R.string.settings_invert_left_stick),
+                            checked = uiState.invertLeftStick,
+                            onCheckedChange = onSetInvertLeftStick,
+                            helpText = stringResource(R.string.settings_help_invert_left_stick),
+                            onResetToDefault = { onSetInvertLeftStick(false) }
+                        )
+
+                        SettingsToggle(
+                            title = stringResource(R.string.settings_invert_right_stick),
+                            checked = uiState.invertRightStick,
+                            onCheckedChange = onSetInvertRightStick,
+                            helpText = stringResource(R.string.settings_help_invert_right_stick),
+                            onResetToDefault = { onSetInvertRightStick(false) }
                         )
 
                         MenuButton(

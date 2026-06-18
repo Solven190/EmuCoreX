@@ -1160,4 +1160,10 @@
     <string name="texture_manager_clear_dumps">Очистити дампи</string>
     <string name="texture_manager_clear_dumps_title">Очистити дампи текстур?</string>
     <string name="texture_manager_clear_dumps_confirm">Видалити здамплені текстури для %s і залишити заміни?</string>
+    <string name="settings_invert_left_stick">Інвертувати лівий стік</string>
+    <string name="settings_invert_left_stick_desc">Інвертувати вертикальний рух на лівому аналоговому стіку.</string>
+    <string name="settings_invert_right_stick">Інвертувати правий стік</string>
+    <string name="settings_invert_right_stick_desc">Інвертувати вертикальний рух на правому аналоговому стіку.</string>
+    <string name="settings_help_invert_left_stick">Інвертує вертикальну вісь для лівого аналогового стіка.</string>
+    <string name="settings_help_invert_right_stick">Інвертує вертикальну вісь для правого аналогового стіка.</string>
 </resources>

@@ -1158,4 +1158,10 @@
     <string name="texture_manager_clear_dumps">덤프 지우기</string>
     <string name="texture_manager_clear_dumps_title">텍스처 덤프를 지우시겠습니까?</string>
     <string name="texture_manager_clear_dumps_confirm">%s에 대해 덤프된 텍스처를 삭제하고 교체를 유지하시겠습니까?</string>
+    <string name="settings_invert_left_stick">왼쪽 스틱 반전</string>
+    <string name="settings_invert_left_stick_desc">왼쪽 아날로그 스틱의 수직 움직임을 반전합니다.</string>
+    <string name="settings_invert_right_stick">오른쪽 스틱 반전</string>
+    <string name="settings_invert_right_stick_desc">오른쪽 아날로그 스틱의 수직 움직임을 반전합니다.</string>
+    <string name="settings_help_invert_left_stick">왼쪽 아날로그 스틱의 수직 축을 반전합니다.</string>
+    <string name="settings_help_invert_right_stick">오른쪽 아날로그 스틱의 수직 축을 반전합니다.</string>
 </resources>

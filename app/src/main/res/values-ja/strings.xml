@@ -1158,4 +1158,10 @@
     <string name="texture_manager_clear_dumps">ダンプをクリア</string>
     <string name="texture_manager_clear_dumps_title">テクスチャのダンプをクリアしますか？</string>
     <string name="texture_manager_clear_dumps_confirm">%s のダンプされたテクスチャを削除して、リプレイスメントを保持しますか？</string>
+    <string name="settings_invert_left_stick">左スティックを反転</string>
+    <string name="settings_invert_left_stick_desc">左アナログスティックの上下の動きを反転させます。</string>
+    <string name="settings_invert_right_stick">右スティックを反転</string>
+    <string name="settings_invert_right_stick_desc">右アナログスティックの上下の動きを反転させます。</string>
+    <string name="settings_help_invert_left_stick">左アナログスティックの垂直軸を反転させます。</string>
+    <string name="settings_help_invert_right_stick">右アナログスティックの垂直軸を反転させます。</string>
 </resources>

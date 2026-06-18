@@ -1158,4 +1158,10 @@
     <string name="texture_manager_clear_dumps">डंप साफ़ करें</string>
     <string name="texture_manager_clear_dumps_title">टेक्सचर डंप साफ़ करें?</string>
     <string name="texture_manager_clear_dumps_confirm">क्या %s के लिए डंप किए गए टेक्सचर हटाएं और रिप्लेसमेंट रखें?</string>
+    <string name="settings_invert_left_stick">लेफ्ट स्टिक उल्टा करें</string>
+    <string name="settings_invert_left_stick_desc">बाएँ एनालॉग स्टिक पर लंबवत गति को उल्टा करें।</string>
+    <string name="settings_invert_right_stick">राइट स्टिक उल्टा करें</string>
+    <string name="settings_invert_right_stick_desc">दाएँ एनालॉग स्टिक पर लंबवत गति को उल्टा करें।</string>
+    <string name="settings_help_invert_left_stick">बाएँ एनालॉग स्टिक के लिए लंबवत धुरी को उल्टा करता है।</string>
+    <string name="settings_help_invert_right_stick">दाएँ एनालॉग स्टिक के लिए लंबवत धुरी को उल्टा करता है。</string>
 </resources>

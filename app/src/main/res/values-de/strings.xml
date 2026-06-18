@@ -1160,4 +1160,10 @@
     <string name="texture_manager_clear_dumps">Dumps löschen</string>
     <string name="texture_manager_clear_dumps_title">Textur-Dumps löschen?</string>
     <string name="texture_manager_clear_dumps_confirm">Gedumpte Texturen für %s löschen und Ersatztexturen behalten?</string>
+    <string name="settings_invert_left_stick">Linken Stick invertieren</string>
+    <string name="settings_invert_left_stick_desc">Vertikale Bewegung auf dem linken Analogstick invertieren.</string>
+    <string name="settings_invert_right_stick">Rechten Stick invertieren</string>
+    <string name="settings_invert_right_stick_desc">Vertikale Bewegung auf dem rechten Analogstick invertieren.</string>
+    <string name="settings_help_invert_left_stick">Invertiert die vertikale Achse für den linken Analogstick.</string>
+    <string name="settings_help_invert_right_stick">Invertiert die vertikale Achse für den rechten Analogstick.</string>
 </resources>

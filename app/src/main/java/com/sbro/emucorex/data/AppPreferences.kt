@@ -126,6 +126,8 @@ data class SettingsSnapshot(
     val overlayShow: Boolean = true,
     val leftStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
+    val invertLeftStick: Boolean = false,
+    val invertRightStick: Boolean = false,
     val enableAutoGamepad: Boolean = true,
     val hideOverlayOnGamepad: Boolean = true,
     val gamepadStickDeadzone: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE,
@@ -157,6 +159,8 @@ data class OverlayLayoutSnapshot(
     val stickScale: Int = 100,
     val leftStickSensitivity: Int = 100,
     val rightStickSensitivity: Int = 100,
+    val invertLeftStick: Boolean = false,
+    val invertRightStick: Boolean = false,
     val stickSurfaceMode: Boolean = false,
     val controlLayouts: Map<String, OverlayControlLayout> = AppPreferences.defaultOverlayControlLayouts()
 )
@@ -362,6 +366,8 @@ class AppPreferences(private val context: Context) {
         private val STICK_SCALE = intPreferencesKey("stick_scale")
         private val LEFT_STICK_SENSITIVITY = intPreferencesKey("left_stick_sensitivity")
         private val RIGHT_STICK_SENSITIVITY = intPreferencesKey("right_stick_sensitivity")
+        private val INVERT_LEFT_STICK = booleanPreferencesKey("invert_left_stick")
+        private val INVERT_RIGHT_STICK = booleanPreferencesKey("invert_right_stick")
         private val STICK_SURFACE_MODE = booleanPreferencesKey("stick_surface_mode")
         private val CONTROL_LAYOUTS = stringPreferencesKey("control_layouts")
         private val OVERLAY_LAYOUT_VERSION = intPreferencesKey("overlay_layout_version")
@@ -763,6 +769,8 @@ class AppPreferences(private val context: Context) {
                 overlayShow = prefs[OVERLAY_SHOW] ?: true,
                 leftStickSensitivity = prefs[LEFT_STICK_SENSITIVITY] ?: DEFAULT_STICK_SENSITIVITY,
                 rightStickSensitivity = prefs[RIGHT_STICK_SENSITIVITY] ?: DEFAULT_STICK_SENSITIVITY,
+                invertLeftStick = prefs[INVERT_LEFT_STICK] ?: false,
+                invertRightStick = prefs[INVERT_RIGHT_STICK] ?: false,
                 enableAutoGamepad = prefs[ENABLE_AUTO_GAMEPAD] ?: true,
                 hideOverlayOnGamepad = prefs[HIDE_OVERLAY_ON_GAMEPAD] ?: true,
                 gamepadStickDeadzone = prefs[GAMEPAD_STICK_DEADZONE] ?: DEFAULT_GAMEPAD_STICK_DEADZONE,
@@ -819,6 +827,8 @@ class AppPreferences(private val context: Context) {
                 stickScale = prefs[STICK_SCALE] ?: 100,
                 leftStickSensitivity = prefs[LEFT_STICK_SENSITIVITY] ?: 100,
                 rightStickSensitivity = prefs[RIGHT_STICK_SENSITIVITY] ?: 100,
+                invertLeftStick = prefs[INVERT_LEFT_STICK] ?: false,
+                invertRightStick = prefs[INVERT_RIGHT_STICK] ?: false,
                 stickSurfaceMode = prefs[STICK_SURFACE_MODE] ?: false,
                 controlLayouts = decodeControlLayouts(prefs[CONTROL_LAYOUTS])
             )
@@ -1853,6 +1863,22 @@ class AppPreferences(private val context: Context) {
         }
     }
 
+    val invertLeftStick: Flow<Boolean> = context.dataStore.data.map { it[INVERT_LEFT_STICK] ?: false }
+
+    suspend fun setInvertLeftStick(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[INVERT_LEFT_STICK] = enabled
+        }
+    }
+
+    val invertRightStick: Flow<Boolean> = context.dataStore.data.map { it[INVERT_RIGHT_STICK] ?: false }
+
+    suspend fun setInvertRightStick(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[INVERT_RIGHT_STICK] = enabled
+        }
+    }
+
     suspend fun setControlsLayout(
         dpadX: Float, dpadY: Float,
         lstickX: Float, lstickY: Float,
@@ -2107,6 +2133,8 @@ class AppPreferences(private val context: Context) {
             put("stickScale", prefs[STICK_SCALE] ?: 100)
             put("leftStickSensitivity", prefs[LEFT_STICK_SENSITIVITY] ?: 100)
             put("rightStickSensitivity", prefs[RIGHT_STICK_SENSITIVITY] ?: 100)
+            put("invertLeftStick", prefs[INVERT_LEFT_STICK] ?: false)
+            put("invertRightStick", prefs[INVERT_RIGHT_STICK] ?: false)
             put("stickSurfaceMode", prefs[STICK_SURFACE_MODE] ?: false)
             put("controlLayouts", prefs[CONTROL_LAYOUTS])
             put("memoryCardSlot1", prefs[MEMORY_CARD_SLOT1])
@@ -2260,6 +2288,8 @@ class AppPreferences(private val context: Context) {
             prefs[STICK_SCALE] = json.optInt("stickScale", 100)
             prefs[LEFT_STICK_SENSITIVITY] = json.optInt("leftStickSensitivity", 100).coerceIn(50, 200)
             prefs[RIGHT_STICK_SENSITIVITY] = json.optInt("rightStickSensitivity", 100).coerceIn(50, 200)
+            prefs[INVERT_LEFT_STICK] = json.optBoolean("invertLeftStick", false)
+            prefs[INVERT_RIGHT_STICK] = json.optBoolean("invertRightStick", false)
             prefs[STICK_SURFACE_MODE] = json.optBoolean("stickSurfaceMode", false)
             json.optString("controlLayouts").takeIf { it.isNotBlank() }?.let { prefs[CONTROL_LAYOUTS] = it } ?: prefs.remove(CONTROL_LAYOUTS)
             migrateGlobalStickSurfaceMode(prefs)

@@ -1158,4 +1158,10 @@
     <string name="texture_manager_clear_dumps">مسح المستخرجات</string>
     <string name="texture_manager_clear_dumps_title">مسح الإكساءات المستخرجة؟</string>
     <string name="texture_manager_clear_dumps_confirm">هل تريد حذف الإكساءات المستخرجة لـ %s والاحتفاظ بالاستبدالات؟</string>
+    <string name="settings_invert_left_stick">عكس العصا اليسرى</string>
+    <string name="settings_invert_left_stick_desc">عكس الحركة الرأسية على العصا التناظرية اليسرى.</string>
+    <string name="settings_invert_right_stick">عكس العصا اليمنى</string>
+    <string name="settings_invert_right_stick_desc">عكس الحركة الرأسية على العصا التناظرية اليمنى.</string>
+    <string name="settings_help_invert_left_stick">يعكس المحور الرأسي للعصا التناظرية اليسرى.</string>
+    <string name="settings_help_invert_right_stick">يعكس المحور الرأسي للعصا التناظرية اليمنى.</string>
 </resources>

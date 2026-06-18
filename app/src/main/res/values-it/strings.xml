@@ -1158,4 +1158,10 @@
     <string name="texture_manager_clear_dumps">Cancella Dump</string>
     <string name="texture_manager_clear_dumps_title">Cancellare i dump delle texture?</string>
     <string name="texture_manager_clear_dumps_confirm">Eliminare le texture di dump per %s e mantenere le sostituzioni?</string>
+    <string name="settings_invert_left_stick">Inverti levetta sinistra</string>
+    <string name="settings_invert_left_stick_desc">Inverti il movimento verticale sulla levetta analogica sinistra.</string>
+    <string name="settings_invert_right_stick">Inverti levetta destra</string>
+    <string name="settings_invert_right_stick_desc">Inverti il movimento verticale sulla levetta analogica destra.</string>
+    <string name="settings_help_invert_left_stick">Inverte l\'asse verticale per la levetta analogica sinistra.</string>
+    <string name="settings_help_invert_right_stick">Inverte l\'asse verticale per la levetta analogica destra.</string>
 </resources>

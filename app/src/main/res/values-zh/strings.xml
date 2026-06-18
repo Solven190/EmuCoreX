@@ -1160,4 +1160,10 @@
     <string name="texture_manager_clear_dumps">清除转储</string>
     <string name="texture_manager_clear_dumps_title">清除纹理转储？</string>
     <string name="texture_manager_clear_dumps_confirm">删除 %s 的已转储纹理并保留替换文件？</string>
+    <string name="settings_invert_left_stick">反转左摇杆</string>
+    <string name="settings_invert_left_stick_desc">反转左摇杆的垂直移动。</string>
+    <string name="settings_invert_right_stick">反转右摇杆</string>
+    <string name="settings_invert_right_stick_desc">反转右摇杆的垂直移动。</string>
+    <string name="settings_help_invert_left_stick">反转左摇杆的垂直轴。</string>
+    <string name="settings_help_invert_right_stick">反转右摇杆的垂直轴。</string>
 </resources>

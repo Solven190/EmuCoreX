@@ -1160,4 +1160,10 @@
     <string name="texture_manager_clear_dumps">Очистить дампы</string>
     <string name="texture_manager_clear_dumps_title">Очистить дампы текстур?</string>
     <string name="texture_manager_clear_dumps_confirm">Удалить сдампленные текстуры для %s и оставить замены?</string>
+    <string name="settings_invert_left_stick">Инвертировать левый стик</string>
+    <string name="settings_invert_left_stick_desc">Инвертировать вертикальное движение на левом аналоговом стике.</string>
+    <string name="settings_invert_right_stick">Инвертировать правый стик</string>
+    <string name="settings_invert_right_stick_desc">Инвертировать вертикальное движение на правом аналоговом стике.</string>
+    <string name="settings_help_invert_left_stick">Инвертирует вертикальную ось для левого аналогового стика.</string>
+    <string name="settings_help_invert_right_stick">Инвертирует вертикальную ось для правого аналогового стика.</string>
 </resources>

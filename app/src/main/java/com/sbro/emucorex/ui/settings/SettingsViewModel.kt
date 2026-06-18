@@ -130,6 +130,8 @@ data class SettingsUiState(
     val overlayShow: Boolean = true,
     val leftStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
+    val invertLeftStick: Boolean = false,
+    val invertRightStick: Boolean = false,
     // Gamepad
     val enableAutoGamepad: Boolean = true,
     val hideOverlayOnGamepad: Boolean = true,
@@ -287,6 +289,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             overlayShow = snapshot.overlayShow,
             leftStickSensitivity = snapshot.leftStickSensitivity,
             rightStickSensitivity = snapshot.rightStickSensitivity,
+            invertLeftStick = snapshot.invertLeftStick,
+            invertRightStick = snapshot.invertRightStick,
             enableAutoGamepad = snapshot.enableAutoGamepad,
             hideOverlayOnGamepad = snapshot.hideOverlayOnGamepad,
             gamepadStickDeadzone = snapshot.gamepadStickDeadzone,
@@ -1382,6 +1386,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setOverlayOpacity(value: Int) { viewModelScope.launch { preferences.setOverlayOpacity(value) } }
     fun setLeftStickSensitivity(value: Int) { viewModelScope.launch { preferences.setLeftStickSensitivity(value) } }
     fun setRightStickSensitivity(value: Int) { viewModelScope.launch { preferences.setRightStickSensitivity(value) } }
+    fun setInvertLeftStick(enabled: Boolean) { viewModelScope.launch { preferences.setInvertLeftStick(enabled) } }
+    fun setInvertRightStick(enabled: Boolean) { viewModelScope.launch { preferences.setInvertRightStick(enabled) } }
 
     // Gamepad
     fun setEnableAutoGamepad(enabled: Boolean) { viewModelScope.launch { preferences.setEnableAutoGamepad(enabled) } }

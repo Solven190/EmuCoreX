@@ -1231,6 +1231,24 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_right_stick_sensitivity),
                             onResetToDefault = { viewModel.setRightStickSensitivity(overlayDefaults.rightStickSensitivity) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.Gamepad,
+                            title = stringResource(R.string.settings_invert_left_stick),
+                            subtitle = stringResource(R.string.settings_invert_left_stick_desc),
+                            checked = uiState.invertLeftStick,
+                            onCheckedChange = viewModel::setInvertLeftStick,
+                            helpText = stringResource(R.string.settings_help_invert_left_stick),
+                            onResetToDefault = { viewModel.setInvertLeftStick(false) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Gamepad,
+                            title = stringResource(R.string.settings_invert_right_stick),
+                            subtitle = stringResource(R.string.settings_invert_right_stick_desc),
+                            checked = uiState.invertRightStick,
+                            onCheckedChange = viewModel::setInvertRightStick,
+                            helpText = stringResource(R.string.settings_help_invert_right_stick),
+                            onResetToDefault = { viewModel.setInvertRightStick(false) }
+                        )
                     }
                     SettingsSection(title = stringResource(R.string.settings_gamepad_section)) {
                         ChoiceSection(

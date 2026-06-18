@@ -1158,4 +1158,10 @@
     <string name="texture_manager_clear_dumps">Dökümleri Temizle</string>
     <string name="texture_manager_clear_dumps_title">Doku dökümleri temizlensin mi?</string>
     <string name="texture_manager_clear_dumps_confirm">%s için dökümü alınan dokular silinip değiştirmeler korunsun mu?</string>
+    <string name="settings_invert_left_stick">Sol Çubuğu Ters Çevir</string>
+    <string name="settings_invert_left_stick_desc">Sol analog çubuktaki dikey hareketi tersine çevir.</string>
+    <string name="settings_invert_right_stick">Sağ Çubuğu Ters Çevir</string>
+    <string name="settings_invert_right_stick_desc">Sağ analog çubuktaki dikey hareketi tersine çevir.</string>
+    <string name="settings_help_invert_left_stick">Sol analog çubuk için dikey ekseni tersine çevirir.</string>
+    <string name="settings_help_invert_right_stick">Sağ analog çubuk için dikey ekseni tersine çevirir.</string>
 </resources>
