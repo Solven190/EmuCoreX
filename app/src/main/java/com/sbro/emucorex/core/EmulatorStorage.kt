@@ -22,6 +22,9 @@ object EmulatorStorage {
     fun memoryCardsDir(context: Context, customRootPath: String? = null): File =
         File(root(context, customRootPath), "memcards").apply { mkdirs() }
 
+    fun texturesDir(context: Context, customRootPath: String? = null): File =
+        File(root(context, customRootPath), "textures").apply { mkdirs() }
+
     fun cheatsDir(context: Context, customRootPath: String? = null): File =
         File(root(context, customRootPath), "cheats").apply { mkdirs() }
 

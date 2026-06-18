@@ -66,6 +66,7 @@ import com.sbro.emucorex.ui.settings.AppUpdateAvailableDialog
 import com.sbro.emucorex.ui.settings.GpuDriverScreen
 import com.sbro.emucorex.ui.settings.SettingsScreen
 import com.sbro.emucorex.ui.settings.SettingsViewModel
+import com.sbro.emucorex.ui.textures.TextureManagerScreen
 import com.sbro.emucorex.ui.common.PremiumLoadingAnimation
 import com.sbro.emucorex.ui.common.ProvideGamepadUiNavigation
 import androidx.compose.foundation.layout.Arrangement
@@ -124,6 +125,9 @@ data class SaveManagerRoute(val gamePath: String? = null, val gameTitle: String?
 
 @Serializable
 object MemoryCardManagerRoute
+
+@Serializable
+object TextureManagerRoute
 
 @Serializable
 object AchievementsRoute
@@ -274,6 +278,11 @@ fun AppNavigation(
             launchSingleTop = true
         }
     }
+    val navigateTextureManager: () -> Unit = {
+        navController.navigate(TextureManagerRoute) {
+            launchSingleTop = true
+        }
+    }
     val launchGamePickerAction: () -> Unit = {
         launchGamePicker.launch(arrayOf("*/*"))
     }
@@ -369,6 +378,7 @@ fun AppNavigation(
                         }
                     },
                     onNavigateMemoryCardManager = navigateMemoryCardManager,
+                    onNavigateTextureManager = navigateTextureManager,
                     onLaunchGame = launchGamePickerAction,
                     onLaunchBios = {
                         navController.navigate(EmulationRoute(bootBios = true)) {
@@ -453,6 +463,7 @@ fun AppNavigation(
                         }
                     },
                     onNavigateMemoryCardManager = navigateMemoryCardManager,
+                    onNavigateTextureManager = navigateTextureManager,
                     onBackClick = { navController.popBackStack() },
                     onLaunchGame = launchGamePickerAction
                 ) {
@@ -530,6 +541,7 @@ fun AppNavigation(
                         }
                     },
                     onNavigateMemoryCardManager = navigateMemoryCardManager,
+                    onNavigateTextureManager = navigateTextureManager,
                     onBackClick = { navController.popBackStack() },
                     onLaunchGame = launchGamePickerAction
                 ) {
@@ -574,6 +586,7 @@ fun AppNavigation(
                         }
                     },
                     onNavigateMemoryCardManager = navigateMemoryCardManager,
+                    onNavigateTextureManager = navigateTextureManager,
                     onBackClick = { navController.popBackStack() },
                     onLaunchGame = launchGamePickerAction
                 ) {
@@ -649,6 +662,7 @@ fun AppNavigation(
                         }
                     },
                     onNavigateMemoryCardManager = navigateMemoryCardManager,
+                    onNavigateTextureManager = navigateTextureManager,
                     onBackClick = { navController.popBackStack() },
                     onLaunchGame = launchGamePickerAction
                 ) {
@@ -704,6 +718,12 @@ fun AppNavigation(
 
             composable<MemoryCardManagerRoute> {
                 MemoryCardManagerScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            composable<TextureManagerRoute> {
+                TextureManagerScreen(
                     onBackClick = { navController.popBackStack() }
                 )
             }

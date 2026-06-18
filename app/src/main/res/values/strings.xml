@@ -593,7 +593,41 @@
     <string name="shell_manage_folders">Manage Folders</string>
     <string name="shell_save_states">Save Manager</string>
     <string name="shell_memory_cards">Memory Cards</string>
+    <string name="shell_texture_manager">Texture Manager</string>
     <string name="shell_launch_bios">Launch BIOS</string>
+
+    <!-- Texture Manager -->
+    <string name="texture_manager_title">Texture Manager</string>
+    <string name="texture_manager_subtitle">Replacement packs and dumps</string>
+    <string name="texture_manager_import_zip">Import ZIP</string>
+    <string name="texture_manager_import_success">Imported %d texture files.</string>
+    <string name="texture_manager_import_failed">Texture pack import failed.</string>
+    <string name="texture_manager_delete_success">Texture pack deleted.</string>
+    <string name="texture_manager_delete_failed">Could not delete texture pack.</string>
+    <string name="texture_manager_clear_dumps_success">Texture dumps cleared.</string>
+    <string name="texture_manager_clear_dumps_failed">Could not clear texture dumps.</string>
+    <string name="texture_manager_loading">Loading texture packs…</string>
+    <string name="texture_manager_options">Runtime Options</string>
+    <string name="texture_manager_enable_replacements">Load replacement textures</string>
+    <string name="texture_manager_enable_replacements_desc">Use PNG and DDS files from each game serial folder.</string>
+    <string name="texture_manager_async_loading">Async loading</string>
+    <string name="texture_manager_async_loading_desc">Load replacement textures on a worker thread while the game runs.</string>
+    <string name="texture_manager_precache">Precache replacements</string>
+    <string name="texture_manager_precache_desc">Load the full pack up front. Faster in-game lookups, but heavier on startup and memory.</string>
+    <string name="texture_manager_dumping">Dump replaceable textures</string>
+    <string name="texture_manager_dumping_desc">Save detected game textures into the dumps folder for pack creation.</string>
+    <string name="texture_manager_storage">Texture Storage</string>
+    <string name="texture_manager_installed_packs">Installed Packs</string>
+    <string name="texture_manager_summary_meta">%1$d packs, %2$d replacements, %3$d dumps, %4$s total</string>
+    <string name="texture_manager_pack_meta">%1$d replacements, %2$d dumps, %3$s</string>
+    <string name="texture_manager_pack_modified">Modified %s</string>
+    <string name="texture_manager_empty_title">No texture packs yet</string>
+    <string name="texture_manager_empty_body">Import a ZIP with a PS2 serial folder or a replacements folder. The storage path above follows your selected emulator folder.</string>
+    <string name="texture_manager_delete_title">Delete texture pack?</string>
+    <string name="texture_manager_delete_confirm">Delete all replacements and dumps for %s?</string>
+    <string name="texture_manager_clear_dumps">Clear Dumps</string>
+    <string name="texture_manager_clear_dumps_title">Clear texture dumps?</string>
+    <string name="texture_manager_clear_dumps_confirm">Delete dumped textures for %s and keep replacements?</string>
 
     <!-- Controls Settings -->
     <string name="settings_controls_tab">Controls</string>

@@ -340,6 +340,7 @@ object EmulatorBridge {
             ?: DocumentPathResolver.findPreferredBiosFileName(resolvedBiosPath)
         val savestatesDir = EmulatorStorage.saveStatesDir(context, emulatorDataPath)
         val memcardsDir = EmulatorStorage.memoryCardsDir(context, emulatorDataPath)
+        val texturesDir = EmulatorStorage.texturesDir(context, emulatorDataPath)
         val cheatsDir = EmulatorStorage.cheatsDir(context, emulatorDataPath)
         val patchesDir = EmulatorStorage.patchesDir(context, emulatorDataPath)
         val logDir = EmulatorStorage.logDir(context, emulatorDataPath)
@@ -397,6 +398,10 @@ object EmulatorBridge {
         )
         val prefs = AppPreferences(context)
         val padVibrationEnabled = prefs.padVibration.first()
+        val textureReplacementsEnabled = prefs.textureReplacementsEnabled.first()
+        val textureReplacementsAsync = prefs.textureReplacementsAsync.first()
+        val textureReplacementsPrecache = prefs.textureReplacementsPrecache.first()
+        val textureDumpingEnabled = prefs.textureDumpingEnabled.first()
 
         performRuntimeOps(
             buildList {
@@ -406,6 +411,7 @@ object EmulatorBridge {
                 add(settingOp("Folders", "Bios", "string", resolvedBiosPath.orEmpty()))
                 add(settingOp("Folders", "Savestates", "string", savestatesDir.absolutePath))
                 add(settingOp("Folders", "MemoryCards", "string", memcardsDir.absolutePath))
+                add(settingOp("Folders", "Textures", "string", texturesDir.absolutePath))
                 add(settingOp("Folders", "Cheats", "string", cheatsDir.absolutePath))
                 add(settingOp("Folders", "Patches", "string", patchesDir.absolutePath))
                 add(settingOp("Folders", "Logs", "string", logDir.absolutePath))
@@ -462,6 +468,11 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/GS", "TriFilter", "int", trilinearFiltering.toString()))
                 add(settingOp("EmuCore/GS", "accurate_blending_unit", "int", blendingAccuracy.toString()))
                 add(settingOp("EmuCore/GS", "texture_preloading", "int", texturePreloading.toString()))
+                add(settingOp("EmuCore/GS", "LoadTextureReplacements", "bool", textureReplacementsEnabled.toString()))
+                add(settingOp("EmuCore/GS", "LoadTextureReplacementsAsync", "bool", textureReplacementsAsync.toString()))
+                add(settingOp("EmuCore/GS", "PrecacheTextureReplacements", "bool", textureReplacementsPrecache.toString()))
+                add(settingOp("EmuCore/GS", "DumpReplaceableTextures", "bool", textureDumpingEnabled.toString()))
+                add(settingOp("EmuCore/GS", "DumpTexturesWithFMVActive", "bool", "false"))
                 add(settingOp("EmuCore/GS", "DisableShaderCache", "bool", "false"))
                 add(settingOp("EmuCore/GS", "fxaa", "bool", enableFxaa.toString()))
                 add(settingOp("EmuCore/GS", "CASMode", "int", casMode.toString()))

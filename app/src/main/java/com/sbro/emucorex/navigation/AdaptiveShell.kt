@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -103,6 +104,7 @@ fun AdaptiveShell(
     onResetAllSettings: (() -> Unit)? = null,
     onNavigateSaveManager: (() -> Unit)? = null,
     onNavigateMemoryCardManager: (() -> Unit)? = null,
+    onNavigateTextureManager: (() -> Unit)? = null,
     onBackClick: (() -> Unit)? = null,
     onLaunchGame: (() -> Unit)? = null,
     onLaunchBios: (() -> Unit)? = null,
@@ -121,6 +123,7 @@ fun AdaptiveShell(
             onResetAllSettings = onResetAllSettings,
             onNavigateSaveManager = onNavigateSaveManager,
             onNavigateMemoryCardManager = onNavigateMemoryCardManager,
+            onNavigateTextureManager = onNavigateTextureManager,
             onLaunchGame = onLaunchGame,
             onLaunchBios = onLaunchBios,
             onCloseDrawer = { }
@@ -166,6 +169,7 @@ fun AdaptiveShell(
             onResetAllSettings = onResetAllSettings,
             onNavigateSaveManager = onNavigateSaveManager,
             onNavigateMemoryCardManager = onNavigateMemoryCardManager,
+            onNavigateTextureManager = onNavigateTextureManager,
             onBackClick = onBackClick,
             onLaunchGame = onLaunchGame,
             onLaunchBios = onLaunchBios,
@@ -190,6 +194,7 @@ private fun CompactAdaptiveShell(
     onResetAllSettings: (() -> Unit)?,
     onNavigateSaveManager: (() -> Unit)?,
     onNavigateMemoryCardManager: (() -> Unit)?,
+    onNavigateTextureManager: (() -> Unit)?,
     onBackClick: (() -> Unit)?,
     onLaunchGame: (() -> Unit)?,
     onLaunchBios: (() -> Unit)?,
@@ -283,6 +288,7 @@ private fun CompactAdaptiveShell(
                     onResetAllSettings = onResetAllSettings,
                     onNavigateSaveManager = onNavigateSaveManager,
                     onNavigateMemoryCardManager = onNavigateMemoryCardManager,
+                    onNavigateTextureManager = onNavigateTextureManager,
                     onLaunchGame = onLaunchGame,
                     onLaunchBios = onLaunchBios,
                     selectedItemFocusRequester = selectedDrawerItemFocusRequester,
@@ -343,6 +349,7 @@ private fun SideNavigation(
     onResetAllSettings: (() -> Unit)?,
     onNavigateSaveManager: (() -> Unit)?,
     onNavigateMemoryCardManager: (() -> Unit)?,
+    onNavigateTextureManager: (() -> Unit)?,
     onLaunchGame: (() -> Unit)?,
     onLaunchBios: (() -> Unit)?,
     selectedItemFocusRequester: FocusRequester? = null,
@@ -393,6 +400,11 @@ private fun SideNavigation(
         }
     }
     val navigateMemoryCardManager = onNavigateMemoryCardManager?.let {
+        rememberDebouncedClick {
+            closeDrawerThen(it)
+        }
+    }
+    val navigateTextureManager = onNavigateTextureManager?.let {
         rememberDebouncedClick {
             closeDrawerThen(it)
         }
@@ -548,6 +560,13 @@ private fun SideNavigation(
                         icon = Icons.Rounded.Memory,
                         label = stringResource(R.string.shell_memory_cards),
                         onClick = navigateMemoryCardManager
+                    )
+                }
+                if (navigateTextureManager != null) {
+                    ShellAction(
+                        icon = Icons.Rounded.FolderZip,
+                        label = stringResource(R.string.shell_texture_manager),
+                        onClick = navigateTextureManager
                     )
                 }
                 if (navigateSaveManager != null) {

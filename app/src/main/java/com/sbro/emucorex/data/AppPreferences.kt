@@ -290,6 +290,10 @@ class AppPreferences(private val context: Context) {
         private val TRILINEAR_FILTERING = intPreferencesKey("trilinear_filtering")
         private val BLENDING_ACCURACY = intPreferencesKey("blending_accuracy")
         private val TEXTURE_PRELOADING = intPreferencesKey("texture_preloading")
+        private val TEXTURE_REPLACEMENTS_ENABLED = booleanPreferencesKey("texture_replacements_enabled")
+        private val TEXTURE_REPLACEMENTS_ASYNC = booleanPreferencesKey("texture_replacements_async")
+        private val TEXTURE_REPLACEMENTS_PRECACHE = booleanPreferencesKey("texture_replacements_precache")
+        private val TEXTURE_DUMPING_ENABLED = booleanPreferencesKey("texture_dumping_enabled")
         private val ENABLE_FXAA = booleanPreferencesKey("enable_fxaa")
         private val CAS_MODE = intPreferencesKey("cas_mode")
         private val CAS_SHARPNESS = intPreferencesKey("cas_sharpness")
@@ -1324,6 +1328,38 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[TEXTURE_PRELOADING] = value.coerceIn(0, 2) }
     }
 
+    val textureReplacementsEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[TEXTURE_REPLACEMENTS_ENABLED] ?: false
+    }
+
+    suspend fun setTextureReplacementsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[TEXTURE_REPLACEMENTS_ENABLED] = enabled }
+    }
+
+    val textureReplacementsAsync: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[TEXTURE_REPLACEMENTS_ASYNC] ?: true
+    }
+
+    suspend fun setTextureReplacementsAsync(enabled: Boolean) {
+        context.dataStore.edit { it[TEXTURE_REPLACEMENTS_ASYNC] = enabled }
+    }
+
+    val textureReplacementsPrecache: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[TEXTURE_REPLACEMENTS_PRECACHE] ?: false
+    }
+
+    suspend fun setTextureReplacementsPrecache(enabled: Boolean) {
+        context.dataStore.edit { it[TEXTURE_REPLACEMENTS_PRECACHE] = enabled }
+    }
+
+    val textureDumpingEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[TEXTURE_DUMPING_ENABLED] ?: false
+    }
+
+    suspend fun setTextureDumpingEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[TEXTURE_DUMPING_ENABLED] = enabled }
+    }
+
     val enableFxaa: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[ENABLE_FXAA] ?: false
     }
@@ -2011,6 +2047,10 @@ class AppPreferences(private val context: Context) {
             )
             put("blendingAccuracy", prefs[BLENDING_ACCURACY] ?: GsHackDefaults.BLENDING_ACCURACY_DEFAULT)
             put("texturePreloading", prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT)
+            put("textureReplacementsEnabled", prefs[TEXTURE_REPLACEMENTS_ENABLED] ?: false)
+            put("textureReplacementsAsync", prefs[TEXTURE_REPLACEMENTS_ASYNC] ?: true)
+            put("textureReplacementsPrecache", prefs[TEXTURE_REPLACEMENTS_PRECACHE] ?: false)
+            put("textureDumpingEnabled", prefs[TEXTURE_DUMPING_ENABLED] ?: false)
             put("enableFxaa", prefs[ENABLE_FXAA] ?: false)
             put("casMode", prefs[CAS_MODE] ?: 0)
             put("casSharpness", prefs[CAS_SHARPNESS] ?: 50)
@@ -2145,6 +2185,10 @@ class AppPreferences(private val context: Context) {
             )
             prefs[BLENDING_ACCURACY] = json.optInt("blendingAccuracy", GsHackDefaults.BLENDING_ACCURACY_DEFAULT).coerceIn(0, 5)
             prefs[TEXTURE_PRELOADING] = json.optInt("texturePreloading", GsHackDefaults.TEXTURE_PRELOADING_DEFAULT).coerceIn(0, 2)
+            prefs[TEXTURE_REPLACEMENTS_ENABLED] = json.optBoolean("textureReplacementsEnabled", false)
+            prefs[TEXTURE_REPLACEMENTS_ASYNC] = json.optBoolean("textureReplacementsAsync", true)
+            prefs[TEXTURE_REPLACEMENTS_PRECACHE] = json.optBoolean("textureReplacementsPrecache", false)
+            prefs[TEXTURE_DUMPING_ENABLED] = json.optBoolean("textureDumpingEnabled", false)
             prefs[ENABLE_FXAA] = json.optBoolean("enableFxaa", false)
             prefs[CAS_MODE] = json.optInt("casMode", 0).coerceIn(0, 2)
             prefs[CAS_SHARPNESS] = json.optInt("casSharpness", 50).coerceIn(0, 100)
