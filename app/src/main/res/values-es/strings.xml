@@ -1166,4 +1166,13 @@
     <string name="settings_invert_right_stick_desc">Invertir el movimiento vertical en el joystick analógico derecho.</string>
     <string name="settings_help_invert_left_stick">Invierte el eje vertical para el joystick analógico izquierdo.</string>
     <string name="settings_help_invert_right_stick">Invierte el eje vertical para el joystick analógico derecho.</string>
+    <string name="settings_help_invert_left_stick_horizontal">Invierte el eje horizontal para el joystick analógico izquierdo.</string>
+    <string name="settings_help_invert_right_stick_horizontal">Invierte el eje horizontal para el joystick analógico derecho.</string>
+    <string name="settings_invert_right_stick_horizontal">Invertir joystick derecho horizontalmente</string>
+    <string name="settings_invert_right_stick_horizontal_desc">Invertir el movimiento horizontal en el joystick analógico derecho.</string>
+    <string name="settings_invert_left_stick_horizontal">Invertir joystick izquierdo horizontalmente</string>
+    <string name="settings_invert_left_stick_horizontal_desc">Invertir el movimiento horizontal en el joystick analógico izquierdo.</string>
+    <string name="settings_enable_ee_clamping">Clamping de FPU de EE</string>
+    <string name="settings_enable_ee_clamping_desc">Habilita el clamping de desbordamiento para operaciones FPU del Emotion Engine. Déjalo apagado a menos que un juego lo necesite por compatibilidad.</string>
+    <string name="settings_help_enable_ee_clamping">Controla si el recompilador de FPU de EE emite comprobaciones de clamping para casos de desbordamiento de punto flotante. Mantenerlo desactivado evita código generado adicional en juegos que no necesitan este comportamiento. Habilítalo solo si un juego específico muestra problemas de física, geometría o renderizado que requieran clamping de FPU de EE.</string>
 </resources>

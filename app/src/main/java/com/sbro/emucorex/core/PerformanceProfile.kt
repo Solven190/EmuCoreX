@@ -20,7 +20,7 @@ object PerformanceProfiles {
         eeCycleRate = 0,
         eeCycleSkip = 0,
         hwDownloadMode = 0,
-        fpuClampMode = 1,
+        fpuClampMode = 0,
         disableHardwareReadbacks = false,
         fpuCorrectAddSub = true
     )

@@ -1166,4 +1166,13 @@
     <string name="settings_invert_right_stick_desc">Инвертировать вертикальное движение на правом аналоговом стике.</string>
     <string name="settings_help_invert_left_stick">Инвертирует вертикальную ось для левого аналогового стика.</string>
     <string name="settings_help_invert_right_stick">Инвертирует вертикальную ось для правого аналогового стика.</string>
+    <string name="settings_help_invert_left_stick_horizontal">Инвертирует горизонтальную ось для левого аналогового стика.</string>
+    <string name="settings_help_invert_right_stick_horizontal">Инвертирует горизонтальную ось для правого аналогового стика.</string>
+    <string name="settings_invert_right_stick_horizontal">Инвертировать правый стик по горизонтали</string>
+    <string name="settings_invert_right_stick_horizontal_desc">Инвертировать горизонтальное движение на правом аналоговом стике.</string>
+    <string name="settings_invert_left_stick_horizontal">Инвертировать левый стик по горизонтали</string>
+    <string name="settings_invert_left_stick_horizontal_desc">Инвертировать горизонтальное движение на левом аналоговом стике.</string>
+    <string name="settings_enable_ee_clamping">Ограничение FPU EE (Clamping)</string>
+    <string name="settings_enable_ee_clamping_desc">Включает ограничение переполнения (clamping) для операций FPU Emotion Engine. Оставьте выключенным, если это не требуется для совместимости игры.</string>
+    <string name="settings_help_enable_ee_clamping">Управляет тем, генерирует ли рекомпилятор FPU EE проверки ограничения (clamping) для случаев переполнения с плавающей запятой. Отключение этой функции предотвращает генерацию лишнего кода в играх, которым не требуется такое поведение. Включайте её только в том случае, если в конкретной игре наблюдаются проблемы с физикой, геометрией или рендерингом, требующие ограничения FPU EE.</string>
 </resources>

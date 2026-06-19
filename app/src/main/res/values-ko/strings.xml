@@ -1164,4 +1164,13 @@
     <string name="settings_invert_right_stick_desc">오른쪽 아날로그 스틱의 수직 움직임을 반전합니다.</string>
     <string name="settings_help_invert_left_stick">왼쪽 아날로그 스틱의 수직 축을 반전합니다.</string>
     <string name="settings_help_invert_right_stick">오른쪽 아날로그 스틱의 수직 축을 반전합니다.</string>
+    <string name="settings_help_invert_left_stick_horizontal">왼쪽 아날로그 스틱의 수평 축을 반전합니다.</string>
+    <string name="settings_help_invert_right_stick_horizontal">오른쪽 아날로그 스틱의 수평 축을 반전합니다.</string>
+    <string name="settings_invert_right_stick_horizontal">오른쪽 스틱 수평 반전</string>
+    <string name="settings_invert_right_stick_horizontal_desc">오른쪽 아날로그 스틱의 수평 움직임을 반전합니다.</string>
+    <string name="settings_invert_left_stick_horizontal">왼쪽 스틱 수평 반전</string>
+    <string name="settings_invert_left_stick_horizontal_desc">왼쪽 아날로그 스틱의 수평 움직임을 반전합니다.</string>
+    <string name="settings_enable_ee_clamping">EE FPU 클램핑</string>
+    <string name="settings_enable_ee_clamping_desc">Emotion Engine FPU 작업에 대한 오버플로우 클램핑을 활성화합니다. 호환성을 위해 게임에서 필요한 경우가 아니면 꺼두세요.</string>
+    <string name="settings_help_enable_ee_clamping">EE FPU 리컴파일러가 부동 소수점 오버플로 경우에 대해 클램핑 검사를 내보낼지 여부를 제어합니다. 이 옵션을 비활성화 상태로 유지하면 이 동작이 필요하지 않은 게임에서 생성되는 추가 코드를 방지할 수 있습니다. 특정 게임에서 물리, 지오메트리 또는 렌더링 문제가 발생하여 EE FPU 클램핑이 필요한 경우에만 활성화하세요.</string>
 </resources>

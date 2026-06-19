@@ -67,6 +67,7 @@ data class SettingsUiState(
     val enableIopRecompiler: Boolean = true,
     val enableVu0Recompiler: Boolean = true,
     val enableVu1Recompiler: Boolean = true,
+    val enableEeClamping: Boolean = false,
     val enableVu1Clamping: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
@@ -132,6 +133,8 @@ data class SettingsUiState(
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val invertLeftStick: Boolean = false,
     val invertRightStick: Boolean = false,
+    val invertLeftStickHorizontal: Boolean = false,
+    val invertRightStickHorizontal: Boolean = false,
     // Gamepad
     val enableAutoGamepad: Boolean = true,
     val hideOverlayOnGamepad: Boolean = true,
@@ -227,6 +230,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             enableIopRecompiler = snapshot.enableIopRecompiler,
             enableVu0Recompiler = snapshot.enableVu0Recompiler,
             enableVu1Recompiler = snapshot.enableVu1Recompiler,
+            enableEeClamping = snapshot.enableEeClamping,
             enableVu1Clamping = snapshot.enableVu1Clamping,
             enableWaitLoopSpeedhack = snapshot.enableWaitLoopSpeedhack,
             enableIntcStatSpeedhack = snapshot.enableIntcStatSpeedhack,
@@ -291,6 +295,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             rightStickSensitivity = snapshot.rightStickSensitivity,
             invertLeftStick = snapshot.invertLeftStick,
             invertRightStick = snapshot.invertRightStick,
+            invertLeftStickHorizontal = snapshot.invertLeftStickHorizontal,
+            invertRightStickHorizontal = snapshot.invertRightStickHorizontal,
             enableAutoGamepad = snapshot.enableAutoGamepad,
             hideOverlayOnGamepad = snapshot.hideOverlayOnGamepad,
             gamepadStickDeadzone = snapshot.gamepadStickDeadzone,
@@ -828,7 +834,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             markPerformancePresetCustom()
             preferences.setEnableVu1Clamping(enabled)
-            EmulatorBridge.setSetting("EmuCore/CPU/Recompiler", "vu1Overflow", "bool", enabled.toString())
+            EmulatorBridge.setVuClamping(enabled)
+        }
+    }
+
+    fun setEnableEeClamping(enabled: Boolean) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            preferences.setEnableEeClamping(enabled)
+            EmulatorBridge.setEeClamping(enabled)
         }
     }
 
@@ -1388,6 +1402,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setRightStickSensitivity(value: Int) { viewModelScope.launch { preferences.setRightStickSensitivity(value) } }
     fun setInvertLeftStick(enabled: Boolean) { viewModelScope.launch { preferences.setInvertLeftStick(enabled) } }
     fun setInvertRightStick(enabled: Boolean) { viewModelScope.launch { preferences.setInvertRightStick(enabled) } }
+    fun setInvertLeftStickHorizontal(enabled: Boolean) { viewModelScope.launch { preferences.setInvertLeftStickHorizontal(enabled) } }
+    fun setInvertRightStickHorizontal(enabled: Boolean) { viewModelScope.launch { preferences.setInvertRightStickHorizontal(enabled) } }
 
     // Gamepad
     fun setEnableAutoGamepad(enabled: Boolean) { viewModelScope.launch { preferences.setEnableAutoGamepad(enabled) } }
@@ -1460,7 +1476,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 alignSprite = _uiState.value.alignSprite,
                 mergeSprite = _uiState.value.mergeSprite,
                 forceEvenSpritePosition = _uiState.value.forceEvenSpritePosition,
-                nativePaletteDraw = _uiState.value.nativePaletteDraw
+                nativePaletteDraw = _uiState.value.nativePaletteDraw,
+                fpuClampMode = if (_uiState.value.enableEeClamping) 1 else 0
             )
         }
     }

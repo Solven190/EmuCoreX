@@ -236,9 +236,12 @@
     <string name="settings_enable_vu1_recompiler">VU1 Recompiler</string>
     <string name="settings_enable_vu1_recompiler_desc">Vector Unit 1 micro recompiler. Disable it to force the VU1 interpreter.</string>
     <string name="settings_help_enable_vu1_recompiler">Controls the Vector Unit 1 recompiler. VU1 drives a large amount of transform and geometry work in many games. Disable it when you need to compare JIT output against the interpreter, investigate rendering corruption, or capture VU1 traces for debugging.</string>
-    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
-    <string name="settings_enable_vu1_clamping_desc">Enables overflow clamping for VU1 float operations. Disabling it significantly reduces generated code size and improves performance.</string>
-    <string name="settings_help_enable_vu1_clamping">Controls whether the VU1 recompiler emits clamping instructions to handle IEEE 754 overflow cases. When disabled, generated ARM64 code is much smaller and faster because each VU1 instruction no longer needs ~72 extra clamping operations. Most games work fine without clamping. Enable it only if you see graphical glitches or incorrect geometry in a specific game.</string>
+    <string name="settings_enable_ee_clamping">EE FPU Clamping</string>
+    <string name="settings_enable_ee_clamping_desc">Enables overflow clamping for Emotion Engine FPU operations. Leave it off unless a game needs it for compatibility.</string>
+    <string name="settings_help_enable_ee_clamping">Controls whether the EE FPU recompiler emits clamping checks for floating-point overflow cases. Keeping it disabled avoids extra generated code on games that do not need this behavior. Enable it only if a specific game shows physics, geometry, or rendering issues that require EE FPU clamping.</string>
+    <string name="settings_enable_vu1_clamping">VU Clamping</string>
+    <string name="settings_enable_vu1_clamping_desc">Enables overflow clamping for VU0 and VU1 float operations. Disabling it significantly reduces generated code size and improves performance.</string>
+    <string name="settings_help_enable_vu1_clamping">Controls whether the VU0 and VU1 recompilers emit clamping instructions to handle IEEE 754 overflow cases. When disabled, generated ARM64 code is much smaller and faster because VU instructions no longer need extra clamping operations. Most games work fine without clamping. Enable it only if you see graphical glitches or incorrect geometry in a specific game.</string>
     <string name="settings_jit_mtvu_note">If you disable VU1 recompiler, also turn off MTVU below. MTVU only makes sense with VU1 recompilation enabled.</string>
     <string name="settings_renderer">Graphics Mode</string>
     <string name="settings_renderer_auto">Auto</string>
@@ -513,6 +516,8 @@
     <string name="settings_help_right_stick_sensitivity">Adjusts how quickly the right touch stick reaches stronger input. Higher values make camera or aim changes react faster, while lower values give you finer control.</string>
     <string name="settings_help_invert_left_stick">Inverts the vertical axis for the left analog stick.</string>
     <string name="settings_help_invert_right_stick">Inverts the vertical axis for the right analog stick.</string>
+    <string name="settings_help_invert_left_stick_horizontal">Inverts the horizontal axis for the left analog stick.</string>
+    <string name="settings_help_invert_right_stick_horizontal">Inverts the horizontal axis for the right analog stick.</string>
     <string name="settings_help_gamepad_stick_deadzone">Ignores small physical stick movements near the center. Raise it if your controller drifts on its own; keep it lower if you want faster response around center.</string>
     <string name="settings_help_gamepad_left_stick_sensitivity">Adjusts how strongly the physical left stick responds after deadzone processing. Higher values reach full movement faster, while lower values make fine movement easier.</string>
     <string name="settings_help_gamepad_right_stick_sensitivity">Adjusts how strongly the physical right stick responds after deadzone processing. Higher values make camera or aim movement react faster, while lower values give you finer control.</string>
@@ -640,8 +645,12 @@
     <string name="settings_right_stick_sensitivity">Right Stick Sensitivity</string>
     <string name="settings_invert_left_stick">Invert Left Stick</string>
     <string name="settings_invert_left_stick_desc">Invert vertical movement on the left analog stick.</string>
+    <string name="settings_invert_left_stick_horizontal">Invert Left Stick Horizontally</string>
+    <string name="settings_invert_left_stick_horizontal_desc">Invert horizontal movement on the left analog stick.</string>
     <string name="settings_invert_right_stick">Invert Right Stick</string>
     <string name="settings_invert_right_stick_desc">Invert vertical movement on the right analog stick.</string>
+    <string name="settings_invert_right_stick_horizontal">Invert Right Stick Horizontally</string>
+    <string name="settings_invert_right_stick_horizontal_desc">Invert horizontal movement on the right analog stick.</string>
     <string name="settings_touch_controls_section">Touch Controls</string>
     <string name="settings_gamepad_controls_section">Physical Gamepad</string>
     <string name="settings_gamepad_controls_disconnected_hint">Connect a gamepad to adjust physical stick settings.</string>

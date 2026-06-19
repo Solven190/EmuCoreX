@@ -1001,6 +1001,8 @@ fun EmulationScreen(
                 rightStickSensitivity = uiState.rightStickSensitivity / 100f,
                 invertLeftStick = uiState.invertLeftStick,
                 invertRightStick = uiState.invertRightStick,
+                invertLeftStickHorizontal = uiState.invertLeftStickHorizontal,
+                invertRightStickHorizontal = uiState.invertRightStickHorizontal,
                 dpadOffset = uiState.dpadOffset,
                 lstickOffset = uiState.lstickOffset,
                 rstickOffset = uiState.rstickOffset,
@@ -1081,6 +1083,8 @@ fun EmulationScreen(
                     onSetRightStickSensitivity = { viewModel.setRightStickSensitivity(it) },
                     onSetInvertLeftStick = { viewModel.setInvertLeftStick(it) },
                     onSetInvertRightStick = { viewModel.setInvertRightStick(it) },
+                    onSetInvertLeftStickHorizontal = { viewModel.setInvertLeftStickHorizontal(it) },
+                    onSetInvertRightStickHorizontal = { viewModel.setInvertRightStickHorizontal(it) },
                     onSetGamepadStickDeadzone = { viewModel.setGamepadStickDeadzone(it) },
                     onSetGamepadLeftStickSensitivity = { viewModel.setGamepadLeftStickSensitivity(it) },
                     onSetGamepadRightStickSensitivity = { viewModel.setGamepadRightStickSensitivity(it) },
@@ -1488,6 +1492,8 @@ private fun OnScreenControls(
     rightStickSensitivity: Float = 1.0f,
     invertLeftStick: Boolean = false,
     invertRightStick: Boolean = false,
+    invertLeftStickHorizontal: Boolean = false,
+    invertRightStickHorizontal: Boolean = false,
     dpadOffset: Pair<Float, Float>,
     lstickOffset: Pair<Float, Float>,
     rstickOffset: Pair<Float, Float>,
@@ -1600,7 +1606,7 @@ private fun OnScreenControls(
                 surfaceOnly = stickIsSurfaceOnly(stick),
                 onValueChange = { x, y ->
                     updateAnalogStick(
-                        x = x,
+                        x = if (invertLeftStickHorizontal) -x else x,
                         y = if (invertLeftStick) -y else y,
                         sensitivity = leftStickSensitivity,
                         upKey = PadKey.LEFT_STICK_UP,
@@ -1630,7 +1636,7 @@ private fun OnScreenControls(
                 surfaceOnly = stickIsSurfaceOnly(stick),
                 onValueChange = { x, y ->
                     updateAnalogStick(
-                        x = x,
+                        x = if (invertRightStickHorizontal) -x else x,
                         y = if (invertRightStick) -y else y,
                         sensitivity = rightStickSensitivity,
                         upKey = PadKey.RIGHT_STICK_UP,
@@ -1938,6 +1944,8 @@ private fun EmulationSidebarMenu(
     onSetRightStickSensitivity: (Int) -> Unit,
     onSetInvertLeftStick: (Boolean) -> Unit,
     onSetInvertRightStick: (Boolean) -> Unit,
+    onSetInvertLeftStickHorizontal: (Boolean) -> Unit,
+    onSetInvertRightStickHorizontal: (Boolean) -> Unit,
     onSetGamepadStickDeadzone: (Int) -> Unit,
     onSetGamepadLeftStickSensitivity: (Int) -> Unit,
     onSetGamepadRightStickSensitivity: (Int) -> Unit,
@@ -2583,11 +2591,27 @@ private fun EmulationSidebarMenu(
                         )
 
                         SettingsToggle(
+                            title = stringResource(R.string.settings_invert_left_stick_horizontal),
+                            checked = uiState.invertLeftStickHorizontal,
+                            onCheckedChange = onSetInvertLeftStickHorizontal,
+                            helpText = stringResource(R.string.settings_help_invert_left_stick_horizontal),
+                            onResetToDefault = { onSetInvertLeftStickHorizontal(false) }
+                        )
+
+                        SettingsToggle(
                             title = stringResource(R.string.settings_invert_right_stick),
                             checked = uiState.invertRightStick,
                             onCheckedChange = onSetInvertRightStick,
                             helpText = stringResource(R.string.settings_help_invert_right_stick),
                             onResetToDefault = { onSetInvertRightStick(false) }
+                        )
+
+                        SettingsToggle(
+                            title = stringResource(R.string.settings_invert_right_stick_horizontal),
+                            checked = uiState.invertRightStickHorizontal,
+                            onCheckedChange = onSetInvertRightStickHorizontal,
+                            helpText = stringResource(R.string.settings_help_invert_right_stick_horizontal),
+                            onResetToDefault = { onSetInvertRightStickHorizontal(false) }
                         )
 
                         MenuButton(

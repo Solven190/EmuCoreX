@@ -1164,4 +1164,13 @@
     <string name="settings_invert_right_stick_desc">右アナログスティックの上下の動きを反転させます。</string>
     <string name="settings_help_invert_left_stick">左アナログスティックの垂直軸を反転させます。</string>
     <string name="settings_help_invert_right_stick">右アナログスティックの垂直軸を反転させます。</string>
+    <string name="settings_help_invert_left_stick_horizontal">左アナログスティックの水平軸を反転させます。</string>
+    <string name="settings_help_invert_right_stick_horizontal">右アナログスティックの水平軸を反転させます。</string>
+    <string name="settings_invert_right_stick_horizontal">右スティックを水平方向に反転</string>
+    <string name="settings_invert_right_stick_horizontal_desc">右アナログスティックの左右の動きを反転させます。</string>
+    <string name="settings_invert_left_stick_horizontal">左スティックを水平方向に反転</string>
+    <string name="settings_invert_left_stick_horizontal_desc">左アナログスティックの左右の動きを反転させます。</string>
+    <string name="settings_enable_ee_clamping">EE FPUクランピング</string>
+    <string name="settings_enable_ee_clamping_desc">Emotion Engine FPU演算のオーバーフロークランピングを有効にします。互換性のためにゲームで必要とされない限り、オフにしておいてください。</string>
+    <string name="settings_help_enable_ee_clamping">EE FPUリコンパイラが浮動小数点オーバーフローのケースに対してクランピングチェックを出力するかどうかを制御します。無効にしておくと、この動作を必要としないゲームで余分なコードが生成されるのを防ぐことができます。特定のゲームで、物理、ジオメトリ、またはレンダリングの問題が発生し、EE FPUクランピングが必要な場合のみ有効にしてください。</string>
 </resources>

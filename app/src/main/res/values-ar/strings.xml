@@ -1164,4 +1164,13 @@
     <string name="settings_invert_right_stick_desc">عكس الحركة الرأسية على العصا التناظرية اليمنى.</string>
     <string name="settings_help_invert_left_stick">يعكس المحور الرأسي للعصا التناظرية اليسرى.</string>
     <string name="settings_help_invert_right_stick">يعكس المحور الرأسي للعصا التناظرية اليمنى.</string>
+    <string name="settings_help_invert_left_stick_horizontal">يعكس المحور الأفقي للعصا التناظرية اليسرى.</string>
+    <string name="settings_help_invert_right_stick_horizontal">يعكس المحور الأفقي للعصا التناظرية اليمنى.</string>
+    <string name="settings_invert_right_stick_horizontal">عكس العصا اليمنى أفقياً</string>
+    <string name="settings_invert_right_stick_horizontal_desc">عكس الحركة الأفقية على العصا التناظرية اليمنى.</string>
+    <string name="settings_invert_left_stick_horizontal">عكس العصا اليسرى أفقياً</string>
+    <string name="settings_invert_left_stick_horizontal_desc">عكس الحركة الأفقية على العصا التناظرية اليسرى.</string>
+    <string name="settings_enable_ee_clamping">تثبيت EE FPU</string>
+    <string name="settings_enable_ee_clamping_desc">يُفعّل تثبيت التجاوز (Clamping) لعمليات Emotion Engine FPU. اتركه مغلقاً إلا إذا كانت اللعبة تحتاجه للتوافق.</string>
+    <string name="settings_help_enable_ee_clamping">يتحكم فيما إذا كان معيد تجميع EE FPU يصدر فحوصات تثبيت (clamping) لحالات تجاوز النقطة العائمة. إبقاؤه معطلاً يتجنب الشفرات المولدة الإضافية في الألعاب التي لا تحتاج إلى هذا السلوك. قم بتمكينه فقط إذا أظهرت لعبة معينة مشكلات في الفيزياء أو الهندسة أو العرض تتطلب تثبيت EE FPU.</string>
 </resources>

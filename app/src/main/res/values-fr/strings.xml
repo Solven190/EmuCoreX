@@ -1166,4 +1166,13 @@
     <string name="settings_invert_right_stick_desc">Inverser le mouvement vertical sur le stick analogique droit.</string>
     <string name="settings_help_invert_left_stick">Inverse l\'axe vertical pour le stick analogique gauche.</string>
     <string name="settings_help_invert_right_stick">Inverse l\'axe vertical pour le stick analogique droit.</string>
+    <string name="settings_help_invert_left_stick_horizontal">Inverse l\'axe horizontal pour le stick analogique gauche.</string>
+    <string name="settings_help_invert_right_stick_horizontal">Inverse l\'axe horizontal pour le stick analogique droit.</string>
+    <string name="settings_invert_right_stick_horizontal">Inverser le stick droit horizontalement</string>
+    <string name="settings_invert_right_stick_horizontal_desc">Inverser le mouvement horizontal sur le stick analogique droit.</string>
+    <string name="settings_invert_left_stick_horizontal">Inverser le stick gauche horizontalement</string>
+    <string name="settings_invert_left_stick_horizontal_desc">Inverser le mouvement horizontal sur le stick analogique gauche.</string>
+    <string name="settings_enable_ee_clamping">Clamping FPU EE</string>
+    <string name="settings_enable_ee_clamping_desc">Active le clamping de dépassement pour les opérations FPU de l\'Emotion Engine. Laissez-le désactivé à moins qu\'un jeu n\'en ait besoin pour la compatibilité.</string>
+    <string name="settings_help_enable_ee_clamping">Contrôle si le recompilateur FPU EE émet des vérifications de clamping pour les cas de dépassement à virgule flottante. Le laisser désactivé évite le code généré supplémentaire sur les jeux qui n\'ont pas besoin de ce comportement. Activez-le uniquement si un jeu spécifique présente des problèmes de physique, de géométrie ou de rendu nécessitant le clamping FPU EE.</string>
 </resources>

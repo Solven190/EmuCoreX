@@ -82,6 +82,28 @@ object EmulatorBridge {
     private fun settingOp(section: String, key: String, type: String, value: String) =
         RuntimeOp("setting", listOf(section, key, type, value))
 
+    private fun vuClampingOps(enabled: Boolean): List<RuntimeOp> {
+        val normalClamp = enabled.toString()
+        return listOf(
+            settingOp("EmuCore/CPU/Recompiler", "vu0Overflow", "bool", normalClamp),
+            settingOp("EmuCore/CPU/Recompiler", "vu0ExtraOverflow", "bool", "false"),
+            settingOp("EmuCore/CPU/Recompiler", "vu0SignOverflow", "bool", "false"),
+            settingOp("EmuCore/CPU/Recompiler", "vu0Underflow", "bool", "false"),
+            settingOp("EmuCore/CPU/Recompiler", "vu1Overflow", "bool", normalClamp),
+            settingOp("EmuCore/CPU/Recompiler", "vu1ExtraOverflow", "bool", "false"),
+            settingOp("EmuCore/CPU/Recompiler", "vu1SignOverflow", "bool", "false"),
+            settingOp("EmuCore/CPU/Recompiler", "vu1Underflow", "bool", "false")
+        )
+    }
+
+    private fun eeClampingOps(enabled: Boolean): List<RuntimeOp> {
+        return listOf(
+            settingOp("EmuCore/CPU/Recompiler", "fpuOverflow", "bool", enabled.toString()),
+            settingOp("EmuCore/CPU/Recompiler", "fpuExtraOverflow", "bool", "false"),
+            settingOp("EmuCore/CPU/Recompiler", "fpuFullMode", "bool", "false")
+        )
+    }
+
     private fun rendererOp(renderer: Int) = RuntimeOp("renderer", listOf(renderer.toString()))
 
     private fun upscaleOp(value: Float) = RuntimeOp("upscale", listOf(value.toString()))
@@ -325,7 +347,7 @@ object EmulatorBridge {
         memoryCardSlot1: String? = null,
         memoryCardSlot2: String? = null,
         autotestMode: Boolean = false,
-        fpuClampMode: Int = 1,
+        fpuClampMode: Int = 0,
         disableHardwareReadbacks: Boolean = false,
         fpuCorrectAddSub: Boolean = true
     ) {
@@ -424,7 +446,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableIOP", "bool", directIopRecompiler.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableVU0", "bool", directVu0Recompiler.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableVU1", "bool", directVu1Recompiler.toString()))
-                add(settingOp("EmuCore/CPU/Recompiler", "vu1Overflow", "bool", vu1Clamping.toString()))
+                addAll(vuClampingOps(vu1Clamping))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableFastmem", "bool", enableFastmem.toString()))
                 add(settingOp("EmuCore/Speedhacks", "WaitLoop", "bool", waitLoopSpeedhack.toString()))
                 add(settingOp("EmuCore/Speedhacks", "IntcStat", "bool", intcStatSpeedhack.toString()))
@@ -459,7 +481,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/GS", "FrameLimitEnable", "bool", frameLimitEnabled.toString()))
                 addAll(targetFpsOps(targetFps))
                 add(settingOp("EmuCore/Framerate", "NominalScalar", "float", "1.0"))
-                add(settingOp("EmuCore/CPU/Recompiler", "FPUClampMode", "int", fpuClampMode.toString()))
+                addAll(eeClampingOps(fpuClampMode > 0))
                 add(settingOp("EmuCore/GS", "disable_hw_readbacks", "bool", disableHardwareReadbacks.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "fpuCorrectAddSub", "bool", fpuCorrectAddSub.toString()))
                 add(settingOp("EmuCore/GS", "FrameSkip", "int", frameSkip.toString()))
@@ -1054,6 +1076,46 @@ object EmulatorBridge {
         if (settingsCache[cacheKey] == value) return
         performRuntimeOps(listOf(settingOp(section, key, type, value)))
         settingsCache[cacheKey] = value
+    }
+
+    suspend fun setVuClamping(enabled: Boolean) {
+        if (!isNativeLoaded) return
+        val ops = vuClampingOps(enabled)
+        val unchanged = ops.all { op ->
+            val section = op.fields[0]
+            val key = op.fields[1]
+            val value = op.fields[3]
+            settingsCache["$section:$key"] == value
+        }
+        if (unchanged) return
+
+        performRuntimeOps(ops)
+        ops.forEach { op ->
+            val section = op.fields[0]
+            val key = op.fields[1]
+            val value = op.fields[3]
+            settingsCache["$section:$key"] = value
+        }
+    }
+
+    suspend fun setEeClamping(enabled: Boolean) {
+        if (!isNativeLoaded) return
+        val ops = eeClampingOps(enabled)
+        val unchanged = ops.all { op ->
+            val section = op.fields[0]
+            val key = op.fields[1]
+            val value = op.fields[3]
+            settingsCache["$section:$key"] == value
+        }
+        if (unchanged) return
+
+        performRuntimeOps(ops)
+        ops.forEach { op ->
+            val section = op.fields[0]
+            val key = op.fields[1]
+            val value = op.fields[3]
+            settingsCache["$section:$key"] = value
+        }
     }
 
     suspend fun reloadPatches() {

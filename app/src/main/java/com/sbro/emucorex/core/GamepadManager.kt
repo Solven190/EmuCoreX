@@ -150,6 +150,10 @@ object GamepadManager {
     @Volatile
     private var invertRightStick = false
     @Volatile
+    private var invertLeftStickHorizontal = false
+    @Volatile
+    private var invertRightStickHorizontal = false
+    @Volatile
     private var singleGamepadReplacesTouch = true
 
     private val connectionLock = Any()
@@ -268,6 +272,16 @@ object GamepadManager {
         scope.launch {
             preferences.invertRightStick.collectLatest { enabled ->
                 invertRightStick = enabled
+            }
+        }
+        scope.launch {
+            preferences.invertLeftStickHorizontal.collectLatest { enabled ->
+                invertLeftStickHorizontal = enabled
+            }
+        }
+        scope.launch {
+            preferences.invertRightStickHorizontal.collectLatest { enabled ->
+                invertRightStickHorizontal = enabled
             }
         }
         scope.launch {
@@ -405,6 +419,7 @@ object GamepadManager {
         }
 
         val leftX = processStickAxis(event.getAxisValue(MotionEvent.AXIS_X), leftStickSensitivity)
+            .let { if (invertLeftStickHorizontal) -it else it }
         val leftY = processStickAxis(event.getAxisValue(MotionEvent.AXIS_Y), leftStickSensitivity)
             .let { if (invertLeftStick) -it else it }
         if (leftX != state.prevLeftX || leftY != state.prevLeftY) {
@@ -424,7 +439,7 @@ object GamepadManager {
         val rightX = processStickAxis(
             getAxisValueWithFallback(event, MotionEvent.AXIS_Z, MotionEvent.AXIS_RX),
             rightStickSensitivity
-        )
+        ).let { if (invertRightStickHorizontal) -it else it }
         val rightY = processStickAxis(
             getAxisValueWithFallback(event, MotionEvent.AXIS_RZ, MotionEvent.AXIS_RY),
             rightStickSensitivity

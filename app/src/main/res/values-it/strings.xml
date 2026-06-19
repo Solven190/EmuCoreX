@@ -1164,4 +1164,13 @@
     <string name="settings_invert_right_stick_desc">Inverti il movimento verticale sulla levetta analogica destra.</string>
     <string name="settings_help_invert_left_stick">Inverte l\'asse verticale per la levetta analogica sinistra.</string>
     <string name="settings_help_invert_right_stick">Inverte l\'asse verticale per la levetta analogica destra.</string>
+    <string name="settings_help_invert_left_stick_horizontal">Inverte l\'asse orizzontale per la levetta analogica sinistra.</string>
+    <string name="settings_help_invert_right_stick_horizontal">Inverte l\'asse orizzontale per la levetta analogica destra.</string>
+    <string name="settings_invert_right_stick_horizontal">Inverti orizzontalmente la levetta destra</string>
+    <string name="settings_invert_right_stick_horizontal_desc">Inverti il movimento orizzontale sulla levetta analogica destra.</string>
+    <string name="settings_invert_left_stick_horizontal">Inverti orizzontalmente la levetta sinistra</string>
+    <string name="settings_invert_left_stick_horizontal_desc">Inverti il movimento orizzontale sulla levetta analogica sinistra.</string>
+    <string name="settings_enable_ee_clamping">Clamping FPU EE</string>
+    <string name="settings_enable_ee_clamping_desc">Abilita il clamping dell\'overflow per le operazioni FPU dell\'Emotion Engine. Lascialo disattivato a meno che un gioco non ne abbia bisogno per la compatibilità.</string>
+    <string name="settings_help_enable_ee_clamping">Controlla se il ricompilatore FPU EE emette controlli di clamping per casi di overflow in virgola mobile. Mantenerlo disabilitato evita codice generato in eccesso nei giochi che non necessitano di questo comportamento. Abilitalo solo se un gioco specifico mostra problemi di fisica, geometria o rendering che richiedono il clamping FPU EE.</string>
 </resources>

@@ -66,6 +66,8 @@ data class EmulationUiState(
     val rightStickSensitivity: Int = 100,
     val invertLeftStick: Boolean = false,
     val invertRightStick: Boolean = false,
+    val invertLeftStickHorizontal: Boolean = false,
+    val invertRightStickHorizontal: Boolean = false,
     val gamepadStickDeadzone: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE,
     val gamepadLeftStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
     val gamepadRightStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
@@ -83,6 +85,7 @@ data class EmulationUiState(
     val aspectRatio: Int = 1,
     val performancePreset: Int = PerformancePresets.CUSTOM,
     val enableMtvu: Boolean = true,
+    val eeClamping: Boolean = false,
     val vu1Clamping: Boolean = false,
     val enableFastCdvd: Boolean = false,
     val enableFastBoot: Boolean = true,
@@ -241,6 +244,7 @@ private data class LiveRuntimeSnapshot(
     val aspectRatio: Int,
     val performancePreset: Int,
     val enableMtvu: Boolean,
+    val eeClamping: Boolean,
     val vu1Clamping: Boolean,
     val enableFastCdvd: Boolean,
     val enableFastBoot: Boolean,
@@ -421,6 +425,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.invertRightStick.collect { enabled ->
                 _uiState.value = _uiState.value.copy(invertRightStick = enabled)
+            }
+        }
+        viewModelScope.launch {
+            preferences.invertLeftStickHorizontal.collect { enabled ->
+                _uiState.value = _uiState.value.copy(invertLeftStickHorizontal = enabled)
+            }
+        }
+        viewModelScope.launch {
+            preferences.invertRightStickHorizontal.collect { enabled ->
+                _uiState.value = _uiState.value.copy(invertRightStickHorizontal = enabled)
             }
         }
         viewModelScope.launch {
@@ -1103,6 +1117,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     aspectRatio = liveRuntime.aspectRatio,
                     performancePreset = liveRuntime.performancePreset,
                     enableMtvu = liveRuntime.enableMtvu,
+                    eeClamping = liveRuntime.eeClamping,
                     vu1Clamping = liveRuntime.vu1Clamping,
                     enableFastCdvd = liveRuntime.enableFastCdvd,
                     enableFastBoot = liveRuntime.enableFastBoot,
@@ -1486,6 +1501,20 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.setInvertRightStick(enabled)
             _uiState.value = _uiState.value.copy(invertRightStick = enabled)
+        }
+    }
+
+    fun setInvertLeftStickHorizontal(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setInvertLeftStickHorizontal(enabled)
+            _uiState.value = _uiState.value.copy(invertLeftStickHorizontal = enabled)
+        }
+    }
+
+    fun setInvertRightStickHorizontal(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setInvertRightStickHorizontal(enabled)
+            _uiState.value = _uiState.value.copy(invertRightStickHorizontal = enabled)
         }
     }
 
@@ -2416,6 +2445,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             rightStickSensitivity = snapshot.rightStickSensitivity,
             invertLeftStick = snapshot.invertLeftStick,
             invertRightStick = snapshot.invertRightStick,
+            invertLeftStickHorizontal = snapshot.invertLeftStickHorizontal,
+            invertRightStickHorizontal = snapshot.invertRightStickHorizontal,
             stickSurfaceMode = snapshot.stickSurfaceMode,
             controlLayouts = snapshot.controlLayouts
         )
@@ -2571,7 +2602,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             mergeSprite = preferences.mergeSprite.first(),
             forceEvenSpritePosition = preferences.forceEvenSpritePosition.first(),
             nativePaletteDraw = preferences.nativePaletteDraw.first(),
-            fpuClampMode = profileConfig.fpuClampMode,
+            fpuClampMode = if (preferences.enableEeClamping.first()) 1 else 0,
             disableHardwareReadbacks = profileConfig.disableHardwareReadbacks,
             fpuCorrectAddSub = profileConfig.fpuCorrectAddSub
         ).applyProfile(profile)
@@ -2587,6 +2618,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             aspectRatio = preferences.aspectRatio.first(),
             performancePreset = preferences.performancePreset.first(),
             enableMtvu = preferences.enableMtvu.first(),
+            eeClamping = preferences.enableEeClamping.first(),
             vu1Clamping = preferences.enableVu1Clamping.first(),
             enableFastCdvd = preferences.enableFastCdvd.first(),
             enableFastBoot = preferences.enableFastBoot.first(),
@@ -2655,6 +2687,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             renderer = pick("renderer", renderer) { renderer },
             upscaleMultiplier = pick("upscaleMultiplier", upscaleMultiplier) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
+            fpuClampMode = if (pick("enableEeClamping", fpuClampMode > 0) { enableEeClamping }) 1 else 0,
             vu1Clamping = pick("enableVu1Clamping", vu1Clamping) { enableVu1Clamping },
             mtvu = pick("enableMtvu", mtvu) { enableMtvu },
             fastCdvd = pick("enableFastCdvd", fastCdvd) { enableFastCdvd },
@@ -2727,6 +2760,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             upscale = pick("upscaleMultiplier", upscale) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
             enableMtvu = pick("enableMtvu", enableMtvu) { enableMtvu },
+            eeClamping = pick("enableEeClamping", eeClamping) { enableEeClamping },
             vu1Clamping = pick("enableVu1Clamping", vu1Clamping) { enableVu1Clamping },
             enableFastCdvd = pick("enableFastCdvd", enableFastCdvd) { enableFastCdvd },
             enableFastBoot = pick("enableFastBoot", enableFastBoot) { enableFastBoot },
@@ -2793,6 +2827,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalShowFps = preferences.showFps.first()
         val globalFpsOverlayMode = preferences.fpsOverlayMode.first()
         val globalEnableMtvu = preferences.enableMtvu.first()
+        val globalEeClamping = preferences.enableEeClamping.first()
         val globalVu1Clamping = preferences.enableVu1Clamping.first()
         val globalEnableFastCdvd = preferences.enableFastCdvd.first()
         val globalEnableFastBoot = preferences.enableFastBoot.first()
@@ -2816,6 +2851,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             showFps = showFps,
             fpsOverlayMode = fpsOverlayMode,
             enableMtvu = enableMtvu,
+            enableEeClamping = eeClamping,
             enableVu1Clamping = vu1Clamping,
             enableFastCdvd = enableFastCdvd,
             enableFastBoot = enableFastBoot,
@@ -2880,6 +2916,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (showFps != globalShowFps) add("showFps")
             if (fpsOverlayMode != globalFpsOverlayMode) add("fpsOverlayMode")
             if (enableMtvu != globalEnableMtvu) add("enableMtvu")
+            if (eeClamping != globalEeClamping) add("enableEeClamping")
             if (vu1Clamping != globalVu1Clamping) add("enableVu1Clamping")
             if (enableFastCdvd != globalEnableFastCdvd) add("enableFastCdvd")
             if (enableFastBoot != globalEnableFastBoot) add("enableFastBoot")

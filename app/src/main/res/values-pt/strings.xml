@@ -1166,4 +1166,13 @@
     <string name="settings_invert_right_stick_desc">Inverter o movimento vertical no analógico direito.</string>
     <string name="settings_help_invert_left_stick">Inverte o eixo vertical para o analógico esquerdo.</string>
     <string name="settings_help_invert_right_stick">Inverte o eixo vertical para o analógico direito.</string>
+    <string name="settings_help_invert_left_stick_horizontal">Inverte o eixo horizontal para o analógico esquerdo.</string>
+    <string name="settings_help_invert_right_stick_horizontal">Inverte o eixo horizontal para o analógico direito.</string>
+    <string name="settings_invert_right_stick_horizontal">Inverter analógico direito horizontalmente</string>
+    <string name="settings_invert_right_stick_horizontal_desc">Inverter o movimento horizontal no analógico direito.</string>
+    <string name="settings_invert_left_stick_horizontal">Inverter analógico esquerdo horizontalmente</string>
+    <string name="settings_invert_left_stick_horizontal_desc">Inverter o movimento horizontal no analógico esquerdo.</string>
+    <string name="settings_enable_ee_clamping">Clamping FPU EE</string>
+    <string name="settings_enable_ee_clamping_desc">Ativa o clamping de overflow para operações FPU da Emotion Engine. Deixe desligado a menos que um jogo precise disso por compatibilidade.</string>
+    <string name="settings_help_enable_ee_clamping">Controla se o recompilador FPU EE emite verificações de clamping para casos de overflow de ponto flutuante. Mantê-lo desativado evita código extra gerado em jogos que não precisam desse comportamento. Ative-o apenas se um jogo específico apresentar problemas de física, geometria ou renderização que exijam o clamping FPU EE.</string>
 </resources>

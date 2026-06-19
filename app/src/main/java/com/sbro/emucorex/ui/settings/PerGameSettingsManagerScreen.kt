@@ -632,6 +632,13 @@ private fun GameSettingsEditorDialog(
                                 onResetToDefault = { draft = draft.copy(enableMtvu = defaultProfile.enableMtvu) }
                             )
                             ToggleRow(
+                                title = stringResource(R.string.settings_enable_ee_clamping),
+                                checked = draft.enableEeClamping,
+                                onCheckedChange = { draft = draft.copy(enableEeClamping = it) },
+                                helpText = stringResource(R.string.settings_help_enable_ee_clamping),
+                                onResetToDefault = { draft = draft.copy(enableEeClamping = defaultProfile.enableEeClamping) }
+                            )
+                            ToggleRow(
                                 title = stringResource(R.string.settings_enable_vu1_clamping),
                                 checked = draft.enableVu1Clamping,
                                 onCheckedChange = { draft = draft.copy(enableVu1Clamping = it) },
@@ -1649,6 +1656,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         fpsOverlayMode = fpsOverlayMode,
         enableFastBoot = enableFastBoot,
         enableMtvu = enableMtvu,
+        enableEeClamping = enableEeClamping,
         enableVu1Clamping = enableVu1Clamping,
         enableFastCdvd = enableFastCdvd,
         enableCheats = enableCheats,
@@ -1720,6 +1728,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         fpsOverlayMode = pick("fpsOverlayMode", fpsOverlayMode, defaultProfile.fpsOverlayMode),
         enableFastBoot = pick("enableFastBoot", enableFastBoot, defaultProfile.enableFastBoot),
         enableMtvu = pick("enableMtvu", enableMtvu, defaultProfile.enableMtvu),
+        enableEeClamping = pick("enableEeClamping", enableEeClamping, defaultProfile.enableEeClamping),
         enableVu1Clamping = pick("enableVu1Clamping", enableVu1Clamping, defaultProfile.enableVu1Clamping),
         enableFastCdvd = pick("enableFastCdvd", enableFastCdvd, defaultProfile.enableFastCdvd),
         enableCheats = pick("enableCheats", enableCheats, defaultProfile.enableCheats),

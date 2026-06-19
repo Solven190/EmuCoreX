@@ -1164,4 +1164,13 @@
     <string name="settings_invert_right_stick_desc">दाएँ एनालॉग स्टिक पर लंबवत गति को उल्टा करें।</string>
     <string name="settings_help_invert_left_stick">बाएँ एनालॉग स्टिक के लिए लंबवत धुरी को उल्टा करता है।</string>
     <string name="settings_help_invert_right_stick">दाएँ एनालॉग स्टिक के लिए लंबवत धुरी को उल्टा करता है。</string>
+    <string name="settings_help_invert_left_stick_horizontal">बाएँ एनालॉग स्टिक के लिए क्षैतिज धुरी को उल्टा करता है।</string>
+    <string name="settings_help_invert_right_stick_horizontal">दाएँ एनालॉग स्टिक के लिए क्षैतिज धुरी को उल्टा करता है।</string>
+    <string name="settings_invert_right_stick_horizontal">राइट स्टिक को क्षैतिज रूप से उल्टा करें</string>
+    <string name="settings_invert_right_stick_horizontal_desc">दाएँ एनालॉग स्टिक पर क्षैतिज गति को उल्टा करें।</string>
+    <string name="settings_invert_left_stick_horizontal">लेफ्ट स्टिक को क्षैतिज रूप से उल्टा करें</string>
+    <string name="settings_invert_left_stick_horizontal_desc">बाएँ एनालॉग स्टिक पर क्षैतिज गति को उल्टा करें।</string>
+    <string name="settings_enable_ee_clamping">EE FPU क्लैम्पिंग</string>
+    <string name="settings_enable_ee_clamping_desc">इमोशन इंजन FPU ऑपरेशन्स के लिए ओवरफ़्लो क्लैम्पिंग सक्षम करता है। जब तक किसी गेम को संगतता के लिए इसकी आवश्यकता न हो, इसे बंद रखें।</string>
+    <string name="settings_help_enable_ee_clamping">नियंत्रित करता है कि क्या EE FPU रिकंपाइलर फ़्लोटिंग-पॉइंट ओवरफ़्लो मामलों के लिए क्लैम्पिंग जाँच उत्सर्जित करता है। इसे अक्षम रखने से उन गेम्स पर अतिरिक्त जनरेटेड कोड से बचा जा सकता है जिन्हें इस व्यवहार की आवश्यकता नहीं है। इसे केवल तभी सक्षम करें जब कोई विशिष्ट गेम भौतिकी, ज्यामिति, या रेंडरिंग समस्याएँ दिखाता है जिनके लिए EE FPU क्लैम्पिंग की आवश्यकता होती है।</string>
 </resources>

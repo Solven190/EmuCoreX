@@ -20,6 +20,7 @@ data class PerGameSettings(
     val fpsOverlayMode: Int = AppPreferences.FPS_OVERLAY_MODE_DETAILED,
     val enableFastBoot: Boolean = true,
     val enableMtvu: Boolean = true,
+    val enableEeClamping: Boolean = false,
     val enableVu1Clamping: Boolean = false,
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
@@ -160,6 +161,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         fpsOverlayMode = optInt("fpsOverlayMode", AppPreferences.FPS_OVERLAY_MODE_DETAILED),
         enableFastBoot = optBoolean("enableFastBoot", true),
         enableMtvu = optBoolean("enableMtvu", true),
+        enableEeClamping = optBoolean("enableEeClamping", false),
         enableVu1Clamping = optBoolean("enableVu1Clamping", false),
         enableFastCdvd = optBoolean("enableFastCdvd", false),
         enableCheats = optBoolean("enableCheats", false),
@@ -238,6 +240,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("fpsOverlayMode")) put("fpsOverlayMode", fpsOverlayMode)
         if (shouldWrite("enableFastBoot")) put("enableFastBoot", enableFastBoot)
         if (shouldWrite("enableMtvu")) put("enableMtvu", enableMtvu)
+        if (shouldWrite("enableEeClamping")) put("enableEeClamping", enableEeClamping)
         if (shouldWrite("enableVu1Clamping")) put("enableVu1Clamping", enableVu1Clamping)
         if (shouldWrite("enableFastCdvd")) put("enableFastCdvd", enableFastCdvd)
         if (shouldWrite("enableCheats")) put("enableCheats", enableCheats)

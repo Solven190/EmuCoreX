@@ -1166,4 +1166,13 @@
     <string name="settings_invert_right_stick_desc">Vertikale Bewegung auf dem rechten Analogstick invertieren.</string>
     <string name="settings_help_invert_left_stick">Invertiert die vertikale Achse für den linken Analogstick.</string>
     <string name="settings_help_invert_right_stick">Invertiert die vertikale Achse für den rechten Analogstick.</string>
+    <string name="settings_help_invert_left_stick_horizontal">Invertiert die horizontale Achse für den linken Analogstick.</string>
+    <string name="settings_help_invert_right_stick_horizontal">Invertiert die horizontale Achse für den rechten Analogstick.</string>
+    <string name="settings_invert_right_stick_horizontal">Rechten Stick horizontal invertieren</string>
+    <string name="settings_invert_right_stick_horizontal_desc">Horizontale Bewegung auf dem rechten Analogstick invertieren.</string>
+    <string name="settings_invert_left_stick_horizontal">Linken Stick horizontal invertieren</string>
+    <string name="settings_invert_left_stick_horizontal_desc">Horizontale Bewegung auf dem linken Analogstick invertieren.</string>
+    <string name="settings_enable_ee_clamping">EE-FPU-Clamping</string>
+    <string name="settings_enable_ee_clamping_desc">Aktiviert Overflow-Clamping für Emotion Engine FPU-Operationen. Deaktiviert lassen, es sei denn, ein Spiel benötigt es aus Kompatibilitätsgründen.</string>
+    <string name="settings_help_enable_ee_clamping">Steuert, ob der EE-FPU-Recompiler Clamping-Prüfungen für Fließkomma-Überlauffälle ausgibt. Wenn dies deaktiviert bleibt, wird zusätzlicher generierter Code bei Spielen vermieden, die dieses Verhalten nicht benötigen. Aktivieren Sie es nur, wenn ein bestimmtes Spiel Physik-, Geometrie- oder Rendering-Probleme aufweist, die EE-FPU-Clamping erfordern.</string>
 </resources>

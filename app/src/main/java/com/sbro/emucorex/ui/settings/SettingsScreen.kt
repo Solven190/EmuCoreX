@@ -1242,12 +1242,30 @@ private fun SettingsContent(
                         )
                         ToggleItem(
                             icon = Icons.Rounded.Gamepad,
+                            title = stringResource(R.string.settings_invert_left_stick_horizontal),
+                            subtitle = stringResource(R.string.settings_invert_left_stick_horizontal_desc),
+                            checked = uiState.invertLeftStickHorizontal,
+                            onCheckedChange = viewModel::setInvertLeftStickHorizontal,
+                            helpText = stringResource(R.string.settings_help_invert_left_stick_horizontal),
+                            onResetToDefault = { viewModel.setInvertLeftStickHorizontal(false) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Gamepad,
                             title = stringResource(R.string.settings_invert_right_stick),
                             subtitle = stringResource(R.string.settings_invert_right_stick_desc),
                             checked = uiState.invertRightStick,
                             onCheckedChange = viewModel::setInvertRightStick,
                             helpText = stringResource(R.string.settings_help_invert_right_stick),
                             onResetToDefault = { viewModel.setInvertRightStick(false) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Gamepad,
+                            title = stringResource(R.string.settings_invert_right_stick_horizontal),
+                            subtitle = stringResource(R.string.settings_invert_right_stick_horizontal_desc),
+                            checked = uiState.invertRightStickHorizontal,
+                            onCheckedChange = viewModel::setInvertRightStickHorizontal,
+                            helpText = stringResource(R.string.settings_help_invert_right_stick_horizontal),
+                            onResetToDefault = { viewModel.setInvertRightStickHorizontal(false) }
                         )
                     }
                     SettingsSection(title = stringResource(R.string.settings_gamepad_section)) {
@@ -1598,6 +1616,15 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setEnableVu1Recompiler,
                             helpText = stringResource(R.string.settings_help_enable_vu1_recompiler),
                             onResetToDefault = { viewModel.setEnableVu1Recompiler(defaults.enableVu1Recompiler) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.settings_enable_ee_clamping),
+                            subtitle = stringResource(R.string.settings_enable_ee_clamping_desc),
+                            checked = uiState.enableEeClamping,
+                            onCheckedChange = viewModel::setEnableEeClamping,
+                            helpText = stringResource(R.string.settings_help_enable_ee_clamping),
+                            onResetToDefault = { viewModel.setEnableEeClamping(defaults.enableEeClamping) }
                         )
                         ToggleItem(
                             icon = Icons.Rounded.Tune,
@@ -2417,6 +2444,10 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Controls, R.string.settings_overlay_opacity),
         entry(SettingsTab.Controls, R.string.settings_left_stick_sensitivity),
         entry(SettingsTab.Controls, R.string.settings_right_stick_sensitivity),
+        entry(SettingsTab.Controls, R.string.settings_invert_left_stick),
+        entry(SettingsTab.Controls, R.string.settings_invert_left_stick_horizontal),
+        entry(SettingsTab.Controls, R.string.settings_invert_right_stick),
+        entry(SettingsTab.Controls, R.string.settings_invert_right_stick_horizontal),
         entry(SettingsTab.Controls, R.string.settings_gamepad_mode),
         entry(SettingsTab.Controls, R.string.settings_gamepad_hide_overlay),
         entry(SettingsTab.Controls, R.string.settings_gamepad_stick_deadzone),

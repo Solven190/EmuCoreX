@@ -65,6 +65,7 @@ data class SettingsSnapshot(
     val enableIopRecompiler: Boolean = true,
     val enableVu0Recompiler: Boolean = true,
     val enableVu1Recompiler: Boolean = true,
+    val enableEeClamping: Boolean = false,
     val enableVu1Clamping: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
@@ -128,6 +129,8 @@ data class SettingsSnapshot(
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val invertLeftStick: Boolean = false,
     val invertRightStick: Boolean = false,
+    val invertLeftStickHorizontal: Boolean = false,
+    val invertRightStickHorizontal: Boolean = false,
     val enableAutoGamepad: Boolean = true,
     val hideOverlayOnGamepad: Boolean = true,
     val gamepadStickDeadzone: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE,
@@ -161,6 +164,8 @@ data class OverlayLayoutSnapshot(
     val rightStickSensitivity: Int = 100,
     val invertLeftStick: Boolean = false,
     val invertRightStick: Boolean = false,
+    val invertLeftStickHorizontal: Boolean = false,
+    val invertRightStickHorizontal: Boolean = false,
     val stickSurfaceMode: Boolean = false,
     val controlLayouts: Map<String, OverlayControlLayout> = AppPreferences.defaultOverlayControlLayouts()
 )
@@ -279,6 +284,7 @@ class AppPreferences(private val context: Context) {
         private val ENABLE_IOP_RECOMPILER = booleanPreferencesKey("enable_iop_recompiler")
         private val ENABLE_VU0_RECOMPILER = booleanPreferencesKey("enable_vu0_recompiler")
         private val ENABLE_VU1_RECOMPILER = booleanPreferencesKey("enable_vu1_recompiler")
+        private val ENABLE_EE_CLAMPING = booleanPreferencesKey("enable_ee_clamping")
         private val ENABLE_VU1_CLAMPING = booleanPreferencesKey("enable_vu1_clamping")
         private val ENABLE_WAIT_LOOP_SPEEDHACK = booleanPreferencesKey("enable_wait_loop_speedhack")
         private val ENABLE_INTC_STAT_SPEEDHACK = booleanPreferencesKey("enable_intc_stat_speedhack")
@@ -368,6 +374,8 @@ class AppPreferences(private val context: Context) {
         private val RIGHT_STICK_SENSITIVITY = intPreferencesKey("right_stick_sensitivity")
         private val INVERT_LEFT_STICK = booleanPreferencesKey("invert_left_stick")
         private val INVERT_RIGHT_STICK = booleanPreferencesKey("invert_right_stick")
+        private val INVERT_LEFT_STICK_HORIZONTAL = booleanPreferencesKey("invert_left_stick_horizontal")
+        private val INVERT_RIGHT_STICK_HORIZONTAL = booleanPreferencesKey("invert_right_stick_horizontal")
         private val STICK_SURFACE_MODE = booleanPreferencesKey("stick_surface_mode")
         private val CONTROL_LAYOUTS = stringPreferencesKey("control_layouts")
         private val OVERLAY_LAYOUT_VERSION = intPreferencesKey("overlay_layout_version")
@@ -701,6 +709,7 @@ class AppPreferences(private val context: Context) {
                 enableIopRecompiler = prefs[ENABLE_IOP_RECOMPILER] ?: true,
                 enableVu0Recompiler = prefs[ENABLE_VU0_RECOMPILER] ?: true,
                 enableVu1Recompiler = prefs[ENABLE_VU1_RECOMPILER] ?: true,
+                enableEeClamping = prefs[ENABLE_EE_CLAMPING] ?: false,
                 enableVu1Clamping = prefs[ENABLE_VU1_CLAMPING] ?: false,
                 enableWaitLoopSpeedhack = prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true,
                 enableIntcStatSpeedhack = prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true,
@@ -771,6 +780,8 @@ class AppPreferences(private val context: Context) {
                 rightStickSensitivity = prefs[RIGHT_STICK_SENSITIVITY] ?: DEFAULT_STICK_SENSITIVITY,
                 invertLeftStick = prefs[INVERT_LEFT_STICK] ?: false,
                 invertRightStick = prefs[INVERT_RIGHT_STICK] ?: false,
+                invertLeftStickHorizontal = prefs[INVERT_LEFT_STICK_HORIZONTAL] ?: false,
+                invertRightStickHorizontal = prefs[INVERT_RIGHT_STICK_HORIZONTAL] ?: false,
                 enableAutoGamepad = prefs[ENABLE_AUTO_GAMEPAD] ?: true,
                 hideOverlayOnGamepad = prefs[HIDE_OVERLAY_ON_GAMEPAD] ?: true,
                 gamepadStickDeadzone = prefs[GAMEPAD_STICK_DEADZONE] ?: DEFAULT_GAMEPAD_STICK_DEADZONE,
@@ -829,6 +840,8 @@ class AppPreferences(private val context: Context) {
                 rightStickSensitivity = prefs[RIGHT_STICK_SENSITIVITY] ?: 100,
                 invertLeftStick = prefs[INVERT_LEFT_STICK] ?: false,
                 invertRightStick = prefs[INVERT_RIGHT_STICK] ?: false,
+                invertLeftStickHorizontal = prefs[INVERT_LEFT_STICK_HORIZONTAL] ?: false,
+                invertRightStickHorizontal = prefs[INVERT_RIGHT_STICK_HORIZONTAL] ?: false,
                 stickSurfaceMode = prefs[STICK_SURFACE_MODE] ?: false,
                 controlLayouts = decodeControlLayouts(prefs[CONTROL_LAYOUTS])
             )
@@ -1218,6 +1231,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setEnableVu1Recompiler(enabled: Boolean) {
         context.dataStore.edit { it[ENABLE_VU1_RECOMPILER] = enabled }
+    }
+
+    val enableEeClamping: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ENABLE_EE_CLAMPING] ?: false
+    }
+
+    suspend fun setEnableEeClamping(enabled: Boolean) {
+        context.dataStore.edit { it[ENABLE_EE_CLAMPING] = enabled }
     }
 
     val enableVu1Clamping: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -1879,6 +1900,22 @@ class AppPreferences(private val context: Context) {
         }
     }
 
+    val invertLeftStickHorizontal: Flow<Boolean> = context.dataStore.data.map { it[INVERT_LEFT_STICK_HORIZONTAL] ?: false }
+
+    suspend fun setInvertLeftStickHorizontal(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[INVERT_LEFT_STICK_HORIZONTAL] = enabled
+        }
+    }
+
+    val invertRightStickHorizontal: Flow<Boolean> = context.dataStore.data.map { it[INVERT_RIGHT_STICK_HORIZONTAL] ?: false }
+
+    suspend fun setInvertRightStickHorizontal(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[INVERT_RIGHT_STICK_HORIZONTAL] = enabled
+        }
+    }
+
     suspend fun setControlsLayout(
         dpadX: Float, dpadY: Float,
         lstickX: Float, lstickY: Float,
@@ -2056,6 +2093,8 @@ class AppPreferences(private val context: Context) {
             put("enableIopRecompiler", prefs[ENABLE_IOP_RECOMPILER] ?: true)
             put("enableVu0Recompiler", prefs[ENABLE_VU0_RECOMPILER] ?: true)
             put("enableVu1Recompiler", prefs[ENABLE_VU1_RECOMPILER] ?: true)
+            put("enableEeClamping", prefs[ENABLE_EE_CLAMPING] ?: false)
+            put("enableVu1Clamping", prefs[ENABLE_VU1_CLAMPING] ?: false)
             put("enableWaitLoopSpeedhack", prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true)
             put("enableIntcStatSpeedhack", prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true)
             put("enableVuFlagHack", prefs[ENABLE_VU_FLAG_HACK] ?: true)
@@ -2135,6 +2174,8 @@ class AppPreferences(private val context: Context) {
             put("rightStickSensitivity", prefs[RIGHT_STICK_SENSITIVITY] ?: 100)
             put("invertLeftStick", prefs[INVERT_LEFT_STICK] ?: false)
             put("invertRightStick", prefs[INVERT_RIGHT_STICK] ?: false)
+            put("invertLeftStickHorizontal", prefs[INVERT_LEFT_STICK_HORIZONTAL] ?: false)
+            put("invertRightStickHorizontal", prefs[INVERT_RIGHT_STICK_HORIZONTAL] ?: false)
             put("stickSurfaceMode", prefs[STICK_SURFACE_MODE] ?: false)
             put("controlLayouts", prefs[CONTROL_LAYOUTS])
             put("memoryCardSlot1", prefs[MEMORY_CARD_SLOT1])
@@ -2198,6 +2239,8 @@ class AppPreferences(private val context: Context) {
             prefs[ENABLE_IOP_RECOMPILER] = json.optBoolean("enableIopRecompiler", true)
             prefs[ENABLE_VU0_RECOMPILER] = json.optBoolean("enableVu0Recompiler", true)
             prefs[ENABLE_VU1_RECOMPILER] = json.optBoolean("enableVu1Recompiler", true)
+            prefs[ENABLE_EE_CLAMPING] = json.optBoolean("enableEeClamping", false)
+            prefs[ENABLE_VU1_CLAMPING] = json.optBoolean("enableVu1Clamping", false)
             prefs[ENABLE_WAIT_LOOP_SPEEDHACK] = json.optBoolean("enableWaitLoopSpeedhack", true)
             prefs[ENABLE_INTC_STAT_SPEEDHACK] = json.optBoolean("enableIntcStatSpeedhack", true)
             prefs[ENABLE_VU_FLAG_HACK] = json.optBoolean("enableVuFlagHack", true)
@@ -2290,6 +2333,8 @@ class AppPreferences(private val context: Context) {
             prefs[RIGHT_STICK_SENSITIVITY] = json.optInt("rightStickSensitivity", 100).coerceIn(50, 200)
             prefs[INVERT_LEFT_STICK] = json.optBoolean("invertLeftStick", false)
             prefs[INVERT_RIGHT_STICK] = json.optBoolean("invertRightStick", false)
+            prefs[INVERT_LEFT_STICK_HORIZONTAL] = json.optBoolean("invertLeftStickHorizontal", false)
+            prefs[INVERT_RIGHT_STICK_HORIZONTAL] = json.optBoolean("invertRightStickHorizontal", false)
             prefs[STICK_SURFACE_MODE] = json.optBoolean("stickSurfaceMode", false)
             json.optString("controlLayouts").takeIf { it.isNotBlank() }?.let { prefs[CONTROL_LAYOUTS] = it } ?: prefs.remove(CONTROL_LAYOUTS)
             migrateGlobalStickSurfaceMode(prefs)

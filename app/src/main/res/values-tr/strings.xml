@@ -1164,4 +1164,13 @@
     <string name="settings_invert_right_stick_desc">Sağ analog çubuktaki dikey hareketi tersine çevir.</string>
     <string name="settings_help_invert_left_stick">Sol analog çubuk için dikey ekseni tersine çevirir.</string>
     <string name="settings_help_invert_right_stick">Sağ analog çubuk için dikey ekseni tersine çevirir.</string>
+    <string name="settings_help_invert_left_stick_horizontal">Sol analog çubuk için yatay ekseni tersine çevirir.</string>
+    <string name="settings_help_invert_right_stick_horizontal">Sağ analog çubuk için yatay ekseni tersine çevirir.</string>
+    <string name="settings_invert_right_stick_horizontal">Sağ Çubuğu Yatay Olarak Ters Çevir</string>
+    <string name="settings_invert_right_stick_horizontal_desc">Sağ analog çubuktaki yatay hareketi tersine çevir.</string>
+    <string name="settings_invert_left_stick_horizontal">Sol Çubuğu Yatay Olarak Ters Çevir</string>
+    <string name="settings_invert_left_stick_horizontal_desc">Sol analog çubuktaki yatay hareketi tersine çevir.</string>
+    <string name="settings_enable_ee_clamping">EE FPU Sınırlandırma (Clamping)</string>
+    <string name="settings_enable_ee_clamping_desc">Emotion Engine FPU işlemleri için taşma sınırlandırmasını (clamping) etkinleştirir. Uyumluluk için bir oyun gerektirmediği sürece kapalı tutun.</string>
+    <string name="settings_help_enable_ee_clamping">EE FPU yeniden derleyicisinin kayan nokta taşma durumları için sınırlandırma kontrolleri yayınlayıp yayınlamadığını kontrol eder. Kapalı tutmak, bu davranışa ihtiyaç duymayan oyunlarda fazladan oluşturulan kodu engeller. Yalnızca belirli bir oyun, EE FPU sınırlandırması gerektiren fizik, geometri veya işleme sorunları gösteriyorsa etkinleştirin.</string>
 </resources>
