@@ -267,7 +267,7 @@ void MTGS::PostVsyncStart(bool registers_written)
 	s_VsyncSignalListener.store(true, std::memory_order_release);
 	//Console.WriteLn( Color_Blue, "(EEcore Sleep) Vsync\t\tringpos=0x%06x, writepos=0x%06x", m_ReadPos.load(), m_WritePos.load() );
 
-	s_sem_Vsync.Wait();
+	s_sem_Vsync.WaitWithSpin();
 }
 
 void MTGS::InitAndReadFIFO(u8* mem, u32 qwc)
@@ -361,7 +361,7 @@ void MTGS::MainLoop()
 		else
 		{
 			mtvu_lock.unlock();
-			s_sem_event.WaitForWork();
+			s_sem_event.WaitForWorkWithSpin();
 			mtvu_lock.lock();
 		}
 
@@ -442,7 +442,7 @@ void MTGS::MainLoop()
 					{
 						mtvu_lock.unlock();
 						// Wait for MTVU to complete vu1 program
-						vu1Thread.semaXGkick.Wait();
+						vu1Thread.semaXGkick.WaitWithSpin();
 						mtvu_lock.lock();
 					}
 					Gif_Path& path = gifUnit.gifPath[GIF_PATH_1];
