@@ -40,6 +40,7 @@ public:
 	void EndSettingsBatch();
 	void SetSetting(std::string section, std::string key, std::string type, std::string value);
 	std::string GetSetting(const std::string& section, const std::string& key) const;
+	void SetFrameLimitEnabled(bool enabled);
 	void ReloadPatches();
 	void SetNativeSurface(void* window, int width, int height);
 	void ClearSurface();

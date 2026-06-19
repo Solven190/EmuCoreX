@@ -67,6 +67,7 @@ object NativeApp {
     @JvmStatic external fun endSettingsBatch()
     @JvmStatic external fun setSetting(section: String, key: String, type: String, value: String)
     @JvmStatic external fun getSetting(section: String, key: String, type: String): String?
+    @JvmStatic external fun setFrameLimitEnabled(enabled: Boolean)
     @JvmStatic external fun reloadPatches()
     @JvmStatic external fun onNativeSurfaceCreated()
     @JvmStatic external fun onNativeSurfaceChanged(surface: Surface, width: Int, height: Int)

@@ -480,7 +480,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/Speedhacks", "EECycleSkip", "int", eeCycleSkip.toString()))
                 add(settingOp("EmuCore/GS", "FrameLimitEnable", "bool", frameLimitEnabled.toString()))
                 addAll(targetFpsOps(targetFps))
-                add(settingOp("EmuCore/Framerate", "NominalScalar", "float", "1.0"))
+                add(settingOp("Framerate", "NominalScalar", "float", "1.0"))
                 addAll(eeClampingOps(fpuClampMode > 0))
                 add(settingOp("EmuCore/GS", "disable_hw_readbacks", "bool", disableHardwareReadbacks.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "fpuCorrectAddSub", "bool", fpuCorrectAddSub.toString()))
@@ -959,7 +959,14 @@ object EmulatorBridge {
     }
 
     suspend fun setFrameLimitEnabled(enabled: Boolean) {
-        setSetting("EmuCore/GS", "FrameLimitEnable", "bool", enabled.toString())
+        if (!isNativeLoaded) return
+        val value = enabled.toString()
+        val cacheKey = "EmuCore/GS:FrameLimitEnable"
+        if (settingsCache[cacheKey] == value) return
+        runSerial {
+            NativeApp.setFrameLimitEnabled(enabled)
+        }
+        settingsCache[cacheKey] = value
     }
 
     suspend fun setSkipDuplicateFrames(enabled: Boolean) {
@@ -970,7 +977,7 @@ object EmulatorBridge {
         performRuntimeOps(
             buildList {
                 addAll(targetFpsOps(targetFps))
-                add(settingOp("EmuCore/Framerate", "NominalScalar", "float", "1.0"))
+                add(settingOp("Framerate", "NominalScalar", "float", "1.0"))
             }
         )
     }

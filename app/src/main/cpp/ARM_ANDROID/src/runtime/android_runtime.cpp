@@ -316,6 +316,24 @@ std::string AndroidRuntime::GetSetting(const std::string& section, const std::st
 	return (it == settings_.end()) ? std::string() : it->second;
 }
 
+void AndroidRuntime::SetFrameLimitEnabled(bool enabled)
+{
+	bool active = false;
+	{
+		std::lock_guard lock(mutex_);
+		settings_[SettingKey("EmuCore/GS", "FrameLimitEnable")] = enabled ? "true" : "false";
+		active = vm_active_;
+	}
+
+	if (!active)
+		return;
+
+	Host::RunOnCPUThread([enabled]() {
+		if (VMManager::HasValidVM())
+			VMManager::SetLimiterMode(enabled ? LimiterModeType::Nominal : LimiterModeType::Unlimited);
+	}, false);
+}
+
 void AndroidRuntime::ReloadPatches()
 {
 	bool active = false;

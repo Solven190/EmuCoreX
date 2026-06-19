@@ -248,7 +248,7 @@ VMBootParameters CreateBootParameters(const VmLaunchConfig& config)
 	params.fast_boot = GetBoolSetting(config.settings, "EmuCore", "EnableFastBoot", !config.path.empty() || config.boot_elf);
 	params.fullscreen = false;
 	params.start_turbo = false;
-	params.start_unlimited = false;
+	params.start_unlimited = !GetBoolSetting(config.settings, "EmuCore/GS", "FrameLimitEnable", true);
 	params.disable_achievements_hardcore_mode = false;
 
 	if (config.boot_irx)

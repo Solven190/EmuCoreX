@@ -355,6 +355,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_beginSet
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_endSettingsBatch(JNIEnv*, jclass) { AndroidRuntime::Instance().EndSettingsBatch(); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setSetting(JNIEnv* env, jclass, jstring section, jstring key, jstring type, jstring value) { AndroidRuntime::Instance().SetSetting(JStringToString(env, section), JStringToString(env, key), JStringToString(env, type), JStringToString(env, value)); }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getSetting(JNIEnv* env, jclass, jstring section, jstring key, jstring) { return StringToJString(env, AndroidRuntime::Instance().GetSetting(JStringToString(env, section), JStringToString(env, key))); }
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setFrameLimitEnabled(JNIEnv*, jclass, jboolean enabled) { AndroidRuntime::Instance().SetFrameLimitEnabled(enabled == JNI_TRUE); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_reloadPatches(JNIEnv*, jclass) { AndroidRuntime::Instance().ReloadPatches(); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_onNativeSurfaceCreated(JNIEnv*, jclass) {}
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_onNativeSurfaceChanged(JNIEnv* env, jclass, jobject surface, jint width, jint height)
