@@ -364,12 +364,12 @@ void recMTLO1()
 
 //// MOVZ
 // if (rt == 0) then rd <- rs
-static void recMOVZ_const()
+static void recMOVcc_const()
 {
 	g_cpuConstRegs[_Rd_].UD[0] = g_cpuConstRegs[_Rs_].UD[0];
 }
 
-static void recMOVZ_consts_emit_oaknut(int info)
+static void recMOVcc_consts_emit_oaknut(int info, oak::Cond cond)
 {
 	pxAssert(!(info & PROCESS_EE_XMM));
 
@@ -384,17 +384,12 @@ static void recMOVZ_consts_emit_oaknut(int info)
 	}
 
 	oakAsm->MOV(OAK_XSCRATCH2, g_cpuConstRegs[_Rs_].UD[0]);
-	oakAsm->CSEL(oakXRegister(EEREC_D), OAK_XSCRATCH2, oakXRegister(EEREC_D), oak::util::EQ);
+	oakAsm->CSEL(oakXRegister(EEREC_D), OAK_XSCRATCH2, oakXRegister(EEREC_D), cond);
 
 	recEndOaknutEmit();
 }
 
-static void recMOVZ_consts(int info)
-{
-	recMOVZ_consts_emit_oaknut(info);
-}
-
-static void recMOVZ_constt_emit_oaknut(int info)
+static void recMOVcc_constt_emit_oaknut(int info)
 {
 	pxAssert(!(info & PROCESS_EE_XMM));
 
@@ -408,12 +403,7 @@ static void recMOVZ_constt_emit_oaknut(int info)
 	recEndOaknutEmit();
 }
 
-static void recMOVZ_constt(int info)
-{
-	recMOVZ_constt_emit_oaknut(info);
-}
-
-static void recMOVZ_emit_oaknut(int info)
+static void recMOVcc_emit_oaknut(int info, oak::Cond cond)
 {
 	pxAssert(!(info & PROCESS_EE_XMM));
 
@@ -428,19 +418,29 @@ static void recMOVZ_emit_oaknut(int info)
 	}
 
 	if (info & PROCESS_EE_S)
-		oakAsm->CSEL(oakXRegister(EEREC_D), oakXRegister(EEREC_S), oakXRegister(EEREC_D), oak::util::EQ);
+		oakAsm->CSEL(oakXRegister(EEREC_D), oakXRegister(EEREC_S), oakXRegister(EEREC_D), cond);
 	else
 	{
 		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-		oakAsm->CSEL(oakXRegister(EEREC_D), OAK_XSCRATCH2, oakXRegister(EEREC_D), oak::util::EQ);
+		oakAsm->CSEL(oakXRegister(EEREC_D), OAK_XSCRATCH2, oakXRegister(EEREC_D), cond);
 	}
 
 	recEndOaknutEmit();
 }
 
+static void recMOVZ_consts(int info)
+{
+	recMOVcc_consts_emit_oaknut(info, oak::Cond::EQ);
+}
+
+static void recMOVZ_constt(int info)
+{
+	recMOVcc_constt_emit_oaknut(info);
+}
+
 static void recMOVZ_(int info)
 {
-	recMOVZ_emit_oaknut(info);
+	recMOVcc_emit_oaknut(info, oak::Cond::EQ);
 }
 
 void recMOVZ()
@@ -453,87 +453,23 @@ void recMOVZ()
 
 	EE::Profiler.EmitOp(eeOpcode::MOVZtemp);
 	// Specify READD here, because we might not write to it, and want to preserve the value.
-	eeRecompileCodeRC0(recMOVZ_const, recMOVZ_consts, recMOVZ_constt, recMOVZ_, XMMINFO_READS | XMMINFO_READT | XMMINFO_READD | XMMINFO_WRITED | XMMINFO_NORENAME);
+	eeRecompileCodeRC0(recMOVcc_const, recMOVZ_consts, recMOVZ_constt, recMOVZ_, XMMINFO_READS | XMMINFO_READT | XMMINFO_READD | XMMINFO_WRITED | XMMINFO_NORENAME);
 }
 
 //// MOVN
-static void recMOVN_const()
-{
-	g_cpuConstRegs[_Rd_].UD[0] = g_cpuConstRegs[_Rs_].UD[0];
-}
-
-static void recMOVN_consts_emit_oaknut(int info)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	recBeginOaknutEmit();
-
-	if (info & PROCESS_EE_T)
-		oakAsm->TST(oakXRegister(EEREC_T), oakXRegister(EEREC_T));
-	else
-	{
-		oakLoad64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-		oakAsm->CMP(OAK_XSCRATCH, 0);
-	}
-
-	oakAsm->MOV(OAK_XSCRATCH2, g_cpuConstRegs[_Rs_].UD[0]);
-	oakAsm->CSEL(oakXRegister(EEREC_D), OAK_XSCRATCH2, oakXRegister(EEREC_D), oak::util::NE);
-
-	recEndOaknutEmit();
-}
-
 static void recMOVN_consts(int info)
 {
-	recMOVN_consts_emit_oaknut(info);
-}
-
-static void recMOVN_constt_emit_oaknut(int info)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	recBeginOaknutEmit();
-
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oakXRegister(EEREC_D), oakXRegister(EEREC_S));
-	else
-		oakLoad64(oakXRegister(EEREC_D), {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-
-	recEndOaknutEmit();
+	recMOVcc_consts_emit_oaknut(info, oak::Cond::NE);
 }
 
 static void recMOVN_constt(int info)
 {
-	recMOVN_constt_emit_oaknut(info);
-}
-
-static void recMOVN_emit_oaknut(int info)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	recBeginOaknutEmit();
-
-	if (info & PROCESS_EE_T)
-		oakAsm->TST(oakXRegister(EEREC_T), oakXRegister(EEREC_T));
-	else
-	{
-		oakLoad64(OAK_XSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-		oakAsm->CMP(OAK_XSCRATCH, 0);
-	}
-
-	if (info & PROCESS_EE_S)
-		oakAsm->CSEL(oakXRegister(EEREC_D), oakXRegister(EEREC_S), oakXRegister(EEREC_D), oak::util::NE);
-	else
-	{
-		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-		oakAsm->CSEL(oakXRegister(EEREC_D), OAK_XSCRATCH2, oakXRegister(EEREC_D), oak::util::NE);
-	}
-
-	recEndOaknutEmit();
+	recMOVcc_constt_emit_oaknut(info);
 }
 
 static void recMOVN_(int info)
 {
-	recMOVN_emit_oaknut(info);
+	recMOVcc_emit_oaknut(info, oak::Cond::NE);
 }
 
 void recMOVN()
@@ -545,7 +481,7 @@ void recMOVN()
 		return;
 
 	EE::Profiler.EmitOp(eeOpcode::MOVNtemp);
-	eeRecompileCodeRC0(recMOVN_const, recMOVN_consts, recMOVN_constt, recMOVN_, XMMINFO_READS | XMMINFO_READT | XMMINFO_READD | XMMINFO_WRITED | XMMINFO_NORENAME);
+	eeRecompileCodeRC0(recMOVcc_const, recMOVN_consts, recMOVN_constt, recMOVN_, XMMINFO_READS | XMMINFO_READT | XMMINFO_READD | XMMINFO_WRITED | XMMINFO_NORENAME);
 }
 
 #endif

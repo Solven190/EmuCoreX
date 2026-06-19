@@ -200,14 +200,60 @@ static void recANDI_const()
 	g_cpuConstRegs[_Rt_].UD[0] = g_cpuConstRegs[_Rs_].UD[0] & (u64)_ImmU_; // Zero-extended Immediate
 }
 
-static void recANDI_emit_oaknut(int info)
+namespace
+{
+enum class LogicalImmOp
+{
+	AND,
+	OR,
+	XOR
+};
+} // namespace
+
+static void emitLogicalImm_oaknut(LogicalImmOp op, oak::XReg dst, u64 imm)
+{
+	if (oak::detail::encode_bit_imm(imm))
+	{
+		switch (op)
+		{
+			case LogicalImmOp::AND:
+				oakAsm->AND(dst, dst, oak::BitImm64(imm));
+				break;
+			case LogicalImmOp::OR:
+				oakAsm->ORR(dst, dst, oak::BitImm64(imm));
+				break;
+			case LogicalImmOp::XOR:
+				oakAsm->EOR(dst, dst, oak::BitImm64(imm));
+				break;
+		}
+	}
+	else
+	{
+		oakAsm->MOV(OAK_XSCRATCH, imm);
+		switch (op)
+		{
+			case LogicalImmOp::AND:
+				oakAsm->AND(dst, dst, OAK_XSCRATCH);
+				break;
+			case LogicalImmOp::OR:
+				oakAsm->ORR(dst, dst, OAK_XSCRATCH);
+				break;
+			case LogicalImmOp::XOR:
+				oakAsm->EOR(dst, dst, OAK_XSCRATCH);
+				break;
+		}
+	}
+}
+
+static void recLogicalOpI_emit_oaknut(int info, LogicalImmOp op)
 {
 	using namespace oak::util;
 
 	recBeginOaknutEmit();
 
 	const oak::XReg regt_x = oakXRegister(EEREC_T);
-	if (_ImmU_ == 0)
+	const u64 imm = static_cast<u64>(_ImmU_);
+	if (op == LogicalImmOp::AND && imm == 0)
 	{
 		oakAsm->EOR(oakWRegister(EEREC_T), oakWRegister(EEREC_T), oakWRegister(EEREC_T));
 		recEndOaknutEmit();
@@ -219,13 +265,8 @@ static void recANDI_emit_oaknut(int info)
 	else
 		oakLoad64(regt_x, {X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
 
-	if (oak::detail::encode_bit_imm(static_cast<u64>(_ImmU_)))
-		oakAsm->AND(regt_x, regt_x, oak::BitImm64(static_cast<u64>(_ImmU_)));
-	else
-	{
-		oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(_ImmU_));
-		oakAsm->AND(regt_x, regt_x, OAK_XSCRATCH);
-	}
+	if (imm != 0)
+		emitLogicalImm_oaknut(op, regt_x, imm);
 
 	recEndOaknutEmit();
 }
@@ -233,7 +274,7 @@ static void recANDI_emit_oaknut(int info)
 static void recANDI_(int info)
 {
 	pxAssert(!(info & PROCESS_EE_XMM));
-	recANDI_emit_oaknut(info);
+	recLogicalOpI_emit_oaknut(info, LogicalImmOp::AND);
 }
 
 EERECOMPILE_CODEX(eeRecompileCodeRC1, ANDI, XMMINFO_WRITET | XMMINFO_READS | XMMINFO_64BITOP);
@@ -244,36 +285,10 @@ static void recORI_const()
 	g_cpuConstRegs[_Rt_].UD[0] = g_cpuConstRegs[_Rs_].UD[0] | (u64)_ImmU_; // Zero-extended Immediate
 }
 
-static void recORI_emit_oaknut(int info)
-{
-	using namespace oak::util;
-
-	recBeginOaknutEmit();
-
-	const oak::XReg regt_x = oakXRegister(EEREC_T);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(regt_x, oakXRegister(EEREC_S));
-	else
-		oakLoad64(regt_x, {X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-
-	if (_ImmU_ != 0)
-	{
-		if (oak::detail::encode_bit_imm(static_cast<u64>(_ImmU_)))
-			oakAsm->ORR(regt_x, regt_x, oak::BitImm64(static_cast<u64>(_ImmU_)));
-		else
-		{
-			oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(_ImmU_));
-			oakAsm->ORR(regt_x, regt_x, OAK_XSCRATCH);
-		}
-	}
-
-	recEndOaknutEmit();
-}
-
 static void recORI_(int info)
 {
 	pxAssert(!(info & PROCESS_EE_XMM));
-	recORI_emit_oaknut(info);
+	recLogicalOpI_emit_oaknut(info, LogicalImmOp::OR);
 }
 
 EERECOMPILE_CODEX(eeRecompileCodeRC1, ORI, XMMINFO_WRITET | XMMINFO_READS | XMMINFO_64BITOP);
@@ -284,36 +299,10 @@ static void recXORI_const()
 	g_cpuConstRegs[_Rt_].UD[0] = g_cpuConstRegs[_Rs_].UD[0] ^ (u64)_ImmU_; // Zero-extended Immediate
 }
 
-static void recXORI_emit_oaknut(int info)
-{
-	using namespace oak::util;
-
-	recBeginOaknutEmit();
-
-	const oak::XReg regt_x = oakXRegister(EEREC_T);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(regt_x, oakXRegister(EEREC_S));
-	else
-		oakLoad64(regt_x, {X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-
-	if (_ImmU_ != 0)
-	{
-		if (oak::detail::encode_bit_imm(static_cast<u64>(_ImmU_)))
-			oakAsm->EOR(regt_x, regt_x, oak::BitImm64(static_cast<u64>(_ImmU_)));
-		else
-		{
-			oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(_ImmU_));
-			oakAsm->EOR(regt_x, regt_x, OAK_XSCRATCH);
-		}
-	}
-
-	recEndOaknutEmit();
-}
-
 static void recXORI_(int info)
 {
 	pxAssert(!(info & PROCESS_EE_XMM));
-	recXORI_emit_oaknut(info);
+	recLogicalOpI_emit_oaknut(info, LogicalImmOp::XOR);
 }
 
 EERECOMPILE_CODEX(eeRecompileCodeRC1, XORI, XMMINFO_WRITET | XMMINFO_READS | XMMINFO_64BITOP);

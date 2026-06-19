@@ -295,6 +295,7 @@ namespace
 		if (code == 0x8000033c)
 			return false;
 
+		const u32 mask = (code >> 21) & 0xf;
 		const u32 op = code & 0x3f;
 		if (op < 0x30)
 			return true;
@@ -306,10 +307,54 @@ namespace
 			return false;
 
 		const u32 ft = (code >> 16) & 0x1f;
-		if (ft == 0 && (std::strncmp(name, "ITOF", 4) == 0 || std::strncmp(name, "FTOI", 4) == 0 || std::strcmp(name, "ABS") == 0))
+		if ((ft == 0 || mask == 0) && (std::strncmp(name, "ITOF", 4) == 0 || std::strncmp(name, "FTOI", 4) == 0 || std::strcmp(name, "ABS") == 0))
+			return false;
+
+		if (mask == 0 && (std::strncmp(name, "MAX", 3) == 0 || std::strncmp(name, "MINI", 4) == 0))
 			return false;
 
 		return true;
+	}
+
+	bool VUUpperUsesNoLaneFastPath(u32 code)
+	{
+		if (((code >> 21) & 0xf) != 0)
+			return false;
+
+		const u32 op = code & 0x3f;
+		if (op < 0x30)
+			return true;
+
+		if (op < 0x3c)
+			return false;
+
+		const char* name = DecodeVUUpperFdName(code);
+		if (!name)
+			return false;
+
+		if (std::strncmp(name, "ADDA", 4) == 0 ||
+		    std::strncmp(name, "SUBA", 4) == 0 ||
+		    std::strncmp(name, "MADDA", 5) == 0 ||
+		    std::strncmp(name, "MSUBA", 5) == 0 ||
+		    std::strncmp(name, "MULA", 4) == 0 ||
+		    std::strncmp(name, "OPMULA", 6) == 0)
+		{
+			return false;
+		}
+
+		return std::strncmp(name, "ADD", 3) == 0 ||
+		       std::strncmp(name, "SUB", 3) == 0 ||
+		       std::strncmp(name, "MADD", 4) == 0 ||
+		       std::strncmp(name, "MSUB", 4) == 0 ||
+		       std::strncmp(name, "MUL", 3) == 0;
+	}
+
+	u32 VUUpperHostWeight(u32 code)
+	{
+		if (!VUUpperEmitsHostCode(code))
+			return 0;
+
+		return VUUpperUsesNoLaneFastPath(code) ? 1 : 4;
 	}
 
 	bool VULowerEmitsHostCode(u32 code)
@@ -321,6 +366,16 @@ namespace
 			return false;
 
 		return true;
+	}
+
+	u32 VULowerHostWeight(u32 code)
+	{
+		return VULowerEmitsHostCode(code) ? 4 : 0;
+	}
+
+	bool MipsEmitsHostCode(u32 code)
+	{
+		return code != 0;
 	}
 
 	const char* ClassifyEE(u32 code)
@@ -625,10 +680,18 @@ namespace
 		analysis.host_expansion = (guest_bytes > 0) ? static_cast<double>(block.host_size) / static_cast<double>(guest_bytes) : 0.0;
 
 		const std::string cpu_name = CpuName(block.type);
-		const u64 estimated_host_per_slot = (slot_count > 0) ? std::max<u64>(1, block.host_size / slot_count) : 0;
-
 		if (block.type == 0 || block.type == 1)
 		{
+			u32 live_mips_slots = 0;
+			for (u32 i = 0; i < block.size; i++)
+			{
+				const u32 pc = block.startpc + i * 4;
+				u32 code = 0;
+				if (ReadGuest32(block.type, pc, code) && MipsEmitsHostCode(code))
+					live_mips_slots++;
+			}
+
+			const u64 estimated_host_per_slot = (live_mips_slots > 0) ? std::max<u64>(1, block.host_size / live_mips_slots) : 0;
 			for (u32 i = 0; i < block.size; i++)
 			{
 				const u32 pc = block.startpc + i * 4;
@@ -643,8 +706,9 @@ namespace
 				const std::string disasm = (block.type == 0) ? DisassembleEE(code, pc) : DisassembleIOP(code, pc);
 				const std::string mnemonic = TrimMnemonic(disasm);
 				const std::string category = (block.type == 0) ? ClassifyEE(code) : ClassifyIOP(code);
-				AddHotStat(opcode_stats, cpu_name, category, mnemonic, execs, execs * estimated_host_per_slot);
-				AddHotStat(category_stats, cpu_name, category, category, execs, execs * estimated_host_per_slot);
+				const u64 host_estimate = MipsEmitsHostCode(code) ? (execs * estimated_host_per_slot) : 0;
+				AddHotStat(opcode_stats, cpu_name, category, mnemonic, execs, host_estimate);
+				AddHotStat(category_stats, cpu_name, category, category, execs, host_estimate);
 
 				if (analysis.disassembly.size() < 48)
 				{
@@ -657,7 +721,7 @@ namespace
 		}
 		else if (block.type == 2 || block.type == 3)
 		{
-			u32 live_vu_ops = 0;
+			u32 live_vu_weight = 0;
 			for (u32 i = 0; i < block.size; i++)
 			{
 				const u32 offset = block.startpc + i * 8;
@@ -666,13 +730,11 @@ namespace
 				if (!ReadVUPair(block.type, offset, upper, lower))
 					continue;
 
-				if (VUUpperEmitsHostCode(upper))
-					live_vu_ops++;
-				if (VULowerEmitsHostCode(lower))
-					live_vu_ops++;
+				live_vu_weight += VUUpperHostWeight(upper);
+				live_vu_weight += VULowerHostWeight(lower);
 			}
 
-			const u64 estimated_host_per_op = (live_vu_ops > 0) ? std::max<u64>(1, block.host_size / live_vu_ops) : 0;
+			const u64 estimated_host_per_weight = (live_vu_weight > 0) ? std::max<u64>(1, block.host_size / live_vu_weight) : 0;
 			for (u32 i = 0; i < block.size; i++)
 			{
 				const u32 offset = block.startpc + i * 8;
@@ -690,8 +752,8 @@ namespace
 				const std::string lower_disasm = DisassembleVULower(block.type, lower, index);
 				const std::string upper_category = cpu_name + "_UPPER";
 				const std::string lower_category = cpu_name + "_LOWER";
-				const u64 upper_host_estimate = VUUpperEmitsHostCode(upper) ? (execs * estimated_host_per_op) : 0;
-				const u64 lower_host_estimate = VULowerEmitsHostCode(lower) ? (execs * estimated_host_per_op) : 0;
+				const u64 upper_host_estimate = execs * estimated_host_per_weight * VUUpperHostWeight(upper);
+				const u64 lower_host_estimate = execs * estimated_host_per_weight * VULowerHostWeight(lower);
 				AddHotStat(opcode_stats, cpu_name, upper_category, TrimMnemonic(upper_disasm), execs, upper_host_estimate);
 				AddHotStat(opcode_stats, cpu_name, lower_category, TrimMnemonic(lower_disasm), execs, lower_host_estimate);
 				AddHotStat(category_stats, cpu_name, upper_category, upper_category, execs, upper_host_estimate);

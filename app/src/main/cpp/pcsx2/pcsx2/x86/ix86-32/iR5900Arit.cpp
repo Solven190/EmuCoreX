@@ -489,16 +489,111 @@ static void recAND_const()
 	g_cpuConstRegs[_Rd_].UD[0] = g_cpuConstRegs[_Rs_].UD[0] & g_cpuConstRegs[_Rt_].UD[0];
 }
 
-static void recAND_constv_emit_oaknut(int info, int creg, u32 vreg, int regv)
+namespace
+{
+enum class LogicalOp
+{
+	AND,
+	OR,
+	XOR,
+	NOR
+};
+} // namespace
+
+static void emitLogicalRegImm_oaknut(LogicalOp op, oak::XReg dst, u64 imm)
+{
+	const LogicalOp emit_op = (op == LogicalOp::NOR) ? LogicalOp::OR : op;
+	if (oak::detail::encode_bit_imm(imm))
+	{
+		switch (emit_op)
+		{
+			case LogicalOp::AND:
+				oakAsm->AND(dst, dst, oak::BitImm64(imm));
+				break;
+			case LogicalOp::OR:
+				oakAsm->ORR(dst, dst, oak::BitImm64(imm));
+				break;
+			case LogicalOp::XOR:
+				oakAsm->EOR(dst, dst, oak::BitImm64(imm));
+				break;
+			case LogicalOp::NOR:
+				break;
+		}
+	}
+	else
+	{
+		oakAsm->MOV(OAK_XSCRATCH, imm);
+		switch (emit_op)
+		{
+			case LogicalOp::AND:
+				oakAsm->AND(dst, dst, OAK_XSCRATCH);
+				break;
+			case LogicalOp::OR:
+				oakAsm->ORR(dst, dst, OAK_XSCRATCH);
+				break;
+			case LogicalOp::XOR:
+				oakAsm->EOR(dst, dst, OAK_XSCRATCH);
+				break;
+			case LogicalOp::NOR:
+				break;
+		}
+	}
+}
+
+static void emitLogicalRegReg_oaknut(LogicalOp op, oak::XReg dst, oak::XReg rhs)
+{
+	switch (op)
+	{
+		case LogicalOp::AND:
+			oakAsm->AND(dst, dst, rhs);
+			break;
+		case LogicalOp::OR:
+		case LogicalOp::NOR:
+			oakAsm->ORR(dst, dst, rhs);
+			break;
+		case LogicalOp::XOR:
+			oakAsm->EOR(dst, dst, rhs);
+			break;
+	}
+}
+
+static void recLogicalOp_constv_emit_oaknut(LogicalOp op, int info, int creg, u32 vreg, int regv)
 {
 	pxAssert(!(info & PROCESS_EE_XMM));
+
+	s64 fixed_input = 0;
+	s64 fixed_output = 0;
+	s64 identity_input = 0;
+	bool has_fixed = true;
+	switch (op)
+	{
+		case LogicalOp::AND:
+			fixed_input = 0;
+			fixed_output = 0;
+			identity_input = -1;
+			break;
+		case LogicalOp::OR:
+			fixed_input = -1;
+			fixed_output = -1;
+			identity_input = 0;
+			break;
+		case LogicalOp::XOR:
+			has_fixed = false;
+			identity_input = 0;
+			break;
+		case LogicalOp::NOR:
+			fixed_input = -1;
+			fixed_output = 0;
+			identity_input = 0;
+			break;
+	}
 
 	const GPR_reg64 cval = g_cpuConstRegs[creg];
 	recBeginOaknutEmit();
 
-	if (cval.SD[0] == 0)
+	if (has_fixed && cval.SD[0] == fixed_input)
 	{
-		oakAsm->MOV(oakXRegister(EEREC_D), 0);
+		oakAsm->MOV(oakXRegister(EEREC_D), static_cast<u64>(fixed_output));
 		recEndOaknutEmit();
 		return;
 	}
@@ -509,36 +604,15 @@ static void recAND_constv_emit_oaknut(int info, int creg, u32 vreg, int regv)
 	else
 		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + vreg * sizeof(GPR_reg))});
 
-	if (cval.SD[0] != -1)
-	{
-		if (oak::detail::encode_bit_imm(cval.UD[0]))
-			oakAsm->AND(regd_x, regd_x, oak::BitImm64(cval.UD[0]));
-		else
-		{
-			oakAsm->MOV(OAK_XSCRATCH, cval.UD[0]);
-			oakAsm->AND(regd_x, regd_x, OAK_XSCRATCH);
-		}
-	}
+	if (cval.SD[0] != identity_input)
+		emitLogicalRegImm_oaknut(op, regd_x, cval.UD[0]);
+	if (op == LogicalOp::NOR)
+		oakAsm->MVN(regd_x, regd_x);
 
 	recEndOaknutEmit();
 }
 
-static void recAND_constv(int info, int creg, u32 vreg, int regv)
-{
-	recAND_constv_emit_oaknut(info, creg, vreg, regv);
-}
-
-static void recAND_consts(int info)
-{
-	recAND_constv(info, _Rs_, _Rt_, (info & PROCESS_EE_T) ? EEREC_T : -1);
-}
-
-static void recAND_constt(int info)
-{
-	recAND_constv(info, _Rt_, _Rs_, (info & PROCESS_EE_S) ? EEREC_S : -1);
-}
-
-static void recAND_emit_oaknut(int info)
+static void recLogicalOp_emit_oaknut(LogicalOp op, int info)
 {
 	pxAssert(!(info & PROCESS_EE_XMM));
 
@@ -551,188 +625,7 @@ static void recAND_emit_oaknut(int info)
 		std::swap(regs, regt);
 	}
 
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (regs >= 0)
-		oakAsm->MOV(regd_x, oakXRegister(regs));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + rs * sizeof(GPR_reg))});
-
-	if (regt >= 0)
-		oakAsm->AND(regd_x, regd_x, oakXRegister(regt));
-	else
-	{
-		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + rt * sizeof(GPR_reg))});
-		oakAsm->AND(regd_x, regd_x, OAK_XSCRATCH2);
-	}
-
-	recEndOaknutEmit();
-}
-
-static void recAND_(int info)
-{
-	recAND_emit_oaknut(info);
-}
-
-EERECOMPILE_CODERC0(AND, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED | XMMINFO_64BITOP);
-
-//// OR
-static void recOR_const()
-{
-	g_cpuConstRegs[_Rd_].UD[0] = g_cpuConstRegs[_Rs_].UD[0] | g_cpuConstRegs[_Rt_].UD[0];
-}
-
-static void recOR_constv_emit_oaknut(int info, int creg, u32 vreg, int regv)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	const GPR_reg64 cval = g_cpuConstRegs[creg];
-	recBeginOaknutEmit();
-
-	if (cval.SD[0] == -1)
-	{
-		oakAsm->MOV(oakXRegister(EEREC_D), cval.UD[0]);
-		recEndOaknutEmit();
-		return;
-	}
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (regv >= 0)
-		oakAsm->MOV(regd_x, oakXRegister(regv));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + vreg * sizeof(GPR_reg))});
-
-	if (cval.SD[0] != 0)
-	{
-		if (oak::detail::encode_bit_imm(cval.UD[0]))
-			oakAsm->ORR(regd_x, regd_x, oak::BitImm64(cval.UD[0]));
-		else
-		{
-			oakAsm->MOV(OAK_XSCRATCH, cval.UD[0]);
-			oakAsm->ORR(regd_x, regd_x, OAK_XSCRATCH);
-		}
-	}
-
-	recEndOaknutEmit();
-}
-
-static void recOR_constv(int info, int creg, u32 vreg, int regv)
-{
-	recOR_constv_emit_oaknut(info, creg, vreg, regv);
-}
-
-static void recOR_consts(int info)
-{
-	recOR_constv(info, _Rs_, _Rt_, (info & PROCESS_EE_T) ? EEREC_T : -1);
-}
-
-static void recOR_constt(int info)
-{
-	recOR_constv(info, _Rt_, _Rs_, (info & PROCESS_EE_S) ? EEREC_S : -1);
-}
-
-static void recOR_emit_oaknut(int info)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	u32 rs = _Rs_, rt = _Rt_;
-	int regs = (info & PROCESS_EE_S) ? EEREC_S : -1;
-	int regt = (info & PROCESS_EE_T) ? EEREC_T : -1;
-	if (_Rd_ == _Rt_)
-	{
-		std::swap(rs, rt);
-		std::swap(regs, regt);
-	}
-
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (regs >= 0)
-		oakAsm->MOV(regd_x, oakXRegister(regs));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + rs * sizeof(GPR_reg))});
-
-	if (regt >= 0)
-		oakAsm->ORR(regd_x, regd_x, oakXRegister(regt));
-	else
-	{
-		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + rt * sizeof(GPR_reg))});
-		oakAsm->ORR(regd_x, regd_x, OAK_XSCRATCH2);
-	}
-
-	recEndOaknutEmit();
-}
-
-static void recOR_(int info)
-{
-	recOR_emit_oaknut(info);
-}
-
-EERECOMPILE_CODERC0(OR, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED | XMMINFO_64BITOP);
-
-//// XOR
-static void recXOR_const()
-{
-	g_cpuConstRegs[_Rd_].UD[0] = g_cpuConstRegs[_Rs_].UD[0] ^ g_cpuConstRegs[_Rt_].UD[0];
-}
-
-static void recXOR_constv_emit_oaknut(int info, int creg, u32 vreg, int regv)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	const GPR_reg64 cval = g_cpuConstRegs[creg];
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (regv >= 0)
-		oakAsm->MOV(regd_x, oakXRegister(regv));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + vreg * sizeof(GPR_reg))});
-
-	if (cval.SD[0] != 0)
-	{
-		if (oak::detail::encode_bit_imm(cval.UD[0]))
-			oakAsm->EOR(regd_x, regd_x, oak::BitImm64(cval.UD[0]));
-		else
-		{
-			oakAsm->MOV(OAK_XSCRATCH, cval.UD[0]);
-			oakAsm->EOR(regd_x, regd_x, OAK_XSCRATCH);
-		}
-	}
-
-	recEndOaknutEmit();
-}
-
-static void recXOR_constv(int info, int creg, u32 vreg, int regv)
-{
-	recXOR_constv_emit_oaknut(info, creg, vreg, regv);
-}
-
-static void recXOR_consts(int info)
-{
-	recXOR_constv(info, _Rs_, _Rt_, (info & PROCESS_EE_T) ? EEREC_T : -1);
-}
-
-static void recXOR_constt(int info)
-{
-	recXOR_constv(info, _Rt_, _Rs_, (info & PROCESS_EE_S) ? EEREC_S : -1);
-}
-
-static void recXOR_emit_oaknut(int info)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	u32 rs = _Rs_, rt = _Rt_;
-	int regs = (info & PROCESS_EE_S) ? EEREC_S : -1;
-	int regt = (info & PROCESS_EE_T) ? EEREC_T : -1;
-	if (_Rd_ == _Rt_)
-	{
-		std::swap(rs, rt);
-		std::swap(regs, regt);
-	}
-
-	if (rs == rt)
+	if (op == LogicalOp::XOR && rs == rt)
 	{
 		recBeginOaknutEmit();
 		oakAsm->EOR(oakWRegister(EEREC_D), oakWRegister(EEREC_D), oakWRegister(EEREC_D));
@@ -749,19 +642,77 @@ static void recXOR_emit_oaknut(int info)
 		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + rs * sizeof(GPR_reg))});
 
 	if (regt >= 0)
-		oakAsm->EOR(regd_x, regd_x, oakXRegister(regt));
+		emitLogicalRegReg_oaknut(op, regd_x, oakXRegister(regt));
 	else
 	{
 		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + rt * sizeof(GPR_reg))});
-		oakAsm->EOR(regd_x, regd_x, OAK_XSCRATCH2);
+		emitLogicalRegReg_oaknut(op, regd_x, OAK_XSCRATCH2);
 	}
+	if (op == LogicalOp::NOR)
+		oakAsm->MVN(regd_x, regd_x);
 
 	recEndOaknutEmit();
 }
 
+static void recAND_consts(int info)
+{
+	recLogicalOp_constv_emit_oaknut(LogicalOp::AND, info, _Rs_, _Rt_, (info & PROCESS_EE_T) ? EEREC_T : -1);
+}
+
+static void recAND_constt(int info)
+{
+	recLogicalOp_constv_emit_oaknut(LogicalOp::AND, info, _Rt_, _Rs_, (info & PROCESS_EE_S) ? EEREC_S : -1);
+}
+
+static void recAND_(int info)
+{
+	recLogicalOp_emit_oaknut(LogicalOp::AND, info);
+}
+
+EERECOMPILE_CODERC0(AND, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED | XMMINFO_64BITOP);
+
+//// OR
+static void recOR_const()
+{
+	g_cpuConstRegs[_Rd_].UD[0] = g_cpuConstRegs[_Rs_].UD[0] | g_cpuConstRegs[_Rt_].UD[0];
+}
+
+static void recOR_consts(int info)
+{
+	recLogicalOp_constv_emit_oaknut(LogicalOp::OR, info, _Rs_, _Rt_, (info & PROCESS_EE_T) ? EEREC_T : -1);
+}
+
+static void recOR_constt(int info)
+{
+	recLogicalOp_constv_emit_oaknut(LogicalOp::OR, info, _Rt_, _Rs_, (info & PROCESS_EE_S) ? EEREC_S : -1);
+}
+
+static void recOR_(int info)
+{
+	recLogicalOp_emit_oaknut(LogicalOp::OR, info);
+}
+
+EERECOMPILE_CODERC0(OR, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED | XMMINFO_64BITOP);
+
+//// XOR
+static void recXOR_const()
+{
+	g_cpuConstRegs[_Rd_].UD[0] = g_cpuConstRegs[_Rs_].UD[0] ^ g_cpuConstRegs[_Rt_].UD[0];
+}
+
+static void recXOR_consts(int info)
+{
+	recLogicalOp_constv_emit_oaknut(LogicalOp::XOR, info, _Rs_, _Rt_, (info & PROCESS_EE_T) ? EEREC_T : -1);
+}
+
+static void recXOR_constt(int info)
+{
+	recLogicalOp_constv_emit_oaknut(LogicalOp::XOR, info, _Rt_, _Rs_, (info & PROCESS_EE_S) ? EEREC_S : -1);
+}
+
 static void recXOR_(int info)
 {
-	recXOR_emit_oaknut(info);
+	recLogicalOp_emit_oaknut(LogicalOp::XOR, info);
 }
 
 EERECOMPILE_CODERC0(XOR, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED | XMMINFO_64BITOP);
@@ -772,92 +723,19 @@ static void recNOR_const()
 	g_cpuConstRegs[_Rd_].UD[0] = ~(g_cpuConstRegs[_Rs_].UD[0] | g_cpuConstRegs[_Rt_].UD[0]);
 }
 
-static void recNOR_constv_emit_oaknut(int info, int creg, u32 vreg, int regv)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	const GPR_reg64 cval = g_cpuConstRegs[creg];
-	recBeginOaknutEmit();
-
-	if (cval.SD[0] == -1)
-	{
-		oakAsm->MOV(oakXRegister(EEREC_D), 0);
-		recEndOaknutEmit();
-		return;
-	}
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (regv >= 0)
-		oakAsm->MOV(regd_x, oakXRegister(regv));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + vreg * sizeof(GPR_reg))});
-
-	if (cval.SD[0] != 0)
-	{
-		if (oak::detail::encode_bit_imm(cval.UD[0]))
-			oakAsm->ORR(regd_x, regd_x, oak::BitImm64(cval.UD[0]));
-		else
-		{
-			oakAsm->MOV(OAK_XSCRATCH, cval.UD[0]);
-			oakAsm->ORR(regd_x, regd_x, OAK_XSCRATCH);
-		}
-	}
-	oakAsm->MVN(regd_x, regd_x);
-
-	recEndOaknutEmit();
-}
-
-static void recNOR_constv(int info, int creg, u32 vreg, int regv)
-{
-	recNOR_constv_emit_oaknut(info, creg, vreg, regv);
-}
-
 static void recNOR_consts(int info)
 {
-	recNOR_constv(info, _Rs_, _Rt_, (info & PROCESS_EE_T) ? EEREC_T : -1);
+	recLogicalOp_constv_emit_oaknut(LogicalOp::NOR, info, _Rs_, _Rt_, (info & PROCESS_EE_T) ? EEREC_T : -1);
 }
 
 static void recNOR_constt(int info)
 {
-	recNOR_constv(info, _Rt_, _Rs_, (info & PROCESS_EE_S) ? EEREC_S : -1);
-}
-
-static void recNOR_emit_oaknut(int info)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	u32 rs = _Rs_, rt = _Rt_;
-	int regs = (info & PROCESS_EE_S) ? EEREC_S : -1;
-	int regt = (info & PROCESS_EE_T) ? EEREC_T : -1;
-	if (_Rd_ == _Rt_)
-	{
-		std::swap(rs, rt);
-		std::swap(regs, regt);
-	}
-
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (regs >= 0)
-		oakAsm->MOV(regd_x, oakXRegister(regs));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + rs * sizeof(GPR_reg))});
-
-	if (regt >= 0)
-		oakAsm->ORR(regd_x, regd_x, oakXRegister(regt));
-	else
-	{
-		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + rt * sizeof(GPR_reg))});
-		oakAsm->ORR(regd_x, regd_x, OAK_XSCRATCH2);
-	}
-	oakAsm->MVN(regd_x, regd_x);
-
-	recEndOaknutEmit();
+	recLogicalOp_constv_emit_oaknut(LogicalOp::NOR, info, _Rt_, _Rs_, (info & PROCESS_EE_S) ? EEREC_S : -1);
 }
 
 static void recNOR_(int info)
 {
-	recNOR_emit_oaknut(info);
+	recLogicalOp_emit_oaknut(LogicalOp::NOR, info);
 }
 
 EERECOMPILE_CODERC0(NOR, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED | XMMINFO_64BITOP);
@@ -868,24 +746,26 @@ static void recSLT_const()
 	g_cpuConstRegs[_Rd_].UD[0] = g_cpuConstRegs[_Rs_].SD[0] < g_cpuConstRegs[_Rt_].SD[0];
 }
 
-static void recSLT_consts(int info)
+static void recSLT_constv_emit_oaknut(int info, bool is_signed, bool const_is_t)
 {
 	pxAssert(!(info & PROCESS_EE_XMM));
 
-	const s64 cval = g_cpuConstRegs[_Rs_].SD[0];
-	const int dreg = (_Rd_ == _Rt_) ? _allocX86reg(X86TYPE_TEMP, 0, 0) : EEREC_D;
-	const int regt = (info & PROCESS_EE_T) ? EEREC_T : -1;
+	const u32 other_gpr = const_is_t ? _Rs_ : _Rt_;
+	const int other_host = const_is_t ? ((info & PROCESS_EE_S) ? EEREC_S : -1) : ((info & PROCESS_EE_T) ? EEREC_T : -1);
+	const s64 cval = g_cpuConstRegs[const_is_t ? _Rt_ : _Rs_].SD[0];
+	const int dreg = (_Rd_ == other_gpr) ? _allocX86reg(X86TYPE_TEMP, 0, 0) : EEREC_D;
+	const oak::Cond cond = const_is_t ? (is_signed ? oak::Cond::LT : oak::Cond::CC) : (is_signed ? oak::Cond::GT : oak::Cond::HI);
 
 	recBeginOaknutEmit();
 	oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(cval));
-	if (regt >= 0)
-		oakAsm->CMP(oakXRegister(regt), OAK_XSCRATCH);
+	if (other_host >= 0)
+		oakAsm->CMP(oakXRegister(other_host), OAK_XSCRATCH);
 	else
 	{
-		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
+		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UD[0]) + other_gpr * sizeof(GPR_reg))});
 		oakAsm->CMP(OAK_XSCRATCH2, OAK_XSCRATCH);
 	}
-	oakAsm->CSET(oakWRegister(dreg), oak::util::GT);
+	oakAsm->CSET(oakWRegister(dreg), cond);
 	recEndOaknutEmit();
 
 	if (dreg != EEREC_D)
@@ -895,39 +775,13 @@ static void recSLT_consts(int info)
 	}
 }
 
-static void recSLT_constt(int info)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	const s64 cval = g_cpuConstRegs[_Rt_].SD[0];
-	const int dreg = (_Rd_ == _Rs_) ? _allocX86reg(X86TYPE_TEMP, 0, 0) : EEREC_D;
-	const int regs = (info & PROCESS_EE_S) ? EEREC_S : -1;
-
-	recBeginOaknutEmit();
-	oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(cval));
-	if (regs >= 0)
-		oakAsm->CMP(oakXRegister(regs), OAK_XSCRATCH);
-	else
-	{
-		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-		oakAsm->CMP(OAK_XSCRATCH2, OAK_XSCRATCH);
-	}
-	oakAsm->CSET(oakWRegister(dreg), oak::util::LT);
-	recEndOaknutEmit();
-
-	if (dreg != EEREC_D)
-	{
-		std::swap(x86regs[dreg], x86regs[EEREC_D]);
-		_freeX86reg(EEREC_D);
-	}
-}
-
-static void recSLT_emit_oaknut(int info)
+static void recSLT_emit_oaknut(int info, bool is_signed)
 {
 	pxAssert(!(info & PROCESS_EE_XMM));
 
 	const int dreg = (_Rd_ == _Rt_ || _Rd_ == _Rs_) ? _allocX86reg(X86TYPE_TEMP, 0, 0) : EEREC_D;
 	const int regs = (info & PROCESS_EE_S) ? EEREC_S : _allocX86reg(X86TYPE_GPR, _Rs_, MODE_READ);
+	const oak::Cond cond = is_signed ? oak::Cond::LT : oak::Cond::CC;
 
 	recBeginOaknutEmit();
 	if (info & PROCESS_EE_T)
@@ -937,7 +791,7 @@ static void recSLT_emit_oaknut(int info)
 		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
 		oakAsm->CMP(oakXRegister(regs), OAK_XSCRATCH2);
 	}
-	oakAsm->CSET(oakWRegister(dreg), oak::util::LT);
+	oakAsm->CSET(oakWRegister(dreg), cond);
 	recEndOaknutEmit();
 
 	if (dreg != EEREC_D)
@@ -947,9 +801,19 @@ static void recSLT_emit_oaknut(int info)
 	}
 }
 
+static void recSLT_consts(int info)
+{
+	recSLT_constv_emit_oaknut(info, true, false);
+}
+
+static void recSLT_constt(int info)
+{
+	recSLT_constv_emit_oaknut(info, true, true);
+}
+
 static void recSLT_(int info)
 {
-	recSLT_emit_oaknut(info);
+	recSLT_emit_oaknut(info, true);
 }
 
 EERECOMPILE_CODERC0(SLT, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED | XMMINFO_NORENAME);
@@ -962,86 +826,17 @@ static void recSLTU_const()
 
 static void recSLTU_consts(int info)
 {
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	const s64 cval = g_cpuConstRegs[_Rs_].SD[0];
-	const int dreg = (_Rd_ == _Rt_) ? _allocX86reg(X86TYPE_TEMP, 0, 0) : EEREC_D;
-	const int regt = (info & PROCESS_EE_T) ? EEREC_T : -1;
-
-	recBeginOaknutEmit();
-	oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(cval));
-	if (regt >= 0)
-		oakAsm->CMP(oakXRegister(regt), OAK_XSCRATCH);
-	else
-	{
-		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-		oakAsm->CMP(OAK_XSCRATCH2, OAK_XSCRATCH);
-	}
-	oakAsm->CSET(oakWRegister(dreg), oak::util::HI);
-	recEndOaknutEmit();
-
-	if (dreg != EEREC_D)
-	{
-		std::swap(x86regs[dreg], x86regs[EEREC_D]);
-		_freeX86reg(EEREC_D);
-	}
+	recSLT_constv_emit_oaknut(info, false, false);
 }
 
 static void recSLTU_constt(int info)
 {
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	const s64 cval = g_cpuConstRegs[_Rt_].SD[0];
-	const int dreg = (_Rd_ == _Rs_) ? _allocX86reg(X86TYPE_TEMP, 0, 0) : EEREC_D;
-	const int regs = (info & PROCESS_EE_S) ? EEREC_S : -1;
-
-	recBeginOaknutEmit();
-	oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(cval));
-	if (regs >= 0)
-		oakAsm->CMP(oakXRegister(regs), OAK_XSCRATCH);
-	else
-	{
-		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-		oakAsm->CMP(OAK_XSCRATCH2, OAK_XSCRATCH);
-	}
-	oakAsm->CSET(oakWRegister(dreg), oak::util::CC);
-	recEndOaknutEmit();
-
-	if (dreg != EEREC_D)
-	{
-		std::swap(x86regs[dreg], x86regs[EEREC_D]);
-		_freeX86reg(EEREC_D);
-	}
-}
-
-static void recSLTU_emit_oaknut(int info)
-{
-	pxAssert(!(info & PROCESS_EE_XMM));
-
-	const int dreg = (_Rd_ == _Rt_ || _Rd_ == _Rs_) ? _allocX86reg(X86TYPE_TEMP, 0, 0) : EEREC_D;
-	const int regs = (info & PROCESS_EE_S) ? EEREC_S : _allocX86reg(X86TYPE_GPR, _Rs_, MODE_READ);
-
-	recBeginOaknutEmit();
-	if (info & PROCESS_EE_T)
-		oakAsm->CMP(oakXRegister(regs), oakXRegister(EEREC_T));
-	else
-	{
-		oakLoad64(OAK_XSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-		oakAsm->CMP(oakXRegister(regs), OAK_XSCRATCH2);
-	}
-	oakAsm->CSET(oakWRegister(dreg), oak::util::CC);
-	recEndOaknutEmit();
-
-	if (dreg != EEREC_D)
-	{
-		std::swap(x86regs[dreg], x86regs[EEREC_D]);
-		_freeX86reg(EEREC_D);
-	}
+	recSLT_constv_emit_oaknut(info, false, true);
 }
 
 static void recSLTU_(int info)
 {
-	recSLTU_emit_oaknut(info);
+	recSLT_emit_oaknut(info, false);
 }
 
 EERECOMPILE_CODERC0(SLTU, XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED | XMMINFO_NORENAME);

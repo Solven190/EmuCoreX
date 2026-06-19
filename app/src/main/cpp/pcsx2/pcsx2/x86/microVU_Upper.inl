@@ -894,22 +894,39 @@ static void mVUupdateFlags_oaknut(mV, int reg, int regT1in = VU_HOST_NO_XMM, int
 
 static bool mVUtryEmitNoLaneFmacFlags_oaknut(mV)
 {
-	if (_X_Y_Z_W != 0 || mFLAG.doFlag)
+	if (_X_Y_Z_W != 0)
 		return false;
 
-	if (!sFLAG.doFlag)
+	if (!sFLAG.doFlag && !mFLAG.doFlag)
 		return true;
 
-	const int sReg = getFlagRegId(sFLAG.write);
-	mVUallocSFLAGa(sReg, sFLAG.lastWrite);
-	if (sFLAG.doNonSticky)
+	if (sFLAG.doFlag)
 	{
+		const int sReg = getFlagRegId(sFLAG.write);
+		mVUallocSFLAGa(sReg, sFLAG.lastWrite);
+		if (sFLAG.doNonSticky)
+		{
+			recBeginOaknutEmit();
+			oakAsm->MOV(OAK_WSCRATCH, 0xfffc00ff);
+			oakAsm->AND(oakWRegister(sReg), oakWRegister(sReg), OAK_WSCRATCH);
+			recEndOaknutEmit();
+		}
+	}
+
+	if (mFLAG.doFlag)
+	{
+		const int mReg = VU_HOST_T1;
 		recBeginOaknutEmit();
-		oakAsm->MOV(OAK_WSCRATCH, 0xfffc00ff);
-		oakAsm->AND(oakWRegister(sReg), oakWRegister(sReg), OAK_WSCRATCH);
+		oakAsm->EOR(oakWRegister(mReg), oakWRegister(mReg), oakWRegister(mReg));
 		recEndOaknutEmit();
+		mVUallocMFLAGb(mVU, mReg, mFLAG.write);
 	}
 	return true;
+}
+
+static bool mVUtrySkipNoLaneWrite_oaknut(mV)
+{
+	return _X_Y_Z_W == 0;
 }
 
 //------------------------------------------------------------------
@@ -2516,6 +2533,9 @@ static void mVU_MSUBAw_emit(mP)
 // MAX Opcode
 static void mVU_MAX_direct_emit_oaknut(mP)
 {
+	if (mVUtrySkipNoLaneWrite_oaknut(mVU))
+		return;
+
 	int Ft;
 	if (_XYZW_SS2)
 		Ft = mVU.regAlloc->allocRegId(_Ft_, 0, _X_Y_Z_W);
@@ -2568,6 +2588,9 @@ static void mVU_MAX_emit(mP)
 // MAXi Opcode
 static void mVU_MAXi_direct_emit_oaknut(mP)
 {
+	if (mVUtrySkipNoLaneWrite_oaknut(mVU))
+		return;
+
 	const int Fi = mVU.regAlloc->allocRegId(33, 0, _X_Y_Z_W);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
 
@@ -2612,6 +2635,9 @@ static void mVU_MAXi_emit(mP)
 
 static void mVU_MAX_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
+	if (mVUtrySkipNoLaneWrite_oaknut(mVU))
+		return;
+
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
@@ -2690,6 +2716,9 @@ static void mVU_MAXw_emit(mP)
 
 static void mVU_MINI_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
+	if (mVUtrySkipNoLaneWrite_oaknut(mVU))
+		return;
+
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
@@ -2736,6 +2765,9 @@ static void mVU_MINIw_emit(mP)
 // MINI Opcode
 static void mVU_MINI_direct_emit_oaknut(mP)
 {
+	if (mVUtrySkipNoLaneWrite_oaknut(mVU))
+		return;
+
 	int Ft;
 	if (_XYZW_SS2)
 		Ft = mVU.regAlloc->allocRegId(_Ft_, 0, _X_Y_Z_W);
@@ -2788,6 +2820,9 @@ static void mVU_MINI_emit(mP)
 // MINIi Opcode
 static void mVU_MINIi_direct_emit_oaknut(mP)
 {
+	if (mVUtrySkipNoLaneWrite_oaknut(mVU))
+		return;
+
 	const int Fi = mVU.regAlloc->allocRegId(33, 0, _X_Y_Z_W);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
 
@@ -4204,7 +4239,7 @@ static void mVU_MULw_emit(mP)
 // ABS Opcode
 static void mVU_ABS_direct_emit_oaknut(mP)
 {
-	if (!_Ft_)
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU))
 		return;
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Ft_, _X_Y_Z_W, !((_Fs_ == _Ft_) && (_X_Y_Z_W == 0xf)));
 	recBeginOaknutEmit();
@@ -4452,7 +4487,7 @@ static void mVU_FTOI_saturate_oaknut(int Fs, int t1, int t2)
 
 static void mVU_FTOI0_direct_emit_oaknut(mP)
 {
-	if (!_Ft_)
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU))
 		return;
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Ft_, _X_Y_Z_W, !((_Fs_ == _Ft_) && (_X_Y_Z_W == 0xf)));
 	const int t1 = mVU.regAlloc->allocRegId();
@@ -4482,7 +4517,7 @@ static void mVU_FTOI0_emit(mP)
 // FTOI4 Opcode
 static void mVU_FTOI4_direct_emit_oaknut(mP)
 {
-	if (!_Ft_)
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU))
 		return;
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Ft_, _X_Y_Z_W, !((_Fs_ == _Ft_) && (_X_Y_Z_W == 0xf)));
 	const int t1 = mVU.regAlloc->allocRegId();
@@ -4514,7 +4549,7 @@ static void mVU_FTOI4_emit(mP)
 // FTOI12 Opcode
 static void mVU_FTOI12_direct_emit_oaknut(mP)
 {
-	if (!_Ft_)
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU))
 		return;
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Ft_, _X_Y_Z_W, !((_Fs_ == _Ft_) && (_X_Y_Z_W == 0xf)));
 	const int t1 = mVU.regAlloc->allocRegId();
@@ -4546,7 +4581,7 @@ static void mVU_FTOI12_emit(mP)
 // FTOI15 Opcode
 static void mVU_FTOI15_direct_emit_oaknut(mP)
 {
-	if (!_Ft_)
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU))
 		return;
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Ft_, _X_Y_Z_W, !((_Fs_ == _Ft_) && (_X_Y_Z_W == 0xf)));
 	const int t1 = mVU.regAlloc->allocRegId();
@@ -4578,7 +4613,7 @@ static void mVU_FTOI15_emit(mP)
 // ITOF0 Opcode
 static void mVU_ITOF0_direct_emit_oaknut(mP)
 {
-	if (!_Ft_)
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU))
 		return;
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Ft_, _X_Y_Z_W, !((_Fs_ == _Ft_) && (_X_Y_Z_W == 0xf)));
 	recBeginOaknutEmit();
@@ -4604,7 +4639,7 @@ static void mVU_ITOF0_emit(mP)
 // ITOF4 Opcode
 static void mVU_ITOF4_direct_emit_oaknut(mP)
 {
-	if (!_Ft_)
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU))
 		return;
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Ft_, _X_Y_Z_W, !((_Fs_ == _Ft_) && (_X_Y_Z_W == 0xf)));
 	recBeginOaknutEmit();
@@ -4632,7 +4667,7 @@ static void mVU_ITOF4_emit(mP)
 // ITOF12 Opcode
 static void mVU_ITOF12_direct_emit_oaknut(mP)
 {
-	if (!_Ft_)
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU))
 		return;
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Ft_, _X_Y_Z_W, !((_Fs_ == _Ft_) && (_X_Y_Z_W == 0xf)));
 	recBeginOaknutEmit();
@@ -4660,7 +4695,7 @@ static void mVU_ITOF12_emit(mP)
 // ITOF15 Opcode
 static void mVU_ITOF15_direct_emit_oaknut(mP)
 {
-	if (!_Ft_)
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU))
 		return;
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Ft_, _X_Y_Z_W, !((_Fs_ == _Ft_) && (_X_Y_Z_W == 0xf)));
 	recBeginOaknutEmit();

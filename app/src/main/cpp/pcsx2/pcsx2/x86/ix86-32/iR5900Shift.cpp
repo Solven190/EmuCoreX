@@ -40,6 +40,185 @@ REC_FUNC_DEL(DSRAV, _Rd_);
 
 #else
 
+namespace
+{
+enum class ShiftOp
+{
+	LSL,
+	LSR,
+	ASR
+};
+} // namespace
+
+static void emitShiftW_oaknut(oak::WReg dst, oak::WReg amount, ShiftOp op)
+{
+	switch (op)
+	{
+		case ShiftOp::LSL:
+			oakAsm->LSL(dst, dst, amount);
+			break;
+		case ShiftOp::LSR:
+			oakAsm->LSR(dst, dst, amount);
+			break;
+		case ShiftOp::ASR:
+			oakAsm->ASR(dst, dst, amount);
+			break;
+	}
+}
+
+static void emitShiftW_oaknut(oak::WReg dst, int amount, ShiftOp op)
+{
+	if (amount == 0)
+		return;
+
+	switch (op)
+	{
+		case ShiftOp::LSL:
+			oakAsm->LSL(dst, dst, amount);
+			break;
+		case ShiftOp::LSR:
+			oakAsm->LSR(dst, dst, amount);
+			break;
+		case ShiftOp::ASR:
+			oakAsm->ASR(dst, dst, amount);
+			break;
+	}
+}
+
+static void emitShiftX_oaknut(oak::XReg dst, oak::XReg amount, ShiftOp op)
+{
+	switch (op)
+	{
+		case ShiftOp::LSL:
+			oakAsm->LSL(dst, dst, amount);
+			break;
+		case ShiftOp::LSR:
+			oakAsm->LSR(dst, dst, amount);
+			break;
+		case ShiftOp::ASR:
+			oakAsm->ASR(dst, dst, amount);
+			break;
+	}
+}
+
+static void emitShiftX_oaknut(oak::XReg dst, int amount, ShiftOp op)
+{
+	if (amount == 0)
+		return;
+
+	switch (op)
+	{
+		case ShiftOp::LSL:
+			oakAsm->LSL(dst, dst, amount);
+			break;
+		case ShiftOp::LSR:
+			oakAsm->LSR(dst, dst, amount);
+			break;
+		case ShiftOp::ASR:
+			oakAsm->ASR(dst, dst, amount);
+			break;
+	}
+}
+
+static void loadShiftAmount_oaknut(int info)
+{
+	if (info & PROCESS_EE_S)
+		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
+	else
+		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
+}
+
+static void recShift32Imm_emit_oaknut(int info, int amount, ShiftOp op)
+{
+	pxAssert(!(info & PROCESS_EE_XMM));
+	recBeginOaknutEmit();
+
+	const oak::WReg regd_w = oakWRegister(EEREC_D);
+	if (info & PROCESS_EE_T)
+		oakAsm->MOV(regd_w, oakWRegister(EEREC_T));
+	else
+		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
+	emitShiftW_oaknut(regd_w, amount, op);
+	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
+
+	recEndOaknutEmit();
+}
+
+static void recShift64Imm_emit_oaknut(int info, int amount, ShiftOp op)
+{
+	pxAssert(!(info & PROCESS_EE_XMM));
+	recBeginOaknutEmit();
+
+	const oak::XReg regd_x = oakXRegister(EEREC_D);
+	if (info & PROCESS_EE_T)
+		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
+	else
+		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
+	emitShiftX_oaknut(regd_x, amount, op);
+
+	recEndOaknutEmit();
+}
+
+static void recShift32VarConstT_emit_oaknut(int info, ShiftOp op)
+{
+	pxAssert(_Rs_ != 0);
+	recBeginOaknutEmit();
+
+	loadShiftAmount_oaknut(info);
+	const oak::WReg regd_w = oakWRegister(EEREC_D);
+	oakAsm->MOV(regd_w, g_cpuConstRegs[_Rt_].UL[0]);
+	emitShiftW_oaknut(regd_w, oak::util::W17, op);
+	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
+
+	recEndOaknutEmit();
+}
+
+static void recShift32Var_emit_oaknut(int info, ShiftOp op)
+{
+	pxAssert(_Rs_ != 0);
+	recBeginOaknutEmit();
+
+	loadShiftAmount_oaknut(info);
+	const oak::WReg regd_w = oakWRegister(EEREC_D);
+	if (info & PROCESS_EE_T)
+		oakAsm->MOV(regd_w, oakWRegister(EEREC_T));
+	else
+		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
+	emitShiftW_oaknut(regd_w, oak::util::W17, op);
+	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
+
+	recEndOaknutEmit();
+}
+
+static void recShift64VarConstT_emit_oaknut(int info, ShiftOp op)
+{
+	pxAssert(_Rs_ != 0);
+	recBeginOaknutEmit();
+
+	loadShiftAmount_oaknut(info);
+	const oak::XReg regd_x = oakXRegister(EEREC_D);
+	oakAsm->MOV(regd_x, g_cpuConstRegs[_Rt_].UD[0]);
+	emitShiftX_oaknut(regd_x, oak::util::X17, op);
+
+	recEndOaknutEmit();
+}
+
+static void recShift64Var_emit_oaknut(int info, ShiftOp op)
+{
+	pxAssert(_Rs_ != 0);
+	recBeginOaknutEmit();
+
+	loadShiftAmount_oaknut(info);
+	const oak::XReg regd_x = oakXRegister(EEREC_D);
+	if (info & PROCESS_EE_T)
+		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
+	else
+		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
+	emitShiftX_oaknut(regd_x, oak::util::X17, op);
+
+	recEndOaknutEmit();
+}
+
 //// SLL
 static void recSLL_const()
 {
@@ -48,19 +227,7 @@ static void recSLL_const()
 
 static void recSLL_emit_oaknut(int info)
 {
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_w, oakWRegister(EEREC_T));
-	else
-		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-
-	if (_Sa_ != 0)
-		oakAsm->LSL(regd_w, regd_w, _Sa_);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32Imm_emit_oaknut(info, _Sa_, ShiftOp::LSL);
 }
 
 static void recSLL_(int info)
@@ -79,19 +246,7 @@ static void recSRL_const()
 
 static void recSRL_emit_oaknut(int info)
 {
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_w, oakWRegister(EEREC_T));
-	else
-		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-
-	if (_Sa_ != 0)
-		oakAsm->LSR(regd_w, regd_w, _Sa_);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32Imm_emit_oaknut(info, _Sa_, ShiftOp::LSR);
 }
 
 static void recSRL_(int info)
@@ -110,19 +265,7 @@ static void recSRA_const()
 
 static void recSRA_emit_oaknut(int info)
 {
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_w, oakWRegister(EEREC_T));
-	else
-		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-
-	if (_Sa_ != 0)
-		oakAsm->ASR(regd_w, regd_w, _Sa_);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32Imm_emit_oaknut(info, _Sa_, ShiftOp::ASR);
 }
 
 static void recSRA_(int info)
@@ -141,18 +284,7 @@ static void recDSLL_const()
 
 static void recDSLL_emit_oaknut(int info)
 {
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-
-	if (_Sa_ != 0)
-		oakAsm->LSL(regd_x, regd_x, _Sa_);
-
-	recEndOaknutEmit();
+	recShift64Imm_emit_oaknut(info, _Sa_, ShiftOp::LSL);
 }
 
 static void recDSLL_(int info)
@@ -171,18 +303,7 @@ static void recDSRL_const()
 
 static void recDSRL_emit_oaknut(int info)
 {
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-
-	if (_Sa_ != 0)
-		oakAsm->LSR(regd_x, regd_x, _Sa_);
-
-	recEndOaknutEmit();
+	recShift64Imm_emit_oaknut(info, _Sa_, ShiftOp::LSR);
 }
 
 static void recDSRL_(int info)
@@ -201,18 +322,7 @@ static void recDSRA_const()
 
 static void recDSRA_emit_oaknut(int info)
 {
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-
-	if (_Sa_ != 0)
-		oakAsm->ASR(regd_x, regd_x, _Sa_);
-
-	recEndOaknutEmit();
+	recShift64Imm_emit_oaknut(info, _Sa_, ShiftOp::ASR);
 }
 
 static void recDSRA_(int info)
@@ -231,17 +341,7 @@ static void recDSLL32_const()
 
 static void recDSLL32_emit_oaknut(int info)
 {
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-
-	oakAsm->LSL(regd_x, regd_x, _Sa_ + 32);
-
-	recEndOaknutEmit();
+	recShift64Imm_emit_oaknut(info, _Sa_ + 32, ShiftOp::LSL);
 }
 
 static void recDSLL32_(int info)
@@ -260,17 +360,7 @@ static void recDSRL32_const()
 
 static void recDSRL32_emit_oaknut(int info)
 {
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-
-	oakAsm->LSR(regd_x, regd_x, _Sa_ + 32);
-
-	recEndOaknutEmit();
+	recShift64Imm_emit_oaknut(info, _Sa_ + 32, ShiftOp::LSR);
 }
 
 static void recDSRL32_(int info)
@@ -289,17 +379,7 @@ static void recDSRA32_const()
 
 static void recDSRA32_emit_oaknut(int info)
 {
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-
-	oakAsm->ASR(regd_x, regd_x, _Sa_ + 32);
-
-	recEndOaknutEmit();
+	recShift64Imm_emit_oaknut(info, _Sa_ + 32, ShiftOp::ASR);
 }
 
 static void recDSRA32_(int info)
@@ -323,58 +403,18 @@ static void recSLLV_const()
 
 static void recSLLV_consts_emit_oaknut(int info)
 {
-	pxAssert(!(info & PROCESS_EE_XMM));
-
 	const int sa = g_cpuConstRegs[_Rs_].UL[0] & 0x1f;
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_w, oakWRegister(EEREC_T));
-	else
-		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-	if (sa != 0)
-		oakAsm->LSL(regd_w, regd_w, sa);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32Imm_emit_oaknut(info, sa, ShiftOp::LSL);
 }
 
 static void recSLLV_constt_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	oakAsm->MOV(regd_w, g_cpuConstRegs[_Rt_].UL[0]);
-	oakAsm->LSL(regd_w, regd_w, oak::util::W17);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32VarConstT_emit_oaknut(info, ShiftOp::LSL);
 }
 
 static void recSLLV_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_w, oakWRegister(EEREC_T));
-	else
-		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-	oakAsm->LSL(regd_w, regd_w, oak::util::W17);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32Var_emit_oaknut(info, ShiftOp::LSL);
 }
 
 static void recSLLV_consts(int info)
@@ -402,58 +442,18 @@ static void recSRLV_const()
 
 static void recSRLV_consts_emit_oaknut(int info)
 {
-	pxAssert(!(info & PROCESS_EE_XMM));
-
 	const int sa = g_cpuConstRegs[_Rs_].UL[0] & 0x1f;
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_w, oakWRegister(EEREC_T));
-	else
-		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-	if (sa != 0)
-		oakAsm->LSR(regd_w, regd_w, sa);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32Imm_emit_oaknut(info, sa, ShiftOp::LSR);
 }
 
 static void recSRLV_constt_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	oakAsm->MOV(regd_w, g_cpuConstRegs[_Rt_].UL[0]);
-	oakAsm->LSR(regd_w, regd_w, oak::util::W17);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32VarConstT_emit_oaknut(info, ShiftOp::LSR);
 }
 
 static void recSRLV_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_w, oakWRegister(EEREC_T));
-	else
-		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-	oakAsm->LSR(regd_w, regd_w, oak::util::W17);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32Var_emit_oaknut(info, ShiftOp::LSR);
 }
 
 static void recSRLV_consts(int info)
@@ -481,58 +481,18 @@ static void recSRAV_const()
 
 static void recSRAV_consts_emit_oaknut(int info)
 {
-	pxAssert(!(info & PROCESS_EE_XMM));
-
 	const int sa = g_cpuConstRegs[_Rs_].UL[0] & 0x1f;
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_w, oakWRegister(EEREC_T));
-	else
-		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-	if (sa != 0)
-		oakAsm->ASR(regd_w, regd_w, sa);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32Imm_emit_oaknut(info, sa, ShiftOp::ASR);
 }
 
 static void recSRAV_constt_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	oakAsm->MOV(regd_w, g_cpuConstRegs[_Rt_].UL[0]);
-	oakAsm->ASR(regd_w, regd_w, oak::util::W17);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32VarConstT_emit_oaknut(info, ShiftOp::ASR);
 }
 
 static void recSRAV_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::WReg regd_w = oakWRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_w, oakWRegister(EEREC_T));
-	else
-		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-	oakAsm->ASR(regd_w, regd_w, oak::util::W17);
-	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
-
-	recEndOaknutEmit();
+	recShift32Var_emit_oaknut(info, ShiftOp::ASR);
 }
 
 static void recSRAV_consts(int info)
@@ -560,55 +520,18 @@ static void recDSLLV_const()
 
 static void recDSLLV_consts_emit_oaknut(int info)
 {
-	pxAssert(!(info & PROCESS_EE_XMM));
-
 	const int sa = g_cpuConstRegs[_Rs_].UL[0] & 0x3f;
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-	if (sa != 0)
-		oakAsm->LSL(regd_x, regd_x, sa);
-
-	recEndOaknutEmit();
+	recShift64Imm_emit_oaknut(info, sa, ShiftOp::LSL);
 }
 
 static void recDSLLV_constt_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	oakAsm->MOV(regd_x, g_cpuConstRegs[_Rt_].UD[0]);
-	oakAsm->LSL(regd_x, regd_x, oak::util::X17);
-
-	recEndOaknutEmit();
+	recShift64VarConstT_emit_oaknut(info, ShiftOp::LSL);
 }
 
 static void recDSLLV_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-	oakAsm->LSL(regd_x, regd_x, oak::util::X17);
-
-	recEndOaknutEmit();
+	recShift64Var_emit_oaknut(info, ShiftOp::LSL);
 }
 
 static void recDSLLV_consts(int info)
@@ -636,55 +559,18 @@ static void recDSRLV_const()
 
 static void recDSRLV_consts_emit_oaknut(int info)
 {
-	pxAssert(!(info & PROCESS_EE_XMM));
-
 	const int sa = g_cpuConstRegs[_Rs_].UL[0] & 0x3f;
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-	if (sa != 0)
-		oakAsm->LSR(regd_x, regd_x, sa);
-
-	recEndOaknutEmit();
+	recShift64Imm_emit_oaknut(info, sa, ShiftOp::LSR);
 }
 
 static void recDSRLV_constt_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	oakAsm->MOV(regd_x, g_cpuConstRegs[_Rt_].UD[0]);
-	oakAsm->LSR(regd_x, regd_x, oak::util::X17);
-
-	recEndOaknutEmit();
+	recShift64VarConstT_emit_oaknut(info, ShiftOp::LSR);
 }
 
 static void recDSRLV_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-	oakAsm->LSR(regd_x, regd_x, oak::util::X17);
-
-	recEndOaknutEmit();
+	recShift64Var_emit_oaknut(info, ShiftOp::LSR);
 }
 
 static void recDSRLV_consts(int info)
@@ -712,55 +598,18 @@ static void recDSRAV_const()
 
 static void recDSRAV_consts_emit_oaknut(int info)
 {
-	pxAssert(!(info & PROCESS_EE_XMM));
-
 	const int sa = g_cpuConstRegs[_Rs_].UL[0] & 0x3f;
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-	if (sa != 0)
-		oakAsm->ASR(regd_x, regd_x, sa);
-
-	recEndOaknutEmit();
+	recShift64Imm_emit_oaknut(info, sa, ShiftOp::ASR);
 }
 
 static void recDSRAV_constt_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	oakAsm->MOV(regd_x, g_cpuConstRegs[_Rt_].UD[0]);
-	oakAsm->ASR(regd_x, regd_x, oak::util::X17);
-
-	recEndOaknutEmit();
+	recShift64VarConstT_emit_oaknut(info, ShiftOp::ASR);
 }
 
 static void recDSRAV_emit_oaknut(int info)
 {
-	pxAssert(_Rs_ != 0);
-	recBeginOaknutEmit();
-
-	const oak::XReg regd_x = oakXRegister(EEREC_D);
-	if (info & PROCESS_EE_S)
-		oakAsm->MOV(oak::util::X17, oakXRegister(EEREC_S));
-	else
-		oakLoad64(oak::util::X17, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
-	if (info & PROCESS_EE_T)
-		oakAsm->MOV(regd_x, oakXRegister(EEREC_T));
-	else
-		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
-	oakAsm->ASR(regd_x, regd_x, oak::util::X17);
-
-	recEndOaknutEmit();
+	recShift64Var_emit_oaknut(info, ShiftOp::ASR);
 }
 
 static void recDSRAV_consts(int info)
