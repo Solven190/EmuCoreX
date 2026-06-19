@@ -12,10 +12,8 @@
 //------------------------------------------------------------------
 static bool mvuNeedsFPCRUpdate(mV)
 {
-	// MTVU owns its worker thread, so keep VU1 FPCR installed around ring-buffer batches
-	// instead of paying an MSR FPCR in every generated VU1 dispatcher entry.
 	if (isVU1 && THREAD_VU1)
-		return false;
+		return true;
 
 	// otherwise only emit when it's different to the EE
 	return EmuConfig.Cpu.FPUFPCR.bitmask != (isVU0 ? EmuConfig.Cpu.VU0FPCR.bitmask : EmuConfig.Cpu.VU1FPCR.bitmask);
@@ -23,9 +21,6 @@ static bool mvuNeedsFPCRUpdate(mV)
 
 static bool mvuNeedsFPCRRestore(mV)
 {
-	if (isVU1 && THREAD_VU1)
-		return false;
-
 	return mvuNeedsFPCRUpdate(mVU);
 }
 

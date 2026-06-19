@@ -9,7 +9,6 @@
 
 #include <thread>
 
-VU_Thread vu1Thread;
 #define MTVU_ALWAYS_KICK 0
 #define MTVU_SYNC_MODE 0
 

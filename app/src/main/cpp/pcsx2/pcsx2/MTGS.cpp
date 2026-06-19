@@ -16,18 +16,10 @@
 #include <list>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 // Uncomment this to enable profiling of the GS RingBufferCopy function.
 //#define PCSX2_GSRING_SAMPLING_STATS
-
-#if 0 //PCSX2_DEBUG
-#define MTGS_LOG Console.WriteLn
-#else
-#define MTGS_LOG(...) \
-	do                \
-	{                 \
-	} while (0)
-#endif
 
 namespace MTGS
 {
@@ -211,7 +203,6 @@ void MTGS::ResetGS(bool hardware_reset)
 		s_VsyncSignalListener = 0;
 	}
 
-	MTGS_LOG("MTGS: Sending Reset...");
 	SendSimplePacket(Command::Reset, static_cast<int>(hardware_reset), 0, 0);
 
 	if (hardware_reset)
@@ -276,7 +267,7 @@ void MTGS::PostVsyncStart(bool registers_written)
 	s_VsyncSignalListener.store(true, std::memory_order_release);
 	//Console.WriteLn( Color_Blue, "(EEcore Sleep) Vsync\t\tringpos=0x%06x, writepos=0x%06x", m_ReadPos.load(), m_WritePos.load() );
 
-	s_sem_Vsync.WaitWithSpin();
+	s_sem_Vsync.Wait();
 }
 
 void MTGS::InitAndReadFIFO(u8* mem, u32 qwc)
@@ -310,6 +301,42 @@ union PacketTagType
 	};
 };
 
+static void TransferGIFPacketFromRing(MTGS::Command command, u32 datapos, u32 qsize)
+{
+	if (qsize == 0)
+		return;
+
+	auto dispatch = [command](const u128* data, u32 size) {
+		switch (command)
+		{
+			case MTGS::Command::GIFPath1:
+				GSgifTransfer(reinterpret_cast<const u8*>(data), size);
+				break;
+			case MTGS::Command::GIFPath2:
+				GSgifTransfer2(reinterpret_cast<u8*>(const_cast<u128*>(data)), size);
+				break;
+			case MTGS::Command::GIFPath3:
+				GSgifTransfer3(reinterpret_cast<u8*>(const_cast<u128*>(data)), size);
+				break;
+			default:
+				pxFailRel("Unexpected GIF packet command.");
+				break;
+		}
+	};
+
+	static thread_local std::vector<u128> wrapped_packet;
+
+	if ((datapos + qsize) <= MTGS::RingBufferSize)
+	{
+		dispatch(&MTGS::RingBuffer[datapos], qsize);
+		return;
+	}
+
+	wrapped_packet.resize(qsize);
+	MemCopy_WrappedSrc(MTGS::RingBuffer.m_Ring, datapos, MTGS::RingBufferSize, wrapped_packet.data(), qsize);
+	dispatch(wrapped_packet.data(), qsize);
+}
+
 void MTGS::MainLoop()
 {
 	// Threading info: run in MTGS thread
@@ -334,7 +361,7 @@ void MTGS::MainLoop()
 		else
 		{
 			mtvu_lock.unlock();
-			s_sem_event.WaitForWorkWithSpin();
+			s_sem_event.WaitForWork();
 			mtvu_lock.lock();
 		}
 
@@ -358,9 +385,7 @@ void MTGS::MainLoop()
 			s_lock_Stack.Lock();
 			uptr stackpos = ringposStack.back();
 			if (stackpos != local_ReadPos)
-			{
-				Console.Error("MTGS Ringbuffer Critical Failure ---> %x to %x (prevCmd: %x)\n", stackpos, local_ReadPos, prevCmd.command);
-			}
+				pxFailRel("MTGS Ringbuffer Critical Failure.");
 			pxAssert(stackpos == local_ReadPos);
 			prevCmd = tag;
 			ringposStack.pop_back();
@@ -374,22 +399,7 @@ void MTGS::MainLoop()
 				{
 					uint datapos = (local_ReadPos + 1) & RingBufferMask;
 					const int qsize = tag.data[0];
-					const u128* data = &RingBuffer[datapos];
-
-					MTGS_LOG("(MTGS Packet Read) ringtype=P1, qwc=%u", qsize);
-
-					uint endpos = datapos + qsize;
-					if (endpos >= RingBufferSize)
-					{
-						uint firstcopylen = RingBufferSize - datapos;
-						GSgifTransfer((u8*)data, firstcopylen);
-						datapos = endpos & RingBufferMask;
-						GSgifTransfer((u8*)RingBuffer.m_Ring, datapos);
-					}
-					else
-					{
-						GSgifTransfer((u8*)data, qsize);
-					}
+					TransferGIFPacketFromRing(Command::GIFPath1, datapos, qsize);
 
 					ringposinc += qsize;
 				}
@@ -399,22 +409,7 @@ void MTGS::MainLoop()
 				{
 					uint datapos = (local_ReadPos + 1) & RingBufferMask;
 					const int qsize = tag.data[0];
-					const u128* data = &RingBuffer[datapos];
-
-					MTGS_LOG("(MTGS Packet Read) ringtype=P2, qwc=%u", qsize);
-
-					uint endpos = datapos + qsize;
-					if (endpos >= RingBufferSize)
-					{
-						uint firstcopylen = RingBufferSize - datapos;
-						GSgifTransfer2((u32*)data, firstcopylen);
-						datapos = endpos & RingBufferMask;
-						GSgifTransfer2((u32*)RingBuffer.m_Ring, datapos);
-					}
-					else
-					{
-						GSgifTransfer2((u32*)data, qsize);
-					}
+					TransferGIFPacketFromRing(Command::GIFPath2, datapos, qsize);
 
 					ringposinc += qsize;
 				}
@@ -424,23 +419,7 @@ void MTGS::MainLoop()
 				{
 					uint datapos = (local_ReadPos + 1) & RingBufferMask;
 					const int qsize = tag.data[0];
-					const u128* data = &RingBuffer[datapos];
-
-					MTGS_LOG("(MTGS Packet Read) ringtype=P3, qwc=%u", qsize);
-
-					uint endpos = datapos + qsize;
-					if (endpos >= RingBufferSize)
-					{
-						uint firstcopylen = RingBufferSize - datapos;
-						GSgifTransfer3((u32*)data, firstcopylen);
-						datapos = endpos & RingBufferMask;
-						GSgifTransfer3((u32*)RingBuffer.m_Ring, datapos);
-					}
-					else
-					{
-						GSgifTransfer3((u32*)data, qsize);
-					}
-
+					TransferGIFPacketFromRing(Command::GIFPath3, datapos, qsize);
 					ringposinc += qsize;
 				}
 				break;
@@ -463,7 +442,7 @@ void MTGS::MainLoop()
 					{
 						mtvu_lock.unlock();
 						// Wait for MTVU to complete vu1 program
-						vu1Thread.semaXGkick.WaitWithSpin();
+						vu1Thread.semaXGkick.Wait();
 						mtvu_lock.lock();
 					}
 					Gif_Path& path = gifUnit.gifPath[GIF_PATH_1];
@@ -483,8 +462,6 @@ void MTGS::MainLoop()
 						{
 							const int qsize = tag.data[0];
 							ringposinc += qsize;
-
-							MTGS_LOG("(MTGS Packet Read) ringtype=Vsync, field=%u, skip=%s", !!(((u32&)RingBuffer.Regs[0x1000]) & 0x2000) ? 0 : 1, tag.data[1] ? "true" : "false");
 
 							// Mail in the important GS registers.
 							// This seemingly obtuse system is needed in order to handle cases where the vsync data wraps
@@ -528,26 +505,22 @@ void MTGS::MainLoop()
 						break;
 
 						case Command::Reset:
-							MTGS_LOG("(MTGS Packet Read) ringtype=Reset");
 							GSreset(tag.data[0] != 0);
 							break;
 
 						case Command::SoftReset:
 						{
 							int mask = tag.data[0];
-							MTGS_LOG("(MTGS Packet Read) ringtype=SoftReset");
 							GSgifSoftReset(mask);
 						}
 						break;
 
 						case Command::InitAndReadFIFO:
-							MTGS_LOG("(MTGS Packet Read) ringtype=Fifo2, size=%d", tag.data[0]);
 							GSInitAndReadFIFO((u8*)tag.pointer, tag.data[0]);
 							break;
 
 #ifdef PCSX2_DEVBUILD
 						default:
-							Console.Error("GSThreadProc, bad packet (%x) at m_ReadPos: %x, m_WritePos: %x", tag.command, local_ReadPos, s_WritePos.load());
 							pxFail("Bad packet encountered in the MTGS Ringbuffer.");
 							s_ReadPos.store(s_WritePos.load(std::memory_order_acquire), std::memory_order_release);
 							continue;
@@ -888,9 +861,6 @@ bool MTGS::WaitForOpen()
 
 	// did we succeed?
 	const bool result = s_open_flag.load(std::memory_order_acquire);
-	if (!result)
-		Console.Error("GS failed to open.");
-
 	return result;
 }
 

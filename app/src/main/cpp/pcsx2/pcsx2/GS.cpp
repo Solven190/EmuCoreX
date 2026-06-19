@@ -6,25 +6,12 @@
 #include "Config.h"
 #include "Gif_Unit.h"
 #include "MTGS.h"
-#include "MTVU.h"
 #include "VMManager.h"
 
 #include <list>
 
 alignas(16) u8 g_RealGSMem[Ps2MemSize::GSregs];
 static bool s_GSRegistersWritten = false;
-
-static __fi void gsSyncMTVUReadback()
-{
-	if (!THREAD_VU1)
-		return;
-
-	// Do not synchronously wait for VU1 to finish here.
-	// Waking up the EE thread on every spin-loop read of GS_SIGLBLID causes massive FPS drops (e.g., God of War II drops to 20 FPS).
-	// Polling Get_MTVUChanges() asynchronously is sufficient.
-	// vu1Thread.WaitVU();
-	vu1Thread.Get_MTVUChanges();
-}
 
 void gsSetVideoMode(GS_VideoMode mode)
 {
@@ -44,7 +31,6 @@ void gsReset()
 static __fi void gsCSRwrite( const tGS_CSR& csr )
 {
 	if (csr.RESET) {
-		GUNIT_WARN("GUNIT_WARN: csr.RESET");
 		//Console.Warning( "csr.RESET" );
 		//gifUnit.Reset(true); // Don't think gif should be reset...
 		gifUnit.gsSIGNAL.queued = false;
@@ -68,7 +54,6 @@ static __fi void gsCSRwrite( const tGS_CSR& csr )
 		const bool resume = CSRreg.SIGNAL;
 		// SIGNAL : What's not known here is whether or not the SIGID register should be updated
 		//  here or when the IMR is cleared (below).
-		GUNIT_LOG("csr.SIGNAL");
 		if (gifUnit.gsSIGNAL.queued) {
 			//DevCon.Warning("Firing pending signal");
 			GSSIGLBLID.SIGID = (GSSIGLBLID.SIGID & ~gifUnit.gsSIGNAL.data[1])
@@ -96,8 +81,6 @@ static __fi void gsCSRwrite( const tGS_CSR& csr )
 
 static __fi void IMRwrite(u32 value)
 {
-	GUNIT_LOG("IMRwrite()");
-
 	if (CSRreg.GetInterruptMask() & (~value & GSIMR._u32) >> 8)
 		gsIrq();
 
@@ -129,7 +112,6 @@ __fi void gsWrite8(u32 mem, u8 value)
 			*PS2GS_BASE(mem) = value;
 		break;
 	}
-	GIF_LOG("GS write 8 at %8.8lx with data %8.8lx", mem, value);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -137,8 +119,6 @@ __fi void gsWrite8(u32 mem, u8 value)
 
 __fi void gsWrite16(u32 mem, u16 value)
 {
-	GIF_LOG("GS write 16 at %8.8lx with data %8.8lx", mem, value);
-
 	switch (mem)
 	{
 		// See note above about CSR 8 bit writes, and handling them as zero'd bits
@@ -166,7 +146,6 @@ __fi void gsWrite16(u32 mem, u16 value)
 __fi void gsWrite32(u32 mem, u32 value)
 {
 	pxAssume( (mem & 3) == 0 );
-	GIF_LOG("GS write 32 at %8.8lx with data %8.8lx", mem, value);
 
 	switch (mem)
 	{
@@ -187,8 +166,6 @@ __fi void gsWrite32(u32 mem, u32 value)
 
 void gsWrite64_generic( u32 mem, u64 value )
 {
-	GIF_LOG("GS Write64 at %8.8lx with data %8.8x_%8.8x", mem, (u32)(value >> 32), (u32)value);
-
 	std::memcpy(PS2GS_BASE(mem), &value, sizeof(value));
 }
 
@@ -210,8 +187,6 @@ void gsWrite64_page_00( u32 mem, u64 value )
 
 void gsWrite64_page_01( u32 mem, u64 value )
 {
-	GIF_LOG("GS Write64 at %8.8lx with data %8.8x_%8.8x", mem, (u32)(value >> 32), (u32)value);
-
 	switch( mem )
 	{
 		case GS_BUSDIR:
@@ -220,10 +195,6 @@ void gsWrite64_page_01( u32 mem, u64 value )
 			if (gifUnit.stat.DIR) {      // Assume will do local->host transfer
 				gifUnit.stat.OPH = true; // Should we set OPH here?
 				gifUnit.FlushToMTGS();   // Send any pending GS Primitives to the GS
-				GUNIT_LOG("Busdir - GS->EE Download");
-			}
-			else {
-				GUNIT_LOG("Busdir - EE->GS Upload");
 			}
 
 			gsWrite64_generic( mem, value );
@@ -267,18 +238,11 @@ void TAKES_R128 gsWrite128_page_01( u32 mem, r128 value )
 
 void TAKES_R128 gsWrite128_generic( u32 mem, r128 value )
 {
-	alignas(16) const u128 uvalue = r128_to_u128(value);
-	GIF_LOG("GS Write128 at %8.8lx with data %8.8x_%8.8x_%8.8x_%8.8x", mem,
-		uvalue._u32[3], uvalue._u32[2], uvalue._u32[1], uvalue._u32[0]);
-
 	r128_store(PS2GS_BASE(mem), value);
 }
 
 __fi u8 gsRead8(u32 mem)
 {
-	gsSyncMTVUReadback();
-	GIF_LOG("GS read 8 from %8.8lx  value: %8.8lx", mem, *(u8*)PS2GS_BASE(mem));
-
 	switch (mem & ~0xF)
 	{
 		case GS_SIGLBLID:
@@ -290,8 +254,6 @@ __fi u8 gsRead8(u32 mem)
 
 __fi u16 gsRead16(u32 mem)
 {
-	gsSyncMTVUReadback();
-	GIF_LOG("GS read 16 from %8.8lx  value: %8.8lx", mem, *(u16*)PS2GS_BASE(mem));
 	switch (mem & ~0xF)
 	{
 		case GS_SIGLBLID:
@@ -303,9 +265,6 @@ __fi u16 gsRead16(u32 mem)
 
 __fi u32 gsRead32(u32 mem)
 {
-	gsSyncMTVUReadback();
-	GIF_LOG("GS read 32 from %8.8lx  value: %8.8lx", mem, *(u32*)PS2GS_BASE(mem));
-
 	switch (mem & ~0xF)
 	{
 		case GS_SIGLBLID:
@@ -317,10 +276,7 @@ __fi u32 gsRead32(u32 mem)
 
 __fi u64 gsRead64(u32 mem)
 {
-	gsSyncMTVUReadback();
 	// fixme - PS2GS_BASE(mem+4) = (g_RealGSMem+(mem + 4 & 0x13ff))
-	GIF_LOG("GS read 64 from %8.8lx  value: %8.8lx_%8.8lx", mem, *(u32*)PS2GS_BASE(mem+4), *(u32*)PS2GS_BASE(mem) );
-
 	switch (mem & ~0xF)
 	{
 		case GS_SIGLBLID:
@@ -332,7 +288,6 @@ __fi u64 gsRead64(u32 mem)
 
 __fi u128 gsNonMirroredRead(u32 mem)
 {
-	gsSyncMTVUReadback();
 	return *(u128*)PS2GS_BASE(mem);
 }
 

@@ -387,21 +387,6 @@ struct Gif_Path
 
 				gifTag.setTag(&buffer[curOffset], 1);
 
-				if (gifTag.tag.NLOOP == 0 && !gifTag.tag.EOP)
-				{
-					curOffset += 16;
-					gifTag.isValid = false;
-					if (gsPack.size == 0)
-						gsPack.offset = curOffset;
-					if (curOffset >= curSize)
-					{
-						if (gsPack.size == 0)
-							state = GIF_PATH_IDLE;
-						return gsPack;
-					}
-					continue;
-				}
-
 				state = (GIF_PATH_STATE)(gifTag.tag.FLG + 1);
 				GUNIT_WARN("PATH %d New tag State %d FLG %d EOP %d NLOOP %d", gifRegs.stat.APATH, gifRegs.stat.APATH, state, gifTag.tag.FLG, gifTag.tag.EOP, gifTag.tag.NLOOP);
 				// We don't have enough data for a complete GS packet
