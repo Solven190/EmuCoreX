@@ -1,23 +1,38 @@
 #include "JitProfiler.h"
-#include "arm64/OaknutHelpers.h"
-#include "Host.h"
-#include "VMManager.h"
-#include "common/Path.h"
-#include "common/FileSystem.h"
+
+#include "Common.h"
 #include "Config.h"
-#include "R5900.h"
-#include "R3000A.h"
-#include "VUmicro.h"
-#include "vtlb.h"
-#include "IopMem.h"
-#include "arm64/cpuRegistersPack.h"
 #include "DebugTools/Debug.h"
+#include "Hardware.h"
+#include "Host.h"
+#include "IopMem.h"
 #include "MemoryTypes.h"
-#include <atomic>
+#include "MTVU.h"
+#include "PerformanceMetrics.h"
+#include "R3000A.h"
+#include "R5900.h"
+#include "VMManager.h"
+#include "VUmicro.h"
+#include "arm64/OaknutHelpers.h"
+#include "arm64/cpuRegistersPack.h"
+#include "common/FileSystem.h"
+#include "common/Path.h"
+#include "common/Timer.h"
+#include "vtlb.h"
+
 #include <algorithm>
-#include <fstream>
-#include <sstream>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cctype>
+#include <cstring>
+#include <ctime>
 #include <iomanip>
+#include <limits>
+#include <sstream>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 extern void EE_JitGetBlockProfiles(std::vector<JitBlockProfile>& outBlocks);
 extern void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& outBlocks);
@@ -26,251 +41,1149 @@ extern void VU1_JitGetBlockProfiles(std::vector<JitBlockProfile>& outBlocks);
 
 namespace JitProfiler
 {
+namespace
+{
 	static std::atomic<bool> s_active{false};
+	static std::chrono::steady_clock::time_point s_start_time;
+	static u64 s_start_frame = 0;
 
-	static bool readEEMemory(u32 address, void* dest, u32 size)
+	struct CpuTotals
+	{
+		u64 compiled_blocks = 0;
+		u64 executed_blocks = 0;
+		u64 executions = 0;
+		u64 guest_instruction_slots = 0;
+		u64 dynamic_instruction_slots = 0;
+		u64 host_bytes = 0;
+		u64 estimated_dynamic_host_bytes = 0;
+		u64 zero_count_blocks = 0;
+		u64 unreadable_instruction_slots = 0;
+	};
+
+	struct HotStat
+	{
+		std::string cpu;
+		std::string category;
+		std::string name;
+		u64 dynamic_count = 0;
+		u64 static_slots = 0;
+		u64 estimated_dynamic_host_bytes = 0;
+	};
+
+	struct PcAggregate
+	{
+		std::string cpu;
+		u32 pc = 0;
+		u32 variants = 0;
+		u64 executions = 0;
+		u64 dynamic_guest_ops = 0;
+		u64 estimated_dynamic_host_bytes = 0;
+		u32 max_host_size = 0;
+		double max_expansion = 0.0;
+	};
+
+	struct VuNormalizedAggregate
+	{
+		std::string cpu;
+		u32 pc = 0;
+		u64 normalized_state = 0;
+		u32 variants = 0;
+		u64 executions = 0;
+		u64 dynamic_guest_ops = 0;
+		u64 estimated_dynamic_host_bytes = 0;
+		u32 min_host_size = std::numeric_limits<u32>::max();
+		u32 max_host_size = 0;
+		double max_expansion = 0.0;
+		std::array<bool, 256> flag_infos = {};
+		std::array<bool, 256> vi_backups = {};
+	};
+
+	struct BlockAnalysis
+	{
+		JitBlockProfile profile = {};
+		u64 dynamic_guest_slots = 0;
+		u64 dynamic_guest_ops = 0;
+		u64 estimated_dynamic_host_bytes = 0;
+		double host_expansion = 0.0;
+		u32 unreadable_slots = 0;
+		std::vector<std::string> disassembly;
+	};
+
+	const char* CpuName(int type)
+	{
+		switch (type)
+		{
+			case 0:
+				return "EE";
+			case 1:
+				return "IOP";
+			case 2:
+				return "VU0";
+			case 3:
+				return "VU1";
+			default:
+				return "UNK";
+		}
+	}
+
+	u32 GuestBytesPerSlot(int type)
+	{
+		return (type == 2 || type == 3) ? 8 : 4;
+	}
+
+	bool ReadEEMemory(u32 address, void* dest, u32 size)
 	{
 		if (vtlb_memSafeReadBytes(address, dest, size))
 			return true;
 
-		u32 paddr = address & 0x1fffffff;
-		if (paddr + size <= Ps2MemSize::TotalRam)
+		const u32 paddr = address & 0x1fffffff;
+		if (paddr + size <= Ps2MemSize::TotalRam && eeMem)
 		{
-			if (eeMem)
-			{
-				std::memcpy(dest, &eeMem->Main[paddr], size);
-				return true;
-			}
+			std::memcpy(dest, &eeMem->Main[paddr], size);
+			return true;
 		}
 
 		if (address >= 0x70000000 && address < 0x70004000)
 		{
-			u32 offset = address & 0x3fff;
-			if (offset + size <= Ps2MemSize::Scratch)
+			const u32 offset = address & 0x3fff;
+			if (offset + size <= Ps2MemSize::Scratch && eeMem)
 			{
-				if (eeMem)
-				{
-					std::memcpy(dest, &eeMem->Scratch[offset], size);
-					return true;
-				}
+				std::memcpy(dest, &eeMem->Scratch[offset], size);
+				return true;
 			}
 		}
 
 		return false;
 	}
 
-	bool IsActive()
+	bool ReadGuest32(int type, u32 address, u32& code)
 	{
-		return s_active.load(std::memory_order_relaxed);
+		switch (type)
+		{
+			case 0:
+				return ReadEEMemory(address, &code, sizeof(code));
+			case 1:
+				return iopMemSafeReadBytes(address, &code, sizeof(code));
+			default:
+				return false;
+		}
 	}
 
-	void EmitBlockIncrement(void* counter_ptr)
+	bool ReadVUPair(int type, u32 byte_offset, u32& upper, u32& lower)
 	{
-		if (!oakAsm) return;
-		
-		// Load the 64-bit address of the counter into X16 (scratch register)
-		oakMoveAddressToReg(oak::util::X16, counter_ptr);
-		
-		// Load the 64-bit value from [X16] into X17
-		oakAsm->LDR(oak::util::X17, oak::util::X16);
-		
-		// Increment X17
-		oakAsm->ADD(oak::util::X17, oak::util::X17, 1);
-		
-		// Store X17 back to [X16]
-		oakAsm->STR(oak::util::X17, oak::util::X16);
+		const bool vu0 = (type == 2);
+		const u32 program_size = vu0 ? VU0_PROGSIZE : VU1_PROGSIZE;
+		u8* micro = vu0 ? VU0.Micro : VU1.Micro;
+		if (!micro || byte_offset + 8 > program_size)
+			return false;
+
+		std::memcpy(&upper, &micro[byte_offset], sizeof(upper));
+		std::memcpy(&lower, &micro[byte_offset + 4], sizeof(lower));
+		return true;
 	}
 
-	void Start()
+	std::string TrimMnemonic(std::string text)
 	{
-		if (s_active.exchange(true))
-			return; // already active
-			
-		Host::RunOnCPUThread([]() {
-			recCpu.Reset();
-			psxRec.Reset();
-			CpuMicroVU0.Reset();
-			CpuMicroVU1.Reset();
-		}, true); // block until CPU thread executes it
+		while (!text.empty() && std::isspace(static_cast<unsigned char>(text.front())))
+			text.erase(text.begin());
+		const size_t pos = text.find_first_of(" \t\r\n,");
+		if (pos != std::string::npos)
+			text.resize(pos);
+		if (text.empty())
+			return "<unknown>";
+		return text;
 	}
 
-	void Stop()
+	std::string DisassembleEE(u32 code, u32 pc)
 	{
-		if (!s_active.exchange(false))
-			return; // already stopped
-			
-		Host::RunOnCPUThread([]() {
-			std::vector<JitBlockProfile> profiles;
-			EE_JitGetBlockProfiles(profiles);
-			IOP_JitGetBlockProfiles(profiles);
-			VU0_JitGetBlockProfiles(profiles);
-			VU1_JitGetBlockProfiles(profiles);
-			
-			std::string filepath = Path::Combine(EmuFolders::DataRoot, "jit_profile.txt");
-			std::ofstream out(filepath);
-			if (out.is_open())
+		std::string out;
+		R5900::disR5900Fasm(out, code, pc);
+		return out.empty() ? "<unknown>" : out;
+	}
+
+	std::string DisassembleIOP(u32 code, u32 pc)
+	{
+		char* text = R3000A::disR3000AF(code, pc);
+		return (text && *text) ? std::string(text) : std::string("<unknown>");
+	}
+
+	std::string DisassembleVUUpper(int type, u32 code, u32 index)
+	{
+		if (code == 0x8000033c)
+			return "NOP";
+
+		char* text = (type == 2) ? disVU0MicroUF(code, index) : disVU1MicroUF(code, index);
+		return (text && *text) ? std::string(text) : std::string("<unknown>");
+	}
+
+	std::string DisassembleVULower(int type, u32 code, u32 index)
+	{
+		char* text = (type == 2) ? disVU0MicroLF(code, index) : disVU1MicroLF(code, index);
+		return (text && *text) ? std::string(text) : std::string("<unknown>");
+	}
+
+	const char* DecodeVUUpperFdName(u32 code)
+	{
+		static constexpr std::array<const char*, 32> fd00 = {{
+			"ADDAx", "SUBAx", "MADDAx", "MSUBAx", "ITOF0", "FTOI0", "MULAx", "MULAq",
+			"ADDAq", "SUBAq", "ADDA", "SUBA", nullptr, nullptr, nullptr, nullptr,
+			nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+			nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+		}};
+		static constexpr std::array<const char*, 32> fd01 = {{
+			"ADDAy", "SUBAy", "MADDAy", "MSUBAy", "ITOF4", "FTOI4", "MULAy", "ABS",
+			"MADDAq", "MSUBAq", "MADDA", "MSUBA", nullptr, nullptr, nullptr, nullptr,
+			nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+			nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+		}};
+		static constexpr std::array<const char*, 32> fd10 = {{
+			"ADDAz", "SUBAz", "MADDAz", "MSUBAz", "ITOF12", "FTOI12", "MULAz", "MULAi",
+			"ADDAi", "SUBAi", "MULA", "OPMULA", nullptr, nullptr, nullptr, nullptr,
+			nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+			nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+		}};
+		static constexpr std::array<const char*, 32> fd11 = {{
+			"ADDAw", "SUBAw", "MADDAw", "MSUBAw", "ITOF15", "FTOI15", "MULAw", "CLIP",
+			"MADDAi", "MSUBAi", nullptr, "NOP", nullptr, nullptr, nullptr, nullptr,
+			nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+			nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+		}};
+
+		const u32 fd = (code >> 6) & 0x1f;
+		switch (code & 0x3f)
+		{
+			case 0x3c:
+				return fd00[fd];
+			case 0x3d:
+				return fd01[fd];
+			case 0x3e:
+				return fd10[fd];
+			case 0x3f:
+				return fd11[fd];
+			default:
+				return nullptr;
+		}
+	}
+
+	std::string FormatVUUnknownUpper(u32 code)
+	{
+		std::ostringstream out;
+		out << "UnknownUpper.op" << std::hex << std::setw(2) << std::setfill('0') << (code & 0x3f)
+		    << ".fd" << std::setw(2) << ((code >> 6) & 0x1f)
+		    << ".mask" << ((code >> 21) & 0xf) << std::setfill(' ');
+		return out.str();
+	}
+
+	bool IsBadVUDisassembly(const std::string& text)
+	{
+		return text.find("*** Bad OP ***") != std::string::npos;
+	}
+
+	std::string NormalizeVUUpperDisassembly(u32 code, const std::string& text)
+	{
+		if (!IsBadVUDisassembly(text))
+			return text;
+
+		if (const char* name = DecodeVUUpperFdName(code))
+			return name;
+
+		return FormatVUUnknownUpper(code);
+	}
+
+	bool VUUpperEmitsHostCode(u32 code)
+	{
+		if (code == 0x8000033c)
+			return false;
+
+		const u32 op = code & 0x3f;
+		if (op < 0x30)
+			return true;
+		if (op < 0x3c)
+			return false;
+
+		const char* name = DecodeVUUpperFdName(code);
+		if (!name || std::strcmp(name, "NOP") == 0)
+			return false;
+
+		const u32 ft = (code >> 16) & 0x1f;
+		if (ft == 0 && (std::strncmp(name, "ITOF", 4) == 0 || std::strncmp(name, "FTOI", 4) == 0 || std::strcmp(name, "ABS") == 0))
+			return false;
+
+		return true;
+	}
+
+	bool VULowerEmitsHostCode(u32 code)
+	{
+		const u32 op = code >> 25;
+		const u32 ft = (code >> 16) & 0x1f;
+
+		if (op == 0x00 && ft == 0)
+			return false;
+
+		return true;
+	}
+
+	const char* ClassifyEE(u32 code)
+	{
+		const u32 op = code >> 26;
+		switch (op)
+		{
+			case 0x01:
+			case 0x02:
+			case 0x03:
+			case 0x04:
+			case 0x05:
+			case 0x06:
+			case 0x07:
+			case 0x14:
+			case 0x15:
+			case 0x16:
+			case 0x17:
+				return "EE_BRANCH";
+			case 0x10:
+				return "EE_COP0";
+			case 0x11:
+				return "EE_FPU_COP1";
+			case 0x12:
+				return "EE_COP2_VU_MACRO";
+			case 0x1c:
+				return "EE_MMI";
+			case 0x31:
+			case 0x39:
+				return "EE_FPU_MEMORY";
+			case 0x36:
+			case 0x3e:
+				return "EE_COP2_MEMORY";
+			case 0x20:
+			case 0x21:
+			case 0x22:
+			case 0x23:
+			case 0x24:
+			case 0x25:
+			case 0x26:
+			case 0x27:
+			case 0x28:
+			case 0x29:
+			case 0x2b:
+			case 0x2c:
+			case 0x2d:
+			case 0x2f:
+			case 0x37:
+			case 0x3f:
+				return "EE_MEMORY";
+			default:
+				return "EE_CORE";
+		}
+	}
+
+	const char* ClassifyIOP(u32 code)
+	{
+		const u32 op = code >> 26;
+		switch (op)
+		{
+			case 0x01:
+			case 0x02:
+			case 0x03:
+			case 0x04:
+			case 0x05:
+			case 0x06:
+			case 0x07:
+				return "IOP_BRANCH";
+			case 0x10:
+				return "IOP_COP0";
+			case 0x12:
+			case 0x32:
+			case 0x3a:
+				return "IOP_COP2_GTE";
+			case 0x20:
+			case 0x21:
+			case 0x22:
+			case 0x23:
+			case 0x24:
+			case 0x25:
+			case 0x28:
+			case 0x29:
+			case 0x2a:
+			case 0x2b:
+				return "IOP_MEMORY";
+			default:
+				return "IOP_CORE";
+		}
+	}
+
+	void AddHotStat(
+		std::unordered_map<std::string, HotStat>& map,
+		const std::string& cpu,
+		const std::string& category,
+		const std::string& name,
+		u64 dynamic_count,
+		u64 estimated_dynamic_host_bytes)
+	{
+		const std::string key = cpu + '\n' + category + '\n' + name;
+		HotStat& stat = map[key];
+		if (stat.name.empty())
+		{
+			stat.cpu = cpu;
+			stat.category = category;
+			stat.name = name;
+		}
+		stat.dynamic_count += dynamic_count;
+		stat.static_slots++;
+		stat.estimated_dynamic_host_bytes += estimated_dynamic_host_bytes;
+	}
+
+	std::vector<HotStat> SortedStats(const std::unordered_map<std::string, HotStat>& map)
+	{
+		std::vector<HotStat> out;
+		out.reserve(map.size());
+		for (const auto& it : map)
+			out.push_back(it.second);
+		std::sort(out.begin(), out.end(), [](const HotStat& a, const HotStat& b) {
+			if (a.dynamic_count != b.dynamic_count)
+				return a.dynamic_count > b.dynamic_count;
+			return a.estimated_dynamic_host_bytes > b.estimated_dynamic_host_bytes;
+		});
+		return out;
+	}
+
+	std::string SanitizeFilePart(std::string text)
+	{
+		if (text.empty())
+			return "unknown";
+
+		for (char& c : text)
+		{
+			const unsigned char ch = static_cast<unsigned char>(c);
+			if (!std::isalnum(ch) && c != '-' && c != '_')
+				c = '_';
+		}
+		while (text.find("__") != std::string::npos)
+			text.replace(text.find("__"), 2, "_");
+		if (text.size() > 48)
+			text.resize(48);
+		return text;
+	}
+
+	std::string TimestampForFile()
+	{
+		const std::time_t now = std::time(nullptr);
+		std::tm tm = {};
+#ifdef _WIN32
+		localtime_s(&tm, &now);
+#else
+		localtime_r(&now, &tm);
+#endif
+		std::ostringstream out;
+		out << std::put_time(&tm, "%Y%m%d_%H%M%S");
+		return out.str();
+	}
+
+	std::string Hex8(u32 value)
+	{
+		std::ostringstream out;
+		out << "0x" << std::hex << std::setw(8) << std::setfill('0') << value;
+		return out.str();
+	}
+
+	std::string Hex16(u64 value)
+	{
+		std::ostringstream out;
+		out << "0x" << std::hex << std::setw(16) << std::setfill('0') << value;
+		return out.str();
+	}
+
+	u8 VuStateByte(u64 state, int index)
+	{
+		return static_cast<u8>((state >> (index * 8)) & 0xff);
+	}
+
+	u64 VuNormalizeQuickState(u64 state)
+	{
+		constexpr u64 FLAG_INFO_MASK = 0xffull << 8;
+		constexpr u64 VI_BACKUP_MASK = 0xffull << 40;
+		return state & ~(FLAG_INFO_MASK | VI_BACKUP_MASK);
+	}
+
+	std::string ByteSetText(const std::array<bool, 256>& values)
+	{
+		std::ostringstream out;
+		bool first = true;
+		for (size_t i = 0; i < values.size(); i++)
+		{
+			if (!values[i])
+				continue;
+			if (!first)
+				out << ',';
+			first = false;
+			out << i;
+		}
+		return first ? "-" : out.str();
+	}
+
+	std::string VuStateFieldsText(u64 state)
+	{
+		std::ostringstream out;
+		out << "need=" << static_cast<unsigned>(VuStateByte(state, 0))
+			<< ",flag=" << static_cast<unsigned>(VuStateByte(state, 1))
+			<< ",q=" << static_cast<unsigned>(VuStateByte(state, 2))
+			<< ",p=" << static_cast<unsigned>(VuStateByte(state, 3))
+			<< ",xg=" << static_cast<unsigned>(VuStateByte(state, 4))
+			<< ",viBak=" << static_cast<unsigned>(VuStateByte(state, 5))
+			<< ",bt=" << static_cast<unsigned>(VuStateByte(state, 6))
+			<< ",r=" << static_cast<unsigned>(VuStateByte(state, 7));
+		return out.str();
+	}
+
+	std::string VuFlagsText(const JitBlockProfile& profile)
+	{
+		if (profile.type != 2 && profile.type != 3)
+			return "-";
+
+		std::ostringstream out;
+		out << ((profile.flags & (1u << 16)) ? "exact" : "quick");
+		const u32 need_exact = profile.flags & 0xffu;
+		const u32 block_type = (profile.flags >> 8) & 0xffu;
+		if (need_exact != 0)
+			out << ",need=" << need_exact;
+		if (block_type != 0)
+			out << ",bt=" << block_type;
+		if (profile.flags & (1u << 17))
+			out << ",vi15";
+		return out.str();
+	}
+
+	void AppendHeader(std::ostringstream& out, const std::vector<JitBlockProfile>& profiles)
+	{
+		const auto now = std::chrono::steady_clock::now();
+		const double duration_seconds = std::chrono::duration<double>(now - s_start_time).count();
+		const u64 end_frame = PerformanceMetrics::GetFrameNumber();
+
+		out << "=========================================\n";
+		out << "        EmuCoreX JIT Profiler Report     \n";
+		out << "=========================================\n\n";
+		out << "Purpose: identify hot JIT blocks/opcodes to optimize after a captured gameplay scene.\n";
+		out << "Method: execution counters are injected into recompiled blocks. Opcode/category weights are derived from block execution counts.\n";
+		out << "Note: host byte weights are estimates from generated block size, not precise CPU cycle timings.\n\n";
+
+		out << "Game\n";
+		out << "----\n";
+		out << "Title: " << VMManager::GetTitle(true) << "\n";
+		out << "Serial: " << VMManager::GetDiscSerial() << "\n";
+		out << "Disc CRC: " << Hex8(VMManager::GetDiscCRC()) << "\n";
+		out << "Current CRC: " << Hex8(VMManager::GetCurrentCRC()) << "\n";
+		out << "ELF: " << VMManager::GetDiscELF() << "\n\n";
+
+		out << "Capture\n";
+		out << "-------\n";
+		out << "Duration: " << std::fixed << std::setprecision(2) << duration_seconds << " seconds\n";
+		out << "Frames: " << static_cast<unsigned long long>(end_frame - s_start_frame) << "\n";
+		out << "Current speed: " << std::setprecision(1) << PerformanceMetrics::GetSpeed() << "%\n";
+		out << "Current VPS: " << std::setprecision(2) << PerformanceMetrics::GetFPS() << "\n";
+		out << "Current frame min/avg/max: "
+			<< PerformanceMetrics::GetMinimumFrameTime() << " / "
+			<< PerformanceMetrics::GetAverageFrameTime() << " / "
+			<< PerformanceMetrics::GetMaximumFrameTime() << " ms\n";
+		out << "Current EE/GS/VU thread usage: "
+			<< std::setprecision(1) << PerformanceMetrics::GetCPUThreadUsage() << "% / "
+			<< PerformanceMetrics::GetGSThreadUsage() << "% / "
+			<< PerformanceMetrics::GetVUThreadUsage() << "%\n";
+		out << "Compiled profile records: " << profiles.size() << "\n\n";
+	}
+
+	BlockAnalysis AnalyzeBlock(
+		const JitBlockProfile& block,
+		std::array<CpuTotals, 4>& totals,
+		std::unordered_map<std::string, HotStat>& opcode_stats,
+		std::unordered_map<std::string, HotStat>& category_stats)
+	{
+		BlockAnalysis analysis;
+		analysis.profile = block;
+		const int type = (block.type >= 0 && block.type < 4) ? block.type : 0;
+		CpuTotals& cpu = totals[type];
+		const u64 execs = block.execution_count;
+		const u64 slot_count = block.size;
+		const u64 dynamic_slots = execs * slot_count;
+		const u64 dynamic_host_bytes = execs * static_cast<u64>(block.host_size);
+		const u32 guest_bytes = block.size * GuestBytesPerSlot(type);
+
+		cpu.compiled_blocks++;
+		cpu.guest_instruction_slots += slot_count;
+		cpu.host_bytes += block.host_size;
+		if (execs == 0)
+		{
+			cpu.zero_count_blocks++;
+			return analysis;
+		}
+
+		cpu.executed_blocks++;
+		cpu.executions += execs;
+		cpu.dynamic_instruction_slots += dynamic_slots;
+		cpu.estimated_dynamic_host_bytes += dynamic_host_bytes;
+
+		analysis.dynamic_guest_slots = dynamic_slots;
+		analysis.estimated_dynamic_host_bytes = dynamic_host_bytes;
+		analysis.host_expansion = (guest_bytes > 0) ? static_cast<double>(block.host_size) / static_cast<double>(guest_bytes) : 0.0;
+
+		const std::string cpu_name = CpuName(block.type);
+		const u64 estimated_host_per_slot = (slot_count > 0) ? std::max<u64>(1, block.host_size / slot_count) : 0;
+
+		if (block.type == 0 || block.type == 1)
+		{
+			for (u32 i = 0; i < block.size; i++)
 			{
-				out << "=========================================\n";
-				out << "        EmuCoreX JIT Profiler Report     \n";
-				out << "=========================================\n\n";
-				
-				u64 total_ee_blocks = 0, total_iop_blocks = 0, total_vu0_blocks = 0, total_vu1_blocks = 0;
-				u64 ee_exec = 0, iop_exec = 0, vu0_exec = 0, vu1_exec = 0;
-				u64 ee_guest_instrs = 0, iop_guest_instrs = 0, vu0_guest_instrs = 0, vu1_guest_instrs = 0;
-				u64 ee_host_bytes = 0, iop_host_bytes = 0, vu0_host_bytes = 0, vu1_host_bytes = 0;
-				
-				for (const auto& p : profiles)
+				const u32 pc = block.startpc + i * 4;
+				u32 code = 0;
+				if (!ReadGuest32(block.type, pc, code))
 				{
-					if (p.type == 0) {
-						total_ee_blocks++;
-						ee_exec += p.execution_count;
-						ee_guest_instrs += p.size * p.execution_count;
-						ee_host_bytes += p.host_size;
-					} else if (p.type == 1) {
-						total_iop_blocks++;
-						iop_exec += p.execution_count;
-						iop_guest_instrs += p.size * p.execution_count;
-						iop_host_bytes += p.host_size;
-					} else if (p.type == 2) {
-						total_vu0_blocks++;
-						vu0_exec += p.execution_count;
-						vu0_guest_instrs += p.size * p.execution_count;
-						vu0_host_bytes += p.host_size;
-					} else if (p.type == 3) {
-						total_vu1_blocks++;
-						vu1_exec += p.execution_count;
-						vu1_guest_instrs += p.size * p.execution_count;
-						vu1_host_bytes += p.host_size;
-					}
+					analysis.unreadable_slots++;
+					cpu.unreadable_instruction_slots++;
+					continue;
 				}
-				
-				out << "Summary Stats:\n";
-				out << "-----------------------------------------\n";
-				out << "EE:  Blocks=" << total_ee_blocks << ", Executions=" << ee_exec << ", GuestInstrsExecuted=" << ee_guest_instrs << ", HostCompiledBytes=" << ee_host_bytes << "\n";
-				out << "IOP: Blocks=" << total_iop_blocks << ", Executions=" << iop_exec << ", GuestInstrsExecuted=" << iop_guest_instrs << ", HostCompiledBytes=" << iop_host_bytes << "\n";
-				out << "VU0: Blocks=" << total_vu0_blocks << ", Executions=" << vu0_exec << ", GuestInstrsExecuted=" << vu0_guest_instrs << ", HostCompiledBytes=" << vu0_host_bytes << "\n";
-				out << "VU1: Blocks=" << total_vu1_blocks << ", Executions=" << vu1_exec << ", GuestInstrsExecuted=" << vu1_guest_instrs << ", HostCompiledBytes=" << vu1_host_bytes << "\n\n";
-				
-				std::sort(profiles.begin(), profiles.end(), [](const JitBlockProfile& a, const JitBlockProfile& b) {
-					return (a.size * a.execution_count) > (b.size * b.execution_count);
-				});
-				
-				out << "Hottest JIT Blocks (Top 100):\n";
-				out << "---------------------------------------------------------------------------------\n";
-				out << std::left << std::setw(8) << "Type" 
-				    << std::setw(12) << "Guest PC" 
-				    << std::setw(15) << "Exec Count" 
-				    << std::setw(12) << "Guest Size" 
-				    << std::setw(12) << "Host Size" 
-				    << std::setw(18) << "Weight (Count*Sz)" 
-				    << "Expansion Ratio\n";
-				out << "---------------------------------------------------------------------------------\n";
-				
-				int count = 0;
-				for (const auto& p : profiles)
-				{
-					if (p.execution_count == 0) continue;
-					if (++count > 100) break;
-					
-					std::string type_str = (p.type == 0) ? "EE" : (p.type == 1) ? "IOP" : (p.type == 2) ? "VU0" : "VU1";
-					double ratio = (p.size > 0) ? (double)p.host_size / (p.size * 4) : 0;
-					
-					char main_line[256];
-					std::snprintf(main_line, sizeof(main_line), "%-8s0x%08x  %-15llu%-12u%-12u%-18llu%.2f\n",
-						type_str.c_str(), p.startpc, (unsigned long long)p.execution_count, p.size, p.host_size,
-						(unsigned long long)(p.size * p.execution_count), ratio);
-					out << main_line;
 
-					if (p.type == 0) // EE
-					{
-						std::vector<u32> instrs(p.size);
-						if (readEEMemory(p.startpc, instrs.data(), p.size * 4)) {
-							out << "      Guest instructions:\n";
-							for (u32 i = 0; i < p.size; i++) {
-								u32 pc = p.startpc + i * 4;
-								u32 code = instrs[i];
-								std::string disasm;
-								R5900::disR5900Fasm(disasm, code, pc);
-								char buf[256];
-								std::snprintf(buf, sizeof(buf), "        0x%08x: 0x%08x  %s\n", pc, code, disasm.c_str());
-								out << buf;
-							}
-						} else {
-							out << "      [Failed to read guest memory]\n";
-						}
-					}
-					else if (p.type == 1) // IOP
-					{
-						std::vector<u32> instrs(p.size);
-						if (iopMemSafeReadBytes(p.startpc, instrs.data(), p.size * 4)) {
-							out << "      Guest instructions:\n";
-							for (u32 i = 0; i < p.size; i++) {
-								u32 pc = p.startpc + i * 4;
-								u32 code = instrs[i];
-								char* disasm = R3000A::disR3000AF(code, pc);
-								char buf[256];
-								std::snprintf(buf, sizeof(buf), "        0x%08x: 0x%08x  %s\n", pc, code, disasm ? disasm : "");
-								out << buf;
-							}
-						} else {
-							out << "      [Failed to read guest memory]\n";
-						}
-					}
-					else if (p.type == 2) // VU0
-					{
-						if (VU0.Micro) {
-							out << "      Guest instructions:\n";
-							for (u32 i = 0; i < p.size; i++) {
-								u32 offset = p.startpc + i * 8;
-								if (offset + 8 <= VU0_PROGSIZE) {
-									u32 upper = *(u32*)&VU0.Micro[offset];
-									u32 lower = *(u32*)&VU0.Micro[offset + 4];
-									char* dis_up = disVU0MicroUF(upper, offset / 8);
-									std::string up_str = dis_up ? dis_up : "";
-									char* dis_lo = disVU0MicroLF(lower, offset / 8);
-									std::string lo_str = dis_lo ? dis_lo : "";
-									char buf[512];
-									std::snprintf(buf, sizeof(buf), "        %03x: 0x%08x 0x%08x  %s | %s\n",
-										offset / 8, upper, lower, up_str.c_str(), lo_str.c_str());
-									out << buf;
-								}
-							}
-						} else {
-							out << "      [VU0.Micro is null]\n";
-						}
-					}
-					else if (p.type == 3) // VU1
-					{
-						if (VU1.Micro) {
-							out << "      Guest instructions:\n";
-							for (u32 i = 0; i < p.size; i++) {
-								u32 offset = p.startpc + i * 8;
-								if (offset + 8 <= VU1_PROGSIZE) {
-									u32 upper = *(u32*)&VU1.Micro[offset];
-									u32 lower = *(u32*)&VU1.Micro[offset + 4];
-									char* dis_up = disVU1MicroUF(upper, offset / 8);
-									std::string up_str = dis_up ? dis_up : "";
-									char* dis_lo = disVU1MicroLF(lower, offset / 8);
-									std::string lo_str = dis_lo ? dis_lo : "";
-									char buf[512];
-									std::snprintf(buf, sizeof(buf), "        %03x: 0x%08x 0x%08x  %s | %s\n",
-										offset / 8, upper, lower, up_str.c_str(), lo_str.c_str());
-									out << buf;
-								}
-							}
-						} else {
-							out << "      [VU1.Micro is null]\n";
-						}
-					}
+				const std::string disasm = (block.type == 0) ? DisassembleEE(code, pc) : DisassembleIOP(code, pc);
+				const std::string mnemonic = TrimMnemonic(disasm);
+				const std::string category = (block.type == 0) ? ClassifyEE(code) : ClassifyIOP(code);
+				AddHotStat(opcode_stats, cpu_name, category, mnemonic, execs, execs * estimated_host_per_slot);
+				AddHotStat(category_stats, cpu_name, category, category, execs, execs * estimated_host_per_slot);
+
+				if (analysis.disassembly.size() < 48)
+				{
+					std::ostringstream line;
+					line << "  " << Hex8(pc) << ": " << Hex8(code) << "  " << disasm;
+					analysis.disassembly.push_back(line.str());
 				}
-				
-				out.close();
 			}
-			
-			recCpu.Reset();
-			psxRec.Reset();
-			CpuMicroVU0.Reset();
-			CpuMicroVU1.Reset();
-		}, true);
+			analysis.dynamic_guest_ops = analysis.dynamic_guest_slots;
+		}
+		else if (block.type == 2 || block.type == 3)
+		{
+			u32 live_vu_ops = 0;
+			for (u32 i = 0; i < block.size; i++)
+			{
+				const u32 offset = block.startpc + i * 8;
+				u32 upper = 0;
+				u32 lower = 0;
+				if (!ReadVUPair(block.type, offset, upper, lower))
+					continue;
+
+				if (VUUpperEmitsHostCode(upper))
+					live_vu_ops++;
+				if (VULowerEmitsHostCode(lower))
+					live_vu_ops++;
+			}
+
+			const u64 estimated_host_per_op = (live_vu_ops > 0) ? std::max<u64>(1, block.host_size / live_vu_ops) : 0;
+			for (u32 i = 0; i < block.size; i++)
+			{
+				const u32 offset = block.startpc + i * 8;
+				u32 upper = 0;
+				u32 lower = 0;
+				if (!ReadVUPair(block.type, offset, upper, lower))
+				{
+					analysis.unreadable_slots++;
+					cpu.unreadable_instruction_slots++;
+					continue;
+				}
+
+				const u32 index = offset / 8;
+				const std::string upper_disasm = NormalizeVUUpperDisassembly(upper, DisassembleVUUpper(block.type, upper, index));
+				const std::string lower_disasm = DisassembleVULower(block.type, lower, index);
+				const std::string upper_category = cpu_name + "_UPPER";
+				const std::string lower_category = cpu_name + "_LOWER";
+				const u64 upper_host_estimate = VUUpperEmitsHostCode(upper) ? (execs * estimated_host_per_op) : 0;
+				const u64 lower_host_estimate = VULowerEmitsHostCode(lower) ? (execs * estimated_host_per_op) : 0;
+				AddHotStat(opcode_stats, cpu_name, upper_category, TrimMnemonic(upper_disasm), execs, upper_host_estimate);
+				AddHotStat(opcode_stats, cpu_name, lower_category, TrimMnemonic(lower_disasm), execs, lower_host_estimate);
+				AddHotStat(category_stats, cpu_name, upper_category, upper_category, execs, upper_host_estimate);
+				AddHotStat(category_stats, cpu_name, lower_category, lower_category, execs, lower_host_estimate);
+
+				if (analysis.disassembly.size() < 48)
+				{
+					std::ostringstream line;
+					line << "  " << std::hex << std::setw(4) << std::setfill('0') << index << std::setfill(' ')
+						<< ": upper=" << Hex8(upper) << " lower=" << Hex8(lower)
+						<< "  " << upper_disasm << " | " << lower_disasm;
+					analysis.disassembly.push_back(line.str());
+				}
+			}
+			analysis.dynamic_guest_ops = analysis.dynamic_guest_slots * 2;
+		}
+
+		return analysis;
 	}
+
+	std::vector<PcAggregate> BuildPcAggregates(const std::vector<BlockAnalysis>& blocks)
+	{
+		std::unordered_map<std::string, PcAggregate> map;
+		for (const BlockAnalysis& block : blocks)
+		{
+			if (block.profile.execution_count == 0)
+				continue;
+
+			const std::string key = std::string(CpuName(block.profile.type)) + '\n' + std::to_string(block.profile.startpc);
+			PcAggregate& agg = map[key];
+			if (agg.cpu.empty())
+			{
+				agg.cpu = CpuName(block.profile.type);
+				agg.pc = block.profile.startpc;
+			}
+			agg.variants++;
+			agg.executions += block.profile.execution_count;
+			agg.dynamic_guest_ops += block.dynamic_guest_ops;
+			agg.estimated_dynamic_host_bytes += block.estimated_dynamic_host_bytes;
+			agg.max_host_size = std::max(agg.max_host_size, block.profile.host_size);
+			agg.max_expansion = std::max(agg.max_expansion, block.host_expansion);
+		}
+
+		std::vector<PcAggregate> out;
+		out.reserve(map.size());
+		for (const auto& entry : map)
+			out.push_back(entry.second);
+
+		std::sort(out.begin(), out.end(), [](const PcAggregate& a, const PcAggregate& b) {
+			if (a.estimated_dynamic_host_bytes != b.estimated_dynamic_host_bytes)
+				return a.estimated_dynamic_host_bytes > b.estimated_dynamic_host_bytes;
+			return a.dynamic_guest_ops > b.dynamic_guest_ops;
+		});
+		return out;
+	}
+
+	std::vector<VuNormalizedAggregate> BuildVuNormalizedAggregates(const std::vector<BlockAnalysis>& blocks)
+	{
+		std::unordered_map<std::string, VuNormalizedAggregate> map;
+		for (const BlockAnalysis& block : blocks)
+		{
+			if (block.profile.execution_count == 0)
+				continue;
+			if (block.profile.type != 2 && block.profile.type != 3)
+				continue;
+
+			const u64 normalized_state = VuNormalizeQuickState(block.profile.state_hash);
+			const std::string key = std::string(CpuName(block.profile.type)) + '\n' +
+			                        std::to_string(block.profile.startpc) + '\n' +
+			                        std::to_string(normalized_state);
+			VuNormalizedAggregate& agg = map[key];
+			if (agg.cpu.empty())
+			{
+				agg.cpu = CpuName(block.profile.type);
+				agg.pc = block.profile.startpc;
+				agg.normalized_state = normalized_state;
+			}
+			agg.variants++;
+			agg.executions += block.profile.execution_count;
+			agg.dynamic_guest_ops += block.dynamic_guest_ops;
+			agg.estimated_dynamic_host_bytes += block.estimated_dynamic_host_bytes;
+			agg.min_host_size = std::min(agg.min_host_size, block.profile.host_size);
+			agg.max_host_size = std::max(agg.max_host_size, block.profile.host_size);
+			agg.max_expansion = std::max(agg.max_expansion, block.host_expansion);
+			agg.flag_infos[VuStateByte(block.profile.state_hash, 1)] = true;
+			agg.vi_backups[VuStateByte(block.profile.state_hash, 5)] = true;
+		}
+
+		std::vector<VuNormalizedAggregate> out;
+		out.reserve(map.size());
+		for (const auto& entry : map)
+			out.push_back(entry.second);
+
+		std::sort(out.begin(), out.end(), [](const VuNormalizedAggregate& a, const VuNormalizedAggregate& b) {
+			if (a.estimated_dynamic_host_bytes != b.estimated_dynamic_host_bytes)
+				return a.estimated_dynamic_host_bytes > b.estimated_dynamic_host_bytes;
+			if (a.variants != b.variants)
+				return a.variants > b.variants;
+			return a.executions > b.executions;
+		});
+		return out;
+	}
+
+	void AppendFindings(
+		std::ostringstream& out,
+		const std::array<CpuTotals, 4>& totals,
+		const std::vector<PcAggregate>& pc_aggregates,
+		const std::vector<VuNormalizedAggregate>& normalized_aggregates,
+		const std::vector<HotStat>& opcode_stats)
+	{
+		out << "Profiler Findings\n";
+		out << "-----------------\n";
+
+		const u64 total_dynamic_host =
+			totals[0].estimated_dynamic_host_bytes +
+			totals[1].estimated_dynamic_host_bytes +
+			totals[2].estimated_dynamic_host_bytes +
+			totals[3].estimated_dynamic_host_bytes;
+		if (total_dynamic_host > 0)
+		{
+			for (int i = 0; i < 4; i++)
+			{
+				const double pct = (static_cast<double>(totals[i].estimated_dynamic_host_bytes) * 100.0) /
+				                   static_cast<double>(total_dynamic_host);
+				out << "- " << CpuName(i) << " estimated dynamic host bytes: "
+					<< std::fixed << std::setprecision(1) << pct << "%\n";
+			}
+		}
+
+		int suspicious_vu = 0;
+		for (const PcAggregate& agg : pc_aggregates)
+		{
+			if (agg.cpu != "VU0" && agg.cpu != "VU1")
+				continue;
+			if (agg.max_expansion < 1000.0 && agg.variants < 4)
+				continue;
+			if (++suspicious_vu > 8)
+				break;
+			out << "- Suspicious " << agg.cpu << " pc=" << Hex8(agg.pc)
+				<< " variants=" << agg.variants
+				<< " max_host=" << agg.max_host_size
+				<< " max_expansion=" << std::fixed << std::setprecision(1) << agg.max_expansion
+				<< " dyn_host=" << static_cast<unsigned long long>(agg.estimated_dynamic_host_bytes) << "\n";
+		}
+
+		int normalized_vu = 0;
+		for (const VuNormalizedAggregate& agg : normalized_aggregates)
+		{
+			if (agg.variants < 4)
+				continue;
+			if (++normalized_vu > 6)
+				break;
+			out << "- VU quick-state split candidate: " << agg.cpu << " pc=" << Hex8(agg.pc)
+				<< " normalized=" << Hex16(agg.normalized_state)
+				<< " variants=" << agg.variants
+				<< " flagInfo={" << ByteSetText(agg.flag_infos) << "}"
+				<< " viBackUp={" << ByteSetText(agg.vi_backups) << "}"
+				<< " dyn_host=" << static_cast<unsigned long long>(agg.estimated_dynamic_host_bytes)
+				<< " host_minmax=" << agg.min_host_size << "/" << agg.max_host_size << "\n";
+		}
+
+		int bad_ops = 0;
+		for (const HotStat& stat : opcode_stats)
+		{
+			if (stat.name.find("***") == std::string::npos && stat.name.find("Bad") == std::string::npos)
+				continue;
+			if (++bad_ops > 6)
+				break;
+			out << "- Bad/unknown disasm hotspot: " << stat.cpu << ' ' << stat.category
+				<< ' ' << stat.name << " dyn=" << static_cast<unsigned long long>(stat.dynamic_count) << "\n";
+		}
+
+		out << "\n";
+	}
+
+	void AppendCpuSummary(std::ostringstream& out, const std::array<CpuTotals, 4>& totals)
+	{
+		out << "CPU Summary\n";
+		out << "-----------\n";
+		out << std::left
+			<< std::setw(6) << "CPU"
+			<< std::setw(12) << "Blocks"
+			<< std::setw(12) << "HotBlocks"
+			<< std::setw(16) << "BlockExecs"
+			<< std::setw(18) << "DynGuestSlots"
+			<< std::setw(16) << "HostBytes"
+			<< std::setw(18) << "DynHostBytes"
+			<< "Unreadable\n";
+		for (int i = 0; i < 4; i++)
+		{
+			const CpuTotals& t = totals[i];
+			out << std::left
+				<< std::setw(6) << CpuName(i)
+				<< std::setw(12) << static_cast<unsigned long long>(t.compiled_blocks)
+				<< std::setw(12) << static_cast<unsigned long long>(t.executed_blocks)
+				<< std::setw(16) << static_cast<unsigned long long>(t.executions)
+				<< std::setw(18) << static_cast<unsigned long long>(t.dynamic_instruction_slots)
+				<< std::setw(16) << static_cast<unsigned long long>(t.host_bytes)
+				<< std::setw(18) << static_cast<unsigned long long>(t.estimated_dynamic_host_bytes)
+				<< static_cast<unsigned long long>(t.unreadable_instruction_slots) << "\n";
+		}
+		out << "\n";
+	}
+
+	void AppendHotStats(std::ostringstream& out, const char* title, const std::vector<HotStat>& stats, int limit)
+	{
+		out << title << "\n";
+		out << std::string(std::strlen(title), '-') << "\n";
+		out << "CPU\tCategory\tName\tDynamicCount\tStaticSlots\tEstimatedDynamicHostBytes\n";
+		int written = 0;
+		for (const HotStat& stat : stats)
+		{
+			if (stat.dynamic_count == 0)
+				continue;
+			if (++written > limit)
+				break;
+			out << stat.cpu << '\t'
+				<< stat.category << '\t'
+				<< stat.name << '\t'
+				<< static_cast<unsigned long long>(stat.dynamic_count) << '\t'
+				<< static_cast<unsigned long long>(stat.static_slots) << '\t'
+				<< static_cast<unsigned long long>(stat.estimated_dynamic_host_bytes) << "\n";
+		}
+		out << "\n";
+	}
+
+	template <typename Sorter>
+	void AppendBlockTable(std::ostringstream& out, const char* title, std::vector<BlockAnalysis> blocks, Sorter sorter, int limit)
+	{
+		std::sort(blocks.begin(), blocks.end(), sorter);
+		out << title << "\n";
+		out << std::string(std::strlen(title), '-') << "\n";
+		out << std::left
+			<< std::setw(6) << "CPU"
+			<< std::setw(12) << "PC"
+			<< std::setw(14) << "Execs"
+			<< std::setw(8) << "Slots"
+			<< std::setw(12) << "HostBytes"
+			<< std::setw(14) << "DynSlots"
+			<< std::setw(16) << "DynHostBytes"
+			<< std::setw(11) << "Expansion"
+			<< std::setw(8) << "Variant"
+			<< std::setw(20) << "State"
+			<< std::setw(18) << "Flags"
+			<< "StateFields\n";
+
+		int written = 0;
+		for (const BlockAnalysis& block : blocks)
+		{
+			if (block.profile.execution_count == 0)
+				continue;
+			if (++written > limit)
+				break;
+			out << std::left
+				<< std::setw(6) << CpuName(block.profile.type)
+				<< std::setw(12) << Hex8(block.profile.startpc)
+				<< std::setw(14) << static_cast<unsigned long long>(block.profile.execution_count)
+				<< std::setw(8) << block.profile.size
+				<< std::setw(12) << block.profile.host_size
+				<< std::setw(14) << static_cast<unsigned long long>(block.dynamic_guest_slots)
+				<< std::setw(16) << static_cast<unsigned long long>(block.estimated_dynamic_host_bytes)
+				<< std::setw(11) << std::fixed << std::setprecision(2) << block.host_expansion
+				<< std::setw(8) << block.profile.variant_index
+				<< std::setw(20) << ((block.profile.type == 2 || block.profile.type == 3) ? Hex16(block.profile.state_hash) : "-")
+				<< std::setw(18) << VuFlagsText(block.profile)
+				<< ((block.profile.type == 2 || block.profile.type == 3) ? VuStateFieldsText(block.profile.state_hash) : "-") << "\n";
+		}
+		out << "\n";
+	}
+
+	void AppendPcAggregateTable(std::ostringstream& out, const std::vector<PcAggregate>& aggregates)
+	{
+		out << "Top PCs Aggregated Across Variants\n";
+		out << "----------------------------------\n";
+		out << std::left
+			<< std::setw(6) << "CPU"
+			<< std::setw(12) << "PC"
+			<< std::setw(10) << "Variants"
+			<< std::setw(16) << "Execs"
+			<< std::setw(16) << "DynOps"
+			<< std::setw(18) << "DynHostBytes"
+			<< std::setw(12) << "MaxHost"
+			<< "MaxExpansion\n";
+		int written = 0;
+		for (const PcAggregate& agg : aggregates)
+		{
+			if (++written > 120)
+				break;
+			out << std::left
+				<< std::setw(6) << agg.cpu
+				<< std::setw(12) << Hex8(agg.pc)
+				<< std::setw(10) << agg.variants
+				<< std::setw(16) << static_cast<unsigned long long>(agg.executions)
+				<< std::setw(16) << static_cast<unsigned long long>(agg.dynamic_guest_ops)
+				<< std::setw(18) << static_cast<unsigned long long>(agg.estimated_dynamic_host_bytes)
+				<< std::setw(12) << agg.max_host_size
+				<< std::fixed << std::setprecision(2) << agg.max_expansion << "\n";
+		}
+		out << "\n";
+	}
+
+	void AppendVuNormalizedAggregateTable(std::ostringstream& out, const std::vector<VuNormalizedAggregate>& aggregates)
+	{
+		out << "VU Quick-State Variant Groups\n";
+		out << "-----------------------------\n";
+		out << "NormalizedState masks out flagInfo and viBackUp to expose duplicated quick-state variants.\n";
+		out << std::left
+			<< std::setw(6) << "CPU"
+			<< std::setw(12) << "PC"
+			<< std::setw(20) << "NormalizedState"
+			<< std::setw(10) << "Variants"
+			<< std::setw(16) << "Execs"
+			<< std::setw(16) << "DynOps"
+			<< std::setw(18) << "DynHostBytes"
+			<< std::setw(12) << "MinHost"
+			<< std::setw(12) << "MaxHost"
+			<< std::setw(14) << "MaxExpansion"
+			<< std::setw(20) << "FlagInfos"
+			<< "ViBackUps\n";
+		int written = 0;
+		for (const VuNormalizedAggregate& agg : aggregates)
+		{
+			if (agg.variants < 2)
+				continue;
+			if (++written > 120)
+				break;
+			out << std::left
+				<< std::setw(6) << agg.cpu
+				<< std::setw(12) << Hex8(agg.pc)
+				<< std::setw(20) << Hex16(agg.normalized_state)
+				<< std::setw(10) << agg.variants
+				<< std::setw(16) << static_cast<unsigned long long>(agg.executions)
+				<< std::setw(16) << static_cast<unsigned long long>(agg.dynamic_guest_ops)
+				<< std::setw(18) << static_cast<unsigned long long>(agg.estimated_dynamic_host_bytes)
+				<< std::setw(12) << agg.min_host_size
+				<< std::setw(12) << agg.max_host_size
+				<< std::setw(14) << std::fixed << std::setprecision(2) << agg.max_expansion
+				<< std::setw(20) << ByteSetText(agg.flag_infos)
+				<< ByteSetText(agg.vi_backups) << "\n";
+		}
+		out << "\n";
+	}
+
+	void AppendDisassembly(std::ostringstream& out, std::vector<BlockAnalysis> blocks)
+	{
+		std::sort(blocks.begin(), blocks.end(), [](const BlockAnalysis& a, const BlockAnalysis& b) {
+			if (a.dynamic_guest_ops != b.dynamic_guest_ops)
+				return a.dynamic_guest_ops > b.dynamic_guest_ops;
+			return a.estimated_dynamic_host_bytes > b.estimated_dynamic_host_bytes;
+		});
+
+		out << "Hottest Block Disassembly\n";
+		out << "-------------------------\n";
+		int written = 0;
+		for (const BlockAnalysis& block : blocks)
+		{
+			if (block.profile.execution_count == 0)
+				continue;
+			if (++written > 40)
+				break;
+
+			out << CpuName(block.profile.type)
+				<< " pc=" << Hex8(block.profile.startpc)
+				<< " variant=" << block.profile.variant_index
+				<< " state=" << ((block.profile.type == 2 || block.profile.type == 3) ? Hex16(block.profile.state_hash) : "-")
+				<< " flags=" << VuFlagsText(block.profile)
+				<< " execs=" << static_cast<unsigned long long>(block.profile.execution_count)
+				<< " slots=" << block.profile.size
+				<< " host_bytes=" << block.profile.host_size
+				<< " dynamic_ops=" << static_cast<unsigned long long>(block.dynamic_guest_ops)
+				<< " expansion=" << std::fixed << std::setprecision(2) << block.host_expansion << "\n";
+			if (block.unreadable_slots > 0)
+				out << "  unreadable_slots=" << block.unreadable_slots << "\n";
+			if (block.profile.type == 2 || block.profile.type == 3)
+				out << "  state_fields=" << VuStateFieldsText(block.profile.state_hash) << "\n";
+			for (const std::string& line : block.disassembly)
+				out << line << "\n";
+			if (block.disassembly.size() >= 48 && block.profile.size > 48)
+				out << "  ... truncated, block has " << block.profile.size << " slots\n";
+			out << "\n";
+		}
+	}
+
+	void WriteReport()
+	{
+		std::vector<JitBlockProfile> profiles;
+		EE_JitGetBlockProfiles(profiles);
+		IOP_JitGetBlockProfiles(profiles);
+		VU0_JitGetBlockProfiles(profiles);
+		VU1_JitGetBlockProfiles(profiles);
+
+		std::array<CpuTotals, 4> totals = {};
+		std::unordered_map<std::string, HotStat> opcode_stats;
+		std::unordered_map<std::string, HotStat> category_stats;
+		std::vector<BlockAnalysis> analyzed_blocks;
+		analyzed_blocks.reserve(profiles.size());
+
+		for (const JitBlockProfile& profile : profiles)
+			analyzed_blocks.push_back(AnalyzeBlock(profile, totals, opcode_stats, category_stats));
+
+		std::vector<HotStat> sorted_opcode_stats = SortedStats(opcode_stats);
+		std::vector<HotStat> sorted_category_stats = SortedStats(category_stats);
+		std::vector<PcAggregate> pc_aggregates = BuildPcAggregates(analyzed_blocks);
+		std::vector<VuNormalizedAggregate> normalized_aggregates = BuildVuNormalizedAggregates(analyzed_blocks);
+
+		std::ostringstream report;
+		AppendHeader(report, profiles);
+		AppendFindings(report, totals, pc_aggregates, normalized_aggregates, sorted_opcode_stats);
+		AppendCpuSummary(report, totals);
+		AppendHotStats(report, "Opcode Hotspots", sorted_opcode_stats, 180);
+		AppendHotStats(report, "Category Hotspots", sorted_category_stats, 90);
+		AppendPcAggregateTable(report, pc_aggregates);
+		AppendVuNormalizedAggregateTable(report, normalized_aggregates);
+		AppendBlockTable(report, "Top Blocks by Dynamic Guest Ops", analyzed_blocks, [](const BlockAnalysis& a, const BlockAnalysis& b) {
+			if (a.dynamic_guest_ops != b.dynamic_guest_ops)
+				return a.dynamic_guest_ops > b.dynamic_guest_ops;
+			return a.estimated_dynamic_host_bytes > b.estimated_dynamic_host_bytes;
+		}, 140);
+		AppendBlockTable(report, "Top Blocks by Estimated Dynamic Host Bytes", analyzed_blocks, [](const BlockAnalysis& a, const BlockAnalysis& b) {
+			if (a.estimated_dynamic_host_bytes != b.estimated_dynamic_host_bytes)
+				return a.estimated_dynamic_host_bytes > b.estimated_dynamic_host_bytes;
+			return a.dynamic_guest_ops > b.dynamic_guest_ops;
+		}, 140);
+		AppendBlockTable(report, "Top Blocks by Host Expansion", analyzed_blocks, [](const BlockAnalysis& a, const BlockAnalysis& b) {
+			if (a.host_expansion != b.host_expansion)
+				return a.host_expansion > b.host_expansion;
+			return a.dynamic_guest_ops > b.dynamic_guest_ops;
+		}, 100);
+		AppendDisassembly(report, analyzed_blocks);
+
+		const std::string profile_dir = Path::Combine(EmuFolders::DataRoot, "jit_profiles");
+		FileSystem::EnsureDirectoryExists(profile_dir.c_str(), false);
+
+		const std::string serial = SanitizeFilePart(VMManager::GetDiscSerial());
+		const std::string crc = SanitizeFilePart(Hex8(VMManager::GetCurrentCRC()));
+		const std::string timestamped_path = Path::Combine(profile_dir, "jit_profile_" + serial + "_" + crc + "_" + TimestampForFile() + ".txt");
+		const std::string latest_path = Path::Combine(EmuFolders::DataRoot, "jit_profile.txt");
+		const std::string text = report.str();
+
+		FileSystem::WriteStringToFile(timestamped_path.c_str(), text);
+		FileSystem::WriteStringToFile(latest_path.c_str(), text);
+	}
+} // namespace
+
+bool IsActive()
+{
+	return s_active.load(std::memory_order_relaxed);
 }
+
+void EmitBlockIncrement(void* counter_ptr)
+{
+	if (!oakAsm)
+		return;
+
+	oakMoveAddressToReg(oak::util::X16, counter_ptr);
+	oakAsm->LDR(oak::util::X17, oak::util::X16);
+	oakAsm->ADD(oak::util::X17, oak::util::X17, 1);
+	oakAsm->STR(oak::util::X17, oak::util::X16);
+}
+
+void Start()
+{
+	if (s_active.exchange(true))
+		return;
+
+	s_start_time = std::chrono::steady_clock::now();
+	s_start_frame = PerformanceMetrics::GetFrameNumber();
+
+	Host::RunOnCPUThread([]() {
+		if (THREAD_VU1)
+			vu1Thread.WaitVU();
+		recCpu.Reset();
+		psxRec.Reset();
+		CpuMicroVU0.Reset();
+		CpuMicroVU1.Reset();
+	}, true);
+}
+
+void Stop()
+{
+	if (!s_active.exchange(false))
+		return;
+
+	Host::RunOnCPUThread([]() {
+		if (THREAD_VU1)
+			vu1Thread.WaitVU();
+		WriteReport();
+
+		recCpu.Reset();
+		psxRec.Reset();
+		CpuMicroVU0.Reset();
+		CpuMicroVU1.Reset();
+	}, true);
+}
+} // namespace JitProfiler

@@ -258,6 +258,37 @@ public:
 	}
 };
 
+static __fi void mVUcanonicalizeViBackup(microRegInfo& state)
+{
+	if (state.viBackUp && !state.VI[state.viBackUp])
+		state.viBackUp = 0;
+}
+
+static __fi void mVUcanonicalizeFlagInfo(microRegInfo& state)
+{
+	if (!(state.needExactMatch & 2))
+		state.flagInfo &= ~0x30;
+	if (state.needExactMatch & 1)
+		state.flagInfo &= ~0x0c;
+	if (state.needExactMatch & 2)
+		state.flagInfo &= ~0x30;
+	if (state.needExactMatch & 4)
+		state.flagInfo &= ~0xc0;
+}
+
+static __fi void mVUcanonicalizePipeState(microRegInfo& state)
+{
+	mVUcanonicalizeViBackup(state);
+	mVUcanonicalizeFlagInfo(state);
+}
+
+static __fi microRegInfo* mVUcanonicalizeSearchState(microRegInfo* state, microRegInfo& storage)
+{
+	storage = *state;
+	mVUcanonicalizePipeState(storage);
+	return (std::memcmp(&storage, state, sizeof(microRegInfo)) != 0) ? &storage : state;
+}
+
 // microVU rec structs
 //alignas(16) microVU microVU0;
 //alignas(16) microVU microVU1;

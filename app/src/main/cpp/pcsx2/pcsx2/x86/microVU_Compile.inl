@@ -393,6 +393,7 @@ void mVUoptimizePipeState(mV)
 	if (mVUregs.q) { mVUregs.q = optimizeReg(mVUregs.q); if (!mVUregs.q) { incQ(mVU); } }
 	if (mVUregs.p) { mVUregs.p = optimizeReg(mVUregs.p); if (!mVUregs.p) { incP(mVU); } }
 	mVUregs.r = 0; // There are no stalls on the R-reg, so its Safe to discard info
+	mVUcanonicalizePipeState(mVUregs);
 }
 
 void mVUincCycles(mV, int x)
@@ -597,9 +598,10 @@ __fi void mVUinitFirstPass(microVU& mVU, uptr pState, u8* thisPtr)
 	{
 		memcpy((u8*)&mVUregs, (u8*)pState, sizeof(microRegInfo));
 	}
+	mVUcanonicalizePipeState(mVUregs);
 	if (((uptr)&mVU.prog.lpState != pState))
 	{
-		memcpy((u8*)&mVU.prog.lpState, (u8*)pState, sizeof(microRegInfo));
+		memcpy((u8*)&mVU.prog.lpState, (u8*)&mVUregs, sizeof(microRegInfo));
 	}
 	mVUblock.x86ptrStart = thisPtr;
 	mVUpBlock = mVUblocks[mVUstartPC >> 1]->add(mVU, &mVUblock); // Add this block to block manager (mVUstartPC / 2)
@@ -970,6 +972,10 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 	mVUsetFlags(mVU, mFC);           // Sets Up Flag instances
 	mVUoptimizePipeState(mVU);       // Optimize the End Pipeline State for nicer Block Linking
 	mVUtestCycles(mVU, mFC);         // Update VU Cycles and Exit Early if Necessary
+	microBlock* const compiledBlock = mVUpBlock;
+	const u32 compiledGuestSize = mVUcount;
+	if (compiledBlock)
+		compiledBlock->guest_size = compiledGuestSize;
 
 	// Second Pass
 	iPC = mVUstartPC;
@@ -977,7 +983,7 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 	mVUbranch = 0;
 	u32 x = 0;
 
-	mvuPreloadRegisters(mVU, endCount);
+	mvuPreloadRegisters(mVU, compiledGuestSize);
 
 	for (; x < endCount; ++x)
 	{
@@ -1113,10 +1119,9 @@ perf_and_return:
 			Perf::vu0.RegisterPC(thisPtr, static_cast<u32>(currentPtr - thisPtr), startPC);
 	}
 
-	if (mVUpBlock)
+	if (compiledBlock && compiledBlock->host_size == 0)
 	{
-		mVUpBlock->guest_size = mVUcount;
-		mVUpBlock->host_size = (u32)(oakGetCurrentCodePointer() - thisPtr);
+		compiledBlock->host_size = (u32)(oakGetCurrentCodePointer() - thisPtr);
 	}
 
 	if (startedOakBlock)
@@ -1128,14 +1133,17 @@ perf_and_return:
 // Returns the entry point of the block (compiles it if not found)
 __fi void* mVUentryGet(microVU& mVU, microBlockManager* block, u32 startPC, uptr pState)
 {
-	microBlock* pBlock = block->search(mVU, (microRegInfo*)pState);
+	microRegInfo canonicalState;
+	microRegInfo* searchState = mVUcanonicalizeSearchState((microRegInfo*)pState, canonicalState);
+
+	microBlock* pBlock = block->search(mVU, searchState);
 	if (pBlock)
 	{
 		return pBlock->x86ptrStart;
 	}
 	else
 	{
-		return mVUcompile(mVU, startPC, pState);
+		return mVUcompile(mVU, startPC, (uptr)searchState);
 	}
 }
 

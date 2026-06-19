@@ -7,6 +7,8 @@
 #include "microVU.h"
 #include "JitProfiler.h"
 
+#include <unordered_set>
+
 #include "common/AlignedMalloc.h"
 #include "common/Perf.h"
 #include "common/StringUtil.h"
@@ -438,32 +440,45 @@ bool SaveStateBase::vuJITFreeze()
 static void VU_JitGetBlockProfiles(int vuIndex, std::vector<JitBlockProfile>& outBlocks)
 {
 	microVU& mVU = (vuIndex == 0) ? microVU0 : microVU1;
+	std::unordered_set<microProgram*> visited_programs;
 	for (int i = 0; i < mProgSizeHalf; i++)
 	{
-		microProgramQuick& quick = mVU.prog.quick[i];
-		microProgram* prog = quick.prog;
-		if (!prog) continue;
+		microProgramList* programs = mVU.prog.prog[i];
+		if (!programs) continue;
 
-		for (int j = 0; j < mProgSizeHalf; j++)
+		for (microProgram* prog : *programs)
 		{
-			microBlockManager* mgr = prog->block[j];
-			if (!mgr) continue;
+			if (!prog || !visited_programs.insert(prog).second)
+				continue;
 
-			auto traverseList = [&](microBlockLink* listHead) {
-				for (microBlockLink* link = listHead; link != nullptr; link = link->next)
-				{
-					microBlock& b = link->block;
-					JitBlockProfile p;
-					p.startpc = j * 8;
-					p.size = b.guest_size;
-					p.host_size = b.host_size;
-					p.execution_count = b.execution_count;
-					p.type = (vuIndex == 0) ? 2 : 3; // VU0 or VU1
-					outBlocks.push_back(p);
-				}
-			};
-			traverseList(mgr->getQBlockList());
-			traverseList(mgr->getFBlockList());
+			for (int j = 0; j < mProgSizeHalf; j++)
+			{
+				microBlockManager* mgr = prog->block[j];
+				if (!mgr) continue;
+
+				u32 variant_index = 0;
+				auto traverseList = [&](microBlockLink* listHead, bool exact_list) {
+					for (microBlockLink* link = listHead; link != nullptr; link = link->next)
+					{
+						microBlock& b = link->block;
+						JitBlockProfile p;
+						p.startpc = j * 8;
+						p.size = b.guest_size;
+						p.host_size = b.host_size;
+						p.execution_count = b.execution_count;
+						p.type = (vuIndex == 0) ? 2 : 3; // VU0 or VU1
+						p.state_hash = b.pState.quick64[0];
+						p.variant_index = variant_index++;
+						p.flags = static_cast<u32>(b.pState.needExactMatch) |
+						          (static_cast<u32>(b.pState.blockType) << 8) |
+						          (exact_list ? (1u << 16) : 0u) |
+						          (static_cast<u32>(b.pState.vi15v) << 17);
+						outBlocks.push_back(p);
+					}
+				};
+				traverseList(mgr->getQBlockList(), false);
+				traverseList(mgr->getFBlockList(), true);
+			}
 		}
 	}
 }

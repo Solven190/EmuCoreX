@@ -892,6 +892,26 @@ static void mVUupdateFlags_oaknut(mV, int reg, int regT1in = VU_HOST_NO_XMM, int
 		mVU.regAlloc->clearNeededXmmId(regT2);
 }
 
+static bool mVUtryEmitNoLaneFmacFlags_oaknut(mV)
+{
+	if (_X_Y_Z_W != 0 || mFLAG.doFlag)
+		return false;
+
+	if (!sFLAG.doFlag)
+		return true;
+
+	const int sReg = getFlagRegId(sFLAG.write);
+	mVUallocSFLAGa(sReg, sFLAG.lastWrite);
+	if (sFLAG.doNonSticky)
+	{
+		recBeginOaknutEmit();
+		oakAsm->MOV(OAK_WSCRATCH, 0xfffc00ff);
+		oakAsm->AND(oakWRegister(sReg), oakWRegister(sReg), OAK_WSCRATCH);
+		recEndOaknutEmit();
+	}
+	return true;
+}
+
 //------------------------------------------------------------------
 // Helper Macros and Functions
 //------------------------------------------------------------------
@@ -899,6 +919,9 @@ static void mVUupdateFlags_oaknut(mV, int reg, int regT1in = VU_HOST_NO_XMM, int
 // ADD Opcode
 static void mVU_ADD_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	int Ft;
 	int tempFt;
 	const bool needsFullFtForClamp = clampE;
@@ -1645,6 +1668,9 @@ static void mVU_MADDAw_emit(mP)
 // MADD Opcode
 static void mVU_MADD_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	int Ft;
 	int tempFt;
 	if (_XYZW_SS2)
@@ -1689,6 +1715,9 @@ static void mVU_MADD_direct_emit_oaknut(mP)
 
 static void mVU_MADD_cop2_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	int FtRaw;
 	if (_XYZW_SS2)
 		FtRaw = mVU.regAlloc->allocRegId(_Ft_, 0, _X_Y_Z_W);
@@ -1750,6 +1779,9 @@ static void mVU_MADD_emit(mP)
 // MADDi Opcode
 static void mVU_MADDi_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	const int Fi = mVU.regAlloc->allocRegId(33, 0, _X_Y_Z_W);
 	const int ACC = mVU.regAlloc->allocRegId(32);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
@@ -1797,6 +1829,9 @@ static void mVU_MADDi_emit(mP)
 // MADDq Opcode
 static void mVU_MADDq_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	int Fq;
 	int tempFq;
 	if (!clampE && _XYZW_SS && !mVUinfo.readQ)
@@ -1853,6 +1888,9 @@ static void mVU_MADDq_emit(mP)
 // MADD lane Opcodes
 static void mVU_MADD_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	const bool useFtLane = !clampE;
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	int FtL = VU_HOST_NO_XMM;
@@ -1936,6 +1974,9 @@ static void mVU_MADDw_emit(mP)
 // MSUB Opcode
 static void mVU_MSUB_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	int Ft;
 	int tempFt;
 	if (_XYZW_SS2)
@@ -1994,6 +2035,9 @@ static void mVU_MSUB_emit(mP)
 // MSUBi Opcode
 static void mVU_MSUBi_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	const int Fi = mVU.regAlloc->allocRegId(33, 0, _X_Y_Z_W);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
 	const int Fd = mVU.regAlloc->allocRegId(32, _Fd_, _X_Y_Z_W);
@@ -2028,6 +2072,9 @@ static void mVU_MSUBi_emit(mP)
 // MSUBq Opcode
 static void mVU_MSUBq_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	int Fq;
 	int tempFq;
 	if (!clampE && _XYZW_SS && !mVUinfo.readQ)
@@ -2076,6 +2123,9 @@ static void mVU_MSUBq_emit(mP)
 
 static void mVU_MSUB_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
@@ -2852,6 +2902,9 @@ static void mVU_ADDi_triace_hack_oaknut(int to, int from)
 
 static void mVU_ADDi_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	const int Fi = mVU.regAlloc->allocRegId(33, 0, _X_Y_Z_W);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
 
@@ -2894,6 +2947,9 @@ static void mVU_ADDi_emit(mP)
 // ADDq Opcode
 static void mVU_ADDq_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	int Fq;
 	int tempFq;
 	if (!clampE && _XYZW_SS && !mVUinfo.readQ)
@@ -2943,6 +2999,9 @@ static void mVU_ADDq_emit(mP)
 
 static void mVU_ADD_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
@@ -2998,6 +3057,9 @@ static void mVU_ADDw_emit(mP)
 // SUB Opcode
 static void mVU_SUB_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	if (_Ft_ == _Fs_)
 	{
 		const int Fs = mVU.regAlloc->allocRegId(-1, _Fd_, _X_Y_Z_W);
@@ -3076,6 +3138,9 @@ static void mVU_SUB_emit(mP)
 // SUBi Opcode
 static void mVU_SUBi_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	const int Fi = mVU.regAlloc->allocRegId(33, 0, _X_Y_Z_W);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
 
@@ -3124,6 +3189,9 @@ static void mVU_SUBi_emit(mP)
 // SUBq Opcode
 static void mVU_SUBq_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	int Fq;
 	int tempFq;
 	if (!clampE && _XYZW_SS && !mVUinfo.readQ)
@@ -3186,6 +3254,9 @@ static void mVU_SUBq_emit(mP)
 
 static void mVU_SUB_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	const int FtL = mVU.regAlloc->allocRegId();
 	recBeginOaknutEmit();
@@ -3559,6 +3630,9 @@ static void mVU_SUBAw_emit(mP)
 // MUL Opcode
 static void mVU_MUL_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	int Ft;
 	int tempFt;
 	const bool clampFt = _XYZW_PS;
@@ -3923,6 +3997,9 @@ static void mVU_MULAw_emit(mP)
 // MULi Opcode
 static void mVU_MULi_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	const int Fi = mVU.regAlloc->allocRegId(33, 0, _X_Y_Z_W);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
 
@@ -3968,6 +4045,9 @@ static void mVU_MULi_emit(mP)
 // MULq Opcode
 static void mVU_MULq_direct_emit_oaknut(mP)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	const bool useQLane = !clampE && !_XYZW_PS;
 	int Fq = VU_HOST_NO_XMM;
 	int tempFq = VU_HOST_NO_XMM;
@@ -4036,6 +4116,9 @@ static void mVU_MULq_emit(mP)
 // MUL lane Opcodes
 static void mVU_MUL_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
+	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
+		return;
+
 	const bool useFtLane = !clampE;
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	int FtL = VU_HOST_NO_XMM;

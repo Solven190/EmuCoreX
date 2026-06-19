@@ -637,7 +637,7 @@ public:
 
 		for (i = 0; i < gprTotal; ++i)
 		{
-			if (!gprMap[i].usable && (gprMap[i].VIreg < 0))
+			if (gprMap[i].usable && (gprMap[i].VIreg < 0))
 				count++;
 		}
 
