@@ -290,6 +290,7 @@ object EmulatorBridge {
         vuFlagHack: Boolean = true,
         instantVu1: Boolean = true,
         mtvu: Boolean = true,
+        enableThreadPinning: Boolean = false,
         enableFastBoot: Boolean = true,
         fastCdvd: Boolean = false,
         enableCheats: Boolean = false,
@@ -453,6 +454,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/Speedhacks", "vuFlagHack", "bool", vuFlagHack.toString()))
                 add(settingOp("EmuCore/Speedhacks", "vuThread", "bool", directMtvu.toString()))
                 add(settingOp("EmuCore/Speedhacks", "vu1Instant", "bool", "true"))
+                add(settingOp("EmuCore", "EnableThreadPinning", "bool", enableThreadPinning.toString()))
                 add(settingOp("EmuCore", "EnableFastBoot", "bool", enableFastBoot.toString()))
                 add(settingOp("EmuCore/Speedhacks", "fastCDVD", "bool", fastCdvd.toString()))
                 add(settingOp("EmuCore", "EnableCheats", "bool", enableCheats.toString()))

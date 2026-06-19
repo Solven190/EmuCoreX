@@ -1173,4 +1173,7 @@
     <string name="settings_enable_ee_clamping">تثبيت EE FPU</string>
     <string name="settings_enable_ee_clamping_desc">يُفعّل تثبيت التجاوز (Clamping) لعمليات Emotion Engine FPU. اتركه مغلقاً إلا إذا كانت اللعبة تحتاجه للتوافق.</string>
     <string name="settings_help_enable_ee_clamping">يتحكم فيما إذا كان معيد تجميع EE FPU يصدر فحوصات تثبيت (clamping) لحالات تجاوز النقطة العائمة. إبقاؤه معطلاً يتجنب الشفرات المولدة الإضافية في الألعاب التي لا تحتاج إلى هذا السلوك. قم بتمكينه فقط إذا أظهرت لعبة معينة مشكلات في الفيزياء أو الهندسة أو العرض تتطلب تثبيت EE FPU.</string>
+    <string name="settings_help_thread_pinning">يثبت خيوط المحاكاة الرئيسية على أسرع أنوية وحدة المعالجة المركزية بدلاً من ترك تحديد المكان بالكامل لنظام Android. يمكن أن يحسن الاستقرار على الرقائق القوية أو الأجهزة المحمولة المبردة، لكنه قد يزيد الحرارة أو يقلل الأداء على بعض الأجهزة إذا كان المجدول سيوازن الحمل بشكل أفضل.</string>
+    <string name="settings_thread_pinning">تثبيت الخيوط (Thread pinning)</string>
+    <string name="settings_thread_pinning_desc">يحافظ على عمل EE و VU1 و GS على أسرع أنوية وحدة المعالجة المركزية عند الدعم.</string>
 </resources>

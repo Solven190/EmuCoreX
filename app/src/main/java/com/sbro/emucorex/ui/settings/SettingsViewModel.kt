@@ -74,6 +74,7 @@ data class SettingsUiState(
     val enableVuFlagHack: Boolean = true,
     val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
+    val enableThreadPinning: Boolean = false,
     val enableFastBoot: Boolean = true,
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
@@ -237,6 +238,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             enableVuFlagHack = snapshot.enableVuFlagHack,
             enableInstantVu1 = snapshot.enableInstantVu1,
             enableMtvu = snapshot.enableMtvu,
+            enableThreadPinning = snapshot.enableThreadPinning,
             enableFastBoot = snapshot.enableFastBoot,
             enableFastCdvd = snapshot.enableFastCdvd,
             enableCheats = snapshot.enableCheats,
@@ -887,6 +889,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setEnableThreadPinning(enabled: Boolean) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            preferences.setEnableThreadPinning(enabled)
+            EmulatorBridge.setSetting("EmuCore", "EnableThreadPinning", "bool", enabled.toString())
+        }
+    }
+
     fun setEnableFastBoot(enabled: Boolean) {
         viewModelScope.launch {
             preferences.setEnableFastBoot(enabled)
@@ -1438,6 +1448,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 intcStatSpeedhack = _uiState.value.enableIntcStatSpeedhack,
                 vuFlagHack = _uiState.value.enableVuFlagHack,
                 instantVu1 = _uiState.value.enableInstantVu1,
+                mtvu = _uiState.value.enableMtvu,
+                enableThreadPinning = _uiState.value.enableThreadPinning,
                 enableFastBoot = _uiState.value.enableFastBoot,
                 hwDownloadMode = _uiState.value.hwDownloadMode,
                 textureFiltering = _uiState.value.textureFiltering,

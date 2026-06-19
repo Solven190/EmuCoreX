@@ -1175,4 +1175,7 @@
     <string name="settings_enable_ee_clamping">EE FPU 截断控制 (Clamping)</string>
     <string name="settings_enable_ee_clamping_desc">启用 Emotion Engine FPU 操作的溢出截断控制。除非游戏出于兼容性需要，否则请保持关闭。</string>
     <string name="settings_help_enable_ee_clamping">控制 EE FPU 重新编译器是否为浮点溢出情况发出截断控制（Clamping）检查。保持禁用可避免在不需要此行为的游戏上生成额外的代码。仅当特定游戏出现需要 EE FPU 截断控制的物理、几何或渲染问题时才启用它。</string>
+    <string name="settings_help_thread_pinning">将主要模拟线程固定到最快的 CPU 核心上，而不是完全交由 Android 调度。这可以提高强大芯片或带散热的掌机的稳定性，但如果调度程序本可以更好地平衡负载，则可能会导致某些设备发热增加或性能下降。</string>
+    <string name="settings_thread_pinning">线程绑定 (Thread pinning)</string>
+    <string name="settings_thread_pinning_desc">在支持的情况下，使 EE、VU1 和 GS 工作保持在最快的 CPU 核心上。</string>
 </resources>

@@ -1175,4 +1175,7 @@
     <string name="settings_enable_ee_clamping">Clamping FPU EE</string>
     <string name="settings_enable_ee_clamping_desc">Ativa o clamping de overflow para operações FPU da Emotion Engine. Deixe desligado a menos que um jogo precise disso por compatibilidade.</string>
     <string name="settings_help_enable_ee_clamping">Controla se o recompilador FPU EE emite verificações de clamping para casos de overflow de ponto flutuante. Mantê-lo desativado evita código extra gerado em jogos que não precisam desse comportamento. Ative-o apenas se um jogo específico apresentar problemas de física, geometria ou renderização que exijam o clamping FPU EE.</string>
+    <string name="settings_help_thread_pinning">Fixa as principais threads de emulação nos núcleos de CPU mais rápidos em vez de deixar a alocação inteiramente para o Android. Pode melhorar a estabilidade em chips poderosos ou portáteis refrigerados, mas pode aumentar o calor ou reduzir o desempenho em alguns dispositivos se o agendador tivesse equilibrado melhor a carga.</string>
+    <string name="settings_thread_pinning">Fixação de threads (Thread pinning)</string>
+    <string name="settings_thread_pinning_desc">Mantém o trabalho de EE, VU1 e GS nos núcleos de CPU mais rápidos, quando suportado.</string>
 </resources>

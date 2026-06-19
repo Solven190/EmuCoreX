@@ -1173,4 +1173,7 @@
     <string name="settings_enable_ee_clamping">EE FPUクランピング</string>
     <string name="settings_enable_ee_clamping_desc">Emotion Engine FPU演算のオーバーフロークランピングを有効にします。互換性のためにゲームで必要とされない限り、オフにしておいてください。</string>
     <string name="settings_help_enable_ee_clamping">EE FPUリコンパイラが浮動小数点オーバーフローのケースに対してクランピングチェックを出力するかどうかを制御します。無効にしておくと、この動作を必要としないゲームで余分なコードが生成されるのを防ぐことができます。特定のゲームで、物理、ジオメトリ、またはレンダリングの問題が発生し、EE FPUクランピングが必要な場合のみ有効にしてください。</string>
+    <string name="settings_help_thread_pinning">メインのエミュレーションスレッドをAndroidに完全に任せるのではなく、最速のCPUコアに固定します。強力なチップや冷却機能付きの携帯機では安定性が向上する可能性がありますが、スケジューラが負荷をより適切に分散できた場合は、一部のデバイスで発熱が増加したり、パフォーマンスが低下したりする可能性があります。</string>
+    <string name="settings_thread_pinning">スレッドピニング (Thread pinning)</string>
+    <string name="settings_thread_pinning_desc">サポートされている場合、EE、VU1、GSの処理を最速のCPUコアに維持します。</string>
 </resources>

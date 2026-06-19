@@ -1095,6 +1095,7 @@ fun EmulationScreen(
                     onSetUpscale = { viewModel.setUpscale(it) },
                     onSetAspectRatio = { viewModel.setAspectRatio(it) },
                     onSetMtvu = { viewModel.setMtvu(it) },
+                    onSetThreadPinning = { viewModel.setThreadPinning(it) },
                     onSetFastCdvd = { viewModel.setFastCdvd(it) },
                     onSetEnableCheats = { viewModel.setEnableCheats(it) },
                     onOpenCheats = { showCheatsDialog = true },
@@ -1956,6 +1957,7 @@ private fun EmulationSidebarMenu(
     onSetUpscale: (Float) -> Unit,
     onSetAspectRatio: (Int) -> Unit,
     onSetMtvu: (Boolean) -> Unit,
+    onSetThreadPinning: (Boolean) -> Unit,
     onSetFastCdvd: (Boolean) -> Unit,
     onSetEnableCheats: (Boolean) -> Unit,
     onOpenCheats: () -> Unit,
@@ -2785,6 +2787,14 @@ private fun EmulationSidebarMenu(
                             onCheckedChange = onSetMtvu,
                             helpText = stringResource(R.string.settings_help_mtvu),
                             onResetToDefault = { onSetMtvu(globalDefaults.enableMtvu) }
+                        )
+
+                        SettingsToggle(
+                            title = stringResource(R.string.settings_thread_pinning),
+                            checked = uiState.enableThreadPinning,
+                            onCheckedChange = onSetThreadPinning,
+                            helpText = stringResource(R.string.settings_help_thread_pinning),
+                            onResetToDefault = { onSetThreadPinning(globalDefaults.enableThreadPinning) }
                         )
 
                         SettingsToggle(

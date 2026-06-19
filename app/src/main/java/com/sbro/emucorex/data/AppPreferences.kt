@@ -72,6 +72,7 @@ data class SettingsSnapshot(
     val enableVuFlagHack: Boolean = true,
     val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
+    val enableThreadPinning: Boolean = false,
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
     val hwDownloadMode: Int = PerformanceProfiles.safeConfig.hwDownloadMode,
@@ -291,6 +292,7 @@ class AppPreferences(private val context: Context) {
         private val ENABLE_VU_FLAG_HACK = booleanPreferencesKey("enable_vu_flag_hack")
         private val ENABLE_INSTANT_VU1 = booleanPreferencesKey("enable_instant_vu1")
         private val ENABLE_MTVU = booleanPreferencesKey("enable_mtvu")
+        private val ENABLE_THREAD_PINNING = booleanPreferencesKey("enable_thread_pinning")
         private val ENABLE_FAST_CDVD = booleanPreferencesKey("enable_fast_cdvd")
         private val ENABLE_CHEATS = booleanPreferencesKey("enable_cheats")
         private val HW_DOWNLOAD_MODE = intPreferencesKey("hw_download_mode")
@@ -716,6 +718,7 @@ class AppPreferences(private val context: Context) {
                 enableVuFlagHack = prefs[ENABLE_VU_FLAG_HACK] ?: true,
                 enableInstantVu1 = prefs[ENABLE_INSTANT_VU1] ?: true,
                 enableMtvu = prefs[ENABLE_MTVU] ?: true,
+                enableThreadPinning = prefs[ENABLE_THREAD_PINNING] ?: false,
                 enableFastCdvd = prefs[ENABLE_FAST_CDVD] ?: false,
                 enableCheats = prefs[ENABLE_CHEATS] ?: false,
                 hwDownloadMode = prefs[HW_DOWNLOAD_MODE] ?: profileConfig.hwDownloadMode,
@@ -1288,6 +1291,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setEnableMtvu(enabled: Boolean) {
         context.dataStore.edit { it[ENABLE_MTVU] = enabled }
+    }
+
+    val enableThreadPinning: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ENABLE_THREAD_PINNING] ?: false
+    }
+
+    suspend fun setEnableThreadPinning(enabled: Boolean) {
+        context.dataStore.edit { it[ENABLE_THREAD_PINNING] = enabled }
     }
 
     // Fast CDVD
@@ -2100,6 +2111,7 @@ class AppPreferences(private val context: Context) {
             put("enableVuFlagHack", prefs[ENABLE_VU_FLAG_HACK] ?: true)
             put("enableInstantVu1", prefs[ENABLE_INSTANT_VU1] ?: true)
             put("enableMtvu", prefs[ENABLE_MTVU] ?: true)
+            put("enableThreadPinning", prefs[ENABLE_THREAD_PINNING] ?: false)
             put("enableFastCdvd", prefs[ENABLE_FAST_CDVD] ?: false)
             put("hwDownloadMode", prefs[HW_DOWNLOAD_MODE] ?: 0)
             put("frameSkip", prefs[FRAME_SKIP] ?: 0)
@@ -2246,6 +2258,7 @@ class AppPreferences(private val context: Context) {
             prefs[ENABLE_VU_FLAG_HACK] = json.optBoolean("enableVuFlagHack", true)
             prefs[ENABLE_INSTANT_VU1] = json.optBoolean("enableInstantVu1", true)
             prefs[ENABLE_MTVU] = json.optBoolean("enableMtvu", true)
+            prefs[ENABLE_THREAD_PINNING] = json.optBoolean("enableThreadPinning", false)
             prefs[ENABLE_FAST_CDVD] = json.optBoolean("enableFastCdvd", false)
             prefs[HW_DOWNLOAD_MODE] = json.optInt("hwDownloadMode", 0).coerceIn(0, 3)
             prefs[FRAME_SKIP] = json.optInt("frameSkip", 0)

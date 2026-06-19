@@ -85,6 +85,7 @@ data class EmulationUiState(
     val aspectRatio: Int = 1,
     val performancePreset: Int = PerformancePresets.CUSTOM,
     val enableMtvu: Boolean = true,
+    val enableThreadPinning: Boolean = false,
     val eeClamping: Boolean = false,
     val vu1Clamping: Boolean = false,
     val enableFastCdvd: Boolean = false,
@@ -177,6 +178,7 @@ private data class EmulationLaunchConfig(
     val vuFlagHack: Boolean,
     val instantVu1: Boolean,
     val mtvu: Boolean,
+    val enableThreadPinning: Boolean,
     val fastCdvd: Boolean,
     val enableFastBoot: Boolean,
     val enableCheats: Boolean,
@@ -244,6 +246,7 @@ private data class LiveRuntimeSnapshot(
     val aspectRatio: Int,
     val performancePreset: Int,
     val enableMtvu: Boolean,
+    val enableThreadPinning: Boolean,
     val eeClamping: Boolean,
     val vu1Clamping: Boolean,
     val enableFastCdvd: Boolean,
@@ -490,6 +493,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.enableMtvu.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(enableMtvu = value) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.enableThreadPinning.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(enableThreadPinning = value) }
             }
         }
         viewModelScope.launch {
@@ -952,6 +960,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     vuFlagHack = config.vuFlagHack,
                     instantVu1 = config.instantVu1,
                     mtvu = enableMtvu,
+                    enableThreadPinning = config.enableThreadPinning,
                     enableFastBoot = config.enableFastBoot,
                     fastCdvd = config.fastCdvd,
                     enableCheats = config.enableCheats,
@@ -1117,6 +1126,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     aspectRatio = liveRuntime.aspectRatio,
                     performancePreset = liveRuntime.performancePreset,
                     enableMtvu = liveRuntime.enableMtvu,
+                    enableThreadPinning = liveRuntime.enableThreadPinning,
                     eeClamping = liveRuntime.eeClamping,
                     vu1Clamping = liveRuntime.vu1Clamping,
                     enableFastCdvd = liveRuntime.enableFastCdvd,
@@ -1651,6 +1661,18 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setEnableMtvu(effectiveEnabled)
             }
             EmulatorBridge.setSetting("EmuCore/Speedhacks", "vuThread", "bool", effectiveEnabled.toString())
+            updateCrashContext()
+        }
+    }
+
+    fun setThreadPinning(enabled: Boolean) {
+        viewModelScope.launch {
+            val newState = markPerformancePresetCustom(_uiState.value).copy(enableThreadPinning = enabled)
+            persistRuntimeState(newState) {
+                preferences.setPerformancePreset(PerformancePresets.CUSTOM)
+                preferences.setEnableThreadPinning(enabled)
+            }
+            EmulatorBridge.setSetting("EmuCore", "EnableThreadPinning", "bool", enabled.toString())
             updateCrashContext()
         }
     }
@@ -2548,6 +2570,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             vuFlagHack = preferences.enableVuFlagHack.first(),
             instantVu1 = preferences.enableInstantVu1.first(),
             mtvu = preferences.enableMtvu.first(),
+            enableThreadPinning = preferences.enableThreadPinning.first(),
             fastCdvd = preferences.enableFastCdvd.first(),
             enableFastBoot = preferences.enableFastBoot.first(),
             enableCheats = preferences.enableCheats.first(),
@@ -2618,6 +2641,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             aspectRatio = preferences.aspectRatio.first(),
             performancePreset = preferences.performancePreset.first(),
             enableMtvu = preferences.enableMtvu.first(),
+            enableThreadPinning = preferences.enableThreadPinning.first(),
             eeClamping = preferences.enableEeClamping.first(),
             vu1Clamping = preferences.enableVu1Clamping.first(),
             enableFastCdvd = preferences.enableFastCdvd.first(),
@@ -2690,6 +2714,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             fpuClampMode = if (pick("enableEeClamping", fpuClampMode > 0) { enableEeClamping }) 1 else 0,
             vu1Clamping = pick("enableVu1Clamping", vu1Clamping) { enableVu1Clamping },
             mtvu = pick("enableMtvu", mtvu) { enableMtvu },
+            enableThreadPinning = pick("enableThreadPinning", enableThreadPinning) { enableThreadPinning },
             fastCdvd = pick("enableFastCdvd", fastCdvd) { enableFastCdvd },
             enableFastBoot = pick("enableFastBoot", enableFastBoot) { enableFastBoot },
             enableCheats = pick("enableCheats", enableCheats) { enableCheats },
@@ -2760,6 +2785,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             upscale = pick("upscaleMultiplier", upscale) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
             enableMtvu = pick("enableMtvu", enableMtvu) { enableMtvu },
+            enableThreadPinning = pick("enableThreadPinning", enableThreadPinning) { enableThreadPinning },
             eeClamping = pick("enableEeClamping", eeClamping) { enableEeClamping },
             vu1Clamping = pick("enableVu1Clamping", vu1Clamping) { enableVu1Clamping },
             enableFastCdvd = pick("enableFastCdvd", enableFastCdvd) { enableFastCdvd },
@@ -2827,6 +2853,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalShowFps = preferences.showFps.first()
         val globalFpsOverlayMode = preferences.fpsOverlayMode.first()
         val globalEnableMtvu = preferences.enableMtvu.first()
+        val globalEnableThreadPinning = preferences.enableThreadPinning.first()
         val globalEeClamping = preferences.enableEeClamping.first()
         val globalVu1Clamping = preferences.enableVu1Clamping.first()
         val globalEnableFastCdvd = preferences.enableFastCdvd.first()
@@ -2851,6 +2878,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             showFps = showFps,
             fpsOverlayMode = fpsOverlayMode,
             enableMtvu = enableMtvu,
+            enableThreadPinning = enableThreadPinning,
             enableEeClamping = eeClamping,
             enableVu1Clamping = vu1Clamping,
             enableFastCdvd = enableFastCdvd,
@@ -2916,6 +2944,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (showFps != globalShowFps) add("showFps")
             if (fpsOverlayMode != globalFpsOverlayMode) add("fpsOverlayMode")
             if (enableMtvu != globalEnableMtvu) add("enableMtvu")
+            if (enableThreadPinning != globalEnableThreadPinning) add("enableThreadPinning")
             if (eeClamping != globalEeClamping) add("enableEeClamping")
             if (vu1Clamping != globalVu1Clamping) add("enableVu1Clamping")
             if (enableFastCdvd != globalEnableFastCdvd) add("enableFastCdvd")
@@ -3315,6 +3344,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         NativeApp.setCrashContextString("emu_upscale", state.upscale.toString())
         NativeApp.setCrashContextInt("emu_aspect_ratio", state.aspectRatio)
         NativeApp.setCrashContextBool("emu_mtvu", state.enableMtvu)
+        NativeApp.setCrashContextBool("emu_thread_pinning", state.enableThreadPinning)
         NativeApp.setCrashContextBool("emu_fast_cdvd", state.enableFastCdvd)
         NativeApp.setCrashContextBool("emu_enable_cheats", state.enableCheats)
         NativeApp.setCrashContextInt("emu_hw_download_mode", state.hwDownloadMode)

@@ -1796,6 +1796,15 @@ private fun SettingsContent(
                         )
                         ToggleItem(
                             icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_thread_pinning),
+                            subtitle = stringResource(R.string.settings_thread_pinning_desc),
+                            checked = uiState.enableThreadPinning,
+                            onCheckedChange = viewModel::setEnableThreadPinning,
+                            helpText = stringResource(R.string.settings_help_thread_pinning),
+                            onResetToDefault = { viewModel.setEnableThreadPinning(defaults.enableThreadPinning) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Speed,
                             title = stringResource(R.string.settings_fast_boot),
                             subtitle = stringResource(R.string.settings_fast_boot_desc),
                             checked = uiState.enableFastBoot,

@@ -1173,4 +1173,7 @@
     <string name="settings_enable_ee_clamping">EE FPU Sınırlandırma (Clamping)</string>
     <string name="settings_enable_ee_clamping_desc">Emotion Engine FPU işlemleri için taşma sınırlandırmasını (clamping) etkinleştirir. Uyumluluk için bir oyun gerektirmediği sürece kapalı tutun.</string>
     <string name="settings_help_enable_ee_clamping">EE FPU yeniden derleyicisinin kayan nokta taşma durumları için sınırlandırma kontrolleri yayınlayıp yayınlamadığını kontrol eder. Kapalı tutmak, bu davranışa ihtiyaç duymayan oyunlarda fazladan oluşturulan kodu engeller. Yalnızca belirli bir oyun, EE FPU sınırlandırması gerektiren fizik, geometri veya işleme sorunları gösteriyorsa etkinleştirin.</string>
+    <string name="settings_help_thread_pinning">Ana emülasyon iş parçacıklarını yerleşimini tamamen Android\'e bırakmak yerine en hızlı CPU çekirdeklerine sabitler. Güçlü çiplerde veya soğutmalı avuç içi cihazlarda kararlılığı artırabilir, ancak zamanlayıcının yükü daha iyi dengeleyebileceği bazı cihazlarda ısıyı artırabilir veya performansı düşürebilir.</string>
+    <string name="settings_thread_pinning">İş parçacığı sabitleme (Thread pinning)</string>
+    <string name="settings_thread_pinning_desc">Desteklendiğinde EE, VU1 ve GS işlerini en hızlı CPU çekirdeklerinde tutar.</string>
 </resources>
