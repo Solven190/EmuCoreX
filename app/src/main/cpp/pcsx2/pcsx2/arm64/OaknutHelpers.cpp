@@ -257,7 +257,35 @@ void oakLoad32(oak::WReg dst, OakMemOperand mem)
 	oakAsm->LDR(dst, scratch);
 }
 
+void oakLoadScalar32(oak::SReg dst, OakMemOperand mem)
+{
+	pxAssert(oakAsm);
+	if (oakIsUnsignedScaled(mem.offset, 4, 12))
+		return oakAsm->LDR(dst, mem.base, oak::POffset<14, 2>(mem.offset));
+	if (oakIsSigned9(mem.offset))
+		return oakAsm->LDUR(dst, mem.base, oak::SOffset<9, 0>(mem.offset));
+
+	const oak::XReg scratch = oakScratchAvoiding(mem.base);
+	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
+	oakAsm->ADD(scratch, mem.base, scratch);
+	oakAsm->LDR(dst, scratch);
+}
+
 void oakLoad64(oak::XReg dst, OakMemOperand mem)
+{
+	pxAssert(oakAsm);
+	if (oakIsUnsignedScaled(mem.offset, 8, 12))
+		return oakAsm->LDR(dst, mem.base, oak::POffset<15, 3>(mem.offset));
+	if (oakIsSigned9(mem.offset))
+		return oakAsm->LDUR(dst, mem.base, oak::SOffset<9, 0>(mem.offset));
+
+	const oak::XReg scratch = oakScratchAvoiding(mem.base);
+	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
+	oakAsm->ADD(scratch, mem.base, scratch);
+	oakAsm->LDR(dst, scratch);
+}
+
+void oakLoadVector64(oak::DReg dst, OakMemOperand mem)
 {
 	pxAssert(oakAsm);
 	if (oakIsUnsignedScaled(mem.offset, 8, 12))

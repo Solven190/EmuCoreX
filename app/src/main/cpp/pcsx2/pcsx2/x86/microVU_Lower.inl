@@ -2153,27 +2153,27 @@ static void mVU_loadVectorFromAddress_oaknut(int dst, oak::XReg base, int xyzw, 
 {
 	const oak::QReg dst_q = oakQRegister(dst);
 	const oak::SReg dst_s = oakSRegister(dst);
+	const oak::DReg dst_d = oakDRegister(dst);
 	switch (xyzw & 0xf)
 	{
 		case 8:
 			oakAsm->EOR(dst_q.B16(), dst_q.B16(), dst_q.B16());
-			oakLoad32(OAK_WSCRATCH, {base, byte_offset + 0});
-			oakAsm->FMOV(dst_s, OAK_WSCRATCH);
+			oakLoadScalar32(dst_s, {base, byte_offset + 0});
 			break;
 		case 4:
 			oakAsm->EOR(dst_q.B16(), dst_q.B16(), dst_q.B16());
-			oakLoad32(OAK_WSCRATCH, {base, byte_offset + 4});
-			oakAsm->FMOV(dst_s, OAK_WSCRATCH);
+			oakLoadScalar32(dst_s, {base, byte_offset + 4});
 			break;
 		case 2:
 			oakAsm->EOR(dst_q.B16(), dst_q.B16(), dst_q.B16());
-			oakLoad32(OAK_WSCRATCH, {base, byte_offset + 8});
-			oakAsm->FMOV(dst_s, OAK_WSCRATCH);
+			oakLoadScalar32(dst_s, {base, byte_offset + 8});
 			break;
 		case 1:
 			oakAsm->EOR(dst_q.B16(), dst_q.B16(), dst_q.B16());
-			oakLoad32(OAK_WSCRATCH, {base, byte_offset + 12});
-			oakAsm->FMOV(dst_s, OAK_WSCRATCH);
+			oakLoadScalar32(dst_s, {base, byte_offset + 12});
+			break;
+		case 12:
+			oakLoadVector64(dst_d, {base, byte_offset});
 			break;
 		default:
 			oakLoad128(dst_q, {base, byte_offset});
@@ -2228,8 +2228,7 @@ static bool mVU_loadSingleLaneIndexedQword_oaknut(mP, int dst, int addr, int vi,
 	oakAsm->LSL(addr_w, addr_w, 2);
 	if (lane_word != 0)
 		oakAsm->ADD(addr_w, addr_w, static_cast<u32>(lane_word));
-	oakAsm->LDR(OAK_WSCRATCH, oakXRegister(VU_HOST_T2), addr_w, oak::util::UXTW, 2);
-	oakAsm->FMOV(oakSRegister(dst), OAK_WSCRATCH);
+	oakAsm->LDR(oakSRegister(dst), oakXRegister(VU_HOST_T2), addr_w, oak::util::UXTW, 2);
 	recEndOaknutEmit();
 	return true;
 }
@@ -2336,6 +2335,32 @@ static void mVU_makePreDecrementMemoryAddress_oaknut(mP, int addr, int vi, bool 
 	{
 		mVU_makeRegisterMemoryAddress_oaknut(mVU, recPass, addr, 0);
 	}
+}
+
+static void mVU_postIncrementVI_oaknut(mP, int vi)
+{
+	if (!vi)
+		return;
+
+	const int reg = mVU.regAlloc->allocGPRId(vi, vi, mVUlow.backupVI);
+	recBeginOaknutEmit();
+	oakAsm->ADD(oakWRegister(reg), oakWRegister(reg), 1);
+	recEndOaknutEmit();
+	mVU_normalizeVIWrite_oaknut(reg);
+	mVU.regAlloc->clearNeeded(reg);
+}
+
+static void mVU_preDecrementVI_oaknut(mP, int vi)
+{
+	if (!vi)
+		return;
+
+	const int reg = mVU.regAlloc->allocGPRId(vi, vi, mVUlow.backupVI);
+	recBeginOaknutEmit();
+	oakAsm->SUB(oakWRegister(reg), oakWRegister(reg), 1);
+	recEndOaknutEmit();
+	mVU_normalizeVIWrite_oaknut(reg);
+	mVU.regAlloc->clearNeeded(reg);
 }
 
 //------------------------------------------------------------------
@@ -2457,7 +2482,7 @@ static void mVU_ISWR_emit(mP)
 
 static void mVU_LQ_direct_emit_oaknut(mP)
 {
-	if (mVUlow.noWriteVF)
+	if (mVUlow.noWriteVF || !_Ft_ || !_X_Y_Z_W)
 		return;
 
 	const int Ft = mVU.regAlloc->allocRegId(-1, _Ft_, _X_Y_Z_W);
@@ -2489,7 +2514,7 @@ static void mVU_LQ_direct_emit_oaknut(mP)
 
 static void mVU_LQ_emit(mP)
 {
-	pass1 { mVUanalyzeLQ(mVU, _Ft_, _Is_, false); }
+	pass1 { mVUanalyzeLQ(mVU, _Ft_, _Is_, _X_Y_Z_W, false); }
 	pass2
 	{
 		mVU_LQ_direct_emit_oaknut(mVU, recPass);
@@ -2499,20 +2524,23 @@ static void mVU_LQ_emit(mP)
 
 static void mVU_LQD_direct_emit_oaknut(mP)
 {
-	mVU_makePreDecrementMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _Is_, true);
-	if (!mVUlow.noWriteVF)
+	if (mVUlow.noWriteVF || !_Ft_ || !_X_Y_Z_W)
 	{
-		const int Ft = mVU.regAlloc->allocRegId(-1, _Ft_, _X_Y_Z_W);
-		recBeginOaknutEmit();
-		mVU_loadVectorFromAddress_oaknut(Ft, oakXRegister(VU_HOST_T2), _X_Y_Z_W);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(Ft);
+		mVU_preDecrementVI_oaknut(mVU, recPass, _Is_);
+		return;
 	}
+
+	mVU_makePreDecrementMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _Is_, true);
+	const int Ft = mVU.regAlloc->allocRegId(-1, _Ft_, _X_Y_Z_W);
+	recBeginOaknutEmit();
+	mVU_loadVectorFromAddress_oaknut(Ft, oakXRegister(VU_HOST_T2), _X_Y_Z_W);
+	recEndOaknutEmit();
+	mVU.regAlloc->clearNeededXmmId(Ft);
 }
 
 static void mVU_LQD_emit(mP)
 {
-	pass1 { mVUanalyzeLQ(mVU, _Ft_, _Is_, true); }
+	pass1 { mVUanalyzeLQ(mVU, _Ft_, _Is_, _X_Y_Z_W, true); }
 	pass2
 	{
 		mVU_LQD_direct_emit_oaknut(mVU, recPass);
@@ -2522,20 +2550,23 @@ static void mVU_LQD_emit(mP)
 
 static void mVU_LQI_direct_emit_oaknut(mP)
 {
-	mVU_makePostIncrementMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _Is_, true);
-	if (!mVUlow.noWriteVF)
+	if (mVUlow.noWriteVF || !_Ft_ || !_X_Y_Z_W)
 	{
-		const int Ft = mVU.regAlloc->allocRegId(-1, _Ft_, _X_Y_Z_W);
-		recBeginOaknutEmit();
-		mVU_loadVectorFromAddress_oaknut(Ft, oakXRegister(VU_HOST_T2), _X_Y_Z_W);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(Ft);
+		mVU_postIncrementVI_oaknut(mVU, recPass, _Is_);
+		return;
 	}
+
+	mVU_makePostIncrementMemoryAddress_oaknut(mVU, recPass, VU_HOST_T1, _Is_, true);
+	const int Ft = mVU.regAlloc->allocRegId(-1, _Ft_, _X_Y_Z_W);
+	recBeginOaknutEmit();
+	mVU_loadVectorFromAddress_oaknut(Ft, oakXRegister(VU_HOST_T2), _X_Y_Z_W);
+	recEndOaknutEmit();
+	mVU.regAlloc->clearNeededXmmId(Ft);
 }
 
 static void mVU_LQI_emit(mP)
 {
-	pass1 { mVUanalyzeLQ(mVU, _Ft_, _Is_, true); }
+	pass1 { mVUanalyzeLQ(mVU, _Ft_, _Is_, _X_Y_Z_W, true); }
 	pass2
 	{
 		mVU_LQI_direct_emit_oaknut(mVU, recPass);

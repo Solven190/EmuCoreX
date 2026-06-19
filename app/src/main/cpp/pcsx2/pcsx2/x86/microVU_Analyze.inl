@@ -302,11 +302,11 @@ __fi void mVUanalyzeMOVE(mV, int Fs, int Ft)
 // LQx - LQ/LQD/LQI Opcodes
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeLQ(mV, int Ft, int Is, bool writeIs)
+__fi void mVUanalyzeLQ(mV, int Ft, int Is, int xyzw, bool writeIs)
 {
 	analyzeVIreg1(mVU, Is, mVUlow.VI_read[0]);
 	analyzeReg2(mVU, Ft, mVUlow.VF_write, 1);
-	if (!Ft)
+	if (!Ft || !xyzw)
 	{
 		if (writeIs && Is)
 		{

@@ -23,28 +23,28 @@ static __fi void mVUIrLoadReg_oaknut(int reg, s64 offset, int xyzw)
 {
 	const oak::QReg dst_q = oakQRegister(reg);
 	const oak::SReg dst_s = oakSRegister(reg);
+	const oak::DReg dst_d = oakDRegister(reg);
 	recBeginOaknutEmit();
 	switch (xyzw & 0xf)
 	{
 		case 8:
 			oakAsm->EOR(dst_q.B16(), dst_q.B16(), dst_q.B16());
-			oakLoad32(OAK_WSCRATCH, mVUIrOakCpuMem(offset));
-			oakAsm->FMOV(dst_s, OAK_WSCRATCH);
+			oakLoadScalar32(dst_s, mVUIrOakCpuMem(offset));
 			break;
 		case 4:
 			oakAsm->EOR(dst_q.B16(), dst_q.B16(), dst_q.B16());
-			oakLoad32(OAK_WSCRATCH, mVUIrOakCpuMem(offset + 4));
-			oakAsm->FMOV(dst_s, OAK_WSCRATCH);
+			oakLoadScalar32(dst_s, mVUIrOakCpuMem(offset + 4));
 			break;
 		case 2:
 			oakAsm->EOR(dst_q.B16(), dst_q.B16(), dst_q.B16());
-			oakLoad32(OAK_WSCRATCH, mVUIrOakCpuMem(offset + 8));
-			oakAsm->FMOV(dst_s, OAK_WSCRATCH);
+			oakLoadScalar32(dst_s, mVUIrOakCpuMem(offset + 8));
 			break;
 		case 1:
 			oakAsm->EOR(dst_q.B16(), dst_q.B16(), dst_q.B16());
-			oakLoad32(OAK_WSCRATCH, mVUIrOakCpuMem(offset + 12));
-			oakAsm->FMOV(dst_s, OAK_WSCRATCH);
+			oakLoadScalar32(dst_s, mVUIrOakCpuMem(offset + 12));
+			break;
+		case 12:
+			oakLoadVector64(dst_d, mVUIrOakCpuMem(offset));
 			break;
 		default:
 			oakLoad128(dst_q, mVUIrOakCpuMem(offset));

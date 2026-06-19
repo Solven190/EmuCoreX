@@ -86,7 +86,9 @@ struct OakMemOperand
 // Large-offset memory helpers may clobber OAK_XSCRATCH.
 void oakLoad16(oak::WReg dst, OakMemOperand mem);
 void oakLoad32(oak::WReg dst, OakMemOperand mem);
+void oakLoadScalar32(oak::SReg dst, OakMemOperand mem);
 void oakLoad64(oak::XReg dst, OakMemOperand mem);
+void oakLoadVector64(oak::DReg dst, OakMemOperand mem);
 void oakLoad128(oak::QReg dst, OakMemOperand mem);
 void oakStore32(oak::WReg src, OakMemOperand mem);
 void oakStore64(oak::XReg src, OakMemOperand mem);

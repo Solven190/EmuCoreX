@@ -360,9 +360,10 @@ namespace
 	bool VULowerEmitsHostCode(u32 code)
 	{
 		const u32 op = code >> 25;
+		const u32 xyzw = (code >> 21) & 0xf;
 		const u32 ft = (code >> 16) & 0x1f;
 
-		if (op == 0x00 && ft == 0)
+		if (op == 0x00 && (ft == 0 || xyzw == 0))
 			return false;
 
 		return true;
