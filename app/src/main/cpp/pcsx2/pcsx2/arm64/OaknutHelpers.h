@@ -76,6 +76,8 @@ void oakEmitCbnz(oak::WReg reg, const void* ptr);
 void oakEmitCbnz(oak::XReg reg, const void* ptr);
 void oakEmitJmpPtr(void* code, const void* dst, bool flush_icache = true);
 void oakPatchCondBranch(void* code, const void* dst, oak::Cond cond, bool flush_icache = true);
+void oakAddSignedImm(oak::WReg dst, oak::WReg src, s32 imm, oak::WReg scratch);
+void oakAddSignedImm(oak::XReg dst, oak::XReg src, s64 imm, oak::XReg scratch);
 
 struct OakMemOperand
 {
@@ -91,6 +93,7 @@ void oakLoad64(oak::XReg dst, OakMemOperand mem);
 void oakLoadVector64(oak::DReg dst, OakMemOperand mem);
 void oakLoad128(oak::QReg dst, OakMemOperand mem);
 void oakStore32(oak::WReg src, OakMemOperand mem);
+void oakStoreScalar32(oak::SReg src, OakMemOperand mem);
 void oakStore64(oak::XReg src, OakMemOperand mem);
 void oakStore16(oak::WReg src, OakMemOperand mem);
 void oakStore128(oak::QReg src, OakMemOperand mem);

@@ -236,6 +236,11 @@ static oak::XReg vtlbFastmemBase_emit_oaknut()
 	return oak::util::X25;
 }
 
+static bool vtlbCanUseConstFastmem()
+{
+	return CHECK_FASTMEM && !vtlb_IsFaultingPC(GetCurrentGuestPC());
+}
+
 static void vtlbFastmemReadU8_emit_oaknut(oak::XReg dst, oak::XReg addr)
 {
 	oakAsm->LDRB(dst.toW(), vtlbFastmemBase_emit_oaknut(), addr);
@@ -309,6 +314,11 @@ static void vtlbFastmemWriteF32_emit_oaknut(oak::SReg src, oak::XReg addr)
 static void vtlbFastmemWriteQ128_emit_oaknut(oak::QReg src, oak::XReg addr)
 {
 	oakAsm->STR(src, vtlbFastmemBase_emit_oaknut(), addr);
+}
+
+static void vtlbConstFastmemAddress_emit_oaknut(u32 addr_const)
+{
+	oakAsm->MOV(oak::util::W1, addr_const);
 }
 
 static oak::XReg vtlbConstDirectPtr_emit_oaknut(u32 addr_const)
@@ -776,6 +786,8 @@ int vtlb_DynGenReadNonQuad(u32 bits, bool sign, bool xmm, int addr_reg, vtlb_Rea
 int vtlb_DynGenReadNonQuad_Const(u32 bits, bool sign, bool xmm, u32 addr_const, vtlb_ReadRegAllocCallback dest_reg_alloc)
 {
     int x86_dest_reg;
+	const u8* codeStart = nullptr;
+	bool used_fastmem = false;
 	auto vmv = vtlbdata.vmap[addr_const >> VTLB_PAGE_BITS];
 	if (!vmv.isHandler(addr_const))
 	{
@@ -785,28 +797,51 @@ int vtlb_DynGenReadNonQuad_Const(u32 bits, bool sign, bool xmm, u32 addr_const, 
             x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(EE_HOST_RAX), EE_HOST_RAX);
 
             recBeginOaknutEmit();
-            const oak::XReg ptr = vtlbConstDirectPtr_emit_oaknut(addr_const);
             const oak::XReg regX = oakXRegister(x86_dest_reg);
-            switch (bits)
+            if (vtlbCanUseConstFastmem() && bits != 8)
             {
-                case 8:
+                vtlbConstFastmemAddress_emit_oaknut(addr_const);
+                codeStart = oakGetCurrentCodePointer();
+                switch (bits)
+                {
+                    case 16:
+                        sign ? vtlbFastmemReadS16_emit_oaknut(regX, oak::util::X1) : vtlbFastmemReadU16_emit_oaknut(regX, oak::util::X1);
+                        break;
+
+                    case 32:
+                        sign ? vtlbFastmemReadS32_emit_oaknut(regX, oak::util::X1) : vtlbFastmemReadU32_emit_oaknut(regX, oak::util::X1);
+                        break;
+
+                    case 64:
+                        vtlbFastmemReadU64_emit_oaknut(regX, oak::util::X1);
+                        break;
+                }
+                used_fastmem = true;
+            }
+            else
+            {
+                const oak::XReg ptr = vtlbConstDirectPtr_emit_oaknut(addr_const);
+                switch (bits)
+                {
+                    case 8:
 //				sign ? xMOVSX(xRegister64(x86_dest_reg), ptr8[(u8*)ppf]) : xMOVZX(xRegister32(x86_dest_reg), ptr8[(u8*)ppf]);
-                    sign ? vtlbConstDirectReadS8_emit_oaknut(regX, ptr) : vtlbConstDirectReadU8_emit_oaknut(regX, ptr);
-                    break;
+                        sign ? vtlbConstDirectReadS8_emit_oaknut(regX, ptr) : vtlbConstDirectReadU8_emit_oaknut(regX, ptr);
+                        break;
 
-                case 16:
+                    case 16:
 //				sign ? xMOVSX(xRegister64(x86_dest_reg), ptr16[(u16*)ppf]) : xMOVZX(xRegister32(x86_dest_reg), ptr16[(u16*)ppf]);
-                    sign ? vtlbConstDirectReadS16_emit_oaknut(regX, ptr) : vtlbConstDirectReadU16_emit_oaknut(regX, ptr);
-                    break;
+                        sign ? vtlbConstDirectReadS16_emit_oaknut(regX, ptr) : vtlbConstDirectReadU16_emit_oaknut(regX, ptr);
+                        break;
 
-                case 32:
+                    case 32:
 //				sign ? xMOVSX(xRegister64(x86_dest_reg), ptr32[(u32*)ppf]) : xMOV(xRegister32(x86_dest_reg), ptr32[(u32*)ppf]);
-                    sign ? vtlbConstDirectReadS32_emit_oaknut(regX, ptr) : vtlbConstDirectReadU32_emit_oaknut(regX, ptr);
-                    break;
+                        sign ? vtlbConstDirectReadS32_emit_oaknut(regX, ptr) : vtlbConstDirectReadU32_emit_oaknut(regX, ptr);
+                        break;
 
-                case 64:
-                    vtlbConstDirectReadU64_emit_oaknut(regX, ptr);
-                    break;
+                    case 64:
+                        vtlbConstDirectReadU64_emit_oaknut(regX, ptr);
+                        break;
+                }
             }
             recEndOaknutEmit();
         }
@@ -814,7 +849,15 @@ int vtlb_DynGenReadNonQuad_Const(u32 bits, bool sign, bool xmm, u32 addr_const, 
         {
             x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeXMMreg(0), 0);
             recBeginOaknutEmit();
-            vtlbConstDirectReadF32_emit_oaknut(oakSRegister(x86_dest_reg), vtlbConstDirectPtr_emit_oaknut(addr_const));
+            if (vtlbCanUseConstFastmem())
+            {
+                vtlbConstFastmemAddress_emit_oaknut(addr_const);
+                codeStart = oakGetCurrentCodePointer();
+                vtlbFastmemReadF32_emit_oaknut(oakSRegister(x86_dest_reg), oak::util::X1);
+                used_fastmem = true;
+            }
+            else
+                vtlbConstDirectReadF32_emit_oaknut(oakSRegister(x86_dest_reg), vtlbConstDirectPtr_emit_oaknut(addr_const));
             recEndOaknutEmit();
         }
     }
@@ -901,6 +944,14 @@ int vtlb_DynGenReadNonQuad_Const(u32 bits, bool sign, bool xmm, u32 addr_const, 
         }
     }
 
+	if (used_fastmem)
+	{
+		vtlb_AddLoadStoreInfo((uptr)codeStart, static_cast<u32>(oakGetCurrentCodePointer() - codeStart),
+			GetCurrentGuestPC(), GetAllocatedGPRBitmask(), GetAllocatedXMMBitmask(),
+			static_cast<u8>(EE_HOST_RCX), static_cast<u8>(x86_dest_reg),
+			static_cast<u8>(bits), sign, true, xmm);
+	}
+
     return x86_dest_reg;
 }
 
@@ -960,9 +1011,27 @@ int vtlb_DynGenReadQuad_Const(u32 bits, u32 addr_const, vtlb_ReadRegAllocCallbac
 	{
 		reg = dest_reg_alloc ? dest_reg_alloc() : (_freeXMMreg(0), 0);
 		if (reg >= 0) {
+			const u8* codeStart = nullptr;
+			bool used_fastmem = false;
             recBeginOaknutEmit();
-            vtlbConstDirectReadQ128_emit_oaknut(oakQRegister(reg), vtlbConstDirectPtr_emit_oaknut(addr_const));
+            if (vtlbCanUseConstFastmem())
+			{
+				vtlbConstFastmemAddress_emit_oaknut(addr_const);
+				codeStart = oakGetCurrentCodePointer();
+                vtlbFastmemReadQ128_emit_oaknut(oakQRegister(reg), oak::util::X1);
+				used_fastmem = true;
+			}
+            else
+                vtlbConstDirectReadQ128_emit_oaknut(oakQRegister(reg), vtlbConstDirectPtr_emit_oaknut(addr_const));
             recEndOaknutEmit();
+
+			if (used_fastmem)
+			{
+				vtlb_AddLoadStoreInfo((uptr)codeStart, static_cast<u32>(oakGetCurrentCodePointer() - codeStart),
+					GetCurrentGuestPC(), GetAllocatedGPRBitmask(), GetAllocatedXMMBitmask(),
+					static_cast<u8>(EE_HOST_RCX), static_cast<u8>(reg),
+					static_cast<u8>(bits), false, true, true);
+			}
         }
 	}
 	else
@@ -1067,6 +1136,8 @@ void vtlb_DynGenWrite_Const(u32 bits, bool xmm, u32 addr_const, int value_reg)
 {
 	EE::Profiler.EmitConstMem(addr_const);
 
+	const u8* codeStart = nullptr;
+	bool used_fastmem = false;
 	auto vmv = vtlbdata.vmap[addr_const >> VTLB_PAGE_BITS];
 	if (!vmv.isHandler(addr_const))
 	{
@@ -1074,50 +1145,90 @@ void vtlb_DynGenWrite_Const(u32 bits, bool xmm, u32 addr_const, int value_reg)
 		{
             recBeginOaknutEmit();
             oak::XReg regX = oakXRegister(value_reg);
-            if (regX.index() == oak::util::X0.index() || regX.index() == oak::util::X1.index())
-            {
-                oakAsm->MOV(OAK_XSCRATCH2, regX);
-                regX = OAK_XSCRATCH2;
-            }
-            const oak::XReg ptr = vtlbConstDirectPtr_emit_oaknut(addr_const);
-			switch (bits)
+            if (vtlbCanUseConstFastmem() && bits != 8 && value_reg != EE_HOST_RCX)
 			{
-				case 8:
-                    vtlbConstDirectWriteU8_emit_oaknut(regX, ptr);
-					break;
+                vtlbConstFastmemAddress_emit_oaknut(addr_const);
+                codeStart = oakGetCurrentCodePointer();
+                switch (bits)
+                {
+                    case 16:
+                        vtlbFastmemWriteU16_emit_oaknut(regX, oak::util::X1);
+                        break;
 
-				case 16:
-                    vtlbConstDirectWriteU16_emit_oaknut(regX, ptr);
-					break;
+                    case 32:
+                        vtlbFastmemWriteU32_emit_oaknut(regX, oak::util::X1);
+                        break;
 
-				case 32:
-                    vtlbConstDirectWriteU32_emit_oaknut(regX, ptr);
-					break;
-
-				case 64:
-                    vtlbConstDirectWriteU64_emit_oaknut(regX, ptr);
-					break;
-
-					jNO_DEFAULT
+                    case 64:
+                        vtlbFastmemWriteU64_emit_oaknut(regX, oak::util::X1);
+                        break;
+                }
+                used_fastmem = true;
 			}
+            else
+            {
+                if (regX.index() == oak::util::X0.index() || regX.index() == oak::util::X1.index())
+                {
+                    oakAsm->MOV(OAK_XSCRATCH2, regX);
+                    regX = OAK_XSCRATCH2;
+                }
+                const oak::XReg ptr = vtlbConstDirectPtr_emit_oaknut(addr_const);
+                switch (bits)
+                {
+                    case 8:
+                        vtlbConstDirectWriteU8_emit_oaknut(regX, ptr);
+                        break;
+
+                    case 16:
+                        vtlbConstDirectWriteU16_emit_oaknut(regX, ptr);
+                        break;
+
+                    case 32:
+                        vtlbConstDirectWriteU32_emit_oaknut(regX, ptr);
+                        break;
+
+                    case 64:
+                        vtlbConstDirectWriteU64_emit_oaknut(regX, ptr);
+                        break;
+
+                        jNO_DEFAULT
+                }
+            }
             recEndOaknutEmit();
 		}
 		else
 		{
             recBeginOaknutEmit();
-            const oak::XReg ptr = vtlbConstDirectPtr_emit_oaknut(addr_const);
-			switch (bits)
+            if (vtlbCanUseConstFastmem() && bits == 128)
+            {
+                vtlbConstFastmemAddress_emit_oaknut(addr_const);
+                codeStart = oakGetCurrentCodePointer();
+                vtlbFastmemWriteQ128_emit_oaknut(oakQRegister(value_reg), oak::util::X1);
+                used_fastmem = true;
+            }
+            else if (vtlbCanUseConstFastmem() && bits == 32)
+            {
+                vtlbConstFastmemAddress_emit_oaknut(addr_const);
+                codeStart = oakGetCurrentCodePointer();
+                vtlbFastmemWriteF32_emit_oaknut(oakSRegister(value_reg), oak::util::X1);
+                used_fastmem = true;
+            }
+            else
 			{
-				case 32:
-                    vtlbConstDirectWriteF32_emit_oaknut(oakSRegister(value_reg), ptr);
-					break;
+                const oak::XReg ptr = vtlbConstDirectPtr_emit_oaknut(addr_const);
+                switch (bits)
+                {
+                    case 32:
+                        vtlbConstDirectWriteF32_emit_oaknut(oakSRegister(value_reg), ptr);
+                        break;
 
-				case 128:
-                    vtlbConstDirectWriteQ128_emit_oaknut(oakQRegister(value_reg), ptr);
-					break;
+                    case 128:
+                        vtlbConstDirectWriteQ128_emit_oaknut(oakQRegister(value_reg), ptr);
+                        break;
 
-					jNO_DEFAULT
-			}
+                        jNO_DEFAULT
+                }
+            }
             recEndOaknutEmit();
 		}
 	}
@@ -1177,6 +1288,14 @@ void vtlb_DynGenWrite_Const(u32 bits, bool xmm, u32 addr_const, int value_reg)
             vtlbCallConstWriteHandlerGpr_emit_oaknut(paddr, oakXRegister(value_reg), vmv.assumeHandlerGetRaw(szidx, true));
             recEndOaknutEmit();
 		}
+	}
+
+	if (used_fastmem)
+	{
+		vtlb_AddLoadStoreInfo((uptr)codeStart, static_cast<u32>(oakGetCurrentCodePointer() - codeStart),
+			GetCurrentGuestPC(), GetAllocatedGPRBitmask(), GetAllocatedXMMBitmask(),
+			static_cast<u8>(EE_HOST_RCX), static_cast<u8>(value_reg),
+			static_cast<u8>(bits), false, false, xmm);
 	}
 }
 

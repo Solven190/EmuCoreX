@@ -129,11 +129,14 @@ static void recLoadAddressToECX_emit_oaknut(bool align16)
 	recBeginOaknutEmit();
 
 	const oak::WReg addr = oakWRegister(EE_HOST_RCX);
-	recMoveGPRtoOakW(addr, _Rs_);
-	if (_Imm_ != 0)
+	if (_Rs_ != 0)
 	{
-		oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-		oakAsm->ADD(addr, addr, oak::util::W4);
+		recMoveGPRtoOakW(addr, _Rs_);
+		oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
+	}
+	else
+	{
+		oakAsm->MOV(addr, static_cast<u32>(_Imm_));
 	}
 
 	if (align16)
@@ -158,11 +161,7 @@ static void recStoreAddressToECX_emit_oaknut(bool align16)
 	if (_Rs_ != 0)
 	{
 		recMoveGPRtoOakW(addr, _Rs_);
-		if (_Imm_ != 0)
-		{
-			oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-			oakAsm->ADD(addr, addr, oak::util::W4);
-		}
+		oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 	}
 	else
 	{
@@ -442,11 +441,7 @@ static void recLWL_emit_oaknut()
 	const oak::WReg addr = oakWRegister(EE_HOST_RCX);
 	const oak::WReg temp_w = oakWRegister(temp);
 	recMoveGPRtoOakW(addr, _Rs_);
-	if (_Imm_ != 0)
-	{
-		oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-		oakAsm->ADD(addr, addr, oak::util::W4);
-	}
+	oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 
 	oakAsm->MOV(temp_w, addr);
 	oakAsm->AND(temp_w, temp_w, oak::BitImm32(3));
@@ -517,11 +512,7 @@ static void recLWR_emit_oaknut()
 	const oak::WReg addr = oakWRegister(EE_HOST_RCX);
 	const oak::WReg temp_w = oakWRegister(temp);
 	recMoveGPRtoOakW(addr, _Rs_);
-	if (_Imm_ != 0)
-	{
-		oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-		oakAsm->ADD(addr, addr, oak::util::W4);
-	}
+	oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 
 	oakAsm->MOV(temp_w, addr);
 	oakAsm->AND(addr, addr, oak::BitImm32(~3u));
@@ -604,11 +595,7 @@ static void recSWL_emit_oaknut()
 	const oak::WReg addr = oakWRegister(EE_HOST_RCX);
 	const oak::WReg temp_w = oakWRegister(temp);
 	recMoveGPRtoOakW(addr, _Rs_);
-	if (_Imm_ != 0)
-	{
-		oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-		oakAsm->ADD(addr, addr, oak::util::W4);
-	}
+	oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 	oakAsm->MOV(temp_w, addr);
 	oakAsm->AND(addr, addr, oak::BitImm32(~3u));
 	oakAsm->AND(temp_w, temp_w, oak::BitImm32(3));
@@ -644,11 +631,7 @@ static void recSWL_emit_oaknut()
 	}
 
 	recMoveGPRtoOakW(addr, _Rs_);
-	if (_Imm_ != 0)
-	{
-		oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-		oakAsm->ADD(addr, addr, oak::util::W4);
-	}
+	oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 	oakAsm->AND(addr, addr, oak::BitImm32(~3u));
 
 	recEndOaknutEmit();
@@ -700,11 +683,7 @@ static void recSWR_emit_oaknut()
 	const oak::WReg addr = oakWRegister(EE_HOST_RCX);
 	const oak::WReg temp_w = oakWRegister(temp);
 	recMoveGPRtoOakW(addr, _Rs_);
-	if (_Imm_ != 0)
-	{
-		oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-		oakAsm->ADD(addr, addr, oak::util::W4);
-	}
+	oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 	oakAsm->MOV(temp_w, addr);
 	oakAsm->AND(addr, addr, oak::BitImm32(~3u));
 	oakAsm->ANDS(temp_w, temp_w, oak::BitImm32(3));
@@ -739,11 +718,7 @@ static void recSWR_emit_oaknut()
 	}
 
 	recMoveGPRtoOakW(addr, _Rs_);
-	if (_Imm_ != 0)
-	{
-		oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-		oakAsm->ADD(addr, addr, oak::util::W4);
-	}
+	oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 	oakAsm->AND(addr, addr, oak::BitImm32(~3u));
 
 	recEndOaknutEmit();
@@ -859,11 +834,7 @@ static void recLDL_emit_oaknut()
 
 		const oak::WReg addr = oakWRegister(EE_HOST_RCX);
 		recMoveGPRtoOakW(addr, _Rs_);
-		if (_Imm_ != 0)
-		{
-			oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-			oakAsm->ADD(addr, addr, oak::util::W4);
-		}
+		oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 		oakAsm->MOV(oakWRegister(temp1), addr);
 		oakAsm->AND(addr, addr, oak::BitImm32(~0x07u));
 
@@ -962,11 +933,7 @@ static void recLDR_emit_oaknut()
 
 		const oak::WReg addr = oakWRegister(EE_HOST_RCX);
 		recMoveGPRtoOakW(addr, _Rs_);
-		if (_Imm_ != 0)
-		{
-			oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-			oakAsm->ADD(addr, addr, oak::util::W4);
-		}
+		oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 		oakAsm->MOV(oakWRegister(temp1), addr);
 		oakAsm->AND(addr, addr, oak::BitImm32(~0x07u));
 
@@ -1089,11 +1056,7 @@ static void recSDL_emit_oaknut()
 		const oak::XReg temp1_x = oakXRegister(temp1);
 		const oak::XReg temp2_x = oakXRegister(temp2);
 		recMoveGPRtoOakW(addr, _Rs_);
-		if (_Imm_ != 0)
-		{
-			oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-			oakAsm->ADD(addr, addr, oak::util::W4);
-		}
+		oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 		recMoveGPRtoOakX(oakXRegister(EE_HOST_RDX), _Rt_);
 		oakAsm->MOV(temp1_w, addr);
 		oakAsm->MOV(temp2_x, oakXRegister(EE_HOST_RDX));
@@ -1123,11 +1086,7 @@ static void recSDL_emit_oaknut()
 		oakAsm->SUB(oakWRegister(EE_HOST_RDX), oakWRegister(EE_HOST_RDX), temp1_w);
 		sdlrhelper_emit_oaknut<SHIFTV::xSHL, SHIFTV::xSHR>(temp1_x, oakXRegister(EE_HOST_RDX), oakXRegister(EE_HOST_RAX), temp2_x);
 		recMoveGPRtoOakW(addr, _Rs_);
-		if (_Imm_ != 0)
-		{
-			oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-			oakAsm->ADD(addr, addr, oak::util::W4);
-		}
+		oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 		oakAsm->AND(addr, addr, oak::BitImm32(~0x07u));
 
 		recEndOaknutEmit();
@@ -1204,11 +1163,7 @@ static void recSDR_emit_oaknut()
 		const oak::XReg temp1_x = oakXRegister(temp1);
 		const oak::XReg temp2_x = oakXRegister(temp2);
 		recMoveGPRtoOakW(addr, _Rs_);
-		if (_Imm_ != 0)
-		{
-			oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-			oakAsm->ADD(addr, addr, oak::util::W4);
-		}
+		oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 		recMoveGPRtoOakX(oakXRegister(EE_HOST_RDX), _Rt_);
 		oakAsm->MOV(temp1_w, addr);
 		oakAsm->MOV(temp2_x, oakXRegister(EE_HOST_RDX));
@@ -1233,11 +1188,7 @@ static void recSDR_emit_oaknut()
 		oakAsm->SUB(oakWRegister(EE_HOST_RDX), oakWRegister(EE_HOST_RDX), temp1_w);
 		sdlrhelper_emit_oaknut<SHIFTV::xSHR, SHIFTV::xSHL>(oakXRegister(EE_HOST_RDX), temp1_x, oakXRegister(EE_HOST_RAX), temp2_x);
 		recMoveGPRtoOakW(addr, _Rs_);
-		if (_Imm_ != 0)
-		{
-			oakAsm->MOV(oak::util::W4, static_cast<u32>(_Imm_));
-			oakAsm->ADD(addr, addr, oak::util::W4);
-		}
+		oakAddSignedImm(addr, addr, _Imm_, oak::util::W4);
 		oakAsm->AND(addr, addr, oak::BitImm32(~0x07u));
 		oakAsm->MOV(oakXRegister(EE_HOST_RDX), temp2_x);
 

@@ -66,7 +66,7 @@ namespace DOUBLE
 #define FPUflagSU 0x00000008
 
 // Add/Sub opcodes produce the same results as the ps2
-#define FPU_CORRECT_ADD_SUB 1
+#define FPU_CORRECT_ADD_SUB CHECK_FPU_OVERFLOW
 
 //alignas(16) static const u32 s_neg[4] = {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff};
 //alignas(16) static const u32 s_pos[4] = {0x7fffffff, 0xffffffff, 0xffffffff, 0xffffffff};
@@ -440,6 +440,9 @@ static void recFpuLoadScalarMemoryOperand_emit_oaknut(int dst, int fpu_reg)
 
 static void recFpuClampFloat3Operand_emit_oaknut(int reg)
 {
+	if (!CHECK_FPU_OVERFLOW)
+		return;
+
 	oakAsm->FMOV(OAK_WSCRATCH2, oakSRegister(reg));
 	oakAsm->MOV(OAK_WSCRATCH, 0x7f7fffff);
 	oakAsm->CMP(OAK_WSCRATCH2, OAK_WSCRATCH);
@@ -452,6 +455,9 @@ static void recFpuClampFloat3Operand_emit_oaknut(int reg)
 
 static void recFpuDoubleClampOperand_emit_oaknut(int reg)
 {
+	if (!CHECK_FPU_OVERFLOW)
+		return;
+
 	oak::Label non_zero_exp;
 	oak::Label done;
 
@@ -1733,6 +1739,9 @@ static void recFpuClampFloatResult_emit_oaknut(int regd)
 
 static void recFpuFinishMulResult_emit_oaknut(int regd)
 {
+	if (!CHECK_FPU_OVERFLOW)
+		return;
+
 	oak::Label done;
 
 	oakAsm->FMOV(OAK_WSCRATCH, oakSRegister(regd));

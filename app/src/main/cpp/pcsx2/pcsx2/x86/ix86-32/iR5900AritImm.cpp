@@ -53,8 +53,7 @@ static void recADDI_emit_oaknut(int info)
 	else
 		oakLoad32(regt_w, {X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UL[0]))});
 
-	oakAsm->MOV(W16, static_cast<u32>(static_cast<s32>(_Imm_)));
-	oakAsm->ADD(regt_w, regt_w, W16);
+	oakAddSignedImm(regt_w, regt_w, static_cast<s32>(_Imm_), W16);
 	oakAsm->SXTW(regt_x, regt_w);
 
 	recEndOaknutEmit();
@@ -92,8 +91,7 @@ static void recDADDI_emit_oaknut(int info)
 	else
 		oakLoad64(regt_x, {X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
 
-	oakAsm->MOV(X16, static_cast<u64>(static_cast<s64>(_Imm_)));
-	oakAsm->ADD(regt_x, regt_x, X16);
+	oakAddSignedImm(regt_x, regt_x, static_cast<s64>(_Imm_), X16);
 
 	recEndOaknutEmit();
 }

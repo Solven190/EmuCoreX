@@ -61,10 +61,7 @@ static void recADD_consts_emit_oaknut(int info)
 		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
 
 	if (cval != 0)
-	{
-		oakAsm->MOV(OAK_WSCRATCH, static_cast<u32>(cval));
-		oakAsm->ADD(regd_w, regd_w, OAK_WSCRATCH);
-	}
+		oakAddSignedImm(regd_w, regd_w, cval, OAK_WSCRATCH);
 	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
 
 	recEndOaknutEmit();
@@ -90,10 +87,7 @@ static void recADD_constt_emit_oaknut(int info)
 		oakLoad32(regd_w, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UL[0]))});
 
 	if (cval != 0)
-	{
-		oakAsm->MOV(OAK_WSCRATCH, static_cast<u32>(cval));
-		oakAsm->ADD(regd_w, regd_w, OAK_WSCRATCH);
-	}
+		oakAddSignedImm(regd_w, regd_w, cval, OAK_WSCRATCH);
 	oakAsm->SXTW(oakXRegister(EEREC_D), regd_w);
 
 	recEndOaknutEmit();
@@ -173,10 +167,7 @@ static void recDADD_consts_emit_oaknut(int info)
 		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UD[0]))});
 
 	if (cval != 0)
-	{
-		oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(cval));
-		oakAsm->ADD(regd_x, regd_x, OAK_XSCRATCH);
-	}
+		oakAddSignedImm(regd_x, regd_x, cval, OAK_XSCRATCH);
 
 	recEndOaknutEmit();
 }
@@ -201,10 +192,7 @@ static void recDADD_constt_emit_oaknut(int info)
 		oakLoad64(regd_x, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UD[0]))});
 
 	if (cval != 0)
-	{
-		oakAsm->MOV(OAK_XSCRATCH, static_cast<u64>(cval));
-		oakAsm->ADD(regd_x, regd_x, OAK_XSCRATCH);
-	}
+		oakAddSignedImm(regd_x, regd_x, cval, OAK_XSCRATCH);
 
 	recEndOaknutEmit();
 }

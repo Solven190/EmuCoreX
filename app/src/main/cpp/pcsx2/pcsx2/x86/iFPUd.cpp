@@ -41,7 +41,7 @@ using namespace x86Emitter;
 #define FPU_FLAGS_ID 1
 
 // Add/Sub opcodes produce the same results as the ps2
-#define FPU_CORRECT_ADD_SUB 1
+#define FPU_CORRECT_ADD_SUB CHECK_FPU_OVERFLOW
 
 #ifdef FPU_RECOMPILE
 

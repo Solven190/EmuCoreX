@@ -243,6 +243,58 @@ void oakPatchCondBranch(void* code, const void* dst, oak::Cond cond, bool flush_
 		HostSys::FlushInstructionCache(code, sizeof(encoded));
 }
 
+void oakAddSignedImm(oak::WReg dst, oak::WReg src, s32 imm, oak::WReg scratch)
+{
+	pxAssert(oakAsm);
+	if (imm == 0)
+	{
+		if (dst.index() != src.index())
+			oakAsm->MOV(dst, src);
+		return;
+	}
+
+	if (imm > 0 && imm <= 4095)
+	{
+		oakAsm->ADD(dst, src, static_cast<u32>(imm));
+		return;
+	}
+
+	if (imm < 0 && imm >= -4095)
+	{
+		oakAsm->SUB(dst, src, static_cast<u32>(-imm));
+		return;
+	}
+
+	oakAsm->MOV(scratch, static_cast<u32>(imm));
+	oakAsm->ADD(dst, src, scratch);
+}
+
+void oakAddSignedImm(oak::XReg dst, oak::XReg src, s64 imm, oak::XReg scratch)
+{
+	pxAssert(oakAsm);
+	if (imm == 0)
+	{
+		if (dst.index() != src.index())
+			oakAsm->MOV(dst, src);
+		return;
+	}
+
+	if (imm > 0 && imm <= 4095)
+	{
+		oakAsm->ADD(dst, src, static_cast<u32>(imm));
+		return;
+	}
+
+	if (imm < 0 && imm >= -4095)
+	{
+		oakAsm->SUB(dst, src, static_cast<u32>(-imm));
+		return;
+	}
+
+	oakAsm->MOV(scratch, static_cast<u64>(imm));
+	oakAsm->ADD(dst, src, scratch);
+}
+
 void oakLoad32(oak::WReg dst, OakMemOperand mem)
 {
 	pxAssert(oakAsm);
@@ -343,6 +395,20 @@ void oakStore32(oak::WReg src, OakMemOperand mem)
 		return oakAsm->STUR(src, mem.base, oak::SOffset<9, 0>(mem.offset));
 
 	const oak::XReg scratch = oakScratchAvoiding(src.toX(), mem.base);
+	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
+	oakAsm->ADD(scratch, mem.base, scratch);
+	oakAsm->STR(src, scratch);
+}
+
+void oakStoreScalar32(oak::SReg src, OakMemOperand mem)
+{
+	pxAssert(oakAsm);
+	if (oakIsUnsignedScaled(mem.offset, 4, 12))
+		return oakAsm->STR(src, mem.base, oak::POffset<14, 2>(mem.offset));
+	if (oakIsSigned9(mem.offset))
+		return oakAsm->STUR(src, mem.base, oak::SOffset<9, 0>(mem.offset));
+
+	const oak::XReg scratch = oakScratchAvoiding(mem.base);
 	oakAsm->MOV(scratch, static_cast<u64>(mem.offset));
 	oakAsm->ADD(scratch, mem.base, scratch);
 	oakAsm->STR(src, scratch);
