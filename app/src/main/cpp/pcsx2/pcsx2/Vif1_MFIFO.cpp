@@ -6,6 +6,141 @@
 #include "Gif_Unit.h"
 #include "Vif_Dma.h"
 
+static __fi VifBridgeStateSnapshot vif1CaptureRuntimeBridgeState()
+{
+	return vif1.CaptureBridgeState(&vif1Regs);
+}
+
+static __fi bool vif1HasActiveBridgeGifWait(const VifBridgeStateSnapshot& bridge)
+{
+	return bridge.HasAny(VIF_BRIDGE_WAIT_GIF) && gifUnit.gifPath[GIF_PATH_3].state != GIF_PATH_IDLE;
+}
+
+static __fi void vif1ScheduleBridgeProgress(const VifBridgeStateSnapshot& bridge, u32 cycles)
+{
+	if (bridge.HasAny(VIF_BRIDGE_WAIT_VU))
+		vif1RequestDmaProgressWithVuBusy(cycles);
+	else
+		vif1RequestDmaProgress(cycles);
+}
+
+static __fi void vif1RefreshMfifoActiveTransferFqc()
+{
+	vif1Regs.stat.FQC = std::min((u32)0x10, vif1ch.qwc);
+}
+
+static __fi void vif1ClearCompletedMfifoPath2DownloadWait()
+{
+	if (gifRegs.stat.APATH != 2 || !gifUnit.gifPath[1].isDone())
+		return;
+
+	gifRegs.stat.APATH = 0;
+	gifRegs.stat.OPH = 0;
+
+	if (gifUnit.GetVifPath13BusyMask() != 0)
+		gifUnit.Execute(false, true);
+}
+
+static __fi bool vif1TryHandleMfifoGsDownloadPathWait()
+{
+	if (!vif1ch.chcr.DIR)
+		return false;
+
+	const bool isDirect = (vif1.cmd & 0x7f) == 0x50;
+	const bool isDirectHL = (vif1.cmd & 0x7f) == 0x51;
+	if ((isDirect && !gifUnit.CanDoPath2()) || (isDirectHL && !gifUnit.CanDoPath2HL()))
+	{
+		GUNIT_WARN("vifMFIFOInterrupt() - Waiting for Path 2 to be ready");
+		vif1RequestDmaRetry(128);
+		vif1SetActiveDmaStall(true);
+		return true;
+	}
+
+	return false;
+}
+
+static __fi bool vif1TryHandleMfifoVuExecutionWait(const VifBridgeStateSnapshot& bridge)
+{
+	if (!bridge.HasAny(VIF_BRIDGE_WAIT_VU))
+		return false;
+
+	CPU_INT(VIF_VU1_FINISH, std::max(16, cpuGetCycles(VU_MTVU_BUSY)));
+	vif1SetActiveDmaStall(true);
+	return true;
+}
+
+static __fi bool vif1TryHoldMfifoIrqStall()
+{
+	if (!(vif1.irq && vif1.IsIrqStalled()))
+		return false;
+
+	VIF_LOG("VIF MFIFO Code Interrupt detected");
+	vif1Regs.stat.INT = true;
+
+	if (((vif1Regs.code >> 24) & 0x7f) != 0x7)
+		vif1Regs.stat.VIS = true;
+
+	hwIntcIrq(INTC_VIF1);
+	--vif1.irq;
+
+	if (vif1Regs.stat.test(VIF1_STAT_VSS | VIF1_STAT_VIS | VIF1_STAT_VFS))
+	{
+		vif1RefreshMfifoActiveTransferFqc();
+		VIF_LOG("VIF1 MFIFO Stalled qwc = %x done = %x inprogress = %x", vif1ch.qwc, vif1.done, vif1.IsMfifoAwaitingData());
+		if ((vif1ch.qwc > 0 || !vif1.done))
+		{
+			vif1Regs.stat.VPS = VPS_DECODING;
+			VIF_LOG("VIF1 MFIFO Stalled");
+			vif1SetActiveDmaStall(true);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static __fi void vif1UpdateMfifoVpsAfterInterruptProgress()
+{
+	if (vif1.cmd)
+	{
+		if (vif1.done && vif1ch.qwc == 0)
+			vif1Regs.stat.VPS = VPS_WAITING;
+	}
+	else
+	{
+		vif1Regs.stat.VPS = VPS_IDLE;
+	}
+}
+
+static __fi bool vif1TryHandleMfifoEmptyBridgeWait(const VifBridgeStateSnapshot& bridge)
+{
+	if (!bridge.HasAny(VIF_BRIDGE_MFIFO_EMPTY))
+		return false;
+
+	FireMFIFOEmpty();
+	vif1SetActiveDmaStall(true);
+	return true;
+}
+
+static __fi void vif1FinalizeCompletedMfifoInterrupt()
+{
+	vif1.CompleteDmaTransfer();
+	vif1.done = 1;
+
+	if (spr0ch.madr == vif1ch.tadr)
+		FireMFIFOEmpty();
+
+	g_vif1Cycles = 0;
+	vif1RefreshMfifoActiveTransferFqc();
+	vif1ch.chcr.STR = false;
+	if (vif1.HasQueuedProgram())
+		vifExecQueue(1);
+	hwDmacIrq(DMAC_VIF1);
+	DMA_LOG("VIF1 MFIFO DMA End");
+	vif1SetActiveDmaStall(false);
+	vif1Regs.stat.FQC = 0;
+}
+
 static u32 qwctag(u32 mask)
 {
 	return (dmacRegs.rbor.ADDR + (mask & dmacRegs.rbsr.RMSK));
@@ -50,6 +185,7 @@ static __fi bool mfifoVIF1rbTransfer()
 	if ((vif1ch.madr + (mfifoqwc << 4)) > (msize))
 	{
 		const int s1 = ((msize)-vif1ch.madr) >> 2;
+		const VifBridgeStateSnapshot bridge = vif1.CaptureBridgeState();
 
 		VIF_LOG("Split MFIFO");
 
@@ -60,15 +196,15 @@ static __fi bool mfifoVIF1rbTransfer()
 		if (src == nullptr)
 			return false;
 
-		if (vif1.irqoffset.enabled)
-			ret = VIF1transfer(src + vif1.irqoffset.value, s1 - vif1.irqoffset.value);
+		if (bridge.HasAny(VIF_BRIDGE_RESUME_OFFSET))
+			ret = VIF1transfer(src + bridge.resume_offset, s1 - bridge.resume_offset);
 		else
 			ret = VIF1transfer(src, s1);
 
 		if (ret)
 		{
-			if (vif1.irqoffset.value != 0)
-				DevCon.Warning("VIF1 MFIFO Offest != 0! vifoffset=%x", vif1.irqoffset.value);
+			if (bridge.resume_offset != 0)
+				DevCon.Warning("VIF1 MFIFO Offest != 0! vifoffset=%x", bridge.resume_offset);
 			/* and second copy 's2' bytes from 'maddr' to '&data[s1]' */
 			//DevCon.Warning("Loopyloop");
 			vif1ch.tadr = qwctag(vif1ch.tadr);
@@ -83,14 +219,15 @@ static __fi bool mfifoVIF1rbTransfer()
 	else
 	{
 		VIF_LOG("Direct MFIFO");
+		const VifBridgeStateSnapshot bridge = vif1.CaptureBridgeState();
 
 		/* it doesn't, so just transfer 'qwc*4' words */
 		src = (u32*)PSM(vif1ch.madr);
 		if (src == nullptr)
 			return false;
 
-		if (vif1.irqoffset.enabled)
-			ret = VIF1transfer(src + vif1.irqoffset.value, mfifoqwc * 4 - vif1.irqoffset.value);
+		if (bridge.HasAny(VIF_BRIDGE_RESUME_OFFSET))
+			ret = VIF1transfer(src + bridge.resume_offset, mfifoqwc * 4 - bridge.resume_offset);
 		else
 			ret = VIF1transfer(src, mfifoqwc << 2);
 	}
@@ -102,7 +239,7 @@ static __fi void mfifo_VIF1chain()
 	/* Is QWC = 0? if so there is nothing to transfer */
 	if (vif1ch.qwc == 0)
 	{
-		vif1.inprogress &= ~1;
+		vif1.SetTransferActive(false);
 		return;
 	}
 
@@ -113,7 +250,7 @@ static __fi void mfifo_VIF1chain()
 		if (QWCinVIFMFIFO(vif1ch.madr, vif1ch.qwc) == 0)
 		{
 			VIF_LOG("VIF MFIFO Empty before transfer");
-			vif1.inprogress |= 0x10;
+			vif1.SetMfifoAwaitingData(true);
 			g_vif1Cycles += 4;
 			return;
 		}
@@ -136,8 +273,8 @@ static __fi void mfifo_VIF1chain()
 		if (pMem == nullptr)
 			return;
 
-		if (vif1.irqoffset.enabled)
-			VIF1transfer((u32*)pMem + vif1.irqoffset.value, vif1ch.qwc * 4 - vif1.irqoffset.value);
+		if (vif1.HasResumeOffset())
+			VIF1transfer((u32*)pMem + vif1.GetResumeOffset(), vif1ch.qwc * 4 - vif1.GetResumeOffset());
 		else
 			VIF1transfer((u32*)pMem, vif1ch.qwc << 2);
 	}
@@ -181,7 +318,7 @@ void mfifoVIF1transfer()
 		if (QWCinVIFMFIFO(vif1ch.tadr, 1) == 0)
 		{
 			VIF_LOG("VIF MFIFO Empty before tag");
-			vif1.inprogress |= 0x10;
+			vif1.SetMfifoAwaitingData(true);
 			g_vif1Cycles += 4;
 			return;
 		}
@@ -205,28 +342,26 @@ void mfifoVIF1transfer()
 
 			VIF_LOG("\tVIF1 SrcChain TTE=1, data = 0x%08x.%08x", masked_tag._u32[3], masked_tag._u32[2]);
 
-			if (vif1.irqoffset.enabled)
+			if (vif1.HasResumeOffset())
 			{
-				ret = VIF1transfer((u32*)&masked_tag + vif1.irqoffset.value, 4 - vif1.irqoffset.value, true); //Transfer Tag on stall
+				ret = VIF1transfer((u32*)&masked_tag + vif1.GetResumeOffset(), 4 - vif1.GetResumeOffset(), true); //Transfer Tag on stall
 				//ret = VIF1transfer((u32*)ptag + (2 + vif1.irqoffset), 2 - vif1.irqoffset);  //Transfer Tag on stall
 			}
 			else
 			{
-				vif1.irqoffset.value = 2;
-				vif1.irqoffset.enabled = true;
+				vif1.SetResumeOffset(2);
 				ret = VIF1transfer((u32*)&masked_tag + 2, 2, true); //Transfer Tag
 			}
 
-			if (!ret && vif1.irqoffset.enabled)
+			if (!ret && vif1.HasResumeOffset())
 			{
-				vif1.inprogress &= ~1;
+				vif1.SetTransferActive(false);
 				return; //IRQ set by VIFTransfer
 			}
 			g_vif1Cycles += 2;
 		}
 
-		vif1.irqoffset.value = 0;
-		vif1.irqoffset.enabled = false;
+		vif1.ClearResumeOffset();
 
 		vif1ch.unsafeTransfer(ptag);
 
@@ -248,7 +383,7 @@ void mfifoVIF1transfer()
 		vif1ch.tadr = qwctag(vif1ch.tadr);
 
 		if (vif1ch.qwc > 0)
-			vif1.inprogress |= 1;
+			vif1.SetTransferActive(true);
 	}
 	else
 	{
@@ -270,135 +405,54 @@ void vifMFIFOInterrupt()
 		return;
 	}
 
-	if (gifRegs.stat.APATH == 2 && gifUnit.gifPath[1].isDone())
-	{
-		gifRegs.stat.APATH = 0;
-		gifRegs.stat.OPH = 0;
+	vif1ClearCompletedMfifoPath2DownloadWait();
 
-		if (gifUnit.checkPaths(1, 0, 1))
-			gifUnit.Execute(false, true);
-	}
-
-	if (vif1ch.chcr.DIR)
-	{
-		const bool isDirect = (vif1.cmd & 0x7f) == 0x50;
-		const bool isDirectHL = (vif1.cmd & 0x7f) == 0x51;
-		if ((isDirect && !gifUnit.CanDoPath2()) || (isDirectHL && !gifUnit.CanDoPath2HL()))
-		{
-			GUNIT_WARN("vifMFIFOInterrupt() - Waiting for Path 2 to be ready");
-			CPU_INT(DMAC_MFIFO_VIF, 128);
-			CPU_SET_DMASTALL(DMAC_MFIFO_VIF, true);
-			return;
-		}
-	}
-	if (vif1.waitforvu)
-	{
-		//DevCon.Warning("Waiting on VU1 MFIFO");
-		CPU_INT(VIF_VU1_FINISH, std::max(16, cpuGetCycles(VU_MTVU_BUSY)));
-		CPU_SET_DMASTALL(DMAC_MFIFO_VIF, true);
+	if (vif1TryHandleMfifoGsDownloadPathWait())
 		return;
-	}
 
-	// We need to check the direction, if it is downloading from the GS,
-	// we handle that separately (KH2 for testing)
+	const VifBridgeStateSnapshot bridge = vif1CaptureRuntimeBridgeState();
 
-	// Simulated GS transfer time done, clear the flags
-
-	if (vif1.irq && vif1.vifstalled.enabled && vif1.vifstalled.value == VIF_IRQ_STALL)
-	{
-		VIF_LOG("VIF MFIFO Code Interrupt detected");
-		vif1Regs.stat.INT = true;
-
-		if (((vif1Regs.code >> 24) & 0x7f) != 0x7)
-		{
-			vif1Regs.stat.VIS = true;
-		}
-
-		hwIntcIrq(INTC_VIF1);
-		--vif1.irq;
-
-		if (vif1Regs.stat.test(VIF1_STAT_VSS | VIF1_STAT_VIS | VIF1_STAT_VFS))
-		{
-			//vif1Regs.stat.FQC = 0; // FQC=0
-			//vif1ch.chcr.STR = false;
-			vif1Regs.stat.FQC = std::min((u32)0x10, vif1ch.qwc);
-			VIF_LOG("VIF1 MFIFO Stalled qwc = %x done = %x inprogress = %x", vif1ch.qwc, vif1.done, vif1.inprogress & 0x10);
-			//Used to check if the MFIFO was empty, there's really no need if it's finished what it needed.
-			if ((vif1ch.qwc > 0 || !vif1.done))
-			{
-				vif1Regs.stat.VPS = VPS_DECODING; //If there's more data you need to say it's decoding the next VIF CMD (Onimusha - Blade Warriors)
-				VIF_LOG("VIF1 MFIFO Stalled");
-				CPU_SET_DMASTALL(DMAC_MFIFO_VIF, true);
-				return;
-			}
-		}
-	}
-
-	//Mirroring change to VIF0
-	if (vif1.cmd)
-	{
-		if (vif1.done && vif1ch.qwc == 0)
-			vif1Regs.stat.VPS = VPS_WAITING;
-	}
-	else
-	{
-		vif1Regs.stat.VPS = VPS_IDLE;
-	}
-
-	if (vif1.inprogress & 0x10)
-	{
-		FireMFIFOEmpty();
-		CPU_SET_DMASTALL(DMAC_MFIFO_VIF, true);
+	if (vif1TryHandleMfifoVuExecutionWait(bridge))
 		return;
-	}
 
-	vif1.vifstalled.enabled = false;
+	if (vif1TryHoldMfifoIrqStall())
+		return;
+
+	vif1UpdateMfifoVpsAfterInterruptProgress();
+
+	if (vif1TryHandleMfifoEmptyBridgeWait(bridge))
+		return;
+
+	vif1.ClearStallState();
 
 	if (!vif1.done || vif1ch.qwc)
 	{
-		switch (vif1.inprogress & 1)
+		switch (bridge.HasAny(VIF_BRIDGE_TRANSFER_ACTIVE) ? 1 : 0)
 		{
 			case 0: //Set up transfer
 				mfifoVIF1transfer();
-				vif1Regs.stat.FQC = std::min((u32)0x10, vif1ch.qwc);
+				vif1RefreshMfifoActiveTransferFqc();
 				[[fallthrough]];
 
 			case 1: //Transfer data
-				if (vif1.inprogress & 0x1) //Just in case the tag breaks early (or something wierd happens)!
+			{
+				const VifBridgeStateSnapshot runtime_bridge = vif1CaptureRuntimeBridgeState();
+				if (runtime_bridge.HasAny(VIF_BRIDGE_TRANSFER_ACTIVE)) //Just in case the tag breaks early (or something wierd happens)!
 					mfifo_VIF1chain();
+				const VifBridgeStateSnapshot post_chain_bridge = vif1CaptureRuntimeBridgeState();
 				//Sanity check! making sure we always have non-zero values
-				if (!(vif1Regs.stat.VGW && gifUnit.gifPath[GIF_PATH_3].state != GIF_PATH_IDLE)) //If we're waiting on GIF, stop looping, (can be over 1000 loops!)
+				if (!vif1HasActiveBridgeGifWait(post_chain_bridge)) //If we're waiting on GIF, stop looping, (can be over 1000 loops!)
 				{
-					if (vif1.waitforvu)
-					{
-						//if (cpuGetCycles(VU_MTVU_BUSY) > static_cast<int>(g_vif1Cycles))
-						//	DevCon.Warning("Waiting %d instead of %d", cpuGetCycles(VU_MTVU_BUSY), static_cast<int>(g_vif1Cycles));
-						CPU_INT(DMAC_MFIFO_VIF, std::max(static_cast<int>((g_vif1Cycles == 0 ? 4 : g_vif1Cycles)), cpuGetCycles(VU_MTVU_BUSY)));
-					}
-					else
-						CPU_INT(DMAC_MFIFO_VIF, (g_vif1Cycles == 0 ? 4 : g_vif1Cycles));
+					const u32 progress_cycles = (g_vif1Cycles == 0 ? 4 : g_vif1Cycles);
+					vif1ScheduleBridgeProgress(post_chain_bridge, progress_cycles);
 				}
 
-				vif1Regs.stat.FQC = std::min((u32)0x10, vif1ch.qwc);
+				vif1RefreshMfifoActiveTransferFqc();
 				return;
+			}
 		}
 		return;
 	}
 
-	vif1.vifstalled.enabled = false;
-	vif1.irqoffset.enabled = false;
-	vif1.done = 1;
-
-	if (spr0ch.madr == vif1ch.tadr)
-	{
-		FireMFIFOEmpty();
-	}
-
-	g_vif1Cycles = 0;
-	vif1Regs.stat.FQC = std::min((u32)0x10, vif1ch.qwc);
-	vif1ch.chcr.STR = false;
-	hwDmacIrq(DMAC_VIF1);
-	DMA_LOG("VIF1 MFIFO DMA End");
-	CPU_SET_DMASTALL(DMAC_MFIFO_VIF, false);
-	vif1Regs.stat.FQC = 0;
+	vif1FinalizeCompletedMfifoInterrupt();
 }

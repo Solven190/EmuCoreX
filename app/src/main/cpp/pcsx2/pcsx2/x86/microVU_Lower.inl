@@ -2900,34 +2900,38 @@ void _vuXGKICKTransfermVU(bool flush)
 
 		if (!flush)
 		{
-			transfersize = std::min(VU1.xgkicksizeremaining / 0x10, VU1.xgkickcyclecount / 2);
-			transfersize = std::min(transfersize, VU1.xgkickdiff / 0x10);
+			transfersize = std::min(VU1.xgkicksizeremaining, VU1.xgkickcyclecount * 8);
+			transfersize = std::min(transfersize, VU1.xgkickdiff);
 		}
 		else
 		{
-			transfersize = VU1.xgkicksizeremaining / 0x10;
-			transfersize = std::min(transfersize, VU1.xgkickdiff / 0x10);
+			transfersize = VU1.xgkicksizeremaining;
+			transfersize = std::min(transfersize, VU1.xgkickdiff);
 		}
 
-		//VUM_LOG("XGKICK Transferring %x bytes from %x size %x", transfersize * 0x10, VU1.xgkickaddr, VU1.xgkicksizeremaining);
+		//VUM_LOG("XGKICK Transferring %x bytes from %x size %x", transfersize, VU1.xgkickaddr, VU1.xgkicksizeremaining);
 
-		if (transfersize * 0x10 > VU1.xgkickdiff)
+		// Would be "nicer" to do the copy until it's all up, however this really screws up PATH3 masking stuff
+		// So lets just do it the other way :)
+		if (THREAD_VU1)
 		{
-			gifUnit.gifPath[GIF_PATH_1].CopyGSPacketData(&g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], VU1.xgkickdiff, true);
-			gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[0], (transfersize * 0x10) - VU1.xgkickdiff, true);
+			if (transfersize < VU1.xgkicksizeremaining)
+				gifUnit.gifPath[GIF_PATH_1].CopyGSPacketData(&g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], transfersize, true);
+			else
+				gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], transfersize, true);
 		}
 		else
 		{
-			gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], transfersize * 0x10, true);
+			gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], transfersize, true);
 		}
 
-		if ((VU0.VI[REG_VPU_STAT].UL & 0x100) && flush)
-			VU1.cycle += transfersize * 2;
+		if (flush)
+			VU1.cycle += transfersize / 8;
 
-		VU1.xgkickcyclecount -= transfersize * 2;
+		VU1.xgkickcyclecount -= transfersize / 8;
 
-		VU1.xgkickaddr = (VU1.xgkickaddr + (transfersize * 0x10)) & 0x3FFF;
-		VU1.xgkicksizeremaining -= (transfersize * 0x10);
+		VU1.xgkickaddr = (VU1.xgkickaddr + transfersize) & 0x3FFF;
+		VU1.xgkicksizeremaining -= transfersize;
 		VU1.xgkickdiff = 0x4000 - VU1.xgkickaddr;
 
 		if (VU1.xgkickendpacket && !VU1.xgkicksizeremaining)
@@ -2936,12 +2940,7 @@ void _vuXGKICKTransfermVU(bool flush)
 		{
 			//VUM_LOG("XGKICK transfer finished");
 			VU1.xgkickenable = false;
-			VU0.VI[REG_VPU_STAT].UL &= ~(1 << 12);
-			if (vif1Regs.stat.VGW)
-			{
-				vif1Regs.stat.VGW = false;
-				CPU_INT(DMAC_VIF1, 8);
-			}
+			// Check if VIF is waiting for the GIF to not be busy
 		}
 	}
 }
@@ -3074,9 +3073,6 @@ static void mVU_XGKICK_direct_emit_oaknut(mP)
 	{
 		oakAsm->MOV(OAK_WSCRATCH, 1);
 		oakStore32(OAK_WSCRATCH, mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[1].xgkickenable))));
-		oakLoad32(OAK_WSCRATCH, mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[0].VI[REG_VPU_STAT].UL))));
-		oakAsm->ORR(OAK_WSCRATCH, OAK_WSCRATCH, 1 << 12);
-		oakStore32(OAK_WSCRATCH, mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[0].VI[REG_VPU_STAT].UL))));
 		oakAsm->EOR(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH);
 		oakStore32(OAK_WSCRATCH, mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[1].xgkickendpacket))));
 		oakStore32(OAK_WSCRATCH, mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[1].xgkicksizeremaining))));

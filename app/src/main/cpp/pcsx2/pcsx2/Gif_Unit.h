@@ -11,6 +11,7 @@
 
 // FIXME common path ?
 #include "common/boost_spsc_queue.hpp"
+#include "common/Console.h"
 
 struct GS_Packet;
 extern void Gif_MTGS_Wait(bool isMTVU);
@@ -23,6 +24,7 @@ extern void Gif_AddGSPacketMTVU(GS_Packet& gsPack, GIF_PATH path);
 extern void Gif_AddCompletedGSPacket(GS_Packet& gsPack, GIF_PATH path);
 extern void Gif_ParsePacket(u8* data, u32 size, GIF_PATH path);
 extern void Gif_ParsePacket(GS_Packet& gsPack, GIF_PATH path);
+extern bool vif1RequestResumeFromGifPathIdle(u32 resumeCycles);
 
 struct Gif_Tag
 {
@@ -123,7 +125,7 @@ struct Gif_Tag
 		u64 REGS64;
 		std::memcpy(&REGS64, tag.REGS, sizeof(u64));
 		REGS64 &= (0xFFFFFFFFFFFFFFFFULL >> (64 - nRegs * 4));
-		uint8x16_t vregs = vreinterpretq_u8_u64(vsetq_lane_u64(REGS64, vdupq_n_u64(0), 0));
+		uint8x16_t vregs = vsetq_lane_u64(REGS64, vdupq_n_u64(0), 0);
 
 		// get upper nibbles, interleave with lower nibbles, clear upper bits from low nibbles
 		vregs = vandq_u8(vzip1q_u8(vregs, vshrq_n_u8(vregs, 4)), vdupq_n_u8(0x0F));
@@ -212,6 +214,27 @@ struct Gif_Path_MTVU
 
 struct Gif_Path
 {
+	static bool ReadQword(const u8* base, u32 size, u32 offset, u64& lo, u64& hi)
+	{
+		lo = 0;
+		hi = 0;
+		if (!base || offset + 16 > size)
+			return false;
+
+		std::memcpy(&lo, base + offset, sizeof(lo));
+		std::memcpy(&hi, base + offset + sizeof(lo), sizeof(hi));
+		return true;
+	}
+
+	static bool IsZeroQword(const u8* ptr)
+	{
+		u64 lo;
+		u64 hi;
+		std::memcpy(&lo, ptr, sizeof(lo));
+		std::memcpy(&hi, ptr + sizeof(lo), sizeof(hi));
+		return (lo == 0 && hi == 0);
+	}
+
 	std::atomic<int> readAmount; // Amount of data MTGS still needs to read
 	u8* buffer;                  // Path packet buffer
 	u32 buffSize;                // Full size of buffer
@@ -261,7 +284,7 @@ struct Gif_Path
 	}
 
 	bool isMTVU() const { return !idx && THREAD_VU1; }
-	s32 getReadAmount() { return readAmount.load(std::memory_order_acquire) + gsPack.readAmount; }
+	s32 getReadAmount() const { return readAmount.load(std::memory_order_acquire) + gsPack.readAmount; }
 	bool hasDataRemaining() const { return curOffset < curSize; }
 	bool isDone() const { return isMTVU() ? !mtvu.fakePackets : (!hasDataRemaining() && (state == GIF_PATH_IDLE || state == GIF_PATH_WAIT)); }
 
@@ -363,6 +386,21 @@ struct Gif_Path
 				}
 
 				gifTag.setTag(&buffer[curOffset], 1);
+
+				if (gifTag.tag.NLOOP == 0 && !gifTag.tag.EOP)
+				{
+					curOffset += 16;
+					gifTag.isValid = false;
+					if (gsPack.size == 0)
+						gsPack.offset = curOffset;
+					if (curOffset >= curSize)
+					{
+						if (gsPack.size == 0)
+							state = GIF_PATH_IDLE;
+						return gsPack;
+					}
+					continue;
+				}
 
 				state = (GIF_PATH_STATE)(gifTag.tag.FLG + 1);
 				GUNIT_WARN("PATH %d New tag State %d FLG %d EOP %d NLOOP %d", gifRegs.stat.APATH, gifRegs.stat.APATH, state, gifTag.tag.FLG, gifTag.tag.EOP, gifTag.tag.NLOOP);
@@ -559,11 +597,7 @@ struct Gif_Unit
 			lastTranType = GIF_TRANS_INVALID;
 		}
 		//If the VIF has paused waiting for PATH3, recheck it after the reset has occurred (Eragon)
-		if (vif1Regs.stat.VGW)
-		{
-			if (!(cpuRegs.interrupt & (1 << DMAC_VIF1)))
-				CPU_INT(DMAC_VIF1, 1);
-		}
+		vif1RequestResumeFromGifPathIdle(1);
 	}
 
 	// Resets Gif HW Regs
@@ -619,7 +653,6 @@ struct Gif_Unit
 	// If transfer cannot take place at this moment the return value is 0
 	u32 TransferGSPacketData(GIF_TRANSFER_TYPE tranType, u8* pMem, u32 size, bool aligned = false)
 	{
-
 		if (THREAD_VU1)
 		{
 			Gif_Path& path1 = gifPath[GIF_PATH_1];
@@ -698,7 +731,7 @@ struct Gif_Unit
 	// Checks path activity for the given paths
 	// Returns an int with a bit enabled if the corresponding
 	// path is not finished (needs more data/processing for an EOP)
-	__fi int checkPaths(bool p1, bool p2, bool p3, bool checkQ = false)
+	__fi int checkPaths(bool p1, bool p2, bool p3, bool checkQ = false) const
 	{
 		int ret = 0;
 		ret |= (p1 && !gifPath[GIF_PATH_1].isDone()) << 0;
@@ -707,7 +740,15 @@ struct Gif_Unit
 		return ret | (checkQ ? checkQueued(p1, p2, p3) : 0);
 	}
 
-	__fi int checkQueued(bool p1, bool p2, bool p3)
+	// VIF-side callers currently gate progress on a small set of recurring GIF
+	// readiness predicates. Keep them centralized so boundary cleanup can happen
+	// without re-deriving the same path logic in multiple modules.
+	__fi u32 GetVifPath12BusyMask() const { return checkPaths(true, true, false); }
+	__fi u32 GetVifPath13BusyMask() const { return checkPaths(true, false, true); }
+	__fi bool IsVifFlushBlocked() const { return (GetVifPath12BusyMask() != 0) || (stat.APATH != 0 && stat.APATH != 3); }
+	__fi bool IsVifFlushABlocked() const { return (checkPaths(true, true, true) != 0) || (stat.APATH != 0); }
+
+	__fi int checkQueued(bool p1, bool p2, bool p3) const
 	{
 		int ret = 0;
 		ret |= (p1 && stat.P1Q) << 0;
@@ -822,12 +863,7 @@ struct Gif_Unit
 					gifCheckPathStatus(true);
 				else
 				{
-					if (vif1Regs.stat.VGW)
-					{
-						// Check if VIF is in a cycle or is currently "idle" waiting for GIF to come back.
-						if (!(cpuRegs.interrupt & (1 << DMAC_VIF1)))
-							CPU_INT(DMAC_VIF1, 1);
-					}
+					vif1RequestResumeFromGifPathIdle(1);
 
 					stat.APATH = 0;
 					stat.OPH = 0;

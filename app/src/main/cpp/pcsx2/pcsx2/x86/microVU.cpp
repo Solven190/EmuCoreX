@@ -322,20 +322,6 @@ recMicroVU1 CpuMicroVU1;
 recMicroVU0::recMicroVU0() { m_Idx = 0; IsInterpreter = false; }
 recMicroVU1::recMicroVU1() { m_Idx = 1; IsInterpreter = false; }
 
-static bool mVU1ShouldSkipInactivePostXGKick()
-{
-	if (!THREAD_VU1)
-		return false;
-
-	if (VU0.VI[REG_VPU_STAT].UL & 0x100)
-		return false;
-
-	if (VU1.xgkickenable || VU1.xgkicksizeremaining)
-		return false;
-
-	return (VU1.xgkicklastcycle != 0 || VU1.xgkickaddr != 0);
-}
-
 void recMicroVU0::Reserve()
 {
 	mVUinit(microVU0, 0);
@@ -412,10 +398,6 @@ void recMicroVU1::Execute(u32 cycles)
 	{
 		if (!(VU0.VI[REG_VPU_STAT].UL & 0x100))
 			return;
-	}
-	else if (mVU1ShouldSkipInactivePostXGKick())
-	{
-		return;
 	}
 	VU1.VI[REG_TPC].UL <<= 3;
 	((mVUrecCall)microVU1.startFunct)(VU1.VI[REG_TPC].UL, cycles);

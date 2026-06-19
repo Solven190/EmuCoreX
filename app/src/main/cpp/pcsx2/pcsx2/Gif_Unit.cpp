@@ -38,7 +38,6 @@ bool Gif_HandlerAD(u8* pMem)
 					bpp = 8;
 					break;
 				default: // 4 is 4 bit but this is forbidden
-					Console.Error("Illegal format for GS upload: SPSM=0%02o", vif1.BITBLTBUF.SPSM);
 					break;
 			}
 			// qwords, rounded down; any extra bits are lost
@@ -50,7 +49,6 @@ bool Gif_HandlerAD(u8* pMem)
 	{ // SIGNAL
 		if (CSRreg.SIGNAL)
 		{ // Time to ignore all subsequent drawing operations.
-			GUNIT_WARN(Color_Orange, "GIF Handler - Stalling SIGNAL");
 			if (!gifUnit.gsSIGNAL.queued)
 			{
 				gifUnit.gsSIGNAL.queued = true;
@@ -61,7 +59,6 @@ bool Gif_HandlerAD(u8* pMem)
 		}
 		else
 		{
-			GUNIT_WARN("GIF Handler - SIGNAL");
 			GSSIGLBLID.SIGID = (GSSIGLBLID.SIGID & ~data[1]) | (data[0] & data[1]);
 			if (!GSIMR.SIGMSK)
 				gsIrq();
@@ -70,13 +67,11 @@ bool Gif_HandlerAD(u8* pMem)
 	}
 	else if (reg == GIF_A_D_REG_FINISH)
 	{ // FINISH
-		GUNIT_WARN("GIF Handler - FINISH");
 		gifUnit.gsFINISH.gsFINISHFired = false;
 		gifUnit.gsFINISH.gsFINISHPending = true;
 	}
 	else if (reg == GIF_A_D_REG_LABEL)
 	{ // LABEL
-		GUNIT_WARN("GIF Handler - LABEL");
 		GSSIGLBLID.LBLID = (GSSIGLBLID.LBLID & ~data[1]) | (data[0] & data[1]);
 	}
 	else if (reg >= 0x63 && reg != 0x7f)
@@ -94,7 +89,6 @@ void Gif_HandlerAD_MTVU(u8* pMem)
 
 	if (reg == GIF_A_D_REG_SIGNAL)
 	{ // SIGNAL
-		GUNIT_WARN("GIF Handler - SIGNAL");
 		if (vu1Thread.mtvuInterrupts.load(std::memory_order_acquire) & VU_Thread::InterruptFlagSignal)
 			Console.Error("GIF Handler MTVU - Double SIGNAL Not Handled");
 		vu1Thread.gsSignal.store(((u64)data[1] << 32) | data[0], std::memory_order_relaxed);
@@ -102,20 +96,16 @@ void Gif_HandlerAD_MTVU(u8* pMem)
 	}
 	else if (reg == GIF_A_D_REG_FINISH)
 	{ // FINISH
-		GUNIT_WARN("GIF Handler - FINISH");
-		u32 old = vu1Thread.mtvuInterrupts.fetch_or(VU_Thread::InterruptFlagFinish, std::memory_order_relaxed);
-		if (old & VU_Thread::InterruptFlagFinish)
-			Console.Error("GIF Handler MTVU - Double FINISH Not Handled");
+		vu1Thread.mtvuInterrupts.fetch_or(VU_Thread::InterruptFlagFinish, std::memory_order_release);
 	}
 	else if (reg == GIF_A_D_REG_LABEL)
 	{ // LABEL
-		GUNIT_WARN("GIF Handler - LABEL");
 		// It's okay to coalesce label updates
 		u32 labelData = data[0];
 		u32 labelMsk = data[1];
 		u64 existing = 0;
 		u64 wanted = ((u64)labelMsk << 32) | labelData;
-		while (!vu1Thread.gsLabel.compare_exchange_weak(existing, wanted, std::memory_order_relaxed))
+		while (!vu1Thread.gsLabel.compare_exchange_weak(existing, wanted, std::memory_order_release, std::memory_order_relaxed))
 		{
 			u32 existingData = (u32)existing;
 			u32 existingMsk = (u32)(existing >> 32);
@@ -127,7 +117,6 @@ void Gif_HandlerAD_MTVU(u8* pMem)
 	}
 	else if (reg >= 0x63 && reg != 0x7f)
 	{
-		DevCon.Warning("GIF Handler Debug - Write to unknown register! [reg=%x]", reg);
 	}
 }
 
@@ -137,37 +126,30 @@ bool Gif_HandlerAD_Debug(u8* pMem)
 	const u8 reg = pMem[8] & 0x7f;
 	if (reg == 0x50)
 	{
-		Console.Error("GIF Handler Debug - BITBLTBUF");
 		return 1;
 	}
 	else if (reg == 0x52)
 	{
-		Console.Error("GIF Handler Debug - TRXREG");
 		return 1;
 	}
 	else if (reg == 0x53)
 	{
-		Console.Error("GIF Handler Debug - TRXDIR");
 		return 1;
 	}
 	else if (reg == 0x60)
 	{
-		Console.Error("GIF Handler Debug - SIGNAL");
 		return 1;
 	}
 	else if (reg == 0x61)
 	{
-		Console.Error("GIF Handler Debug - FINISH");
 		return 1;
 	}
 	else if (reg == 0x62)
 	{
-		Console.Error("GIF Handler Debug - LABEL");
 		return 1;
 	}
 	else if (reg >= 0x63 && reg != 0x7f)
 	{
-		DevCon.Warning("GIF Handler Debug - Write to unknown register! [reg=%x]", reg);
 	}
 	return 0;
 }
@@ -235,7 +217,6 @@ bool SaveStateBase::gifFreeze()
 	{
 		if (mtvuMode != THREAD_VU1)
 		{
-			DevCon.Warning("gifUnit: MTVU Mode has switched between save/load state");
 			// ToDo: gifUnit.SwitchMTVU(mtvuMode);
 		}
 	}

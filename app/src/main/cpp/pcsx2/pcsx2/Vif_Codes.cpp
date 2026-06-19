@@ -9,6 +9,8 @@
 #include "Vif_Dma.h"
 #include "Vif_Dynarec.h"
 
+#include <atomic>
+
 #define vifOp(vifCodeName) _vifT int vifCodeName(int pass, const u32* data)
 #define pass1 if (pass == 0)
 #define pass2 if (pass == 1)
@@ -21,27 +23,51 @@
 	}
 vifOp(vifCode_Null);
 
+namespace
+{
+std::atomic<int> s_vif_bad_cmd_log_budget{16};
+}
+
+_vifT static void vifLogBadCmdContext(const vifStruct& vifX)
+{
+	const int slot = s_vif_bad_cmd_log_budget.fetch_sub(1, std::memory_order_relaxed);
+	if (slot <= 0)
+		return;
+
+	const VifBridgeStateSnapshot bridge = vifX.CaptureBridgeState(&vifXRegs);
+	const u32 gif_busy_mask = idx ? gifUnit.GetVifPath13BusyMask() : gifUnit.GetVifPath12BusyMask();
+
+	Console.Warning(
+		"Vif%d: BadCmdCtx code=%08x cmd=%02x pass=%d tag_addr=%03x tag_size=%u tag_cmd=%02x "
+		"madr=%08x qwc=%x tadr=%08x chcr=%08x stat=%08x bridge=%02x stall=%u resume=%u gifBusy=%u path3Masked=%d canPath3=%d",
+		idx, vifXRegs.code, vifX.cmd, vifX.pass, vifX.tag.addr, vifX.tag.size, vifX.tag.cmd,
+		vifXch.madr, vifXch.qwc, vifXch.tadr, vifXch.chcr._u32, vifXRegs.stat._u32,
+		bridge.flags, bridge.stall_kind, bridge.resume_offset, gif_busy_mask,
+		idx ? (gifUnit.Path3Masked() ? 1 : 0) : 0, idx ? (gifUnit.CanDoPath3() ? 1 : 0) : 1);
+}
+
 //------------------------------------------------------------------
 // Vif0/Vif1 Misc Functions
 //------------------------------------------------------------------
 
 __ri void vifExecQueue(int idx)
 {
-	if (!GetVifX.queued_program || (VU0.VI[REG_VPU_STAT].UL & 1 << (idx * 8)))
+	if (!GetVifX.HasQueuedProgram() || (VU0.VI[REG_VPU_STAT].UL & 1 << (idx * 8)))
 		return;
 
-	if (GetVifX.queued_gif_wait)
+	if (GetVifX.ShouldDelayQueuedProgramForGifPath())
 	{
 		if (gifUnit.checkPaths(1, 1, 0))
 			return;
 	}
 
-	GetVifX.queued_program = false;
+	const u32 queued_pc = GetVifX.GetQueuedProgramCounter();
+	GetVifX.ClearQueuedProgram();
 
 	if (!idx)
-		vu0ExecMicro(vif0.queued_pc);
+		vu0ExecMicro(queued_pc);
 	else
-		vu1ExecMicro(vif1.queued_pc);
+		vu1ExecMicro(queued_pc);
 
 	// Hack for Wakeboarding Unleashed, game runs a VU program in parallel with a VIF unpack list.
 	// The start of the VU program clears the VU memory, while VIF populates it from behind, so we need to get the clear out of the way.
@@ -55,6 +81,37 @@ __ri void vifExecQueue(int idx)
 static __fi EE_EventType vif1InternalIrq()
 {
 	return dmacRegs.ctrl.is_mfifo(true) ? DMAC_MFIFO_VIF : DMAC_VIF1;
+}
+
+template <int idx>
+static __fi void vifArmCommandTimingBreakStall()
+{
+	GetVifX.SetTimingBreakStall(!!vifXch.chcr.STR);
+}
+
+template <int idx>
+static __fi void vifArmCommandIrqStall()
+{
+	GetVifX.SetIrqStall(!!vifXch.chcr.STR);
+}
+
+static __fi void vif1ClearCommandGifWait()
+{
+	vif1ClearGifWait();
+}
+
+static __fi void vif1ArmCommandGifWaitStall()
+{
+	vif1ArmGifPathWait();
+}
+
+static __fi bool vif1TryPauseCommandDmaOnBridgeWait()
+{
+	if (!vif1.IsWaitingForVuOrGif(vif1Regs))
+		return false;
+
+	CPU_SET_DMASTALL(vif1InternalIrq(), true);
+	return true;
 }
 
 static __fi void vifFlush(int idx)
@@ -108,14 +165,9 @@ static __fi void vuExecMicro(int idx, u32 addr, bool requires_wait)
 		}
 	}
 
-	GetVifX.queued_program = true;
-	if (static_cast<s32>(addr) == -1)
-		GetVifX.queued_pc = addr;
-	else
-		GetVifX.queued_pc = addr & (idx ? 0x7ffu : 0x1ffu);
+	const u32 queued_pc = (static_cast<s32>(addr) == -1) ? addr : (addr & (idx ? 0x7ffu : 0x1ffu));
+	GetVifX.QueueMicroProgram(queued_pc, requires_wait);
 	GetVifX.unpackcalls = 0;
-
-	GetVifX.queued_gif_wait = requires_wait;
 
 	if (!idx || (!THREAD_VU1 && !INSTANT_VU1))
 		vifExecQueue(idx);
@@ -157,7 +209,7 @@ __fi int _vifCode_Direct(int pass, const u8* data, bool isDirectHL)
 		const uint ret = gifUnit.TransferGSPacketData(tranType, (u8*)data, size);
 
 		vif1.tag.size -= ret / 4; // Convert to u32's
-		vif1Regs.stat.VGW = false;
+		vif1ClearCommandGifWait();
 
 		if (ret & 3)
 			DevCon.Warning("Vif %s: Ret wasn't a multiple of 4!", name); // Shouldn't happen
@@ -166,18 +218,14 @@ __fi int _vifCode_Direct(int pass, const u8* data, bool isDirectHL)
 		if (size != ret)
 		{ // Stall if gif didn't process all the data (path2 queued)
 			GUNIT_WARN("Vif %s: Stall! [size=%d][ret=%d]", name, size, ret);
-			//gifUnit.PrintInfo();
-			vif1.vifstalled.enabled = VifStallEnable(vif1ch);
-			vif1.vifstalled.value = VIF_TIMING_BREAK;
-			vif1Regs.stat.VGW = true;
+			vif1ArmCommandGifWaitStall();
 			return 0;
 		}
 		if (vif1.tag.size == 0)
 		{
 			vif1.cmd = 0;
 			vif1.pass = 0;
-			vif1.vifstalled.enabled = VifStallEnable(vif1ch);
-			vif1.vifstalled.value = VIF_TIMING_BREAK;
+			vifArmCommandTimingBreakStall<idx>();
 		}
 		return ret / 4;
 	}
@@ -203,22 +251,16 @@ vifOp(vifCode_Flush)
 	pass1or2
 	{
 		const bool p1or2 = (gifRegs.stat.APATH != 0 && gifRegs.stat.APATH != 3);
-		vif1Regs.stat.VGW = false;
+		vif1ClearCommandGifWait();
 		vifFlush(idx);
 		if (gifUnit.checkPaths(1, 1, 0) || p1or2)
 		{
 			GUNIT_WARN("Vif Flush: Stall!");
-			//gifUnit.PrintInfo();
-			vif1Regs.stat.VGW = true;
-			vif1.vifstalled.enabled = VifStallEnable(vif1ch);
-			vif1.vifstalled.value = VIF_TIMING_BREAK;
+			vif1ArmCommandGifWaitStall();
 		}
 
-		if (vif1.waitforvu || vif1Regs.stat.VGW)
-		{
-			CPU_SET_DMASTALL(vif1InternalIrq(), true);
+		if (vif1TryPauseCommandDmaOnBridgeWait())
 			return 0;
-		}
 
 		vif1.cmd = 0;
 		vif1.pass = 0;
@@ -235,23 +277,17 @@ vifOp(vifCode_FlushA)
 	{
 		//Gif_Path& p3      = gifUnit.gifPath[GIF_PATH_3];
 		const u32 gifBusy = gifUnit.checkPaths(1, 1, 1) || (gifRegs.stat.APATH != 0);
-		//bool      doStall = false;
-		vif1Regs.stat.VGW = false;
+		vif1ClearCommandGifWait();
 		vifFlush(idx);
 
 		if (gifBusy)
 		{
 			GUNIT_WARN("Vif FlushA: Stall!");
-			vif1Regs.stat.VGW = true;
-			vif1.vifstalled.enabled = VifStallEnable(vif1ch);
-			vif1.vifstalled.value = VIF_TIMING_BREAK;
+			vif1ArmCommandGifWaitStall();
 		}
 
-		if (vif1.waitforvu || vif1Regs.stat.VGW)
-		{
-			CPU_SET_DMASTALL(vif1InternalIrq(), true);
+		if (vif1TryPauseCommandDmaOnBridgeWait())
 			return 0;
-		}
 
 		vif1.cmd = 0;
 		vif1.pass = 0;
@@ -268,7 +304,7 @@ vifOp(vifCode_FlushE)
 	{
 		vifFlush(idx);
 
-		if (vifX.waitforvu)
+		if (vifX.IsWaitingForVu())
 		{
 			CPU_SET_DMASTALL(idx ? vif1InternalIrq() : DMAC_VIF0, true);
 			return 0;
@@ -453,19 +489,22 @@ vifOp(vifCode_MSCALF)
 	vifStruct& vifX = GetVifX;
 	pass1or2
 	{
-		vifXRegs.stat.VGW = false;
+		if (idx)
+			vif1ClearCommandGifWait();
 		vifFlush(idx);
 		if ([[maybe_unused]] const u32 a = gifUnit.checkPaths(1, 1, 0))
 		{
 			GUNIT_WARN("Vif MSCALF: Stall! [%d,%d]", !!(a & 1), !!(a & 2));
-			vif1Regs.stat.VGW = true;
-			vifX.vifstalled.enabled = VifStallEnable(vifXch);
-			vifX.vifstalled.value = VIF_TIMING_BREAK;
+			if (idx)
+				vif1ArmCommandGifWaitStall();
+			else
+				vifArmCommandTimingBreakStall<idx>();
 		}
 
-		if (vifX.waitforvu || vif1Regs.stat.VGW)
+		if ((idx && vif1TryPauseCommandDmaOnBridgeWait()) || (!idx && vifX.IsWaitingForVu()))
 		{
-			CPU_SET_DMASTALL(idx ? vif1InternalIrq() : DMAC_VIF0, true);
+			if (!idx)
+				CPU_SET_DMASTALL(DMAC_VIF0, true);
 			return 0;
 		}
 
@@ -539,8 +578,7 @@ vifOp(vifCode_Nop)
 		{
 			if (((data[1] >> 24) & 0x7f) == 0x6 && (data[1] & 0x1)) //is mskpath3 next
 			{
-				GetVifX.vifstalled.enabled = VifStallEnable(vifXch);
-				GetVifX.vifstalled.value = VIF_TIMING_BREAK;
+				vifArmCommandTimingBreakStall<idx>();
 			}
 		}
 	}
@@ -558,9 +596,9 @@ vifOp(vifCode_Null)
 		if (!(vifXRegs.err.ME1))
 		{ // Ignore vifcode and tag mismatch error
 			Console.WriteLn("Vif%d: Unknown VifCmd! [%x]", idx, vifX.cmd);
+			vifLogBadCmdContext<idx>(vifX);
 			vifXRegs.stat.ER1 = true;
-			vifX.vifstalled.enabled = VifStallEnable(vifXch);
-			vifX.vifstalled.value = VIF_IRQ_STALL;
+			vifArmCommandIrqStall<idx>();
 			//vifX.irq++;
 		}
 		vifX.cmd = 0;
