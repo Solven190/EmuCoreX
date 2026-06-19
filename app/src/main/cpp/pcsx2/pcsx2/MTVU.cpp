@@ -19,58 +19,6 @@
 // Rounds up a size in bytes for size in u32's
 static __fi u32 size_u32(u32 x) { return (x + 3) >> 2; }
 
-namespace
-{
-struct PendingMicroClear
-{
-	static constexpr u32 MaxRanges = 8;
-
-	u32 start[MaxRanges] = {};
-	u32 end[MaxRanges] = {};
-	u32 count = 0;
-
-	void Add(u32 addr, u32 size)
-	{
-		const u32 new_start = std::min(addr, 0x4000u);
-		const u32 new_end = std::min(addr + size, 0x4000u);
-		if (new_start >= new_end)
-			return;
-
-		for (u32 i = 0; i < count; i++)
-		{
-			if (new_start <= end[i] && start[i] <= new_end)
-			{
-				start[i] = std::min(start[i], new_start);
-				end[i] = std::max(end[i], new_end);
-				return;
-			}
-		}
-
-		if (count < MaxRanges)
-		{
-			start[count] = new_start;
-			end[count] = new_end;
-			count++;
-			return;
-		}
-
-		start[0] = std::min(start[0], new_start);
-		end[0] = std::max(end[0], new_end);
-		count = 1;
-	}
-
-	void Flush()
-	{
-		if (!count)
-			return;
-
-		for (u32 i = 0; i < count; i++)
-			CpuVU1->Clear(start[i], end[i] - start[i]);
-		count = 0;
-	}
-};
-}
-
 enum MTVU_EVENT
 {
 	MTVU_VU_EXECUTE,     // Execute VU program
@@ -188,7 +136,6 @@ void VU_Thread::Reset()
 void VU_Thread::ExecuteRingBuffer()
 {
 	Threading::SetNameOfCurrentThread("MTVU");
-	PendingMicroClear pending_micro_clear;
 
 	for (;;)
 	{
@@ -213,7 +160,6 @@ void VU_Thread::ExecuteRingBuffer()
 			{
 				case MTVU_VU_EXECUTE:
 				{
-					pending_micro_clear.Flush();
 					VU1.cycle = 0;
 					s32 addr = Read();
 					vifRegs.top = Read();
@@ -259,8 +205,8 @@ void VU_Thread::ExecuteRingBuffer()
 					if (memcmp(&VU1.Micro[vu_micro_addr], src, size) != 0)
 					{
 						++microMemVersion;
+						CpuVU1->Clear(vu_micro_addr, size);
 						memcpy(&VU1.Micro[vu_micro_addr], src, size);
-						pending_micro_clear.Add(vu_micro_addr, size);
 					}
 					m_read_pos += size_u32(size);
 					break;
@@ -312,8 +258,7 @@ void VU_Thread::ExecuteRingBuffer()
 // Should only be called by ReserveSpace()
 __ri void VU_Thread::WaitOnSize(s32 size)
 {
-	u32 spin = 0;
-	for (;; ++spin)
+	for (;;)
 	{
 		s32 readPos = GetReadPos();
 		if (readPos <= m_write_pos)
@@ -331,14 +276,7 @@ __ri void VU_Thread::WaitOnSize(s32 size)
 			// will be more aggressive, and only flush the minimal size.
 			// Performance will be smoother but it will consume extra CPU cycle
 			// on the EE thread (not an issue on 4 cores).
-			if (spin < 32)
-			{
-				Threading::SpinWait();
-			}
-			else
-			{
-				std::this_thread::yield();
-			}
+			std::this_thread::yield();
 		}
 	}
 }

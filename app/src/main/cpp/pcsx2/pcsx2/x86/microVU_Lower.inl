@@ -2911,9 +2911,15 @@ void _vuXGKICKTransfermVU(bool flush)
 
 		//VUM_LOG("XGKICK Transferring %x bytes from %x size %x", transfersize * 0x10, VU1.xgkickaddr, VU1.xgkicksizeremaining);
 
-		// Match the interpreter's conservative PATH1 transfer path. Splitting partial
-		// MTVU copies here can disturb PATH3 masking and VIF/GIF wait state.
-		gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], transfersize * 0x10, true);
+		if (transfersize * 0x10 > VU1.xgkickdiff)
+		{
+			gifUnit.gifPath[GIF_PATH_1].CopyGSPacketData(&g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], VU1.xgkickdiff, true);
+			gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[0], (transfersize * 0x10) - VU1.xgkickdiff, true);
+		}
+		else
+		{
+			gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], transfersize * 0x10, true);
+		}
 
 		if ((VU0.VI[REG_VPU_STAT].UL & 0x100) && flush)
 			VU1.cycle += transfersize * 2;
