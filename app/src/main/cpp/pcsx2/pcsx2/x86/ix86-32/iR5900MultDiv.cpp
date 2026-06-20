@@ -890,28 +890,11 @@ static void recMADDExact_emit_oaknut()
 
 	_deleteEEreg(XMMGPR_LO, 1);
 	_deleteEEreg(XMMGPR_HI, 1);
-	_deleteGPRtoX86reg(_Rs_, DELETE_REG_FLUSH);
-	_deleteGPRtoX86reg(_Rt_, DELETE_REG_FLUSH);
-	_deleteGPRtoXMMreg(_Rs_, DELETE_REG_FLUSH);
-	_deleteGPRtoXMMreg(_Rt_, DELETE_REG_FLUSH);
 
 	recBeginOaknutEmit();
 
-	if (GPR_IS_CONST1(_Rs_))
-	{
-		oakAsm->MOV(oak::util::W0, g_cpuConstRegs[_Rs_].UL[0]);
-		oakLoad32(oak::util::W4, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-	}
-	else if (GPR_IS_CONST1(_Rt_))
-	{
-		oakAsm->MOV(oak::util::W0, g_cpuConstRegs[_Rt_].UL[0]);
-		oakLoad32(oak::util::W4, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UL[0]))});
-	}
-	else
-	{
-		oakLoad32(oak::util::W0, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UL[0]))});
-		oakLoad32(oak::util::W4, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-	}
+	recMoveGPRtoOakW(oak::util::W0, _Rs_);
+	recMoveGPRtoOakW(oak::util::W4, _Rt_);
 
 	if constexpr (Signed)
 		oakAsm->SMULL(oak::util::X0, oak::util::W0, oak::util::W4);
