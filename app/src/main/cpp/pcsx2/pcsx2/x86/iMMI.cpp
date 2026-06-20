@@ -116,6 +116,7 @@ static void mmiLoadWordFromXmm_emit_oaknut(oak::WReg dst, int xmmreg, int lane)
 enum class MMILogicOp
 {
 	And,
+	Nor,
 	Or,
 	Xor,
 };
@@ -139,6 +140,27 @@ static void mmiLogicalQ_emit_oaknut(MMILogicOp op, int dstreg, int sreg, int tre
 				clear_dst();
 			else
 				oakAsm->AND(oakQRegister(dstreg).B16(), oakQRegister(sreg).B16(), oakQRegister(treg).B16());
+			break;
+
+		case MMILogicOp::Nor:
+			if (rs_zero && rt_zero)
+			{
+				clear_dst();
+				oakAsm->NOT(oakQRegister(dstreg).B16(), oakQRegister(dstreg).B16());
+			}
+			else if (rs_zero)
+			{
+				oakAsm->NOT(oakQRegister(dstreg).B16(), oakQRegister(treg).B16());
+			}
+			else if (rt_zero)
+			{
+				oakAsm->NOT(oakQRegister(dstreg).B16(), oakQRegister(sreg).B16());
+			}
+			else
+			{
+				oakAsm->ORR(oakQRegister(dstreg).B16(), oakQRegister(sreg).B16(), oakQRegister(treg).B16());
+				oakAsm->NOT(oakQRegister(dstreg).B16(), oakQRegister(dstreg).B16());
+			}
 			break;
 
 		case MMILogicOp::Or:
@@ -2544,12 +2566,7 @@ void recPOR()
 
 static void recPNOR_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
-	recBeginOaknutEmit();
-	mmi3LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	mmi3LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, rt_zero);
-	oakAsm->ORR(oakQRegister(dstreg).B16(), OAK_QSCRATCH.B16(), OAK_QSCRATCH2.B16());
-	oakAsm->NOT(oakQRegister(dstreg).B16(), oakQRegister(dstreg).B16());
-	recEndOaknutEmit();
+	mmiLogicalQ_emit_oaknut(MMILogicOp::Nor, dstreg, sreg, treg, rs_zero, rt_zero);
 }
 
 void recPNOR()
