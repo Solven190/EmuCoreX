@@ -113,6 +113,59 @@ static void mmiLoadWordFromXmm_emit_oaknut(oak::WReg dst, int xmmreg, int lane)
 	}
 }
 
+enum class MMILogicOp
+{
+	And,
+	Or,
+	Xor,
+};
+
+static void mmiLogicalQ_emit_oaknut(MMILogicOp op, int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
+{
+	const auto clear_dst = [dstreg]() {
+		oakAsm->MOVI(oakQRegister(dstreg).B16(), 0);
+	};
+
+	const auto move_if_needed = [dstreg](int srcreg) {
+		if (dstreg != srcreg)
+			oakAsm->MOV(oakQRegister(dstreg).B16(), oakQRegister(srcreg).B16());
+	};
+
+	recBeginOaknutEmit();
+	switch (op)
+	{
+		case MMILogicOp::And:
+			if (rs_zero || rt_zero)
+				clear_dst();
+			else
+				oakAsm->AND(oakQRegister(dstreg).B16(), oakQRegister(sreg).B16(), oakQRegister(treg).B16());
+			break;
+
+		case MMILogicOp::Or:
+			if (rs_zero && rt_zero)
+				clear_dst();
+			else if (rs_zero)
+				move_if_needed(treg);
+			else if (rt_zero)
+				move_if_needed(sreg);
+			else
+				oakAsm->ORR(oakQRegister(dstreg).B16(), oakQRegister(sreg).B16(), oakQRegister(treg).B16());
+			break;
+
+		case MMILogicOp::Xor:
+			if (rs_zero && rt_zero)
+				clear_dst();
+			else if (rs_zero)
+				move_if_needed(treg);
+			else if (rt_zero)
+				move_if_needed(sreg);
+			else
+				oakAsm->EOR(oakQRegister(dstreg).B16(), oakQRegister(sreg).B16(), oakQRegister(treg).B16());
+			break;
+	}
+	recEndOaknutEmit();
+}
+
 static void recPMFHL_LW_emit_oaknut(int dstreg, int loreg, int hireg)
 {
 	recBeginOaknutEmit();
@@ -2115,11 +2168,7 @@ void recPMFLO()
 
 static void recPAND_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
-	recBeginOaknutEmit();
-	mmi2LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	mmi2LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, rt_zero);
-	oakAsm->AND(oakQRegister(dstreg).B16(), OAK_QSCRATCH.B16(), OAK_QSCRATCH2.B16());
-	recEndOaknutEmit();
+	mmiLogicalQ_emit_oaknut(MMILogicOp::And, dstreg, sreg, treg, rs_zero, rt_zero);
 }
 
 ////////////////////////////////////////////////////
@@ -2137,11 +2186,7 @@ void recPAND()
 
 static void recPXOR_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
-	recBeginOaknutEmit();
-	mmi2LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	mmi2LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, rt_zero);
-	oakAsm->EOR(oakQRegister(dstreg).B16(), OAK_QSCRATCH.B16(), OAK_QSCRATCH2.B16());
-	recEndOaknutEmit();
+	mmiLogicalQ_emit_oaknut(MMILogicOp::Xor, dstreg, sreg, treg, rs_zero, rt_zero);
 }
 
 ////////////////////////////////////////////////////
@@ -2482,11 +2527,7 @@ void recPCPYUD()
 
 static void recPOR_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
-	recBeginOaknutEmit();
-	mmi3LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	mmi3LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, rt_zero);
-	oakAsm->ORR(oakQRegister(dstreg).B16(), OAK_QSCRATCH.B16(), OAK_QSCRATCH2.B16());
-	recEndOaknutEmit();
+	mmiLogicalQ_emit_oaknut(MMILogicOp::Or, dstreg, sreg, treg, rs_zero, rt_zero);
 }
 
 void recPOR()
