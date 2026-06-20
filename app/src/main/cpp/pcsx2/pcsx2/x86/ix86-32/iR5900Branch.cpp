@@ -161,12 +161,13 @@ static u8* recSetBranchEQExact_emit_oaknut()
 	return recBranchPatchpoint_emit_oaknut();
 }
 
-template <bool BranchOnLessThanZero>
+template <bool BranchOnLessThanZero, bool FlushBeforeCompare = true>
 static RecBranchPatchpoint recSetBranchSignExact_emit_oaknut()
 {
 	const int regs = _checkX86reg(X86TYPE_GPR, _Rs_, MODE_READ);
 	const int regsxmm = _checkXMMreg(XMMTYPE_GPRREG, _Rs_, MODE_READ);
-	_eeFlushAllDirty();
+	if constexpr (FlushBeforeCompare)
+		_eeFlushAllDirty();
 
 	if (regsxmm >= 0)
 	{
@@ -474,7 +475,7 @@ void recBLTZAL()
 
 	const bool swap = TrySwapDelaySlot(_Rs_, 0, 0, true);
 
-	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<true>();
+	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<true, false>();
 
 	if (!swap)
 	{
@@ -522,7 +523,7 @@ void recBGEZAL()
 
 	const bool swap = TrySwapDelaySlot(_Rs_, 0, 0, true);
 
-	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<false>();
+	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<false, false>();
 
 	if (!swap)
 	{
@@ -570,7 +571,7 @@ void recBLTZALL()
 		return;
 	}
 
-	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<true>();
+	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<true, false>();
 
 	SaveBranchState();
 	recompileNextInstruction(true, false);
@@ -607,7 +608,7 @@ void recBGEZALL()
 		return;
 	}
 
-	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<false>();
+	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<false, false>();
 
 	SaveBranchState();
 	recompileNextInstruction(true, false);
@@ -730,7 +731,6 @@ void recBLTZ()
 	}
 
 	const bool swap = TrySwapDelaySlot(_Rs_, 0, 0, true);
-	_eeFlushAllDirty();
 
 	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<true>();
 
@@ -773,7 +773,6 @@ void recBGEZ()
 	}
 
 	const bool swap = TrySwapDelaySlot(_Rs_, 0, 0, true);
-	_eeFlushAllDirty();
 
 	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<false>();
 
@@ -817,8 +816,6 @@ void recBLTZL()
 		return;
 	}
 
-	_eeFlushAllDirty();
-
 	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<true>();
 
 	SaveBranchState();
@@ -850,8 +847,6 @@ void recBGEZL()
 		}
 		return;
 	}
-
-	_eeFlushAllDirty();
 
 	const RecBranchPatchpoint j32Ptr = recSetBranchSignExact_emit_oaknut<false>();
 

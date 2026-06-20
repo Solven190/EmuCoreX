@@ -548,8 +548,8 @@ void recBackpropBSC(u32 code, EEINST* prev, EEINST* pinst)
 			break;
 
 		case 31: // sq
-			recBackpropSetGPRRead(rt);
-			recBackpropSetGPRRead128(rs);
+			recBackpropSetGPRRead128(rt);
+			recBackpropSetGPRRead(rs);
 			break;
 
 		case 16:
@@ -570,7 +570,7 @@ void recBackpropBSC(u32 code, EEINST* prev, EEINST* pinst)
 
 		case 49: // lwc1
 			recBackpropSetGPRRead(rs);
-			recBackpropSetFPURead(rt);
+			recBackpropSetFPUWrite(rt);
 			break;
 
 		case 57: // swc1
@@ -580,11 +580,11 @@ void recBackpropBSC(u32 code, EEINST* prev, EEINST* pinst)
 
 		case 54: // lqc2
 			recBackpropSetVFWrite(rt);
-			recBackpropSetGPRRead128(rs);
+			recBackpropSetGPRRead(rs);
 			break;
 
 		case 62: // sqc2
-			recBackpropSetGPRRead128(rs);
+			recBackpropSetGPRRead(rs);
 			recBackpropSetVFRead(rt);
 			break;
 
@@ -754,7 +754,7 @@ void recBackpropREGIMM(u32 code, EEINST* prev, EEINST* pinst)
 		case 17: // bgezal
 		case 18: // bltzall
 		case 19: // bgezall
-			// do not write 31
+			recBackpropSetGPRWrite(31);
 			recBackpropSetGPRRead(rs);
 			break;
 

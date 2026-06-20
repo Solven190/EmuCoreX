@@ -284,7 +284,7 @@ static __fi bool FPUINST_LIVETEST(u32 reg)
 /// Returns true if the register can be renamed into another.
 static __fi bool FPUINST_RENAMETEST(u32 reg)
 {
-	return (!EEINST_USEDTEST(reg) || !EEINST_LIVETEST(reg));
+	return (!FPUINST_USEDTEST(reg) || !FPUINST_LIVETEST(reg));
 }
 
 extern _xmmregs xmmregs[iREGCNT_XMM], s_saveXMMregs[iREGCNT_XMM];

@@ -369,7 +369,7 @@ static void recDSRL32_(int info)
 	recDSRL32_emit_oaknut(info);
 }
 
-EERECOMPILE_CODEX(eeRecompileCodeRC2, DSRL32, XMMINFO_WRITED | XMMINFO_READT);
+EERECOMPILE_CODEX(eeRecompileCodeRC2, DSRL32, XMMINFO_WRITED | XMMINFO_READT | XMMINFO_64BITOP);
 
 //// DSRA32
 static void recDSRA32_const()

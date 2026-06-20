@@ -827,6 +827,8 @@ bool TrySwapDelaySlot(u32 rs, u32 rt, u32 rd, bool allow_loadstore)
 		case 57: // SWC1
 		case 54: // LQC2
 		case 62: // SQC2
+			if (!allow_loadstore)
+				goto is_unsafe;
 			break;
 
 		case 0: // SPECIAL
@@ -864,8 +866,8 @@ bool TrySwapDelaySlot(u32 rs, u32 rt, u32 rd, bool allow_loadstore)
 				case 58: // DSRL
 				case 59: // DSRA
 				case 60: // DSLL32
-				case 62: // DSRL31
-				case 64: // DSRA32
+				case 62: // DSRL32
+				case 63: // DSRA32
 				{
 					if ((rs != 0 && rs == opcode_rd) || (rt != 0 && rt == opcode_rd) || (rd != 0 && (rd == opcode_rs || rd == opcode_rt)))
 						goto is_unsafe;
@@ -1014,6 +1016,7 @@ void SaveBranchState()
 	s_saveFlushedConstReg = g_cpuFlushedConstReg;
 	s_psaveInstInfo = g_pCurInstInfo;
 
+	memcpy(s_saveX86regs, x86regs, sizeof(x86regs));
 	memcpy(s_saveXMMregs, xmmregs, sizeof(xmmregs));
 }
 
@@ -1026,6 +1029,7 @@ void LoadBranchState()
 	g_cpuFlushedConstReg = s_saveFlushedConstReg;
 	g_pCurInstInfo = s_psaveInstInfo;
 
+	memcpy(x86regs, s_saveX86regs, sizeof(x86regs));
 	memcpy(xmmregs, s_saveXMMregs, sizeof(xmmregs));
 }
 

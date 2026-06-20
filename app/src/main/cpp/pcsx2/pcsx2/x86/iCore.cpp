@@ -693,7 +693,7 @@ void _clearNeededXMMregs()
 void _deleteGPRtoX86reg(int reg, int flush)
 {
     u32 i;
-	for (i = 0; i < iREGCNT_XMM; ++i)
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (x86regs[i].inuse && x86regs[i].type == X86TYPE_GPR && x86regs[i].reg == reg)
 		{

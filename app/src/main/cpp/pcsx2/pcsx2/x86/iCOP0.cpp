@@ -30,6 +30,8 @@ namespace COP0 {
 
 static void recBC0BranchTest_emit_oaknut()
 {
+	// Do not remove this as a simple performance cleanup. On ARM64 this currently
+	// acts as a required EE state barrier; removing it caused startup black screens.
 	_eeFlushAllDirty();
 
 	// COP0 branch conditionals are based on the following equation:

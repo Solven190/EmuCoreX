@@ -806,6 +806,8 @@ FPURECOMPILE_CONSTCODE(ADDA_S, XMMINFO_WRITEACC | XMMINFO_READS | XMMINFO_READT)
 
 static void recBC1BranchTest_emit_oaknut()
 {
+	// Do not remove this as a simple performance cleanup. On ARM64 this currently
+	// acts as a required EE state barrier; removing it caused startup black screens.
 	_eeFlushAllDirty();
 
 	// COP1 branch conditionals are based on the following equation:
@@ -830,38 +832,54 @@ static u32 recBC1BranchTarget(u32 code, u32 branch_pc)
 
 static bool recBC1TDelayChainTarget(u32* branch_to)
 {
+	constexpr int SCAN_LIMIT = 8;
 	u32 scan_pc = pc;
+	u32 candidate_branch_to = *branch_to;
 	bool found = false;
 
-	for (;;)
+	for (int depth = 0; depth < SCAN_LIMIT; depth++)
 	{
 		const u32 code = *reinterpret_cast<u32*>(PSM(scan_pc));
 		if (!recBC1IsBranch(code, 1))
 			break;
 
-		*branch_to = recBC1BranchTarget(code, scan_pc);
+		candidate_branch_to = recBC1BranchTarget(code, scan_pc);
 		scan_pc += 4;
 		found = true;
 	}
+
+	if (recBC1IsBranch(*reinterpret_cast<u32*>(PSM(scan_pc)), 1))
+		return false;
+
+	if (found)
+		*branch_to = candidate_branch_to;
 
 	return found;
 }
 
 static bool recBC1TLDelayChainTarget(u32* branch_to)
 {
+	constexpr int SCAN_LIMIT = 8;
 	u32 scan_pc = pc;
+	u32 candidate_branch_to = *branch_to;
 	bool found = false;
 
-	for (;;)
+	for (int depth = 0; depth < SCAN_LIMIT; depth++)
 	{
 		const u32 code = *reinterpret_cast<u32*>(PSM(scan_pc));
 		if (!recBC1IsBranch(code, 3))
 			break;
 
-		*branch_to = recBC1BranchTarget(code, scan_pc);
+		candidate_branch_to = recBC1BranchTarget(code, scan_pc);
 		scan_pc += 4;
 		found = true;
 	}
+
+	if (recBC1IsBranch(*reinterpret_cast<u32*>(PSM(scan_pc)), 3))
+		return false;
+
+	if (found)
+		*branch_to = candidate_branch_to;
 
 	return found;
 }
