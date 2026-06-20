@@ -29,6 +29,7 @@
 #include <ctime>
 #include <iomanip>
 #include <limits>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -46,6 +47,19 @@ namespace
 	static std::atomic<bool> s_active{false};
 	static std::chrono::steady_clock::time_point s_start_time;
 	static u64 s_start_frame = 0;
+	static std::mutex s_compile_mutex;
+
+	struct CompileEvent
+	{
+		int type = 0;
+		u32 startpc = 0;
+		u32 guest_size = 0;
+		u32 host_size = 0;
+		u64 frame = 0;
+		double seconds = 0.0;
+	};
+
+	static std::vector<CompileEvent> s_compile_events;
 
 	struct CpuTotals
 	{
@@ -109,6 +123,36 @@ namespace
 		std::vector<std::string> disassembly;
 	};
 
+	struct CompileCpuTotals
+	{
+		u64 blocks = 0;
+		u64 guest_slots = 0;
+		u64 host_bytes = 0;
+		u64 frames = 0;
+		u64 peak_frame_blocks = 0;
+		u64 peak_frame_host_bytes = 0;
+		u64 peak_frame = 0;
+	};
+
+	struct CompilePcAggregate
+	{
+		int type = 0;
+		u32 pc = 0;
+		u64 blocks = 0;
+		u64 guest_slots = 0;
+		u64 host_bytes = 0;
+		u64 first_frame = std::numeric_limits<u64>::max();
+		u64 last_frame = 0;
+	};
+
+	struct CompileFrameAggregate
+	{
+		u64 frame = 0;
+		u64 blocks = 0;
+		u64 host_bytes = 0;
+		std::array<u64, 4> cpu_blocks = {};
+	};
+
 	const char* CpuName(int type)
 	{
 		switch (type)
@@ -129,6 +173,14 @@ namespace
 	u32 GuestBytesPerSlot(int type)
 	{
 		return (type == 2 || type == 3) ? 8 : 4;
+	}
+
+	std::string FormatPc(int type, u32 pc)
+	{
+		std::ostringstream out;
+		out << "0x" << std::hex << std::setw((type == 2 || type == 3) ? 8 : 8) << std::setfill('0') << pc
+			<< std::dec << std::setfill(' ');
+		return out.str();
 	}
 
 	bool ReadEEMemory(u32 address, void* dest, u32 size)
@@ -644,6 +696,134 @@ namespace
 			<< PerformanceMetrics::GetGSThreadUsage() << "% / "
 			<< PerformanceMetrics::GetVUThreadUsage() << "%\n";
 		out << "Compiled profile records: " << profiles.size() << "\n\n";
+	}
+
+	void AppendCompilationHotspots(std::ostringstream& out)
+	{
+		std::vector<CompileEvent> events;
+		{
+			std::lock_guard<std::mutex> lock(s_compile_mutex);
+			events = s_compile_events;
+		}
+
+		out << "Compilation Hotspots\n";
+		out << "--------------------\n";
+		if (events.empty())
+		{
+			out << "No compile events captured.\n\n";
+			return;
+		}
+
+		std::array<CompileCpuTotals, 4> cpu_totals = {};
+		std::unordered_map<u64, CompilePcAggregate> pc_map;
+		std::unordered_map<u64, CompileFrameAggregate> frame_map;
+
+		for (const CompileEvent& event : events)
+		{
+			const int type = (event.type >= 0 && event.type < 4) ? event.type : 0;
+			CompileCpuTotals& cpu = cpu_totals[type];
+			cpu.blocks++;
+			cpu.guest_slots += event.guest_size;
+			cpu.host_bytes += event.host_size;
+
+			const u64 pc_key = (static_cast<u64>(type) << 32) | event.startpc;
+			CompilePcAggregate& pc = pc_map[pc_key];
+			pc.type = type;
+			pc.pc = event.startpc;
+			pc.blocks++;
+			pc.guest_slots += event.guest_size;
+			pc.host_bytes += event.host_size;
+			pc.first_frame = std::min(pc.first_frame, event.frame);
+			pc.last_frame = std::max(pc.last_frame, event.frame);
+
+			CompileFrameAggregate& frame = frame_map[event.frame];
+			frame.frame = event.frame;
+			frame.blocks++;
+			frame.host_bytes += event.host_size;
+			frame.cpu_blocks[type]++;
+		}
+
+		for (const auto& [_, frame] : frame_map)
+		{
+			for (size_t type = 0; type < cpu_totals.size(); type++)
+			{
+				if (frame.cpu_blocks[type] == 0)
+					continue;
+				cpu_totals[type].frames++;
+				if (frame.cpu_blocks[type] > cpu_totals[type].peak_frame_blocks)
+				{
+					cpu_totals[type].peak_frame_blocks = frame.cpu_blocks[type];
+					cpu_totals[type].peak_frame_host_bytes = frame.host_bytes;
+					cpu_totals[type].peak_frame = frame.frame;
+				}
+			}
+		}
+
+		out << "CPU   Blocks      Frames      GuestSlots      HostBytes       PeakFrame  PeakBlocks  PeakHostBytes\n";
+		for (size_t type = 0; type < cpu_totals.size(); type++)
+		{
+			const CompileCpuTotals& cpu = cpu_totals[type];
+			out << std::left << std::setw(5) << CpuName(static_cast<int>(type))
+				<< std::right << std::setw(12) << static_cast<unsigned long long>(cpu.blocks)
+				<< std::setw(12) << static_cast<unsigned long long>(cpu.frames)
+				<< std::setw(16) << static_cast<unsigned long long>(cpu.guest_slots)
+				<< std::setw(16) << static_cast<unsigned long long>(cpu.host_bytes)
+				<< std::setw(11) << static_cast<unsigned long long>(cpu.peak_frame)
+				<< std::setw(12) << static_cast<unsigned long long>(cpu.peak_frame_blocks)
+				<< std::setw(16) << static_cast<unsigned long long>(cpu.peak_frame_host_bytes)
+				<< "\n";
+		}
+
+		std::vector<CompileFrameAggregate> frames;
+		frames.reserve(frame_map.size());
+		for (const auto& [_, frame] : frame_map)
+			frames.push_back(frame);
+		std::sort(frames.begin(), frames.end(), [](const CompileFrameAggregate& a, const CompileFrameAggregate& b) {
+			if (a.blocks != b.blocks)
+				return a.blocks > b.blocks;
+			return a.host_bytes > b.host_bytes;
+		});
+
+		out << "\nTop Compile Burst Frames\n";
+		out << "Frame      Blocks      HostBytes       EE     IOP    VU0    VU1\n";
+		for (size_t i = 0; i < std::min<size_t>(frames.size(), 24); i++)
+		{
+			const CompileFrameAggregate& frame = frames[i];
+			out << std::setw(10) << static_cast<unsigned long long>(frame.frame)
+				<< std::setw(12) << static_cast<unsigned long long>(frame.blocks)
+				<< std::setw(16) << static_cast<unsigned long long>(frame.host_bytes)
+				<< std::setw(7) << static_cast<unsigned long long>(frame.cpu_blocks[0])
+				<< std::setw(7) << static_cast<unsigned long long>(frame.cpu_blocks[1])
+				<< std::setw(7) << static_cast<unsigned long long>(frame.cpu_blocks[2])
+				<< std::setw(7) << static_cast<unsigned long long>(frame.cpu_blocks[3])
+				<< "\n";
+		}
+
+		std::vector<CompilePcAggregate> pcs;
+		pcs.reserve(pc_map.size());
+		for (const auto& [_, pc] : pc_map)
+			pcs.push_back(pc);
+		std::sort(pcs.begin(), pcs.end(), [](const CompilePcAggregate& a, const CompilePcAggregate& b) {
+			if (a.blocks != b.blocks)
+				return a.blocks > b.blocks;
+			return a.host_bytes > b.host_bytes;
+		});
+
+		out << "\nTop Compile PCs\n";
+		out << "CPU   PC          Blocks      GuestSlots      HostBytes       FirstFrame LastFrame\n";
+		for (size_t i = 0; i < std::min<size_t>(pcs.size(), 80); i++)
+		{
+			const CompilePcAggregate& pc = pcs[i];
+			out << std::left << std::setw(5) << CpuName(pc.type)
+				<< std::right << FormatPc(pc.type, pc.pc) << "  "
+				<< std::setw(10) << static_cast<unsigned long long>(pc.blocks)
+				<< std::setw(16) << static_cast<unsigned long long>(pc.guest_slots)
+				<< std::setw(16) << static_cast<unsigned long long>(pc.host_bytes)
+				<< std::setw(11) << static_cast<unsigned long long>(pc.first_frame)
+				<< std::setw(10) << static_cast<unsigned long long>(pc.last_frame)
+				<< "\n";
+		}
+		out << "\n";
 	}
 
 	BlockAnalysis AnalyzeBlock(
@@ -1162,6 +1342,7 @@ namespace
 
 		std::ostringstream report;
 		AppendHeader(report, profiles);
+		AppendCompilationHotspots(report);
 		AppendFindings(report, totals, pc_aggregates, normalized_aggregates, sorted_opcode_stats);
 		AppendCpuSummary(report, totals);
 		AppendHotStats(report, "Opcode Hotspots", sorted_opcode_stats, 180);
@@ -1204,6 +1385,23 @@ bool IsActive()
 	return s_active.load(std::memory_order_relaxed);
 }
 
+void RecordBlockCompile(int type, u32 startpc, u32 guest_size, u32 host_size)
+{
+	if (!IsActive())
+		return;
+
+	CompileEvent event;
+	event.type = type;
+	event.startpc = startpc;
+	event.guest_size = guest_size;
+	event.host_size = host_size;
+	event.frame = PerformanceMetrics::GetFrameNumber() - s_start_frame;
+	event.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - s_start_time).count();
+
+	std::lock_guard<std::mutex> lock(s_compile_mutex);
+	s_compile_events.push_back(event);
+}
+
 void EmitBlockIncrement(void* counter_ptr)
 {
 	if (!oakAsm)
@@ -1222,6 +1420,10 @@ void Start()
 
 	s_start_time = std::chrono::steady_clock::now();
 	s_start_frame = PerformanceMetrics::GetFrameNumber();
+	{
+		std::lock_guard<std::mutex> lock(s_compile_mutex);
+		s_compile_events.clear();
+	}
 
 	Host::RunOnCPUThread([]() {
 		if (THREAD_VU1)

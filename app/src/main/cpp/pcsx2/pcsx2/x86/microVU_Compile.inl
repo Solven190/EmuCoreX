@@ -1123,6 +1123,8 @@ perf_and_return:
 	{
 		compiledBlock->host_size = (u32)(oakGetCurrentCodePointer() - thisPtr);
 	}
+	if (compiledBlock)
+		JitProfiler::RecordBlockCompile(isVU1 ? 3 : 2, startPC, compiledBlock->guest_size, compiledBlock->host_size);
 
 	if (startedOakBlock)
 		mVU.prog.x86ptr = oakEndBlock();

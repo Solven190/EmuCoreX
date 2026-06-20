@@ -448,16 +448,54 @@ static void vtlbFinishReadHandlerQ128_emit_oaknut(oak::QReg dst)
 	oakAsm->MOV(dst.B16(), oak::util::Q0.B16());
 }
 
-static void vtlbReadIntcStatGpr_emit_oaknut(oak::XReg dst, bool sign)
+static bool vtlbCanDirectReadConstHw32(u32 paddr)
 {
-	oakMoveAddressToReg(oak::util::X16, &psHu32(INTC_STAT));
+	if (paddr == INTC_STAT)
+		return !EmuConfig.Speedhacks.IntcStat;
+
+	return paddr == INTC_MASK || paddr == DMAC_STAT || paddr == DMAC_PCR;
+}
+
+static void vtlbReadHw32Gpr_emit_oaknut(oak::XReg dst, u32 paddr, bool sign)
+{
+	oakMoveAddressToReg(oak::util::X16, &psHu32(paddr));
 	sign ? oakAsm->LDRSW(dst, oak::util::X16) : oakAsm->LDR(dst.toW(), oak::util::X16);
 }
 
-static void vtlbReadIntcStatF32_emit_oaknut(oak::SReg dst)
+static void vtlbReadHw32F32_emit_oaknut(oak::SReg dst, u32 paddr)
 {
-	oakMoveAddressToReg(oak::util::X16, &psHu32(INTC_STAT));
+	oakMoveAddressToReg(oak::util::X16, &psHu32(paddr));
 	oakAsm->LDR(dst, oak::util::X16);
+}
+
+static bool vtlbCanDirectWriteConstHw32(u32 paddr)
+{
+	return paddr == INTC_STAT;
+}
+
+static void vtlbWriteHw32Gpr_emit_oaknut(u32 paddr, oak::XReg value)
+{
+	oakMoveAddressToReg(oak::util::X16, &psHu32(paddr));
+
+	if (paddr == INTC_STAT)
+	{
+		oakAsm->LDR(oak::util::W17, oak::util::X16);
+		oakAsm->BIC(oak::util::W17, oak::util::W17, value.toW());
+		oakAsm->STR(oak::util::W17, oak::util::X16);
+	}
+}
+
+static void vtlbWriteDmacStatGpr_emit_oaknut(oak::XReg value)
+{
+	oakMoveAddressToReg(oak::util::X16, &psHu16(DMAC_STAT));
+	oakAsm->LDRH(oak::util::W17, oak::util::X16);
+	oakAsm->BIC(oak::util::W17, oak::util::W17, value.toW());
+	oakAsm->STRH(oak::util::W17, oak::util::X16);
+
+	oakMoveAddressToReg(oak::util::X16, &psHu16(DMAC_STAT + 2));
+	oakAsm->LDRH(oak::util::W17, oak::util::X16);
+	oakAsm->EOR(oak::util::W17, oak::util::W17, value.toW(), oak::LogShift::LSR, 16);
+	oakAsm->STRH(oak::util::W17, oak::util::X16);
 }
 
 static void vtlbCallConstWriteHandlerGpr_emit_oaknut(u32 paddr, oak::XReg value, const void* handler)
@@ -798,12 +836,16 @@ int vtlb_DynGenReadNonQuad_Const(u32 bits, bool sign, bool xmm, u32 addr_const, 
 
             recBeginOaknutEmit();
             const oak::XReg regX = oakXRegister(x86_dest_reg);
-            if (vtlbCanUseConstFastmem() && bits != 8)
+            if (vtlbCanUseConstFastmem())
             {
                 vtlbConstFastmemAddress_emit_oaknut(addr_const);
                 codeStart = oakGetCurrentCodePointer();
                 switch (bits)
                 {
+                    case 8:
+                        sign ? vtlbFastmemReadS8_emit_oaknut(regX, oak::util::X1) : vtlbFastmemReadU8_emit_oaknut(regX, oak::util::X1);
+                        break;
+
                     case 16:
                         sign ? vtlbFastmemReadS16_emit_oaknut(regX, oak::util::X1) : vtlbFastmemReadU16_emit_oaknut(regX, oak::util::X1);
                         break;
@@ -875,21 +917,21 @@ int vtlb_DynGenReadNonQuad_Const(u32 bits, bool sign, bool xmm, u32 addr_const, 
             case 64: szidx = 3; break;
         }
 
-        // Shortcut for the INTC_STAT register, which many games like to spin on heavily.
-        if ((bits == 32) && !EmuConfig.Speedhacks.IntcStat && (paddr == INTC_STAT))
+        // Shortcut for heavily polled EE interrupt registers.
+        if ((bits == 32) && vtlbCanDirectReadConstHw32(paddr))
         {
 //			x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(eax), eax.GetId());
             x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(EE_HOST_RAX), EE_HOST_RAX);
             if (!xmm)
             {
                 recBeginOaknutEmit();
-                vtlbReadIntcStatGpr_emit_oaknut(oakXRegister(x86_dest_reg), sign);
+                vtlbReadHw32Gpr_emit_oaknut(oakXRegister(x86_dest_reg), paddr, sign);
                 recEndOaknutEmit();
             }
             else
             {
                 recBeginOaknutEmit();
-                vtlbReadIntcStatF32_emit_oaknut(oakSRegister(x86_dest_reg));
+                vtlbReadHw32F32_emit_oaknut(oakSRegister(x86_dest_reg), paddr);
                 recEndOaknutEmit();
             }
         }
@@ -1145,12 +1187,16 @@ void vtlb_DynGenWrite_Const(u32 bits, bool xmm, u32 addr_const, int value_reg)
 		{
             recBeginOaknutEmit();
             oak::XReg regX = oakXRegister(value_reg);
-            if (vtlbCanUseConstFastmem() && bits != 8 && value_reg != EE_HOST_RCX)
+            if (vtlbCanUseConstFastmem() && value_reg != EE_HOST_RCX)
 			{
                 vtlbConstFastmemAddress_emit_oaknut(addr_const);
                 codeStart = oakGetCurrentCodePointer();
                 switch (bits)
                 {
+                    case 8:
+                        vtlbFastmemWriteU8_emit_oaknut(regX, oak::util::X1);
+                        break;
+
                     case 16:
                         vtlbFastmemWriteU16_emit_oaknut(regX, oak::util::X1);
                         break;
@@ -1257,10 +1303,29 @@ void vtlb_DynGenWrite_Const(u32 bits, bool xmm, u32 addr_const, int value_reg)
 				break;
 		}
 
+		if ((bits == 32) && !xmm && vtlbCanDirectWriteConstHw32(paddr))
+		{
+			recBeginOaknutEmit();
+			vtlbWriteHw32Gpr_emit_oaknut(paddr, oakXRegister(value_reg));
+			recEndOaknutEmit();
+			return;
+		}
+
 		const u32 guest_pc = GetCurrentGuestPC();
 		iFlushCall(FLUSH_FULLVTLB);
 
         _freeX86reg(EE_HOST_RCX);
+
+		if ((bits == 32) && !xmm && paddr == DMAC_STAT)
+		{
+			_freeX86reg(EE_HOST_RDX);
+			recBeginOaknutEmit();
+			vtlbWriteGuestPC_emit_oaknut(guest_pc);
+			vtlbWriteDmacStatGpr_emit_oaknut(oakXRegister(value_reg));
+			oakEmitCall(reinterpret_cast<const void*>(cpuTestDMACInts));
+			recEndOaknutEmit();
+			return;
+		}
 
 		if (bits == 128)
 		{

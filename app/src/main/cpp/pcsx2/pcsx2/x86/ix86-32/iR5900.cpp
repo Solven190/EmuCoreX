@@ -2625,6 +2625,7 @@ StartRecomp:
 	}
 #endif
 	Perf::ee.RegisterPC((void*)s_pCurBlockEx->fnptr, s_pCurBlockEx->x86size, s_pCurBlockEx->startpc);
+	JitProfiler::RecordBlockCompile(0, s_pCurBlockEx->startpc, s_pCurBlockEx->size, s_pCurBlockEx->x86size);
 
 	recPtr = oakEndBlock();
 

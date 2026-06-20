@@ -21,4 +21,5 @@ namespace JitProfiler
 	void Start();
 	void Stop();
 	void EmitBlockIncrement(void* counter_ptr);
+	void RecordBlockCompile(int type, u32 startpc, u32 guest_size, u32 host_size);
 }

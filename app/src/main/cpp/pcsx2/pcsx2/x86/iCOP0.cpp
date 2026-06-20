@@ -268,6 +268,28 @@ void recTLBWR()
 	g_branch = 2;
 }
 
+static void recSetNextEventDelta4_inline_oaknut()
+{
+	oak::Label done;
+
+	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
+	oakLoad32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	oakAsm->SUB(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
+	oakAsm->CMP(OAK_WSCRATCH2, 4);
+	oakAsm->B(oak::Cond::LE, done);
+	oakAsm->ADD(OAK_WSCRATCH, OAK_WSCRATCH, 4);
+	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+
+	oakAsm->l(done);
+}
+
+static void recSetNextEventDelta4_emit_oaknut()
+{
+	recBeginOaknutEmit();
+	recSetNextEventDelta4_inline_oaknut();
+	recEndOaknutEmit();
+}
+
 static void recERET_emit_oaknut()
 {
 	recBeginOaknutEmit();
@@ -295,9 +317,7 @@ static void recERET_emit_oaknut()
 	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.CP0.n.Status))});
 
 	oakAsm->l(done);
-	oakEmitCall(reinterpret_cast<void*>(cpuUpdateOperationMode));
-	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	recSetNextEventDelta4_inline_oaknut();
 	recEndOaknutEmit();
 }
 
@@ -328,10 +348,9 @@ static void recEI_emit_oaknut()
 	oakAsm->MOV(OAK_WSCRATCH2, 0x10000);
 	oakAsm->ORR(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
 	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.CP0.n.Status))});
+	recSetNextEventDelta4_inline_oaknut();
 
 	oakAsm->l(done);
-	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
 	recEndOaknutEmit();
 }
 
@@ -532,26 +551,41 @@ static void recMTC0StoreGPR32_emit_oaknut(s64 offset, int fromgpr)
 	recEndOaknutEmit();
 }
 
-static void recMTC0SpecialRegister_emit_oaknut(int rd, int rt)
+static void recMTC0Status_emit_oaknut(int rt)
 {
+	oak::Label check_pccr;
+	oak::Label fast_path;
+	oak::Label slow_path;
+	oak::Label done;
+
+	iFlushCall(FLUSH_INTERPRETER);
+	recMTC0UpdateCycle_emit_oaknut();
+	recCOP0MoveGPRToArg1_emit_oaknut(rt);
+
 	recBeginOaknutEmit();
+	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.CP0.n.Status))});
+	oakAsm->TBZ(OAK_WSCRATCH, 2, check_pccr);
+
+	oakAsm->l(fast_path);
+	oakStore32(OAK_WARG1, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.CP0.n.Status))});
 	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.lastPERFCycle[0]))});
+	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.lastPERFCycle[1]))});
+	recEndOaknutEmit();
+	recSetNextEventDelta4_emit_oaknut();
+	recBeginOaknutEmit();
+	oakAsm->B(done);
 
-	if (rt == 0)
-	{
-		oakAsm->MOV(OAK_WSCRATCH, 0);
-	}
-	else if (GPR_IS_CONST1(rt))
-	{
-		oakAsm->MOV(OAK_WSCRATCH, g_cpuConstRegs[rt].UL[0]);
-	}
-	else
-	{
-		oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0].UL[0]) + rt * sizeof(GPR_reg))});
-	}
+	oakAsm->l(check_pccr);
+	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.PERF.n.pccr))});
+	oakAsm->TBNZ(OAK_WSCRATCH, 31, slow_path);
+	oakAsm->B(fast_path);
 
-	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.CP0.r[0]) + rd * sizeof(cpuRegs.CP0.r[0]))});
+	oakAsm->l(slow_path);
+	recEndOaknutEmit();
+	recCOP0Call_emit_oaknut(reinterpret_cast<void*>(WriteCP0Status));
+	recBeginOaknutEmit();
+	oakAsm->l(done);
 	recEndOaknutEmit();
 }
 
@@ -612,23 +646,12 @@ void recMFC0()
 
 void recMTC0()
 {
-	if (_Rd_ == 2 || _Rd_ == 3 || _Rd_ == 5 || _Rd_ == 10 || _Rd_ == 14 || _Rd_ == 30)
-	{
-		iFlushCall(FLUSH_INTERPRETER);
-		recMTC0SpecialRegister_emit_oaknut(_Rd_, _Rt_);
-		g_branch = 2;
-		return;
-	}
-
 	if (GPR_IS_CONST1(_Rt_))
 	{
 		switch (_Rd_)
 		{
 			case 12:
-				iFlushCall(FLUSH_INTERPRETER);
-				recMTC0UpdateCycle_emit_oaknut();
-				recCOP0MoveConstToArg1_emit_oaknut(g_cpuConstRegs[_Rt_].UL[0]);
-				recCOP0Call_emit_oaknut(reinterpret_cast<void*>(WriteCP0Status));
+				recMTC0Status_emit_oaknut(_Rt_);
 				break;
 
 			case 16:
@@ -679,10 +702,7 @@ void recMTC0()
 		switch (_Rd_)
 		{
 			case 12:
-				iFlushCall(FLUSH_INTERPRETER);
-				recMTC0UpdateCycle_emit_oaknut();
-				recCOP0MoveGPRToArg1_emit_oaknut(_Rt_);
-				recCOP0Call_emit_oaknut(reinterpret_cast<void*>(WriteCP0Status));
+				recMTC0Status_emit_oaknut(_Rt_);
 				break;
 
 			case 16:

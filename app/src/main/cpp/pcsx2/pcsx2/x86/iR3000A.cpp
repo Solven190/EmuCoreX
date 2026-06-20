@@ -1722,6 +1722,7 @@ StartRecomp:
 	s_pCurBlockEx->x86size = oakGetCurrentCodePointer() - recPtr;
 
 	Perf::iop.RegisterPC((void*)s_pCurBlockEx->fnptr, s_pCurBlockEx->x86size, s_pCurBlockEx->startpc);
+	JitProfiler::RecordBlockCompile(1, s_pCurBlockEx->startpc, s_pCurBlockEx->size, s_pCurBlockEx->x86size);
 
 	recPtr = oakEndBlock();
 
