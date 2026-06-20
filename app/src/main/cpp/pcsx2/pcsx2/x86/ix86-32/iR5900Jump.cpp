@@ -75,6 +75,28 @@ static void recStoreGPRLowToPcWriteback_emit_oaknut(int fromgpr)
 	recEndOaknutEmit();
 }
 
+static int recMoveGPRLowToPcWritebackReg(int fromgpr)
+{
+	const int wbreg = _allocX86reg(X86TYPE_PCWRITEBACK, 0, MODE_WRITE | MODE_CALLEESAVED);
+	recMoveGPRLowToOakW(oakWRegister(wbreg), fromgpr);
+	return wbreg;
+}
+
+static void recMovePcWritebackToRAXAfterDelaySlot(int wbreg)
+{
+	recBeginOaknutEmit();
+	if (wbreg >= 0 && x86regs[wbreg].inuse && x86regs[wbreg].type == X86TYPE_PCWRITEBACK)
+	{
+		oakAsm->MOV(oakWRegister(EE_HOST_RAX), oakWRegister(wbreg));
+		x86regs[wbreg].inuse = 0;
+	}
+	else
+	{
+		oakLoad32(oakWRegister(EE_HOST_RAX), {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pcWriteback))});
+	}
+	recEndOaknutEmit();
+}
+
 static void recStoreJumpLink_emit_oaknut(int gpr, u32 link)
 {
 	recBeginOaknutEmit();
@@ -139,9 +161,13 @@ void recJAL()
 static void recJR_emit_oaknut()
 {
 	const bool swap = EmuConfig.Gamefixes.GoemonTlbHack ? false : TrySwapDelaySlot(_Rs_, 0, 0, true);
+	int wbreg = -1;
 	if (!swap)
 	{
-		recStoreGPRLowToPcWriteback_emit_oaknut(_Rs_);
+		if (EmuConfig.Gamefixes.GoemonTlbHack)
+			recStoreGPRLowToPcWriteback_emit_oaknut(_Rs_);
+		else
+			wbreg = recMoveGPRLowToPcWritebackReg(_Rs_);
 
 		if (EmuConfig.Gamefixes.GoemonTlbHack)
 		{
@@ -155,9 +181,7 @@ static void recJR_emit_oaknut()
 		}
 
 		recompileNextInstruction(true, false);
-		recBeginOaknutEmit();
-		oakLoad32(oakWRegister(EE_HOST_RAX), {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pcWriteback))});
-		recEndOaknutEmit();
+		recMovePcWritebackToRAXAfterDelaySlot(wbreg);
 	}
 	else
 	{
@@ -188,6 +212,7 @@ static void recJALR_emit_oaknut()
 {
 	const u32 newpc = pc + 4;
 	const bool swap = (EmuConfig.Gamefixes.GoemonTlbHack || _Rd_ == _Rs_) ? false : TrySwapDelaySlot(_Rs_, 0, _Rd_, true);
+	int wbreg = -1;
 
 	// uncomment when there are NO instructions that need to call interpreter
 	//	int mmreg;
@@ -205,7 +230,10 @@ static void recJALR_emit_oaknut()
 
 	if (!swap)
 	{
-		recStoreGPRLowToPcWriteback_emit_oaknut(_Rs_);
+		if (EmuConfig.Gamefixes.GoemonTlbHack)
+			recStoreGPRLowToPcWriteback_emit_oaknut(_Rs_);
+		else
+			wbreg = recMoveGPRLowToPcWritebackReg(_Rs_);
 
 		if (EmuConfig.Gamefixes.GoemonTlbHack)
 		{
@@ -236,9 +264,7 @@ static void recJALR_emit_oaknut()
 	if (!swap)
 	{
 		recompileNextInstruction(true, false);
-		recBeginOaknutEmit();
-		oakLoad32(oakWRegister(EE_HOST_RAX), {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pcWriteback))});
-		recEndOaknutEmit();
+		recMovePcWritebackToRAXAfterDelaySlot(wbreg);
 	}
 	else
 	{
