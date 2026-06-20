@@ -721,26 +721,18 @@ static void recDIVU_constt(int info)
 
 EERECOMPILE_CODERC0(DIVU, XMMINFO_READS | XMMINFO_READT);
 
+// Game compatibility guard: PSi OPS black-screens if DIV1 uses the generic
+// recDIVExact<true, true>() path. Keep the conservative LO1/HI1 cache handling
+// unless that game is specifically retested.
 static void recDIV1_safe_emit_oaknut()
 {
 	_deleteEEreg(XMMGPR_LO, 1);
 	_deleteEEreg(XMMGPR_HI, 1);
-	_deleteGPRtoX86reg(_Rs_, DELETE_REG_FLUSH);
-	_deleteGPRtoXMMreg(_Rs_, DELETE_REG_FLUSH);
-	_deleteGPRtoX86reg(_Rt_, DELETE_REG_FLUSH);
-	_deleteGPRtoXMMreg(_Rt_, DELETE_REG_FLUSH);
 
 	recBeginOaknutEmit();
 
-	if (GPR_IS_CONST1(_Rt_))
-		oakAsm->MOV(oak::util::W1, g_cpuConstRegs[_Rt_].UL[0]);
-	else
-		oakLoad32(oak::util::W1, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rt_].UL[0]))});
-
-	if (GPR_IS_CONST1(_Rs_))
-		oakAsm->MOV(oak::util::W0, g_cpuConstRegs[_Rs_].UL[0]);
-	else
-		oakLoad32(oak::util::W0, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[_Rs_].UL[0]))});
+	recMoveGPRtoOakW(oak::util::W1, _Rt_);
+	recMoveGPRtoOakW(oak::util::W0, _Rs_);
 
 	oak::Label end1;
 	oak::Label not_overflow;
