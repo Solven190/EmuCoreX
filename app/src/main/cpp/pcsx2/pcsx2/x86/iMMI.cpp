@@ -2607,11 +2607,20 @@ void recPCPYH()
 static void recPEXCW_emit_oaknut(int dstreg, int treg, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	mmi3LoadQSource_emit_oaknut(OAK_QSCRATCH, treg, rt_zero);
-	oakAsm->MOV(oakQRegister(dstreg).Selem()[0], OAK_QSCRATCH.Selem()[0]);
-	oakAsm->MOV(oakQRegister(dstreg).Selem()[1], OAK_QSCRATCH.Selem()[2]);
-	oakAsm->MOV(oakQRegister(dstreg).Selem()[2], OAK_QSCRATCH.Selem()[1]);
-	oakAsm->MOV(oakQRegister(dstreg).Selem()[3], OAK_QSCRATCH.Selem()[3]);
+	if (rt_zero)
+	{
+		oakAsm->MOVI(oakQRegister(dstreg).B16(), 0);
+	}
+	else
+	{
+		const oak::QReg src = (dstreg == treg) ? OAK_QSCRATCH : oakQRegister(treg);
+		if (dstreg == treg)
+			oakAsm->MOV(OAK_QSCRATCH.B16(), oakQRegister(treg).B16());
+		oakAsm->MOV(oakQRegister(dstreg).Selem()[0], src.Selem()[0]);
+		oakAsm->MOV(oakQRegister(dstreg).Selem()[1], src.Selem()[2]);
+		oakAsm->MOV(oakQRegister(dstreg).Selem()[2], src.Selem()[1]);
+		oakAsm->MOV(oakQRegister(dstreg).Selem()[3], src.Selem()[3]);
+	}
 	recEndOaknutEmit();
 }
 
