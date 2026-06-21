@@ -1097,11 +1097,14 @@ void recPEXTLB()
 static void recPEXTLH_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero)
 {
 	recBeginOaknutEmit();
-	mmi0LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
+	const bool s_alias = !rs_zero && (dstreg == sreg);
+	if (rs_zero || s_alias)
+		mmi0LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
+	const oak::QReg ssrc = (rs_zero || s_alias) ? OAK_QSCRATCH : oakQRegister(sreg);
 	for (int i = 0; i < 4; i++)
 	{
 		oakAsm->MOV(OAK_QSCRATCH2.Helem()[i * 2], oakQRegister(treg).Helem()[i]);
-		oakAsm->MOV(OAK_QSCRATCH2.Helem()[i * 2 + 1], OAK_QSCRATCH.Helem()[i]);
+		oakAsm->MOV(OAK_QSCRATCH2.Helem()[i * 2 + 1], ssrc.Helem()[i]);
 	}
 	mmi0StoreQ_emit_oaknut(dstreg, OAK_QSCRATCH2);
 	recEndOaknutEmit();
