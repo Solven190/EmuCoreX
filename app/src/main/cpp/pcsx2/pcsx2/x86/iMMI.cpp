@@ -1208,8 +1208,10 @@ void recPABSW()
 static void recPABSH_emit_oaknut(int dstreg, int treg, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH, treg, rt_zero);
-	oakAsm->SQABS(oakQRegister(dstreg).H8(), OAK_QSCRATCH.H8());
+	if (rt_zero)
+		mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH, treg, true);
+	const oak::QReg tsrc = rt_zero ? OAK_QSCRATCH : oakQRegister(treg);
+	oakAsm->SQABS(oakQRegister(dstreg).H8(), tsrc.H8());
 	recEndOaknutEmit();
 }
 
