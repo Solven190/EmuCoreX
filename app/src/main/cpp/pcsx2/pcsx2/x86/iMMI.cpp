@@ -1208,9 +1208,13 @@ void recPABSH()
 static void recPMINW_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, rt_zero);
-	oakAsm->SMIN(oakQRegister(dstreg).S4(), OAK_QSCRATCH.S4(), OAK_QSCRATCH2.S4());
+	if (rs_zero)
+		mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, true);
+	if (rt_zero)
+		mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, true);
+	const oak::QReg ssrc = rs_zero ? OAK_QSCRATCH : oakQRegister(sreg);
+	const oak::QReg tsrc = rt_zero ? OAK_QSCRATCH2 : oakQRegister(treg);
+	oakAsm->SMIN(oakQRegister(dstreg).S4(), ssrc.S4(), tsrc.S4());
 	recEndOaknutEmit();
 }
 
