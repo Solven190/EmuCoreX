@@ -1437,11 +1437,14 @@ void recPEXTUB()
 static void recPEXTUW_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero)
 {
 	recBeginOaknutEmit();
-	mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
+	const bool s_alias = !rs_zero && (dstreg == sreg);
+	if (rs_zero || s_alias)
+		mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
+	const oak::QReg ssrc = (rs_zero || s_alias) ? OAK_QSCRATCH : oakQRegister(sreg);
 	for (int i = 0; i < 2; i++)
 	{
 		oakAsm->MOV(OAK_QSCRATCH2.Selem()[i * 2], oakQRegister(treg).Selem()[i + 2]);
-		oakAsm->MOV(OAK_QSCRATCH2.Selem()[i * 2 + 1], OAK_QSCRATCH.Selem()[i + 2]);
+		oakAsm->MOV(OAK_QSCRATCH2.Selem()[i * 2 + 1], ssrc.Selem()[i + 2]);
 	}
 	mmi1StoreQ_emit_oaknut(dstreg, OAK_QSCRATCH2);
 	recEndOaknutEmit();
