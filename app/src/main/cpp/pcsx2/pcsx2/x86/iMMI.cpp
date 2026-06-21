@@ -2639,15 +2639,24 @@ void recPEXCW()
 static void recPEXCH_emit_oaknut(int dstreg, int treg, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	mmi3LoadQSource_emit_oaknut(OAK_QSCRATCH, treg, rt_zero);
-	oakAsm->MOV(oakQRegister(dstreg).Helem()[0], OAK_QSCRATCH.Helem()[0]);
-	oakAsm->MOV(oakQRegister(dstreg).Helem()[1], OAK_QSCRATCH.Helem()[2]);
-	oakAsm->MOV(oakQRegister(dstreg).Helem()[2], OAK_QSCRATCH.Helem()[1]);
-	oakAsm->MOV(oakQRegister(dstreg).Helem()[3], OAK_QSCRATCH.Helem()[3]);
-	oakAsm->MOV(oakQRegister(dstreg).Helem()[4], OAK_QSCRATCH.Helem()[4]);
-	oakAsm->MOV(oakQRegister(dstreg).Helem()[5], OAK_QSCRATCH.Helem()[6]);
-	oakAsm->MOV(oakQRegister(dstreg).Helem()[6], OAK_QSCRATCH.Helem()[5]);
-	oakAsm->MOV(oakQRegister(dstreg).Helem()[7], OAK_QSCRATCH.Helem()[7]);
+	if (rt_zero)
+	{
+		oakAsm->MOVI(oakQRegister(dstreg).B16(), 0);
+	}
+	else
+	{
+		const oak::QReg src = (dstreg == treg) ? OAK_QSCRATCH : oakQRegister(treg);
+		if (dstreg == treg)
+			oakAsm->MOV(OAK_QSCRATCH.B16(), oakQRegister(treg).B16());
+		oakAsm->MOV(oakQRegister(dstreg).Helem()[0], src.Helem()[0]);
+		oakAsm->MOV(oakQRegister(dstreg).Helem()[1], src.Helem()[2]);
+		oakAsm->MOV(oakQRegister(dstreg).Helem()[2], src.Helem()[1]);
+		oakAsm->MOV(oakQRegister(dstreg).Helem()[3], src.Helem()[3]);
+		oakAsm->MOV(oakQRegister(dstreg).Helem()[4], src.Helem()[4]);
+		oakAsm->MOV(oakQRegister(dstreg).Helem()[5], src.Helem()[6]);
+		oakAsm->MOV(oakQRegister(dstreg).Helem()[6], src.Helem()[5]);
+		oakAsm->MOV(oakQRegister(dstreg).Helem()[7], src.Helem()[7]);
+	}
 	recEndOaknutEmit();
 }
 
