@@ -623,11 +623,14 @@ void recPPACH()
 static void recPPACB_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero)
 {
 	recBeginOaknutEmit();
-	mmi0LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
+	const bool s_alias = !rs_zero && (dstreg == sreg);
+	if (rs_zero || s_alias)
+		mmi0LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
+	const oak::QReg ssrc = (rs_zero || s_alias) ? OAK_QSCRATCH : oakQRegister(sreg);
 	for (int i = 0; i < 8; i++)
 		oakAsm->MOV(OAK_QSCRATCH2.Belem()[i], oakQRegister(treg).Belem()[i * 2]);
 	for (int i = 0; i < 8; i++)
-		oakAsm->MOV(OAK_QSCRATCH2.Belem()[i + 8], OAK_QSCRATCH.Belem()[i * 2]);
+		oakAsm->MOV(OAK_QSCRATCH2.Belem()[i + 8], ssrc.Belem()[i * 2]);
 	mmi0StoreQ_emit_oaknut(dstreg, OAK_QSCRATCH2);
 	recEndOaknutEmit();
 }
