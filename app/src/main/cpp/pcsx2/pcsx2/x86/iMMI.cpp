@@ -2487,12 +2487,18 @@ void recPMTLO()
 static void recPINTEH_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	mmi3LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	mmi3LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, rt_zero);
+	const bool s_alias = !rs_zero && (dstreg == sreg);
+	const bool t_alias = !rt_zero && (dstreg == treg);
+	if (rs_zero || s_alias)
+		mmi3LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
+	if (rt_zero || t_alias)
+		mmi3LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, rt_zero);
+	const oak::QReg ssrc = (rs_zero || s_alias) ? OAK_QSCRATCH : oakQRegister(sreg);
+	const oak::QReg tsrc = (rt_zero || t_alias) ? OAK_QSCRATCH2 : oakQRegister(treg);
 	for (int i = 0; i < 4; i++)
 	{
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[i * 2], OAK_QSCRATCH2.Helem()[i * 2]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[i * 2 + 1], OAK_QSCRATCH.Helem()[i * 2]);
+		oakAsm->MOV(oakQRegister(dstreg).Helem()[i * 2], tsrc.Helem()[i * 2]);
+		oakAsm->MOV(oakQRegister(dstreg).Helem()[i * 2 + 1], ssrc.Helem()[i * 2]);
 	}
 	recEndOaknutEmit();
 }
