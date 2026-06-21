@@ -1307,9 +1307,12 @@ void recPSUBUB()
 static void recPSUBUH_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, rt_zero);
-	oakAsm->UQSUB(oakQRegister(dstreg).H8(), OAK_QSCRATCH.H8(), OAK_QSCRATCH2.H8());
+	if (rs_zero)
+		oakAsm->MOVI(oakQRegister(dstreg).B16(), 0);
+	else if (rt_zero)
+		oakAsm->MOV(oakQRegister(dstreg).B16(), oakQRegister(sreg).B16());
+	else
+		oakAsm->UQSUB(oakQRegister(dstreg).H8(), oakQRegister(sreg).H8(), oakQRegister(treg).H8());
 	recEndOaknutEmit();
 }
 
