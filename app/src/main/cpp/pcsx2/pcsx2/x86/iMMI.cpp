@@ -1047,11 +1047,14 @@ void recPSUBW()
 static void recPEXTLW_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero)
 {
 	recBeginOaknutEmit();
-	mmi0LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
+	const bool s_alias = !rs_zero && (dstreg == sreg);
+	if (rs_zero || s_alias)
+		mmi0LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
+	const oak::QReg ssrc = (rs_zero || s_alias) ? OAK_QSCRATCH : oakQRegister(sreg);
 	oakAsm->MOV(OAK_QSCRATCH2.Selem()[0], oakQRegister(treg).Selem()[0]);
-	oakAsm->MOV(OAK_QSCRATCH2.Selem()[1], OAK_QSCRATCH.Selem()[0]);
+	oakAsm->MOV(OAK_QSCRATCH2.Selem()[1], ssrc.Selem()[0]);
 	oakAsm->MOV(OAK_QSCRATCH2.Selem()[2], oakQRegister(treg).Selem()[1]);
-	oakAsm->MOV(OAK_QSCRATCH2.Selem()[3], OAK_QSCRATCH.Selem()[1]);
+	oakAsm->MOV(OAK_QSCRATCH2.Selem()[3], ssrc.Selem()[1]);
 	mmi0StoreQ_emit_oaknut(dstreg, OAK_QSCRATCH2);
 	recEndOaknutEmit();
 }
