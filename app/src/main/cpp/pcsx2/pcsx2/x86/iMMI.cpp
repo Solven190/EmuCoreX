@@ -1257,9 +1257,14 @@ void recPADSBH()
 static void recPADDUW_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, rt_zero);
-	oakAsm->UQADD(oakQRegister(dstreg).S4(), OAK_QSCRATCH.S4(), OAK_QSCRATCH2.S4());
+	if (rs_zero && rt_zero)
+		oakAsm->MOVI(oakQRegister(dstreg).B16(), 0);
+	else if (rs_zero)
+		oakAsm->MOV(oakQRegister(dstreg).B16(), oakQRegister(treg).B16());
+	else if (rt_zero)
+		oakAsm->MOV(oakQRegister(dstreg).B16(), oakQRegister(sreg).B16());
+	else
+		oakAsm->UQADD(oakQRegister(dstreg).S4(), oakQRegister(sreg).S4(), oakQRegister(treg).S4());
 	recEndOaknutEmit();
 }
 
