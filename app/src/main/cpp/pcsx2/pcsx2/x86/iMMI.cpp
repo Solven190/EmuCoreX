@@ -1492,9 +1492,13 @@ void recPCEQB()
 static void recPCEQH_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, rt_zero);
-	oakAsm->CMEQ(oakQRegister(dstreg).H8(), OAK_QSCRATCH.H8(), OAK_QSCRATCH2.H8());
+	if (rs_zero)
+		mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, true);
+	if (rt_zero)
+		mmi1LoadQSource_emit_oaknut(OAK_QSCRATCH2, treg, true);
+	const oak::QReg ssrc = rs_zero ? OAK_QSCRATCH : oakQRegister(sreg);
+	const oak::QReg tsrc = rt_zero ? OAK_QSCRATCH2 : oakQRegister(treg);
+	oakAsm->CMEQ(oakQRegister(dstreg).H8(), ssrc.H8(), tsrc.H8());
 	recEndOaknutEmit();
 }
 
