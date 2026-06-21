@@ -2035,8 +2035,10 @@ void recPEXEH()
 static void recPREVH_emit_oaknut(int dstreg, int treg, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	mmi2LoadQSource_emit_oaknut(OAK_QSCRATCH, treg, rt_zero);
-	oakAsm->REV64(oakQRegister(dstreg).H8(), OAK_QSCRATCH.H8());
+	if (rt_zero)
+		oakAsm->MOVI(oakQRegister(dstreg).B16(), 0);
+	else
+		oakAsm->REV64(oakQRegister(dstreg).H8(), oakQRegister(treg).H8());
 	recEndOaknutEmit();
 }
 
