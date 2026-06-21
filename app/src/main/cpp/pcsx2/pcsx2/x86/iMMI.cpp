@@ -2584,11 +2584,18 @@ void recPNOR()
 static void recPCPYH_emit_oaknut(int dstreg, int treg, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	mmi3LoadQSource_emit_oaknut(OAK_QSCRATCH, treg, rt_zero);
-	for (int i = 0; i < 4; i++)
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[i], OAK_QSCRATCH.Helem()[0]);
-	for (int i = 4; i < 8; i++)
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[i], OAK_QSCRATCH.Helem()[4]);
+	if (rt_zero)
+	{
+		oakAsm->MOVI(oakQRegister(dstreg).B16(), 0);
+	}
+	else
+	{
+		const oak::QReg src = oakQRegister(treg);
+		for (int i = 0; i < 4; i++)
+			oakAsm->MOV(oakQRegister(dstreg).Helem()[i], src.Helem()[0]);
+		for (int i = 4; i < 8; i++)
+			oakAsm->MOV(oakQRegister(dstreg).Helem()[i], src.Helem()[4]);
+	}
 	recEndOaknutEmit();
 }
 
