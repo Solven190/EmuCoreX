@@ -571,11 +571,14 @@ void recPMAXW()
 static void recPPACW_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero)
 {
 	recBeginOaknutEmit();
-	mmi0LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
+	const bool s_alias = !rs_zero && (dstreg == sreg);
+	if (rs_zero || s_alias)
+		mmi0LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
+	const oak::QReg ssrc = (rs_zero || s_alias) ? OAK_QSCRATCH : oakQRegister(sreg);
 	oakAsm->MOV(OAK_QSCRATCH2.Selem()[0], oakQRegister(treg).Selem()[0]);
 	oakAsm->MOV(OAK_QSCRATCH2.Selem()[1], oakQRegister(treg).Selem()[2]);
-	oakAsm->MOV(OAK_QSCRATCH2.Selem()[2], OAK_QSCRATCH.Selem()[0]);
-	oakAsm->MOV(OAK_QSCRATCH2.Selem()[3], OAK_QSCRATCH.Selem()[2]);
+	oakAsm->MOV(OAK_QSCRATCH2.Selem()[2], ssrc.Selem()[0]);
+	oakAsm->MOV(OAK_QSCRATCH2.Selem()[3], ssrc.Selem()[2]);
 	mmi0StoreQ_emit_oaknut(dstreg, OAK_QSCRATCH2);
 	recEndOaknutEmit();
 }
