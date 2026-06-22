@@ -6069,8 +6069,8 @@ void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 			m_pipeline_selector.ds = true;
 		}
 
-		// Prefer keeping feedback loop enabled, that way we're not constantly restarting render passes
-		pipe.feedback_loop_flags |= m_current_framebuffer_feedback_loop;
+		// Keep feedback-loop state draw-local. Carrying it over can leave later draws
+		// in the previous feedback render pass/layout and cause Vulkan-only flicker.
 	}
 
 	if (draw_rt && (config.require_one_barrier || (config.tex && config.tex == config.rt)) && !m_features.texture_barrier)
