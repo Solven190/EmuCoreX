@@ -1176,4 +1176,17 @@
     <string name="settings_help_thread_pinning">주요 에뮬레이션 스레드 배치를 Android에 전적으로 맡기지 않고 가장 빠른 CPU 코어에 고정합니다. 강력한 칩이나 냉각 기능이 있는 휴대용 기기에서는 안정성을 향상시킬 수 있지만, 스케줄러가 부하를 더 잘 분산시킬 수 있었던 일부 기기에서는 발열이 증가하거나 성능이 저하될 수 있습니다.</string>
     <string name="settings_thread_pinning">스레드 피닝 (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">지원되는 경우 EE, VU1 및 GS 작업을 가장 빠른 CPU 코어에 유지합니다.</string>
+    <string name="settings_help_dialog_eyebrow">설정 팁</string>
+    <string name="settings_help_reset_tip_title">빠른 초기화</string>
+    <string name="settings_help_reset_tip_body">설정 이름을 길게 누르면 해당 옵션이 기본값으로 복원됩니다.</string>
+    <string name="close">닫기</string>
+    <string name="memory_card_create_subtitle">이 카드를 저장할 방법을 선택하세요.</string>
+    <string name="memory_card_type_title">카드 유형</string>
+    <string name="memory_card_type_folder_title">폴더 카드</string>
+    <string name="memory_card_type_folder_desc">권장됨. 세이브를 파일로 저장하고 고정된 카드 크기 제한을 방지합니다.</string>
+    <string name="memory_card_type_file_title">클래식 파일 카드</string>
+    <string name="memory_card_type_file_desc">호환성 또는 마이그레이션을 위한 고정 크기 .ps2 카드.</string>
+    <string name="memory_card_folder_unlimited">폴더 • 무제한 크기</string>
+    <string name="memory_card_file_size">파일 • %1$s</string>
+    <string name="game_settings_manager_editor_eyebrow">게임 설정</string>
 </resources>

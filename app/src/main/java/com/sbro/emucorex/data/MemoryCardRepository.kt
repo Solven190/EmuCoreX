@@ -21,7 +21,10 @@ data class MemoryCardInfo(
     val sizeBytes: Long,
     val formatted: Boolean,
     val isDefaultCard: Boolean
-)
+) {
+    val isFolder: Boolean
+        get() = type == MEMORY_CARD_TYPE_FOLDER
+}
 
 data class MemoryCardAssignments(
     val slot1: String?,
@@ -45,10 +48,10 @@ class MemoryCardRepository(
         val existingNames = listCards().map { it.name }.toSet()
 
         if (defaultSlot1 !in existingNames) {
-            createPs2Card(defaultSlot1, 8)
+            createFolderCard(defaultSlot1)
         }
         if (defaultSlot2 !in existingNames) {
-            createPs2Card(defaultSlot2, 8)
+            createFolderCard(defaultSlot2)
         }
 
         val refreshedNames = listCards().map { it.name }.toSet()
@@ -99,6 +102,16 @@ class MemoryCardRepository(
         )
     }
 
+    fun createFolderCard(name: String): Boolean {
+        syncNativeMemoryCardDirectory()
+        val normalized = buildUniqueCardName(name)
+        return NativeApp.createMemoryCard(
+            normalized,
+            MEMORY_CARD_TYPE_FOLDER,
+            MEMORY_CARD_FILE_TYPE_UNKNOWN
+        )
+    }
+
     fun importCard(uri: Uri, displayName: String? = null): Boolean {
         val resolvedName = displayName
             ?.takeIf { it.isNotBlank() }
@@ -116,8 +129,12 @@ class MemoryCardRepository(
         if (!source.exists()) return false
         val target = File(memoryCardsDir(), buildUniqueCardName(newName))
         return runCatching {
-            source.inputStream().use { input ->
-                target.outputStream().use { output -> input.copyTo(output) }
+            if (source.isDirectory) {
+                source.copyRecursively(target, overwrite = false)
+            } else {
+                source.inputStream().use { input ->
+                    target.outputStream().use { output -> input.copyTo(output) }
+                }
             }
             true
         }.getOrDefault(false)
@@ -144,7 +161,10 @@ class MemoryCardRepository(
         if (card.isDefaultCard || isDefaultMemoryCardName(card.name)) return false
         val file = File(card.path)
         if (!file.exists()) return false
-        val deleted = runCatching { file.delete() }.getOrDefault(false)
+        if (!file.isSafelyInside(memoryCardsDir())) return false
+        val deleted = runCatching {
+            if (file.isDirectory) file.deleteRecursively() else file.delete()
+        }.getOrDefault(false)
         if (!deleted) return false
 
         val assignments = currentAssignments()
@@ -159,7 +179,13 @@ class MemoryCardRepository(
             val source = File(card.path)
             if (!source.exists()) return false
             context.contentResolver.openOutputStream(destination)?.use { output ->
-                source.inputStream().use { input -> input.copyTo(output) }
+                if (source.isDirectory) {
+                    ZipOutputStream(output).use { zip ->
+                        zip.putMemoryCard(source, "memory-cards/${source.name}")
+                    }
+                } else {
+                    source.inputStream().use { input -> input.copyTo(output) }
+                }
             } != null
         }.getOrDefault(false)
     }
@@ -171,9 +197,7 @@ class MemoryCardRepository(
             context.contentResolver.openOutputStream(destination)?.use { output ->
                 ZipOutputStream(output).use { zip ->
                     existingCards.forEach { file ->
-                        zip.putNextEntry(ZipEntry("memory-cards/${file.name}"))
-                        file.inputStream().use { it.copyTo(zip) }
-                        zip.closeEntry()
+                        zip.putMemoryCard(file, "memory-cards/${file.name}")
                     }
                 }
             } != null
@@ -224,19 +248,49 @@ class MemoryCardRepository(
         return runCatching {
             context.contentResolver.openInputStream(source)?.use { input ->
                 ZipInputStream(input).use { zip ->
+                    val restoredFolderNames = mutableMapOf<String, String>()
                     generateSequence { zip.nextEntry }.forEach { entry ->
-                        if (entry.isDirectory) return@forEach
-                        val rawName = entry.name.substringAfterLast('/').trim()
-                        if (!rawName.endsWith(".ps2", ignoreCase = true)) {
+                        val relativeParts = entry.safeMemoryCardZipParts()
+                        if (relativeParts.isEmpty()) {
                             zip.closeEntry()
                             return@forEach
                         }
-                        val target = File(
-                            memoryCardsDir(),
-                            buildUniqueCardName(rawName)
-                        )
-                        target.parentFile?.mkdirs()
-                        target.outputStream().use { output -> zip.copyTo(output) }
+
+                        val cardName = relativeParts.first()
+                        if (!cardName.isSupportedMemoryCardName()) {
+                            zip.closeEntry()
+                            return@forEach
+                        }
+
+                        if (relativeParts.size == 1) {
+                            if (!entry.isDirectory) {
+                                val target = File(memoryCardsDir(), buildUniqueCardName(cardName))
+                                target.parentFile?.mkdirs()
+                                target.outputStream().use { output -> zip.copyTo(output) }
+                                restoredCount++
+                            }
+                            zip.closeEntry()
+                            return@forEach
+                        }
+
+                        val folderName = restoredFolderNames.getOrPut(cardName) {
+                            buildUniqueCardName(cardName)
+                        }
+                        val targetRoot = File(memoryCardsDir(), folderName)
+                        val target = relativeParts.drop(1).fold(targetRoot) { parent, child ->
+                            File(parent, child)
+                        }
+                        if (!target.isSafelyInside(targetRoot)) {
+                            zip.closeEntry()
+                            return@forEach
+                        }
+
+                        if (entry.isDirectory) {
+                            target.mkdirs()
+                        } else {
+                            target.parentFile?.mkdirs()
+                            target.outputStream().use { output -> zip.copyTo(output) }
+                        }
                         restoredCount++
                         zip.closeEntry()
                     }
@@ -305,21 +359,15 @@ class MemoryCardRepository(
 
         runCatching {
             if (target.delete()) {
-                NativeApp.createMemoryCard(
-                    cardName,
-                    MEMORY_CARD_TYPE_FILE,
-                    MEMORY_CARD_FILE_TYPE_PS2_8MB
-                )
+                NativeApp.createMemoryCard(cardName, MEMORY_CARD_TYPE_FOLDER, MEMORY_CARD_FILE_TYPE_UNKNOWN)
             }
         }
     }
-
-    private companion object {
-        const val MEMORY_CARD_TYPE_FILE = 1
-        const val MEMORY_CARD_FILE_TYPE_PS2_8MB = 1
-    }
 }
 
+private const val MEMORY_CARD_TYPE_FILE = 1
+private const val MEMORY_CARD_TYPE_FOLDER = 2
+private const val MEMORY_CARD_FILE_TYPE_UNKNOWN = 0
 private const val DEFAULT_CARD_SLOT_1 = "Mcd001.ps2"
 private const val DEFAULT_CARD_SLOT_2 = "Mcd002.ps2"
 
@@ -347,6 +395,51 @@ private fun Int.toNativePs2FileType(): Int = when (this) {
     32 -> 3
     64 -> 4
     else -> 1
+}
+
+private fun String.isSupportedMemoryCardName(): Boolean {
+    return endsWith(".ps2", ignoreCase = true) ||
+        endsWith(".mcr", ignoreCase = true) ||
+        endsWith(".mcd", ignoreCase = true) ||
+        endsWith(".bin", ignoreCase = true) ||
+        endsWith(".mc2", ignoreCase = true)
+}
+
+private fun ZipEntry.safeMemoryCardZipParts(): List<String> {
+    val parts = name
+        .replace('\\', '/')
+        .trim('/')
+        .split('/')
+        .filter { it.isNotBlank() }
+        .dropWhile { it == "memory-cards" }
+
+    return parts.takeIf { values ->
+        values.isNotEmpty() && values.none { it == "." || it == ".." }
+    }.orEmpty()
+}
+
+private fun File.isSafelyInside(root: File): Boolean {
+    val rootPath = root.canonicalFile.toPath()
+    val filePath = canonicalFile.toPath()
+    return filePath != rootPath && filePath.startsWith(rootPath)
+}
+
+private fun ZipOutputStream.putMemoryCard(file: File, entryName: String) {
+    val normalizedEntryName = entryName.replace('\\', '/').trim('/')
+    if (file.isDirectory) {
+        file.walkTopDown()
+            .filter { it.isFile }
+            .forEach { child ->
+                val relativeName = child.relativeTo(file).invariantSeparatorsPath
+                putNextEntry(ZipEntry("$normalizedEntryName/$relativeName"))
+                child.inputStream().use { it.copyTo(this) }
+                closeEntry()
+            }
+    } else {
+        putNextEntry(ZipEntry(normalizedEntryName))
+        file.inputStream().use { it.copyTo(this) }
+        closeEntry()
+    }
 }
 
 private fun File.looksLikeLegacyBlankPs2Card(): Boolean {

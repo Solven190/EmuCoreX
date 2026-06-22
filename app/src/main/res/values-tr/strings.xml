@@ -1176,4 +1176,17 @@
     <string name="settings_help_thread_pinning">Ana emülasyon iş parçacıklarını yerleşimini tamamen Android\'e bırakmak yerine en hızlı CPU çekirdeklerine sabitler. Güçlü çiplerde veya soğutmalı avuç içi cihazlarda kararlılığı artırabilir, ancak zamanlayıcının yükü daha iyi dengeleyebileceği bazı cihazlarda ısıyı artırabilir veya performansı düşürebilir.</string>
     <string name="settings_thread_pinning">İş parçacığı sabitleme (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Desteklendiğinde EE, VU1 ve GS işlerini en hızlı CPU çekirdeklerinde tutar.</string>
+    <string name="settings_help_dialog_eyebrow">Ayar ipucu</string>
+    <string name="settings_help_reset_tip_title">Hızlı sıfırlama</string>
+    <string name="settings_help_reset_tip_body">Seçeneği varsayılan değerine geri yüklemek için bir ayar adına uzun basın.</string>
+    <string name="close">Kapat</string>
+    <string name="memory_card_create_subtitle">Bu kartın nasıl depolanacağını seçin.</string>
+    <string name="memory_card_type_title">Kart türü</string>
+    <string name="memory_card_type_folder_title">Klasör kartı</string>
+    <string name="memory_card_type_folder_desc">Önerilen. Kayıtları dosya olarak saklar ve sabit kart boyutu sınırlarını ortadan kaldırır.</string>
+    <string name="memory_card_type_file_title">Klasik dosya kartı</string>
+    <string name="memory_card_type_file_desc">Uyumluluk veya taşıma için sabit boyutlu .ps2 kartı.</string>
+    <string name="memory_card_folder_unlimited">Klasör • Sınırsız boyut</string>
+    <string name="memory_card_file_size">Dosya • %1$s</string>
+    <string name="game_settings_manager_editor_eyebrow">Oyun ayarları</string>
 </resources>

@@ -1178,4 +1178,17 @@
     <string name="settings_help_thread_pinning">将主要模拟线程固定到最快的 CPU 核心上，而不是完全交由 Android 调度。这可以提高强大芯片或带散热的掌机的稳定性，但如果调度程序本可以更好地平衡负载，则可能会导致某些设备发热增加或性能下降。</string>
     <string name="settings_thread_pinning">线程绑定 (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">在支持的情况下，使 EE、VU1 和 GS 工作保持在最快的 CPU 核心上。</string>
+    <string name="settings_help_dialog_eyebrow">设置提示</string>
+    <string name="settings_help_reset_tip_title">快速重置</string>
+    <string name="settings_help_reset_tip_body">长按设置名称可将其恢复为默认值。</string>
+    <string name="close">关闭</string>
+    <string name="memory_card_create_subtitle">选择此记忆卡的存储方式。</string>
+    <string name="memory_card_type_title">记忆卡类型</string>
+    <string name="memory_card_type_folder_title">文件夹记忆卡</string>
+    <string name="memory_card_type_folder_desc">推荐。将存档存储为文件并避免固定记忆卡大小限制。</string>
+    <string name="memory_card_type_file_title">经典文件记忆卡</string>
+    <string name="memory_card_type_file_desc">固定大小的 .ps2 记忆卡，用于兼容或迁移。</string>
+    <string name="memory_card_folder_unlimited">文件夹 • 大小无限制</string>
+    <string name="memory_card_file_size">文件 • %1$s</string>
+    <string name="game_settings_manager_editor_eyebrow">游戏设置</string>
 </resources>

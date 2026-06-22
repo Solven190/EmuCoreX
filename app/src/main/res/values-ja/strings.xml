@@ -1176,4 +1176,17 @@
     <string name="settings_help_thread_pinning">メインのエミュレーションスレッドをAndroidに完全に任せるのではなく、最速のCPUコアに固定します。強力なチップや冷却機能付きの携帯機では安定性が向上する可能性がありますが、スケジューラが負荷をより適切に分散できた場合は、一部のデバイスで発熱が増加したり、パフォーマンスが低下したりする可能性があります。</string>
     <string name="settings_thread_pinning">スレッドピニング (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">サポートされている場合、EE、VU1、GSの処理を最速のCPUコアに維持します。</string>
+    <string name="settings_help_dialog_eyebrow">設定のヒント</string>
+    <string name="settings_help_reset_tip_title">クイックリセット</string>
+    <string name="settings_help_reset_tip_body">設定名を長押しすると、そのオプションがデフォルト値に復元されます。</string>
+    <string name="close">閉じる</string>
+    <string name="memory_card_create_subtitle">このカードの保存方法を選択してください。</string>
+    <string name="memory_card_type_title">カードタイプ</string>
+    <string name="memory_card_type_folder_title">フォルダカード</string>
+    <string name="memory_card_type_folder_desc">推奨。セーブデータをファイルとして保存し、カードの固定サイズ制限を回避します。</string>
+    <string name="memory_card_type_file_title">クラシックファイルカード</string>
+    <string name="memory_card_type_file_desc">互換性または移行用の固定サイズ .ps2 カード。</string>
+    <string name="memory_card_folder_unlimited">フォルダ • 無制限のサイズ</string>
+    <string name="memory_card_file_size">ファイル • %1$s</string>
+    <string name="game_settings_manager_editor_eyebrow">ゲーム設定</string>
 </resources>

@@ -1178,4 +1178,17 @@
     <string name="settings_help_thread_pinning">Fija los hilos principales de emulación a los núcleos de CPU más rápidos en lugar de dejar la asignación completamente a Android. Puede mejorar la estabilidad en chips potentes o consolas portátiles con refrigeración, pero puede aumentar la temperatura o reducir el rendimiento en algunos dispositivos si el programador hubiera equilibrado mejor la carga.</string>
     <string name="settings_thread_pinning">Fijación de hilos (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Mantiene el trabajo de EE, VU1 y GS en los núcleos de CPU más rápidos cuando es compatible.</string>
+    <string name="settings_help_dialog_eyebrow">Consejo de configuración</string>
+    <string name="settings_help_reset_tip_title">Restablecimiento rápido</string>
+    <string name="settings_help_reset_tip_body">Mantén presionado el nombre de una configuración para restaurarla a su valor predeterminado.</string>
+    <string name="close">Cerrar</string>
+    <string name="memory_card_create_subtitle">Elige cómo se debe almacenar esta tarjeta.</string>
+    <string name="memory_card_type_title">Tipo de tarjeta</string>
+    <string name="memory_card_type_folder_title">Tarjeta de carpeta</string>
+    <string name="memory_card_type_folder_desc">Recomendado. Guarda las partidas como archivos y evita los límites fijos de tamaño de tarjeta.</string>
+    <string name="memory_card_type_file_title">Tarjeta de archivo clásica</string>
+    <string name="memory_card_type_file_desc">Tarjeta .ps2 de tamaño fijo para compatibilidad o migración.</string>
+    <string name="memory_card_folder_unlimited">Carpeta • Tamaño ilimitado</string>
+    <string name="memory_card_file_size">Archivo • %1$s</string>
+    <string name="game_settings_manager_editor_eyebrow">Ajustes del juego</string>
 </resources>

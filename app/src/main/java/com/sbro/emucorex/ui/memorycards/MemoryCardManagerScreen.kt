@@ -6,6 +6,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,21 +20,28 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.RadioButtonChecked
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -56,11 +65,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.sbro.emucorex.R
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.MemoryCardAssignments
@@ -225,16 +238,20 @@ fun MemoryCardManagerScreen(
     }
 
     if (showCreateDialog.value) {
-        MemoryCardNameDialog(
+        MemoryCardCreateDialog(
             title = stringResource(R.string.memory_card_create_title),
             confirmLabel = stringResource(R.string.memory_card_create_action),
-            initialName = "",
             showSizeOptions = true,
             onDismiss = { showCreateDialog.value = false },
-            onConfirm = { name, sizeMb ->
+            onConfirm = { name, createType, sizeMb ->
                 scope.launch {
                     isWorking = true
-                    val success = withContext(Dispatchers.IO) { repository.createPs2Card(name, sizeMb) }
+                    val success = withContext(Dispatchers.IO) {
+                        when (createType) {
+                            MemoryCardCreateType.Folder -> repository.createFolderCard(name)
+                            MemoryCardCreateType.File -> repository.createPs2Card(name, sizeMb)
+                        }
+                    }
                     isWorking = false
                     showCreateDialog.value = false
                     Toast.makeText(
@@ -397,7 +414,7 @@ fun MemoryCardManagerScreen(
                         },
                         onExport = {
                             pendingExport.value = card
-                            exportLauncher.launch(card.name)
+                            exportLauncher.launch(card.exportFileName())
                         },
                         onDuplicate = { pendingDuplicate.value = card },
                         onRename = { pendingRename.value = card },
@@ -504,7 +521,7 @@ private fun MemoryCardItem(
                     Text(
                         text = stringResource(
                             R.string.memory_card_meta,
-                            formatBytes(card.sizeBytes),
+                            card.storageLabel(),
                             DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
                                 .format(Date(card.modifiedTime))
                         ),
@@ -631,6 +648,230 @@ private fun LoadingCard() {
     }
 }
 
+private enum class MemoryCardCreateType {
+    Folder,
+    File
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MemoryCardCreateDialog(
+    title: String,
+    confirmLabel: String,
+    showSizeOptions: Boolean = false,
+    onDismiss: () -> Unit,
+    onConfirm: (String, MemoryCardCreateType, Int) -> Unit
+) {
+    var value by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(MemoryCardCreateType.Folder) }
+    var selectedSize by remember { mutableIntStateOf(8) }
+    val sizes = remember { listOf(8, 16, 32, 64) }
+    val scrollState = rememberScrollState()
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+    val maxDialogHeight = if (isLandscape) {
+        (configuration.screenHeightDp.dp - 36.dp).coerceAtLeast(240.dp)
+    } else {
+        (configuration.screenHeightDp.dp - 48.dp)
+            .coerceAtMost(620.dp)
+            .coerceAtLeast(300.dp)
+    }
+    val dialogWidthFraction = if (isLandscape) 0.98f else 0.94f
+    val dialogMaxWidth = if (isLandscape) 1600.dp else 720.dp
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    start = if (isLandscape) 10.dp else 14.dp,
+                    top = if (isLandscape) 10.dp else 14.dp,
+                    end = if (isLandscape) 10.dp else 14.dp,
+                    bottom = if (isLandscape) 4.dp else 8.dp
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(dialogWidthFraction)
+                    .widthIn(max = dialogMaxWidth),
+                shape = RoundedCornerShape(26.dp),
+                tonalElevation = 6.dp,
+                shadowElevation = 10.dp,
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = maxDialogHeight)
+                        .verticalScroll(scrollState)
+                        .padding(22.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.memory_card_create_subtitle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = value,
+                        onValueChange = { value = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        label = { Text(stringResource(R.string.memory_card_name_field)) }
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = stringResource(R.string.memory_card_type_title),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        MemoryCardCreateTypeRow(
+                            selected = selectedType == MemoryCardCreateType.Folder,
+                            icon = Icons.Rounded.Folder,
+                            title = stringResource(R.string.memory_card_type_folder_title),
+                            description = stringResource(R.string.memory_card_type_folder_desc),
+                            onClick = { selectedType = MemoryCardCreateType.Folder }
+                        )
+                        MemoryCardCreateTypeRow(
+                            selected = selectedType == MemoryCardCreateType.File,
+                            icon = Icons.AutoMirrored.Rounded.InsertDriveFile,
+                            title = stringResource(R.string.memory_card_type_file_title),
+                            description = stringResource(R.string.memory_card_type_file_desc),
+                            onClick = { selectedType = MemoryCardCreateType.File }
+                        )
+                    }
+
+                    if (showSizeOptions && selectedType == MemoryCardCreateType.File) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = stringResource(R.string.memory_card_size_title),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                sizes.forEach { size ->
+                                    FilterChip(
+                                        selected = selectedSize == size,
+                                        onClick = { selectedSize = size },
+                                        label = { Text(stringResource(R.string.memory_card_size_value, size)) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = onDismiss) {
+                            Text(stringResource(android.R.string.cancel))
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        FilledTonalButton(
+                            enabled = value.isNotBlank(),
+                            onClick = {
+                                val trimmed = value.trim()
+                                if (trimmed.isNotBlank()) {
+                                    onConfirm(trimmed, selectedType, selectedSize)
+                                }
+                            }
+                        ) {
+                            Text(confirmLabel)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MemoryCardCreateTypeRow(
+    selected: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    onClick: () -> Unit
+) {
+    val borderColor = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.outlineVariant
+    }
+    val containerColor = if (selected) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = containerColor,
+        border = BorderStroke(1.dp, borderColor.copy(alpha = 0.85f))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(26.dp)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                imageVector = if (selected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MemoryCardNameDialog(
@@ -706,4 +947,17 @@ private fun formatBytes(bytes: Long): String {
         bytes >= 1024L -> String.format("%.0f KB", bytes / 1024.0)
         else -> "$bytes B"
     }
+}
+
+@Composable
+private fun MemoryCardInfo.storageLabel(): String {
+    return if (isFolder) {
+        stringResource(R.string.memory_card_folder_unlimited)
+    } else {
+        stringResource(R.string.memory_card_file_size, formatBytes(sizeBytes))
+    }
+}
+
+private fun MemoryCardInfo.exportFileName(): String {
+    return if (isFolder) "${name.removeSuffix(".ps2")}.zip" else name
 }

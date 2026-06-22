@@ -1176,4 +1176,17 @@
     <string name="settings_help_thread_pinning">يثبت خيوط المحاكاة الرئيسية على أسرع أنوية وحدة المعالجة المركزية بدلاً من ترك تحديد المكان بالكامل لنظام Android. يمكن أن يحسن الاستقرار على الرقائق القوية أو الأجهزة المحمولة المبردة، لكنه قد يزيد الحرارة أو يقلل الأداء على بعض الأجهزة إذا كان المجدول سيوازن الحمل بشكل أفضل.</string>
     <string name="settings_thread_pinning">تثبيت الخيوط (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">يحافظ على عمل EE و VU1 و GS على أسرع أنوية وحدة المعالجة المركزية عند الدعم.</string>
+    <string name="settings_help_dialog_eyebrow">تلميح الإعداد</string>
+    <string name="settings_help_reset_tip_title">إعادة تعيين سريع</string>
+    <string name="settings_help_reset_tip_body">اضغط مطولاً على اسم الإعداد لاستعادة هذا الخيار إلى قيمته الافتراضية.</string>
+    <string name="close">إغلاق</string>
+    <string name="memory_card_create_subtitle">اختر كيفية تخزين هذه البطاقة.</string>
+    <string name="memory_card_type_title">نوع البطاقة</string>
+    <string name="memory_card_type_folder_title">بطاقة مجلد</string>
+    <string name="memory_card_type_folder_desc">يوصى به. يخزن الحفظ كملفات ويتجنب حدود حجم البطاقة الثابتة.</string>
+    <string name="memory_card_type_file_title">بطاقة ملف كلاسيكية</string>
+    <string name="memory_card_type_file_desc">بطاقة ps2. بحجم ثابت للتوافق أو النقل.</string>
+    <string name="memory_card_folder_unlimited">مجلد • حجم غير محدود</string>
+    <string name="memory_card_file_size">ملف • %1$s</string>
+    <string name="game_settings_manager_editor_eyebrow">إعدادات اللعبة</string>
 </resources>

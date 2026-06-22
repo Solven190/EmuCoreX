@@ -1178,4 +1178,17 @@
     <string name="settings_help_thread_pinning">Heftet die Hauptemulations-Threads an die schnellsten CPU-Kerne an, anstatt die Platzierung vollständig Android zu überlassen. Es kann die Stabilität auf leistungsstarken Chips oder gekühlten Handhelds verbessern, kann aber auf einigen Geräten die Hitze erhöhen oder die Leistung verringern, wenn der Scheduler die Last besser ausgeglichen hätte.</string>
     <string name="settings_thread_pinning">Thread-Pinning</string>
     <string name="settings_thread_pinning_desc">Hält die Arbeit von EE, VU1 und GS auf den schnellsten CPU-Kernen, sofern unterstützt.</string>
+    <string name="settings_help_dialog_eyebrow">Einstellungstipp</string>
+    <string name="settings_help_reset_tip_title">Schnelles Zurücksetzen</string>
+    <string name="settings_help_reset_tip_body">Halte den Namen einer Einstellung gedrückt, um diesen auf den Standardwert zurückzusetzen.</string>
+    <string name="close">Schließen</string>
+    <string name="memory_card_create_subtitle">Wähle, wie diese Karte gespeichert werden soll.</string>
+    <string name="memory_card_type_title">Kartentyp</string>
+    <string name="memory_card_type_folder_title">Ordner-Karte</string>
+    <string name="memory_card_type_folder_desc">Empfohlen. Speichert Spielstände als Dateien und vermeidet feste Größenbeschränkungen für Karten.</string>
+    <string name="memory_card_type_file_title">Klassische Datei-Karte</string>
+    <string name="memory_card_type_file_desc">.ps2-Karte mit fester Größe für Kompatibilität oder Migration.</string>
+    <string name="memory_card_folder_unlimited">Ordner • Unbegrenzte Größe</string>
+    <string name="memory_card_file_size">Datei • %1$s</string>
+    <string name="game_settings_manager_editor_eyebrow">Spieleinstellungen</string>
 </resources>

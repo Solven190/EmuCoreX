@@ -1178,4 +1178,17 @@
     <string name="settings_help_thread_pinning">Привязывает основные потоки эмуляции к самым быстрым ядрам процессора вместо того, чтобы полностью доверять их распределение Android. Это может улучшить стабильность на мощных чипах или портативных консолях с охлаждением, но может увеличить нагрев или снизить производительность на некоторых устройствах, если бы планировщик распределил нагрузку лучше.</string>
     <string name="settings_thread_pinning">Привязка потоков (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Удерживает работу EE, VU1 и GS на самых быстрых ядрам ЦП, если это поддерживается.</string>
+    <string name="settings_help_dialog_eyebrow">Подсказка по настройкам</string>
+    <string name="settings_help_reset_tip_title">Быстрый сброс</string>
+    <string name="settings_help_reset_tip_body">Нажмите и удерживайте название настройки, чтобы восстановить её значение по умолчанию.</string>
+    <string name="close">Закрыть</string>
+    <string name="memory_card_create_subtitle">Выберите, как должна храниться эта карта.</string>
+    <string name="memory_card_type_title">Тип карты</string>
+    <string name="memory_card_type_folder_title">Карта-папка</string>
+    <string name="memory_card_type_folder_desc">Рекомендуется. Сохраняет данные в виде отдельных файлов и позволяет избежать ограничения размера карты.</string>
+    <string name="memory_card_type_file_title">Классическая файловая карта</string>
+    <string name="memory_card_type_file_desc">Карта .ps2 фиксированного размера для совместимости или миграции.</string>
+    <string name="memory_card_folder_unlimited">Папка • Неограниченный размер</string>
+    <string name="memory_card_file_size">Файл • %1$s</string>
+    <string name="game_settings_manager_editor_eyebrow">Настройки игры</string>
 </resources>

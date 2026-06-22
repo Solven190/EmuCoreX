@@ -87,7 +87,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -130,7 +129,6 @@ import com.sbro.emucorex.data.SettingsSnapshot
 import com.sbro.emucorex.ui.common.NavigationBackButton
 import com.sbro.emucorex.ui.common.ProvideGamepadShoulderActions
 import com.sbro.emucorex.ui.common.RequestFocusOnResume
-import com.sbro.emucorex.ui.common.ScreenSettingsResetHintDialog
 import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.SettingHelpButton
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
@@ -161,9 +159,6 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val preferences = remember(context) { AppPreferences(context) }
-    val screenSettingsResetHintShown by produceState<Boolean?>(initialValue = null, preferences) {
-        preferences.screenSettingsResetHintShown.collect { value = it }
-    }
     LocalConfiguration.current
     val topInset = WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding() + 10.dp
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -180,7 +175,6 @@ fun SettingsScreen(
     val showResetAllSettingsDialog = remember { mutableStateOf(false) }
     val showCoverUrlDialog = remember { mutableStateOf(false) }
     val showBiosDialog = remember { mutableStateOf(false) }
-    val showScreenSettingsResetHint = rememberSaveable { mutableStateOf(false) }
     val pendingCoverUrl = remember { mutableStateOf("") }
     var searchEnabled by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -207,14 +201,6 @@ fun SettingsScreen(
     val coverUrlInvalidMessage = stringResource(R.string.settings_cover_download_url_invalid)
     stringResource(R.string.settings_not_set)
     val settingsScrollState = rememberScrollState()
-
-    LaunchedEffect(screenSettingsResetHintShown) {
-        when (screenSettingsResetHintShown) {
-            false -> showScreenSettingsResetHint.value = true
-            true -> showScreenSettingsResetHint.value = false
-            null -> Unit
-        }
-    }
 
     LaunchedEffect(uiState.customDriverPath, uiState.gpuDriverType) {
         viewModel.refreshInstalledGpuDrivers()
@@ -588,17 +574,6 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showBiosDialog.value = false }) {
                     Text(stringResource(R.string.cancel))
-                }
-            }
-        )
-    }
-
-    if (showScreenSettingsResetHint.value) {
-        ScreenSettingsResetHintDialog(
-            onDismiss = {
-                showScreenSettingsResetHint.value = false
-                scope.launch {
-                    preferences.setScreenSettingsResetHintShown(true)
                 }
             }
         )

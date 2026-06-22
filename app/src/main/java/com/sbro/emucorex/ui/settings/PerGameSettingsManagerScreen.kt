@@ -1,5 +1,11 @@
 package com.sbro.emucorex.ui.settings
 
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.os.Build
+import android.view.Gravity
+import android.view.View
+import android.view.WindowManager
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -13,17 +19,22 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -37,10 +48,11 @@ import androidx.compose.material.icons.rounded.Save
 import com.sbro.emucorex.core.EmulatorBridge
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -49,24 +61,31 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.buildUpscaleOptions
 import com.sbro.emucorex.core.formatUpscaleLabel
@@ -74,11 +93,12 @@ import com.sbro.emucorex.core.upscaleKeyToMultiplier
 import com.sbro.emucorex.core.upscaleMultiplierValue
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.GameItem
+import com.sbro.emucorex.data.GameRepository
 import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.SettingsSnapshot
+import com.sbro.emucorex.ui.common.GameCoverArt
 import com.sbro.emucorex.ui.common.ScreenTopBar
-import com.sbro.emucorex.ui.common.ScreenSettingsResetHintDialog
 import com.sbro.emucorex.ui.common.SettingHelpButton
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
@@ -265,7 +285,6 @@ fun PerGameSettingsManagerScreen(
             onSave = { updated ->
                 repository.save(updated)
                 refreshProfiles()
-                editingProfile.value = null
             }
         )
     }
@@ -344,7 +363,6 @@ fun PerGameSettingsQuickEditorDialog(
         onDismiss = onDismiss,
         onSave = { updated ->
             repository.save(updated)
-            onDismiss()
         }
     )
 }
@@ -356,8 +374,17 @@ private fun GameSettingsProfileCard(
     onReset: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
     val dateText = remember(profile.updatedAt) {
         DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(profile.updatedAt)
+    }
+    val coverPath = remember(profile.gameKey, profile.gameSerial, profile.gameTitle) {
+        GameRepository().findCoverForGame(
+            path = profile.gameKey,
+            context = context,
+            serial = profile.gameSerial,
+            title = profile.gameTitle
+        )
     }
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -376,33 +403,65 @@ private fun GameSettingsProfileCard(
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = profile.gameTitle,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                val subtitle = buildList {
-                    profile.gameSerial?.takeIf { it.isNotBlank() }?.let(::add)
-                    add(dateText)
-                }.joinToString("  /  ")
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                ProfileBadge(text = stringResource(rendererLabel(profile.renderer)))
-                ProfileBadge(
-                    text = formatUpscaleLabel(
-                        value = profile.upscaleMultiplier,
-                        nativeLabel = stringResource(R.string.settings_upscale_native)
+                Surface(
+                    modifier = Modifier
+                        .width(66.dp)
+                        .height(90.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.26f),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                     )
-                )
+                ) {
+                    GameCoverArt(
+                        coverPath = coverPath,
+                        fallbackTitle = profile.gameTitle,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = profile.gameTitle,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        val subtitle = buildList {
+                            profile.gameSerial?.takeIf { it.isNotBlank() }?.let(::add)
+                            add(dateText)
+                        }.joinToString("  /  ")
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ProfileBadge(text = stringResource(rendererLabel(profile.renderer)))
+                        ProfileBadge(
+                            text = formatUpscaleLabel(
+                                value = profile.upscaleMultiplier,
+                                nativeLabel = stringResource(R.string.settings_upscale_native)
+                            )
+                        )
+                    }
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -441,12 +500,7 @@ private fun GameSettingsEditorDialog(
     val context = LocalContext.current
     val preferences = remember(context) { AppPreferences(context) }
     val settingsSnapshot by preferences.settingsSnapshot.collectAsState(initial = SettingsSnapshot())
-    val screenSettingsResetHintShown by produceState<Boolean?>(initialValue = null, preferences) {
-        preferences.screenSettingsResetHintShown.collect { value = it }
-    }
-    val scope = rememberCoroutineScope()
     val nativeUpscaleLabel = stringResource(R.string.settings_upscale_native)
-    val showScreenSettingsResetHint = rememberSaveable(profile.gameKey) { mutableStateOf(false) }
     val defaultProfile = remember(settingsSnapshot, profile.gameKey, profile.gameTitle, profile.gameSerial) {
         settingsSnapshot.toPerGameSettings(
             GameItem(
@@ -463,55 +517,73 @@ private fun GameSettingsEditorDialog(
         profile.resolveAgainst(defaultProfile)
     }
     var draft by remember(editableProfile) { mutableStateOf(editableProfile) }
-    LaunchedEffect(profile.gameKey, screenSettingsResetHintShown) {
-        when (screenSettingsResetHintShown) {
-            false -> showScreenSettingsResetHint.value = true
-            true -> showScreenSettingsResetHint.value = false
-            null -> Unit
-        }
+    var hasUserChange by remember(editableProfile) { mutableStateOf(false) }
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+    val maxDialogHeight = if (isLandscape) {
+        (configuration.screenHeightDp.dp - 48.dp).coerceAtLeast(300.dp)
+    } else {
+        (configuration.screenHeightDp.dp - 72.dp).coerceAtLeast(440.dp)
     }
-    Dialog(onDismissRequest = onDismiss) {
+    val dialogWidthFraction = if (isLandscape) 0.98f else 0.94f
+    val dialogMaxWidth = if (isLandscape) 1600.dp else 720.dp
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        LaunchedEffect(draft) {
+            if (hasUserChange) {
+                onSave(draft.copy(providedKeys = null))
+            } else {
+                hasUserChange = true
+            }
+        }
         val maxUpscaleMultiplier = remember(draft.renderer) {
             EmulatorBridge.getMaxUpscaleMultiplier(normalizeManagerRenderer(draft.renderer))
         }
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .imePadding()
+                .fillMaxSize()
+                .padding(
+                    start = if (isLandscape) 10.dp else 14.dp,
+                    top = if (isLandscape) 10.dp else 14.dp,
+                    end = if (isLandscape) 10.dp else 14.dp,
+                    bottom = if (isLandscape) 4.dp else 8.dp
+                )
+                .imePadding(),
+            contentAlignment = Alignment.Center
         ) {
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 720.dp),
+                    .fillMaxWidth(dialogWidthFraction)
+                    .widthIn(max = dialogMaxWidth),
                 shape = RoundedCornerShape(30.dp),
                 color = MaterialTheme.colorScheme.surface
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = maxDialogHeight)
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 24.dp, top = 22.dp, end = 24.dp, bottom = 30.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    GameSettingsEditorHeader(
+                        profile = draft
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f))
                     Column(
-                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = draft.gameTitle,
-                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = stringResource(R.string.game_settings_manager_editor_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Column(
-                        modifier = Modifier
-                            .weight(1f, fill = true)
-                            .verticalScroll(rememberScrollState())
-                            .padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        Text(
+                            text = stringResource(R.string.game_settings_manager_editor_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         EditorSection(title = stringResource(R.string.game_settings_manager_section_profile)) {
                             SelectionRow(
                                 title = stringResource(R.string.settings_renderer),
@@ -1119,32 +1191,76 @@ private fun GameSettingsEditorDialog(
                         }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 16.dp),
-                        horizontalArrangement = Arrangement.End
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
                     ) {
-                        TextButton(onClick = onDismiss) {
-                            Text(stringResource(R.string.cancel))
-                        }
-                        TextButton(onClick = { onSave(draft.copy(providedKeys = null)) }) {
-                            Text(stringResource(R.string.save))
-                        }
+                        Text(
+                            text = stringResource(R.string.cancel),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        )
                     }
                 }
             }
         }
     }
-    if (showScreenSettingsResetHint.value) {
-        ScreenSettingsResetHintDialog(
-            onDismiss = {
-                showScreenSettingsResetHint.value = false
-                scope.launch {
-                    preferences.setScreenSettingsResetHintShown(true)
-                }
+}
+
+@Composable
+private fun GameSettingsEditorHeader(
+    profile: PerGameSettings,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(58.dp),
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Rounded.Tune,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(30.dp)
+                )
             }
-        )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.game_settings_manager_editor_eyebrow),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = profile.gameTitle,
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            profile.gameSerial?.takeIf { it.isNotBlank() }?.let { serial ->
+                Text(
+                    text = serial,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
@@ -1365,7 +1481,7 @@ private fun ManagerActionButton(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         color = if (destructive) {
             MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f)
         } else {
@@ -1425,16 +1541,20 @@ private fun ProfileActionIconButton(
             } else {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
             }
-        )
+        ),
+        onClick = onClick
     ) {
-        IconButton(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = onClick
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(46.dp),
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = title,
-                tint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                tint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
             )
         }
     }
@@ -1613,6 +1733,60 @@ private fun bilinearUpscaleOptions(): List<Pair<Int, String>> = listOf(
     1 to stringResource(R.string.settings_bilinear_upscale_force_bilinear),
     2 to stringResource(R.string.settings_bilinear_upscale_force_nearest)
 )
+
+@Composable
+private fun DialogWindowWidth(
+    enabled: Boolean,
+    widthFraction: Float,
+    maxWidthDp: Int
+) {
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+
+    SideEffect {
+        val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        window.setGravity(Gravity.CENTER)
+        window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        window.decorView.setPadding(0, 0, 0, 0)
+        if (!enabled) {
+            val attributes = window.attributes
+            attributes.x = 0
+            window.attributes = attributes
+            window.setLayout(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT
+            )
+            return@SideEffect
+        }
+
+        val requestedWidthPx = with(density) {
+            (configuration.screenWidthDp.dp * widthFraction)
+                .coerceAtMost(maxWidthDp.dp)
+                .roundToPx()
+        }
+        val attributes = window.attributes
+        attributes.x = landscapeCenterOffsetPx(view, configuration.screenWidthDp > configuration.screenHeightDp)
+        window.attributes = attributes
+        window.setLayout(requestedWidthPx, WindowManager.LayoutParams.WRAP_CONTENT)
+    }
+}
+
+private fun landscapeCenterOffsetPx(view: View, isLandscape: Boolean): Int {
+    if (!isLandscape) return 0
+    val insets = view.rootWindowInsets ?: return 0
+    val leftRight = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val bars = insets.getInsets(
+            android.view.WindowInsets.Type.systemBars() or
+                android.view.WindowInsets.Type.displayCutout()
+        )
+        bars.left to bars.right
+    } else {
+        @Suppress("DEPRECATION")
+        insets.systemWindowInsetLeft to insets.systemWindowInsetRight
+    }
+    return (leftRight.first - leftRight.second) / 2
+}
 
 private fun rendererLabel(renderer: Int): Int = when (normalizeManagerRenderer(renderer)) {
     12 -> R.string.settings_renderer_opengl

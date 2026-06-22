@@ -1178,4 +1178,17 @@
     <string name="settings_help_thread_pinning">Épingle les threads d\'émulation principaux sur les cœurs de processeur les plus rapides au lieu de laisser le placement entièrement à Android. Cela peut améliorer la stabilité sur les puces puissantes ou les consoles portables refroidies, mais peut augmenter la chaleur ou réduire les performances sur certains appareils si le planificateur avait mieux équilibré la charge.</string>
     <string name="settings_thread_pinning">Épinglage des threads (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Maintient le travail de l\'EE, du VU1 et du GS sur les cœurs de processeur les plus rapides lorsque cela est pris en charge.</string>
+    <string name="settings_help_dialog_eyebrow">Astuce de paramètre</string>
+    <string name="settings_help_reset_tip_title">Réinitialisation rapide</string>
+    <string name="settings_help_reset_tip_body">Appuyez longuement sur le nom d\'un paramètre pour restaurer sa valeur par défaut.</string>
+    <string name="close">Fermer</string>
+    <string name="memory_card_create_subtitle">Choisissez comment cette carte doit être stockée.</string>
+    <string name="memory_card_type_title">Type de carte</string>
+    <string name="memory_card_type_folder_title">Carte dossier</string>
+    <string name="memory_card_type_folder_desc">Recommandé. Stocke les sauvegardes sous forme de fichiers et évite les limites de taille de carte fixes.</string>
+    <string name="memory_card_type_file_title">Carte fichier classique</string>
+    <string name="memory_card_type_file_desc">Carte .ps2 de taille fixe pour la compatibilité ou la migration.</string>
+    <string name="memory_card_folder_unlimited">Dossier • Taille illimitée</string>
+    <string name="memory_card_file_size">Fichier • %1$s</string>
+    <string name="game_settings_manager_editor_eyebrow">Paramètres du jeu</string>
 </resources>

@@ -1176,4 +1176,17 @@
     <string name="settings_help_thread_pinning">मुख्य एमुलेशन थ्रेड्स को पूरी तरह से Android पर छोड़ने के बजाय सबसे तेज़ CPU कोर पर पिन करता है। यह शक्तिशाली चिप्स या कूल्ड हैंडहेल्ड्स पर स्थिरता में सुधार कर सकता है, लेकिन कुछ उपकरणों पर गर्मी बढ़ा सकता है या प्रदर्शन को कम कर सकता है यदि शेड्यूलर ने लोड को बेहतर ढंग से संतुलित किया होता।</string>
     <string name="settings_thread_pinning">थ्रेड पिनिंग (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">समर्थित होने पर EE, VU1 और GS के काम को सबसे तेज़ CPU कोर पर रखता है।</string>
+    <string name="settings_help_dialog_eyebrow">सेटिंग टिप</string>
+    <string name="settings_help_reset_tip_title">त्वरित रीसेट</string>
+    <string name="settings_help_reset_tip_body">किसी सेटिंग को उसके डिफ़ॉल्ट मान पर पुनर्स्थापित करने के लिए उसके नाम को देर तक दबाएं।</string>
+    <string name="close">बंद करें</string>
+    <string name="memory_card_create_subtitle">चुनें कि इस कार्ड को कैसे संग्रहीत किया जाना चाहिए।</string>
+    <string name="memory_card_type_title">कार्ड का प्रकार</string>
+    <string name="memory_card_type_folder_title">फ़ोल्डर कार्ड</string>
+    <string name="memory_card_type_folder_desc">अनुशंसित। सेव को फ़ाइलों के रूप में संग्रहीत करता है और निश्चित कार्ड आकार सीमा से बचाता है।</string>
+    <string name="memory_card_type_file_title">क्लासिक फ़ाइल कार्ड</string>
+    <string name="memory_card_type_file_desc">संगतता या माइग्रेशन के लिए निश्चित आकार का .ps2 कार्ड।</string>
+    <string name="memory_card_folder_unlimited">फ़ोल्डर • असीमित आकार</string>
+    <string name="memory_card_file_size">फ़ाइल • %1$s</string>
+    <string name="game_settings_manager_editor_eyebrow">गेम सेटिंग्स</string>
 </resources>
