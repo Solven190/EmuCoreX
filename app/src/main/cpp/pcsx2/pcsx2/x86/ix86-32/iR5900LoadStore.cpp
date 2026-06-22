@@ -150,6 +150,22 @@ static u32 recLoadStoreGuestPC()
 	return g_recompilingDelaySlot ? pc : (pc - 4);
 }
 
+// EE timer/counter reads can require an immediate event test to deliver overflow IRQs.
+static bool recLoadNeedsEEHwCounterEventTest()
+{
+	if (!GPR_IS_CONST1(_Rs_))
+		return false;
+
+	const u32 srcadr = g_cpuConstRegs[_Rs_].UL[0] + _Imm_;
+	return (srcadr & 0xFFFFE000u) == 0x10000000u;
+}
+
+static void recForceEEHwCounterEventTest()
+{
+	iFlushCall(FLUSH_INTERPRETER);
+	g_branch = 2;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 //
 
@@ -195,6 +211,7 @@ static int recPrepareStoreAddressToECX_emit_oaknut(bool align16, int value_reg =
 //
 static void recLB_emit_oaknut()
 {
+	const bool needs_event_test = recLoadNeedsEEHwCounterEventTest();
 	vtlb_ReadRegAllocCallback alloc_cb = _Rt_ ? []() { return _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE); } : nullptr;
 	const int x86reg = GPR_IS_CONST1(_Rs_) ?
 		vtlb_DynGenReadNonQuad_Const(8, true, false, g_cpuConstRegs[_Rs_].UL[0] + _Imm_, alloc_cb) :
@@ -202,6 +219,8 @@ static void recLB_emit_oaknut()
 	pxAssert(!_Rt_ || !GPR_IS_CONST1(_Rt_));
 	if (!_Rt_)
 		_freeX86reg(x86reg);
+	if (needs_event_test)
+		recForceEEHwCounterEventTest();
 }
 
 void recLB()
@@ -212,6 +231,7 @@ void recLB()
 
 static void recLBU_emit_oaknut()
 {
+	const bool needs_event_test = recLoadNeedsEEHwCounterEventTest();
 	vtlb_ReadRegAllocCallback alloc_cb = _Rt_ ? []() { return _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE); } : nullptr;
 	const int x86reg = GPR_IS_CONST1(_Rs_) ?
 		vtlb_DynGenReadNonQuad_Const(8, false, false, g_cpuConstRegs[_Rs_].UL[0] + _Imm_, alloc_cb) :
@@ -219,6 +239,8 @@ static void recLBU_emit_oaknut()
 	pxAssert(!_Rt_ || !GPR_IS_CONST1(_Rt_));
 	if (!_Rt_)
 		_freeX86reg(x86reg);
+	if (needs_event_test)
+		recForceEEHwCounterEventTest();
 }
 
 void recLBU()
@@ -229,6 +251,7 @@ void recLBU()
 
 static void recLH_emit_oaknut()
 {
+	const bool needs_event_test = recLoadNeedsEEHwCounterEventTest();
 	vtlb_ReadRegAllocCallback alloc_cb = _Rt_ ? []() { return _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE); } : nullptr;
 	const int x86reg = GPR_IS_CONST1(_Rs_) ?
 		vtlb_DynGenReadNonQuad_Const(16, true, false, g_cpuConstRegs[_Rs_].UL[0] + _Imm_, alloc_cb) :
@@ -236,6 +259,8 @@ static void recLH_emit_oaknut()
 	pxAssert(!_Rt_ || !GPR_IS_CONST1(_Rt_));
 	if (!_Rt_)
 		_freeX86reg(x86reg);
+	if (needs_event_test)
+		recForceEEHwCounterEventTest();
 }
 
 void recLH()
@@ -246,6 +271,7 @@ void recLH()
 
 static void recLHU_emit_oaknut()
 {
+	const bool needs_event_test = recLoadNeedsEEHwCounterEventTest();
 	vtlb_ReadRegAllocCallback alloc_cb = _Rt_ ? []() { return _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE); } : nullptr;
 	const int x86reg = GPR_IS_CONST1(_Rs_) ?
 		vtlb_DynGenReadNonQuad_Const(16, false, false, g_cpuConstRegs[_Rs_].UL[0] + _Imm_, alloc_cb) :
@@ -253,6 +279,8 @@ static void recLHU_emit_oaknut()
 	pxAssert(!_Rt_ || !GPR_IS_CONST1(_Rt_));
 	if (!_Rt_)
 		_freeX86reg(x86reg);
+	if (needs_event_test)
+		recForceEEHwCounterEventTest();
 }
 
 void recLHU()
@@ -263,6 +291,7 @@ void recLHU()
 
 static void recLW_emit_oaknut()
 {
+	const bool needs_event_test = recLoadNeedsEEHwCounterEventTest();
 	vtlb_ReadRegAllocCallback alloc_cb = _Rt_ ? []() { return _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE); } : nullptr;
 	const int x86reg = GPR_IS_CONST1(_Rs_) ?
 		vtlb_DynGenReadNonQuad_Const(32, true, false, g_cpuConstRegs[_Rs_].UL[0] + _Imm_, alloc_cb) :
@@ -270,6 +299,8 @@ static void recLW_emit_oaknut()
 	pxAssert(!_Rt_ || !GPR_IS_CONST1(_Rt_));
 	if (!_Rt_)
 		_freeX86reg(x86reg);
+	if (needs_event_test)
+		recForceEEHwCounterEventTest();
 }
 
 void recLW()
@@ -280,6 +311,7 @@ void recLW()
 
 static void recLWU_emit_oaknut()
 {
+	const bool needs_event_test = recLoadNeedsEEHwCounterEventTest();
 	vtlb_ReadRegAllocCallback alloc_cb = _Rt_ ? []() { return _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE); } : nullptr;
 	const int x86reg = GPR_IS_CONST1(_Rs_) ?
 		vtlb_DynGenReadNonQuad_Const(32, false, false, g_cpuConstRegs[_Rs_].UL[0] + _Imm_, alloc_cb) :
@@ -287,6 +319,8 @@ static void recLWU_emit_oaknut()
 	pxAssert(!_Rt_ || !GPR_IS_CONST1(_Rt_));
 	if (!_Rt_)
 		_freeX86reg(x86reg);
+	if (needs_event_test)
+		recForceEEHwCounterEventTest();
 }
 
 void recLWU()
