@@ -2811,6 +2811,11 @@ bool GSDeviceVK::CheckFeatures()
 	}
 
 	m_features.depth_feedback = GetVKDepthFeedbackSupport(m_features.texture_barrier, GSConfig.DepthFeedbackMode);
+#ifdef __ANDROID__
+	// Android Vulkan drivers are still inconsistent with depth feedback loops. Avoid the PC-style
+	// direct depth feedback path here and let GSRendererHW use its established avoid/copy fallbacks.
+	m_features.depth_feedback = GSDevice::DepthFeedbackSupport::None;
+#endif
 
 	DevCon.WriteLn("Optional features:%s%s%s%s%s", m_features.primitive_id ? " primitive_id" : "",
 		m_features.texture_barrier ? " texture_barrier" : "", m_features.framebuffer_fetch ? " framebuffer_fetch" : "",

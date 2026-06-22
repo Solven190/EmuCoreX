@@ -9,7 +9,7 @@ object GsHackDefaults {
     const val TV_SHADER_TRIANGULAR = 3
     const val TV_SHADER_MIN = 0
     const val TV_SHADER_MAX = 7
-    const val BLENDING_ACCURACY_DEFAULT = 0
+    const val BLENDING_ACCURACY_DEFAULT = 1
     const val TEXTURE_PRELOADING_DEFAULT = 2
     const val ANISOTROPIC_FILTERING_DEFAULT = 0
     const val HW_MIPMAPPING_DEFAULT = true

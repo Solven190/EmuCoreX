@@ -917,7 +917,7 @@ bool GSDeviceOGL::CheckFeatures()
 	}
 	else
 	{
-		m_bugs.buggy_pbo = GLAD_GL_EXT_buffer_storage;
+		m_bugs.buggy_pbo = !GLAD_GL_EXT_buffer_storage;
 	}
 	if (m_bugs.buggy_pbo)
 		Console.Warning("GL: Not using PBOs for texture uploads because buffer_storage is unavailable.");
@@ -958,6 +958,7 @@ bool GSDeviceOGL::CheckFeatures()
 		m_features.texture_barrier = framebuffer_fetch || has_texture_barrier_extension;
 
 	m_features.framebuffer_fetch = framebuffer_fetch;
+	m_features.prefer_mobile_sw_blend = vendor_id_mali;
 
 	if (!m_features.texture_barrier)
 	{
