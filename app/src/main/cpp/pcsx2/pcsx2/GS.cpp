@@ -6,12 +6,23 @@
 #include "Config.h"
 #include "Gif_Unit.h"
 #include "MTGS.h"
+#include "MTVU.h"
 #include "VMManager.h"
 
 #include <list>
 
 alignas(16) u8 g_RealGSMem[Ps2MemSize::GSregs];
 static bool s_GSRegistersWritten = false;
+
+static __fi void gsSyncMTVUReadback()
+{
+	if (!THREAD_VU1)
+		return;
+
+	// Do not synchronously wait for VU1 here. Pulling pending MTVU changes is
+	// enough to keep GS register reads coherent without stalling hot polling loops.
+	vu1Thread.Get_MTVUChanges();
+}
 
 void gsSetVideoMode(GS_VideoMode mode)
 {
@@ -243,6 +254,8 @@ void TAKES_R128 gsWrite128_generic( u32 mem, r128 value )
 
 __fi u8 gsRead8(u32 mem)
 {
+	gsSyncMTVUReadback();
+
 	switch (mem & ~0xF)
 	{
 		case GS_SIGLBLID:
@@ -254,6 +267,8 @@ __fi u8 gsRead8(u32 mem)
 
 __fi u16 gsRead16(u32 mem)
 {
+	gsSyncMTVUReadback();
+
 	switch (mem & ~0xF)
 	{
 		case GS_SIGLBLID:
@@ -265,6 +280,8 @@ __fi u16 gsRead16(u32 mem)
 
 __fi u32 gsRead32(u32 mem)
 {
+	gsSyncMTVUReadback();
+
 	switch (mem & ~0xF)
 	{
 		case GS_SIGLBLID:
@@ -276,6 +293,8 @@ __fi u32 gsRead32(u32 mem)
 
 __fi u64 gsRead64(u32 mem)
 {
+	gsSyncMTVUReadback();
+
 	// fixme - PS2GS_BASE(mem+4) = (g_RealGSMem+(mem + 4 & 0x13ff))
 	switch (mem & ~0xF)
 	{
@@ -288,6 +307,8 @@ __fi u64 gsRead64(u32 mem)
 
 __fi u128 gsNonMirroredRead(u32 mem)
 {
+	gsSyncMTVUReadback();
+
 	return *(u128*)PS2GS_BASE(mem);
 }
 

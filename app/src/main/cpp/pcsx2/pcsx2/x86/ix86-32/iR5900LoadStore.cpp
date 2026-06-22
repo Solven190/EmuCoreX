@@ -150,14 +150,23 @@ static u32 recLoadStoreGuestPC()
 	return g_recompilingDelaySlot ? pc : (pc - 4);
 }
 
-// EE timer/counter reads can require an immediate event test to deliver overflow IRQs.
+// EE timer/counter count reads can require an immediate event test to deliver overflow IRQs.
 static bool recLoadNeedsEEHwCounterEventTest()
 {
 	if (!GPR_IS_CONST1(_Rs_))
 		return false;
 
 	const u32 srcadr = g_cpuConstRegs[_Rs_].UL[0] + _Imm_;
-	return (srcadr & 0xFFFFE000u) == 0x10000000u;
+	switch (srcadr)
+	{
+		case 0x10000000u: // RCNT0_COUNT
+		case 0x10000800u: // RCNT1_COUNT
+		case 0x10001000u: // RCNT2_COUNT
+		case 0x10001800u: // RCNT3_COUNT
+			return true;
+		default:
+			return false;
+	}
 }
 
 static void recForceEEHwCounterEventTest()
