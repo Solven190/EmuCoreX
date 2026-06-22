@@ -393,7 +393,6 @@ void mVUoptimizePipeState(mV)
 	if (mVUregs.q) { mVUregs.q = optimizeReg(mVUregs.q); if (!mVUregs.q) { incQ(mVU); } }
 	if (mVUregs.p) { mVUregs.p = optimizeReg(mVUregs.p); if (!mVUregs.p) { incP(mVU); } }
 	mVUregs.r = 0; // There are no stalls on the R-reg, so its Safe to discard info
-	mVUcanonicalizePipeState(mVUregs);
 }
 
 void mVUincCycles(mV, int x)
@@ -598,7 +597,6 @@ __fi void mVUinitFirstPass(microVU& mVU, uptr pState, u8* thisPtr)
 	{
 		memcpy((u8*)&mVUregs, (u8*)pState, sizeof(microRegInfo));
 	}
-	mVUcanonicalizePipeState(mVUregs);
 	if (((uptr)&mVU.prog.lpState != pState))
 	{
 		memcpy((u8*)&mVU.prog.lpState, (u8*)&mVUregs, sizeof(microRegInfo));

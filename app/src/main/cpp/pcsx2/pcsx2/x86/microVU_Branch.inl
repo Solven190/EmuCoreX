@@ -6,12 +6,6 @@
 extern void mVUincCycles(microVU& mVU, int x);
 extern void* mVUcompile(microVU& mVU, u32 startPC, uptr pState);
 
-static __fi void mVUFinalizeBlockHostSize(microVU& mVU)
-{
-	if (mVUpBlock && mVUpBlock->host_size == 0)
-		mVUpBlock->host_size = static_cast<u32>(oakGetCurrentCodePointer() - mVUpBlock->x86ptrStart);
-}
-
 __fi int getLastFlagInst(microRegInfo& pState, int* xFlag, int flagType, int isEbit)
 {
 	if (isEbit)
@@ -511,14 +505,12 @@ void normBranchCompile(microVU& mVU, u32 branchPC)
 
 	u32 branchPC_8 = branchPC >> 3; // branchPC / 8
 	blockCreate(branchPC_8);
-	microRegInfo canonicalState;
-	pBlock = mVUblocks[branchPC_8]->search(mVU, mVUcanonicalizeSearchState((microRegInfo*)&mVUregs, canonicalState));
+	pBlock = mVUblocks[branchPC_8]->search(mVU, (microRegInfo*)&mVUregs);
 	if (pBlock) {
 		mVUBranchEmitJmp_oaknut(pBlock->x86ptrStart);
     }
 	else {
-		mVUFinalizeBlockHostSize(mVU);
-        mVUcompile(mVU, branchPC, (uptr)mVUcanonicalizeSearchState((microRegInfo*)&mVUregs, canonicalState));
+        mVUcompile(mVU, branchPC, (uptr)&mVUregs);
     }
 }
 
@@ -765,8 +757,7 @@ void condBranch(mV, microFlagCycles& mFC, oak::Cond JMPcc)
 
         int iPCHalf = iPC >> 1; // iPC / 2
 		blockCreate(iPCHalf);
-		microRegInfo canonicalState;
-		bBlock = mVUblocks[iPCHalf]->search(mVU, mVUcanonicalizeSearchState((microRegInfo*)&mVUregs, canonicalState));
+		bBlock = mVUblocks[iPCHalf]->search(mVU, (microRegInfo*)&mVUregs);
 
 		incPC2(-1);
 		if (bBlock) // Branch non-taken has already been compiled
@@ -792,9 +783,7 @@ void condBranch(mV, microFlagCycles& mFC, oak::Cond JMPcc)
 			memcpy(&regBackup, &mVUregs, sizeof(microRegInfo));
 
 			incPC2(1); // Get PC for branch not-taken
-			mVUFinalizeBlockHostSize(mVU);
-			microRegInfo canonicalCompileState;
-			mVUcompile(mVU, xPC, (uptr)mVUcanonicalizeSearchState((microRegInfo*)&mVUregs, canonicalCompileState));
+			mVUcompile(mVU, xPC, (uptr)&mVUregs);
 
 			iPC = bPC;
 			incPC(-3); // Go back to branch opcode (to get branch imm addr)
