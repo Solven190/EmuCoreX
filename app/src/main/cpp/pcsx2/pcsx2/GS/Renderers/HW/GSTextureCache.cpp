@@ -4121,12 +4121,16 @@ GSTextureCache::Target* GSTextureCache::LookupDisplayTarget(GIFRegTEX0 TEX0, con
 					break;
 				}
 
-				if (DoesUploadTransferExactlyMatchRange(*iter, TEX0.TBP0, rect_end, TEX0.PSM))
-				{
-					iter = std::vector<GSState::GSUploadQueue>::reverse_iterator(GSRendererHW::GetInstance()->m_draw_transfers.erase(iter.base() - 1));
-				}
+				// Keep exact upload records alive until the normal VSync pruning path
+				// retires them. FMV-style display targets can be looked up more than
+				// once after a CPU/IPU upload (for example across repeated fields or
+				// alternating display buffers), and erasing the exact match on the
+				// first lookup can make hardware rendering alternate between a fresh
+				// uploaded frame and a stale/missing target.
+				const bool exact_match = DoesUploadTransferExactlyMatchRange(*iter, TEX0.TBP0, rect_end, TEX0.PSM);
+
 				// Double buffers, usually FMV's, if checking for the upper buffer, creating another target could mess things up.
-				else if (DoesUploadTransferFullyCoverRange(*iter, TEX0.TBP0, rect_end, TEX0.PSM) && iter->rect.width() == size.x)
+				if (!exact_match && DoesUploadTransferFullyCoverRange(*iter, TEX0.TBP0, rect_end, TEX0.PSM) && iter->rect.width() == size.x)
 				{
 					GSTextureCache::Target* tgt = g_texture_cache->GetExactTarget(iter->blit.DBP, iter->blit.DBW, GSTextureCache::RenderTarget, iter->blit.DBP + 1);
 
