@@ -1682,6 +1682,36 @@ private fun SettingsContent(
                                 onResetToDefault = { viewModel.setTargetFps(defaults.targetFps) }
                             )
                         }
+                        SliderItem(
+                            icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_ntsc_framerate),
+                            subtitle = stringResource(
+                                R.string.settings_region_framerate_desc,
+                                formatFramerateHz(uiState.ntscFramerate)
+                            ),
+                            value = uiState.ntscFramerate,
+                            range = 20f..120f,
+                            steps = 199,
+                            onValueChange = viewModel::setNtscFramerate,
+                            valueLabel = { formatFramerateHz(it) },
+                            helpText = stringResource(R.string.settings_help_ntsc_framerate),
+                            onResetToDefault = { viewModel.setNtscFramerate(defaults.ntscFramerate) }
+                        )
+                        SliderItem(
+                            icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_pal_framerate),
+                            subtitle = stringResource(
+                                R.string.settings_region_framerate_desc,
+                                formatFramerateHz(uiState.palFramerate)
+                            ),
+                            value = uiState.palFramerate,
+                            range = 20f..120f,
+                            steps = 199,
+                            onValueChange = viewModel::setPalFramerate,
+                            valueLabel = { formatFramerateHz(it) },
+                            helpText = stringResource(R.string.settings_help_pal_framerate),
+                            onResetToDefault = { viewModel.setPalFramerate(defaults.palFramerate) }
+                        )
                         ChoiceSection(
                             title = stringResource(R.string.settings_ee_cycle_rate),
                             options = listOf(
@@ -2469,6 +2499,8 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Emulation, R.string.settings_enable_vu1_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_frame_limiter),
         entry(SettingsTab.Emulation, R.string.settings_target_fps),
+        entry(SettingsTab.Emulation, R.string.settings_ntsc_framerate),
+        entry(SettingsTab.Emulation, R.string.settings_pal_framerate),
         entry(SettingsTab.Emulation, R.string.settings_ee_cycle_rate),
         entry(SettingsTab.Emulation, R.string.settings_ee_cycle_skip),
         entry(SettingsTab.Emulation, R.string.settings_mtvu),
@@ -3023,6 +3055,16 @@ private fun resolveManualTargetFps(currentTargetFps: Int, defaultTargetFps: Int)
         currentTargetFps > 0 -> currentTargetFps
         defaultTargetFps > 0 -> defaultTargetFps
         else -> 60
+    }
+}
+
+private fun formatFramerateHz(value: Float): String {
+    val rounded = kotlin.math.round(value * 100f) / 100f
+    val whole = rounded.toInt()
+    return if (rounded == whole.toFloat()) {
+        "${whole} Hz"
+    } else {
+        "${rounded} Hz"
     }
 }
 

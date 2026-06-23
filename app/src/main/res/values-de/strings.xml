@@ -1195,4 +1195,9 @@
     <string name="settings_enable_vu0_clamping">VU0-Clamping</string>
     <string name="settings_enable_vu0_clamping_desc">Aktiviert das Überlauf-Clamping für VU0-Gleitkommaoperationen. Lass es deaktiviert, es sei denn, ein Spiel benötigt es aus Kompatibilitätsgründen.</string>
     <string name="settings_help_enable_vu0_clamping">Steuert, ob der VU0-Recompiler Clamping-Anweisungen für Fälle von Über- und Unterlauf von Gleitkommazahlen ausgibt. Die meisten Spiele funktionieren auch ohne VU0-Clamping korrekt; aktiviere es nur bei Kompatibilitätsproblemen in einem bestimmten Spiel.</string>
+    <string name="settings_help_ntsc_framerate">Legt die Basis-Bildwiederholrate fest, die von Spielen der NTSC-Region verwendet wird, wenn die Ziel-FPS auf Automatisch eingestellt sind. Manuelle FPS überschreiben diesen Wert, solange sie aktiviert sind.</string>
+    <string name="settings_help_pal_framerate">Legt die Basis-Bildwiederholrate fest, die von Spielen der PAL-Region verwendet wird, wenn die Ziel-FPS auf Automatisch eingestellt sind. Manuelle FPS überschreiben diesen Wert, solange sie aktiviert sind.</string>
+    <string name="settings_ntsc_framerate">NTSC-Bildrate</string>
+    <string name="settings_pal_framerate">PAL-Bildrate</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
 </resources>

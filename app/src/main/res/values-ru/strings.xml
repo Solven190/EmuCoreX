@@ -1195,4 +1195,9 @@
     <string name="settings_enable_vu0_clamping">VU0 Clamping</string>
     <string name="settings_enable_vu0_clamping_desc">Включает клэмпинг (ограничение) переполнения для операций с плавающей запятой VU0. Оставьте выключенным, если это не требуется игре для совместимости.</string>
     <string name="settings_help_enable_vu0_clamping">Контролирует, выдает ли рекомпилятор VU0 инструкции клэмпинга для случаев переполнения и потери значимости значений с плавающей запятой. Большинство игр корректно работают без клэмпинга VU0; включайте его только при проблемах с совместимостью в конкретной игре.</string>
+    <string name="settings_help_ntsc_framerate">Устанавливает базовую частоту обновления, используемую играми региона NTSC, когда целевой FPS установлен на «Авто». Ручная настройка FPS переопределяет это значение, пока она включена.</string>
+    <string name="settings_help_pal_framerate">Устанавливает базовую частоту обновления, используемую играми региона PAL, когда целевой FPS установлен на «Авто». Ручная настройка FPS переопределяет это значение, пока она включена.</string>
+    <string name="settings_ntsc_framerate">Частота кадров NTSC</string>
+    <string name="settings_pal_framerate">Частота кадров PAL</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
 </resources>

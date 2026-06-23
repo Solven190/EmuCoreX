@@ -535,6 +535,8 @@
     <string name="settings_help_frame_limiter">Keeps game speed tied to the selected target frame rate instead of running as fast as possible. Leave it enabled for normal play; disable it only for testing, uncapped behavior, or very specific use cases.</string>
     <string name="settings_help_skip_duplicate_frames">Skips presenting identical frames when the game keeps drawing the same image repeatedly. It can lower GPU work and input latency in some 25/30 FPS titles, but it may worsen frame pacing or timing in games that expect every present, so leave it off unless a game clearly benefits.</string>
     <string name="settings_help_target_fps">Sets the speed target used by the limiter. Most games should stay at their native cap, so change this only if you know the game or patch supports a different target safely.</string>
+    <string name="settings_help_ntsc_framerate">Sets the base refresh rate used by NTSC-region games when Target FPS is set to Auto. Manual FPS overrides this value while it is enabled.</string>
+    <string name="settings_help_pal_framerate">Sets the base refresh rate used by PAL-region games when Target FPS is set to Auto. Manual FPS overrides this value while it is enabled.</string>
     <string name="settings_help_ee_cycle_rate">Adjusts how much EE CPU time the emulator gives the game each frame. Lower values can rescue borderline performance on weak devices, but they also make game timing less accurate and can cause slowdown, audio issues, or broken logic.</string>
     <string name="settings_help_ee_cycle_skip">Lets the emulator skip part of the EE workload to gain speed. It is stronger and riskier than Cycle Rate: useful when a game is close to full speed, but aggressive values can cause stutter, input delay, missing effects, or unstable behavior.</string>
     <string name="settings_help_mtvu">Runs VU1 work on another CPU thread. This often helps on modern multi-core devices, especially in heavier 3D games, but a few titles may show instability or odd timing with it enabled.</string>
@@ -770,6 +772,9 @@
     <string name="settings_target_fps_mode">Target FPS Mode</string>
     <string name="settings_target_fps_auto">Auto FPS</string>
     <string name="settings_target_fps_manual">Manual FPS</string>
+    <string name="settings_ntsc_framerate">NTSC Framerate</string>
+    <string name="settings_pal_framerate">PAL Framerate</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
     <string name="settings_hardware_fixes">Hardware Fixes</string>
     <string name="settings_upscaling_fixes">Upscaling Fixes</string>
     <string name="settings_blending_accuracy">Blending Accuracy</string>

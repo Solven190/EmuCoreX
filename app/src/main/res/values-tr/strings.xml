@@ -1193,4 +1193,9 @@
     <string name="settings_enable_vu0_clamping">VU0 Sınırlaması</string>
     <string name="settings_enable_vu0_clamping_desc">VU0 kayan nokta işlemleri için taşma sınırlamasını etkinleştirir. Bir oyunun uyumluluk için ihtiyacı olmadığı sürece kapalı bırakın.</string>
     <string name="settings_help_enable_vu0_clamping">VU0 yeniden derleyicisinin kayan nokta taşması ve yetersizliği durumları için sınırlama talimatları verip vermediğini denetler. Çoğu oyun VU0 sınırlaması olmadan doğru şekilde çalışır; yalnızca belirli bir oyundaki uyumluluk sorunları için etkinleştirin.</string>
+    <string name="settings_help_ntsc_framerate">Hedef FPS Otomatik olarak ayarlandığında NTSC bölgesi oyunları tarafından kullanılan temel yenileme hızını ayarlar. Manuel FPS etkinleştirildiğinde bu değeri geçersiz kılar.</string>
+    <string name="settings_help_pal_framerate">Hedef FPS Otomatik olarak ayarlandığında PAL bölgesi oyunları tarafından kullanılan temel yenileme hızını ayarlar. Manuel FPS etkinleştirildiğinde bu değeri geçersiz kılar.</string>
+    <string name="settings_ntsc_framerate">NTSC Kare Hızı</string>
+    <string name="settings_pal_framerate">PAL Kare Hızı</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
 </resources>

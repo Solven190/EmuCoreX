@@ -144,6 +144,8 @@ data class SettingsSnapshot(
     val customDriverPath: String? = null,
     val frameLimitEnabled: Boolean = true,
     val targetFps: Int = 0,
+    val ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
+    val palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE,
     val achievementsEnabled: Boolean = false,
     val achievementsHardcore: Boolean = false,
     val achievementsUsername: String? = null,
@@ -189,6 +191,8 @@ class AppPreferences(private val context: Context) {
 
     companion object {
         private const val CURRENT_OVERLAY_LAYOUT_VERSION = 16
+        const val DEFAULT_NTSC_FRAMERATE = 59.94f
+        const val DEFAULT_PAL_FRAMERATE = 50f
         private const val LEGACY_DEFAULT_LSTICK_OFFSET_X = 18f
         private const val LEGACY_DEFAULT_LSTICK_OFFSET_Y = -214f
         private const val LEFT_SIDE_LAYOUT_SHIFT_X = -8f
@@ -360,6 +364,8 @@ class AppPreferences(private val context: Context) {
         private val SCREEN_SETTINGS_RESET_HINT_SHOWN = booleanPreferencesKey("screen_settings_reset_hint_shown")
         private val FRAME_LIMIT_ENABLED = booleanPreferencesKey("frame_limit_enabled")
         private val TARGET_FPS = intPreferencesKey("target_fps")
+        private val NTSC_FRAMERATE = floatPreferencesKey("ntsc_framerate")
+        private val PAL_FRAMERATE = floatPreferencesKey("pal_framerate")
         private val AUTO_SAVE_ENABLED = booleanPreferencesKey("auto_save_enabled")
         private val AUTO_SAVE_INTERVAL_MINUTES = intPreferencesKey("auto_save_interval_minutes")
         private val MEMORY_CARD_SLOT1 = stringPreferencesKey("memory_card_slot_1")
@@ -499,6 +505,22 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setTargetFps(value: Int) {
         context.dataStore.edit { it[TARGET_FPS] = if (value <= 0) 0 else value.coerceIn(20, 120) }
+    }
+
+    val ntscFramerate: Flow<Float> = context.dataStore.data.map { prefs ->
+        sanitizeRegionFramerate(prefs[NTSC_FRAMERATE], DEFAULT_NTSC_FRAMERATE)
+    }
+
+    suspend fun setNtscFramerate(value: Float) {
+        context.dataStore.edit { it[NTSC_FRAMERATE] = sanitizeRegionFramerate(value, DEFAULT_NTSC_FRAMERATE) }
+    }
+
+    val palFramerate: Flow<Float> = context.dataStore.data.map { prefs ->
+        sanitizeRegionFramerate(prefs[PAL_FRAMERATE], DEFAULT_PAL_FRAMERATE)
+    }
+
+    suspend fun setPalFramerate(value: Float) {
+        context.dataStore.edit { it[PAL_FRAMERATE] = sanitizeRegionFramerate(value, DEFAULT_PAL_FRAMERATE) }
     }
 
     val autoSaveEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -799,6 +821,8 @@ class AppPreferences(private val context: Context) {
                 customDriverPath = prefs[CUSTOM_DRIVER_PATH],
                 frameLimitEnabled = prefs[FRAME_LIMIT_ENABLED] ?: true,
                 targetFps = prefs[TARGET_FPS] ?: 0,
+                ntscFramerate = sanitizeRegionFramerate(prefs[NTSC_FRAMERATE], DEFAULT_NTSC_FRAMERATE),
+                palFramerate = sanitizeRegionFramerate(prefs[PAL_FRAMERATE], DEFAULT_PAL_FRAMERATE),
                 achievementsEnabled = prefs[ACHIEVEMENTS_ENABLED] ?: false,
                 achievementsHardcore = prefs[ACHIEVEMENTS_HARDCORE] ?: false,
                 achievementsUsername = prefs[ACHIEVEMENTS_USERNAME],
@@ -2183,6 +2207,8 @@ class AppPreferences(private val context: Context) {
             put("customDriverPath", prefs[CUSTOM_DRIVER_PATH])
             put("frameLimitEnabled", prefs[FRAME_LIMIT_ENABLED] ?: true)
             put("targetFps", prefs[TARGET_FPS] ?: 0)
+            put("ntscFramerate", sanitizeRegionFramerate(prefs[NTSC_FRAMERATE], DEFAULT_NTSC_FRAMERATE).toDouble())
+            put("palFramerate", sanitizeRegionFramerate(prefs[PAL_FRAMERATE], DEFAULT_PAL_FRAMERATE).toDouble())
             put("autoSaveEnabled", prefs[AUTO_SAVE_ENABLED] ?: false)
             put("autoSaveIntervalMinutes", (prefs[AUTO_SAVE_INTERVAL_MINUTES] ?: 1).coerceIn(1, 999))
             put("overlayLayoutVersion", prefs[OVERLAY_LAYOUT_VERSION] ?: 0)
@@ -2333,6 +2359,8 @@ class AppPreferences(private val context: Context) {
             json.optString("customDriverPath").takeIf { it.isNotBlank() }?.let { prefs[CUSTOM_DRIVER_PATH] = it } ?: prefs.remove(CUSTOM_DRIVER_PATH)
             prefs[FRAME_LIMIT_ENABLED] = json.optBoolean("frameLimitEnabled", true)
             prefs[TARGET_FPS] = json.optInt("targetFps", 0).let { if (it <= 0) 0 else it.coerceIn(20, 120) }
+            prefs[NTSC_FRAMERATE] = sanitizeRegionFramerate(json.optDouble("ntscFramerate", DEFAULT_NTSC_FRAMERATE.toDouble()).toFloat(), DEFAULT_NTSC_FRAMERATE)
+            prefs[PAL_FRAMERATE] = sanitizeRegionFramerate(json.optDouble("palFramerate", DEFAULT_PAL_FRAMERATE.toDouble()).toFloat(), DEFAULT_PAL_FRAMERATE)
             prefs[AUTO_SAVE_ENABLED] = json.optBoolean("autoSaveEnabled", false)
             prefs[AUTO_SAVE_INTERVAL_MINUTES] = json.optInt("autoSaveIntervalMinutes", 1).coerceIn(1, 999)
             val importedOverlayVersion = json.optInt("overlayLayoutVersion", 0)
@@ -2376,6 +2404,11 @@ class AppPreferences(private val context: Context) {
         return (prefs[UPSCALE]
             ?: prefs[UPSCALE_LEGACY]?.toFloat()
             ?: 1f).let(::normalizeUpscale)
+    }
+
+    private fun sanitizeRegionFramerate(value: Float?, fallback: Float): Float {
+        val raw = value ?: fallback
+        return if (raw.isFinite()) raw.coerceIn(20f, 120f) else fallback
     }
 
     suspend fun setAchievementsEnabled(enabled: Boolean) {

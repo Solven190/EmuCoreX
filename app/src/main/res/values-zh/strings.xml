@@ -1195,4 +1195,9 @@
     <string name="settings_enable_vu0_clamping">VU0 钳位</string>
     <string name="settings_enable_vu0_clamping_desc">启用 VU0 浮点运算的溢出钳位。除非某款游戏出于兼容性需要，否则请保持关闭。</string>
     <string name="settings_help_enable_vu0_clamping">控制 VU0 重编译器是否在浮点上溢和下溢的情况下发出钳位指令。大多数游戏在没有 VU0 钳位的情况下也能正常运行；仅在特定游戏中出现兼容性问题时才启用它。</string>
+    <string name="settings_help_ntsc_framerate">设置目标 FPS 设为“自动”时，NTSC 区域游戏使用的基本刷新率。启用手动 FPS 时，该值会被覆盖。</string>
+    <string name="settings_help_pal_framerate">设置目标 FPS 设为“自动”时，PAL 区域游戏使用的基本刷新率。启用手动 FPS 时，该值会被覆盖。</string>
+    <string name="settings_ntsc_framerate">NTSC 帧率</string>
+    <string name="settings_pal_framerate">PAL 帧率</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
 </resources>

@@ -1191,4 +1191,13 @@
     <string name="memory_card_folder_unlimited">Папка • Необмежений розмір</string>
     <string name="memory_card_file_size">Файл • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">Налаштування гри</string>
+    <string name="settings_clamping_section">Clamping</string>
+    <string name="settings_enable_vu0_clamping">VU0 Clamping</string>
+    <string name="settings_enable_vu0_clamping_desc">Вмикає клемпінг переповнення для операцій із рухомою комою VU0. Залиште вимкненим, якщо це не потрібно грі для сумісності.</string>
+    <string name="settings_help_enable_vu0_clamping">Контролює, чи видає рекомпілятор VU0 інструкції клемпінгу для випадків переповнення та втрати значущості з рухомою комою. Більшість ігор коректно працюють без клемпінгу VU0; вмикайте його лише у разі проблем із сумісністю в конкретній грі.</string>
+    <string name="settings_help_ntsc_framerate">Встановлює базову частоту оновлення, яка використовується іграми регіону NTSC, коли цільовий FPS встановлено на «Авто». Ручне налаштування FPS замінює це значення, поки воно ввімкнене.</string>
+    <string name="settings_help_pal_framerate">Встановлює базову частоту оновлення, яка використовується іграми регіону PAL, коли цільовий FPS встановлено на «Авто». Ручне налаштування FPS замінює це значення, поки воно ввімкнене.</string>
+    <string name="settings_ntsc_framerate">Частота кадрів NTSC</string>
+    <string name="settings_pal_framerate">Частота кадрів PAL</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
 </resources>

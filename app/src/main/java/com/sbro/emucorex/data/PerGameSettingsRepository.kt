@@ -33,6 +33,8 @@ data class PerGameSettings(
     val skipDuplicateFrames: Boolean = false,
     val frameLimitEnabled: Boolean = true,
     val targetFps: Int = 0,
+    val ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
+    val palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE,
     val textureFiltering: Int = GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
     val trilinearFiltering: Int = GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
     val blendingAccuracy: Int = GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
@@ -182,6 +184,12 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         skipDuplicateFrames = optBoolean("skipDuplicateFrames", false),
         frameLimitEnabled = optBoolean("frameLimitEnabled", true),
         targetFps = optInt("targetFps", 0).let { if (it <= 0) 0 else it.coerceIn(20, 120) },
+        ntscFramerate = optDouble("ntscFramerate", AppPreferences.DEFAULT_NTSC_FRAMERATE.toDouble()).toFloat().let {
+            sanitizeRegionFramerate(it, AppPreferences.DEFAULT_NTSC_FRAMERATE)
+        },
+        palFramerate = optDouble("palFramerate", AppPreferences.DEFAULT_PAL_FRAMERATE.toDouble()).toFloat().let {
+            sanitizeRegionFramerate(it, AppPreferences.DEFAULT_PAL_FRAMERATE)
+        },
         textureFiltering = optInt("textureFiltering", GsHackDefaults.BILINEAR_FILTERING_DEFAULT),
         trilinearFiltering = readTrilinearFiltering(),
         blendingAccuracy = optInt("blendingAccuracy", GsHackDefaults.BLENDING_ACCURACY_DEFAULT),
@@ -263,6 +271,8 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("skipDuplicateFrames")) put("skipDuplicateFrames", skipDuplicateFrames)
         if (shouldWrite("frameLimitEnabled")) put("frameLimitEnabled", frameLimitEnabled)
         if (shouldWrite("targetFps")) put("targetFps", targetFps)
+        if (shouldWrite("ntscFramerate")) put("ntscFramerate", ntscFramerate.toDouble())
+        if (shouldWrite("palFramerate")) put("palFramerate", palFramerate.toDouble())
         if (shouldWrite("textureFiltering")) put("textureFiltering", textureFiltering)
         if (shouldWrite("trilinearFiltering")) put("trilinearFiltering", GsHackDefaults.coerceTrilinearFiltering(trilinearFiltering))
         if (shouldWrite("blendingAccuracy")) put("blendingAccuracy", blendingAccuracy)
@@ -317,6 +327,10 @@ private fun sanitizeRendererValue(value: Int): Int {
 
 private fun sanitizeAspectRatioValue(value: Int): Int {
     return if (value in 0..4) value else 1
+}
+
+private fun sanitizeRegionFramerate(value: Float, fallback: Float): Float {
+    return if (value.isFinite()) value.coerceIn(20f, 120f) else fallback
 }
 
 private fun JSONObject.readUpscaleMultiplier(): Float {

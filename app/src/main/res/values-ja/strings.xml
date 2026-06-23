@@ -1193,4 +1193,9 @@
     <string name="settings_enable_vu0_clamping">VU0クランプ</string>
     <string name="settings_enable_vu0_clamping_desc">VU0の浮動小数点演算におけるオーバーフローのクランプを有効にします。互換性維持のためにゲームで必要な場合を除き、オフにしておいてください。</string>
     <string name="settings_help_enable_vu0_clamping">VU0リコンパイラが浮動小数点のオーバーフローおよびアンダーフロー時にクランプ命令を発行するかどうかを制御します。ほとんどのゲームはVU0クランプなしで正常に動作します。特定のゲームで互換性の問題がある場合にのみ有効にしてください。</string>
+    <string name="settings_help_ntsc_framerate">目標FPSが自動に設定されている場合に、NTSCリージョンのゲームで使用される基本リフレッシュレートを設定します。手動FPSが有効になっている間は、この値が優先されます。</string>
+    <string name="settings_help_pal_framerate">目標FPSが自動に設定されている場合に、PALリージョンのゲームで使用される基本リフレッシュレートを設定します。手動FPSが有効になっている間は、この値が優先されます。</string>
+    <string name="settings_ntsc_framerate">NTSCフレームレート</string>
+    <string name="settings_pal_framerate">PALフレームレート</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
 </resources>

@@ -139,7 +139,14 @@ object EmulatorBridge {
 
     private fun refreshBiosOp() = RuntimeOp("refresh_bios", emptyList())
 
-    private fun resetTargetFpsOp() = RuntimeOp("reset_target_fps", emptyList())
+    private fun regionFramerateOps(ntscFramerate: Float, palFramerate: Float): List<RuntimeOp> {
+        val ntsc = sanitizeFramerate(ntscFramerate, AppPreferences.DEFAULT_NTSC_FRAMERATE)
+        val pal = sanitizeFramerate(palFramerate, AppPreferences.DEFAULT_PAL_FRAMERATE)
+        return listOf(
+            settingOp("EmuCore/GS", "FramerateNTSC", "float", ntsc.toString()),
+            settingOp("EmuCore/GS", "FrameratePAL", "float", pal.toString())
+        )
+    }
 
     private fun memoryCardSlotOp(slot: Int, fileName: String?) = RuntimeOp(
         "memory_card_slot",
@@ -189,10 +196,6 @@ object EmulatorBridge {
                         }
                         "refresh_bios" -> {
                             NativeApp.refreshBIOS()
-                        }
-                        "reset_target_fps" -> {
-                            NativeApp.setSetting("EmuCore/GS", "FramerateNTSC", "float", "59.94")
-                            NativeApp.setSetting("EmuCore/GS", "FrameratePAL", "float", "50.0")
                         }
                         "memory_card_slot" -> {
                             val slot = op.fields.getOrNull(0)?.toIntOrNull() ?: return@forEach
@@ -309,6 +312,8 @@ object EmulatorBridge {
         skipDuplicateFrames: Boolean = false,
         frameLimitEnabled: Boolean = true,
         targetFps: Int = 0,
+        ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
+        palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE,
         textureFiltering: Int = GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
         trilinearFiltering: Int = GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
         blendingAccuracy: Int = GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
@@ -490,7 +495,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/Speedhacks", "EECycleRate", "int", eeCycleRate.toString()))
                 add(settingOp("EmuCore/Speedhacks", "EECycleSkip", "int", eeCycleSkip.toString()))
                 add(settingOp("EmuCore/GS", "FrameLimitEnable", "bool", frameLimitEnabled.toString()))
-                addAll(targetFpsOps(targetFps))
+                addAll(targetFpsOps(targetFps, ntscFramerate, palFramerate))
                 add(settingOp("Framerate", "NominalScalar", "float", "1.0"))
                 addAll(eeClampingOps(fpuClampMode > 0))
                 add(settingOp("EmuCore/GS", "disable_hw_readbacks", "bool", disableHardwareReadbacks.toString()))
@@ -987,10 +992,14 @@ object EmulatorBridge {
         setSetting("EmuCore/GS", "SkipDuplicateFrames", "bool", enabled.toString())
     }
 
-    suspend fun setTargetFps(targetFps: Int) {
+    suspend fun setTargetFps(
+        targetFps: Int,
+        ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
+        palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE
+    ) {
         performRuntimeOps(
             buildList {
-                addAll(targetFpsOps(targetFps))
+                addAll(targetFpsOps(targetFps, ntscFramerate, palFramerate))
                 add(settingOp("Framerate", "NominalScalar", "float", "1.0"))
             }
         )
@@ -1173,9 +1182,9 @@ object EmulatorBridge {
         }
     }
 
-    private fun targetFpsOps(targetFps: Int): List<RuntimeOp> {
+    private fun targetFpsOps(targetFps: Int, ntscFramerate: Float, palFramerate: Float): List<RuntimeOp> {
         if (targetFps <= 0) {
-            return listOf(resetTargetFpsOp())
+            return regionFramerateOps(ntscFramerate, palFramerate)
         }
 
         val manualFps = targetFps.coerceIn(20, 120).toFloat()
@@ -1183,5 +1192,9 @@ object EmulatorBridge {
             settingOp("EmuCore/GS", "FramerateNTSC", "float", manualFps.toString()),
             settingOp("EmuCore/GS", "FrameratePAL", "float", manualFps.toString())
         )
+    }
+
+    private fun sanitizeFramerate(value: Float, fallback: Float): Float {
+        return if (value.isFinite()) value.coerceIn(20f, 120f) else fallback
     }
 }

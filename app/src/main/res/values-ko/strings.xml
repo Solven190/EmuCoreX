@@ -1193,4 +1193,9 @@
     <string name="settings_enable_vu0_clamping">VU0 클램핑</string>
     <string name="settings_enable_vu0_clamping_desc">VU0 부동 소수점 연산에 대한 오버플로우 클램핑을 활성화합니다. 게임 호환성을 위해 필요한 경우가 아니면 꺼두세요.</string>
     <string name="settings_help_enable_vu0_clamping">VU0 리컴파일러가 부동 소수점 오버플로우 및 언더플로우 발생 시 클램핑 명령을 내보낼지 여부를 제어합니다. 대부분의 게임은 VU0 클램핑 없이도 올바르게 작동합니다. 특정 게임에서 호환성 문제가 있는 경우에만 활성화하세요.</string>
+    <string name="settings_help_ntsc_framerate">목표 FPS가 자동으로 설정된 경우 NTSC 지역 게임에서 사용하는 기본 새로고침 빈도를 설정합니다. 수동 FPS가 활성화된 동안에는 이 값을 덮어씁니다.</string>
+    <string name="settings_help_pal_framerate">목표 FPS가 자동으로 설정된 경우 PAL 지역 게임에서 사용하는 기본 새로고침 빈도를 설정합니다. 수동 FPS가 활성화된 동안에는 이 값을 덮어씁니다.</string>
+    <string name="settings_ntsc_framerate">NTSC 프레임 속도</string>
+    <string name="settings_pal_framerate">PAL 프레임 속도</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
 </resources>

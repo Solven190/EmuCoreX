@@ -1193,4 +1193,9 @@
     <string name="settings_enable_vu0_clamping">تقييد VU0</string>
     <string name="settings_enable_vu0_clamping_desc">يُمكن تقييد التجاوز لعمليات النقطة العائمة في VU0. اتركه معطلاً ما لم تحتاجه اللعبة من أجل التوافق.</string>
     <string name="settings_help_enable_vu0_clamping">يتحكم في ما إذا كان معيد التحويل البرمجي لـ VU0 يصدر تعليمات تقييد لحالات تجاوز السعة والقصور في النقطة العائمة. تعمل معظم الألعاب بشكل صحيح بدون تقييد VU0؛ قم بتمكينه فقط لمشكلات التوافق في لعبة معينة.</string>
+    <string name="settings_help_ntsc_framerate">يحدد معدل التحديث الأساسي الذي تستخدمه ألعاب منطقة NTSC عندما يتم ضبط FPS المستهدف على تلقائي. يتجاوز خيار FPS اليدوي هذه القيمة أثناء تمكينه.</string>
+    <string name="settings_help_pal_framerate">يحدد معدل التحديث الأساسي الذي تستخدمه ألعاب منطقة PAL عندما يتم ضبط FPS المستهدف على تلقائي. يتجاوز خيار FPS اليدوي هذه القيمة أثناء تمكينه.</string>
+    <string name="settings_ntsc_framerate">معدل إطارات NTSC</string>
+    <string name="settings_pal_framerate">معدل إطارات PAL</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
 </resources>

@@ -154,7 +154,9 @@ data class SettingsUiState(
     val gpuDriverDownloads: Map<String, Float> = emptyMap(),
     val appUpdate: AppUpdateUiState = AppUpdateUiState(),
     val frameLimitEnabled: Boolean = true,
-    val targetFps: Int = 0
+    val targetFps: Int = 0,
+    val ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
+    val palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE
 )
 
 data class AppUpdateUiState(
@@ -311,7 +313,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             gpuDriverType = snapshot.gpuDriverType,
             customDriverPath = snapshot.customDriverPath,
             frameLimitEnabled = snapshot.frameLimitEnabled,
-            targetFps = snapshot.targetFps
+            targetFps = snapshot.targetFps,
+            ntscFramerate = snapshot.ntscFramerate,
+            palFramerate = snapshot.palFramerate
         )
     }
 
@@ -955,7 +959,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setTargetFps(value: Int) {
         viewModelScope.launch {
             preferences.setTargetFps(if (value <= 0) 0 else value)
-            EmulatorBridge.setTargetFps(value)
+            EmulatorBridge.setTargetFps(value, _uiState.value.ntscFramerate, _uiState.value.palFramerate)
+        }
+    }
+
+    fun setNtscFramerate(value: Float) {
+        viewModelScope.launch {
+            preferences.setNtscFramerate(value)
+            EmulatorBridge.setTargetFps(_uiState.value.targetFps, value, _uiState.value.palFramerate)
+        }
+    }
+
+    fun setPalFramerate(value: Float) {
+        viewModelScope.launch {
+            preferences.setPalFramerate(value)
+            EmulatorBridge.setTargetFps(_uiState.value.targetFps, _uiState.value.ntscFramerate, value)
         }
     }
 
@@ -1463,6 +1481,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 enableThreadPinning = _uiState.value.enableThreadPinning,
                 enableFastBoot = _uiState.value.enableFastBoot,
                 hwDownloadMode = _uiState.value.hwDownloadMode,
+                frameLimitEnabled = _uiState.value.frameLimitEnabled,
+                targetFps = _uiState.value.targetFps,
+                ntscFramerate = _uiState.value.ntscFramerate,
+                palFramerate = _uiState.value.palFramerate,
                 textureFiltering = _uiState.value.textureFiltering,
                 trilinearFiltering = _uiState.value.trilinearFiltering,
                 blendingAccuracy = _uiState.value.blendingAccuracy,

@@ -696,6 +696,28 @@ private fun GameSettingsEditorDialog(
                                     onResetToDefault = { draft = draft.copy(targetFps = defaultProfile.targetFps) }
                                 )
                             }
+                            SliderRow(
+                                title = stringResource(R.string.settings_ntsc_framerate),
+                                value = draft.ntscFramerate,
+                                valueLabel = formatFramerateHz(draft.ntscFramerate),
+                                range = 20f..120f,
+                                steps = 199,
+                                onValueChange = { draft = draft.copy(ntscFramerate = it) },
+                                valueLabelForValue = { formatFramerateHz(it) },
+                                helpText = stringResource(R.string.settings_help_ntsc_framerate),
+                                onResetToDefault = { draft = draft.copy(ntscFramerate = defaultProfile.ntscFramerate) }
+                            )
+                            SliderRow(
+                                title = stringResource(R.string.settings_pal_framerate),
+                                value = draft.palFramerate,
+                                valueLabel = formatFramerateHz(draft.palFramerate),
+                                range = 20f..120f,
+                                steps = 199,
+                                onValueChange = { draft = draft.copy(palFramerate = it) },
+                                valueLabelForValue = { formatFramerateHz(it) },
+                                helpText = stringResource(R.string.settings_help_pal_framerate),
+                                onResetToDefault = { draft = draft.copy(palFramerate = defaultProfile.palFramerate) }
+                            )
                             ToggleRow(
                                 title = stringResource(R.string.settings_mtvu),
                                 checked = draft.enableMtvu,
@@ -1827,6 +1849,16 @@ private fun resolveManualTargetFps(currentTargetFps: Int, defaultTargetFps: Int)
     }
 }
 
+private fun formatFramerateHz(value: Float): String {
+    val rounded = kotlin.math.round(value * 100f) / 100f
+    val whole = rounded.toInt()
+    return if (rounded == whole.toFloat()) {
+        "${whole} Hz"
+    } else {
+        "${rounded} Hz"
+    }
+}
+
 private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings {
     return PerGameSettings(
         gameKey = game.path,
@@ -1851,6 +1883,8 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         skipDuplicateFrames = skipDuplicateFrames,
         frameLimitEnabled = frameLimitEnabled,
         targetFps = targetFps,
+        ntscFramerate = ntscFramerate,
+        palFramerate = palFramerate,
         textureFiltering = textureFiltering,
         trilinearFiltering = trilinearFiltering,
         blendingAccuracy = blendingAccuracy,
@@ -1924,6 +1958,8 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         skipDuplicateFrames = pick("skipDuplicateFrames", skipDuplicateFrames, defaultProfile.skipDuplicateFrames),
         frameLimitEnabled = pick("frameLimitEnabled", frameLimitEnabled, defaultProfile.frameLimitEnabled),
         targetFps = pick("targetFps", targetFps, defaultProfile.targetFps),
+        ntscFramerate = pick("ntscFramerate", ntscFramerate, defaultProfile.ntscFramerate),
+        palFramerate = pick("palFramerate", palFramerate, defaultProfile.palFramerate),
         textureFiltering = pick("textureFiltering", textureFiltering, defaultProfile.textureFiltering),
         trilinearFiltering = pick("trilinearFiltering", trilinearFiltering, defaultProfile.trilinearFiltering),
         blendingAccuracy = pick("blendingAccuracy", blendingAccuracy, defaultProfile.blendingAccuracy),

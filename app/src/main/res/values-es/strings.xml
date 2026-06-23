@@ -1195,4 +1195,9 @@
     <string name="settings_enable_vu0_clamping">Clamping de VU0</string>
     <string name="settings_enable_vu0_clamping_desc">Habilita el clamping de desbordamiento para las operaciones de punto flotante de VU0. Déjalo desactivado a menos que un juego lo necesite por compatibilidad.</string>
     <string name="settings_help_enable_vu0_clamping">Controla si el recompilador de VU0 emite instrucciones de clamping para casos de desbordamiento y subdesbordamiento de punto flotante. La mayoría de los juegos funcionan correctamente sin el clamping de VU0; actívalo solo para problemas de compatibilidad en un juego específico.</string>
+    <string name="settings_help_ntsc_framerate">Establece la frecuencia de actualización base utilizada por los juegos de la región NTSC cuando los FPS objetivo están en Automático. Los FPS manuales anulan este valor mientras están habilitados.</string>
+    <string name="settings_help_pal_framerate">Establece la frecuencia de actualización base utilizada por los juegos de la región PAL cuando los FPS objetivo están en Automático. Los FPS manuales anulan este valor mientras están habilitados.</string>
+    <string name="settings_ntsc_framerate">Tasa de fotogramas NTSC</string>
+    <string name="settings_pal_framerate">Tasa de fotogramas PAL</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
 </resources>

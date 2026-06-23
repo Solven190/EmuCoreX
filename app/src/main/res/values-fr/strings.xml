@@ -1195,4 +1195,9 @@
     <string name="settings_enable_vu0_clamping">Clamping VU0</string>
     <string name="settings_enable_vu0_clamping_desc">Active le clamping de dépassement pour les opérations en virgule flottante VU0. Laissez-le désactivé, sauf si un jeu en a besoin pour des raisons de compatibilité.</string>
     <string name="settings_help_enable_vu0_clamping">Contrôle si le recompilateur VU0 émet des instructions de clamping pour les cas de dépassement positif et négatif de la virgule flottante. La plupart des jeux fonctionnent correctement sans le clamping VU0 ; ne l\'activez qu\'en cas de problèmes de compatibilité dans un jeu spécifique.</string>
+    <string name="settings_help_ntsc_framerate">Définit le taux de rafraîchissement de base utilisé par les jeux de la région NTSC lorsque la cible FPS est définie sur Auto. Les FPS manuels annulent cette valeur tant qu\'ils sont activés.</string>
+    <string name="settings_help_pal_framerate">Définit le taux de rafraîchissement de base utilisé par les jeux de la région PAL lorsque la cible FPS est définie sur Auto. Les FPS manuels annulent cette valeur tant qu\'ils sont activés.</string>
+    <string name="settings_ntsc_framerate">Fréquence d\'images NTSC</string>
+    <string name="settings_pal_framerate">Fréquence d\'images PAL</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
 </resources>

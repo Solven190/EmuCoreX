@@ -145,6 +145,8 @@ data class EmulationUiState(
     val availableCheats: List<CheatBlock> = emptyList(),
     val frameLimitEnabled: Boolean = true,
     val targetFps: Int = 0,
+    val ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
+    val palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE,
     val currentGameTitle: String = "",
     val currentGameSubtitle: String = "",
     val gameSettingsProfileActive: Boolean = false,
@@ -191,6 +193,8 @@ private data class EmulationLaunchConfig(
     val skipDuplicateFrames: Boolean,
     val frameLimitEnabled: Boolean,
     val targetFps: Int,
+    val ntscFramerate: Float,
+    val palFramerate: Float,
     val textureFiltering: Int,
     val trilinearFiltering: Int,
     val blendingAccuracy: Int,
@@ -262,6 +266,8 @@ private data class LiveRuntimeSnapshot(
     val skipDuplicateFrames: Boolean,
     val frameLimitEnabled: Boolean,
     val targetFps: Int,
+    val ntscFramerate: Float,
+    val palFramerate: Float,
     val textureFiltering: Int,
     val trilinearFiltering: Int,
     val blendingAccuracy: Int,
@@ -759,6 +765,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         viewModelScope.launch {
+            preferences.ntscFramerate.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(ntscFramerate = value) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.palFramerate.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(palFramerate = value) }
+            }
+        }
+        viewModelScope.launch {
             preferences.autoSaveEnabled.collect { enabled ->
                 _uiState.value = _uiState.value.copy(autoSaveEnabled = enabled)
                 if (enabled) {
@@ -975,6 +991,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     skipDuplicateFrames = config.skipDuplicateFrames,
                     frameLimitEnabled = config.frameLimitEnabled,
                     targetFps = config.targetFps,
+                    ntscFramerate = config.ntscFramerate,
+                    palFramerate = config.palFramerate,
                     textureFiltering = config.textureFiltering,
                     trilinearFiltering = config.trilinearFiltering,
                     blendingAccuracy = config.blendingAccuracy,
@@ -1187,7 +1205,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     forceEvenSpritePosition = liveRuntime.forceEvenSpritePosition,
                     nativePaletteDraw = liveRuntime.nativePaletteDraw,
                     frameLimitEnabled = liveRuntime.frameLimitEnabled,
-                    targetFps = liveRuntime.targetFps
+                    targetFps = liveRuntime.targetFps,
+                    ntscFramerate = liveRuntime.ntscFramerate,
+                    palFramerate = liveRuntime.palFramerate
                 )
                 syncNativePerformanceOverlayState(_uiState.value)
                 updateCrashContext(
@@ -1807,7 +1827,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             persistRuntimeState(_uiState.value.copy(targetFps = clamped)) {
                 preferences.setTargetFps(clamped)
             }
-            EmulatorBridge.setTargetFps(clamped)
+            EmulatorBridge.setTargetFps(clamped, _uiState.value.ntscFramerate, _uiState.value.palFramerate)
             updateCrashContext()
         }
     }
@@ -2588,6 +2608,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             skipDuplicateFrames = settings.skipDuplicateFrames,
             frameLimitEnabled = settings.frameLimitEnabled,
             targetFps = settings.targetFps,
+            ntscFramerate = settings.ntscFramerate,
+            palFramerate = settings.palFramerate,
             textureFiltering = settings.textureFiltering,
             trilinearFiltering = settings.trilinearFiltering,
             blendingAccuracy = settings.blendingAccuracy,
@@ -2662,6 +2684,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             skipDuplicateFrames = preferences.skipDuplicateFrames.first(),
             frameLimitEnabled = preferences.frameLimitEnabled.first(),
             targetFps = preferences.targetFps.first(),
+            ntscFramerate = preferences.ntscFramerate.first(),
+            palFramerate = preferences.palFramerate.first(),
             textureFiltering = preferences.textureFiltering.first(),
             trilinearFiltering = preferences.trilinearFiltering.first(),
             blendingAccuracy = preferences.blendingAccuracy.first(),
@@ -2734,6 +2758,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             skipDuplicateFrames = pick("skipDuplicateFrames", skipDuplicateFrames) { skipDuplicateFrames },
             frameLimitEnabled = pick("frameLimitEnabled", frameLimitEnabled) { frameLimitEnabled },
             targetFps = pick("targetFps", targetFps) { targetFps },
+            ntscFramerate = pick("ntscFramerate", ntscFramerate) { ntscFramerate },
+            palFramerate = pick("palFramerate", palFramerate) { palFramerate },
             textureFiltering = pick("textureFiltering", textureFiltering) { textureFiltering },
             trilinearFiltering = pick("trilinearFiltering", trilinearFiltering) { trilinearFiltering },
             blendingAccuracy = pick("blendingAccuracy", blendingAccuracy) { blendingAccuracy },
@@ -2808,6 +2834,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             skipDuplicateFrames = pick("skipDuplicateFrames", skipDuplicateFrames) { skipDuplicateFrames },
             frameLimitEnabled = pick("frameLimitEnabled", frameLimitEnabled) { frameLimitEnabled },
             targetFps = pick("targetFps", targetFps) { targetFps },
+            ntscFramerate = pick("ntscFramerate", ntscFramerate) { ntscFramerate },
+            palFramerate = pick("palFramerate", palFramerate) { palFramerate },
             textureFiltering = pick("textureFiltering", textureFiltering) { textureFiltering },
             trilinearFiltering = pick("trilinearFiltering", trilinearFiltering) { trilinearFiltering },
             blendingAccuracy = pick("blendingAccuracy", blendingAccuracy) { blendingAccuracy },
@@ -2876,6 +2904,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalSkipDuplicateFrames = preferences.skipDuplicateFrames.first()
         val globalFrameLimitEnabled = preferences.frameLimitEnabled.first()
         val globalTargetFps = preferences.targetFps.first()
+        val globalNtscFramerate = preferences.ntscFramerate.first()
+        val globalPalFramerate = preferences.palFramerate.first()
         val globalWidescreenPatches = preferences.enableWidescreenPatches.first()
         val globalNoInterlacingPatches = preferences.enableNoInterlacingPatches.first()
 
@@ -2903,6 +2933,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             skipDuplicateFrames = skipDuplicateFrames,
             frameLimitEnabled = frameLimitEnabled,
             targetFps = targetFps,
+            ntscFramerate = ntscFramerate,
+            palFramerate = palFramerate,
             textureFiltering = textureFiltering,
             trilinearFiltering = trilinearFiltering,
             blendingAccuracy = blendingAccuracy,
@@ -2970,6 +3002,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (skipDuplicateFrames != globalSkipDuplicateFrames) add("skipDuplicateFrames")
             if (frameLimitEnabled != globalFrameLimitEnabled) add("frameLimitEnabled")
             if (targetFps != globalTargetFps) add("targetFps")
+            if (ntscFramerate != globalNtscFramerate) add("ntscFramerate")
+            if (palFramerate != globalPalFramerate) add("palFramerate")
             if (textureFiltering != preferences.textureFiltering.first()) add("textureFiltering")
             if (trilinearFiltering != preferences.trilinearFiltering.first()) add("trilinearFiltering")
             if (blendingAccuracy != preferences.blendingAccuracy.first()) add("blendingAccuracy")

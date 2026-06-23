@@ -1193,4 +1193,9 @@
     <string name="settings_enable_vu0_clamping">Clamping VU0</string>
     <string name="settings_enable_vu0_clamping_desc">Abilita il clamping dell\'overflow per le operazioni a virgola mobile VU0. Lascialo disattivato a meno che un gioco non ne abbia bisogno per motivi di compatibilità.</string>
     <string name="settings_help_enable_vu0_clamping">Controlla se il ricompilatore VU0 emette istruzioni di clamping per i casi di overflow e underflow a virgola mobile. La maggior parte dei giochi funziona correttamente senza il clamping VU0; abilitalo solo per problemi di compatibilità in un gioco specifico.</string>
+    <string name="settings_help_ntsc_framerate">Imposta la frequenza di aggiornamento di base utilizzata dai giochi della regione NTSC quando gli FPS target sono impostati su Auto. Gli FPS manuali sovrascrivono questo valore finché sono abilitati.</string>
+    <string name="settings_help_pal_framerate">Imposta la frequenza di aggiornamento di base utilizzata dai giochi della regione PAL quando gli FPS target sono impostati su Auto. Gli FPS manuali sovrascrivono questo valore finché sono abilitati.</string>
+    <string name="settings_ntsc_framerate">Framerate NTSC</string>
+    <string name="settings_pal_framerate">Framerate PAL</string>
+    <string name="settings_region_framerate_desc">%1$s</string>
 </resources>
