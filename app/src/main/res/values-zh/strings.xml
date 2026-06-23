@@ -1065,9 +1065,9 @@
     <string name="settings_help_intc_stat_speedhack">优化中断状态寄存器的读取。禁用此选项以测试在启动或过场动画期间非常密切地轮询中断的游戏。</string>
     <string name="settings_help_vu_flag_hack">对 VU 标志时序使用更快的近似值。禁用此选项以检查物理、动画或相机密集型场景中的 VU 状态发散。</string>
     <string name="settings_help_instant_vu1">尽可能快地运行 VU1 工作，而不是保留更严格的时序。禁用此选项以测试过场动画、动画以及对 VU/GS 同步敏感的游戏。</string>
-    <string name="settings_enable_vu1_clamping">VU1 箝位 (Clamping)</string>
-    <string name="settings_enable_vu1_clamping_desc">启用 VU1 浮点运算的溢出箝位。禁用它能显著减小生成的代码体积并提升性能。</string>
-    <string name="settings_help_enable_vu1_clamping">控制 VU1 重编译器是否发出箝位指令以处理 IEEE 754 溢出情况。禁用时，生成的 ARM64 代码会更小、更快，因为每个 VU1 指令不再需要约 72 个额外的箝位操作。大多数游戏在不启用箝位的情况下也能正常运行。仅在特定游戏中遇到图形错误或几何体显示不正确时才启用此选项。</string>
+    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
+    <string name="settings_enable_vu1_clamping_desc">为浮点边缘情况启用 VU1 Clamping。除非游戏出于兼容性需要，否则请保持关闭。</string>
+    <string name="settings_help_enable_vu1_clamping">控制 VU1 重编译器是否为 overflow、extra overflow、sign overflow 和 underflow 情况生成 clamping 检查。大多数游戏在关闭 VU1 Clamping 时也能正确运行；仅当特定游戏出现图形错误、几何体异常或其他兼容性问题时才启用。</string>
     <string name="settings_updates_history_title">更新历史</string>
     <string name="settings_updates_history_body">浏览 GitHub 发布版本、发布日期和更新日志。</string>
     <string name="settings_updates_history_loading">正在加载发布历史</string>
@@ -1172,9 +1172,9 @@
     <string name="settings_invert_right_stick_horizontal_desc">反转右摇杆的水平移动。</string>
     <string name="settings_invert_left_stick_horizontal">水平反转左摇杆</string>
     <string name="settings_invert_left_stick_horizontal_desc">反转左摇杆的水平移动。</string>
-    <string name="settings_enable_ee_clamping">EE FPU 截断控制 (Clamping)</string>
-    <string name="settings_enable_ee_clamping_desc">启用 Emotion Engine FPU 操作的溢出截断控制。除非游戏出于兼容性需要，否则请保持关闭。</string>
-    <string name="settings_help_enable_ee_clamping">控制 EE FPU 重新编译器是否为浮点溢出情况发出截断控制（Clamping）检查。保持禁用可避免在不需要此行为的游戏上生成额外的代码。仅当特定游戏出现需要 EE FPU 截断控制的物理、几何或渲染问题时才启用它。</string>
+    <string name="settings_enable_ee_clamping">EE Clamping</string>
+    <string name="settings_enable_ee_clamping_desc">启用 Emotion Engine 操作的溢出截断控制。除非游戏出于兼容性需要，否则请保持关闭。</string>
+    <string name="settings_help_enable_ee_clamping">控制 EE 重新编译器是否为浮点溢出情况发出截断控制（Clamping）检查。保持禁用可避免在不需要此行为的游戏上生成额外的代码。仅当特定游戏出现需要 EE 截断控制的物理、几何或渲染问题时才启用它。</string>
     <string name="settings_help_thread_pinning">将主要模拟线程固定到最快的 CPU 核心上，而不是完全交由 Android 调度。这可以提高强大芯片或带散热的掌机的稳定性，但如果调度程序本可以更好地平衡负载，则可能会导致某些设备发热增加或性能下降。</string>
     <string name="settings_thread_pinning">线程绑定 (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">在支持的情况下，使 EE、VU1 和 GS 工作保持在最快的 CPU 核心上。</string>
@@ -1191,4 +1191,8 @@
     <string name="memory_card_folder_unlimited">文件夹 • 大小无限制</string>
     <string name="memory_card_file_size">文件 • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">游戏设置</string>
+    <string name="settings_clamping_section">钳位 (Clamping)</string>
+    <string name="settings_enable_vu0_clamping">VU0 钳位</string>
+    <string name="settings_enable_vu0_clamping_desc">启用 VU0 浮点运算的溢出钳位。除非某款游戏出于兼容性需要，否则请保持关闭。</string>
+    <string name="settings_help_enable_vu0_clamping">控制 VU0 重编译器是否在浮点上溢和下溢的情况下发出钳位指令。大多数游戏在没有 VU0 钳位的情况下也能正常运行；仅在特定游戏中出现兼容性问题时才启用它。</string>
 </resources>

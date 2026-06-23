@@ -1069,9 +1069,9 @@
     <string name="settings_help_pad_vibration_fallback">Деякі елементи керування портативних консолей визначаються як геймпад, але забезпечують вібрацію лише через вібромотор пристрою. Цей запасний варіант дозволяє зберегти вібрацію на таких пристроях, однак зовнішні контролери без вібрації замість цього викликатимуть вібрацію телефону або консолі.</string>
     <string name="onboarding_all_files_title">Надати повний доступ до файлів</string>
     <string name="onboarding_all_files_desc">Дозвольте EmuCoreX безпосередньо читати файли ігор, щоб відскановані ігри надійно запускалися на кожному пристрої.</string>
-    <string name="settings_enable_vu1_clamping">Обмеження VU1 (Clamping)</string>
-    <string name="settings_enable_vu1_clamping_desc">Вмикає обмеження переповнення (clamping) для операцій із плаваючою комою VU1. Вимкнення цієї опції значно зменшує розмір згенерованого коду та покращує продуктивність.</string>
-    <string name="settings_help_enable_vu1_clamping">Керує тим, чи генерує рекомпілятор VU1 інструкції обмеження для обробки випадків переповнення IEEE 754. Якщо опцію вимкнено, згенерований код ARM64 стає набагато меншим і швидшим, оскільки кожна інструкція VU1 більше не потребує близько 72 додаткових операцій обмеження. Більшість ігор чудово працюють без обмежень. Вмикайте її лише тоді, коли помітите графічні артефакти або некоректну геометрію у конкретній грі.</string>
+    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
+    <string name="settings_enable_vu1_clamping_desc">Вмикає VU1 clamping для крайових випадків із плаваючою комою. Залиште вимкненим, якщо це не потрібно грі для сумісності.</string>
+    <string name="settings_help_enable_vu1_clamping">Керує тим, чи генерує рекомпілятор VU1 перевірки clamping для overflow, extra overflow, sign overflow та underflow. Більшість ігор працює правильно з вимкненим VU1 Clamping; вмикайте його лише тоді, коли конкретна гра має графічні артефакти, некоректну геометрію або інші проблеми сумісності.</string>
     <string name="settings_updates_history_title">Історія оновлень</string>
     <string name="settings_updates_history_body">Переглядайте релізи GitHub, дати випуску та списки змін.</string>
     <string name="settings_updates_history_loading">Завантаження історії релізів</string>
@@ -1172,9 +1172,9 @@
     <string name="settings_invert_right_stick_horizontal_desc">Інвертувати горизонтальний рух на правому аналоговому стіку.</string>
     <string name="settings_invert_left_stick_horizontal">Інвертувати лівий стік по горизонталі</string>
     <string name="settings_invert_left_stick_horizontal_desc">Інвертувати горизонтальний рух на лівому аналоговому стіку.</string>
-    <string name="settings_enable_ee_clamping">Обмеження FPU EE (Clamping)</string>
-    <string name="settings_enable_ee_clamping_desc">Вмикає обмеження переповнення (clamping) для операцій FPU Emotion Engine. Залиште вимкненим, якщо це не потрібно для сумісності гри.</string>
-    <string name="settings_help_enable_ee_clamping">Керує тим, чи генерує рекомпілятор FPU EE перевірки обмеження (clamping) для випадків переповнення з рухомою комою. Вимкнення цієї функції запобігає генерації зайвого коду в іграх, яким не потрібна така поведінка. Вмикайте її лише в тому випадку, якщо в конкретній грі спостерігаються проблеми з фізикою, геометрією або рендерингом, що вимагають обмеження FPU EE.</string>
+    <string name="settings_enable_ee_clamping">EE Clamping</string>
+    <string name="settings_enable_ee_clamping_desc">Вмикає обмеження переповнення (clamping) для операцій Emotion Engine. Залиште вимкненим, якщо це не потрібно для сумісності гри.</string>
+    <string name="settings_help_enable_ee_clamping">Керує тим, чи генерує рекомпілятор EE перевірки обмеження (clamping) для випадків переповнення з рухомою комою. Вимкнення цієї функції запобігає генерації зайвого коду в іграх, яким не потрібна така поведінка. Вмикайте її лише в тому випадку, якщо в конкретній грі спостерігаються проблеми з фізикою, геометрією або рендерингом, що вимагають обмеження EE.</string>
     <string name="settings_help_thread_pinning">Прив\'язує основні потоки емуляції до найшвидших ядер процесора замість того, щоб повністю довірити їх розподіл Android. Це може покращити стабільність на потужних чипах або портативних консолях з охолодженням, але може збільшити нагрівання або знизити продуктивність на деяких пристроях, якби планувальник розподілив навантаження краще.</string>
     <string name="settings_thread_pinning">Прив\'язка потоків (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Утримує роботу EE, VU1 та GS на найшвидших ядрах ЦП, якщо це підтримується.</string>

@@ -1065,9 +1065,9 @@
     <string name="settings_help_intc_stat_speedhack">Optimise les lectures du registre d\'état d\'interruption. Désactivez cette option pour tester les jeux qui interrogent les interruptions de très près pendant le démarrage ou les cinématiques.</string>
     <string name="settings_help_vu_flag_hack">Utilise une approximation plus rapide pour le timing des drapeaux VU. Désactivez cette option pour vérifier la divergence d\'état du VU dans les scènes de physique, d\'animation ou chargées en caméra.</string>
     <string name="settings_help_instant_vu1">Exécute le travail VU1 aussi rapidement que possible au lieu de conserver un timing plus strict. Désactivez cette option pour tester les cinématiques, les animations et les jeux sensibles à la synchronisation VU/GS.</string>
-    <string name="settings_enable_vu1_clamping">Limitation VU1 (Clamping)</string>
-    <string name="settings_enable_vu1_clamping_desc">Active la limitation de dépassement pour les opérations à virgule flottante VU1. Sa désactivation réduit considérablement la taille du code généré et améliore les performances.</string>
-    <string name="settings_help_enable_vu1_clamping">Contrôle si le recompilateur VU1 émet des instructions de limitation pour gérer les cas de dépassement IEEE 754. Lorsqu\'il est désactivé, le code ARM64 généré est beaucoup plus petit et plus rapide car chaque instruction VU1 n\'a plus besoin d\'environ 72 opérations de limitation supplémentaires. La plupart des jeux fonctionnent correctement sans limitation. Activez-le uniquement si vous constatez des bugs graphiques ou une géométrie incorrecte dans un jeu spécifique.</string>
+    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
+    <string name="settings_enable_vu1_clamping_desc">Active le clamping VU1 pour les cas limites en virgule flottante. Laissez-le désactivé sauf si un jeu en a besoin pour la compatibilité.</string>
+    <string name="settings_help_enable_vu1_clamping">Contrôle si le recompilateur VU1 émet des vérifications de clamping pour overflow, extra overflow, sign overflow et underflow. La plupart des jeux fonctionnent correctement avec VU1 Clamping désactivé; activez-le uniquement si un jeu précis présente des bugs graphiques, une géométrie incorrecte ou d\'autres problèmes de compatibilité.</string>
     <string name="settings_updates_history_title">Historique des mises à jour</string>
     <string name="settings_updates_history_body">Parcourez les versions, les dates de sortie et les journaux des modifications sur GitHub.</string>
     <string name="settings_updates_history_loading">Chargement de l\'historique des versions</string>
@@ -1172,9 +1172,9 @@
     <string name="settings_invert_right_stick_horizontal_desc">Inverser le mouvement horizontal sur le stick analogique droit.</string>
     <string name="settings_invert_left_stick_horizontal">Inverser le stick gauche horizontalement</string>
     <string name="settings_invert_left_stick_horizontal_desc">Inverser le mouvement horizontal sur le stick analogique gauche.</string>
-    <string name="settings_enable_ee_clamping">Clamping FPU EE</string>
-    <string name="settings_enable_ee_clamping_desc">Active le clamping de dépassement pour les opérations FPU de l\'Emotion Engine. Laissez-le désactivé à moins qu\'un jeu n\'en ait besoin pour la compatibilité.</string>
-    <string name="settings_help_enable_ee_clamping">Contrôle si le recompilateur FPU EE émet des vérifications de clamping pour les cas de dépassement à virgule flottante. Le laisser désactivé évite le code généré supplémentaire sur les jeux qui n\'ont pas besoin de ce comportement. Activez-le uniquement si un jeu spécifique présente des problèmes de physique, de géométrie ou de rendu nécessitant le clamping FPU EE.</string>
+    <string name="settings_enable_ee_clamping">EE Clamping</string>
+    <string name="settings_enable_ee_clamping_desc">Active le clamping de dépassement pour les opérations de l\'Emotion Engine. Laissez-le désactivé à moins qu\'un jeu n\'en ait besoin pour la compatibilité.</string>
+    <string name="settings_help_enable_ee_clamping">Contrôle si le recompilateur EE émet des vérifications de clamping pour les cas de dépassement à virgule flottante. Le laisser désactivé évite le code généré supplémentaire sur les jeux qui n\'ont pas besoin de ce comportement. Activez-le uniquement si un jeu spécifique présente des problèmes de physique, de géométrie ou de rendu nécessitant le clamping EE.</string>
     <string name="settings_help_thread_pinning">Épingle les threads d\'émulation principaux sur les cœurs de processeur les plus rapides au lieu de laisser le placement entièrement à Android. Cela peut améliorer la stabilité sur les puces puissantes ou les consoles portables refroidies, mais peut augmenter la chaleur ou réduire les performances sur certains appareils si le planificateur avait mieux équilibré la charge.</string>
     <string name="settings_thread_pinning">Épinglage des threads (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Maintient le travail de l\'EE, du VU1 et du GS sur les cœurs de processeur les plus rapides lorsque cela est pris en charge.</string>
@@ -1191,4 +1191,8 @@
     <string name="memory_card_folder_unlimited">Dossier • Taille illimitée</string>
     <string name="memory_card_file_size">Fichier • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">Paramètres du jeu</string>
+    <string name="settings_clamping_section">Clamping</string>
+    <string name="settings_enable_vu0_clamping">Clamping VU0</string>
+    <string name="settings_enable_vu0_clamping_desc">Active le clamping de dépassement pour les opérations en virgule flottante VU0. Laissez-le désactivé, sauf si un jeu en a besoin pour des raisons de compatibilité.</string>
+    <string name="settings_help_enable_vu0_clamping">Contrôle si le recompilateur VU0 émet des instructions de clamping pour les cas de dépassement positif et négatif de la virgule flottante. La plupart des jeux fonctionnent correctement sans le clamping VU0 ; ne l\'activez qu\'en cas de problèmes de compatibilité dans un jeu spécifique.</string>
 </resources>

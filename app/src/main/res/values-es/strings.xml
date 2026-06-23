@@ -1065,9 +1065,9 @@
     <string name="settings_help_intc_stat_speedhack">Optimiza las lecturas del registro de estado de interrupción. Desactiva esto para probar juegos que sondean interrupciones muy de cerca durante el inicio o las escenas.</string>
     <string name="settings_help_vu_flag_hack">Utiliza una aproximación más rápida para la sincronización de la bandera VU. Desactiva esto para comprobar la divergencia de estado de VU en escenas de física, animación o con gran uso de la cámara.</string>
     <string name="settings_help_instant_vu1">Ejecuta el trabajo de VU1 lo más rápido posible en lugar de preservar una sincronización más estricta. Desactiva esto para probar escenas, animaciones y juegos sensibles a la sincronización VU/GS.</string>
-    <string name="settings_enable_vu1_clamping">Limitación VU1 (Clamping)</string>
-    <string name="settings_enable_vu1_clamping_desc">Activa la limitación de desbordamiento para operaciones de coma flotante VU1. Desactivarlo reduce significativamente el tamaño del código generado y mejora el rendimiento.</string>
-    <string name="settings_help_enable_vu1_clamping">Controla si el recompilador VU1 emite instrucciones de limitación para manejar casos de desbordamiento IEEE 754. Cuando está desactivado, el código ARM64 generado es mucho más pequeño y rápido porque cada instrucción VU1 ya no necesita ~72 operaciones de limitación adicionales. La mayoría de los juegos funcionan bien sin limitación. Actívalo solo si ves fallos gráficos o geometría incorrecta en un juego específico.</string>
+    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
+    <string name="settings_enable_vu1_clamping_desc">Activa el clamping de VU1 para casos límite de coma flotante. Déjalo desactivado salvo que un juego lo necesite por compatibilidad.</string>
+    <string name="settings_help_enable_vu1_clamping">Controla si el recompilador VU1 emite comprobaciones de clamping para overflow, extra overflow, sign overflow y underflow. La mayoría de los juegos funcionan correctamente con VU1 Clamping desactivado; actívalo solo si un juego específico presenta fallos gráficos, geometría incorrecta u otros problemas de compatibilidad.</string>
     <string name="settings_updates_history_title">Historial de actualizaciones</string>
     <string name="settings_updates_history_body">Explora los lanzamientos, fechas de publicación y registros de cambios de GitHub.</string>
     <string name="settings_updates_history_loading">Cargando historial de lanzamientos</string>
@@ -1172,9 +1172,9 @@
     <string name="settings_invert_right_stick_horizontal_desc">Invertir el movimiento horizontal en el joystick analógico derecho.</string>
     <string name="settings_invert_left_stick_horizontal">Invertir joystick izquierdo horizontalmente</string>
     <string name="settings_invert_left_stick_horizontal_desc">Invertir el movimiento horizontal en el joystick analógico izquierdo.</string>
-    <string name="settings_enable_ee_clamping">Clamping de FPU de EE</string>
-    <string name="settings_enable_ee_clamping_desc">Habilita el clamping de desbordamiento para operaciones FPU del Emotion Engine. Déjalo apagado a menos que un juego lo necesite por compatibilidad.</string>
-    <string name="settings_help_enable_ee_clamping">Controla si el recompilador de FPU de EE emite comprobaciones de clamping para casos de desbordamiento de punto flotante. Mantenerlo desactivado evita código generado adicional en juegos que no necesitan este comportamiento. Habilítalo solo si un juego específico muestra problemas de física, geometría o renderizado que requieran clamping de FPU de EE.</string>
+    <string name="settings_enable_ee_clamping">EE Clamping</string>
+    <string name="settings_enable_ee_clamping_desc">Habilita el clamping de desbordamiento para operaciones del Emotion Engine. Déjalo apagado a menos que un juego lo necesite por compatibilidad.</string>
+    <string name="settings_help_enable_ee_clamping">Controla si el recompilador de EE emite comprobaciones de clamping para casos de desbordamiento de punto flotante. Mantenerlo desactivado evita código generado adicional en juegos que no necesitan este comportamiento. Habilítalo solo si un juego específico muestra problemas de física, geometría o renderizado que requieran clamping de EE.</string>
     <string name="settings_help_thread_pinning">Fija los hilos principales de emulación a los núcleos de CPU más rápidos en lugar de dejar la asignación completamente a Android. Puede mejorar la estabilidad en chips potentes o consolas portátiles con refrigeración, pero puede aumentar la temperatura o reducir el rendimiento en algunos dispositivos si el programador hubiera equilibrado mejor la carga.</string>
     <string name="settings_thread_pinning">Fijación de hilos (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Mantiene el trabajo de EE, VU1 y GS en los núcleos de CPU más rápidos cuando es compatible.</string>
@@ -1191,4 +1191,8 @@
     <string name="memory_card_folder_unlimited">Carpeta • Tamaño ilimitado</string>
     <string name="memory_card_file_size">Archivo • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">Ajustes del juego</string>
+    <string name="settings_clamping_section">Clamping (Sujeción)</string>
+    <string name="settings_enable_vu0_clamping">Clamping de VU0</string>
+    <string name="settings_enable_vu0_clamping_desc">Habilita el clamping de desbordamiento para las operaciones de punto flotante de VU0. Déjalo desactivado a menos que un juego lo necesite por compatibilidad.</string>
+    <string name="settings_help_enable_vu0_clamping">Controla si el recompilador de VU0 emite instrucciones de clamping para casos de desbordamiento y subdesbordamiento de punto flotante. La mayoría de los juegos funcionan correctamente sin el clamping de VU0; actívalo solo para problemas de compatibilidad en un juego específico.</string>
 </resources>

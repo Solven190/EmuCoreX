@@ -1065,9 +1065,9 @@
     <string name="settings_help_intc_stat_speedhack">Optimiert das Lesen aus dem Interrupt-Statusregister. Deaktivieren Sie dies, um Spiele zu testen, die Interrupts während des Starts oder in Zwischensequenzen sehr genau abfragen.</string>
     <string name="settings_help_vu_flag_hack">Verwendet eine schnellere Näherung für das VU-Flag-Timing. Deaktivieren Sie dies, um auf VU-Zustandsabweichungen in physik-, animations- oder kameralastigen Szenen zu prüfen.</string>
     <string name="settings_help_instant_vu1">Führt VU1-Arbeit so schnell wie möglich aus, anstatt ein strikteres Timing beizubehalten. Deaktivieren Sie dies, um Zwischensequenzen, Animationen und Spiele zu testen, die empfindlich auf die VU/GS-Synchronisation reagieren.</string>
-    <string name="settings_enable_vu1_clamping">VU1-Begrenzung (Clamping)</string>
-    <string name="settings_enable_vu1_clamping_desc">Aktiviert die Überlaufbegrenzung für VU1-Gleitkommaoperationen. Das Deaktivieren reduziert die Größe des generierten Codes erheblich und verbessert die Leistung.</string>
-    <string name="settings_help_enable_vu1_clamping">Steuert, ob der VU1-Recompiler Begrenzungsanweisungen ausgibt, um IEEE 754-Überlauffälle zu behandeln. Wenn deaktiviert, ist der generierte ARM64-Code viel kleiner und schneller, da jede VU1-Anweisung keine ~72 zusätzlichen Begrenzungsoperationen mehr benötigt. Die meisten Spiele funktionieren ohne Begrenzung einwandfrei. Aktivieren Sie es nur, wenn Sie in einem bestimmten Spiel Grafikfehler oder fehlerhafte Geometrie feststellen.</string>
+    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
+    <string name="settings_enable_vu1_clamping_desc">Aktiviert VU1-Clamping für Gleitkomma-Grenzfälle. Deaktiviert lassen, es sei denn, ein Spiel benötigt es aus Kompatibilitätsgründen.</string>
+    <string name="settings_help_enable_vu1_clamping">Steuert, ob der VU1-Recompiler Clamping-Prüfungen für Overflow, Extra Overflow, Sign Overflow und Underflow ausgibt. Die meisten Spiele funktionieren mit deaktiviertem VU1 Clamping korrekt; aktivieren Sie es nur, wenn ein bestimmtes Spiel Grafikfehler, fehlerhafte Geometrie oder andere Kompatibilitätsprobleme zeigt.</string>
     <string name="settings_updates_history_title">Update-Verlauf</string>
     <string name="settings_updates_history_body">Durchsuchen Sie GitHub-Releases, Veröffentlichungsdaten und Änderungsprotokolle.</string>
     <string name="settings_updates_history_loading">Update-Verlauf wird geladen</string>
@@ -1172,9 +1172,9 @@
     <string name="settings_invert_right_stick_horizontal_desc">Horizontale Bewegung auf dem rechten Analogstick invertieren.</string>
     <string name="settings_invert_left_stick_horizontal">Linken Stick horizontal invertieren</string>
     <string name="settings_invert_left_stick_horizontal_desc">Horizontale Bewegung auf dem linken Analogstick invertieren.</string>
-    <string name="settings_enable_ee_clamping">EE-FPU-Clamping</string>
-    <string name="settings_enable_ee_clamping_desc">Aktiviert Overflow-Clamping für Emotion Engine FPU-Operationen. Deaktiviert lassen, es sei denn, ein Spiel benötigt es aus Kompatibilitätsgründen.</string>
-    <string name="settings_help_enable_ee_clamping">Steuert, ob der EE-FPU-Recompiler Clamping-Prüfungen für Fließkomma-Überlauffälle ausgibt. Wenn dies deaktiviert bleibt, wird zusätzlicher generierter Code bei Spielen vermieden, die dieses Verhalten nicht benötigen. Aktivieren Sie es nur, wenn ein bestimmtes Spiel Physik-, Geometrie- oder Rendering-Probleme aufweist, die EE-FPU-Clamping erfordern.</string>
+    <string name="settings_enable_ee_clamping">EE Clamping</string>
+    <string name="settings_enable_ee_clamping_desc">Aktiviert Overflow-Clamping für Emotion Engine-Operationen. Deaktiviert lassen, es sei denn, ein Spiel benötigt es aus Kompatibilitätsgründen.</string>
+    <string name="settings_help_enable_ee_clamping">Steuert, ob der EE-Recompiler Clamping-Prüfungen für Fließkomma-Überlauffälle ausgibt. Wenn dies deaktiviert bleibt, wird zusätzlicher generierter Code bei Spielen vermieden, die dieses Verhalten nicht benötigen. Aktivieren Sie es nur, wenn ein bestimmtes Spiel Physik-, Geometrie- oder Rendering-Probleme aufweist, die EE-Clamping erfordern.</string>
     <string name="settings_help_thread_pinning">Heftet die Hauptemulations-Threads an die schnellsten CPU-Kerne an, anstatt die Platzierung vollständig Android zu überlassen. Es kann die Stabilität auf leistungsstarken Chips oder gekühlten Handhelds verbessern, kann aber auf einigen Geräten die Hitze erhöhen oder die Leistung verringern, wenn der Scheduler die Last besser ausgeglichen hätte.</string>
     <string name="settings_thread_pinning">Thread-Pinning</string>
     <string name="settings_thread_pinning_desc">Hält die Arbeit von EE, VU1 und GS auf den schnellsten CPU-Kernen, sofern unterstützt.</string>
@@ -1191,4 +1191,8 @@
     <string name="memory_card_folder_unlimited">Ordner • Unbegrenzte Größe</string>
     <string name="memory_card_file_size">Datei • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">Spieleinstellungen</string>
+    <string name="settings_clamping_section">Clamping</string>
+    <string name="settings_enable_vu0_clamping">VU0-Clamping</string>
+    <string name="settings_enable_vu0_clamping_desc">Aktiviert das Überlauf-Clamping für VU0-Gleitkommaoperationen. Lass es deaktiviert, es sei denn, ein Spiel benötigt es aus Kompatibilitätsgründen.</string>
+    <string name="settings_help_enable_vu0_clamping">Steuert, ob der VU0-Recompiler Clamping-Anweisungen für Fälle von Über- und Unterlauf von Gleitkommazahlen ausgibt. Die meisten Spiele funktionieren auch ohne VU0-Clamping korrekt; aktiviere es nur bei Kompatibilitätsproblemen in einem bestimmten Spiel.</string>
 </resources>

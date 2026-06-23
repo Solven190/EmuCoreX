@@ -82,25 +82,32 @@ object EmulatorBridge {
     private fun settingOp(section: String, key: String, type: String, value: String) =
         RuntimeOp("setting", listOf(section, key, type, value))
 
-    private fun vuClampingOps(enabled: Boolean): List<RuntimeOp> {
-        val normalClamp = enabled.toString()
+    private fun vu0ClampingOps(enabled: Boolean): List<RuntimeOp> {
+        val clamp = enabled.toString()
         return listOf(
-            settingOp("EmuCore/CPU/Recompiler", "vu0Overflow", "bool", normalClamp),
-            settingOp("EmuCore/CPU/Recompiler", "vu0ExtraOverflow", "bool", "false"),
-            settingOp("EmuCore/CPU/Recompiler", "vu0SignOverflow", "bool", "false"),
-            settingOp("EmuCore/CPU/Recompiler", "vu0Underflow", "bool", "false"),
-            settingOp("EmuCore/CPU/Recompiler", "vu1Overflow", "bool", normalClamp),
-            settingOp("EmuCore/CPU/Recompiler", "vu1ExtraOverflow", "bool", "false"),
-            settingOp("EmuCore/CPU/Recompiler", "vu1SignOverflow", "bool", "false"),
-            settingOp("EmuCore/CPU/Recompiler", "vu1Underflow", "bool", "false")
+            settingOp("EmuCore/CPU/Recompiler", "vu0Overflow", "bool", clamp),
+            settingOp("EmuCore/CPU/Recompiler", "vu0ExtraOverflow", "bool", clamp),
+            settingOp("EmuCore/CPU/Recompiler", "vu0SignOverflow", "bool", clamp),
+            settingOp("EmuCore/CPU/Recompiler", "vu0Underflow", "bool", clamp)
+        )
+    }
+
+    private fun vu1ClampingOps(enabled: Boolean): List<RuntimeOp> {
+        val clamp = enabled.toString()
+        return listOf(
+            settingOp("EmuCore/CPU/Recompiler", "vu1Overflow", "bool", clamp),
+            settingOp("EmuCore/CPU/Recompiler", "vu1ExtraOverflow", "bool", clamp),
+            settingOp("EmuCore/CPU/Recompiler", "vu1SignOverflow", "bool", clamp),
+            settingOp("EmuCore/CPU/Recompiler", "vu1Underflow", "bool", clamp)
         )
     }
 
     private fun eeClampingOps(enabled: Boolean): List<RuntimeOp> {
+        val clamp = enabled.toString()
         return listOf(
-            settingOp("EmuCore/CPU/Recompiler", "fpuOverflow", "bool", enabled.toString()),
-            settingOp("EmuCore/CPU/Recompiler", "fpuExtraOverflow", "bool", "false"),
-            settingOp("EmuCore/CPU/Recompiler", "fpuFullMode", "bool", "false")
+            settingOp("EmuCore/CPU/Recompiler", "fpuOverflow", "bool", clamp),
+            settingOp("EmuCore/CPU/Recompiler", "fpuExtraOverflow", "bool", clamp),
+            settingOp("EmuCore/CPU/Recompiler", "fpuFullMode", "bool", clamp)
         )
     }
 
@@ -283,6 +290,7 @@ object EmulatorBridge {
         enableIopRecompiler: Boolean = true,
         enableVu0Recompiler: Boolean = true,
         enableVu1Recompiler: Boolean = true,
+        vu0Clamping: Boolean = false,
         vu1Clamping: Boolean = false,
         enableFastmem: Boolean = true,
         waitLoopSpeedhack: Boolean = true,
@@ -447,7 +455,8 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableIOP", "bool", directIopRecompiler.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableVU0", "bool", directVu0Recompiler.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableVU1", "bool", directVu1Recompiler.toString()))
-                addAll(vuClampingOps(vu1Clamping))
+                addAll(vu0ClampingOps(vu0Clamping))
+                addAll(vu1ClampingOps(vu1Clamping))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableFastmem", "bool", enableFastmem.toString()))
                 add(settingOp("EmuCore/Speedhacks", "WaitLoop", "bool", waitLoopSpeedhack.toString()))
                 add(settingOp("EmuCore/Speedhacks", "IntcStat", "bool", intcStatSpeedhack.toString()))
@@ -1090,9 +1099,29 @@ object EmulatorBridge {
         settingsCache[cacheKey] = value
     }
 
-    suspend fun setVuClamping(enabled: Boolean) {
+    suspend fun setVu0Clamping(enabled: Boolean) {
         if (!isNativeLoaded) return
-        val ops = vuClampingOps(enabled)
+        val ops = vu0ClampingOps(enabled)
+        val unchanged = ops.all { op ->
+            val section = op.fields[0]
+            val key = op.fields[1]
+            val value = op.fields[3]
+            settingsCache["$section:$key"] == value
+        }
+        if (unchanged) return
+
+        performRuntimeOps(ops)
+        ops.forEach { op ->
+            val section = op.fields[0]
+            val key = op.fields[1]
+            val value = op.fields[3]
+            settingsCache["$section:$key"] = value
+        }
+    }
+
+    suspend fun setVu1Clamping(enabled: Boolean) {
+        if (!isNativeLoaded) return
+        val ops = vu1ClampingOps(enabled)
         val unchanged = ops.all { op ->
             val section = op.fields[0]
             val key = op.fields[1]

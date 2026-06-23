@@ -22,6 +22,7 @@ data class PerGameSettings(
     val enableMtvu: Boolean = true,
     val enableThreadPinning: Boolean = false,
     val enableEeClamping: Boolean = false,
+    val enableVu0Clamping: Boolean = false,
     val enableVu1Clamping: Boolean = false,
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
@@ -150,7 +151,13 @@ class PerGameSettingsRepository(context: Context) {
 }
 
 private fun JSONObject.toPerGameSettings(): PerGameSettings {
-    val providedKeys = keys().asSequence().toSet()
+    val rawProvidedKeys = keys().asSequence().toSet()
+    val providedKeys = if ("enableVu1Clamping" in rawProvidedKeys && "enableVu0Clamping" !in rawProvidedKeys) {
+        rawProvidedKeys + "enableVu0Clamping"
+    } else {
+        rawProvidedKeys
+    }
+    val vu1Clamping = optBoolean("enableVu1Clamping", false)
     return PerGameSettings(
         gameKey = optString("gameKey"),
         gameTitle = optString("gameTitle"),
@@ -164,7 +171,8 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         enableMtvu = optBoolean("enableMtvu", true),
         enableThreadPinning = optBoolean("enableThreadPinning", false),
         enableEeClamping = optBoolean("enableEeClamping", false),
-        enableVu1Clamping = optBoolean("enableVu1Clamping", false),
+        enableVu0Clamping = optBoolean("enableVu0Clamping", vu1Clamping),
+        enableVu1Clamping = vu1Clamping,
         enableFastCdvd = optBoolean("enableFastCdvd", false),
         enableCheats = optBoolean("enableCheats", false),
         hwDownloadMode = optInt("hwDownloadMode", 0),
@@ -244,6 +252,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("enableMtvu")) put("enableMtvu", enableMtvu)
         if (shouldWrite("enableThreadPinning")) put("enableThreadPinning", enableThreadPinning)
         if (shouldWrite("enableEeClamping")) put("enableEeClamping", enableEeClamping)
+        if (shouldWrite("enableVu0Clamping")) put("enableVu0Clamping", enableVu0Clamping)
         if (shouldWrite("enableVu1Clamping")) put("enableVu1Clamping", enableVu1Clamping)
         if (shouldWrite("enableFastCdvd")) put("enableFastCdvd", enableFastCdvd)
         if (shouldWrite("enableCheats")) put("enableCheats", enableCheats)

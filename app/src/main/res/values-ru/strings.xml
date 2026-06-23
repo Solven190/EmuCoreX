@@ -1069,9 +1069,9 @@
     <string name="settings_help_intc_stat_speedhack">Оптимизирует чтение из регистра состояния прерываний. Отключите это для тестирования игр, которые очень часто опрашивают прерывания во время запуска или катсцен.</string>
     <string name="settings_help_vu_flag_hack">Использует более быстрое приближение для таймингов флагов VU. Отключите это для проверки расхождения состояний VU в сценах с физикой, анимацией или сильной нагрузкой на камеру.</string>
     <string name="settings_help_instant_vu1">Выполняет работу VU1 максимально быстро вместо сохранения более строгих таймингов. Отключите это для тестирования катсцен, анимации и игр, чувствительных к синхронизации VU/GS.</string>
-    <string name="settings_enable_vu1_clamping">Ограничение VU1 (Clamping)</string>
-    <string name="settings_enable_vu1_clamping_desc">Включает ограничение переполнения (clamping) для операций с плавающей запятой VU1. Отключение этой опции значительно уменьшает размер генерируемого кода и повышает производительность.</string>
-    <string name="settings_help_enable_vu1_clamping">Управляет тем, генерирует ли рекомпилятор VU1 инструкции ограничения для обработки случаев переполнения IEEE 754. Если опция отключена, создаваемый код ARM64 становится намного меньше и быстрее, так как каждой инструкции VU1 больше не требуется около 72 дополнительных операций ограничения. Большинство игр отлично работают без ограничений. Включайте её только в том случае, если в конкретной игре вы заметили графические артефакты или некорректную геометрию.</string>
+    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
+    <string name="settings_enable_vu1_clamping_desc">Включает VU1 clamping для крайних случаев с плавающей запятой. Оставьте выключенным, если это не требуется игре для совместимости.</string>
+    <string name="settings_help_enable_vu1_clamping">Управляет тем, генерирует ли рекомпилятор VU1 проверки clamping для overflow, extra overflow, sign overflow и underflow. Большинство игр работает правильно с выключенным VU1 Clamping; включайте его только если в конкретной игре есть графические артефакты, некорректная геометрия или другие проблемы совместимости.</string>
     <string name="settings_updates_history_title">История обновлений</string>
     <string name="settings_updates_history_body">Просмотр релизов GitHub, дат выпуска и списков изменений.</string>
     <string name="settings_updates_history_loading">Загрузка истории релизов</string>
@@ -1172,9 +1172,9 @@
     <string name="settings_invert_right_stick_horizontal_desc">Инвертировать горизонтальное движение на правом аналоговом стике.</string>
     <string name="settings_invert_left_stick_horizontal">Инвертировать левый стик по горизонтали</string>
     <string name="settings_invert_left_stick_horizontal_desc">Инвертировать горизонтальное движение на левом аналоговом стике.</string>
-    <string name="settings_enable_ee_clamping">Ограничение FPU EE (Clamping)</string>
-    <string name="settings_enable_ee_clamping_desc">Включает ограничение переполнения (clamping) для операций FPU Emotion Engine. Оставьте выключенным, если это не требуется для совместимости игры.</string>
-    <string name="settings_help_enable_ee_clamping">Управляет тем, генерирует ли рекомпилятор FPU EE проверки ограничения (clamping) для случаев переполнения с плавающей запятой. Отключение этой функции предотвращает генерацию лишнего кода в играх, которым не требуется такое поведение. Включайте её только в том случае, если в конкретной игре наблюдаются проблемы с физикой, геометрией или рендерингом, требующие ограничения FPU EE.</string>
+    <string name="settings_enable_ee_clamping">EE Clamping</string>
+    <string name="settings_enable_ee_clamping_desc">Включает ограничение переполнения (clamping) для операций Emotion Engine. Оставьте выключенным, если это не требуется для совместимости игры.</string>
+    <string name="settings_help_enable_ee_clamping">Управляет тем, генерирует ли рекомпилятор EE проверки ограничения (clamping) для случаев переполнения с плавающей запятой. Отключение этой функции предотвращает генерацию лишнего кода в играх, которым не требуется такое поведение. Включайте её только в том случае, если в конкретной игре наблюдаются проблемы с физикой, геометрией или рендерингом, требующие ограничения EE.</string>
     <string name="settings_help_thread_pinning">Привязывает основные потоки эмуляции к самым быстрым ядрам процессора вместо того, чтобы полностью доверять их распределение Android. Это может улучшить стабильность на мощных чипах или портативных консолях с охлаждением, но может увеличить нагрев или снизить производительность на некоторых устройствах, если бы планировщик распределил нагрузку лучше.</string>
     <string name="settings_thread_pinning">Привязка потоков (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Удерживает работу EE, VU1 и GS на самых быстрых ядрам ЦП, если это поддерживается.</string>
@@ -1191,4 +1191,8 @@
     <string name="memory_card_folder_unlimited">Папка • Неограниченный размер</string>
     <string name="memory_card_file_size">Файл • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">Настройки игры</string>
+    <string name="settings_clamping_section">Clamping</string>
+    <string name="settings_enable_vu0_clamping">VU0 Clamping</string>
+    <string name="settings_enable_vu0_clamping_desc">Включает клэмпинг (ограничение) переполнения для операций с плавающей запятой VU0. Оставьте выключенным, если это не требуется игре для совместимости.</string>
+    <string name="settings_help_enable_vu0_clamping">Контролирует, выдает ли рекомпилятор VU0 инструкции клэмпинга для случаев переполнения и потери значимости значений с плавающей запятой. Большинство игр корректно работают без клэмпинга VU0; включайте его только при проблемах с совместимостью в конкретной игре.</string>
 </resources>

@@ -704,20 +704,6 @@ private fun GameSettingsEditorDialog(
                                 onResetToDefault = { draft = draft.copy(enableMtvu = defaultProfile.enableMtvu) }
                             )
                             ToggleRow(
-                                title = stringResource(R.string.settings_enable_ee_clamping),
-                                checked = draft.enableEeClamping,
-                                onCheckedChange = { draft = draft.copy(enableEeClamping = it) },
-                                helpText = stringResource(R.string.settings_help_enable_ee_clamping),
-                                onResetToDefault = { draft = draft.copy(enableEeClamping = defaultProfile.enableEeClamping) }
-                            )
-                            ToggleRow(
-                                title = stringResource(R.string.settings_enable_vu1_clamping),
-                                checked = draft.enableVu1Clamping,
-                                onCheckedChange = { draft = draft.copy(enableVu1Clamping = it) },
-                                helpText = stringResource(R.string.settings_help_enable_vu1_clamping),
-                                onResetToDefault = { draft = draft.copy(enableVu1Clamping = defaultProfile.enableVu1Clamping) }
-                            )
-                            ToggleRow(
                                 title = stringResource(R.string.settings_fast_cdvd),
                                 checked = draft.enableFastCdvd,
                                 onCheckedChange = { draft = draft.copy(enableFastCdvd = it) },
@@ -751,6 +737,29 @@ private fun GameSettingsEditorDialog(
                                 onCheckedChange = { draft = draft.copy(enableCheats = it) },
                                 helpText = stringResource(R.string.settings_help_cheats),
                                 onResetToDefault = { draft = draft.copy(enableCheats = defaultProfile.enableCheats) }
+                            )
+                        }
+                        EditorSection(title = stringResource(R.string.settings_clamping_section)) {
+                            ToggleRow(
+                                title = stringResource(R.string.settings_enable_ee_clamping),
+                                checked = draft.enableEeClamping,
+                                onCheckedChange = { draft = draft.copy(enableEeClamping = it) },
+                                helpText = stringResource(R.string.settings_help_enable_ee_clamping),
+                                onResetToDefault = { draft = draft.copy(enableEeClamping = defaultProfile.enableEeClamping) }
+                            )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_enable_vu0_clamping),
+                                checked = draft.enableVu0Clamping,
+                                onCheckedChange = { draft = draft.copy(enableVu0Clamping = it) },
+                                helpText = stringResource(R.string.settings_help_enable_vu0_clamping),
+                                onResetToDefault = { draft = draft.copy(enableVu0Clamping = defaultProfile.enableVu0Clamping) }
+                            )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_enable_vu1_clamping),
+                                checked = draft.enableVu1Clamping,
+                                onCheckedChange = { draft = draft.copy(enableVu1Clamping = it) },
+                                helpText = stringResource(R.string.settings_help_enable_vu1_clamping),
+                                onResetToDefault = { draft = draft.copy(enableVu1Clamping = defaultProfile.enableVu1Clamping) }
                             )
                         }
                         EditorSection(title = stringResource(R.string.game_settings_manager_section_graphics)) {
@@ -1831,6 +1840,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         enableFastBoot = enableFastBoot,
         enableMtvu = enableMtvu,
         enableEeClamping = enableEeClamping,
+        enableVu0Clamping = enableVu0Clamping,
         enableVu1Clamping = enableVu1Clamping,
         enableFastCdvd = enableFastCdvd,
         enableCheats = enableCheats,
@@ -1903,6 +1913,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         enableFastBoot = pick("enableFastBoot", enableFastBoot, defaultProfile.enableFastBoot),
         enableMtvu = pick("enableMtvu", enableMtvu, defaultProfile.enableMtvu),
         enableEeClamping = pick("enableEeClamping", enableEeClamping, defaultProfile.enableEeClamping),
+        enableVu0Clamping = pick("enableVu0Clamping", enableVu0Clamping, defaultProfile.enableVu0Clamping),
         enableVu1Clamping = pick("enableVu1Clamping", enableVu1Clamping, defaultProfile.enableVu1Clamping),
         enableFastCdvd = pick("enableFastCdvd", enableFastCdvd, defaultProfile.enableFastCdvd),
         enableCheats = pick("enableCheats", enableCheats, defaultProfile.enableCheats),

@@ -223,9 +223,9 @@
     <string name="settings_enable_vu1_recompiler">VU1 Yeniden Derleyici</string>
     <string name="settings_enable_vu1_recompiler_desc">Vector Unit 1 mikro yeniden derleyici. VU1 yorumlayıcısını zorlamak için devre dışı bırakın.</string>
     <string name="settings_help_enable_vu1_recompiler">Vector Unit 1 yeniden derleyicisini kontrol eder. VU1, birçok oyunda büyük miktarda dönüşüm ve geometri işini yürütür. JIT çıktısını yorumlayıcıya karşı karşılaştırmanız, işleme bozulmalarını araştırmanız veya hata ayıklama için VU1 izlerini yakalamanız gerektiğinde devre dışı bırakın.</string>
-    <string name="settings_enable_vu1_clamping">VU1 Kenetleme</string>
-    <string name="settings_enable_vu1_clamping_desc">VU1 float işlemleri için taşma (overflow) kenetlemeyi etkinleştirir. Devre dışı bırakmak, oluşturulan kod boyutunu önemli ölçüde azaltır ve performansı artırır.</string>
-    <string name="settings_help_enable_vu1_clamping">VU1 yeniden derleyicisinin IEEE 754 taşma durumlarını işlemek için kenetleme talimatları yayıp yaymayacağını kontrol eder. Devre dışı bırakıldığında, oluşturulan ARM64 kodu çok daha küçük ve daha hızlıdır çünkü her bir VU1 talimatı artık ~72 ekstra kenetleme işlemine ihtiyaç duymaz. Çoğu oyun kenetleme olmadan iyi çalışır. Yalnızca belirli bir oyunda grafiksel hatalar veya yanlış geometri görürseniz etkinleştirin.</string>
+    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
+    <string name="settings_enable_vu1_clamping_desc">Kayan nokta uç durumları için VU1 clamping etkinleştirir. Bir oyun uyumluluk için gerektirmedikçe kapalı tutun.</string>
+    <string name="settings_help_enable_vu1_clamping">VU1 yeniden derleyicisinin overflow, extra overflow, sign overflow ve underflow durumları için clamping kontrolleri üretip üretmeyeceğini belirler. Çoğu oyun VU1 Clamping kapalıyken doğru çalışır; yalnızca belirli bir oyunda grafik hataları, bozuk geometri veya başka uyumluluk sorunları varsa etkinleştirin.</string>
     <string name="settings_jit_mtvu_note">VU1 yeniden derleyicisini devre dışı bırakırsanız, aşağıdaki MTVU\'yu da kapatın. MTVU yalnızca VU1 yeniden derlemesi etkinken anlamlıdır.</string>
     <string name="settings_renderer">Grafik Modu</string>
     <string name="settings_renderer_auto">Oto</string>
@@ -1170,9 +1170,9 @@
     <string name="settings_invert_right_stick_horizontal_desc">Sağ analog çubuktaki yatay hareketi tersine çevir.</string>
     <string name="settings_invert_left_stick_horizontal">Sol Çubuğu Yatay Olarak Ters Çevir</string>
     <string name="settings_invert_left_stick_horizontal_desc">Sol analog çubuktaki yatay hareketi tersine çevir.</string>
-    <string name="settings_enable_ee_clamping">EE FPU Sınırlandırma (Clamping)</string>
-    <string name="settings_enable_ee_clamping_desc">Emotion Engine FPU işlemleri için taşma sınırlandırmasını (clamping) etkinleştirir. Uyumluluk için bir oyun gerektirmediği sürece kapalı tutun.</string>
-    <string name="settings_help_enable_ee_clamping">EE FPU yeniden derleyicisinin kayan nokta taşma durumları için sınırlandırma kontrolleri yayınlayıp yayınlamadığını kontrol eder. Kapalı tutmak, bu davranışa ihtiyaç duymayan oyunlarda fazladan oluşturulan kodu engeller. Yalnızca belirli bir oyun, EE FPU sınırlandırması gerektiren fizik, geometri veya işleme sorunları gösteriyorsa etkinleştirin.</string>
+    <string name="settings_enable_ee_clamping">EE Clamping</string>
+    <string name="settings_enable_ee_clamping_desc">Emotion Engine işlemleri için taşma sınırlandırmasını (clamping) etkinleştirir. Uyumluluk için bir oyun gerektirmediği sürece kapalı tutun.</string>
+    <string name="settings_help_enable_ee_clamping">EE yeniden derleyicisinin kayan nokta taşma durumları için sınırlandırma kontrolleri yayınlayıp yayınlamadığını kontrol eder. Kapalı tutmak, bu davranışa ihtiyaç duymayan oyunlarda fazladan oluşturulan kodu engeller. Yalnızca belirli bir oyun, EE sınırlandırması gerektiren fizik, geometri veya işleme sorunları gösteriyorsa etkinleştirin.</string>
     <string name="settings_help_thread_pinning">Ana emülasyon iş parçacıklarını yerleşimini tamamen Android\'e bırakmak yerine en hızlı CPU çekirdeklerine sabitler. Güçlü çiplerde veya soğutmalı avuç içi cihazlarda kararlılığı artırabilir, ancak zamanlayıcının yükü daha iyi dengeleyebileceği bazı cihazlarda ısıyı artırabilir veya performansı düşürebilir.</string>
     <string name="settings_thread_pinning">İş parçacığı sabitleme (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Desteklendiğinde EE, VU1 ve GS işlerini en hızlı CPU çekirdeklerinde tutar.</string>
@@ -1189,4 +1189,8 @@
     <string name="memory_card_folder_unlimited">Klasör • Sınırsız boyut</string>
     <string name="memory_card_file_size">Dosya • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">Oyun ayarları</string>
+    <string name="settings_clamping_section">Sınırlama (Clamping)</string>
+    <string name="settings_enable_vu0_clamping">VU0 Sınırlaması</string>
+    <string name="settings_enable_vu0_clamping_desc">VU0 kayan nokta işlemleri için taşma sınırlamasını etkinleştirir. Bir oyunun uyumluluk için ihtiyacı olmadığı sürece kapalı bırakın.</string>
+    <string name="settings_help_enable_vu0_clamping">VU0 yeniden derleyicisinin kayan nokta taşması ve yetersizliği durumları için sınırlama talimatları verip vermediğini denetler. Çoğu oyun VU0 sınırlaması olmadan doğru şekilde çalışır; yalnızca belirli bir oyundaki uyumluluk sorunları için etkinleştirin.</string>
 </resources>

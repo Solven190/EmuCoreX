@@ -1592,6 +1592,16 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_enable_vu1_recompiler),
                             onResetToDefault = { viewModel.setEnableVu1Recompiler(defaults.enableVu1Recompiler) }
                         )
+                        SettingsInlineNote(
+                            text = stringResource(R.string.settings_jit_section_note)
+                        )
+                        if (!uiState.enableVu1Recompiler && uiState.enableMtvu) {
+                            SettingsInlineNote(
+                                text = stringResource(R.string.settings_jit_mtvu_note)
+                            )
+                        }
+                    }
+                    SettingsSection(title = stringResource(R.string.settings_clamping_section)) {
                         ToggleItem(
                             icon = Icons.Rounded.Tune,
                             title = stringResource(R.string.settings_enable_ee_clamping),
@@ -1603,6 +1613,15 @@ private fun SettingsContent(
                         )
                         ToggleItem(
                             icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.settings_enable_vu0_clamping),
+                            subtitle = stringResource(R.string.settings_enable_vu0_clamping_desc),
+                            checked = uiState.enableVu0Clamping,
+                            onCheckedChange = viewModel::setEnableVu0Clamping,
+                            helpText = stringResource(R.string.settings_help_enable_vu0_clamping),
+                            onResetToDefault = { viewModel.setEnableVu0Clamping(defaults.enableVu0Clamping) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Tune,
                             title = stringResource(R.string.settings_enable_vu1_clamping),
                             subtitle = stringResource(R.string.settings_enable_vu1_clamping_desc),
                             checked = uiState.enableVu1Clamping,
@@ -1610,14 +1629,6 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_enable_vu1_clamping),
                             onResetToDefault = { viewModel.setEnableVu1Clamping(defaults.enableVu1Clamping) }
                         )
-                        SettingsInlineNote(
-                            text = stringResource(R.string.settings_jit_section_note)
-                        )
-                        if (!uiState.enableVu1Recompiler && uiState.enableMtvu) {
-                            SettingsInlineNote(
-                                text = stringResource(R.string.settings_jit_mtvu_note)
-                            )
-                        }
                     }
                     SettingsSection(title = stringResource(R.string.settings_speed_hacks)) {
                         ChoiceSection(
