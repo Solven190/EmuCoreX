@@ -18,6 +18,7 @@
 #include "USB/USB.h"
 
 #include "fmt/format.h"
+#include <cctype>
 #ifdef _WIN32
 #include "common/RedtapeWindows.h"
 #include <KnownFolders.h>
@@ -856,6 +857,7 @@ bool Pcsx2Config::GSOptions::OptionsAreEqual(const GSOptions& right) const
 		OpEqu(UserHacks_Limit24BitDepth) &&
 		OpEqu(UserHacks_BilinearHack) &&
 		OpEqu(OverrideTextureBarriers) &&
+		OpEqu(AndroidGpuProfileOverride) &&
 		OpEqu(DepthFeedbackMode) &&
 
 		OpEqu(CAS_Sharpness) &&
@@ -908,6 +910,7 @@ bool Pcsx2Config::GSOptions::RestartOptionsAreEqual(const GSOptions& right) cons
 		   OpEqu(DisableFramebufferFetch) &&
 		   OpEqu(DisableVertexShaderExpand) &&
 		   OpEqu(OverrideTextureBarriers) &&
+		   OpEqu(AndroidGpuProfileOverride) &&
 		   OpEqu(DepthFeedbackMode) &&
 		   OpEqu(HWAA1) &&
 		   OpEqu(ExclusiveFullscreenControl);
@@ -1068,6 +1071,23 @@ void Pcsx2Config::GSOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapIntEnumEx(UserHacks_GPUTargetCLUTMode, "UserHacks_GPUTargetCLUTMode");
 	SettingsWrapIntEnumEx(TriFilter, "TriFilter");
 	SettingsWrapBitfieldEx(OverrideTextureBarriers, "OverrideTextureBarriers");
+	SettingsWrapEntry(AndroidGpuProfileOverride);
+	{
+		std::string lowered_gpu_profile;
+		lowered_gpu_profile.reserve(AndroidGpuProfileOverride.size());
+		for (const char ch : AndroidGpuProfileOverride)
+			lowered_gpu_profile.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+
+		if (lowered_gpu_profile == "mali" || lowered_gpu_profile == "adreno" ||
+			lowered_gpu_profile == "powervr" || lowered_gpu_profile == "auto")
+		{
+			AndroidGpuProfileOverride = std::move(lowered_gpu_profile);
+		}
+		else
+		{
+			AndroidGpuProfileOverride = "adreno";
+		}
+	}
 	SettingsWrapIntEnumEx(DepthFeedbackMode, "DepthFeedbackMode");
 
 	SettingsWrapBitfield(ShadeBoost_Brightness);

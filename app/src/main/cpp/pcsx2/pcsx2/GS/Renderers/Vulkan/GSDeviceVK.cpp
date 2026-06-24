@@ -10,6 +10,7 @@
 #include "GS/Renderers/Vulkan/VKShaderCache.h"
 #include "GS/Renderers/Vulkan/VKSwapChain.h"
 #include "GS/Renderers/Common/GSDevice.h"
+#include "GS/Renderers/Common/GSGPUProfile.h"
 
 #include "core/runtime/BuildVersion.h"
 #include "platform/host/Host.h"
@@ -45,6 +46,21 @@ enum : u32
 	FRAGMENT_UNIFORM_BUFFER_SIZE = 8 * 1024 * 1024,
 	TEXTURE_BUFFER_SIZE = 64 * 1024 * 1024,
 };
+
+static const char* GetVulkanVendorHint(u32 vendor_id)
+{
+	switch (vendor_id)
+	{
+		case 0x13B5u:
+			return "ARM Mali";
+		case 0x5143u:
+			return "Qualcomm Adreno";
+		case 0x1010u:
+			return "Imagination PowerVR";
+		default:
+			return "";
+	}
+}
 
 
 #ifdef ENABLE_OGL_DEBUG
@@ -511,6 +527,22 @@ bool GSDeviceVK::SelectDeviceFeatures()
 
 bool GSDeviceVK::CreateDevice(VkSurfaceKHR surface, bool enable_validation_layer)
 {
+	vkGetPhysicalDeviceProperties(m_physical_device, &m_device_properties);
+	m_name = m_device_properties.deviceName;
+
+#if defined(__ANDROID__)
+	const GpuProfileSelection gpu_profile_selection =
+		GpuProfileDetector::Resolve(GSConfig.AndroidGpuProfileOverride,
+			GetVulkanVendorHint(m_device_properties.vendorID), m_name);
+	SetRuntimeGPUProfile(gpu_profile_selection.runtime_profile);
+	Console.WriteLn("VK: Android GPU profile override='%s' resolved='%s'.",
+		GpuProfileDetector::OverrideToConfigString(gpu_profile_selection.override_mode),
+		GpuProfileDetector::RuntimeProfileToString(gpu_profile_selection.runtime_profile));
+	DevCon.WriteLn("VK: Android GPU profile hints: %s", gpu_profile_selection.hints.c_str());
+#else
+	SetRuntimeGPUProfile(RuntimeGpuProfile::Adreno);
+#endif
+
 	u32 queue_family_count;
 	vkGetPhysicalDeviceQueueFamilyProperties(m_physical_device, &queue_family_count, nullptr);
 	if (queue_family_count == 0)
@@ -819,6 +851,14 @@ bool GSDeviceVK::ProcessDeviceExtensions()
 		// query
 		vkGetPhysicalDeviceProperties2(m_physical_device, &properties2);
 	}
+
+#if defined(__ANDROID__)
+	if (m_optional_extensions.vk_khr_push_descriptor && IsMaliGPUProfile())
+	{
+		Console.Warning("VK: Mali GPU profile active; using descriptor-set texture binding fallback.");
+		m_optional_extensions.vk_khr_push_descriptor = false;
+	}
+#endif
 
 	if (m_optional_extensions.vk_ext_line_rasterization && !line_rasterization_feature.bresenhamLines)
 	{
@@ -2820,6 +2860,8 @@ bool GSDeviceVK::CheckFeatures()
 	DevCon.WriteLn("Optional features:%s%s%s%s%s", m_features.primitive_id ? " primitive_id" : "",
 		m_features.texture_barrier ? " texture_barrier" : "", m_features.framebuffer_fetch ? " framebuffer_fetch" : "",
 		m_features.provoking_vertex_last ? " provoking_vertex_last" : "", m_features.vs_expand ? " vs_expand" : "");
+	DevCon.WriteLn("VK: Mobile GPU profile: %s.",
+		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()));
 
 	DevCon.WriteLn("Using %s for point expansion and %s for line expansion.",
 		m_features.point_expand ? "hardware" : "vertex expanding",

@@ -889,6 +889,7 @@ struct Pcsx2Config
 		GSBilinearDirtyMode UserHacks_BilinearHack = GSBilinearDirtyMode::Automatic;
 		TriFiltering TriFilter = DEFAULT_TRILINEAR_FILTERING_MODE;
 		s8 OverrideTextureBarriers = -1;
+		std::string AndroidGpuProfileOverride = "adreno";
 		GSDepthFeedbackMode DepthFeedbackMode = GSDepthFeedbackMode::Auto;
 
 		u8 CAS_Sharpness = 50;

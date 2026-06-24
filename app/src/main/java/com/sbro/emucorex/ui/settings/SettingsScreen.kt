@@ -111,6 +111,7 @@ import com.sbro.emucorex.R
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GamepadManager
+import com.sbro.emucorex.core.GpuHardwareProfiles
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.buildUpscaleOptions
 import com.sbro.emucorex.core.upscaleKeyToMultiplier
@@ -1631,6 +1632,8 @@ private fun SettingsContent(
                         )
                     }
                     SettingsSection(title = stringResource(R.string.settings_speed_hacks)) {
+                        val selectedGpuHardwareProfile = GpuHardwareProfiles.normalize(uiState.gpuHardwareProfile)
+                        val mediatekGpuSelected = GpuHardwareProfiles.isMediatekProfile(selectedGpuHardwareProfile)
                         ChoiceSection(
                             title = stringResource(R.string.onboarding_profile_title),
                             options = listOf(
@@ -1641,6 +1644,46 @@ private fun SettingsContent(
                             onSelect = viewModel::setPerformanceProfile,
                             helpText = stringResource(R.string.onboarding_profile_subtitle),
                             onResetToDefault = { viewModel.setPerformanceProfile(defaults.performanceProfile) }
+                        )
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_gpu_chipset),
+                            options = listOf(
+                                GpuHardwareProfiles.ADRENO to stringResource(R.string.gpu_chipset_snapdragon_title),
+                                GpuHardwareProfiles.MALI to stringResource(R.string.gpu_chipset_mediatek_title)
+                            ),
+                            selectedValue = if (mediatekGpuSelected) {
+                                GpuHardwareProfiles.MALI
+                            } else {
+                                GpuHardwareProfiles.ADRENO
+                            },
+                            onSelect = { value ->
+                                viewModel.setGpuHardwareProfile(
+                                    if (value == GpuHardwareProfiles.ADRENO) {
+                                        GpuHardwareProfiles.ADRENO
+                                    } else if (selectedGpuHardwareProfile == GpuHardwareProfiles.POWERVR) {
+                                        GpuHardwareProfiles.POWERVR
+                                    } else {
+                                        GpuHardwareProfiles.MALI
+                                    }
+                                )
+                            },
+                            helpText = stringResource(R.string.settings_help_gpu_hardware_profile),
+                            onResetToDefault = { viewModel.setGpuHardwareProfile(defaults.gpuHardwareProfile) }
+                        )
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_gpu_accelerator),
+                            options = if (mediatekGpuSelected) {
+                                listOf(
+                                    GpuHardwareProfiles.MALI to stringResource(R.string.gpu_mali_title),
+                                    GpuHardwareProfiles.POWERVR to stringResource(R.string.gpu_powervr_title)
+                                )
+                            } else {
+                                listOf(GpuHardwareProfiles.ADRENO to stringResource(R.string.gpu_adreno_title))
+                            },
+                            selectedValue = selectedGpuHardwareProfile,
+                            onSelect = viewModel::setGpuHardwareProfile,
+                            helpText = stringResource(R.string.onboarding_gpu_profile_subtitle),
+                            onResetToDefault = { viewModel.setGpuHardwareProfile(defaults.gpuHardwareProfile) }
                         )
                         ToggleItem(
                             icon = Icons.Rounded.Speed,
@@ -2497,6 +2540,8 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Emulation, R.string.settings_enable_iop_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_enable_vu0_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_enable_vu1_recompiler),
+        entry(SettingsTab.Emulation, R.string.settings_gpu_chipset),
+        entry(SettingsTab.Emulation, R.string.settings_gpu_accelerator),
         entry(SettingsTab.Emulation, R.string.settings_frame_limiter),
         entry(SettingsTab.Emulation, R.string.settings_target_fps),
         entry(SettingsTab.Emulation, R.string.settings_ntsc_framerate),

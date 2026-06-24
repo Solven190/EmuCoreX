@@ -53,11 +53,13 @@ import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Gamepad
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.RadioButtonChecked
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -65,6 +67,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -96,11 +99,61 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.net.toUri
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.DocumentPathResolver
+import com.sbro.emucorex.core.GpuHardwareProfiles
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale
+
+private enum class DeviceChipsetFamily {
+    Snapdragon, MediaTek, Exynos, Tensor, Unknown
+}
+
+private data class DeviceChipsetInfo(
+    val family: DeviceChipsetFamily,
+    val manufacturer: String,
+    val socModel: String,
+    val hardware: String,
+    val deviceModel: String
+)
+
+private fun detectDeviceChipsetInfo(): DeviceChipsetInfo {
+    val socManufacturer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        Build.SOC_MANUFACTURER.orEmpty()
+    } else {
+        ""
+    }
+    val socModel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        Build.SOC_MODEL.orEmpty()
+    } else {
+        ""
+    }
+    val hardware = listOf(Build.HARDWARE, Build.BOARD, Build.DEVICE)
+        .filterNot { it.isNullOrBlank() }
+        .joinToString(" / ")
+    val deviceModel = listOf(Build.MANUFACTURER, Build.MODEL)
+        .filterNot { it.isNullOrBlank() }
+        .joinToString(" ")
+    val hints = listOf(socManufacturer, socModel, hardware, deviceModel)
+        .joinToString(" ")
+        .lowercase(Locale.US)
+    val family = when {
+        listOf("qualcomm", "qcom", "snapdragon", "adreno").any(hints::contains) -> DeviceChipsetFamily.Snapdragon
+        listOf("mediatek", "mtk", "mt").any(hints::contains) -> DeviceChipsetFamily.MediaTek
+        listOf("exynos", "samsung").any(hints::contains) -> DeviceChipsetFamily.Exynos
+        listOf("tensor", "gs101", "gs201", "gs301").any(hints::contains) -> DeviceChipsetFamily.Tensor
+        else -> DeviceChipsetFamily.Unknown
+    }
+    return DeviceChipsetInfo(
+        family = family,
+        manufacturer = socManufacturer.ifBlank { Build.MANUFACTURER.orEmpty() },
+        socModel = socModel.ifBlank { Build.BOARD.orEmpty() },
+        hardware = hardware.ifBlank { Build.HARDWARE.orEmpty() },
+        deviceModel = deviceModel
+    )
+}
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @SuppressLint("ConfigurationScreenWidthHeight")
@@ -394,6 +447,8 @@ fun OnboardingScreen(
                                     OnboardingPerformanceProfileContent(
                                         selectedProfile = uiState.performanceProfile,
                                         onSelectProfile = viewModel::setPerformanceProfile,
+                                        selectedGpuProfile = uiState.gpuHardwareProfile,
+                                        onSelectGpuProfile = viewModel::setGpuHardwareProfile,
                                         modifier = Modifier.padding(horizontal = 32.dp)
                                     )
                                 }
@@ -514,7 +569,9 @@ fun OnboardingScreen(
                                 Spacer(modifier = Modifier.height(32.dp))
                                 OnboardingPerformanceProfileContent(
                                     selectedProfile = uiState.performanceProfile,
-                                    onSelectProfile = viewModel::setPerformanceProfile
+                                    onSelectProfile = viewModel::setPerformanceProfile,
+                                    selectedGpuProfile = uiState.gpuHardwareProfile,
+                                    onSelectGpuProfile = viewModel::setGpuHardwareProfile
                                 )
                             }
                             4 -> {
@@ -1080,8 +1137,14 @@ private fun OnboardingSetupScrollHint(
 private fun OnboardingPerformanceProfileContent(
     selectedProfile: Int,
     onSelectProfile: (Int) -> Unit,
+    selectedGpuProfile: Int,
+    onSelectGpuProfile: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val gpuProfile = GpuHardwareProfiles.normalize(selectedGpuProfile)
+    val mediatekSelected = GpuHardwareProfiles.isMediatekProfile(gpuProfile)
+    val chipsetInfo = remember { detectDeviceChipsetInfo() }
+    var showChipsetDialog by remember { mutableStateOf(false) }
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -1099,6 +1162,225 @@ private fun OnboardingPerformanceProfileContent(
             selected = selectedProfile == PerformanceProfiles.FAST,
             onClick = { onSelectProfile(PerformanceProfiles.FAST) }
         )
+        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = stringResource(R.string.onboarding_gpu_profile_title),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        OutlinedButton(
+            onClick = { showChipsetDialog = true },
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Info,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = stringResource(R.string.onboarding_detect_chipset_button))
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            CompactProfileCard(
+                title = stringResource(R.string.gpu_chipset_snapdragon_title),
+                selected = !mediatekSelected,
+                onClick = { onSelectGpuProfile(GpuHardwareProfiles.ADRENO) },
+                modifier = Modifier.weight(1f)
+            )
+            CompactProfileCard(
+                title = stringResource(R.string.gpu_chipset_mediatek_title),
+                selected = mediatekSelected,
+                onClick = {
+                    onSelectGpuProfile(
+                        if (gpuProfile == GpuHardwareProfiles.POWERVR) {
+                            GpuHardwareProfiles.POWERVR
+                        } else {
+                            GpuHardwareProfiles.MALI
+                        }
+                    )
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            text = stringResource(R.string.settings_gpu_accelerator),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        if (mediatekSelected) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CompactProfileCard(
+                    title = stringResource(R.string.gpu_mali_title),
+                    selected = gpuProfile == GpuHardwareProfiles.MALI,
+                    onClick = { onSelectGpuProfile(GpuHardwareProfiles.MALI) },
+                    modifier = Modifier.weight(1f)
+                )
+                CompactProfileCard(
+                    title = stringResource(R.string.gpu_powervr_title),
+                    selected = gpuProfile == GpuHardwareProfiles.POWERVR,
+                    onClick = { onSelectGpuProfile(GpuHardwareProfiles.POWERVR) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        } else {
+            CompactProfileCard(
+                title = stringResource(R.string.gpu_adreno_title),
+                selected = true,
+                onClick = { onSelectGpuProfile(GpuHardwareProfiles.ADRENO) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+
+    if (showChipsetDialog) {
+        ChipsetInfoDialog(
+            chipsetInfo = chipsetInfo,
+            onDismiss = { showChipsetDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun ChipsetInfoDialog(
+    chipsetInfo: DeviceChipsetInfo,
+    onDismiss: () -> Unit
+) {
+    val familyLabel = when (chipsetInfo.family) {
+        DeviceChipsetFamily.Snapdragon -> stringResource(R.string.gpu_chipset_snapdragon_title)
+        DeviceChipsetFamily.MediaTek -> stringResource(R.string.gpu_chipset_mediatek_title)
+        DeviceChipsetFamily.Exynos -> stringResource(R.string.settings_device_profile_family_exynos)
+        DeviceChipsetFamily.Tensor -> stringResource(R.string.settings_device_profile_family_tensor)
+        DeviceChipsetFamily.Unknown -> stringResource(R.string.settings_device_profile_family_generic)
+    }
+    val recommendedProfile = when (chipsetInfo.family) {
+        DeviceChipsetFamily.Snapdragon -> "${stringResource(R.string.gpu_chipset_snapdragon_title)} / ${stringResource(R.string.gpu_adreno_title)}"
+        DeviceChipsetFamily.MediaTek -> stringResource(
+            R.string.onboarding_chipset_dialog_recommend_mediatek,
+            stringResource(R.string.gpu_chipset_mediatek_title),
+            stringResource(R.string.gpu_mali_title),
+            stringResource(R.string.gpu_powervr_title)
+        )
+        else -> stringResource(R.string.onboarding_chipset_dialog_recommend_manual)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Rounded.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = {
+            Text(text = stringResource(R.string.onboarding_chipset_dialog_title))
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                ChipsetInfoRow(
+                    label = stringResource(R.string.onboarding_chipset_dialog_family),
+                    value = familyLabel
+                )
+                ChipsetInfoRow(
+                    label = stringResource(R.string.onboarding_chipset_dialog_recommended),
+                    value = recommendedProfile
+                )
+                ChipsetInfoRow(
+                    label = stringResource(R.string.onboarding_chipset_dialog_soc),
+                    value = chipsetInfo.socModel.ifBlank { stringResource(R.string.settings_not_set) }
+                )
+                ChipsetInfoRow(
+                    label = stringResource(R.string.onboarding_chipset_dialog_hardware),
+                    value = chipsetInfo.hardware.ifBlank { stringResource(R.string.settings_not_set) }
+                )
+                ChipsetInfoRow(
+                    label = stringResource(R.string.onboarding_chipset_dialog_device),
+                    value = chipsetInfo.deviceModel.ifBlank { stringResource(R.string.settings_not_set) }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.onboarding_chipset_dialog_ok))
+            }
+        },
+        shape = RoundedCornerShape(24.dp)
+    )
+}
+
+@Composable
+private fun ChipsetInfoRow(
+    label: String,
+    value: String
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+private fun CompactProfileCard(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.11f)
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+        },
+        tonalElevation = if (selected) 5.dp else 1.dp,
+        border = androidx.compose.foundation.BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
+            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f)
+        ),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
     }
 }
 

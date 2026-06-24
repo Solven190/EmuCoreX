@@ -11,6 +11,7 @@ import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GpuDriverCatalogRepository
 import com.sbro.emucorex.core.GpuDriverManager
+import com.sbro.emucorex.core.GpuHardwareProfiles
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.InstalledGpuDriver
@@ -60,6 +61,7 @@ data class SettingsUiState(
     val setupComplete: Boolean = false,
     val appVersion: String = "1.0.0",
     val performanceProfile: Int = PerformanceProfiles.SAFE,
+    val gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO,
     // Extended settings
     val eeCycleRate: Int = 0,
     val eeCycleSkip: Int = 0,
@@ -228,6 +230,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             biosValid = snapshot.biosValid,
             setupComplete = snapshot.setupComplete,
             performanceProfile = snapshot.performanceProfile,
+            gpuHardwareProfile = snapshot.gpuHardwareProfile,
             eeCycleRate = snapshot.eeCycleRate,
             eeCycleSkip = snapshot.eeCycleSkip,
             enableEeRecompiler = snapshot.enableEeRecompiler,
@@ -333,6 +336,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setPerformanceProfile(value: Int) {
         viewModelScope.launch {
             preferences.setPerformanceProfile(value)
+        }
+    }
+
+    fun setGpuHardwareProfile(value: Int) {
+        viewModelScope.launch {
+            preferences.setGpuHardwareProfile(value)
+            EmulatorBridge.setGpuHardwareProfile(value)
         }
     }
 
@@ -1467,6 +1477,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 upscaleMultiplier = _uiState.value.upscaleMultiplier,
                 gpuDriverType = _uiState.value.gpuDriverType,
                 customDriverPath = _uiState.value.customDriverPath,
+                gpuHardwareProfile = _uiState.value.gpuHardwareProfile,
                 enableEeRecompiler = _uiState.value.enableEeRecompiler,
                 enableIopRecompiler = _uiState.value.enableIopRecompiler,
                 enableVu0Recompiler = _uiState.value.enableVu0Recompiler,

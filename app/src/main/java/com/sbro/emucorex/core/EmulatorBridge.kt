@@ -288,6 +288,7 @@ object EmulatorBridge {
         upscaleMultiplier: Float,
         gpuDriverType: Int = 0,
         customDriverPath: String? = null,
+        gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO,
         aspectRatio: Int = 1,
         enableEeRecompiler: Boolean = true,
         enableIopRecompiler: Boolean = true,
@@ -412,8 +413,11 @@ object EmulatorBridge {
 
         val customDriverSupported = GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()
         val effectiveGpuDriverType = if (gpuDriverType == 1 && customDriverSupported) 1 else 0
+        val normalizedGpuHardwareProfile = GpuHardwareProfiles.normalize(gpuHardwareProfile)
+        val gpuHardwareProfileOverride = GpuHardwareProfiles.coreOverrideFor(normalizedGpuHardwareProfile)
         NativeApp.setCrashContextString("emu_renderer_name", rendererName(resolvedRenderer))
         NativeApp.setCrashContextString("emu_gpu_driver_mode", if (effectiveGpuDriverType == 1) "custom" else "system")
+        NativeApp.setCrashContextString("emu_gpu_profile", gpuHardwareProfileOverride)
         val resolvedCustomDriverPath = if (effectiveGpuDriverType == 1) {
             prepareCustomDriverLibrary(customDriverPath.orEmpty())
         } else {
@@ -473,6 +477,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/Speedhacks", "fastCDVD", "bool", fastCdvd.toString()))
                 add(settingOp("EmuCore", "EnableCheats", "bool", enableCheats.toString()))
                 add(settingOp("EmuCore/GS", "HWDownloadMode", "int", hwDownloadMode.toString()))
+                add(settingOp("EmuCore/GS", "AndroidGpuProfileOverride", "string", gpuHardwareProfileOverride))
                 add(settingOp("EmuCore/GS", "OsdShowSpeed", "bool", "false"))
                 add(settingOp("EmuCore/GS", "OsdShowFPS", "bool", "false"))
                 add(settingOp("EmuCore/GS", "OsdShowVPS", "bool", "false"))
@@ -559,6 +564,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCoreX", "BiosSource", "string", biosPath.orEmpty()))
                 add(settingOp("EmuCoreX", "Renderer", "int", resolvedRenderer.toString()))
                 add(settingOp("EmuCoreX", "UpscaleMultiplier", "float", upscaleMultiplier.toString()))
+                add(settingOp("EmuCoreX", "GpuHardwareProfile", "int", normalizedGpuHardwareProfile.toString()))
                 add(settingOp("EmuCoreX", "HasContext", "bool", (context.applicationContext != null).toString()))
                 add(settingOp("EmuCoreX", "AutotestMode", "bool", autotestMode.toString()))
                 add(settingOp("EmuCore", "WarnAboutUnsafeSettings", "bool", "false"))
@@ -975,6 +981,19 @@ object EmulatorBridge {
         }
         settingsCache["EmuCore/GS:CustomDriverPath"] = resolvedPath
         performRuntimeOps(listOf(customDriverOp(resolvedPath)))
+    }
+
+    suspend fun setGpuHardwareProfile(profile: Int) {
+        val normalized = GpuHardwareProfiles.normalize(profile)
+        val override = GpuHardwareProfiles.coreOverrideFor(normalized)
+        settingsCache["EmuCoreX:GpuHardwareProfile"] = normalized.toString()
+        NativeApp.setCrashContextString("emu_gpu_profile", override)
+        performRuntimeOps(
+            listOf(
+                settingOp("EmuCore/GS", "AndroidGpuProfileOverride", "string", override),
+                settingOp("EmuCoreX", "GpuHardwareProfile", "int", normalized.toString())
+            )
+        )
     }
 
     suspend fun setFrameLimitEnabled(enabled: Boolean) {

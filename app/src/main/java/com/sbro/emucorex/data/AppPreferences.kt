@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.EmulatorBridge
+import com.sbro.emucorex.core.GpuHardwareProfiles
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.PerformancePresets
@@ -36,6 +37,7 @@ data class SettingsSnapshot(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val languageTag: String? = null,
     val performanceProfile: Int = PerformanceProfiles.SAFE,
+    val gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO,
     val renderer: Int = EmulatorBridge.DEFAULT_RENDERER,
     val upscaleMultiplier: Float = 1f,
     val aspectRatio: Int = 1,
@@ -261,6 +263,7 @@ class AppPreferences(private val context: Context) {
         private val COVER_ART_STYLE = intPreferencesKey("cover_art_style")
         private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         private val PERFORMANCE_PROFILE = intPreferencesKey("performance_profile")
+        private val GPU_HARDWARE_PROFILE = intPreferencesKey("gpu_hardware_profile")
         private val LANGUAGE_TAG = stringPreferencesKey("language_tag")
         private val ASPECT_RATIO = intPreferencesKey("aspect_ratio")
         private val PAD_VIBRATION = booleanPreferencesKey("pad_vibration")
@@ -441,6 +444,10 @@ class AppPreferences(private val context: Context) {
         PerformanceProfiles.normalize(prefs[PERFORMANCE_PROFILE] ?: PerformanceProfiles.SAFE)
     }
 
+    val gpuHardwareProfile: Flow<Int> = context.dataStore.data.map { prefs ->
+        GpuHardwareProfiles.normalize(prefs[GPU_HARDWARE_PROFILE] ?: GpuHardwareProfiles.ADRENO)
+    }
+
 
     val gpuDriverType: Flow<Int> = context.dataStore.data.map { prefs ->
         prefs[GPU_DRIVER_TYPE] ?: 0
@@ -458,6 +465,10 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[PERFORMANCE_PROFILE] = PerformanceProfiles.normalize(value) }
     }
 
+    suspend fun setGpuHardwareProfile(value: Int) {
+        context.dataStore.edit { it[GPU_HARDWARE_PROFILE] = GpuHardwareProfiles.normalize(value) }
+    }
+
     private fun normalizeRendererPreference(value: Int?): Int {
         return when (value) {
             null, 0, EmulatorBridge.AUTO_RENDERER -> EmulatorBridge.DEFAULT_RENDERER
@@ -471,6 +482,10 @@ class AppPreferences(private val context: Context) {
 
     private fun resolvePerformanceProfileConfig(prefs: Preferences) =
         PerformanceProfiles.configFor(resolvePerformanceProfile(prefs))
+
+    private fun resolveGpuHardwareProfile(prefs: Preferences): Int {
+        return GpuHardwareProfiles.normalize(prefs[GPU_HARDWARE_PROFILE] ?: GpuHardwareProfiles.ADRENO)
+    }
 
     suspend fun setGpuDriverType(value: Int) {
         context.dataStore.edit { it[GPU_DRIVER_TYPE] = value }
@@ -696,6 +711,7 @@ class AppPreferences(private val context: Context) {
                 },
                 languageTag = prefs[LANGUAGE_TAG],
                 performanceProfile = performanceProfile,
+                gpuHardwareProfile = resolveGpuHardwareProfile(prefs),
                 renderer = normalizeRendererPreference(prefs[RENDERER]),
                 upscaleMultiplier = readUpscale(prefs),
                 aspectRatio = normalizeAspectRatioPreference(prefs[ASPECT_RATIO]),
@@ -2102,6 +2118,7 @@ class AppPreferences(private val context: Context) {
         return JSONObject().apply {
             put("themeMode", prefs[THEME_MODE] ?: 0)
             put("performanceProfile", resolvePerformanceProfile(prefs))
+            put("gpuHardwareProfile", resolveGpuHardwareProfile(prefs))
             put("renderer", normalizeRendererPreference(prefs[RENDERER]))
             put("upscaleMultiplier", readUpscale(prefs).toDouble())
             put("biosPath", prefs[BIOS_PATH])
@@ -2240,6 +2257,9 @@ class AppPreferences(private val context: Context) {
             prefs[THEME_MODE] = json.optInt("themeMode", 0)
             prefs[PERFORMANCE_PROFILE] = PerformanceProfiles.normalize(
                 json.optInt("performanceProfile", PerformanceProfiles.SAFE)
+            )
+            prefs[GPU_HARDWARE_PROFILE] = GpuHardwareProfiles.normalize(
+                json.optInt("gpuHardwareProfile", GpuHardwareProfiles.ADRENO)
             )
             prefs[RENDERER] = normalizeRendererPreference(json.optInt("renderer", EmulatorBridge.DEFAULT_RENDERER))
             prefs[UPSCALE] = json.readUpscaleMultiplier()

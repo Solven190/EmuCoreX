@@ -4,6 +4,7 @@
 #include "GS/Renderers/OpenGL/GLContext.h"
 #include "GS/Renderers/OpenGL/GSDeviceOGL.h"
 #include "GS/Renderers/OpenGL/GLState.h"
+#include "GS/Renderers/Common/GSGPUProfile.h"
 #include "GS/GSState.h"
 #include "GS/GSGL.h"
 #include "GS/GSPerfMon.h"
@@ -808,19 +809,19 @@ bool GSDeviceOGL::CheckFeatures()
 	const char* renderer = (const char*)glGetString(GL_RENDERER);
 	const char* vendor_str = vendor ? vendor : "";
 	const char* renderer_str = renderer ? renderer : "";
-	if (std::strstr(vendor, "Advanced Micro Devices") || std::strstr(vendor, "ATI Technologies Inc.") ||
-		std::strstr(vendor, "ATI"))
+	if (std::strstr(vendor_str, "Advanced Micro Devices") || std::strstr(vendor_str, "ATI Technologies Inc.") ||
+		std::strstr(vendor_str, "ATI"))
 	{
 		Console.WriteLn(Color_StrongRed, "GL: AMD GPU detected.");
 		//vendor_id_amd = true;
 	}
-	else if (std::strstr(vendor, "NVIDIA Corporation"))
+	else if (std::strstr(vendor_str, "NVIDIA Corporation"))
 	{
 		Console.WriteLn(Color_StrongGreen, "GL: NVIDIA GPU detected.");
 		vendor_id_nvidia = true;
 		m_bugs.broken_blend_coherency = true;
 	}
-	else if (std::strstr(vendor, "Intel"))
+	else if (std::strstr(vendor_str, "Intel"))
 	{
 		Console.WriteLn(Color_StrongBlue, "GL: Intel GPU detected.");
 		//vendor_id_intel = true;
@@ -835,6 +836,24 @@ bool GSDeviceOGL::CheckFeatures()
 		Console.WriteLn(Color_Cyan, "GL: Qualcomm Adreno GPU detected.");
 		vendor_id_adreno = true;
 	}
+
+#if defined(__ANDROID__)
+	const GpuProfileSelection gpu_profile_selection =
+		GpuProfileDetector::Resolve(GSConfig.AndroidGpuProfileOverride, vendor_str, renderer_str);
+	SetRuntimeGPUProfile(gpu_profile_selection.runtime_profile);
+	Console.WriteLn("GL: Android GPU profile override='%s' resolved='%s'.",
+		GpuProfileDetector::OverrideToConfigString(gpu_profile_selection.override_mode),
+		GpuProfileDetector::RuntimeProfileToString(gpu_profile_selection.runtime_profile));
+	DevCon.WriteLn("GL: Android GPU profile hints: %s", gpu_profile_selection.hints.c_str());
+	bool gpu_profile_mali = IsMaliGPUProfile();
+	bool gpu_profile_adreno = IsAdrenoGPUProfile();
+	bool gpu_profile_powervr = IsPowerVRGPUProfile();
+#else
+	bool gpu_profile_mali = vendor_id_mali;
+	bool gpu_profile_adreno = vendor_id_adreno;
+	bool gpu_profile_powervr = false;
+	SetRuntimeGPUProfile(gpu_profile_mali ? RuntimeGpuProfile::Mali : RuntimeGpuProfile::Adreno);
+#endif
 
 	GLint major_gl = 0;
 	GLint minor_gl = 0;
@@ -947,7 +966,7 @@ bool GSDeviceOGL::CheckFeatures()
 	m_features.dxt_textures = GLAD_GL_EXT_texture_compression_s3tc;
 	m_features.bptc_textures =
 		GLAD_GL_VERSION_4_2 || GLAD_GL_ARB_texture_compression_bptc || GLAD_GL_EXT_texture_compression_bptc;
-	m_features.prefer_new_textures = m_is_gles;
+	m_features.prefer_new_textures = m_is_gles || gpu_profile_mali || gpu_profile_adreno || gpu_profile_powervr;
 	m_features.stencil_buffer = true;
 
 	if (GSConfig.OverrideTextureBarriers == 0)
@@ -958,7 +977,36 @@ bool GSDeviceOGL::CheckFeatures()
 		m_features.texture_barrier = framebuffer_fetch || has_texture_barrier_extension;
 
 	m_features.framebuffer_fetch = framebuffer_fetch;
-	m_features.prefer_mobile_sw_blend = vendor_id_mali;
+	if (gpu_profile_mali)
+	{
+		if (has_arm_framebuffer_fetch)
+		{
+			framebuffer_fetch = true;
+			m_features.framebuffer_fetch = true;
+			if (GSConfig.OverrideTextureBarriers == -1)
+				m_features.texture_barrier = true;
+			DevCon.WriteLn("GL: Mali GPU profile enabled ARM framebuffer fetch path.");
+		}
+		else
+		{
+			Console.Warning("GL: Mali GPU profile requested but ARM framebuffer fetch is unavailable; using PowerVR-style fallback.");
+			SetRuntimeGPUProfile(RuntimeGpuProfile::PowerVR);
+			gpu_profile_mali = false;
+			gpu_profile_adreno = false;
+			gpu_profile_powervr = true;
+		}
+	}
+	if (gpu_profile_powervr)
+		DevCon.WriteLn("GL: PowerVR GPU profile active.");
+	else if (gpu_profile_adreno)
+		DevCon.WriteLn("GL: Adreno GPU profile active.");
+	m_features.prefer_mobile_sw_blend = gpu_profile_mali;
+	DevCon.WriteLn("GL: Mobile GPU caps: profile=%s framebuffer_fetch=%s texture_barrier=%s arm_fetch=%s ext_fetch=%s.",
+		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
+		m_features.framebuffer_fetch ? "yes" : "no",
+		m_features.texture_barrier ? "yes" : "no",
+		has_arm_framebuffer_fetch ? "yes" : "no",
+		has_ext_framebuffer_fetch ? "yes" : "no");
 
 	if (!m_features.texture_barrier)
 	{
@@ -1624,6 +1672,15 @@ std::string GSDeviceOGL::GenGlslHeader(const std::string_view entry, GLenum type
 	header += fmt::format("#define HAS_EXT_SHADER_FRAMEBUFFER_FETCH {}\n", GLAD_GL_EXT_shader_framebuffer_fetch ? 1 : 0);
 	header += fmt::format("#define HAS_ARM_SHADER_FRAMEBUFFER_FETCH {}\n", GLAD_GL_ARM_shader_framebuffer_fetch ? 1 : 0);
 	header += fmt::format("#define HAS_EXT_SHADER_PIXEL_LOCAL_STORAGE {}\n", GLAD_GL_EXT_shader_pixel_local_storage ? 1 : 0);
+#if defined(__ANDROID__)
+	header += fmt::format("#define GPU_PROFILE_MALI {}\n", IsMaliGPUProfile() ? 1 : 0);
+	header += fmt::format("#define GPU_PROFILE_ADRENO {}\n", IsAdrenoGPUProfile() ? 1 : 0);
+	header += fmt::format("#define GPU_PROFILE_POWERVR {}\n", IsPowerVRGPUProfile() ? 1 : 0);
+#else
+	header += "#define GPU_PROFILE_MALI 0\n";
+	header += "#define GPU_PROFILE_ADRENO 0\n";
+	header += "#define GPU_PROFILE_POWERVR 0\n";
+#endif
 
 	if (GLAD_GL_ARB_conservative_depth)
 	{
