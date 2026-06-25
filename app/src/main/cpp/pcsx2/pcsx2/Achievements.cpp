@@ -478,6 +478,16 @@ bool Achievements::Initialize()
 	pxAssertRel(EmuConfig.Achievements.Enabled, "Achievements are enabled");
 	if (s_client && s_http_downloader)
 	{
+		const bool has_base_settings = (Host::Internal::GetBaseSettingsLayer() != nullptr);
+		const std::string username = has_base_settings ? Host::GetBaseStringSettingValue("Achievements", "Username") : std::string();
+		const std::string api_token = Host::GetStringSettingValue("Achievements", "Token");
+		if (!GetLoggedInUserName() && !username.empty() && !api_token.empty() && !s_login_request)
+		{
+			Console.WriteLn("Achievements: Attempting deferred login with user '%s'...", username.c_str());
+			s_login_request =
+				rc_client_begin_login_with_token(s_client, username.c_str(), api_token.c_str(), ClientLoginWithTokenCallback, nullptr);
+		}
+
 		if (VMManager::HasValidVM())
 			IdentifyGame(VMManager::GetDiscCRC(), VMManager::GetCurrentCRC());
 		return true;

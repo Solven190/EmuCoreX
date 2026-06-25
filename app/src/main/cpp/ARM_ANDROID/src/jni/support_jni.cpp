@@ -295,7 +295,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchieve
 	}
 	if (enabled == JNI_TRUE)
 	{
-		if (!Achievements::IsActive())
+		if (!Achievements::IsActive() && Host::Internal::GetBaseSettingsLayer() != nullptr)
 			Achievements::Initialize();
 	}
 	else if (Achievements::IsActive())

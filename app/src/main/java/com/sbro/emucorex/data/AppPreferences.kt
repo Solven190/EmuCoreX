@@ -530,11 +530,13 @@ class AppPreferences(private val context: Context) {
     }
 
     val frameLimitEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[FRAME_LIMIT_ENABLED] ?: true
+        if (prefs[ACHIEVEMENTS_HARDCORE] == true) true else prefs[FRAME_LIMIT_ENABLED] ?: true
     }
 
     suspend fun setFrameLimitEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[FRAME_LIMIT_ENABLED] = enabled }
+        context.dataStore.edit { prefs ->
+            prefs[FRAME_LIMIT_ENABLED] = if (prefs[ACHIEVEMENTS_HARDCORE] == true) true else enabled
+        }
     }
 
     val fastForwardSpeed: Flow<Float> = context.dataStore.data.map { prefs ->
@@ -1392,11 +1394,13 @@ class AppPreferences(private val context: Context) {
     }
 
     val enableCheats: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[ENABLE_CHEATS] ?: false
+        if (prefs[ACHIEVEMENTS_HARDCORE] == true) false else prefs[ENABLE_CHEATS] ?: false
     }
 
     suspend fun setEnableCheats(enabled: Boolean) {
-        context.dataStore.edit { it[ENABLE_CHEATS] = enabled }
+        context.dataStore.edit { prefs ->
+            prefs[ENABLE_CHEATS] = enabled && prefs[ACHIEVEMENTS_HARDCORE] != true
+        }
     }
 
     // Hardware Download Mode
@@ -2473,7 +2477,13 @@ class AppPreferences(private val context: Context) {
     }
 
     suspend fun setAchievementsHardcore(enabled: Boolean) {
-        context.dataStore.edit { it[ACHIEVEMENTS_HARDCORE] = enabled }
+        context.dataStore.edit { prefs ->
+            prefs[ACHIEVEMENTS_HARDCORE] = enabled
+            if (enabled) {
+                prefs[ENABLE_CHEATS] = false
+                prefs[FRAME_LIMIT_ENABLED] = true
+            }
+        }
     }
 
     suspend fun setAchievementsUsername(username: String?) {

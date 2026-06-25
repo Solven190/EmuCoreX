@@ -650,9 +650,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setEnableCheats(enabled: Boolean) {
         viewModelScope.launch {
-            preferences.setEnableCheats(enabled)
-            EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", enabled.toString())
-            if (enabled) {
+            val effectiveEnabled = enabled && !preferences.getAchievementsHardcoreSync()
+            preferences.setEnableCheats(effectiveEnabled)
+            EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", effectiveEnabled.toString())
+            if (effectiveEnabled) {
                 EmulatorBridge.reloadPatches()
             }
         }
@@ -815,8 +816,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setFrameLimitEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            preferences.setFrameLimitEnabled(enabled)
-            EmulatorBridge.setFrameLimitEnabled(enabled)
+            val effectiveEnabled = enabled || preferences.getAchievementsHardcoreSync()
+            preferences.setFrameLimitEnabled(effectiveEnabled)
+            EmulatorBridge.setFrameLimitEnabled(effectiveEnabled)
         }
     }
 

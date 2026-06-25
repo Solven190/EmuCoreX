@@ -841,9 +841,12 @@ bool GSDeviceOGL::CheckFeatures()
 	const GpuProfileSelection gpu_profile_selection =
 		GpuProfileDetector::Resolve(GSConfig.AndroidGpuProfileOverride, vendor_str, renderer_str);
 	SetRuntimeGPUProfile(gpu_profile_selection.runtime_profile);
-	Console.WriteLn("GL: Android GPU profile override='%s' resolved='%s'.",
+	SetMobileGSTuning(gpu_profile_selection.gs_tuning);
+	Console.WriteLn("GL: Android GPU profile override='%s' resolved='%s' tier='%s'%s.",
 		GpuProfileDetector::OverrideToConfigString(gpu_profile_selection.override_mode),
-		GpuProfileDetector::RuntimeProfileToString(gpu_profile_selection.runtime_profile));
+		GpuProfileDetector::RuntimeProfileToString(gpu_profile_selection.runtime_profile),
+		GpuProfileDetector::MobileTierToString(gpu_profile_selection.gs_tuning.tier),
+		gpu_profile_selection.gs_tuning.constrained ? " constrained" : "");
 	DevCon.WriteLn("GL: Android GPU profile hints: %s", gpu_profile_selection.hints.c_str());
 	bool gpu_profile_mali = IsMaliGPUProfile();
 	bool gpu_profile_adreno = IsAdrenoGPUProfile();
@@ -967,6 +970,17 @@ bool GSDeviceOGL::CheckFeatures()
 	m_features.bptc_textures =
 		GLAD_GL_VERSION_4_2 || GLAD_GL_ARB_texture_compression_bptc || GLAD_GL_EXT_texture_compression_bptc;
 	m_features.prefer_new_textures = m_is_gles || gpu_profile_mali || gpu_profile_adreno || gpu_profile_powervr;
+#if defined(__ANDROID__)
+	const MobileGsTuning& mobile_gs_tuning = GetMobileGSTuning();
+	m_features.prefer_new_textures &= mobile_gs_tuning.prefer_new_textures;
+	if (mobile_gs_tuning.force_partial_texture_preloading && GSConfig.TexturePreloading == TexturePreloadingLevel::Full)
+	{
+		GSConfig.TexturePreloading = TexturePreloadingLevel::Partial;
+		Console.Warning("GL: Mobile GS %s/%s profile lowered texture preloading to partial.",
+			GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
+			GpuProfileDetector::MobileTierToString(mobile_gs_tuning.tier));
+	}
+#endif
 	m_features.stencil_buffer = true;
 
 	if (GSConfig.OverrideTextureBarriers == 0)
@@ -1000,16 +1014,28 @@ bool GSDeviceOGL::CheckFeatures()
 		DevCon.WriteLn("GL: PowerVR GPU profile active.");
 	else if (gpu_profile_adreno)
 		DevCon.WriteLn("GL: Adreno GPU profile active.");
+#if defined(__ANDROID__)
+	m_features.prefer_mobile_light_gs = mobile_gs_tuning.prefer_mobile_light_gs;
+	m_features.prefer_mobile_sw_blend = mobile_gs_tuning.prefer_mobile_sw_blend;
+#else
 	const bool gpu_profile_mediatek = gpu_profile_mali || gpu_profile_powervr;
 	m_features.prefer_mobile_light_gs = gpu_profile_mediatek;
 	m_features.prefer_mobile_sw_blend = gpu_profile_mediatek;
-	DevCon.WriteLn("GL: Mobile GPU caps: profile=%s framebuffer_fetch=%s texture_barrier=%s arm_fetch=%s ext_fetch=%s light_gs=%s.",
+#endif
+	DevCon.WriteLn("GL: Mobile GPU caps: profile=%s tier=%s framebuffer_fetch=%s texture_barrier=%s arm_fetch=%s ext_fetch=%s light_gs=%s constrained=%s prefer_new=%s pool=%u/%u age=%u/%u.",
 		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
+		GpuProfileDetector::MobileTierToString(GetMobileGSTuning().tier),
 		m_features.framebuffer_fetch ? "yes" : "no",
 		m_features.texture_barrier ? "yes" : "no",
 		has_arm_framebuffer_fetch ? "yes" : "no",
 		has_ext_framebuffer_fetch ? "yes" : "no",
-		m_features.prefer_mobile_light_gs ? "yes" : "no");
+		m_features.prefer_mobile_light_gs ? "yes" : "no",
+		IsConstrainedMobileGPUProfile() ? "yes" : "no",
+		m_features.prefer_new_textures ? "yes" : "no",
+		GetMobileGSTuning().pooled_textures,
+		GetMobileGSTuning().pooled_targets,
+		GetMobileGSTuning().texture_age,
+		GetMobileGSTuning().target_age);
 
 	if (!m_features.texture_barrier)
 	{

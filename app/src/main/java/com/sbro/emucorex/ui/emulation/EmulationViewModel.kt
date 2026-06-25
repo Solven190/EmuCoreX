@@ -14,6 +14,7 @@ import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.NativeApp
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.PerformancePresets
+import com.sbro.emucorex.core.utils.RetroAchievementsLiveStateManager
 import com.sbro.emucorex.core.normalizeUpscale
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_SIMPLE
@@ -375,6 +376,42 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         )
     }
 
+    private fun isRetroAchievementsHardcoreRestricted(): Boolean {
+        return RetroAchievementsLiveStateManager.state.value.hardcoreActive ||
+            preferences.getAchievementsHardcoreSync()
+    }
+
+    private fun showHardcoreBlockedToast() {
+        _uiState.value = _uiState.value.copy(
+            isActionInProgress = false,
+            actionLabel = null,
+            transportMode = EmulationTransportMode.None,
+            toastMessage = "hardcore_blocked"
+        )
+        viewModelScope.launch {
+            delay(2000)
+            if (_uiState.value.toastMessage == "hardcore_blocked") {
+                _uiState.value = _uiState.value.copy(toastMessage = null)
+            }
+        }
+    }
+
+    private suspend fun enforceRetroAchievementsHardcoreRuntimeState() {
+        if (!isRetroAchievementsHardcoreRestricted()) return
+
+        fastForwardRequested = false
+        if (_uiState.value.transportMode == EmulationTransportMode.FastForward || _uiState.value.enableCheats) {
+            _uiState.value = _uiState.value.copy(
+                transportMode = EmulationTransportMode.None,
+                enableCheats = false
+            )
+        }
+        runCatching { EmulatorBridge.setTurboModeEnabled(false) }
+        runCatching { EmulatorBridge.setFrameLimitEnabled(true) }
+        runCatching { EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", "false") }
+        runCatching { EmulatorBridge.reloadPatches() }
+    }
+
     private fun stopHiddenDebugTools(state: EmulationUiState) {
         if (!state.isJitProfilerActive && !state.isHangTraceActive) return
         viewModelScope.launch {
@@ -472,6 +509,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         viewModelScope.launch {
+            RetroAchievementsLiveStateManager.state.collect { state ->
+                if (state.hardcoreActive) {
+                    enforceRetroAchievementsHardcoreRuntimeState()
+                }
+            }
+        }
+        viewModelScope.launch {
             preferences.performancePreset.collect { preset ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(performancePreset = preset) }
             }
@@ -528,7 +572,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
         viewModelScope.launch {
             preferences.enableCheats.collect { value ->
-                applyGlobalRuntimePreferenceUpdate { it.copy(enableCheats = value) }
+                applyGlobalRuntimePreferenceUpdate { it.copy(enableCheats = value && !isRetroAchievementsHardcoreRestricted()) }
             }
         }
         viewModelScope.launch {
@@ -1256,12 +1300,21 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     }
 
                     delay(500)
-                    val loaded = EmulatorBridge.loadState(normalizedSlotToLoad)
+                    val hardcoreBlocked = isRetroAchievementsHardcoreRestricted()
+                    val loaded = if (hardcoreBlocked) {
+                        false
+                    } else {
+                        EmulatorBridge.loadState(normalizedSlotToLoad)
+                    }
                     _uiState.value = _uiState.value.copy(
                         isRunning = true,
                         isPaused = false,
                         statusMessage = if (loaded) "status_running" else null,
-                        toastMessage = if (loaded) null else "load_failed"
+                        toastMessage = when {
+                            loaded -> null
+                            hardcoreBlocked -> "hardcore_blocked"
+                            else -> "load_failed"
+                        }
                     )
                     refreshSaveStateMetadata()
                     delay(2000)
@@ -1271,6 +1324,12 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     if (_uiState.value.toastMessage == "load_failed") {
                         delay(500)
                         if (_uiState.value.toastMessage == "load_failed") {
+                            _uiState.value = _uiState.value.copy(toastMessage = null)
+                        }
+                    }
+                    if (_uiState.value.toastMessage == "hardcore_blocked") {
+                        delay(500)
+                        if (_uiState.value.toastMessage == "hardcore_blocked") {
                             _uiState.value = _uiState.value.copy(toastMessage = null)
                         }
                     }
@@ -1731,6 +1790,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setEnableCheats(enabled: Boolean) {
         viewModelScope.launch {
+            if (enabled && isRetroAchievementsHardcoreRestricted()) {
+                persistRuntimeState(_uiState.value.copy(enableCheats = false)) {
+                    preferences.setEnableCheats(false)
+                }
+                EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", "false")
+                EmulatorBridge.reloadPatches()
+                showHardcoreBlockedToast()
+                return@launch
+            }
+
             persistRuntimeState(_uiState.value.copy(enableCheats = enabled)) {
                 preferences.setEnableCheats(enabled)
             }
@@ -1745,6 +1814,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setCheatEnabled(blockId: String, enabled: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
+            if (enabled && isRetroAchievementsHardcoreRestricted()) {
+                runCatching { EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", "false") }
+                runCatching { EmulatorBridge.reloadPatches() }
+                showHardcoreBlockedToast()
+                return@launch
+            }
+
             val currentState = _uiState.value
             val gameKey = currentState.cheatsGameKey ?: return@launch
             val updatedBlocks = currentState.availableCheats.map { block ->
@@ -1828,6 +1904,15 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setFrameLimitEnabled(enabled: Boolean) {
         viewModelScope.launch {
+            if (!enabled && isRetroAchievementsHardcoreRestricted()) {
+                persistRuntimeState(_uiState.value.copy(frameLimitEnabled = true)) {
+                    preferences.setFrameLimitEnabled(true)
+                }
+                EmulatorBridge.setFrameLimitEnabled(true)
+                showHardcoreBlockedToast()
+                return@launch
+            }
+
             persistRuntimeState(_uiState.value.copy(frameLimitEnabled = enabled)) {
                 preferences.setFrameLimitEnabled(enabled)
             }
@@ -1837,6 +1922,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun setFastForwardHeld(enabled: Boolean) {
+        if (enabled && isRetroAchievementsHardcoreRestricted()) {
+            fastForwardRequested = false
+            _uiState.value = _uiState.value.copy(transportMode = EmulationTransportMode.None)
+            viewModelScope.launch(Dispatchers.IO) {
+                runCatching { EmulatorBridge.setTurboModeEnabled(false) }
+            }
+            showHardcoreBlockedToast()
+            return
+        }
+
         if (fastForwardRequested == enabled) return
         fastForwardRequested = enabled
         _uiState.value = _uiState.value.copy(
@@ -3240,6 +3335,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     fun quickLoad() {
         val slot = _uiState.value.currentSlot
         viewModelScope.launch(Dispatchers.IO) {
+            if (isRetroAchievementsHardcoreRestricted()) {
+                showHardcoreBlockedToast()
+                return@launch
+            }
+
             _uiState.value = _uiState.value.copy(
                 isActionInProgress = true,
                 actionLabel = "loading"
@@ -3265,6 +3365,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun loadAutoSave() {
         viewModelScope.launch(Dispatchers.IO) {
+            if (isRetroAchievementsHardcoreRestricted()) {
+                showHardcoreBlockedToast()
+                return@launch
+            }
+
             _uiState.value = _uiState.value.copy(
                 isActionInProgress = true,
                 actionLabel = "loading"

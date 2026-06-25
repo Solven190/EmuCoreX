@@ -2184,6 +2184,12 @@ LimiterModeType VMManager::GetLimiterMode()
 
 void VMManager::SetLimiterMode(LimiterModeType type)
 {
+	if (Achievements::IsHardcoreModeActive() &&
+		(type == LimiterModeType::Turbo || type == LimiterModeType::Unlimited || type == LimiterModeType::Slomo))
+	{
+		type = LimiterModeType::Nominal;
+	}
+
 	if (s_limiter_mode == type)
 		return;
 

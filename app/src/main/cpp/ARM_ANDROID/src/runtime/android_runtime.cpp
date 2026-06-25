@@ -6,6 +6,7 @@
 #include "common/Path.h"
 #include "pcsx2/Input/InputManager.h"
 #include "pcsx2/MTGS.h"
+#include "pcsx2/Achievements.h"
 #include "pcsx2/Config.h"
 #include "pcsx2/GameList.h"
 #include "pcsx2/R5900.h"
@@ -227,6 +228,11 @@ float PadValueFromAndroidRange(int range, bool pressed)
 		return std::clamp(static_cast<float>(range) / 255.0f, 0.0f, 1.0f);
 	return pressed ? 1.0f : 0.0f;
 }
+
+bool IsTrueSettingValue(const std::string& value)
+{
+	return value == "true" || value == "1";
+}
 }
 
 AndroidRuntime& AndroidRuntime::Instance()
@@ -306,7 +312,31 @@ void AndroidRuntime::SetSetting(std::string section, std::string key, std::strin
 	std::lock_guard lock(mutex_);
 	if (section == "EmuCoreX" && key == "CustomDriverPath")
 		ApplyCustomDriverPathEnvironment(value);
+	if (section == "EmuCoreX" && key == "AppVersion")
+		setenv("EMUCOREX_APP_VERSION", value.c_str(), 1);
+	const auto hardcore_it = settings_.find(SettingKey("Achievements", "ChallengeMode"));
+	const bool hardcore_requested =
+		(section == "Achievements" && key == "ChallengeMode" && IsTrueSettingValue(value)) ||
+		(hardcore_it != settings_.end() && IsTrueSettingValue(hardcore_it->second));
+	if (section == "EmuCore" && key == "EnableCheats" &&
+		IsTrueSettingValue(value) &&
+		hardcore_requested)
+	{
+		value = "false";
+	}
+	if (section == "EmuCore/GS" && key == "FrameLimitEnable" &&
+		(value == "false" || value == "0") &&
+		hardcore_requested)
+	{
+		value = "true";
+	}
 	settings_[SettingKey(section, key)] = std::move(value);
+
+	if (hardcore_requested)
+	{
+		settings_[SettingKey("EmuCore", "EnableCheats")] = "false";
+		settings_[SettingKey("EmuCore/GS", "FrameLimitEnable")] = "true";
+	}
 }
 
 std::string AndroidRuntime::GetSetting(const std::string& section, const std::string& key) const
@@ -321,6 +351,9 @@ void AndroidRuntime::SetFrameLimitEnabled(bool enabled)
 	bool active = false;
 	{
 		std::lock_guard lock(mutex_);
+		const auto hardcore_it = settings_.find(SettingKey("Achievements", "ChallengeMode"));
+		if (!enabled && hardcore_it != settings_.end() && IsTrueSettingValue(hardcore_it->second))
+			enabled = true;
 		settings_[SettingKey("EmuCore/GS", "FrameLimitEnable")] = enabled ? "true" : "false";
 		active = vm_active_;
 	}
@@ -341,6 +374,9 @@ void AndroidRuntime::SetTurboModeEnabled(bool enabled)
 	{
 		std::lock_guard lock(mutex_);
 		active = vm_active_;
+		const auto hardcore_it = settings_.find(SettingKey("Achievements", "ChallengeMode"));
+		if (enabled && hardcore_it != settings_.end() && IsTrueSettingValue(hardcore_it->second))
+			enabled = false;
 		const auto it = settings_.find(SettingKey("EmuCore/GS", "FrameLimitEnable"));
 		if (it != settings_.end())
 			frame_limit_enabled = (it->second != "false");
@@ -644,10 +680,24 @@ bool AndroidRuntime::LoadStateFromSlot(int slot)
 	if (!HasValidVm())
 		return false;
 
+	bool hardcore_requested = false;
+	{
+		std::lock_guard lock(mutex_);
+		const auto hardcore_it = settings_.find(SettingKey("Achievements", "ChallengeMode"));
+		hardcore_requested = (hardcore_it != settings_.end() && IsTrueSettingValue(hardcore_it->second));
+	}
+
 	auto result = std::make_shared<bool>(false);
-	Host::RunOnCPUThread([slot, result]() {
+	Host::RunOnCPUThread([slot, result, hardcore_requested]() {
 		if (!VMManager::HasValidVM())
 			return;
+
+		if (hardcore_requested)
+		{
+			__android_log_print(ANDROID_LOG_WARN, LOG_TAG,
+				"load state slot %d blocked by RetroAchievements Hardcore Mode", slot);
+			return;
+		}
 
 		Error error;
 		*result = VMManager::LoadStateFromSlot(slot, false, &error);

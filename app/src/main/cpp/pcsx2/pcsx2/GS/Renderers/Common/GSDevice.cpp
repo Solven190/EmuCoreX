@@ -610,7 +610,7 @@ GSTexture* GSDevice::FetchSurface(GSTexture::Type type, int width, int height, i
 
 	if (!t)
 	{
-		if (pool.size() >= ((type == GSTexture::Type::Texture) ? MAX_POOLED_TEXTURES : MAX_POOLED_TARGETS) &&
+		if (pool.size() >= GetPoolLimit(type == GSTexture::Type::Texture) &&
 			fallback != pool.end())
 		{
 			t = *fallback;
@@ -679,8 +679,8 @@ void GSDevice::Recycle(GSTexture* t)
 	pool.push_front(t);
 	m_pool_memory_usage += t->GetMemUsage();
 
-	const u32 max_size = t->IsTexture() ? MAX_POOLED_TEXTURES : MAX_POOLED_TARGETS;
-	const u32 max_age = t->IsTexture() ? MAX_TEXTURE_AGE : MAX_TARGET_AGE;
+	const u32 max_size = GetPoolLimit(t->IsTexture());
+	const u32 max_age = GetPoolMaxAge(t->IsTexture());
 	while (pool.size() > max_size)
 	{
 		// Don't toss when the texture was last used in this frame.
@@ -709,7 +709,7 @@ void GSDevice::AgePool()
 	// Toss out textures when they're not too-recently used.
 	for (u32 pool_idx = 0; pool_idx < m_pool.size(); pool_idx++)
 	{
-		const u32 max_age = (pool_idx == 0) ? MAX_TEXTURE_AGE : MAX_TARGET_AGE;
+		const u32 max_age = GetPoolMaxAge(pool_idx == 0);
 		FastList<GSTexture*>& pool = m_pool[pool_idx];
 		while (!pool.empty())
 		{
@@ -723,6 +723,24 @@ void GSDevice::AgePool()
 			pool.pop_back();
 		}
 	}
+}
+
+u32 GSDevice::GetPoolLimit(bool texture) const
+{
+#if defined(__ANDROID__)
+	return texture ? m_mobile_gs_tuning.pooled_textures : m_mobile_gs_tuning.pooled_targets;
+#else
+	return texture ? MAX_POOLED_TEXTURES : MAX_POOLED_TARGETS;
+#endif
+}
+
+u32 GSDevice::GetPoolMaxAge(bool texture) const
+{
+#if defined(__ANDROID__)
+	return texture ? m_mobile_gs_tuning.texture_age : m_mobile_gs_tuning.target_age;
+#else
+	return texture ? MAX_TEXTURE_AGE : MAX_TARGET_AGE;
+#endif
 }
 
 void GSDevice::PurgePool()

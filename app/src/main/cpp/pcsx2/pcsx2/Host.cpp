@@ -18,6 +18,7 @@
 #include "fmt/format.h"
 
 #include <cstdarg>
+#include <cstdlib>
 #include <shared_mutex>
 
 namespace Host
@@ -157,7 +158,13 @@ void Host::ReportFormattedErrorAsync(const std::string_view title, const char* f
 
 std::string Host::GetHTTPUserAgent()
 {
+#ifdef __ANDROID__
+	const char* const app_version = std::getenv("EMUCOREX_APP_VERSION");
+	const char* const resolved_app_version = (app_version && app_version[0] != '\0') ? app_version : "0.0.0";
+	return fmt::format("EmuCoreX/v{} ({}) pcsx2/{}", resolved_app_version, GetOSVersionString(), BuildVersion::GitRev);
+#else
 	return fmt::format("PCSX2 {} ({})", BuildVersion::GitRev, GetOSVersionString());
+#endif
 }
 
 std::unique_lock<std::mutex> Host::GetSettingsLock()

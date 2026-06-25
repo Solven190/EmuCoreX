@@ -535,9 +535,12 @@ bool GSDeviceVK::CreateDevice(VkSurfaceKHR surface, bool enable_validation_layer
 		GpuProfileDetector::Resolve(GSConfig.AndroidGpuProfileOverride,
 			GetVulkanVendorHint(m_device_properties.vendorID), m_name);
 	SetRuntimeGPUProfile(gpu_profile_selection.runtime_profile);
-	Console.WriteLn("VK: Android GPU profile override='%s' resolved='%s'.",
+	SetMobileGSTuning(gpu_profile_selection.gs_tuning);
+	Console.WriteLn("VK: Android GPU profile override='%s' resolved='%s' tier='%s'%s.",
 		GpuProfileDetector::OverrideToConfigString(gpu_profile_selection.override_mode),
-		GpuProfileDetector::RuntimeProfileToString(gpu_profile_selection.runtime_profile));
+		GpuProfileDetector::RuntimeProfileToString(gpu_profile_selection.runtime_profile),
+		GpuProfileDetector::MobileTierToString(gpu_profile_selection.gs_tuning.tier),
+		gpu_profile_selection.gs_tuning.constrained ? " constrained" : "");
 	DevCon.WriteLn("VK: Android GPU profile hints: %s", gpu_profile_selection.hints.c_str());
 #else
 	SetRuntimeGPUProfile(RuntimeGpuProfile::Adreno);
@@ -2803,13 +2806,25 @@ bool GSDeviceVK::CheckFeatures()
 	m_features.framebuffer_fetch = framebuffer_fetch;
 	m_features.texture_barrier = texture_barrier;
 #if defined(__ANDROID__)
-	m_features.prefer_mobile_light_gs = IsMaliGPUProfile() || IsPowerVRGPUProfile();
+	const MobileGsTuning& mobile_gs_tuning = GetMobileGSTuning();
+	m_features.prefer_mobile_light_gs = mobile_gs_tuning.prefer_mobile_light_gs;
+	m_features.prefer_mobile_sw_blend = mobile_gs_tuning.prefer_mobile_sw_blend;
 #endif
 
 	// geometryShader is needed because gl_PrimitiveID is part of the Geometry SPIR-V Execution Model.
 	m_features.primitive_id = m_device_features.geometryShader;
 
 	m_features.prefer_new_textures = true;
+#if defined(__ANDROID__)
+	m_features.prefer_new_textures = mobile_gs_tuning.prefer_new_textures;
+	if (mobile_gs_tuning.force_partial_texture_preloading && GSConfig.TexturePreloading == TexturePreloadingLevel::Full)
+	{
+		GSConfig.TexturePreloading = TexturePreloadingLevel::Partial;
+		Console.Warning("VK: Mobile GS %s/%s profile lowered texture preloading to partial.",
+			GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
+			GpuProfileDetector::MobileTierToString(mobile_gs_tuning.tier));
+	}
+#endif
 	m_features.provoking_vertex_last = m_optional_extensions.vk_ext_provoking_vertex;
 	m_features.vs_expand = !GSConfig.DisableVertexShaderExpand;
 
@@ -2863,9 +2878,16 @@ bool GSDeviceVK::CheckFeatures()
 	DevCon.WriteLn("Optional features:%s%s%s%s%s", m_features.primitive_id ? " primitive_id" : "",
 		m_features.texture_barrier ? " texture_barrier" : "", m_features.framebuffer_fetch ? " framebuffer_fetch" : "",
 		m_features.provoking_vertex_last ? " provoking_vertex_last" : "", m_features.vs_expand ? " vs_expand" : "");
-	DevCon.WriteLn("VK: Mobile GPU profile: %s light_gs=%s.",
+	DevCon.WriteLn("VK: Mobile GPU profile: %s tier=%s light_gs=%s constrained=%s prefer_new=%s pool=%u/%u age=%u/%u.",
 		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
-		m_features.prefer_mobile_light_gs ? "yes" : "no");
+		GpuProfileDetector::MobileTierToString(GetMobileGSTuning().tier),
+		m_features.prefer_mobile_light_gs ? "yes" : "no",
+		IsConstrainedMobileGPUProfile() ? "yes" : "no",
+		m_features.prefer_new_textures ? "yes" : "no",
+		GetMobileGSTuning().pooled_textures,
+		GetMobileGSTuning().pooled_targets,
+		GetMobileGSTuning().texture_age,
+		GetMobileGSTuning().target_age);
 
 	DevCon.WriteLn("Using %s for point expansion and %s for line expansion.",
 		m_features.point_expand ? "hardware" : "vertex expanding",

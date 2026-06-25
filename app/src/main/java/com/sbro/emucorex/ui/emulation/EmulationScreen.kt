@@ -804,6 +804,7 @@ fun EmulationScreen(
                 "saved" -> stringResource(R.string.emulation_saved)
                 "loaded" -> stringResource(R.string.emulation_loaded)
                 "load_failed" -> stringResource(R.string.emulation_load_failed)
+                "hardcore_blocked" -> stringResource(R.string.emulation_hardcore_action_blocked)
                 "bios_missing" -> stringResource(R.string.emulation_bios_missing)
                 "launch_failed" -> stringResource(R.string.emulation_launch_failed)
                 "launch_path_error" -> stringResource(R.string.emulation_launch_path_error)

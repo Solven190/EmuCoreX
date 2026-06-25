@@ -205,6 +205,13 @@ object EmulatorBridge {
         else -> "Unknown($renderer)"
     }
 
+    @Suppress("DEPRECATION")
+    private fun appVersionName(context: Context): String {
+        return runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: "0.0.0"
+    }
+
     private fun normalizeRenderer(renderer: Int): Int {
         return if (renderer <= 0) DEFAULT_RENDERER else renderer
     }
@@ -248,6 +255,7 @@ object EmulatorBridge {
         try {
             NativeApp.setNativeLibraryDir(context.applicationInfo.nativeLibraryDir ?: "")
             NativeApp.initializeOnce(context.applicationContext)
+            NativeApp.setSetting("EmuCoreX", "AppVersion", "string", appVersionName(context.applicationContext))
             val jitSmokeOk = runCatching { NativeApp.runJitExecutableMemorySmokeTest() }.getOrDefault(false)
             Log.i(TAG, "JIT executable-memory smoke result=$jitSmokeOk")
             val preferEnglishTitles = runBlocking {
@@ -416,6 +424,9 @@ object EmulatorBridge {
             "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack fastBoot:$enableFastBoot fastCdvd:$fastCdvd} gameFixes=true jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
         )
         val prefs = AppPreferences(context)
+        val achievementsHardcore = prefs.getAchievementsHardcoreSync()
+        val effectiveEnableCheats = enableCheats && !achievementsHardcore
+        val effectiveFrameLimitEnabled = frameLimitEnabled || achievementsHardcore
         val padVibrationEnabled = prefs.padVibration.first()
         val textureReplacementsEnabled = prefs.textureReplacementsEnabled.first()
         val textureReplacementsAsync = prefs.textureReplacementsAsync.first()
@@ -452,7 +463,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore", "EnableThreadPinning", "bool", enableThreadPinning.toString()))
                 add(settingOp("EmuCore", "EnableFastBoot", "bool", enableFastBoot.toString()))
                 add(settingOp("EmuCore/Speedhacks", "fastCDVD", "bool", fastCdvd.toString()))
-                add(settingOp("EmuCore", "EnableCheats", "bool", enableCheats.toString()))
+                add(settingOp("EmuCore", "EnableCheats", "bool", effectiveEnableCheats.toString()))
                 add(settingOp("EmuCore/GS", "HWDownloadMode", "int", hwDownloadMode.toString()))
                 add(settingOp("EmuCore/GS", "AndroidGpuProfileOverride", "string", gpuHardwareProfileOverride))
                 add(settingOp("EmuCore/GS", "OsdShowSpeed", "bool", "false"))
@@ -476,7 +487,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/GS", "OsdPerformancePos", "int", "0"))
                 add(settingOp("EmuCore/Speedhacks", "EECycleRate", "int", eeCycleRate.toString()))
                 add(settingOp("EmuCore/Speedhacks", "EECycleSkip", "int", eeCycleSkip.toString()))
-                add(settingOp("EmuCore/GS", "FrameLimitEnable", "bool", frameLimitEnabled.toString()))
+                add(settingOp("EmuCore/GS", "FrameLimitEnable", "bool", effectiveFrameLimitEnabled.toString()))
                 addAll(targetFpsOps(targetFps, ntscFramerate, palFramerate))
                 add(settingOp("Framerate", "NominalScalar", "float", "1.0"))
                 add(settingOp("Framerate", "TurboScalar", "float", sanitizeFastForwardSpeed(fastForwardSpeed).toString()))
@@ -544,10 +555,11 @@ object EmulatorBridge {
                 add(settingOp("EmuCoreX", "GpuHardwareProfile", "int", normalizedGpuHardwareProfile.toString()))
                 add(settingOp("EmuCoreX", "HasContext", "bool", (context.applicationContext != null).toString()))
                 add(settingOp("EmuCoreX", "AutotestMode", "bool", autotestMode.toString()))
+                add(settingOp("EmuCoreX", "AppVersion", "string", appVersionName(context)))
                 add(settingOp("EmuCore", "WarnAboutUnsafeSettings", "bool", "false"))
                 add(settingOp("InputSources", "PadVibration", "bool", padVibrationEnabled.toString()))
                 add(settingOp("Achievements", "Enabled", "bool", prefs.getAchievementsEnabledSync().toString()))
-                add(settingOp("Achievements", "ChallengeMode", "bool", prefs.getAchievementsHardcoreSync().toString()))
+                add(settingOp("Achievements", "ChallengeMode", "bool", achievementsHardcore.toString()))
                 add(settingOp("Achievements", "Username", "string", prefs.getAchievementsUsernameSync().orEmpty()))
                 add(settingOp("Achievements", "Token", "string", prefs.getAchievementsTokenSync().orEmpty()))
                 add(customDriverOp(resolvedCustomDriverPath))

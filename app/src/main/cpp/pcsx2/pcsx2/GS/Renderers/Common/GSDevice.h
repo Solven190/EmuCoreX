@@ -986,6 +986,7 @@ protected:
 	FeatureSupport m_features;
 	u32 m_max_texture_size = 0;
 	RuntimeGpuProfile m_runtime_gpu_profile = RuntimeGpuProfile::Adreno;
+	MobileGsTuning m_mobile_gs_tuning;
 
 	struct
 	{
@@ -1032,6 +1033,8 @@ protected:
 
 	virtual GSTexture* CreateSurface(GSTexture::Type type, int width, int height, int levels, GSTexture::Format format) = 0;
 	GSTexture* FetchSurface(GSTexture::Type type, int width, int height, int levels, GSTexture::Format format, bool clear, bool prefer_unused_texture);
+	u32 GetPoolLimit(bool texture) const;
+	u32 GetPoolMaxAge(bool texture) const;
 
 	virtual void DoMerge(GSTexture* sTex[3], GSVector4* sRect, GSTexture* dTex, GSVector4* dRect, const GSRegPMODE& PMODE, const GSRegEXTBUF& EXTBUF, u32 c, const bool linear) = 0;
 	virtual void DoInterlace(GSTexture* sTex, const GSVector4& sRect, GSTexture* dTex, const GSVector4& dRect, ShaderInterlace shader, bool linear, const InterlaceConstantBuffer& cb) = 0;
@@ -1090,7 +1093,10 @@ public:
 	__fi FeatureSupport Features() const { return m_features; }
 	__fi u32 GetMaxTextureSize() const { return m_max_texture_size; }
 	__fi void SetRuntimeGPUProfile(RuntimeGpuProfile profile) { m_runtime_gpu_profile = profile; }
+	__fi void SetMobileGSTuning(const MobileGsTuning& tuning) { m_mobile_gs_tuning = tuning; }
 	__fi RuntimeGpuProfile GetRuntimeGPUProfile() const { return m_runtime_gpu_profile; }
+	__fi const MobileGsTuning& GetMobileGSTuning() const { return m_mobile_gs_tuning; }
+	__fi bool IsConstrainedMobileGPUProfile() const { return m_mobile_gs_tuning.constrained; }
 	__fi bool IsMaliGPUProfile() const { return m_runtime_gpu_profile == RuntimeGpuProfile::Mali; }
 	__fi bool IsAdrenoGPUProfile() const { return m_runtime_gpu_profile == RuntimeGpuProfile::Adreno; }
 	__fi bool IsPowerVRGPUProfile() const { return m_runtime_gpu_profile == RuntimeGpuProfile::PowerVR; }
