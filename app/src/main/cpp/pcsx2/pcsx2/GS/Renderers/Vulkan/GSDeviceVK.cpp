@@ -853,9 +853,9 @@ bool GSDeviceVK::ProcessDeviceExtensions()
 	}
 
 #if defined(__ANDROID__)
-	if (m_optional_extensions.vk_khr_push_descriptor && IsMaliGPUProfile())
+	if (m_optional_extensions.vk_khr_push_descriptor && (IsMaliGPUProfile() || IsPowerVRGPUProfile()))
 	{
-		Console.Warning("VK: Mali GPU profile active; using descriptor-set texture binding fallback.");
+		Console.Warning("VK: MediaTek GPU profile active; using descriptor-set texture binding fallback.");
 		m_optional_extensions.vk_khr_push_descriptor = false;
 	}
 #endif
@@ -2802,6 +2802,9 @@ bool GSDeviceVK::CheckFeatures()
 
 	m_features.framebuffer_fetch = framebuffer_fetch;
 	m_features.texture_barrier = texture_barrier;
+#if defined(__ANDROID__)
+	m_features.prefer_mobile_light_gs = IsMaliGPUProfile() || IsPowerVRGPUProfile();
+#endif
 
 	// geometryShader is needed because gl_PrimitiveID is part of the Geometry SPIR-V Execution Model.
 	m_features.primitive_id = m_device_features.geometryShader;
@@ -2860,8 +2863,9 @@ bool GSDeviceVK::CheckFeatures()
 	DevCon.WriteLn("Optional features:%s%s%s%s%s", m_features.primitive_id ? " primitive_id" : "",
 		m_features.texture_barrier ? " texture_barrier" : "", m_features.framebuffer_fetch ? " framebuffer_fetch" : "",
 		m_features.provoking_vertex_last ? " provoking_vertex_last" : "", m_features.vs_expand ? " vs_expand" : "");
-	DevCon.WriteLn("VK: Mobile GPU profile: %s.",
-		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()));
+	DevCon.WriteLn("VK: Mobile GPU profile: %s light_gs=%s.",
+		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
+		m_features.prefer_mobile_light_gs ? "yes" : "no");
 
 	DevCon.WriteLn("Using %s for point expansion and %s for line expansion.",
 		m_features.point_expand ? "hardware" : "vertex expanding",

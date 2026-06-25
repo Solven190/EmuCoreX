@@ -447,7 +447,7 @@ class AppPreferences(private val context: Context) {
 
 
     val renderer: Flow<Int> = context.dataStore.data.map { prefs ->
-        normalizeRendererPreference(prefs[RENDERER])
+        normalizeRendererPreference(prefs[RENDERER], resolveGpuHardwareProfile(prefs))
     }
 
     val performanceProfile: Flow<Int> = context.dataStore.data.map { prefs ->
@@ -468,7 +468,9 @@ class AppPreferences(private val context: Context) {
     }
 
     suspend fun setRenderer(value: Int) {
-        context.dataStore.edit { it[RENDERER] = normalizeRendererPreference(value) }
+        context.dataStore.edit { prefs ->
+            prefs[RENDERER] = normalizeRendererPreference(value, resolveGpuHardwareProfile(prefs))
+        }
     }
 
     suspend fun setPerformanceProfile(value: Int) {
@@ -479,9 +481,20 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[GPU_HARDWARE_PROFILE] = GpuHardwareProfiles.normalize(value) }
     }
 
-    private fun normalizeRendererPreference(value: Int?): Int {
+    private fun defaultRendererForGpuProfile(gpuHardwareProfile: Int): Int {
+        return if (GpuHardwareProfiles.isMediatekProfile(gpuHardwareProfile)) {
+            EmulatorBridge.OPENGL_RENDERER
+        } else {
+            EmulatorBridge.DEFAULT_RENDERER
+        }
+    }
+
+    private fun normalizeRendererPreference(
+        value: Int?,
+        gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO
+    ): Int {
         return when (value) {
-            null, 0, EmulatorBridge.AUTO_RENDERER -> EmulatorBridge.DEFAULT_RENDERER
+            null, 0, EmulatorBridge.AUTO_RENDERER -> defaultRendererForGpuProfile(gpuHardwareProfile)
             else -> value
         }
     }
@@ -727,6 +740,7 @@ class AppPreferences(private val context: Context) {
             val biosPath = prefs[BIOS_PATH]
             val performanceProfile = resolvePerformanceProfile(prefs)
             val profileConfig = resolvePerformanceProfileConfig(prefs)
+            val gpuHardwareProfile = resolveGpuHardwareProfile(prefs)
             SettingsSnapshot(
                 themeMode = when (prefs[THEME_MODE]) {
                     1 -> ThemeMode.LIGHT
@@ -735,8 +749,8 @@ class AppPreferences(private val context: Context) {
                 },
                 languageTag = prefs[LANGUAGE_TAG],
                 performanceProfile = performanceProfile,
-                gpuHardwareProfile = resolveGpuHardwareProfile(prefs),
-                renderer = normalizeRendererPreference(prefs[RENDERER]),
+                gpuHardwareProfile = gpuHardwareProfile,
+                renderer = normalizeRendererPreference(prefs[RENDERER], gpuHardwareProfile),
                 upscaleMultiplier = readUpscale(prefs),
                 aspectRatio = normalizeAspectRatioPreference(prefs[ASPECT_RATIO]),
                 autoProgressiveScan = prefs[AUTO_PROGRESSIVE_SCAN] ?: false,
@@ -2131,11 +2145,12 @@ class AppPreferences(private val context: Context) {
 
     suspend fun exportJson(): JSONObject {
         val prefs = context.dataStore.data.first()
+        val gpuHardwareProfile = resolveGpuHardwareProfile(prefs)
         return JSONObject().apply {
             put("themeMode", prefs[THEME_MODE] ?: 0)
             put("performanceProfile", resolvePerformanceProfile(prefs))
-            put("gpuHardwareProfile", resolveGpuHardwareProfile(prefs))
-            put("renderer", normalizeRendererPreference(prefs[RENDERER]))
+            put("gpuHardwareProfile", gpuHardwareProfile)
+            put("renderer", normalizeRendererPreference(prefs[RENDERER], gpuHardwareProfile))
             put("upscaleMultiplier", readUpscale(prefs).toDouble())
             put("biosPath", prefs[BIOS_PATH])
             put("gamePath", prefs[GAME_PATH])
@@ -2274,10 +2289,14 @@ class AppPreferences(private val context: Context) {
             prefs[PERFORMANCE_PROFILE] = PerformanceProfiles.normalize(
                 json.optInt("performanceProfile", PerformanceProfiles.SAFE)
             )
-            prefs[GPU_HARDWARE_PROFILE] = GpuHardwareProfiles.normalize(
+            val gpuHardwareProfile = GpuHardwareProfiles.normalize(
                 json.optInt("gpuHardwareProfile", GpuHardwareProfiles.ADRENO)
             )
-            prefs[RENDERER] = normalizeRendererPreference(json.optInt("renderer", EmulatorBridge.DEFAULT_RENDERER))
+            prefs[GPU_HARDWARE_PROFILE] = gpuHardwareProfile
+            prefs[RENDERER] = normalizeRendererPreference(
+                if (json.has("renderer")) json.optInt("renderer") else null,
+                gpuHardwareProfile
+            )
             prefs[UPSCALE] = json.readUpscaleMultiplier()
             json.optString("biosPath").takeIf { it.isNotBlank() }?.let { prefs[BIOS_PATH] = it } ?: prefs.remove(BIOS_PATH)
             json.optString("gamePath").takeIf { it.isNotBlank() }?.let { prefs[GAME_PATH] = it } ?: prefs.remove(GAME_PATH)

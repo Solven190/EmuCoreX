@@ -939,6 +939,7 @@ public:
 		bool dxt_textures         : 1; ///< Supports DXTn texture compression, i.e. S3TC and BC1-3.
 		bool bptc_textures        : 1; ///< Supports BC6/7 texture compression.
 		bool framebuffer_fetch    : 1; ///< Can sample from the framebuffer without texture barriers.
+		bool prefer_mobile_light_gs : 1; ///< Prefer lower-cost GS paths for constrained mobile GPUs.
 		bool prefer_mobile_sw_blend : 1; ///< Prefers shader blend fallback for problematic mobile alpha paths.
 		bool stencil_buffer       : 1; ///< Supports stencil buffer, and can use for DATE.
 		bool cas_sharpening       : 1; ///< Supports sufficient functionality for contrast adaptive sharpening.

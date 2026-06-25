@@ -1000,13 +1000,16 @@ bool GSDeviceOGL::CheckFeatures()
 		DevCon.WriteLn("GL: PowerVR GPU profile active.");
 	else if (gpu_profile_adreno)
 		DevCon.WriteLn("GL: Adreno GPU profile active.");
-	m_features.prefer_mobile_sw_blend = gpu_profile_mali;
-	DevCon.WriteLn("GL: Mobile GPU caps: profile=%s framebuffer_fetch=%s texture_barrier=%s arm_fetch=%s ext_fetch=%s.",
+	const bool gpu_profile_mediatek = gpu_profile_mali || gpu_profile_powervr;
+	m_features.prefer_mobile_light_gs = gpu_profile_mediatek;
+	m_features.prefer_mobile_sw_blend = gpu_profile_mediatek;
+	DevCon.WriteLn("GL: Mobile GPU caps: profile=%s framebuffer_fetch=%s texture_barrier=%s arm_fetch=%s ext_fetch=%s light_gs=%s.",
 		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
 		m_features.framebuffer_fetch ? "yes" : "no",
 		m_features.texture_barrier ? "yes" : "no",
 		has_arm_framebuffer_fetch ? "yes" : "no",
-		has_ext_framebuffer_fetch ? "yes" : "no");
+		has_ext_framebuffer_fetch ? "yes" : "no",
+		m_features.prefer_mobile_light_gs ? "yes" : "no");
 
 	if (!m_features.texture_barrier)
 	{
@@ -1031,6 +1034,11 @@ bool GSDeviceOGL::CheckFeatures()
 	// Depth-as-RT feedback works from a copied R32 target, so it doesn't need texture barriers.
 	// Direct depth feedback still requires texture barriers.
 	m_features.depth_feedback = GetOGLDepthFeedbackSupport(m_features.texture_barrier, GSConfig.DepthFeedbackMode);
+	if (m_features.prefer_mobile_light_gs && GSConfig.DepthFeedbackMode == GSDepthFeedbackMode::Auto)
+	{
+		m_features.depth_feedback = GSDevice::DepthFeedbackSupport::None;
+		DevCon.WriteLn("GL: MediaTek mobile-light GS path disabled automatic depth feedback.");
+	}
 
 	if (GLAD_GL_ARB_shader_storage_buffer_object)
 	{

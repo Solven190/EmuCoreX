@@ -1085,7 +1085,7 @@ void Pcsx2Config::GSOptions::LoadSave(SettingsWrapper& wrap)
 		}
 		else
 		{
-			AndroidGpuProfileOverride = "adreno";
+			AndroidGpuProfileOverride = "auto";
 		}
 	}
 	SettingsWrapIntEnumEx(DepthFeedbackMode, "DepthFeedbackMode");

@@ -92,7 +92,7 @@ __ri static bool GSPreferMobileFallbackSWBlend(const GSDevice::FeatureSupport& f
 __ri static constexpr bool GSPreferFastMobileBlendProfiles(const GSDevice::FeatureSupport& features)
 {
 #if defined(__ANDROID__)
-	return !features.framebuffer_fetch;
+	return features.prefer_mobile_light_gs || !features.framebuffer_fetch;
 #else
 	return false;
 #endif

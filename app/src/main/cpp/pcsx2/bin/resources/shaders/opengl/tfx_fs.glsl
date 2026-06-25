@@ -105,7 +105,9 @@ in SHADER
 	// Basically the only scenario where this'll happen is RGBA masked and DATE is active.
 	#undef PS_NO_COLOR
 	#define PS_NO_COLOR 0
-	#if defined(GL_EXT_shader_framebuffer_fetch)
+	#if GPU_PROFILE_MALI && HAS_ARM_SHADER_FRAMEBUFFER_FETCH
+		#define LAST_FRAG_COLOR gl_LastFragColorARM
+	#elif defined(GL_EXT_shader_framebuffer_fetch)
 		#undef TARGET_0_QUALIFIER
 		#define TARGET_0_QUALIFIER inout
 		#define LAST_FRAG_COLOR SV_Target0
