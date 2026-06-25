@@ -1223,4 +1223,8 @@
     <string name="settings_racing_mode">रेसिंग मोड</string>
     <string name="settings_racing_mode_desc">एक्शन और शोल्डर बटन को दबाए रखने के लिए टैप करें, फिर छोड़ने के लिए फिर से टैप करें।</string>
     <string name="settings_help_racing_mode">टच एक्शन बटन और शोल्डर बटन को एक टैप से उनकी दबाई गई स्थिति को टॉगल करने योग्य बनाता है। यह रेसिंग गेम के लिए उपयोगी है जहां त्वरण (acceleration) को दबाए रखना होता है, जबकि Start, Select, स्टिक्स और D-पैड अपना सामान्य व्यवहार बनाए रखते हैं。</string>
+    <string name="game_settings_manager_choose_game">गेम चुनें</string>
+    <string name="game_settings_manager_no_games">आपकी वर्तमान लाइब्रेरी में कोई गेम नहीं मिला।</string>
+    <string name="game_settings_manager_profile_active_short">प्रोफ़ाइल</string>
+    <string name="game_settings_manager_tab_system">सिस्टम और प्रदर्शन</string>
 </resources>

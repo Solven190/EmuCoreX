@@ -9,15 +9,11 @@ import com.sbro.emucorex.core.AppUpdateRelease
 import com.sbro.emucorex.core.AppUpdateRepository
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
-import com.sbro.emucorex.core.GpuDriverCatalogRepository
-import com.sbro.emucorex.core.GpuDriverManager
 import com.sbro.emucorex.core.GpuHardwareProfiles
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.GsHackDefaults
-import com.sbro.emucorex.core.InstalledGpuDriver
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.PerformancePresets
-import com.sbro.emucorex.core.RemoteGpuDriver
 import com.sbro.emucorex.core.normalizeUpscale
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
@@ -148,11 +144,6 @@ data class SettingsUiState(
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
     val customDriverPath: String? = null,
-    val installedGpuDrivers: List<InstalledGpuDriver> = emptyList(),
-    val remoteGpuDrivers: List<RemoteGpuDriver> = emptyList(),
-    val gpuDriverCatalogLoading: Boolean = false,
-    val gpuDriverCatalogError: String? = null,
-    val gpuDriverDownloads: Map<String, Float> = emptyMap(),
     val appUpdate: AppUpdateUiState = AppUpdateUiState(),
     val frameLimitEnabled: Boolean = true,
     val fastForwardSpeed: Float = AppPreferences.DEFAULT_FAST_FORWARD_SPEED,
@@ -180,13 +171,9 @@ data class AppUpdateUiState(
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val preferences = AppPreferences(application)
-    private val gpuDriverManager = GpuDriverManager(application)
-    private val gpuDriverCatalogRepository = GpuDriverCatalogRepository(application)
     private val appUpdateRepository = AppUpdateRepository(application)
     private var startupUpdateCheckRequested = false
-    private val _uiState = MutableStateFlow(
-        SettingsUiState(installedGpuDrivers = gpuDriverManager.listInstalledDrivers())
-    )
+    private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
@@ -345,123 +332,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             preferences.setGpuHardwareProfile(value)
             EmulatorBridge.setGpuHardwareProfile(value)
         }
-    }
-
-    fun setCustomDriverPath(path: String?) {
-        viewModelScope.launch {
-            preferences.setCustomDriverPath(path)
-            if (path != null) {
-                preferences.setGpuDriverType(1)
-                EmulatorBridge.setCustomDriverPath(path)
-            } else {
-                preferences.setGpuDriverType(0)
-                EmulatorBridge.setCustomDriverPath("")
-            }
-        }
-    }
-
-    fun installGpuDriver(uri: Uri, onComplete: (Result<String>) -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val result = runCatching {
-                val driverName = gpuDriverManager.installFromArchive(uri)
-                selectGpuDriverInternal(driverName)
-                driverName
-            }
-            refreshInstalledGpuDrivers()
-            withContext(Dispatchers.Main) {
-                onComplete(result)
-            }
-        }
-    }
-
-    fun refreshGpuDriverCatalog() {
-        if (_uiState.value.gpuDriverCatalogLoading) return
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.value = _uiState.value.copy(
-                gpuDriverCatalogLoading = true,
-                gpuDriverCatalogError = null
-            )
-            runCatching {
-                gpuDriverCatalogRepository.loadCatalog()
-            }.onSuccess { drivers ->
-                _uiState.value = _uiState.value.copy(
-                    remoteGpuDrivers = drivers,
-                    gpuDriverCatalogLoading = false,
-                    gpuDriverCatalogError = null
-                )
-            }.onFailure { error ->
-                _uiState.value = _uiState.value.copy(
-                    gpuDriverCatalogLoading = false,
-                    gpuDriverCatalogError = error.message ?: "Could not load GPU driver catalog"
-                )
-            }
-        }
-    }
-
-    fun installRemoteGpuDriver(driver: RemoteGpuDriver, onComplete: (Result<String>) -> Unit) {
-        if (_uiState.value.gpuDriverDownloads.containsKey(driver.id)) return
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.value = _uiState.value.copy(
-                gpuDriverDownloads = _uiState.value.gpuDriverDownloads + (driver.id to 0f)
-            )
-            val result = runCatching {
-                val archive = gpuDriverCatalogRepository.downloadDriver(driver) { progress ->
-                    _uiState.value = _uiState.value.copy(
-                        gpuDriverDownloads = _uiState.value.gpuDriverDownloads + (driver.id to progress)
-                    )
-                }
-                val driverName = gpuDriverManager.installFromArchive(archive)
-                selectGpuDriverInternal(driverName)
-                driverName
-            }
-            _uiState.value = _uiState.value.copy(
-                gpuDriverDownloads = _uiState.value.gpuDriverDownloads - driver.id
-            )
-            refreshInstalledGpuDrivers()
-            withContext(Dispatchers.Main) {
-                onComplete(result)
-            }
-        }
-    }
-
-    fun useSystemGpuDriver() {
-        viewModelScope.launch {
-            preferences.setGpuDriverType(0)
-            EmulatorBridge.setCustomDriverPath("")
-        }
-    }
-
-    fun selectGpuDriver(driverName: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            selectGpuDriverInternal(driverName)
-            refreshInstalledGpuDrivers()
-        }
-    }
-
-    fun removeGpuDriver(driverName: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val removedDriverPath = gpuDriverManager.readMainLibraryPath(driverName)
-            gpuDriverManager.remove(driverName)
-            if (removedDriverPath != null && _uiState.value.customDriverPath == removedDriverPath) {
-                preferences.setGpuDriverType(0)
-                preferences.setCustomDriverPath(null)
-                EmulatorBridge.setCustomDriverPath("")
-            }
-            refreshInstalledGpuDrivers()
-        }
-    }
-
-    private suspend fun selectGpuDriverInternal(driverName: String) {
-        val driverPath = gpuDriverManager.readMainLibraryPath(driverName) ?: error("Driver is not installed")
-        preferences.setCustomDriverPath(driverPath)
-        preferences.setGpuDriverType(1)
-        EmulatorBridge.setCustomDriverPath(driverPath)
-    }
-
-    fun refreshInstalledGpuDrivers() {
-        _uiState.value = _uiState.value.copy(
-            installedGpuDrivers = gpuDriverManager.listInstalledDrivers()
-        )
     }
 
     fun checkForAppUpdates(showErrors: Boolean = true, showStartupDialog: Boolean = false, force: Boolean = false) {

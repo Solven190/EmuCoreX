@@ -1201,6 +1201,10 @@
     <string name="game_settings_manager_export_failure">Failed to export game settings profiles.</string>
     <string name="game_settings_manager_import_success">Game settings profiles imported successfully.</string>
     <string name="game_settings_manager_import_failure">Failed to import game settings profiles.</string>
+    <string name="game_settings_manager_choose_game">Choose game</string>
+    <string name="game_settings_manager_no_games">No games found in your current library.</string>
+    <string name="game_settings_manager_profile_active_short">Profile</string>
+    <string name="game_settings_manager_tab_system">System &amp; Performance</string>
     <string name="game_settings_manager_empty_title">No game profiles yet</string>
     <string name="game_settings_manager_empty_desc">Start tuning a game in the overlay and a dedicated profile will appear here automatically.</string>
     <string name="game_settings_manager_delete_title">Delete game profile?</string>

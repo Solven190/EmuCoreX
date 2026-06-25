@@ -1223,4 +1223,8 @@
     <string name="settings_racing_mode">レーシングモード</string>
     <string name="settings_racing_mode_desc">アクションボタンとショルダーボタンをタップしてホールド状態にし、もう一度タップして解除します。</string>
     <string name="settings_help_racing_mode">タッチアクションボタンとショルダーボタンをタップするだけで、押された状態を切り替えられるようにします。これは、Start、Select、スティック、方向キーは通常の動作を維持しつつ、アクセルを踏みっぱなしにする必要があるレースゲームに便利です。</string>
+    <string name="game_settings_manager_choose_game">ゲームを選択</string>
+    <string name="game_settings_manager_no_games">現在のライブラリにゲームが見つかりません。</string>
+    <string name="game_settings_manager_profile_active_short">プロファイル</string>
+    <string name="game_settings_manager_tab_system">システムとパフォーマンス</string>
 </resources>

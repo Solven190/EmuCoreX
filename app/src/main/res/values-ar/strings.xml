@@ -1223,4 +1223,8 @@
     <string name="settings_racing_mode">وضع السباق</string>
     <string name="settings_racing_mode_desc">انقر على أزرار الإجراءات وأزرار الكتف للاستمرار في الضغط عليها، ثم انقر مرة أخرى للتحرير.</string>
     <string name="settings_help_racing_mode">يجعل أزرار الإجراءات التي تعمل باللمس وأزرار الكتف تبدل حالة الضغط عليها بنقرة واحدة. هذا مفيد لألعاب السباق حيث يجب أن يظل التسارع مضغوطًا، بينما تحافظ أزرار Start و Select وعصا التحكم ولوحة الاتجاهات (D-pad) على سلوكها الطبيعي.</string>
+    <string name="game_settings_manager_choose_game">اختر اللعبة</string>
+    <string name="game_settings_manager_no_games">لم يتم العثور على ألعاب في مكتبتك الحالية.</string>
+    <string name="game_settings_manager_profile_active_short">ملف التعريف</string>
+    <string name="game_settings_manager_tab_system">النظام والأداء</string>
 </resources>

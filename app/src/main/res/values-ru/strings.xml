@@ -1225,4 +1225,8 @@
     <string name="settings_racing_mode">Гоночный режим</string>
     <string name="settings_racing_mode_desc">Коснитесь кнопок действий и триггеров (шифтов), чтобы удерживать их нажатыми, и коснитесь снова, чтобы отпустить.</string>
     <string name="settings_help_racing_mode">Позволяет кнопкам действий на сенсорном экране и триггерам переключать состояние нажатия одним касанием. Это полезно для гоночных игр, где нужно постоянно удерживать газ, в то время как Start, Select, стики и крестовина (D-pad) работают как обычно.</string>
+    <string name="game_settings_manager_choose_game">Выбрать игру</string>
+    <string name="game_settings_manager_no_games">В вашей текущей библиотеке не найдено ни одной игры.</string>
+    <string name="game_settings_manager_profile_active_short">Профиль</string>
+    <string name="game_settings_manager_tab_system">Система и производительность</string>
 </resources>

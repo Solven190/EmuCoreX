@@ -139,7 +139,6 @@ import com.sbro.emucorex.ui.common.skipGamepadTextFieldFocus
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import com.sbro.emucorex.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
-import java.io.File
 import kotlin.math.roundToInt
 
 private enum class SettingsTab {
@@ -154,7 +153,6 @@ fun SettingsScreen(
     onBackClick: (() -> Unit)? = null,
     onOpenLanguageScreen: (() -> Unit)? = null,
     onOpenMemoryCardManager: (() -> Unit)? = null,
-    onOpenGpuDriverManager: (() -> Unit)? = null,
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -202,10 +200,6 @@ fun SettingsScreen(
     val coverUrlInvalidMessage = stringResource(R.string.settings_cover_download_url_invalid)
     stringResource(R.string.settings_not_set)
     val settingsScrollState = rememberScrollState()
-
-    LaunchedEffect(uiState.customDriverPath, uiState.gpuDriverType) {
-        viewModel.refreshInstalledGpuDrivers()
-    }
 
     if (!uiState.isLoaded) {
         Box(
@@ -274,14 +268,6 @@ fun SettingsScreen(
         }
     }
 
-    val driverPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            val path = DocumentPathResolver.resolveFilePath(context, it.toString())
-            viewModel.setCustomDriverPath(path)
-        }
-    }
     val settingsBackupExporter = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/zip")
     ) { uri: Uri? ->
@@ -394,7 +380,6 @@ fun SettingsScreen(
                     pendingCoverUrl.value = uiState.coverDownloadBaseUrl.orEmpty()
                     showCoverUrlDialog.value = true
                 },
-                launchDriverPicker = { driverPicker.launch(arrayOf("*/*")) },
                 launchSettingsBackupExport = { settingsBackupExporter.launch("emucorex-settings-backup.zip") },
                 launchSettingsBackupImport = { settingsBackupImporter.launch(arrayOf("application/zip", "*/*")) },
                 launchCheatImport = { cheatImporter.launch(arrayOf("*/*")) },
@@ -418,7 +403,6 @@ fun SettingsScreen(
                     searchQuery = ""
                 },
                 onOpenMemoryCardManager = onOpenMemoryCardManager,
-                onOpenGpuDriverManager = onOpenGpuDriverManager,
                 viewModel = viewModel,
                 topInset = 0.dp,
                 modifier = Modifier
@@ -848,7 +832,6 @@ private fun SettingsContent(
     launchGamePicker: () -> Unit,
     launchEmulatorDataPicker: () -> Unit,
     onOpenCoverUrlEditor: () -> Unit,
-    launchDriverPicker: () -> Unit,
     launchSettingsBackupExport: () -> Unit,
     launchSettingsBackupImport: () -> Unit,
     launchCheatImport: () -> Unit,
@@ -860,8 +843,7 @@ private fun SettingsContent(
     viewModel: SettingsViewModel,
     topInset: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
-    onOpenMemoryCardManager: (() -> Unit)? = null,
-    onOpenGpuDriverManager: (() -> Unit)? = null
+    onOpenMemoryCardManager: (() -> Unit)? = null
 ) {
     val gamepadActions = remember { GamepadManager.mappableButtonActions() }
     val defaults = remember { SettingsSnapshot() }
@@ -960,18 +942,6 @@ private fun SettingsContent(
                             onSelect = viewModel::setRenderer,
                             helpText = stringResource(R.string.settings_help_renderer),
                             onResetToDefault = { viewModel.setRenderer(defaults.renderer) }
-                        )
-                        val activeDriverName = uiState.installedGpuDrivers
-                            .firstOrNull { it.mainLibraryPath == uiState.customDriverPath && uiState.gpuDriverType == 1 }
-                            ?.name
-                            ?: uiState.customDriverPath
-                                ?.takeIf { uiState.gpuDriverType == 1 }
-                                ?.let { File(it).parentFile?.name ?: File(it).name }
-                        SettingsItem(
-                            icon = Icons.Rounded.Tune,
-                            label = stringResource(R.string.settings_gpu_driver_manager_title),
-                            value = activeDriverName ?: stringResource(R.string.settings_gpu_driver_system),
-                            onClick = onOpenGpuDriverManager ?: launchDriverPicker
                         )
                         val maxUpscaleMultiplier = remember(uiState.renderer) {
                             EmulatorBridge.getMaxUpscaleMultiplier(uiState.renderer)
@@ -2495,8 +2465,6 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.General, R.string.settings_show_home_search),
         entry(SettingsTab.General, R.string.settings_prefer_english_game_titles),
         entry(SettingsTab.Graphics, R.string.settings_renderer),
-        entry(SettingsTab.Graphics, R.string.settings_gpu_driver),
-        entry(SettingsTab.Graphics, R.string.settings_gpu_driver_manager_title),
         entry(SettingsTab.Graphics, R.string.settings_upscale),
         entry(SettingsTab.Graphics, R.string.settings_aspect_ratio),
         entry(SettingsTab.Graphics, R.string.settings_bilinear_filtering),

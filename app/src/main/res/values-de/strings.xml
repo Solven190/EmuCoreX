@@ -1225,4 +1225,8 @@
     <string name="settings_racing_mode">Rennmodus</string>
     <string name="settings_racing_mode_desc">Tippe auf Aktions- und Schultertasten, um sie gedrückt zu halten, und tippe erneut, um sie loszulassen.</string>
     <string name="settings_help_racing_mode">Bewirkt, dass Touch-Aktionstasten und Schultertasten ihren gedrückten Zustand durch Antippen umschalten. Dies ist nützlich für Rennspiele, bei denen die Beschleunigung gehalten werden muss, während Start, Select, Sticks und das Steuerkreuz ihr normales Verhalten beibehalten.</string>
+    <string name="game_settings_manager_choose_game">Spiel auswählen</string>
+    <string name="game_settings_manager_no_games">Keine Spiele in deiner aktuellen Bibliothek gefunden.</string>
+    <string name="game_settings_manager_profile_active_short">Profil</string>
+    <string name="game_settings_manager_tab_system">System &amp; Leistung</string>
 </resources>

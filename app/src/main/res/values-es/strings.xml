@@ -1225,4 +1225,8 @@
     <string name="settings_racing_mode">Modo carrera</string>
     <string name="settings_racing_mode_desc">Toca los botones de acción y los gatillos para mantenerlos pulsados, y vuelve a tocarlos para soltarlos.</string>
     <string name="settings_help_racing_mode">Hace que los botones de acción táctiles y los gatillos alternen su estado de pulsación con un toque. Esto es útil para los juegos de carreras donde la aceleración debe mantenerse pulsada, mientras que Start, Select, los joysticks y la cruceta (D-pad) mantienen su comportamiento normal.</string>
+    <string name="game_settings_manager_choose_game">Elegir juego</string>
+    <string name="game_settings_manager_no_games">No se encontraron juegos en tu biblioteca actual.</string>
+    <string name="game_settings_manager_profile_active_short">Perfil</string>
+    <string name="game_settings_manager_tab_system">Sistema y rendimiento</string>
 </resources>

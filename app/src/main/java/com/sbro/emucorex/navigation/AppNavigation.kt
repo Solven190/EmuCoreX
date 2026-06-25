@@ -46,7 +46,6 @@ import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.GameLaunchShortcut
 import com.sbro.emucorex.core.SetupValidator
 import com.sbro.emucorex.data.AppPreferences
-import com.sbro.emucorex.data.GameItem
 import com.sbro.emucorex.data.SaveStateRepository
 import com.sbro.emucorex.ui.achievements.AccountUnlockedAchievementsScreen
 import com.sbro.emucorex.ui.achievements.AchievementsHubScreen
@@ -61,9 +60,7 @@ import com.sbro.emucorex.ui.onboarding.OnboardingScreen
 import com.sbro.emucorex.ui.saves.SaveManagerScreen
 import com.sbro.emucorex.ui.settings.LanguageSettingsScreen
 import com.sbro.emucorex.ui.settings.PerGameSettingsManagerScreen
-import com.sbro.emucorex.ui.settings.PerGameSettingsQuickEditorDialog
 import com.sbro.emucorex.ui.settings.AppUpdateAvailableDialog
-import com.sbro.emucorex.ui.settings.GpuDriverScreen
 import com.sbro.emucorex.ui.settings.SettingsScreen
 import com.sbro.emucorex.ui.settings.SettingsViewModel
 import com.sbro.emucorex.ui.textures.TextureManagerScreen
@@ -109,9 +106,6 @@ data class SettingsRoute(val tab: String = "general")
 object LanguageSettingsRoute
 
 @Serializable
-object GpuDriverSettingsRoute
-
-@Serializable
 object OnboardingRoute
 
 @Serializable
@@ -136,7 +130,7 @@ object AchievementsRoute
 object AccountUnlockedAchievementsRoute
 
 @Serializable
-object GameSettingsManagerRoute
+data class GameSettingsManagerRoute(val gamePath: String? = null)
 
 @Serializable
 data class GameAchievementsRoute(val gamePath: String, val gameTitle: String? = null)
@@ -172,7 +166,6 @@ fun AppNavigation(
     val activity = context as? ComponentActivity
     val preferences = AppPreferences(context)
     val saveStateRepository = SaveStateRepository(context)
-    var quickGameSettingsTarget by remember { mutableStateOf<GameItem?>(null) }
     LaunchedEffect(Unit) {
         onStartupReady()
     }
@@ -264,7 +257,7 @@ fun AppNavigation(
         else -> {}
     }
     val navigateGameSettingsManager: () -> Unit = {
-        navController.navigate(GameSettingsManagerRoute) {
+        navController.navigate(GameSettingsManagerRoute()) {
             launchSingleTop = true
         }
     }
@@ -408,7 +401,9 @@ fun AppNavigation(
                             }
                         },
                         onManageGameClick = { game ->
-                            quickGameSettingsTarget = game
+                            navController.navigate(GameSettingsManagerRoute(gamePath = game.path)) {
+                                launchSingleTop = true
+                            }
                         },
                         onCreateShortcutClick = { game ->
                             GameLaunchShortcut.requestPinnedShortcut(context, game)
@@ -594,11 +589,6 @@ fun AppNavigation(
                         initialTab = route.tab,
                         onBackClick = { navController.popBackStack() },
                         onOpenMemoryCardManager = navigateMemoryCardManager,
-                        onOpenGpuDriverManager = {
-                            navController.navigate(GpuDriverSettingsRoute) {
-                                launchSingleTop = true
-                            }
-                        },
                         onOpenLanguageScreen = {
                             navController.navigate(LanguageSettingsRoute) {
                                 launchSingleTop = true
@@ -615,15 +605,10 @@ fun AppNavigation(
                 )
             }
 
-            composable<GpuDriverSettingsRoute> {
-                GpuDriverScreen(
-                    onBackClick = { navController.popBackStack() },
-                    viewModel = settingsViewModel
-                )
-            }
-
-            composable<GameSettingsManagerRoute> {
+            composable<GameSettingsManagerRoute> { backStackEntry ->
+                val route = backStackEntry.toRoute<GameSettingsManagerRoute>()
                 PerGameSettingsManagerScreen(
+                    initialGamePath = route.gamePath,
                     onBackClick = { navController.popBackStack() }
                 )
             }
@@ -757,13 +742,6 @@ fun AppNavigation(
                 launchSingleTop = true
             }
             GameLaunchShortcut.clearLaunchRequest(activity?.intent)
-        }
-
-        quickGameSettingsTarget?.let { game ->
-            PerGameSettingsQuickEditorDialog(
-                game = game,
-                onDismiss = { quickGameSettingsTarget = null }
-            )
         }
 
         val startupUpdateRelease = settingsUiState.appUpdate.latestRelease
