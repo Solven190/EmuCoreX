@@ -5329,40 +5329,38 @@ GSState::TextureMinMaxResult GSState::GetTextureMinMax(GIFRegTEX0 TEX0, GIFRegCL
 
 	GSVector4i vr = tr;
 
-	switch (wms)
+	if (wms > CLAMP_CLAMP)
 	{
-		case CLAMP_REPEAT:
-			break;
-		case CLAMP_CLAMP:
-			break;
-		case CLAMP_REGION_CLAMP:
-			vr.x = minu;
-			vr.z = maxu + 1;
-			break;
-		case CLAMP_REGION_REPEAT:
-			vr.x = maxu;
-			vr.z = (maxu | minu) + 1;
-			break;
-		default:
-			ASSUME(0);
+		switch (wms)
+		{
+			case CLAMP_REGION_CLAMP:
+				vr.x = minu;
+				vr.z = maxu + 1;
+				break;
+			case CLAMP_REGION_REPEAT:
+				vr.x = maxu;
+				vr.z = (maxu | minu) + 1;
+				break;
+			default:
+				ASSUME(0);
+		}
 	}
 
-	switch (wmt)
+	if (wmt > CLAMP_CLAMP)
 	{
-		case CLAMP_REPEAT:
-			break;
-		case CLAMP_CLAMP:
-			break;
-		case CLAMP_REGION_CLAMP:
-			vr.y = minv;
-			vr.w = maxv + 1;
-			break;
-		case CLAMP_REGION_REPEAT:
-			vr.y = maxv;
-			vr.w = (maxv | minv) + 1;
-			break;
-		default:
-			ASSUME(0);
+		switch (wmt)
+		{
+			case CLAMP_REGION_CLAMP:
+				vr.y = minv;
+				vr.w = maxv + 1;
+				break;
+			case CLAMP_REGION_REPEAT:
+				vr.y = maxv;
+				vr.w = (maxv | minv) + 1;
+				break;
+			default:
+				ASSUME(0);
+		}
 	}
 
 	// Software renderer fixes TEX0 so that TW/TH contain MAXU/MAXV.

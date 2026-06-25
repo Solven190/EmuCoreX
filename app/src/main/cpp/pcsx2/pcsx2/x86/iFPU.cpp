@@ -471,12 +471,10 @@ static void recFpuDoubleClampOperand_emit_oaknut(int reg)
 	oakAsm->B(done);
 
 	oakAsm->l(non_zero_exp);
-	oakAsm->MOV(OAK_WSCRATCH, 0x7f800000);
-	oakAsm->FMOV(OAK_SSCRATCH2, OAK_WSCRATCH2);
-	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->CMP(OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->FMOV(OAK_WSCRATCH2, OAK_SSCRATCH2);
+	oakAsm->MOV(OAK_WSCRATCH2, 0x7f800000);
+	oakAsm->CMP(OAK_WSCRATCH, OAK_WSCRATCH2);
 	oakAsm->B(oak::util::NE, done);
+	oakAsm->FMOV(OAK_WSCRATCH2, oakSRegister(reg));
 	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, 0x80000000);
 	oakAsm->MOV(OAK_WSCRATCH, 0x7f7fffff);
 	oakAsm->ORR(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);

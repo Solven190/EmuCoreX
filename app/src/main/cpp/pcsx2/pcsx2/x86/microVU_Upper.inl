@@ -59,16 +59,21 @@ static __fi void mVUUpperMovmskps_oaknut(const oak::WReg& dst, const oak::QReg& 
 	oakAsm->FMOV(dst, OAK_SSCRATCH);
 }
 
-static __fi void mVUUpperClamp1Vector_oaknut(mV, int reg, bool bClampE)
+static __fi void mVUUpperClamp1VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
 {
-	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && mVU.regAlloc->checkVFClamp(reg))
+	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
 		mVUClamp1VectorBits_oaknut(reg);
 }
 
-static __fi void mVUUpperClamp2Vector_oaknut(mV, int reg, bool bClampE)
+static __fi void mVUUpperClamp1Vector_oaknut(mV, int reg, bool bClampE)
+{
+	mVUUpperClamp1VectorIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
+}
+
+static __fi void mVUUpperClamp2VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
 {
 	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
-		mVU.regAlloc->checkVFClamp(reg))
+		canClamp)
 	{
 		const oak::QReg reg_q = oakQRegister(reg);
 		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_maxvals[0][0])));
@@ -78,35 +83,47 @@ static __fi void mVUUpperClamp2Vector_oaknut(mV, int reg, bool bClampE)
 		return;
 	}
 
-	mVUUpperClamp1Vector_oaknut(mVU, reg, bClampE);
+	mVUUpperClamp1VectorIf_oaknut(mVU, reg, bClampE, canClamp);
+}
+
+static __fi void mVUUpperClamp2Vector_oaknut(mV, int reg, bool bClampE)
+{
+	mVUUpperClamp2VectorIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
 }
 
 static __fi void mVUUpperClamp3Vector_oaknut(mV, int reg)
 {
-	if (clampE && mVU.regAlloc->checkVFClamp(reg))
-		mVUUpperClamp2Vector_oaknut(mVU, reg, true);
-	else if (isVU0 && mVU.regAlloc->checkVFClamp(reg))
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && canClamp)
+		mVUUpperClamp2VectorIf_oaknut(mVU, reg, true, true);
+	else if (isVU0 && canClamp)
 		mVUClampDenormalVectorBits_oaknut(reg);
 }
 
 static __fi void mVUUpperClamp4Vector_oaknut(mV, int reg)
 {
-	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && mVU.regAlloc->checkVFClamp(reg))
-		mVUUpperClamp1Vector_oaknut(mVU, reg, true);
-	else if (isVU0 && mVU.regAlloc->checkVFClamp(reg))
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
+		mVUUpperClamp1VectorIf_oaknut(mVU, reg, true, true);
+	else if (isVU0 && canClamp)
 		mVUClampDenormalVectorBits_oaknut(reg);
+}
+
+static __fi void mVUUpperClamp1ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
+{
+	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
+		mVUClamp1ScalarBits_oaknut(reg);
 }
 
 static __fi void mVUUpperClamp1Scalar_oaknut(mV, int reg, bool bClampE)
 {
-	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && mVU.regAlloc->checkVFClamp(reg))
-		mVUClamp1ScalarBits_oaknut(reg);
+	mVUUpperClamp1ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
 }
 
-static __fi void mVUUpperClamp2Scalar_oaknut(mV, int reg, bool bClampE)
+static __fi void mVUUpperClamp2ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
 {
 	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
-		mVU.regAlloc->checkVFClamp(reg))
+		canClamp)
 	{
 		const oak::QReg reg_q = oakQRegister(reg);
 		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_maxvals[0][0])));
@@ -116,22 +133,29 @@ static __fi void mVUUpperClamp2Scalar_oaknut(mV, int reg, bool bClampE)
 		return;
 	}
 
-	mVUUpperClamp1Scalar_oaknut(mVU, reg, bClampE);
+	mVUUpperClamp1ScalarIf_oaknut(mVU, reg, bClampE, canClamp);
+}
+
+static __fi void mVUUpperClamp2Scalar_oaknut(mV, int reg, bool bClampE)
+{
+	mVUUpperClamp2ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
 }
 
 static __fi void mVUUpperClamp3Scalar_oaknut(mV, int reg)
 {
-	if (clampE && mVU.regAlloc->checkVFClamp(reg))
-		mVUUpperClamp2Scalar_oaknut(mVU, reg, true);
-	else if (isVU0 && mVU.regAlloc->checkVFClamp(reg))
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && canClamp)
+		mVUUpperClamp2ScalarIf_oaknut(mVU, reg, true, true);
+	else if (isVU0 && canClamp)
 		mVUClampDenormalScalarBits_oaknut(reg);
 }
 
 static __fi void mVUUpperClamp4Scalar_oaknut(mV, int reg)
 {
-	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && mVU.regAlloc->checkVFClamp(reg))
-		mVUUpperClamp1Scalar_oaknut(mVU, reg, true);
-	else if (isVU0 && mVU.regAlloc->checkVFClamp(reg))
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
+		mVUUpperClamp1ScalarIf_oaknut(mVU, reg, true, true);
+	else if (isVU0 && canClamp)
 		mVUClampDenormalScalarBits_oaknut(reg);
 }
 
@@ -230,23 +254,23 @@ static __fi void mVUUpperVuDoubleVector_oaknut(int reg, int t1, int t2)
 	const oak::QReg t1_q = oakQRegister(t1);
 	const oak::QReg t2_q = oakQRegister(t2);
 
-	oakLoad128(t1_q, mVUUpperOakGlobMem(offsetof(mVU_Globals, exponent)));
+	mVUEmitExponentVector_oaknut(t1_q);
 	oakAsm->AND(t1_q.B16(), t1_q.B16(), reg_q.B16());
 
 	oakAsm->EOR(t2_q.B16(), t2_q.B16(), t2_q.B16());
 	oakAsm->CMEQ(t2_q.S4(), t1_q.S4(), t2_q.S4());
-	oakLoad128(OAK_QSCRATCH, mVUUpperOakGlobMem(offsetof(mVU_Globals, signbit)));
+	mVUEmitSignbitVector_oaknut(OAK_QSCRATCH);
 	oakAsm->AND(OAK_QSCRATCH.B16(), reg_q.B16(), OAK_QSCRATCH.B16());
 	oakAsm->BSL(t2_q.B16(), OAK_QSCRATCH.B16(), reg_q.B16());
 	oakAsm->MOV(reg_q.B16(), t2_q.B16());
 
 	if (CHECK_VU_OVERFLOW(0))
 	{
-		oakLoad128(t2_q, mVUUpperOakGlobMem(offsetof(mVU_Globals, exponent)));
+		mVUEmitExponentVector_oaknut(t2_q);
 		oakAsm->CMEQ(t1_q.S4(), t1_q.S4(), t2_q.S4());
-		oakLoad128(OAK_QSCRATCH, mVUUpperOakGlobMem(offsetof(mVU_Globals, signbit)));
+		mVUEmitSignbitVector_oaknut(OAK_QSCRATCH);
 		oakAsm->AND(OAK_QSCRATCH.B16(), reg_q.B16(), OAK_QSCRATCH.B16());
-		oakLoad128(OAK_QSCRATCH2, mVUUpperOakGlobMem(offsetof(mVU_Globals, maxvals)));
+		mVUEmitMaxvalsVector_oaknut(OAK_QSCRATCH2);
 		oakAsm->ORR(OAK_QSCRATCH.B16(), OAK_QSCRATCH.B16(), OAK_QSCRATCH2.B16());
 		oakAsm->BSL(t1_q.B16(), OAK_QSCRATCH.B16(), reg_q.B16());
 		oakAsm->MOV(reg_q.B16(), t1_q.B16());
@@ -4244,7 +4268,7 @@ static void mVU_ABS_direct_emit_oaknut(mP)
 		return;
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Ft_, _X_Y_Z_W, !((_Fs_ == _Ft_) && (_X_Y_Z_W == 0xf)));
 	recBeginOaknutEmit();
-	oakLoad128(OAK_QSCRATCH3, mVUUpperOakGlobMem(offsetof(mVU_Globals, absclip)));
+	mVUEmitAbsclipVector_oaknut(OAK_QSCRATCH3);
 	oakAsm->AND(oakQRegister(Fs).B16(), oakQRegister(Fs).B16(), OAK_QSCRATCH3.B16());
 	recEndOaknutEmit();
 	mVU.regAlloc->clearNeededXmmId(Fs);
@@ -4324,14 +4348,14 @@ static void mVU_CLIP_direct_emit_oaknut(mP)
 	oakAsm->DUP(ft_q.S4(), ft_q.Selem()[0]);
 	oakAsm->LSL(clip_w, clip_w, 6);
 
-	oakLoad128(t1_q, mVUUpperOakGlobMem(offsetof(mVU_Globals, exponent)));
+	mVUEmitExponentVector_oaknut(t1_q);
 	oakAsm->AND(t1_q.B16(), t1_q.B16(), fs_q.B16());
 	oakAsm->MOVI(t2_q.B16(), 0);
 	oakAsm->CMEQ(t1_q.S4(), t1_q.S4(), t2_q.S4());
 	oakAsm->BIC(t1_q.B16(), fs_q.B16(), t1_q.B16());
-	oakLoad128(OAK_QSCRATCH3, mVUUpperOakGlobMem(offsetof(mVU_Globals, absclip)));
+	mVUEmitAbsclipVector_oaknut(OAK_QSCRATCH3);
 	oakAsm->AND(ft_q.B16(), ft_q.B16(), OAK_QSCRATCH3.B16());
-	oakLoad128(t2_q, mVUUpperOakGlobMem(offsetof(mVU_Globals, exponent)));
+	mVUEmitExponentVector_oaknut(t2_q);
 	oakAsm->AND(t2_q.B16(), t2_q.B16(), ft_q.B16());
 	oakAsm->MOVI(OAK_QSCRATCH.B16(), 0);
 	oakAsm->CMEQ(t2_q.S4(), t2_q.S4(), OAK_QSCRATCH.S4());
@@ -4340,7 +4364,7 @@ static void mVU_CLIP_direct_emit_oaknut(mP)
 	oakAsm->BSL(t2_q.B16(), OAK_QSCRATCH.B16(), ft_q.B16());
 	oakAsm->MOV(ft_q.B16(), t2_q.B16());
 
-	oakLoad128(fs_q, mVUUpperOakGlobMem(offsetof(mVU_Globals, signbit)));
+	mVUEmitSignbitVector_oaknut(fs_q);
 	oakAsm->EOR(fs_q.B16(), fs_q.B16(), t1_q.B16());
 	oakAsm->CMGT(t1_q.S4(), t1_q.S4(), ft_q.S4());
 	oakAsm->CMGT(fs_q.S4(), fs_q.S4(), ft_q.S4());
@@ -4472,14 +4496,14 @@ static void mVU_FTOI_saturate_oaknut(int Fs, int t1, int t2)
 
 	oakAsm->MOV(t1_q.B16(), fs_q.B16());
 	oakAsm->MOV(t2_q.B16(), fs_q.B16());
-	oakLoad128(OAK_QSCRATCH3, mVUUpperOakGlobMem(offsetof(mVU_Globals, absclip)));
+	mVUEmitAbsclipVector_oaknut(OAK_QSCRATCH3);
 	oakAsm->AND(t1_q.B16(), t1_q.B16(), OAK_QSCRATCH3.B16());
-	oakLoad128(OAK_QSCRATCH3, mVUUpperOakGlobMem(offsetof(mVU_Globals, I32MAXF)));
+	mVUEmitI32MaxFVector_oaknut(OAK_QSCRATCH3);
 	oakAsm->CMGT(t1_q.S4(), t1_q.S4(), OAK_QSCRATCH3.S4());
 	oakAsm->MOVI(OAK_QSCRATCH.B16(), 0);
 	oakAsm->CMGT(t2_q.S4(), OAK_QSCRATCH.S4(), t2_q.S4());
-	oakLoad128(OAK_QSCRATCH, mVUUpperOakGlobMem(offsetof(mVU_Globals, absclip)));
-	oakLoad128(OAK_QSCRATCH2, mVUUpperOakGlobMem(offsetof(mVU_Globals, signbit)));
+	mVUEmitAbsclipVector_oaknut(OAK_QSCRATCH);
+	mVUEmitSignbitVector_oaknut(OAK_QSCRATCH2);
 	oakAsm->BSL(t2_q.B16(), OAK_QSCRATCH2.B16(), OAK_QSCRATCH.B16());
 	oakAsm->FCVTZS(fs_q.S4(), fs_q.S4());
 	oakAsm->BSL(t1_q.B16(), t2_q.B16(), fs_q.B16());

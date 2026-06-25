@@ -97,20 +97,25 @@ static __fi void mVU_makeRsqrtZeroSign_oaknut(int dst, int fs, int ft)
 {
 	const oak::QReg dst_q = oakQRegister(dst);
 	oakAsm->EOR(dst_q.B16(), oakQRegister(fs).B16(), oakQRegister(ft).B16());
-	oakLoad128(OAK_QSCRATCH3, mVU_glob_oaknut(offsetof(mVU_Globals, signbit)));
+	mVUEmitSignbitVector_oaknut(OAK_QSCRATCH3);
 	oakAsm->AND(dst_q.B16(), dst_q.B16(), OAK_QSCRATCH3.B16());
 }
 
 static __fi void mVU_makeRsqrtSignedMax_oaknut(int dst)
 {
-	oakLoad128(OAK_QSCRATCH3, mVU_glob_oaknut(offsetof(mVU_Globals, maxvals)));
+	mVUEmitMaxvalsVector_oaknut(OAK_QSCRATCH3);
 	oakAsm->ORR(oakQRegister(dst).B16(), oakQRegister(dst).B16(), OAK_QSCRATCH3.B16());
+}
+
+static __fi void mVU_clamp1ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
+{
+	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
+		mVUClamp1ScalarBits_oaknut(reg);
 }
 
 static __fi void mVU_clamp1Scalar_oaknut(mV, int reg, bool bClampE)
 {
-	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && mVU.regAlloc->checkVFClamp(reg))
-		mVUClamp1ScalarBits_oaknut(reg);
+	mVU_clamp1ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
 }
 
 static __fi void mVU_clamp1Vector_oaknut(mV, int reg, bool bClampE)
@@ -119,10 +124,10 @@ static __fi void mVU_clamp1Vector_oaknut(mV, int reg, bool bClampE)
 		mVUClamp1VectorBits_oaknut(reg);
 }
 
-static __fi void mVU_clamp2Scalar_oaknut(mV, int reg, bool bClampE)
+static __fi void mVU_clamp2ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
 {
 	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
-		mVU.regAlloc->checkVFClamp(reg))
+		canClamp)
 	{
 		const oak::QReg reg_q = oakQRegister(reg);
 		oakLoad128(OAK_QSCRATCH3, mVU_ss4_oaknut(offsetof(mVU_SSE4, sse4_maxvals[0][0])));
@@ -132,19 +137,26 @@ static __fi void mVU_clamp2Scalar_oaknut(mV, int reg, bool bClampE)
 		return;
 	}
 
-	mVU_clamp1Scalar_oaknut(mVU, reg, bClampE);
+	mVU_clamp1ScalarIf_oaknut(mVU, reg, bClampE, canClamp);
+}
+
+static __fi void mVU_clamp2Scalar_oaknut(mV, int reg, bool bClampE)
+{
+	mVU_clamp2ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
 }
 
 static __fi void mVU_clamp3Scalar_oaknut(mV, int reg)
 {
-	if (clampE && mVU.regAlloc->checkVFClamp(reg))
-		mVU_clamp2Scalar_oaknut(mVU, reg, true);
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && canClamp)
+		mVU_clamp2ScalarIf_oaknut(mVU, reg, true, true);
 }
 
 static __fi void mVU_clamp4Scalar_oaknut(mV, int reg)
 {
-	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && mVU.regAlloc->checkVFClamp(reg))
-		mVU_clamp1Scalar_oaknut(mVU, reg, true);
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
+		mVU_clamp1ScalarIf_oaknut(mVU, reg, true, true);
 }
 
 static __fi void mVU_addScalar_oaknut(mV, int to, int from)
@@ -289,9 +301,9 @@ static void mVU_DIV_direct_emit_oaknut(mP)
 	oakAsm->l(bjmp);
 
 	oakAsm->EOR(oakQRegister(Fs).B16(), oakQRegister(Fs).B16(), oakQRegister(Ft).B16());
-	oakLoad128(OAK_QSCRATCH3, mVU_glob_oaknut(offsetof(mVU_Globals, signbit)));
+	mVUEmitSignbitVector_oaknut(OAK_QSCRATCH3);
 	oakAsm->AND(oakQRegister(Fs).B16(), oakQRegister(Fs).B16(), OAK_QSCRATCH3.B16());
-	oakLoad128(OAK_QSCRATCH3, mVU_glob_oaknut(offsetof(mVU_Globals, maxvals)));
+	mVUEmitMaxvalsVector_oaknut(OAK_QSCRATCH3);
 	oakAsm->ORR(oakQRegister(Fs).B16(), oakQRegister(Fs).B16(), OAK_QSCRATCH3.B16());
 
 	oak::Label djmp;
@@ -403,23 +415,23 @@ static __fi void mVU_EFUvuDoublePS_oaknut(int reg, int t1, int t2)
 	const oak::QReg t1_q = oakQRegister(t1);
 	const oak::QReg t2_q = oakQRegister(t2);
 
-	oakLoad128(t1_q, mVU_glob_oaknut(offsetof(mVU_Globals, exponent)));
+	mVUEmitExponentVector_oaknut(t1_q);
 	oakAsm->AND(t1_q.B16(), t1_q.B16(), reg_q.B16());
 
 	oakAsm->EOR(t2_q.B16(), t2_q.B16(), t2_q.B16());
 	oakAsm->CMEQ(t2_q.S4(), t1_q.S4(), t2_q.S4());
-	oakLoad128(OAK_QSCRATCH, mVU_glob_oaknut(offsetof(mVU_Globals, signbit)));
+	mVUEmitSignbitVector_oaknut(OAK_QSCRATCH);
 	oakAsm->AND(OAK_QSCRATCH.B16(), reg_q.B16(), OAK_QSCRATCH.B16());
 	oakAsm->BSL(t2_q.B16(), OAK_QSCRATCH.B16(), reg_q.B16());
 	oakAsm->MOV(reg_q.B16(), t2_q.B16());
 
 	if (CHECK_VU_OVERFLOW(0))
 	{
-		oakLoad128(t2_q, mVU_glob_oaknut(offsetof(mVU_Globals, exponent)));
+		mVUEmitExponentVector_oaknut(t2_q);
 		oakAsm->CMEQ(t1_q.S4(), t1_q.S4(), t2_q.S4());
-		oakLoad128(OAK_QSCRATCH, mVU_glob_oaknut(offsetof(mVU_Globals, signbit)));
+		mVUEmitSignbitVector_oaknut(OAK_QSCRATCH);
 		oakAsm->AND(OAK_QSCRATCH.B16(), reg_q.B16(), OAK_QSCRATCH.B16());
-		oakLoad128(OAK_QSCRATCH2, mVU_glob_oaknut(offsetof(mVU_Globals, maxvals)));
+		mVUEmitMaxvalsVector_oaknut(OAK_QSCRATCH2);
 		oakAsm->ORR(OAK_QSCRATCH.B16(), OAK_QSCRATCH.B16(), OAK_QSCRATCH2.B16());
 		oakAsm->BSL(t1_q.B16(), OAK_QSCRATCH.B16(), reg_q.B16());
 		oakAsm->MOV(reg_q.B16(), t1_q.B16());
