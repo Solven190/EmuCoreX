@@ -33,10 +33,21 @@ data class OverlayCanvasStickSpec(
     val visible: Boolean
 )
 
+data class OverlayCanvasDpadClusterSpec(
+    val id: String,
+    val size: Dp,
+    val baseX: Dp,
+    val baseY: Dp,
+    val x: Dp,
+    val y: Dp,
+    val visible: Boolean
+)
+
 data class OverlayCanvasLayout(
     val leftShoulders: List<OverlayCanvasButtonSpec>,
     val rightShoulders: List<OverlayCanvasButtonSpec>,
     val dpadButtons: List<OverlayCanvasButtonSpec>,
+    val dpadCluster: OverlayCanvasDpadClusterSpec?,
     val actionButtons: List<OverlayCanvasButtonSpec>,
     val centerButtons: List<OverlayCanvasButtonSpec>,
     val leftStick: OverlayCanvasStickSpec?,
@@ -57,6 +68,9 @@ data class OverlayCanvasLayout(
         rightStick?.id -> rightStick
         else -> null
     }
+
+    fun dpadCluster(id: String): OverlayCanvasDpadClusterSpec? =
+        dpadCluster?.takeIf { it.id == id }
 }
 
 fun buildOverlayCanvasLayout(
@@ -243,6 +257,23 @@ fun buildOverlayCanvasLayout(
             shape = RoundedCornerShape(8.dp),
             visible = showDpad
         )
+    )
+
+    val extraDpadLayout = layoutFor("dpad_cluster")
+    val extraDpadSize = dpadClusterExtent * (extraDpadLayout.scale / 100f)
+    val extraDpadBaseX = dpadClusterLeft
+    val extraDpadBaseY = maxOf(
+        edgePadTop + shoulderH + 16.dp,
+        dpadClusterTop - extraDpadSize - 14.dp
+    )
+    val dpadCluster = OverlayCanvasDpadClusterSpec(
+        id = "dpad_cluster",
+        size = extraDpadSize,
+        baseX = extraDpadBaseX,
+        baseY = extraDpadBaseY,
+        x = extraDpadBaseX + pxToDp(extraDpadLayout.offset.first),
+        y = extraDpadBaseY + pxToDp(extraDpadLayout.offset.second),
+        visible = extraDpadLayout.visible
     )
 
     val actionClusterLeft = canvasWidth - edgePadEnd + pxToDp(actionOffset.first) - actionClusterExtent
@@ -433,6 +464,7 @@ fun buildOverlayCanvasLayout(
         leftShoulders = leftShoulders,
         rightShoulders = rightShoulders,
         dpadButtons = dpadButtons.filter { previewMode || it.visible },
+        dpadCluster = dpadCluster.takeIf { previewMode || it.visible },
         actionButtons = actionButtons,
         centerButtons = centerButtons.filter { previewMode || it.visible },
         leftStick = leftStick.takeIf { previewMode || it.visible },

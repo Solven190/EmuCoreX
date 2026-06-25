@@ -467,6 +467,8 @@
     <string name="settings_pad_vibration_test_action">Test</string>
     <string name="settings_pad_vibration_fallback">Use device vibration fallback</string>
     <string name="settings_pad_vibration_fallback_desc">Vibrate the handheld or phone body when the controller does not expose its own motor.</string>
+    <string name="settings_auto_progressive_scan">Auto Progressive Scan</string>
+    <string name="settings_auto_progressive_scan_desc">Hold Triangle + Cross during boot for games with a hidden 480p prompt.</string>
     <string name="settings_show_fps">Show FPS counter</string>
     <string name="settings_show_fps_desc">Display the frame rate while playing.</string>
     <string name="settings_show_recent_games">Show recent games</string>
@@ -488,6 +490,7 @@
     <string name="settings_help_pad_vibration_strength">Scales game rumble before it is sent to Android. Lower it for noisy handheld motors, or raise it when a controller feels too weak.</string>
     <string name="settings_help_pad_vibration_test">Sends a direct Android vibration request to the connected controller first, then to the phone or handheld fallback when enabled.</string>
     <string name="settings_help_pad_vibration_fallback">Some handheld controls report as a gamepad but expose vibration only through the device vibrator. This fallback keeps rumble working on those devices, but external controllers without rumble will vibrate the phone or handheld instead.</string>
+    <string name="settings_help_auto_progressive_scan">Simulates holding Triangle + Cross for a few seconds after launch. Use it for games that reveal a progressive scan or 480p prompt only when this combo is held during boot.</string>
     <string name="settings_help_recent_games">Shows a quick-access row for the games you played last. Good if you bounce between a few titles often; turn it off if you want a cleaner home screen.</string>
     <string name="settings_help_home_search">Shows the library search bar directly on the home screen. Leave it on for big libraries; turn it off if you prefer a cleaner layout and rarely search by name.</string>
     <string name="settings_help_debug_options">Shows extra diagnostic controls in the in-game menu, including the JIT profiler and hang trace recorder. Keep this off for normal play.</string>

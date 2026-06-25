@@ -1213,4 +1213,7 @@
     <string name="gpu_mali_desc">ARM çerçeve arabelleği getirme işlemine sahip Mali dalını kullanır.</string>
     <string name="gpu_powervr_title">PowerVR</string>
     <string name="gpu_powervr_desc">Imagination GPU cihazları için PowerVR dalını kullanır.</string>
+    <string name="settings_help_auto_progressive_scan">Başlatmadan sonra birkaç saniye boyunca Üçgen + Çarpı (Cross) tuşlarına basılı tutmayı simüle eder. Yalnızca önyükleme sırasında bu kombinasyon basılı tutulduğunda aşamalı tarama (progressive scan) veya 480p istemini gösteren oyunlar için kullanın.</string>
+    <string name="settings_auto_progressive_scan">Otomatik Aşamalı Tarama</string>
+    <string name="settings_auto_progressive_scan_desc">Gizli 480p istemi olan oyunlar için önyükleme sırasında Üçgen + Çarpı tuşlarına basılı tutar.</string>
 </resources>

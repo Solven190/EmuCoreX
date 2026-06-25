@@ -1213,4 +1213,7 @@
     <string name="gpu_mali_desc">ARMフレームバッファフェッチ処理を備えたMaliブランチを使用します。</string>
     <string name="gpu_powervr_title">PowerVR</string>
     <string name="gpu_powervr_desc">Imagination GPUデバイス用のPowerVRブランチを使用します。</string>
+    <string name="settings_help_auto_progressive_scan">起動後数秒間、三角 + バツボタンを押し続ける操作をシミュレートします。起動中にこの組み合わせを押し続けている場合にのみ、プログレッシブスキャンまたは480pのプロンプトを表示するゲームに使用します。</string>
+    <string name="settings_auto_progressive_scan">オートプログレッシブスキャン</string>
+    <string name="settings_auto_progressive_scan_desc">隠された480pプロンプトを持つゲームのために、起動中に三角 + バツボタンを押し続けます。</string>
 </resources>

@@ -8,6 +8,7 @@ import androidx.core.net.toUri
 import com.sbro.emucorex.data.AppPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -25,6 +26,11 @@ object EmulatorBridge {
     const val VULKAN_RENDERER = 14
     const val DEFAULT_RENDERER = VULKAN_RENDERER
     private const val BOOT_SMOKE_PROBE_STEPS = 67_108_864
+    private const val AUTO_PROGRESSIVE_SCAN_PAD_INDEX = 0
+    private const val AUTO_PROGRESSIVE_SCAN_CROSS = 96
+    private const val AUTO_PROGRESSIVE_SCAN_TRIANGLE = 100
+    private const val AUTO_PROGRESSIVE_SCAN_BOOT_DELAY_MS = 350L
+    private const val AUTO_PROGRESSIVE_SCAN_HOLD_MS = 5_000L
 
     private val aspectRatioSettingValues = mapOf(
         0 to "Stretch",
@@ -36,6 +42,7 @@ object EmulatorBridge {
 
     private val serialDispatcher = Dispatchers.IO.limitedParallelism(1)
     private val serialScope = CoroutineScope(SupervisorJob() + serialDispatcher)
+    private val inputScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Volatile
     var isNativeLoaded: Boolean = false
@@ -58,6 +65,9 @@ object EmulatorBridge {
 
     @Volatile
     private var shutdownRequested: Boolean = false
+
+    @Volatile
+    private var autoProgressiveScanJob: Job? = null
 
     private var contextRef: WeakReference<Context>? = null
     private val settingsCache = HashMap<String, String>()
@@ -591,6 +601,8 @@ object EmulatorBridge {
         NativeApp.logCrashBreadcrumb("startEmulation requested pathType=$pathType vmActive=$isVmActive")
         Log.i(TAG, "startEmulation requested pathType=$pathType bootSmoke=$bootSmokeProbe vmActive=$isVmActive")
 
+        maybeStartAutoProgressiveScanHold(path, bootSmokeProbe, allowBiosBoot)
+
         return runSerial {
             isVmActive = true
             shutdownRequested = false
@@ -616,6 +628,9 @@ object EmulatorBridge {
                 Log.e(TAG, "startEmulation native call failed", error)
                 false
             }
+            if (!result) {
+                autoProgressiveScanJob?.cancel()
+            }
             if (bootSmokeProbe) {
                 isVmActive = false
                 DocumentPathResolver.releasePreparedLaunchHandles()
@@ -626,6 +641,47 @@ object EmulatorBridge {
             NativeApp.logCrashBreadcrumb("startEmulation finished result=$result")
             Log.i(TAG, "startEmulation finished result=$result")
             result
+        }
+    }
+
+    private suspend fun maybeStartAutoProgressiveScanHold(
+        path: String,
+        bootSmokeProbe: Boolean,
+        allowBiosBoot: Boolean
+    ) {
+        if (bootSmokeProbe || allowBiosBoot || path.isBlank()) return
+        val enabled = runCatching {
+            getContext()?.let { AppPreferences(it).autoProgressiveScan.first() } == true
+        }.getOrDefault(false)
+        if (!enabled) return
+
+        autoProgressiveScanJob?.cancel()
+        autoProgressiveScanJob = inputScope.launch {
+            try {
+                delay(AUTO_PROGRESSIVE_SCAN_BOOT_DELAY_MS)
+                setAutoProgressiveScanButtons(pressed = true)
+                delay(AUTO_PROGRESSIVE_SCAN_HOLD_MS)
+            } finally {
+                setAutoProgressiveScanButtons(pressed = false)
+            }
+        }
+    }
+
+    private fun setAutoProgressiveScanButtons(pressed: Boolean) {
+        if (!isNativeLoaded) return
+        runCatching {
+            NativeApp.setPadButton(
+                AUTO_PROGRESSIVE_SCAN_PAD_INDEX,
+                AUTO_PROGRESSIVE_SCAN_TRIANGLE,
+                0,
+                pressed
+            )
+            NativeApp.setPadButton(
+                AUTO_PROGRESSIVE_SCAN_PAD_INDEX,
+                AUTO_PROGRESSIVE_SCAN_CROSS,
+                0,
+                pressed
+            )
         }
     }
 
@@ -708,6 +764,7 @@ object EmulatorBridge {
 
     suspend fun shutdown() {
         if (!isNativeLoaded || !isVmActive || shutdownRequested) return
+        autoProgressiveScanJob?.cancel()
         runSerial {
             if (!isVmActive || shutdownRequested) return@runSerial
             shutdownRequested = true

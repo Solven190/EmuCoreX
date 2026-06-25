@@ -1215,4 +1215,7 @@
     <string name="gpu_mali_desc">Utilise la branche Mali avec la gestion du framebuffer-fetch ARM.</string>
     <string name="gpu_powervr_title">PowerVR</string>
     <string name="gpu_powervr_desc">Utilise la branche PowerVR pour les appareils avec GPU Imagination.</string>
+    <string name="settings_help_auto_progressive_scan">Simule le maintien des touches Triangle + Croix pendant quelques secondes après le lancement. À utiliser pour les jeux qui n'affichent une invite de balayage progressif ou 480p que lorsque cette combinaison est maintenue au démarrage.</string>
+    <string name="settings_auto_progressive_scan">Balayage progressif automatique</string>
+    <string name="settings_auto_progressive_scan_desc">Maintient Triangle + Croix au démarrage pour les jeux avec une invite 480p cachée.</string>
 </resources>

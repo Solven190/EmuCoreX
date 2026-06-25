@@ -1213,4 +1213,7 @@
     <string name="gpu_mali_desc">Utilizza il ramo Mali con la gestione framebuffer-fetch ARM.</string>
     <string name="gpu_powervr_title">PowerVR</string>
     <string name="gpu_powervr_desc">Utilizza il ramo PowerVR per i dispositivi con GPU Imagination.</string>
+    <string name="settings_help_auto_progressive_scan">Simula la pressione prolungata di Triangolo + Croce per alcuni secondi dopo l'avvio. Usalo per i giochi che mostrano una richiesta di scansione progressiva o 480p solo quando questa combinazione viene tenuta premuta durante l'avvio.</string>
+    <string name="settings_auto_progressive_scan">Scansione progressiva automatica</string>
+    <string name="settings_auto_progressive_scan_desc">Tieni premuto Triangolo + Croce all'avvio per i giochi con una richiesta 480p nascosta.</string>
 </resources>

@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +45,13 @@ import kotlin.math.roundToInt
 
 private val OverlaySelectedStroke = Color(0xFF7CC8FF).copy(alpha = 0.88f)
 private val OverlayPreviewStroke = Color.White.copy(alpha = 0.18f)
+
+enum class OverlayDpadDirection {
+    Up,
+    Down,
+    Left,
+    Right
+}
 
 @DrawableRes
 fun overlayDrawableForControl(controlId: String): Int? = when (controlId) {
@@ -134,6 +142,158 @@ fun VectorOverlayButton(
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = contentScale
+        )
+    }
+}
+
+@Composable
+fun VectorDpadCluster(
+    size: Dp,
+    modifier: Modifier = Modifier,
+    alpha: Float = 1f,
+    selected: Boolean = false,
+    interactive: Boolean = true,
+    onDirectionsChange: ((Set<OverlayDpadDirection>) -> Unit)? = null
+) {
+    var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
+    var activePointerId by remember { mutableIntStateOf(MotionEvent.INVALID_POINTER_ID) }
+    var activeDirections by remember { mutableStateOf(emptySet<OverlayDpadDirection>()) }
+    val currentDirections by rememberUpdatedState(activeDirections)
+    val currentOnDirectionsChange by rememberUpdatedState(onDirectionsChange)
+
+    fun setDirections(directions: Set<OverlayDpadDirection>) {
+        if (directions == activeDirections) return
+        activeDirections = directions
+        onDirectionsChange?.invoke(directions)
+    }
+
+    fun directionsFromPosition(x: Float, y: Float): Set<OverlayDpadDirection> {
+        if (bounds.width <= 0f || bounds.height <= 0f) return emptySet()
+        val centerX = bounds.width / 2f
+        val centerY = bounds.height / 2f
+        val deadZoneX = bounds.width * 0.16f
+        val deadZoneY = bounds.height * 0.16f
+        val dx = x - centerX
+        val dy = y - centerY
+        return buildSet {
+            if (dx < -deadZoneX) add(OverlayDpadDirection.Left)
+            if (dx > deadZoneX) add(OverlayDpadDirection.Right)
+            if (dy < -deadZoneY) add(OverlayDpadDirection.Up)
+            if (dy > deadZoneY) add(OverlayDpadDirection.Down)
+        }
+    }
+
+    fun resetDirections() {
+        activePointerId = MotionEvent.INVALID_POINTER_ID
+        setDirections(emptySet())
+    }
+
+    val pointerModifier = if (interactive && onDirectionsChange != null) {
+        Modifier.pointerInteropFilter { event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                    if (activePointerId == MotionEvent.INVALID_POINTER_ID) {
+                        val index = event.actionIndex
+                        activePointerId = event.getPointerId(index)
+                        setDirections(directionsFromPosition(event.getX(index), event.getY(index)))
+                    }
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val index = event.findPointerIndex(activePointerId)
+                    if (index >= 0) {
+                        setDirections(directionsFromPosition(event.getX(index), event.getY(index)))
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+                    val pointerId = event.getPointerId(event.actionIndex)
+                    if (pointerId == activePointerId) {
+                        resetDirections()
+                    }
+                    true
+                }
+
+                MotionEvent.ACTION_CANCEL -> {
+                    resetDirections()
+                    true
+                }
+
+                else -> activePointerId != MotionEvent.INVALID_POINTER_ID
+            }
+        }
+    } else {
+        Modifier
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (currentDirections.isNotEmpty()) {
+                currentOnDirectionsChange?.invoke(emptySet())
+            }
+        }
+    }
+
+    val shape = RoundedCornerShape(22.dp)
+    val buttonSize = size * 0.36f
+    Box(
+        modifier = modifier
+            .size(size)
+            .graphicsLayer(alpha = alpha)
+            .clip(shape)
+            .background(Color(0xFF14213A).copy(alpha = 0.54f))
+            .border(
+                width = if (selected) 1.5.dp else 1.dp,
+                color = when {
+                    selected -> OverlaySelectedStroke
+                    alpha < 0.65f -> OverlayPreviewStroke.copy(alpha = 0.35f)
+                    else -> Color.White.copy(alpha = 0.16f)
+                },
+                shape = shape
+            )
+            .onSizeChanged { bounds = androidx.compose.ui.geometry.Size(it.width.toFloat(), it.height.toFloat()) }
+            .then(pointerModifier),
+        contentAlignment = Alignment.Center
+    ) {
+        VectorOverlayButton(
+            drawableRes = R.drawable.ic_controller_up_button,
+            width = buttonSize,
+            height = buttonSize,
+            shape = RoundedCornerShape(8.dp),
+            pressed = activeDirections.contains(OverlayDpadDirection.Up),
+            interactive = false,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
+        VectorOverlayButton(
+            drawableRes = R.drawable.ic_controller_down_button,
+            width = buttonSize,
+            height = buttonSize,
+            shape = RoundedCornerShape(8.dp),
+            pressed = activeDirections.contains(OverlayDpadDirection.Down),
+            interactive = false,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+        VectorOverlayButton(
+            drawableRes = R.drawable.ic_controller_left_button,
+            width = buttonSize,
+            height = buttonSize,
+            shape = RoundedCornerShape(8.dp),
+            pressed = activeDirections.contains(OverlayDpadDirection.Left),
+            interactive = false,
+            modifier = Modifier.align(Alignment.CenterStart)
+        )
+        VectorOverlayButton(
+            drawableRes = R.drawable.ic_controller_right_button,
+            width = buttonSize,
+            height = buttonSize,
+            shape = RoundedCornerShape(8.dp),
+            pressed = activeDirections.contains(OverlayDpadDirection.Right),
+            interactive = false,
+            modifier = Modifier.align(Alignment.CenterEnd)
         )
     }
 }

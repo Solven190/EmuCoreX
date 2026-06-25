@@ -94,6 +94,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -162,7 +163,9 @@ import com.sbro.emucorex.ui.common.ProvideGamepadMenuAction
 import com.sbro.emucorex.ui.common.ProvideGamepadShoulderActions
 import com.sbro.emucorex.ui.common.ProvideGamepadUiNavigation
 import com.sbro.emucorex.ui.common.SettingHelpButton
+import com.sbro.emucorex.ui.common.OverlayDpadDirection
 import com.sbro.emucorex.ui.common.VectorAnalogStick
+import com.sbro.emucorex.ui.common.VectorDpadCluster
 import com.sbro.emucorex.ui.common.VectorOverlayButton
 import com.sbro.emucorex.ui.common.buildOverlayCanvasLayout
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
@@ -1553,6 +1556,32 @@ private fun OnScreenControls(
             safeTopInset = safeTop,
             safeBottomInset = safeBottom
         )
+        var extraDpadDirections by remember { mutableStateOf(emptySet<OverlayDpadDirection>()) }
+        val currentExtraDpadDirections by rememberUpdatedState(extraDpadDirections)
+        val currentOnPadInput by rememberUpdatedState(onPadInput)
+
+        fun dpadKeyFor(direction: OverlayDpadDirection): Int = when (direction) {
+            OverlayDpadDirection.Up -> PadKey.UP
+            OverlayDpadDirection.Down -> PadKey.DOWN
+            OverlayDpadDirection.Left -> PadKey.LEFT
+            OverlayDpadDirection.Right -> PadKey.RIGHT
+        }
+
+        fun updateExtraDpadDirections(next: Set<OverlayDpadDirection>) {
+            val released = extraDpadDirections - next
+            val pressed = next - extraDpadDirections
+            released.forEach { direction -> currentOnPadInput(dpadKeyFor(direction), 0, false) }
+            pressed.forEach { direction -> currentOnPadInput(dpadKeyFor(direction), 0, true) }
+            extraDpadDirections = next
+        }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                currentExtraDpadDirections.forEach { direction ->
+                    currentOnPadInput(dpadKeyFor(direction), 0, false)
+                }
+            }
+        }
 
         fun runtimeSpecs(specs: List<com.sbro.emucorex.ui.common.OverlayCanvasButtonSpec>): List<TouchButtonSpec> {
             return specs.filter { it.visible }.map { spec ->
@@ -1596,6 +1625,16 @@ private fun OnScreenControls(
         val dpadSpecs = runtimeSpecs(layout.dpadButtons)
         if (dpadSpecs.isNotEmpty()) {
             TouchButtonGroup(specs = dpadSpecs)
+        }
+
+        layout.dpadCluster?.takeIf { it.visible }?.let { cluster ->
+            VectorDpadCluster(
+                size = cluster.size,
+                onDirectionsChange = ::updateExtraDpadDirections,
+                modifier = Modifier.offset {
+                    IntOffset(cluster.x.roundToPx(), cluster.y.roundToPx())
+                }
+            )
         }
 
         layout.leftStick?.takeIf { it.visible }?.let { stick ->

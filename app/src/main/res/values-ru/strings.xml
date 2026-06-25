@@ -1215,4 +1215,7 @@
     <string name="gpu_mali_desc">Использует ветку Mali с обработкой выборки из кадрового буфера ARM.</string>
     <string name="gpu_powervr_title">PowerVR</string>
     <string name="gpu_powervr_desc">Использует ветку PowerVR для устройств с GPU Imagination.</string>
+    <string name="settings_help_auto_progressive_scan">Имитирует удержание кнопок Треугольник + Крест в течение нескольких секунд после запуска. Используйте для игр, которые предлагают включить прогрессивную развертку (или 480p) только при удержании этой комбинации во время загрузки.</string>
+    <string name="settings_auto_progressive_scan">Автоматическая прогрессивная развертка</string>
+    <string name="settings_auto_progressive_scan_desc">Удерживает Треугольник + Крест во время загрузки для игр со скрытым запросом 480p.</string>
 </resources>

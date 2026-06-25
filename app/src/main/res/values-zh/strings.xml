@@ -1215,4 +1215,7 @@
     <string name="gpu_mali_desc">使用带有 ARM 帧缓冲区获取处理的 Mali 分支。</string>
     <string name="gpu_powervr_title">PowerVR</string>
     <string name="gpu_powervr_desc">为 Imagination GPU 设备使用 PowerVR 分支。</string>
+    <string name="settings_help_auto_progressive_scan">模拟在启动后按住三角 + 叉号几秒钟。用于仅在启动期间按住此组合键时才显示逐行扫描或 480p 提示的游戏。</string>
+    <string name="settings_auto_progressive_scan">自动逐行扫描</string>
+    <string name="settings_auto_progressive_scan_desc">在启动期间按住三角 + 叉号，适用于带有隐藏 480p 提示的游戏。</string>
 </resources>

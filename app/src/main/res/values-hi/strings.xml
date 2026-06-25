@@ -1213,4 +1213,7 @@
     <string name="gpu_mali_desc">ARM फ़्रेमबफ़र-फ़ेच हैंडलिंग के साथ Mali शाखा का उपयोग करता है。</string>
     <string name="gpu_powervr_title">PowerVR</string>
     <string name="gpu_powervr_desc">Imagination GPU उपकरणों के लिए PowerVR शाखा का उपयोग करता है。</string>
+    <string name="settings_help_auto_progressive_scan">लॉन्च के बाद कुछ सेकंड के लिए त्रिभुज + क्रॉस (Triangle + Cross) को दबाए रखने का अनुकरण करता है। इसका उपयोग उन गेम के लिए करें जो बूट के दौरान इस कॉम्बो को दबाए रखने पर ही प्रोग्रेसिव स्कैन या 480p प्रॉम्प्ट दिखाते हैं。</string>
+    <string name="settings_auto_progressive_scan">ऑटो प्रोग्रेसिव स्कैन</string>
+    <string name="settings_auto_progressive_scan_desc">छिपे हुए 480p प्रॉम्प्ट वाले गेम के लिए बूट के दौरान त्रिभुज + क्रॉस दबाए रखें。</string>
 </resources>

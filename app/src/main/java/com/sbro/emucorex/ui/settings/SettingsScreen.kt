@@ -1267,6 +1267,15 @@ private fun SettingsContent(
                             onResetToDefault = { viewModel.setHideOverlayOnGamepad(overlayDefaults.hideOverlayOnGamepad) }
                         )
                         ToggleItem(
+                            icon = Icons.Rounded.SettingsSuggest,
+                            title = stringResource(R.string.settings_auto_progressive_scan),
+                            subtitle = stringResource(R.string.settings_auto_progressive_scan_desc),
+                            checked = uiState.autoProgressiveScan,
+                            onCheckedChange = viewModel::setAutoProgressiveScan,
+                            helpText = stringResource(R.string.settings_help_auto_progressive_scan),
+                            onResetToDefault = { viewModel.setAutoProgressiveScan(defaults.autoProgressiveScan) }
+                        )
+                        ToggleItem(
                             icon = Icons.Rounded.Vibration,
                             title = stringResource(R.string.settings_pad_vibration),
                             subtitle = stringResource(R.string.settings_pad_vibration_desc),
@@ -2489,6 +2498,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Controls, R.string.settings_invert_right_stick_horizontal),
         entry(SettingsTab.Controls, R.string.settings_gamepad_mode),
         entry(SettingsTab.Controls, R.string.settings_gamepad_hide_overlay),
+        entry(SettingsTab.Controls, R.string.settings_auto_progressive_scan),
         entry(SettingsTab.Controls, R.string.settings_gamepad_stick_deadzone),
         entry(SettingsTab.Controls, R.string.settings_gamepad_left_stick_sensitivity),
         entry(SettingsTab.Controls, R.string.settings_gamepad_right_stick_sensitivity),

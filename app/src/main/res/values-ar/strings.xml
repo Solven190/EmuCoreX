@@ -1213,4 +1213,7 @@
     <string name="gpu_mali_desc">يستخدم فرع Mali مع معالجة جلب الإطار المؤقت من ARM.</string>
     <string name="gpu_powervr_title">PowerVR</string>
     <string name="gpu_powervr_desc">يستخدم فرع PowerVR لأجهزة وحدة معالجة الرسومات Imagination.</string>
+    <string name="settings_help_auto_progressive_scan">يحاكي الضغط مع الاستمرار على مثلث + تقاطع (Triangle + Cross) لبضع ثوان بعد الإطلاق. استخدمه للألعاب التي تظهر مطالبة بالمسح التقدمي (progressive scan) أو 480p فقط عند الاستمرار في الضغط على هذه المجموعة أثناء التمهيد.</string>
+    <string name="settings_auto_progressive_scan">المسح التقدمي التلقائي</string>
+    <string name="settings_auto_progressive_scan_desc">الاستمرار في الضغط على مثلث + تقاطع أثناء التمهيد للألعاب التي تحتوي على مطالبة 480p مخفية.</string>
 </resources>

@@ -40,6 +40,7 @@ data class SettingsUiState(
     val renderer: Int = EmulatorBridge.DEFAULT_RENDERER,
     val upscaleMultiplier: Float = 1f,
     val aspectRatio: Int = 1,
+    val autoProgressiveScan: Boolean = false,
     val padVibration: Boolean = true,
     val padVibrationStrength: Int = AppPreferences.DEFAULT_PAD_VIBRATION_STRENGTH,
     val padVibrationFallback: Boolean = true,
@@ -208,6 +209,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             renderer = snapshot.renderer,
             upscaleMultiplier = snapshot.upscaleMultiplier,
             aspectRatio = snapshot.aspectRatio,
+            autoProgressiveScan = snapshot.autoProgressiveScan,
             padVibration = snapshot.padVibration,
             padVibrationStrength = snapshot.padVibrationStrength,
             padVibrationFallback = snapshot.padVibrationFallback,
@@ -708,6 +710,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             preferences.setAspectRatio(value)
             EmulatorBridge.setAspectRatio(value)
+        }
+    }
+
+    fun setAutoProgressiveScan(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setAutoProgressiveScan(enabled)
         }
     }
 

@@ -1215,4 +1215,7 @@
     <string name="gpu_mali_desc">Використовує гілку Mali з обробкою вибірки з кадрового буфера ARM.</string>
     <string name="gpu_powervr_title">PowerVR</string>
     <string name="gpu_powervr_desc">Використовує гілку PowerVR для пристроїв з GPU Imagination.</string>
+    <string name="settings_help_auto_progressive_scan">Імітує утримання кнопок Трикутник + Хрест протягом кількох секунд після запуску. Використовуйте для ігор, які пропонують увімкнути прогресивну розгортку (або 480p) лише під час утримання цієї комбінації під час завантаження.</string>
+    <string name="settings_auto_progressive_scan">Автоматична прогресивна розгортка</string>
+    <string name="settings_auto_progressive_scan_desc">Утримує Трикутник + Хрест під час завантаження для ігор із прихованим запитом 480p.</string>
 </resources>

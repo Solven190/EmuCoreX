@@ -1215,4 +1215,7 @@
     <string name="gpu_mali_desc">Verwendet den Mali-Zweig mit ARM-Framebuffer-Fetch-Handling.</string>
     <string name="gpu_powervr_title">PowerVR</string>
     <string name="gpu_powervr_desc">Verwendet den PowerVR-Zweig für Imagination-GPU-Geräte.</string>
+    <string name="settings_help_auto_progressive_scan">Simuliert das Gedrückthalten von Dreieck + Kreuz für einige Sekunden nach dem Start. Verwende dies für Spiele, die nur dann eine Eingabeaufforderung für Progressive Scan oder 480p anzeigen, wenn diese Kombination während des Bootvorgangs gedrückt gehalten wird.</string>
+    <string name="settings_auto_progressive_scan">Automatischer Progressive Scan</string>
+    <string name="settings_auto_progressive_scan_desc">Hält Dreieck + Kreuz während des Bootvorgangs für Spiele mit versteckter 480p-Eingabeaufforderung gedrückt.</string>
 </resources>

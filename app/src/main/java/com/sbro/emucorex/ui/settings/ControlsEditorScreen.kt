@@ -66,8 +66,10 @@ import com.sbro.emucorex.R
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.OverlayControlLayout
 import com.sbro.emucorex.ui.common.OverlayCanvasButtonSpec
+import com.sbro.emucorex.ui.common.OverlayCanvasDpadClusterSpec
 import com.sbro.emucorex.ui.common.OverlayCanvasStickSpec
 import com.sbro.emucorex.ui.common.VectorAnalogStick
+import com.sbro.emucorex.ui.common.VectorDpadCluster
 import com.sbro.emucorex.ui.common.VectorOverlayButton
 import com.sbro.emucorex.ui.common.buildOverlayCanvasLayout
 import com.sbro.emucorex.ui.emulation.EmulationUiState
@@ -447,6 +449,7 @@ private fun controlTitle(controlId: String): String = when (controlId) {
     "dpad_down" -> stringResource(R.string.settings_gamepad_action_dpad_down)
     "dpad_left" -> stringResource(R.string.settings_gamepad_action_dpad_left)
     "dpad_right" -> stringResource(R.string.settings_gamepad_action_dpad_right)
+    "dpad_cluster" -> "Extra D-pad"
     "left_stick" -> "Left Stick"
     "triangle" -> stringResource(R.string.settings_gamepad_action_triangle)
     "square" -> stringResource(R.string.settings_gamepad_action_square)
@@ -594,6 +597,21 @@ private fun PreviewLayout(
             )
         }
 
+        fun moveDpadCluster(controlId: String, spec: OverlayCanvasDpadClusterSpec, delta: Pair<Float, Float>) {
+            val current = controlLayouts[controlId] ?: OverlayControlLayout()
+            onSetControlOffset(
+                controlId,
+                clampOffset(
+                    currentOffset = current.offset,
+                    delta = delta,
+                    baseX = spec.baseX,
+                    baseY = spec.baseY,
+                    width = spec.size,
+                    height = spec.size
+                )
+            )
+        }
+
         fun buttonGroupBounds(specs: List<OverlayCanvasButtonSpec>): PreviewGroupBounds? {
             if (specs.isEmpty()) return null
             val padding = 10.dp
@@ -676,6 +694,16 @@ private fun PreviewLayout(
             )
         }
 
+        layout.dpadCluster?.let { spec ->
+            PreviewCanvasDpadCluster(
+                spec = spec,
+                selected = selectedControlId == spec.id,
+                onSelectControl = onSelectControl,
+                onMoveControlBy = { id, delta -> moveDpadCluster(id, spec, delta) },
+                onCommitControlPosition = onCommitControlPosition
+            )
+        }
+
         layout.leftStick
             ?.takeIf { showLeftStick }
             ?.let { spec ->
@@ -704,6 +732,37 @@ private fun PreviewLayout(
                 onCommitControlPosition = onCommitControlPosition
             )
         }
+    }
+}
+
+@Composable
+private fun PreviewCanvasDpadCluster(
+    spec: OverlayCanvasDpadClusterSpec,
+    selected: Boolean,
+    onSelectControl: (String) -> Unit,
+    onMoveControlBy: (String, Pair<Float, Float>) -> Unit,
+    onCommitControlPosition: (String) -> Unit
+) {
+    DraggableControl(
+        id = spec.id,
+        selected = selected,
+        onSelectControl = onSelectControl,
+        onMoveControlBy = onMoveControlBy,
+        onCommitControlPosition = onCommitControlPosition,
+        modifier = Modifier.offset {
+            IntOffset(
+                spec.x.roundToPx(),
+                spec.y.roundToPx()
+            )
+        },
+        baseZIndex = 1.5f
+    ) {
+        VectorDpadCluster(
+            size = spec.size,
+            alpha = if (spec.visible) 1f else 0.38f,
+            selected = selected,
+            interactive = false
+        )
     }
 }
 

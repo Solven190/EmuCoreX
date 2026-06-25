@@ -41,6 +41,7 @@ data class SettingsSnapshot(
     val renderer: Int = EmulatorBridge.DEFAULT_RENDERER,
     val upscaleMultiplier: Float = 1f,
     val aspectRatio: Int = 1,
+    val autoProgressiveScan: Boolean = false,
     val padVibration: Boolean = true,
     val padVibrationStrength: Int = AppPreferences.DEFAULT_PAD_VIBRATION_STRENGTH,
     val padVibrationFallback: Boolean = true,
@@ -242,6 +243,7 @@ class AppPreferences(private val context: Context) {
             "dpad_down" to OverlayControlLayout(visible = false),
             "dpad_left" to OverlayControlLayout(visible = false),
             "dpad_right" to OverlayControlLayout(visible = false),
+            "dpad_cluster" to OverlayControlLayout(visible = false),
             "left_stick" to OverlayControlLayout(scale = stickScale, widthScale = 160, visible = true),
             "triangle" to OverlayControlLayout(),
             "cross" to OverlayControlLayout(),
@@ -269,6 +271,7 @@ class AppPreferences(private val context: Context) {
         private val GPU_HARDWARE_PROFILE = intPreferencesKey("gpu_hardware_profile")
         private val LANGUAGE_TAG = stringPreferencesKey("language_tag")
         private val ASPECT_RATIO = intPreferencesKey("aspect_ratio")
+        private val AUTO_PROGRESSIVE_SCAN = booleanPreferencesKey("auto_progressive_scan")
         private val PAD_VIBRATION = booleanPreferencesKey("pad_vibration")
         private val PAD_VIBRATION_STRENGTH = intPreferencesKey("pad_vibration_strength")
         private val PAD_VIBRATION_FALLBACK = booleanPreferencesKey("pad_vibration_fallback")
@@ -721,6 +724,7 @@ class AppPreferences(private val context: Context) {
                 renderer = normalizeRendererPreference(prefs[RENDERER]),
                 upscaleMultiplier = readUpscale(prefs),
                 aspectRatio = normalizeAspectRatioPreference(prefs[ASPECT_RATIO]),
+                autoProgressiveScan = prefs[AUTO_PROGRESSIVE_SCAN] ?: false,
                 padVibration = prefs[PAD_VIBRATION] ?: true,
                 padVibrationStrength = (prefs[PAD_VIBRATION_STRENGTH] ?: DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150),
                 padVibrationFallback = prefs[PAD_VIBRATION_FALLBACK] ?: true,
@@ -903,6 +907,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setAspectRatio(value: Int) {
         context.dataStore.edit { it[ASPECT_RATIO] = normalizeAspectRatioPreference(value) }
+    }
+
+    val autoProgressiveScan: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[AUTO_PROGRESSIVE_SCAN] ?: false
+    }
+
+    suspend fun setAutoProgressiveScan(enabled: Boolean) {
+        context.dataStore.edit { it[AUTO_PROGRESSIVE_SCAN] = enabled }
     }
 
     private fun normalizeAspectRatioPreference(value: Int?): Int {
@@ -2108,6 +2120,7 @@ class AppPreferences(private val context: Context) {
             put("onboardingCompleted", prefs[ONBOARDING_COMPLETED] ?: false)
             put("languageTag", prefs[LANGUAGE_TAG])
             put("aspectRatio", normalizeAspectRatioPreference(prefs[ASPECT_RATIO]))
+            put("autoProgressiveScan", prefs[AUTO_PROGRESSIVE_SCAN] ?: false)
             put("padVibration", prefs[PAD_VIBRATION] ?: true)
             put("padVibrationStrength", (prefs[PAD_VIBRATION_STRENGTH] ?: DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150))
             put("padVibrationFallback", prefs[PAD_VIBRATION_FALLBACK] ?: true)
@@ -2255,6 +2268,7 @@ class AppPreferences(private val context: Context) {
             prefs[ONBOARDING_COMPLETED] = json.optBoolean("onboardingCompleted", false)
             languageTag?.let { prefs[LANGUAGE_TAG] = it } ?: prefs.remove(LANGUAGE_TAG)
             prefs[ASPECT_RATIO] = normalizeAspectRatioPreference(json.optInt("aspectRatio", 1))
+            prefs[AUTO_PROGRESSIVE_SCAN] = json.optBoolean("autoProgressiveScan", false)
             prefs[PAD_VIBRATION] = json.optBoolean("padVibration", true)
             prefs[PAD_VIBRATION_STRENGTH] = json.optInt("padVibrationStrength", DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150)
             prefs[PAD_VIBRATION_FALLBACK] = json.optBoolean("padVibrationFallback", true)
