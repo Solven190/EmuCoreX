@@ -1222,4 +1222,7 @@
     <string name="settings_fast_forward_speed_desc">%1$s</string>
     <string name="settings_help_fast_forward_speed">Встановлює швидкість, яка використовується під час утримання кнопки Start для прискорення.</string>
     <string name="emulation_transport_fast_forward">Прискорення</string>
+    <string name="settings_racing_mode">Гоночний режим</string>
+    <string name="settings_racing_mode_desc">Торкніться кнопок дій та тригерів (шифтів), щоб утримувати їх натиснутими, і торкніться знову, щоб відпустити.</string>
+    <string name="settings_help_racing_mode">Дозволяє сенсорним кнопкам дій і тригерам перемикати стан натискання одним дотиком. Це корисно для гоночних ігор, де потрібно постійно утримувати газ, тоді як Start, Select, стіки та хрестовина (D-pad) працюють як зазвичай.</string>
 </resources>

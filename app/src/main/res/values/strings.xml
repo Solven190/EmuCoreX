@@ -512,6 +512,7 @@
     <string name="settings_help_no_interlacing_patches">Applies no-interlacing patches where available. This is worth trying in games with combing, shimmer, or flicker from original interlaced output, but availability depends on the title.</string>
     <string name="settings_help_overlay_scale">Changes the size of on-screen buttons and sticks. Increase it if touch accuracy matters more than screen space; lower it if the overlay covers too much of the image.</string>
     <string name="settings_help_overlay_opacity">Controls how solid or transparent the touch controls look. Lower opacity keeps the game view cleaner, while higher opacity makes buttons easier to see in dark or busy scenes.</string>
+    <string name="settings_help_racing_mode">Makes touch action buttons and shoulder buttons toggle their pressed state with a tap. This is useful for racing games where acceleration needs to stay held, while Start, Select, sticks, and the D-pad keep normal behavior.</string>
     <string name="settings_help_left_stick_sensitivity">Adjusts how quickly the left touch stick reaches stronger movement input. Higher values react faster, while lower values make small movement corrections easier.</string>
     <string name="settings_help_right_stick_sensitivity">Adjusts how quickly the right touch stick reaches stronger input. Higher values make camera or aim changes react faster, while lower values give you finer control.</string>
     <string name="settings_help_invert_left_stick">Inverts the vertical axis for the left analog stick.</string>
@@ -645,6 +646,8 @@
     <string name="settings_memory_cards_tab">Memory Cards</string>
     <string name="settings_overlay_scale">Overlay Scale</string>
     <string name="settings_overlay_opacity">Overlay Opacity</string>
+    <string name="settings_racing_mode">Racing mode</string>
+    <string name="settings_racing_mode_desc">Tap action and shoulder buttons to hold them, then tap again to release.</string>
     <string name="settings_left_stick_sensitivity">Left Stick Sensitivity</string>
     <string name="settings_right_stick_sensitivity">Right Stick Sensitivity</string>
     <string name="settings_invert_left_stick">Invert Left Stick</string>

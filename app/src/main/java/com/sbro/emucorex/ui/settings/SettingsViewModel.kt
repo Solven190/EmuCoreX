@@ -131,6 +131,7 @@ data class SettingsUiState(
     val overlayScale: Int = 100,
     val overlayOpacity: Int = 80,
     val overlayShow: Boolean = true,
+    val racingMode: Boolean = false,
     val leftStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val invertLeftStick: Boolean = false,
@@ -298,6 +299,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             overlayScale = snapshot.overlayScale,
             overlayOpacity = snapshot.overlayOpacity,
             overlayShow = snapshot.overlayShow,
+            racingMode = snapshot.racingMode,
             leftStickSensitivity = snapshot.leftStickSensitivity,
             rightStickSensitivity = snapshot.rightStickSensitivity,
             invertLeftStick = snapshot.invertLeftStick,
@@ -790,6 +792,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setFpsOverlayMode(mode: Int) { viewModelScope.launch { preferences.setFpsOverlayMode(mode) } }
     fun setFpsOverlayCorner(corner: Int) { viewModelScope.launch { preferences.setFpsOverlayCorner(corner) } }
     fun setKeepScreenOn(enabled: Boolean) { viewModelScope.launch { preferences.setKeepScreenOn(enabled) } }
+    fun setRacingMode(enabled: Boolean) { viewModelScope.launch { preferences.setRacingMode(enabled) } }
     fun setShowRecentGames(enabled: Boolean) { viewModelScope.launch { preferences.setShowRecentGames(enabled) } }
     fun setShowHomeSearch(enabled: Boolean) { viewModelScope.launch { preferences.setShowHomeSearch(enabled) } }
     fun setShowDebugOptions(enabled: Boolean) { viewModelScope.launch { preferences.setShowDebugOptions(enabled) } }

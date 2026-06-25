@@ -127,6 +127,7 @@ data class SettingsSnapshot(
     val overlayScale: Int = 100,
     val overlayOpacity: Int = 80,
     val overlayShow: Boolean = true,
+    val racingMode: Boolean = false,
     val leftStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val invertLeftStick: Boolean = false,
@@ -295,6 +296,7 @@ class AppPreferences(private val context: Context) {
         private val OVERLAY_SCALE = intPreferencesKey("overlay_scale")
         private val OVERLAY_OPACITY = intPreferencesKey("overlay_opacity")
         private val OVERLAY_SHOW = booleanPreferencesKey("overlay_show")
+        private val RACING_MODE = booleanPreferencesKey("racing_mode")
         // Extended emulator settings
         private val ENABLE_FAST_BOOT = booleanPreferencesKey("enable_fast_boot")
         private val EE_CYCLE_RATE = intPreferencesKey("ee_cycle_rate")
@@ -840,6 +842,7 @@ class AppPreferences(private val context: Context) {
                 overlayScale = prefs[OVERLAY_SCALE] ?: 100,
                 overlayOpacity = prefs[OVERLAY_OPACITY] ?: 80,
                 overlayShow = prefs[OVERLAY_SHOW] ?: true,
+                racingMode = prefs[RACING_MODE] ?: false,
                 leftStickSensitivity = prefs[LEFT_STICK_SENSITIVITY] ?: DEFAULT_STICK_SENSITIVITY,
                 rightStickSensitivity = prefs[RIGHT_STICK_SENSITIVITY] ?: DEFAULT_STICK_SENSITIVITY,
                 invertLeftStick = prefs[INVERT_LEFT_STICK] ?: false,
@@ -1220,6 +1223,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setOverlayShow(enabled: Boolean) {
         context.dataStore.edit { it[OVERLAY_SHOW] = enabled }
+    }
+
+    val racingMode: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[RACING_MODE] ?: false
+    }
+
+    suspend fun setRacingMode(enabled: Boolean) {
+        context.dataStore.edit { it[RACING_MODE] = enabled }
     }
 
     val gamepadStickDeadzone: Flow<Int> = context.dataStore.data.map { prefs ->
@@ -2152,6 +2163,7 @@ class AppPreferences(private val context: Context) {
             put("overlayScale", prefs[OVERLAY_SCALE] ?: 100)
             put("overlayOpacity", prefs[OVERLAY_OPACITY] ?: 80)
             put("overlayShow", prefs[OVERLAY_SHOW] ?: true)
+            put("racingMode", prefs[RACING_MODE] ?: false)
             put("gamepadStickDeadzone", prefs[GAMEPAD_STICK_DEADZONE] ?: DEFAULT_GAMEPAD_STICK_DEADZONE)
             put("gamepadLeftStickSensitivity", prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
             put("gamepadRightStickSensitivity", prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
@@ -2304,6 +2316,7 @@ class AppPreferences(private val context: Context) {
             prefs[OVERLAY_SCALE] = json.optInt("overlayScale", 100)
             prefs[OVERLAY_OPACITY] = json.optInt("overlayOpacity", 80)
             prefs[OVERLAY_SHOW] = json.optBoolean("overlayShow", true)
+            prefs[RACING_MODE] = json.optBoolean("racingMode", false)
             prefs[GAMEPAD_STICK_DEADZONE] = json.optInt("gamepadStickDeadzone", DEFAULT_GAMEPAD_STICK_DEADZONE).coerceIn(0, 35)
             prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] = json.optInt("gamepadLeftStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)
             prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] = json.optInt("gamepadRightStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)

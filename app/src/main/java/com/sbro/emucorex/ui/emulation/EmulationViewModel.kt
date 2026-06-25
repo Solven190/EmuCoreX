@@ -73,6 +73,7 @@ data class EmulationUiState(
     val invertRightStick: Boolean = false,
     val invertLeftStickHorizontal: Boolean = false,
     val invertRightStickHorizontal: Boolean = false,
+    val racingMode: Boolean = false,
     val gamepadStickDeadzone: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE,
     val gamepadLeftStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
     val gamepadRightStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
@@ -266,6 +267,7 @@ private data class LiveRuntimeSnapshot(
     val skipDuplicateFrames: Boolean,
     val frameLimitEnabled: Boolean,
     val fastForwardSpeed: Float,
+    val racingMode: Boolean,
     val targetFps: Int,
     val ntscFramerate: Float,
     val palFramerate: Float,
@@ -775,6 +777,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         viewModelScope.launch {
+            preferences.racingMode.collect { enabled ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(racingMode = enabled) }
+            }
+        }
+        viewModelScope.launch {
             preferences.ntscFramerate.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(ntscFramerate = value) }
             }
@@ -1212,6 +1219,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     nativePaletteDraw = liveRuntime.nativePaletteDraw,
                     frameLimitEnabled = liveRuntime.frameLimitEnabled,
                     fastForwardSpeed = liveRuntime.fastForwardSpeed,
+                    racingMode = liveRuntime.racingMode,
                     targetFps = liveRuntime.targetFps,
                     ntscFramerate = liveRuntime.ntscFramerate,
                     palFramerate = liveRuntime.palFramerate
@@ -2706,6 +2714,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             skipDuplicateFrames = preferences.skipDuplicateFrames.first(),
             frameLimitEnabled = preferences.frameLimitEnabled.first(),
             fastForwardSpeed = preferences.fastForwardSpeed.first(),
+            racingMode = preferences.racingMode.first(),
             targetFps = preferences.targetFps.first(),
             ntscFramerate = preferences.ntscFramerate.first(),
             palFramerate = preferences.palFramerate.first(),
@@ -2836,6 +2845,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         return copy(
             showFps = pick("showFps", showFps) { showFps },
             fpsOverlayMode = pick("fpsOverlayMode", fpsOverlayMode) { fpsOverlayMode },
+            racingMode = pick("racingMode", racingMode) { racingMode },
             renderer = pick("renderer", renderer) { renderer },
             upscale = pick("upscaleMultiplier", upscale) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
@@ -2917,6 +2927,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalEeCycleSkip = preferences.eeCycleSkip.first()
         val globalSkipDuplicateFrames = preferences.skipDuplicateFrames.first()
         val globalFrameLimitEnabled = preferences.frameLimitEnabled.first()
+        val globalRacingMode = preferences.racingMode.first()
         val globalTargetFps = preferences.targetFps.first()
         val globalNtscFramerate = preferences.ntscFramerate.first()
         val globalPalFramerate = preferences.palFramerate.first()
@@ -2943,6 +2954,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             frameSkip = frameSkip,
             skipDuplicateFrames = skipDuplicateFrames,
             frameLimitEnabled = frameLimitEnabled,
+            racingMode = racingMode,
             targetFps = targetFps,
             ntscFramerate = ntscFramerate,
             palFramerate = palFramerate,
@@ -3009,6 +3021,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (profile.frameSkip != preferences.frameSkip.first()) add("frameSkip")
             if (skipDuplicateFrames != globalSkipDuplicateFrames) add("skipDuplicateFrames")
             if (frameLimitEnabled != globalFrameLimitEnabled) add("frameLimitEnabled")
+            if (racingMode != globalRacingMode) add("racingMode")
             if (targetFps != globalTargetFps) add("targetFps")
             if (ntscFramerate != globalNtscFramerate) add("ntscFramerate")
             if (palFramerate != globalPalFramerate) add("palFramerate")

@@ -235,6 +235,7 @@ private data class TouchButtonSpec(
     val shape: androidx.compose.ui.graphics.Shape,
     val onPressChange: ((Boolean) -> Unit)? = null,
     val onClick: (() -> Unit)? = null,
+    val tapToHold: Boolean = false,
     val longPressDelayMs: Long = 0L,
     val onLongPressChange: ((Boolean) -> Unit)? = null
 )
@@ -1031,6 +1032,7 @@ fun EmulationScreen(
                 rbtnOffset = uiState.rbtnOffset,
                 centerOffset = uiState.centerOffset,
                 controlLayouts = uiState.controlLayouts,
+                racingMode = uiState.racingMode,
                 onToggleLeftInputMode = viewModel::toggleLeftInputMode,
                 onFastForwardHoldChange = viewModel::setFastForwardHeld,
                 onPadInput = { keyCode, range, pressed ->
@@ -1560,6 +1562,7 @@ private fun OnScreenControls(
     rbtnOffset: Pair<Float, Float>,
     centerOffset: Pair<Float, Float>,
     controlLayouts: Map<String, OverlayControlLayout>,
+    racingMode: Boolean,
     onToggleLeftInputMode: () -> Unit,
     onFastForwardHoldChange: (Boolean) -> Unit,
     onPadInput: (Int, Int, Boolean) -> Unit
@@ -1591,6 +1594,11 @@ private fun OnScreenControls(
         "r3" -> { pressed -> onPadInput(PadKey.R3, 0, pressed) }
         else -> null
     }
+
+    fun isRacingTapToHoldButton(id: String): Boolean = id in setOf(
+        "l2", "l1", "r2", "r1",
+        "triangle", "cross", "square", "circle"
+    )
 
     BoxWithConstraints(modifier = modifier) {
         val layout = buildOverlayCanvasLayout(
@@ -1650,6 +1658,7 @@ private fun OnScreenControls(
                     shape = spec.shape,
                     onPressChange = buttonPressHandler(spec.id),
                     onClick = if (spec.id == "left_input_toggle") onToggleLeftInputMode else null,
+                    tapToHold = racingMode && isRacingTapToHoldButton(spec.id),
                     longPressDelayMs = if (spec.id == "start") TRANSPORT_HOLD_DELAY_MS else 0L,
                     onLongPressChange = if (spec.id == "start") onFastForwardHoldChange else null
                 )
@@ -1839,6 +1848,7 @@ private fun TouchButtonGroup(
     val coroutineScope = rememberCoroutineScope()
     val activeTargets = remember { mutableStateMapOf<Int, String>() }
     val downTargets = remember { mutableMapOf<Int, String?>() }
+    val latchedTargets = remember { mutableStateMapOf<String, Boolean>() }
     val longPressJobs = remember { mutableMapOf<Int, Job>() }
     val longPressActiveTargets = remember { mutableStateMapOf<Int, String>() }
     val specById = remember(specs) { specs.associateBy { it.id } }
@@ -1869,6 +1879,20 @@ private fun TouchButtonGroup(
 
     fun TouchButtonSpec.hasLongPressAction(): Boolean {
         return onLongPressChange != null && longPressDelayMs > 0L
+    }
+
+    fun TouchButtonSpec.hasTapToHoldAction(): Boolean {
+        return tapToHold && onPressChange != null
+    }
+
+    fun toggleLatchedTarget(spec: TouchButtonSpec) {
+        val press = spec.onPressChange ?: return
+        if (latchedTargets.remove(spec.id) == true) {
+            press(false)
+        } else {
+            latchedTargets[spec.id] = true
+            press(true)
+        }
     }
 
     fun cancelLongPress(pointerId: Int) {
@@ -1912,6 +1936,8 @@ private fun TouchButtonGroup(
             val oldSpec = specById[oldTarget]
             if (oldSpec?.hasLongPressAction() == true) {
                 cancelLongPress(pointerId)
+            } else if (oldSpec?.hasTapToHoldAction() == true) {
+                // Tap-to-hold buttons are toggled on release, not while the pointer is moving.
             } else if (!activeTargets.containsValue(oldTarget)) {
                 oldSpec?.onPressChange?.invoke(false)
             }
@@ -1923,6 +1949,8 @@ private fun TouchButtonGroup(
             val newSpec = specById[newTarget]
             if (newSpec?.hasLongPressAction() == true) {
                 startLongPress(pointerId, newTarget)
+            } else if (newSpec?.hasTapToHoldAction() == true) {
+                // Tap-to-hold buttons are toggled on release, not on pointer entry.
             } else if (!alreadyActive) {
                 newSpec?.onPressChange?.invoke(true)
             }
@@ -1935,14 +1963,18 @@ private fun TouchButtonGroup(
             longPressActiveTargets.values.toSet().forEach { targetId ->
                 specById[targetId]?.onLongPressChange?.invoke(false)
             }
+            latchedTargets.keys.toList().forEach { targetId ->
+                specById[targetId]?.onPressChange?.invoke(false)
+            }
             activeTargets.values.toSet().forEach { targetId ->
                 val spec = specById[targetId]
-                if (spec?.hasLongPressAction() != true) {
+                if (spec?.hasLongPressAction() != true && spec?.hasTapToHoldAction() != true) {
                     spec?.onPressChange?.invoke(false)
                 }
             }
             activeTargets.clear()
             downTargets.clear()
+            latchedTargets.clear()
             longPressJobs.clear()
             longPressActiveTargets.clear()
         }
@@ -1999,6 +2031,8 @@ private fun TouchButtonGroup(
                                 if (!consumedByLongPress) {
                                     sendShortTap(downSpec)
                                 }
+                            } else if (downSpec?.hasTapToHoldAction() == true) {
+                                toggleLatchedTarget(downSpec)
                             } else {
                                 downSpec?.onClick?.invoke()
                             }
@@ -2024,7 +2058,7 @@ private fun TouchButtonGroup(
                 height = spec.height,
                 shape = spec.shape,
                 interactive = false,
-                pressed = activeTargets.containsValue(spec.id),
+                pressed = activeTargets.containsValue(spec.id) || latchedTargets[spec.id] == true,
                 modifier = Modifier.offset {
                     IntOffset(
                         (spec.x.roundToPx() - groupRect.left.roundToInt()),

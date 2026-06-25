@@ -635,6 +635,13 @@ private fun GameSettingsEditorDialog(
                                 helpText = stringResource(R.string.settings_help_fast_boot),
                                 onResetToDefault = { draft = draft.copy(enableFastBoot = defaultProfile.enableFastBoot) }
                             )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_racing_mode),
+                                checked = draft.racingMode,
+                                onCheckedChange = { draft = draft.copy(racingMode = it) },
+                                helpText = stringResource(R.string.settings_help_racing_mode),
+                                onResetToDefault = { draft = draft.copy(racingMode = defaultProfile.racingMode) }
+                            )
                             SelectionRow(
                                 title = stringResource(R.string.settings_fps_overlay_mode),
                                 options = listOf(
@@ -1846,6 +1853,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         aspectRatio = aspectRatio,
         showFps = showFps,
         fpsOverlayMode = fpsOverlayMode,
+        racingMode = racingMode,
         enableFastBoot = enableFastBoot,
         enableMtvu = enableMtvu,
         enableFastCdvd = enableFastCdvd,
@@ -1918,6 +1926,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         aspectRatio = pick("aspectRatio", aspectRatio, defaultProfile.aspectRatio),
         showFps = pick("showFps", showFps, defaultProfile.showFps),
         fpsOverlayMode = pick("fpsOverlayMode", fpsOverlayMode, defaultProfile.fpsOverlayMode),
+        racingMode = pick("racingMode", racingMode, defaultProfile.racingMode),
         enableFastBoot = pick("enableFastBoot", enableFastBoot, defaultProfile.enableFastBoot),
         enableMtvu = pick("enableMtvu", enableMtvu, defaultProfile.enableMtvu),
         enableFastCdvd = pick("enableFastCdvd", enableFastCdvd, defaultProfile.enableFastCdvd),

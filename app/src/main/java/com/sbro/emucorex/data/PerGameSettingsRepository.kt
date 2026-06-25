@@ -18,6 +18,7 @@ data class PerGameSettings(
     val aspectRatio: Int = 1,
     val showFps: Boolean = false,
     val fpsOverlayMode: Int = AppPreferences.FPS_OVERLAY_MODE_DETAILED,
+    val racingMode: Boolean = false,
     val enableFastBoot: Boolean = true,
     val enableMtvu: Boolean = true,
     val enableThreadPinning: Boolean = false,
@@ -176,6 +177,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         aspectRatio = optInt("aspectRatio", 1).let(::sanitizeAspectRatioValue),
         showFps = optBoolean("showFps", false),
         fpsOverlayMode = optInt("fpsOverlayMode", AppPreferences.FPS_OVERLAY_MODE_DETAILED),
+        racingMode = optBoolean("racingMode", false),
         enableFastBoot = optBoolean("enableFastBoot", true),
         enableMtvu = optBoolean("enableMtvu", true),
         enableThreadPinning = optBoolean("enableThreadPinning", false),
@@ -260,6 +262,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("aspectRatio")) put("aspectRatio", sanitizeAspectRatioValue(aspectRatio))
         if (shouldWrite("showFps")) put("showFps", showFps)
         if (shouldWrite("fpsOverlayMode")) put("fpsOverlayMode", fpsOverlayMode)
+        if (shouldWrite("racingMode")) put("racingMode", racingMode)
         if (shouldWrite("enableFastBoot")) put("enableFastBoot", enableFastBoot)
         if (shouldWrite("enableMtvu")) put("enableMtvu", enableMtvu)
         if (shouldWrite("enableThreadPinning")) put("enableThreadPinning", enableThreadPinning)

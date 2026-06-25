@@ -1220,4 +1220,7 @@
     <string name="settings_fast_forward_speed_desc">%1$s</string>
     <string name="settings_help_fast_forward_speed">İleri sarma için Start tuşuna basılı tutarken kullanılan hızı ayarlar.</string>
     <string name="emulation_transport_fast_forward">İleri sar</string>
+    <string name="settings_racing_mode">Yarış modu</string>
+    <string name="settings_racing_mode_desc">Basılı tutmak için eylem ve omuz düğmelerine dokunun, ardından bırakmak için tekrar dokunun.</string>
+    <string name="settings_help_racing_mode">Dokunmatik eylem düğmelerinin ve omuz düğmelerinin tek bir dokunuşla basılı duruma geçmesini sağlar. Bu, hızlanmanın basılı tutulması gereken yarış oyunları için yararlıyken Start, Select, çubuklar ve D-pad normal davranışını korur.</string>
 </resources>

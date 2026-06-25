@@ -1185,6 +1185,15 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_overlay_opacity),
                             onResetToDefault = { viewModel.setOverlayOpacity(overlayDefaults.overlayOpacity) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.TouchApp,
+                            title = stringResource(R.string.settings_racing_mode),
+                            subtitle = stringResource(R.string.settings_racing_mode_desc),
+                            checked = uiState.racingMode,
+                            onCheckedChange = viewModel::setRacingMode,
+                            helpText = stringResource(R.string.settings_help_racing_mode),
+                            onResetToDefault = { viewModel.setRacingMode(defaults.racingMode) }
+                        )
                         SliderItem(
                             icon = Icons.Rounded.Gamepad,
                             title = stringResource(R.string.settings_left_stick_sensitivity),
@@ -2505,6 +2514,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Fixes, R.string.settings_no_interlacing_patches),
         entry(SettingsTab.Controls, R.string.settings_overlay_scale),
         entry(SettingsTab.Controls, R.string.settings_overlay_opacity),
+        entry(SettingsTab.Controls, R.string.settings_racing_mode),
         entry(SettingsTab.Controls, R.string.settings_left_stick_sensitivity),
         entry(SettingsTab.Controls, R.string.settings_right_stick_sensitivity),
         entry(SettingsTab.Controls, R.string.settings_invert_left_stick),
