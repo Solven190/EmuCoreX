@@ -1227,4 +1227,5 @@
     <string name="game_settings_manager_no_games">आपकी वर्तमान लाइब्रेरी में कोई गेम नहीं मिला।</string>
     <string name="game_settings_manager_profile_active_short">प्रोफ़ाइल</string>
     <string name="game_settings_manager_tab_system">सिस्टम और प्रदर्शन</string>
+    <string name="emulation_hardcore_action_blocked">RetroAchievements हार्डकोर मोड सक्रिय होने पर यह क्रिया अक्षम हो जाती है।</string>
 </resources>

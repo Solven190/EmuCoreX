@@ -1229,4 +1229,5 @@
     <string name="game_settings_manager_no_games">В вашей текущей библиотеке не найдено ни одной игры.</string>
     <string name="game_settings_manager_profile_active_short">Профиль</string>
     <string name="game_settings_manager_tab_system">Система и производительность</string>
+    <string name="emulation_hardcore_action_blocked">Это действие отключено, пока активен хардкорный режим RetroAchievements.</string>
 </resources>

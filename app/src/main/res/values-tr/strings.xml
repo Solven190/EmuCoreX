@@ -1227,4 +1227,5 @@
     <string name="game_settings_manager_no_games">Mevcut kitaplığınızda oyun bulunamadı.</string>
     <string name="game_settings_manager_profile_active_short">Profil</string>
     <string name="game_settings_manager_tab_system">Sistem ve Performans</string>
+    <string name="emulation_hardcore_action_blocked">RetroAchievements Hardcore Modu etkinken bu eylem devre dışı bırakılır.</string>
 </resources>

@@ -1227,4 +1227,5 @@
     <string name="game_settings_manager_no_games">현재 라이브러리에서 게임을 찾을 수 없습니다.</string>
     <string name="game_settings_manager_profile_active_short">프로필</string>
     <string name="game_settings_manager_tab_system">시스템 및 성능</string>
+    <string name="emulation_hardcore_action_blocked">RetroAchievements 하드코어 모드가 활성화된 동안에는 이 작업이 비활성화됩니다.</string>
 </resources>

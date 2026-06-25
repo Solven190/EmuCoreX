@@ -1227,6 +1227,7 @@
     <string name="settings_help_racing_mode">使触摸动作按钮和肩部按钮通过轻触来切换其按下状态。这对于需要保持按住加速键的赛车游戏非常有用，同时 Start、Select、摇杆和十字键 (D-pad) 将保持正常行为。</string>
     <string name="game_settings_manager_choose_game">选择游戏</string>
     <string name="game_settings_manager_no_games">在当前库中未找到游戏。</string>
+    <string name="emulation_hardcore_action_blocked">在 RetroAchievements 硬核模式处于激活状态时，此操作将被禁用。</string>
     <string name="game_settings_manager_profile_active_short">配置文件</string>
     <string name="game_settings_manager_tab_system">系统与性能</string>
 </resources>

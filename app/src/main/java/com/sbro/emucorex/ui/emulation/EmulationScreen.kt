@@ -3716,9 +3716,23 @@ private fun OverlayAchievementsPane(
 ) {
     val context = LocalContext.current
     val repository = remember(context) { RetroAchievementsRepository(context) }
+    val cachedActiveGameData = remember(
+        gamePath,
+        currentGameTitle,
+        retroState.enabled,
+        retroState.user?.username,
+        retroState.game?.gameId
+    ) {
+        repository.peekCachedOverlayGameData(
+            gamePath = gamePath,
+            gameTitle = retroState.game?.title ?: currentGameTitle,
+            gameId = retroState.game?.gameId
+        )
+    }
     val contentState by produceState(
         initialValue = OverlayAchievementsContentState(
-            isLoading = gamePath != null && retroState.enabled && retroState.user != null
+            isLoading = cachedActiveGameData == null && gamePath != null && retroState.enabled && retroState.user != null,
+            gameData = cachedActiveGameData
         ),
         gamePath,
         currentGameTitle,
@@ -3730,15 +3744,32 @@ private fun OverlayAchievementsPane(
             value = OverlayAchievementsContentState(isLoading = false, gameData = null)
             return@produceState
         }
-        value = OverlayAchievementsContentState(isLoading = true, gameData = null)
+        val cachedData = repository.peekCachedOverlayGameData(
+            gamePath = gamePath,
+            gameTitle = retroState.game?.title ?: currentGameTitle,
+            gameId = retroState.game?.gameId
+        )
+        if (cachedData != null) {
+            value = OverlayAchievementsContentState(isLoading = false, gameData = cachedData)
+        } else {
+            value = OverlayAchievementsContentState(isLoading = true, gameData = null)
+        }
         value = withContext(Dispatchers.IO) {
+            val loadedData = loadOverlayRetroAchievementsGameDataWithFallback(
+                repository = repository,
+                gamePath = gamePath,
+                gameTitle = currentGameTitle,
+                allowRetry = cachedData == null
+            )
+                ?: cachedData
+            repository.cacheOverlayGameData(
+                gamePath = gamePath,
+                gameTitle = retroState.game?.title ?: currentGameTitle,
+                data = loadedData
+            )
             OverlayAchievementsContentState(
                 isLoading = false,
-                gameData = loadOverlayRetroAchievementsGameDataWithFallback(
-                    repository = repository,
-                    gamePath = gamePath,
-                    gameTitle = currentGameTitle
-                )
+                gameData = loadedData
             )
         }
     }
@@ -3880,14 +3911,16 @@ private fun OverlayAchievementsPane(
 }
 
 private suspend fun loadActiveRetroAchievementsGameDataWithRetry(
-    repository: RetroAchievementsRepository
+    repository: RetroAchievementsRepository,
+    allowRetry: Boolean
 ): RetroAchievementGameData? {
-    repeat(8) { attempt ->
+    val attempts = if (allowRetry) 8 else 1
+    repeat(attempts) { attempt ->
         val data = runCatching { repository.loadActiveGameData() }.getOrNull()
         if (data != null && (data.achievements.isNotEmpty() || data.totalCount > 0)) {
             return data
         }
-        if (attempt < 7) {
+        if (attempt < attempts - 1) {
             delay(500)
             RetroAchievementsLiveStateManager.refreshFromNative()
         }
@@ -3898,9 +3931,10 @@ private suspend fun loadActiveRetroAchievementsGameDataWithRetry(
 private suspend fun loadOverlayRetroAchievementsGameDataWithFallback(
     repository: RetroAchievementsRepository,
     gamePath: String,
-    gameTitle: String
+    gameTitle: String,
+    allowRetry: Boolean
 ): RetroAchievementGameData? {
-    val activeData = loadActiveRetroAchievementsGameDataWithRetry(repository)
+    val activeData = loadActiveRetroAchievementsGameDataWithRetry(repository, allowRetry)
     if (activeData != null && (activeData.achievements.isNotEmpty() || activeData.totalCount > 0)) {
         return activeData
     }

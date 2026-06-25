@@ -1227,4 +1227,5 @@
     <string name="game_settings_manager_no_games">لم يتم العثور على ألعاب في مكتبتك الحالية.</string>
     <string name="game_settings_manager_profile_active_short">ملف التعريف</string>
     <string name="game_settings_manager_tab_system">النظام والأداء</string>
+    <string name="emulation_hardcore_action_blocked">هذا الإجراء معطل أثناء تنشيط وضع RetroAchievements Hardcore.</string>
 </resources>

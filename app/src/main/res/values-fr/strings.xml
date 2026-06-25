@@ -1229,4 +1229,5 @@
     <string name="game_settings_manager_no_games">Aucun jeu trouvé dans votre bibliothèque actuelle.</string>
     <string name="game_settings_manager_profile_active_short">Profil</string>
     <string name="game_settings_manager_tab_system">Système &amp; Performances</string>
+    <string name="emulation_hardcore_action_blocked">Cette action est désactivée tant que le mode Hardcore de RetroAchievements est actif.</string>
 </resources>

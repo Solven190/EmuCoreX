@@ -134,6 +134,37 @@ class RetroAchievementsRepository(private val context: Context) {
         }
     }
 
+    fun peekCachedActiveGameData(gameTitle: String? = null, gameId: Int? = null): RetroAchievementGameData? {
+        val cached = lastActiveGameData?.takeIf { it.totalCount > 0 } ?: return null
+        if (gameId != null && gameId > 0)
+            return cached.takeIf { it.gameId == gameId.toLong() }
+
+        val requestedTitleKey = gameTitle.orEmpty().toAchievementTitleKey()
+        if (requestedTitleKey.isBlank())
+            return cached
+
+        return cached.takeIf { it.title.toAchievementTitleKey() == requestedTitleKey }
+    }
+
+    fun peekCachedOverlayGameData(gamePath: String?, gameTitle: String? = null, gameId: Int? = null): RetroAchievementGameData? {
+        peekCachedActiveGameData(gameTitle = gameTitle, gameId = gameId)?.let { return it }
+        overlayGameDataCacheKeys(gamePath = gamePath, gameTitle = gameTitle, gameId = gameId).forEach { key ->
+            overlayGameDataCache[key]?.takeIf { it.totalCount > 0 }?.let { return it }
+        }
+        return null
+    }
+
+    fun cacheOverlayGameData(gamePath: String?, gameTitle: String? = null, data: RetroAchievementGameData?) {
+        if (data == null || data.totalCount <= 0) return
+        overlayGameDataCacheKeys(
+            gamePath = gamePath,
+            gameTitle = gameTitle ?: data.title,
+            gameId = data.gameId.toInt().takeIf { it > 0 }
+        ).forEach { key ->
+            overlayGameDataCache[key] = data
+        }
+    }
+
     suspend fun loadUnlockedAchievementsFromLibrary(
         onProgress: (processed: Int, total: Int) -> Unit = { _, _ -> }
     ): List<LibraryUnlockedAchievement> {
@@ -514,6 +545,7 @@ class RetroAchievementsRepository(private val context: Context) {
         private var lastAccountAchievementGames: List<LibraryAchievementGame> = emptyList()
         private var lastAccountAchievementGamesLibraryPath: String? = null
         private val remoteGameDataCache = mutableMapOf<Long, RetroAchievementGameData>()
+        private val overlayGameDataCache = mutableMapOf<String, RetroAchievementGameData>()
         private const val PLAYSTATION_2_CONSOLE_ID = 21
         private const val ACTIVE_GAME_LOOKUP_KEY = "__active_retroachievements_game__"
 
@@ -524,6 +556,16 @@ class RetroAchievementsRepository(private val context: Context) {
             lastAccountAchievementGames = emptyList()
             lastAccountAchievementGamesLibraryPath = null
             remoteGameDataCache.clear()
+            overlayGameDataCache.clear()
+        }
+
+        private fun overlayGameDataCacheKeys(gamePath: String?, gameTitle: String?, gameId: Int?): List<String> {
+            return buildList {
+                if (gameId != null && gameId > 0)
+                    add("id:$gameId")
+                gamePath.orEmpty().trim().takeIf { it.isNotBlank() }?.let { add("path:$it") }
+                gameTitle.orEmpty().toAchievementTitleKey().takeIf { it.isNotBlank() }?.let { add("title:$it") }
+            }
         }
 
         private fun buildUnlockedCacheKey(libraryPath: String): String {
