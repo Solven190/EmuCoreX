@@ -86,9 +86,6 @@ data class EmulationUiState(
     val performancePreset: Int = PerformancePresets.CUSTOM,
     val enableMtvu: Boolean = true,
     val enableThreadPinning: Boolean = false,
-    val eeClamping: Boolean = false,
-    val vu0Clamping: Boolean = false,
-    val vu1Clamping: Boolean = false,
     val enableFastCdvd: Boolean = false,
     val enableFastBoot: Boolean = true,
     val enableCheats: Boolean = false,
@@ -176,8 +173,6 @@ private data class EmulationLaunchConfig(
     val enableIopRecompiler: Boolean,
     val enableVu0Recompiler: Boolean,
     val enableVu1Recompiler: Boolean,
-    val vu0Clamping: Boolean,
-    val vu1Clamping: Boolean,
     val waitLoopSpeedhack: Boolean,
     val intcStatSpeedhack: Boolean,
     val vuFlagHack: Boolean,
@@ -240,7 +235,6 @@ private data class EmulationLaunchConfig(
     val mergeSprite: Boolean,
     val forceEvenSpritePosition: Boolean,
     val nativePaletteDraw: Boolean,
-    val fpuClampMode: Int,
     val disableHardwareReadbacks: Boolean,
     val fpuCorrectAddSub: Boolean
 )
@@ -254,9 +248,6 @@ private data class LiveRuntimeSnapshot(
     val performancePreset: Int,
     val enableMtvu: Boolean,
     val enableThreadPinning: Boolean,
-    val eeClamping: Boolean,
-    val vu0Clamping: Boolean,
-    val vu1Clamping: Boolean,
     val enableFastCdvd: Boolean,
     val enableFastBoot: Boolean,
     val enableCheats: Boolean,
@@ -349,6 +340,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private var lastAutoSavePlayTimeMs: Long = 0L
     init {
         viewModelScope.launch {
+            preferences.cleanupLegacyClampingPreferencesIfNeeded()
             preferences.migrateOverlayLayoutIfNeeded()
         }
     }
@@ -974,8 +966,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     enableIopRecompiler = enableIopRecompiler,
                     enableVu0Recompiler = enableVu0Recompiler,
                     enableVu1Recompiler = enableVu1Recompiler,
-                    vu0Clamping = config.vu0Clamping,
-                    vu1Clamping = config.vu1Clamping,
                     enableFastmem = enableFastmem,
                     waitLoopSpeedhack = config.waitLoopSpeedhack,
                     intcStatSpeedhack = config.intcStatSpeedhack,
@@ -1039,7 +1029,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     mergeSprite = config.mergeSprite,
                     forceEvenSpritePosition = config.forceEvenSpritePosition,
                     nativePaletteDraw = config.nativePaletteDraw,
-                    fpuClampMode = config.fpuClampMode,
                     autotestMode = autotestMode || bootSmokeProbe,
                     disableHardwareReadbacks = config.disableHardwareReadbacks,
                     fpuCorrectAddSub = config.fpuCorrectAddSub
@@ -1151,9 +1140,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     performancePreset = liveRuntime.performancePreset,
                     enableMtvu = liveRuntime.enableMtvu,
                     enableThreadPinning = liveRuntime.enableThreadPinning,
-                    eeClamping = liveRuntime.eeClamping,
-                    vu0Clamping = liveRuntime.vu0Clamping,
-                    vu1Clamping = liveRuntime.vu1Clamping,
                     enableFastCdvd = liveRuntime.enableFastCdvd,
                     enableFastBoot = liveRuntime.enableFastBoot,
                     enableCheats = liveRuntime.enableCheats,
@@ -2593,8 +2579,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             enableIopRecompiler = settings.enableIopRecompiler,
             enableVu0Recompiler = settings.enableVu0Recompiler,
             enableVu1Recompiler = settings.enableVu1Recompiler,
-            vu0Clamping = settings.enableVu0Clamping,
-            vu1Clamping = settings.enableVu1Clamping,
             waitLoopSpeedhack = settings.enableWaitLoopSpeedhack,
             intcStatSpeedhack = settings.enableIntcStatSpeedhack,
             vuFlagHack = settings.enableVuFlagHack,
@@ -2657,7 +2641,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             mergeSprite = settings.mergeSprite,
             forceEvenSpritePosition = settings.forceEvenSpritePosition,
             nativePaletteDraw = settings.nativePaletteDraw,
-            fpuClampMode = if (settings.enableEeClamping) 3 else 0,
             disableHardwareReadbacks = profileConfig.disableHardwareReadbacks,
             fpuCorrectAddSub = profileConfig.fpuCorrectAddSub
         ).applyProfile(profile)
@@ -2674,9 +2657,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             performancePreset = preferences.performancePreset.first(),
             enableMtvu = preferences.enableMtvu.first(),
             enableThreadPinning = preferences.enableThreadPinning.first(),
-            eeClamping = preferences.enableEeClamping.first(),
-            vu0Clamping = preferences.enableVu0Clamping.first(),
-            vu1Clamping = preferences.enableVu1Clamping.first(),
             enableFastCdvd = preferences.enableFastCdvd.first(),
             enableFastBoot = preferences.enableFastBoot.first(),
             enableCheats = preferences.enableCheats.first(),
@@ -2746,9 +2726,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             renderer = pick("renderer", renderer) { renderer },
             upscaleMultiplier = pick("upscaleMultiplier", upscaleMultiplier) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
-            fpuClampMode = if (pick("enableEeClamping", fpuClampMode > 0) { enableEeClamping }) 3 else 0,
-            vu0Clamping = pick("enableVu0Clamping", vu0Clamping) { enableVu0Clamping },
-            vu1Clamping = pick("enableVu1Clamping", vu1Clamping) { enableVu1Clamping },
             mtvu = pick("enableMtvu", mtvu) { enableMtvu },
             enableThreadPinning = pick("enableThreadPinning", enableThreadPinning) { enableThreadPinning },
             fastCdvd = pick("enableFastCdvd", fastCdvd) { enableFastCdvd },
@@ -2824,9 +2801,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
             enableMtvu = pick("enableMtvu", enableMtvu) { enableMtvu },
             enableThreadPinning = pick("enableThreadPinning", enableThreadPinning) { enableThreadPinning },
-            eeClamping = pick("enableEeClamping", eeClamping) { enableEeClamping },
-            vu0Clamping = pick("enableVu0Clamping", vu0Clamping) { enableVu0Clamping },
-            vu1Clamping = pick("enableVu1Clamping", vu1Clamping) { enableVu1Clamping },
             enableFastCdvd = pick("enableFastCdvd", enableFastCdvd) { enableFastCdvd },
             enableFastBoot = pick("enableFastBoot", enableFastBoot) { enableFastBoot },
             enableCheats = pick("enableCheats", enableCheats) { enableCheats },
@@ -2895,9 +2869,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalFpsOverlayMode = preferences.fpsOverlayMode.first()
         val globalEnableMtvu = preferences.enableMtvu.first()
         val globalEnableThreadPinning = preferences.enableThreadPinning.first()
-        val globalEeClamping = preferences.enableEeClamping.first()
-        val globalVu0Clamping = preferences.enableVu0Clamping.first()
-        val globalVu1Clamping = preferences.enableVu1Clamping.first()
         val globalEnableFastCdvd = preferences.enableFastCdvd.first()
         val globalEnableFastBoot = preferences.enableFastBoot.first()
         val globalEnableCheats = preferences.enableCheats.first()
@@ -2923,9 +2894,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             fpsOverlayMode = fpsOverlayMode,
             enableMtvu = enableMtvu,
             enableThreadPinning = enableThreadPinning,
-            enableEeClamping = eeClamping,
-            enableVu0Clamping = vu0Clamping,
-            enableVu1Clamping = vu1Clamping,
             enableFastCdvd = enableFastCdvd,
             enableFastBoot = enableFastBoot,
             enableCheats = enableCheats,
@@ -2992,9 +2960,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (fpsOverlayMode != globalFpsOverlayMode) add("fpsOverlayMode")
             if (enableMtvu != globalEnableMtvu) add("enableMtvu")
             if (enableThreadPinning != globalEnableThreadPinning) add("enableThreadPinning")
-            if (eeClamping != globalEeClamping) add("enableEeClamping")
-            if (vu0Clamping != globalVu0Clamping) add("enableVu0Clamping")
-            if (vu1Clamping != globalVu1Clamping) add("enableVu1Clamping")
             if (enableFastCdvd != globalEnableFastCdvd) add("enableFastCdvd")
             if (enableFastBoot != globalEnableFastBoot) add("enableFastBoot")
             if (enableCheats != globalEnableCheats) add("enableCheats")

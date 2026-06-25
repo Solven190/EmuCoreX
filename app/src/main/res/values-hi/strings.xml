@@ -1063,9 +1063,6 @@
     <string name="settings_help_intc_stat_speedhack">इंटरप्ट स्टेटस रजिस्टर से रीड्स को अनुकूलित करता है। स्टार्टअप या कटसीन के दौरान इंटरप्ट्स को बहुत करीब से पोल करने वाले गेम का परीक्षण करने के लिए इसे अक्षम करें।</string>
     <string name="settings_help_vu_flag_hack">VU फ़्लैग टाइमिंग के लिए तेज़ सन्निकटन का उपयोग करता है। भौतिकी, एनीमेशन, या कैमरा-भारी दृश्यों में VU स्थिति विचलन की जांच करने के लिए इसे अक्षम करें।</string>
     <string name="settings_help_instant_vu1">अधिक सख्त टाइमिंग को संरक्षित करने के बजाय VU1 के काम को यथासंभव तेज़ी से चलाता है। कटसीन, एनीमेशन, और VU/GS सिंक्रनाइज़ेशन के प्रति संवेदनशील गेम का परीक्षण करने के लिए इसे अक्षम करें。</string>
-    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
-    <string name="settings_enable_vu1_clamping_desc">फ़्लोटिंग-पॉइंट edge cases के लिए VU1 Clamping सक्षम करता है। जब तक किसी गेम को संगतता के लिए इसकी आवश्यकता न हो, इसे बंद रखें।</string>
-    <string name="settings_help_enable_vu1_clamping">यह नियंत्रित करता है कि VU1 रीकंपाइलर overflow, extra overflow, sign overflow और underflow मामलों के लिए clamping checks बनाए या नहीं। अधिकांश गेम VU1 Clamping बंद होने पर सही चलते हैं; इसे केवल तभी सक्षम करें जब किसी विशेष गेम में ग्राफ़िकल गड़बड़ियां, गलत geometry या अन्य compatibility समस्याएं हों।</string>
     <string name="settings_updates_history_title">अपडेट इतिहास</string>
     <string name="settings_updates_history_body">GitHub रिलीज़, रिलीज़ की तारीखें और चेंजलॉग ब्राउज़ करें।</string>
     <string name="settings_updates_history_loading">रिलीज़ इतिहास लोड हो रहा है</string>
@@ -1170,9 +1167,6 @@
     <string name="settings_invert_right_stick_horizontal_desc">दाएँ एनालॉग स्टिक पर क्षैतिज गति को उल्टा करें।</string>
     <string name="settings_invert_left_stick_horizontal">लेफ्ट स्टिक को क्षैतिज रूप से उल्टा करें</string>
     <string name="settings_invert_left_stick_horizontal_desc">बाएँ एनालॉग स्टिक पर क्षैतिज गति को उल्टा करें।</string>
-    <string name="settings_enable_ee_clamping">EE Clamping</string>
-    <string name="settings_enable_ee_clamping_desc">इमोशन इंजन ऑपरेशन्स के लिए ओवरफ़्लो क्लैम्पिंग सक्षम करता है। जब तक किसी गेम को संगतता के लिए इसकी आवश्यकता न हो, इसे बंद रखें।</string>
-    <string name="settings_help_enable_ee_clamping">नियंत्रित करता है कि क्या EE रिकंपाइलर फ़्लोटिंग-पॉइंट ओवरफ़्लो मामलों के लिए क्लैम्पिंग जाँच उत्सर्जित करता है। इसे अक्षम रखने से उन गेम्स पर अतिरिक्त जनरेटेड कोड से बचा जा सकता है जिन्हें इस व्यवहार की आवश्यकता नहीं है। इसे केवल तभी सक्षम करें जब कोई विशिष्ट गेम भौतिकी, ज्यामिति, या रेंडरिंग समस्याएँ दिखाता है जिनके लिए EE क्लैम्पिंग की आवश्यकता होती है।</string>
     <string name="settings_help_thread_pinning">मुख्य एमुलेशन थ्रेड्स को पूरी तरह से Android पर छोड़ने के बजाय सबसे तेज़ CPU कोर पर पिन करता है। यह शक्तिशाली चिप्स या कूल्ड हैंडहेल्ड्स पर स्थिरता में सुधार कर सकता है, लेकिन कुछ उपकरणों पर गर्मी बढ़ा सकता है या प्रदर्शन को कम कर सकता है यदि शेड्यूलर ने लोड को बेहतर ढंग से संतुलित किया होता।</string>
     <string name="settings_thread_pinning">थ्रेड पिनिंग (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">समर्थित होने पर EE, VU1 और GS के काम को सबसे तेज़ CPU कोर पर रखता है।</string>
@@ -1189,10 +1183,6 @@
     <string name="memory_card_folder_unlimited">फ़ोल्डर • असीमित आकार</string>
     <string name="memory_card_file_size">फ़ाइल • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">गेम सेटिंग्स</string>
-    <string name="settings_clamping_section">क्लैम्पिंग (Clamping)</string>
-    <string name="settings_enable_vu0_clamping">VU0 क्लैम्पिंग</string>
-    <string name="settings_enable_vu0_clamping_desc">VU0 फ़्लोट संचालन के लिए ओवरफ़्लो क्लैम्पिंग को सक्षम करता है। जब तक संगतता के लिए किसी गेम को इसकी आवश्यकता न हो, इसे बंद रहने दें।</string>
-    <string name="settings_help_enable_vu0_clamping">यह नियंत्रित करता है कि VU0 रीकंपाइलर फ़्लोटिंग-पॉइंट ओवरफ़्लो और अंडरफ़्लो मामलों के लिए क्लैम्पिंग निर्देश जारी करता है या नहीं। अधिकांश गेम VU0 क्लैम्पिंग के बिना सही ढंग से काम करते हैं; इसे केवल किसी विशिष्ट गेम में संगतता समस्याओं के लिए सक्षम करें。</string>
     <string name="settings_help_ntsc_framerate">NTSC-क्षेत्र के गेम द्वारा उपयोग की जाने वाली बेस रिफ्रेश दर सेट करता है जब लक्ष्य FPS ऑटो पर सेट होता है। मैन्युअल FPS सक्षम होने पर इस मान को ओवरराइड करता है।</string>
     <string name="settings_help_pal_framerate">PAL-क्षेत्र के गेम द्वारा उपयोग की जाने वाली बेस रिफ्रेश दर सेट करता है जब लक्ष्य FPS ऑटो पर सेट होता है। मैन्युअल FPS सक्षम होने पर इस मान को ओवरराइड करता है।</string>
     <string name="settings_ntsc_framerate">NTSC फ़्रेमरेट</string>

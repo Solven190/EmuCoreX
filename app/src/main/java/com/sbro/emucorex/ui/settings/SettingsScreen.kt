@@ -1602,35 +1602,6 @@ private fun SettingsContent(
                             )
                         }
                     }
-                    SettingsSection(title = stringResource(R.string.settings_clamping_section)) {
-                        ToggleItem(
-                            icon = Icons.Rounded.Tune,
-                            title = stringResource(R.string.settings_enable_ee_clamping),
-                            subtitle = stringResource(R.string.settings_enable_ee_clamping_desc),
-                            checked = uiState.enableEeClamping,
-                            onCheckedChange = viewModel::setEnableEeClamping,
-                            helpText = stringResource(R.string.settings_help_enable_ee_clamping),
-                            onResetToDefault = { viewModel.setEnableEeClamping(defaults.enableEeClamping) }
-                        )
-                        ToggleItem(
-                            icon = Icons.Rounded.Tune,
-                            title = stringResource(R.string.settings_enable_vu0_clamping),
-                            subtitle = stringResource(R.string.settings_enable_vu0_clamping_desc),
-                            checked = uiState.enableVu0Clamping,
-                            onCheckedChange = viewModel::setEnableVu0Clamping,
-                            helpText = stringResource(R.string.settings_help_enable_vu0_clamping),
-                            onResetToDefault = { viewModel.setEnableVu0Clamping(defaults.enableVu0Clamping) }
-                        )
-                        ToggleItem(
-                            icon = Icons.Rounded.Tune,
-                            title = stringResource(R.string.settings_enable_vu1_clamping),
-                            subtitle = stringResource(R.string.settings_enable_vu1_clamping_desc),
-                            checked = uiState.enableVu1Clamping,
-                            onCheckedChange = viewModel::setEnableVu1Clamping,
-                            helpText = stringResource(R.string.settings_help_enable_vu1_clamping),
-                            onResetToDefault = { viewModel.setEnableVu1Clamping(defaults.enableVu1Clamping) }
-                        )
-                    }
                     SettingsSection(title = stringResource(R.string.settings_speed_hacks)) {
                         val selectedGpuHardwareProfile = GpuHardwareProfiles.normalize(uiState.gpuHardwareProfile)
                         val mediatekGpuSelected = GpuHardwareProfiles.isMediatekProfile(selectedGpuHardwareProfile)

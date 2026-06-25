@@ -1065,9 +1065,6 @@
     <string name="settings_help_intc_stat_speedhack">Otimiza as leituras do registro de status de interrupção. Desative isso para testar jogos que pesquisam interrupções muito de perto durante a inicialização ou cenas.</string>
     <string name="settings_help_vu_flag_hack">Usa uma aproximação mais rápida para o tempo do sinalizador VU. Desative isso para verificar a divergência de estado VU em cenas de física, animação ou uso intenso de câmera.</string>
     <string name="settings_help_instant_vu1">Executa o trabalho VU1 o mais rápido possível em vez de preservar um tempo mais rigoroso. Desative isso para testar cenas, animações e jogos sensíveis à sincronização VU/GS.</string>
-    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
-    <string name="settings_enable_vu1_clamping_desc">Ativa o clamping VU1 para casos limite de ponto flutuante. Deixe desligado a menos que um jogo precise disso por compatibilidade.</string>
-    <string name="settings_help_enable_vu1_clamping">Controla se o recompilador VU1 emite verificações de clamping para overflow, extra overflow, sign overflow e underflow. A maioria dos jogos funciona corretamente com VU1 Clamping desligado; ative apenas se um jogo específico apresentar falhas gráficas, geometria incorreta ou outros problemas de compatibilidade.</string>
     <string name="settings_updates_history_title">Histórico de atualizações</string>
     <string name="settings_updates_history_body">Navegue pelos lançamentos do GitHub, datas de lançamento e logs de alterações.</string>
     <string name="settings_updates_history_loading">Carregando histórico de lançamentos</string>
@@ -1172,9 +1169,6 @@
     <string name="settings_invert_right_stick_horizontal_desc">Inverter o movimento horizontal no analógico direito.</string>
     <string name="settings_invert_left_stick_horizontal">Inverter analógico esquerdo horizontalmente</string>
     <string name="settings_invert_left_stick_horizontal_desc">Inverter o movimento horizontal no analógico esquerdo.</string>
-    <string name="settings_enable_ee_clamping">EE Clamping</string>
-    <string name="settings_enable_ee_clamping_desc">Ativa o clamping de overflow para operações da Emotion Engine. Deixe desligado a menos que um jogo precise disso por compatibilidade.</string>
-    <string name="settings_help_enable_ee_clamping">Controla se o recompilador EE emite verificações de clamping para casos de overflow de ponto flutuante. Mantê-lo desativado evita código extra gerado em jogos que não precisam desse comportamento. Ative-o apenas se um jogo específico apresentar problemas de física, geometria ou renderização que exijam o clamping EE.</string>
     <string name="settings_help_thread_pinning">Fixa as principais threads de emulação nos núcleos de CPU mais rápidos em vez de deixar a alocação inteiramente para o Android. Pode melhorar a estabilidade em chips poderosos ou portáteis refrigerados, mas pode aumentar o calor ou reduzir o desempenho em alguns dispositivos se o agendador tivesse equilibrado melhor a carga.</string>
     <string name="settings_thread_pinning">Fixação de threads (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Mantém o trabalho de EE, VU1 e GS nos núcleos de CPU mais rápidos, quando suportado.</string>
@@ -1191,10 +1185,6 @@
     <string name="memory_card_folder_unlimited">Pasta • Tamanho ilimitado</string>
     <string name="memory_card_file_size">Arquivo • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">Configurações do jogo</string>
-    <string name="settings_clamping_section">Clamping</string>
-    <string name="settings_enable_vu0_clamping">Clamping da VU0</string>
-    <string name="settings_enable_vu0_clamping_desc">Ativa o clamping de transbordamento (overflow) para operações de ponto flutuante da VU0. Deixe desativado, a menos que um jogo precise para fins de compatibilidade.</string>
-    <string name="settings_help_enable_vu0_clamping">Controla se o recompilador da VU0 emite instruções de clamping para casos de overflow e underflow de ponto flutuante. A maioria dos jogos funciona corretamente sem o clamping da VU0; ative-o apenas se houver problemas de compatibilidade em um jogo específico.</string>
     <string name="settings_help_ntsc_framerate">Define a taxa de atualização base usada por jogos da região NTSC quando a meta de FPS está definida como Automático. O FPS manual substitui este valor enquanto estiver ativado.</string>
     <string name="settings_help_pal_framerate">Define a taxa de atualização base usada por jogos da região PAL quando a meta de FPS está definida como Automático. O FPS manual substitui este valor enquanto estiver ativado.</string>
     <string name="settings_ntsc_framerate">Taxa de quadros NTSC</string>

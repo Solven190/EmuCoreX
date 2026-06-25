@@ -223,9 +223,6 @@
     <string name="settings_enable_vu1_recompiler">VU1 리컴파일러</string>
     <string name="settings_enable_vu1_recompiler_desc">벡터 유닛 1 마이크로 리컴파일러. VU1 인터프리터를 강제로 사용하려면 비활성화하세요.</string>
     <string name="settings_help_enable_vu1_recompiler">벡터 유닛 1 리컴파일러를 제어합니다. VU1은 많은 게임에서 대량의 변환 및 지오메트리 작업을 수행합니다. JIT 출력을 인터프리터와 비교하거나, 렌더링 손상을 조사하거나, 디버깅을 위해 VU1 추적을 캡처해야 할 때 비활성화하세요.</string>
-    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
-    <string name="settings_enable_vu1_clamping_desc">부동 소수점 경계 상황에 대해 VU1 Clamping을 활성화합니다. 호환성을 위해 게임에서 필요한 경우가 아니면 꺼두세요.</string>
-    <string name="settings_help_enable_vu1_clamping">VU1 리컴파일러가 overflow, extra overflow, sign overflow, underflow 상황에 대한 clamping 검사를 생성할지 제어합니다. 대부분의 게임은 VU1 Clamping이 꺼진 상태에서 올바르게 작동합니다. 특정 게임에서 그래픽 글리치, 잘못된 지오메트리 또는 기타 호환성 문제가 있을 때만 활성화하세요.</string>
     <string name="settings_jit_mtvu_note">VU1 리컴파일러를 비활성화하는 경우 아래의 MTVU도 끄세요. MTVU는 VU1 리컴파일을 활성화한 상태에서만 의미가 있습니다.</string>
     <string name="settings_renderer">그래픽 모드</string>
     <string name="settings_renderer_auto">자동</string>
@@ -1170,9 +1167,6 @@
     <string name="settings_invert_right_stick_horizontal_desc">오른쪽 아날로그 스틱의 수평 움직임을 반전합니다.</string>
     <string name="settings_invert_left_stick_horizontal">왼쪽 스틱 수평 반전</string>
     <string name="settings_invert_left_stick_horizontal_desc">왼쪽 아날로그 스틱의 수평 움직임을 반전합니다.</string>
-    <string name="settings_enable_ee_clamping">EE Clamping</string>
-    <string name="settings_enable_ee_clamping_desc">Emotion Engine 작업에 대한 오버플로우 클램핑을 활성화합니다. 호환성을 위해 게임에서 필요한 경우가 아니면 꺼두세요.</string>
-    <string name="settings_help_enable_ee_clamping">EE 리컴파일러가 부동 소수점 오버플로 경우에 대해 클램핑 검사를 내보낼지 여부를 제어합니다. 이 옵션을 비활성화 상태로 유지하면 이 동작이 필요하지 않은 게임에서 생성되는 추가 코드를 방지할 수 있습니다. 특정 게임에서 물리, 지오메트리 또는 렌더링 문제가 발생하여 EE 클램핑이 필요한 경우에만 활성화하세요.</string>
     <string name="settings_help_thread_pinning">주요 에뮬레이션 스레드 배치를 Android에 전적으로 맡기지 않고 가장 빠른 CPU 코어에 고정합니다. 강력한 칩이나 냉각 기능이 있는 휴대용 기기에서는 안정성을 향상시킬 수 있지만, 스케줄러가 부하를 더 잘 분산시킬 수 있었던 일부 기기에서는 발열이 증가하거나 성능이 저하될 수 있습니다.</string>
     <string name="settings_thread_pinning">스레드 피닝 (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">지원되는 경우 EE, VU1 및 GS 작업을 가장 빠른 CPU 코어에 유지합니다.</string>
@@ -1189,10 +1183,6 @@
     <string name="memory_card_folder_unlimited">폴더 • 무제한 크기</string>
     <string name="memory_card_file_size">파일 • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">게임 설정</string>
-    <string name="settings_clamping_section">클램핑</string>
-    <string name="settings_enable_vu0_clamping">VU0 클램핑</string>
-    <string name="settings_enable_vu0_clamping_desc">VU0 부동 소수점 연산에 대한 오버플로우 클램핑을 활성화합니다. 게임 호환성을 위해 필요한 경우가 아니면 꺼두세요.</string>
-    <string name="settings_help_enable_vu0_clamping">VU0 리컴파일러가 부동 소수점 오버플로우 및 언더플로우 발생 시 클램핑 명령을 내보낼지 여부를 제어합니다. 대부분의 게임은 VU0 클램핑 없이도 올바르게 작동합니다. 특정 게임에서 호환성 문제가 있는 경우에만 활성화하세요.</string>
     <string name="settings_help_ntsc_framerate">목표 FPS가 자동으로 설정된 경우 NTSC 지역 게임에서 사용하는 기본 새로고침 빈도를 설정합니다. 수동 FPS가 활성화된 동안에는 이 값을 덮어씁니다.</string>
     <string name="settings_help_pal_framerate">목표 FPS가 자동으로 설정된 경우 PAL 지역 게임에서 사용하는 기본 새로고침 빈도를 설정합니다. 수동 FPS가 활성화된 동안에는 이 값을 덮어씁니다.</string>
     <string name="settings_ntsc_framerate">NTSC 프레임 속도</string>

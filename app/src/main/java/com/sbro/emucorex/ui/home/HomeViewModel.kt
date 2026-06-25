@@ -107,6 +107,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
+            preferences.cleanupLegacyClampingPreferencesIfNeeded()
             preferences.gamePath.distinctUntilChanged().collect { path ->
                 val context = getApplication<Application>()
                 val migratedPath = path

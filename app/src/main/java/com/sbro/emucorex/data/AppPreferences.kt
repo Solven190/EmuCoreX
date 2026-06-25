@@ -67,9 +67,6 @@ data class SettingsSnapshot(
     val enableIopRecompiler: Boolean = true,
     val enableVu0Recompiler: Boolean = true,
     val enableVu1Recompiler: Boolean = true,
-    val enableEeClamping: Boolean = false,
-    val enableVu0Clamping: Boolean = false,
-    val enableVu1Clamping: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
     val enableVuFlagHack: Boolean = true,
@@ -184,6 +181,12 @@ data class OverlayControlLayout(
     val surfaceOnly: Boolean = false
 )
 
+private val LEGACY_CLAMPING_PREF_KEYS = listOf(
+    booleanPreferencesKey("enable_ee_clamping"),
+    booleanPreferencesKey("enable_vu0_clamping"),
+    booleanPreferencesKey("enable_vu1_clamping")
+)
+
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 class AppPreferences(private val context: Context) {
@@ -293,9 +296,6 @@ class AppPreferences(private val context: Context) {
         private val ENABLE_IOP_RECOMPILER = booleanPreferencesKey("enable_iop_recompiler")
         private val ENABLE_VU0_RECOMPILER = booleanPreferencesKey("enable_vu0_recompiler")
         private val ENABLE_VU1_RECOMPILER = booleanPreferencesKey("enable_vu1_recompiler")
-        private val ENABLE_EE_CLAMPING = booleanPreferencesKey("enable_ee_clamping")
-        private val ENABLE_VU0_CLAMPING = booleanPreferencesKey("enable_vu0_clamping")
-        private val ENABLE_VU1_CLAMPING = booleanPreferencesKey("enable_vu1_clamping")
         private val ENABLE_WAIT_LOOP_SPEEDHACK = booleanPreferencesKey("enable_wait_loop_speedhack")
         private val ENABLE_INTC_STAT_SPEEDHACK = booleanPreferencesKey("enable_intc_stat_speedhack")
         private val ENABLE_VU_FLAG_HACK = booleanPreferencesKey("enable_vu_flag_hack")
@@ -567,6 +567,12 @@ class AppPreferences(private val context: Context) {
         localePrefs.edit().remove("language_tag").apply()
     }
 
+    suspend fun cleanupLegacyClampingPreferencesIfNeeded() {
+        context.dataStore.edit { prefs ->
+            LEGACY_CLAMPING_PREF_KEYS.forEach(prefs::remove)
+        }
+    }
+
     val memoryCardSlot1: Flow<String?> = context.dataStore.data.map { prefs -> prefs[MEMORY_CARD_SLOT1] }
     val memoryCardSlot2: Flow<String?> = context.dataStore.data.map { prefs -> prefs[MEMORY_CARD_SLOT2] }
 
@@ -751,9 +757,6 @@ class AppPreferences(private val context: Context) {
                 enableIopRecompiler = prefs[ENABLE_IOP_RECOMPILER] ?: true,
                 enableVu0Recompiler = prefs[ENABLE_VU0_RECOMPILER] ?: true,
                 enableVu1Recompiler = prefs[ENABLE_VU1_RECOMPILER] ?: true,
-                enableEeClamping = prefs[ENABLE_EE_CLAMPING] ?: false,
-                enableVu0Clamping = prefs[ENABLE_VU0_CLAMPING] ?: (prefs[ENABLE_VU1_CLAMPING] ?: false),
-                enableVu1Clamping = prefs[ENABLE_VU1_CLAMPING] ?: false,
                 enableWaitLoopSpeedhack = prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true,
                 enableIntcStatSpeedhack = prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true,
                 enableVuFlagHack = prefs[ENABLE_VU_FLAG_HACK] ?: true,
@@ -1277,30 +1280,6 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setEnableVu1Recompiler(enabled: Boolean) {
         context.dataStore.edit { it[ENABLE_VU1_RECOMPILER] = enabled }
-    }
-
-    val enableEeClamping: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[ENABLE_EE_CLAMPING] ?: false
-    }
-
-    suspend fun setEnableEeClamping(enabled: Boolean) {
-        context.dataStore.edit { it[ENABLE_EE_CLAMPING] = enabled }
-    }
-
-    val enableVu0Clamping: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[ENABLE_VU0_CLAMPING] ?: (prefs[ENABLE_VU1_CLAMPING] ?: false)
-    }
-
-    suspend fun setEnableVu0Clamping(enabled: Boolean) {
-        context.dataStore.edit { it[ENABLE_VU0_CLAMPING] = enabled }
-    }
-
-    val enableVu1Clamping: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[ENABLE_VU1_CLAMPING] ?: false
-    }
-
-    suspend fun setEnableVu1Clamping(enabled: Boolean) {
-        context.dataStore.edit { it[ENABLE_VU1_CLAMPING] = enabled }
     }
 
     val enableWaitLoopSpeedhack: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -2156,9 +2135,6 @@ class AppPreferences(private val context: Context) {
             put("enableIopRecompiler", prefs[ENABLE_IOP_RECOMPILER] ?: true)
             put("enableVu0Recompiler", prefs[ENABLE_VU0_RECOMPILER] ?: true)
             put("enableVu1Recompiler", prefs[ENABLE_VU1_RECOMPILER] ?: true)
-            put("enableEeClamping", prefs[ENABLE_EE_CLAMPING] ?: false)
-            put("enableVu0Clamping", prefs[ENABLE_VU0_CLAMPING] ?: (prefs[ENABLE_VU1_CLAMPING] ?: false))
-            put("enableVu1Clamping", prefs[ENABLE_VU1_CLAMPING] ?: false)
             put("enableWaitLoopSpeedhack", prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true)
             put("enableIntcStatSpeedhack", prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true)
             put("enableVuFlagHack", prefs[ENABLE_VU_FLAG_HACK] ?: true)
@@ -2309,12 +2285,6 @@ class AppPreferences(private val context: Context) {
             prefs[ENABLE_IOP_RECOMPILER] = json.optBoolean("enableIopRecompiler", true)
             prefs[ENABLE_VU0_RECOMPILER] = json.optBoolean("enableVu0Recompiler", true)
             prefs[ENABLE_VU1_RECOMPILER] = json.optBoolean("enableVu1Recompiler", true)
-            prefs[ENABLE_EE_CLAMPING] = json.optBoolean("enableEeClamping", false)
-            prefs[ENABLE_VU0_CLAMPING] = json.optBoolean(
-                "enableVu0Clamping",
-                json.optBoolean("enableVu1Clamping", false)
-            )
-            prefs[ENABLE_VU1_CLAMPING] = json.optBoolean("enableVu1Clamping", false)
             prefs[ENABLE_WAIT_LOOP_SPEEDHACK] = json.optBoolean("enableWaitLoopSpeedhack", true)
             prefs[ENABLE_INTC_STAT_SPEEDHACK] = json.optBoolean("enableIntcStatSpeedhack", true)
             prefs[ENABLE_VU_FLAG_HACK] = json.optBoolean("enableVuFlagHack", true)

@@ -223,9 +223,6 @@
     <string name="settings_enable_vu1_recompiler">VU1 リコンパイラ</string>
     <string name="settings_enable_vu1_recompiler_desc">Vector Unit 1マイクロリコンパイラ。無効にすると強制的にVU1インタープリタになります。</string>
     <string name="settings_help_enable_vu1_recompiler">Vector Unit 1リコンパイラを制御します。VU1は、多くのゲームで大量の変換とジオメトリ作業を駆動します。JIT出力をインタープリタと比較したり、レンダリングの破損を調査したり、デバッグのためにVU1トレースをキャプチャしたりする必要がある場合は、無効にしてください。</string>
-    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
-    <string name="settings_enable_vu1_clamping_desc">浮動小数点の境界ケースに対して VU1 Clamping を有効にします。互換性のためにゲームが必要とする場合を除き、オフのままにしてください。</string>
-    <string name="settings_help_enable_vu1_clamping">VU1リコンパイラが overflow、extra overflow、sign overflow、underflow に対する clamping チェックを生成するかどうかを制御します。ほとんどのゲームは VU1 Clamping をオフにした状態で正しく動作します。特定のゲームでグラフィックの不具合、不正なジオメトリ、またはその他の互換性問題がある場合にのみ有効にしてください。</string>
     <string name="settings_jit_mtvu_note">VU1リコンパイラを無効にする場合は、以下のMTVUもオフにしてください。MTVUは、VU1再コンパイルが有効になっている場合にのみ意味があります。</string>
     <string name="settings_renderer">グラフィックスモード</string>
     <string name="settings_renderer_auto">自動</string>
@@ -1170,9 +1167,6 @@
     <string name="settings_invert_right_stick_horizontal_desc">右アナログスティックの左右の動きを反転させます。</string>
     <string name="settings_invert_left_stick_horizontal">左スティックを水平方向に反転</string>
     <string name="settings_invert_left_stick_horizontal_desc">左アナログスティックの左右の動きを反転させます。</string>
-    <string name="settings_enable_ee_clamping">EE Clamping</string>
-    <string name="settings_enable_ee_clamping_desc">Emotion Engine演算のオーバーフロークランピングを有効にします。互換性のためにゲームで必要とされない限り、オフにしておいてください。</string>
-    <string name="settings_help_enable_ee_clamping">EEリコンパイラが浮動小数点オーバーフローのケースに対してクランピングチェックを出力するかどうかを制御します。無効にしておくと、この動作を必要としないゲームで余分なコードが生成されるのを防ぐことができます。特定のゲームで、物理、ジオメトリ、またはレンダリングの問題が発生し、EEクランピングが必要な場合のみ有効にしてください。</string>
     <string name="settings_help_thread_pinning">メインのエミュレーションスレッドをAndroidに完全に任せるのではなく、最速のCPUコアに固定します。強力なチップや冷却機能付きの携帯機では安定性が向上する可能性がありますが、スケジューラが負荷をより適切に分散できた場合は、一部のデバイスで発熱が増加したり、パフォーマンスが低下したりする可能性があります。</string>
     <string name="settings_thread_pinning">スレッドピニング (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">サポートされている場合、EE、VU1、GSの処理を最速のCPUコアに維持します。</string>
@@ -1189,10 +1183,6 @@
     <string name="memory_card_folder_unlimited">フォルダ • 無制限のサイズ</string>
     <string name="memory_card_file_size">ファイル • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">ゲーム設定</string>
-    <string name="settings_clamping_section">クランプ</string>
-    <string name="settings_enable_vu0_clamping">VU0クランプ</string>
-    <string name="settings_enable_vu0_clamping_desc">VU0の浮動小数点演算におけるオーバーフローのクランプを有効にします。互換性維持のためにゲームで必要な場合を除き、オフにしておいてください。</string>
-    <string name="settings_help_enable_vu0_clamping">VU0リコンパイラが浮動小数点のオーバーフローおよびアンダーフロー時にクランプ命令を発行するかどうかを制御します。ほとんどのゲームはVU0クランプなしで正常に動作します。特定のゲームで互換性の問題がある場合にのみ有効にしてください。</string>
     <string name="settings_help_ntsc_framerate">目標FPSが自動に設定されている場合に、NTSCリージョンのゲームで使用される基本リフレッシュレートを設定します。手動FPSが有効になっている間は、この値が優先されます。</string>
     <string name="settings_help_pal_framerate">目標FPSが自動に設定されている場合に、PALリージョンのゲームで使用される基本リフレッシュレートを設定します。手動FPSが有効になっている間は、この値が優先されます。</string>
     <string name="settings_ntsc_framerate">NTSCフレームレート</string>

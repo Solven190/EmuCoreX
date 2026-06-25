@@ -1069,9 +1069,6 @@
     <string name="settings_help_pad_vibration_fallback">Деякі елементи керування портативних консолей визначаються як геймпад, але забезпечують вібрацію лише через вібромотор пристрою. Цей запасний варіант дозволяє зберегти вібрацію на таких пристроях, однак зовнішні контролери без вібрації замість цього викликатимуть вібрацію телефону або консолі.</string>
     <string name="onboarding_all_files_title">Надати повний доступ до файлів</string>
     <string name="onboarding_all_files_desc">Дозвольте EmuCoreX безпосередньо читати файли ігор, щоб відскановані ігри надійно запускалися на кожному пристрої.</string>
-    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
-    <string name="settings_enable_vu1_clamping_desc">Вмикає VU1 clamping для крайових випадків із плаваючою комою. Залиште вимкненим, якщо це не потрібно грі для сумісності.</string>
-    <string name="settings_help_enable_vu1_clamping">Керує тим, чи генерує рекомпілятор VU1 перевірки clamping для overflow, extra overflow, sign overflow та underflow. Більшість ігор працює правильно з вимкненим VU1 Clamping; вмикайте його лише тоді, коли конкретна гра має графічні артефакти, некоректну геометрію або інші проблеми сумісності.</string>
     <string name="settings_updates_history_title">Історія оновлень</string>
     <string name="settings_updates_history_body">Переглядайте релізи GitHub, дати випуску та списки змін.</string>
     <string name="settings_updates_history_loading">Завантаження історії релізів</string>
@@ -1172,9 +1169,6 @@
     <string name="settings_invert_right_stick_horizontal_desc">Інвертувати горизонтальний рух на правому аналоговому стіку.</string>
     <string name="settings_invert_left_stick_horizontal">Інвертувати лівий стік по горизонталі</string>
     <string name="settings_invert_left_stick_horizontal_desc">Інвертувати горизонтальний рух на лівому аналоговому стіку.</string>
-    <string name="settings_enable_ee_clamping">EE Clamping</string>
-    <string name="settings_enable_ee_clamping_desc">Вмикає обмеження переповнення (clamping) для операцій Emotion Engine. Залиште вимкненим, якщо це не потрібно для сумісності гри.</string>
-    <string name="settings_help_enable_ee_clamping">Керує тим, чи генерує рекомпілятор EE перевірки обмеження (clamping) для випадків переповнення з рухомою комою. Вимкнення цієї функції запобігає генерації зайвого коду в іграх, яким не потрібна така поведінка. Вмикайте її лише в тому випадку, якщо в конкретній грі спостерігаються проблеми з фізикою, геометрією або рендерингом, що вимагають обмеження EE.</string>
     <string name="settings_help_thread_pinning">Прив\'язує основні потоки емуляції до найшвидших ядер процесора замість того, щоб повністю довірити їх розподіл Android. Це може покращити стабільність на потужних чипах або портативних консолях з охолодженням, але може збільшити нагрівання або знизити продуктивність на деяких пристроях, якби планувальник розподілив навантаження краще.</string>
     <string name="settings_thread_pinning">Прив\'язка потоків (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Утримує роботу EE, VU1 та GS на найшвидших ядрах ЦП, якщо це підтримується.</string>
@@ -1191,10 +1185,6 @@
     <string name="memory_card_folder_unlimited">Папка • Необмежений розмір</string>
     <string name="memory_card_file_size">Файл • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">Налаштування гри</string>
-    <string name="settings_clamping_section">Clamping</string>
-    <string name="settings_enable_vu0_clamping">VU0 Clamping</string>
-    <string name="settings_enable_vu0_clamping_desc">Вмикає клемпінг переповнення для операцій із рухомою комою VU0. Залиште вимкненим, якщо це не потрібно грі для сумісності.</string>
-    <string name="settings_help_enable_vu0_clamping">Контролює, чи видає рекомпілятор VU0 інструкції клемпінгу для випадків переповнення та втрати значущості з рухомою комою. Більшість ігор коректно працюють без клемпінгу VU0; вмикайте його лише у разі проблем із сумісністю в конкретній грі.</string>
     <string name="settings_help_ntsc_framerate">Встановлює базову частоту оновлення, яка використовується іграми регіону NTSC, коли цільовий FPS встановлено на «Авто». Ручне налаштування FPS замінює це значення, поки воно ввімкнене.</string>
     <string name="settings_help_pal_framerate">Встановлює базову частоту оновлення, яка використовується іграми регіону PAL, коли цільовий FPS встановлено на «Авто». Ручне налаштування FPS замінює це значення, поки воно ввімкнене.</string>
     <string name="settings_ntsc_framerate">Частота кадрів NTSC</string>

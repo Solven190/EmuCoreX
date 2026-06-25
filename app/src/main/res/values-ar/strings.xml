@@ -223,9 +223,6 @@
     <string name="settings_enable_vu1_recompiler">معيد تجميع VU1</string>
     <string name="settings_enable_vu1_recompiler_desc">معيد التجميع الدقيق لـ Vector Unit 1. قم بتعطيله لإجبار استخدام مفسر VU1.</string>
     <string name="settings_help_enable_vu1_recompiler">يتحكم في معيد تجميع Vector Unit 1. تدير VU1 قدرًا كبيرًا من مهام التحويل والهندسة في العديد من الألعاب. قم بتعطيله عندما تحتاج إلى مقارنة مخرجات JIT مع المفسر، أو التحقيق في تلف العرض، أو التقاط مسارات VU1 لتصحيح الأخطاء.</string>
-    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
-    <string name="settings_enable_vu1_clamping_desc">يُفعّل VU1 Clamping لحالات النقطة العائمة الحدية. اتركه مغلقاً ما لم تحتجه لعبة للتوافق.</string>
-    <string name="settings_help_enable_vu1_clamping">يتحكم فيما إذا كان معيد تجميع VU1 يولّد فحوصات clamping لحالات overflow و extra overflow و sign overflow و underflow. تعمل معظم الألعاب بشكل صحيح مع إيقاف VU1 Clamping؛ فعّله فقط إذا ظهرت في لعبة معينة أخطاء رسومية أو هندسة غير صحيحة أو مشاكل توافق أخرى.</string>
     <string name="settings_jit_mtvu_note">إذا قمت بتعطيل معيد تجميع VU1، فقم أيضًا بإيقاف تشغيل MTVU أدناه. لا يكون لـ MTVU معنى إلا مع تفعيل معيد تجميع VU1.</string>
     <string name="settings_renderer">وضع الرسومات</string>
     <string name="settings_renderer_auto">تلقائي</string>
@@ -1170,9 +1167,6 @@
     <string name="settings_invert_right_stick_horizontal_desc">عكس الحركة الأفقية على العصا التناظرية اليمنى.</string>
     <string name="settings_invert_left_stick_horizontal">عكس العصا اليسرى أفقياً</string>
     <string name="settings_invert_left_stick_horizontal_desc">عكس الحركة الأفقية على العصا التناظرية اليسرى.</string>
-    <string name="settings_enable_ee_clamping">EE Clamping</string>
-    <string name="settings_enable_ee_clamping_desc">يُفعّل تثبيت التجاوز (Clamping) لعمليات Emotion Engine. اتركه مغلقاً إلا إذا كانت اللعبة تحتاجه للتوافق.</string>
-    <string name="settings_help_enable_ee_clamping">يتحكم فيما إذا كان معيد تجميع EE يصدر فحوصات تثبيت (clamping) لحالات تجاوز النقطة العائمة. إبقاؤه معطلاً يتجنب الشفرات المولدة الإضافية في الألعاب التي لا تحتاج إلى هذا السلوك. قم بتمكينه فقط إذا أظهرت لعبة معينة مشكلات في الفيزياء أو الهندسة أو العرض تتطلب تثبيت EE.</string>
     <string name="settings_help_thread_pinning">يثبت خيوط المحاكاة الرئيسية على أسرع أنوية وحدة المعالجة المركزية بدلاً من ترك تحديد المكان بالكامل لنظام Android. يمكن أن يحسن الاستقرار على الرقائق القوية أو الأجهزة المحمولة المبردة، لكنه قد يزيد الحرارة أو يقلل الأداء على بعض الأجهزة إذا كان المجدول سيوازن الحمل بشكل أفضل.</string>
     <string name="settings_thread_pinning">تثبيت الخيوط (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">يحافظ على عمل EE و VU1 و GS على أسرع أنوية وحدة المعالجة المركزية عند الدعم.</string>
@@ -1189,10 +1183,6 @@
     <string name="memory_card_folder_unlimited">مجلد • حجم غير محدود</string>
     <string name="memory_card_file_size">ملف • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">إعدادات اللعبة</string>
-    <string name="settings_clamping_section">التقييد (Clamping)</string>
-    <string name="settings_enable_vu0_clamping">تقييد VU0</string>
-    <string name="settings_enable_vu0_clamping_desc">يُمكن تقييد التجاوز لعمليات النقطة العائمة في VU0. اتركه معطلاً ما لم تحتاجه اللعبة من أجل التوافق.</string>
-    <string name="settings_help_enable_vu0_clamping">يتحكم في ما إذا كان معيد التحويل البرمجي لـ VU0 يصدر تعليمات تقييد لحالات تجاوز السعة والقصور في النقطة العائمة. تعمل معظم الألعاب بشكل صحيح بدون تقييد VU0؛ قم بتمكينه فقط لمشكلات التوافق في لعبة معينة.</string>
     <string name="settings_help_ntsc_framerate">يحدد معدل التحديث الأساسي الذي تستخدمه ألعاب منطقة NTSC عندما يتم ضبط FPS المستهدف على تلقائي. يتجاوز خيار FPS اليدوي هذه القيمة أثناء تمكينه.</string>
     <string name="settings_help_pal_framerate">يحدد معدل التحديث الأساسي الذي تستخدمه ألعاب منطقة PAL عندما يتم ضبط FPS المستهدف على تلقائي. يتجاوز خيار FPS اليدوي هذه القيمة أثناء تمكينه.</string>
     <string name="settings_ntsc_framerate">معدل إطارات NTSC</string>

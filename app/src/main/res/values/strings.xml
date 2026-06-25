@@ -224,7 +224,6 @@
     <string name="settings_graphics">Video</string>
     <string name="settings_jit_section">JIT / Interpreter</string>
     <string name="settings_jit_section_note">Turn a recompiler off to force that block onto the interpreter. Use this for isolation and crash tracing, not for normal play.</string>
-    <string name="settings_clamping_section">Clamping</string>
     <string name="settings_enable_ee_recompiler">EE Recompiler</string>
     <string name="settings_enable_ee_recompiler_desc">Main Emotion Engine CPU JIT. Disable it to force the EE interpreter.</string>
     <string name="settings_help_enable_ee_recompiler">Controls the main PlayStation 2 CPU recompiler for the Emotion Engine. Leave this enabled for normal play. Disable it only when testing CPU-related bugs, crashes, or timing issues, because interpreter mode is much slower.</string>
@@ -237,15 +236,6 @@
     <string name="settings_enable_vu1_recompiler">VU1 Recompiler</string>
     <string name="settings_enable_vu1_recompiler_desc">Vector Unit 1 micro recompiler. Disable it to force the VU1 interpreter.</string>
     <string name="settings_help_enable_vu1_recompiler">Controls the Vector Unit 1 recompiler. VU1 drives a large amount of transform and geometry work in many games. Disable it when you need to compare JIT output against the interpreter, investigate rendering corruption, or capture VU1 traces for debugging.</string>
-    <string name="settings_enable_ee_clamping">EE Clamping</string>
-    <string name="settings_enable_ee_clamping_desc">Enables overflow clamping for Emotion Engine operations. Leave it off unless a game needs it for compatibility.</string>
-    <string name="settings_help_enable_ee_clamping">Controls whether the EE recompiler emits clamping checks for floating-point overflow cases. Keeping it disabled avoids extra generated code on games that do not need this behavior. Enable it only if a specific game shows physics, geometry, or rendering issues that require EE clamping.</string>
-    <string name="settings_enable_vu0_clamping">VU0 Clamping</string>
-    <string name="settings_enable_vu0_clamping_desc">Enables overflow clamping for VU0 float operations. Leave it off unless a game needs it for compatibility.</string>
-    <string name="settings_help_enable_vu0_clamping">Controls whether the VU0 recompiler emits clamping instructions for floating-point overflow and underflow cases. Most games work correctly without VU0 clamping; enable it only for compatibility issues in a specific game.</string>
-    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
-    <string name="settings_enable_vu1_clamping_desc">Enables VU1 clamping for floating-point edge cases. Leave it off unless a game needs it for compatibility.</string>
-    <string name="settings_help_enable_vu1_clamping">Controls whether the VU1 recompiler emits clamping checks for overflow, extra overflow, sign overflow, and underflow cases. Most games work correctly with VU1 clamping off; enable it only if a specific game has graphical glitches, bad geometry, or other compatibility issues.</string>
     <string name="settings_jit_mtvu_note">If you disable VU1 recompiler, also turn off MTVU below. MTVU only makes sense with VU1 recompilation enabled.</string>
     <string name="settings_renderer">Graphics Mode</string>
     <string name="settings_renderer_auto">Auto</string>

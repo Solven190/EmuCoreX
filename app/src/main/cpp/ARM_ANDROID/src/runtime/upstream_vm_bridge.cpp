@@ -102,28 +102,6 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "EnableVU0", true));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "EnableVU1",
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "EnableVU1", true));
-	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu0Overflow",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu0Overflow", false));
-	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu0ExtraOverflow",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu0ExtraOverflow", false));
-	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu0SignOverflow",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu0SignOverflow", false));
-	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu0Underflow",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu0Underflow", false));
-	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu1Overflow",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu1Overflow", false));
-	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu1ExtraOverflow",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu1ExtraOverflow", false));
-	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu1SignOverflow",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu1SignOverflow", false));
-	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu1Underflow",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu1Underflow", false));
-	si.SetBoolValue("EmuCore/CPU/Recompiler", "fpuOverflow",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "fpuOverflow", false));
-	si.SetBoolValue("EmuCore/CPU/Recompiler", "fpuExtraOverflow",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "fpuExtraOverflow", false));
-	si.SetBoolValue("EmuCore/CPU/Recompiler", "fpuFullMode",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "fpuFullMode", false));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "EnableFastmem",
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "EnableFastmem", true));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "EnableEECache",

@@ -1063,9 +1063,6 @@
     <string name="settings_help_intc_stat_speedhack">Ottimizza le letture dal registro dello stato di interruzione. Disabilita questa opzione per testare i giochi che interrogano le interruzioni molto da vicino durante l\'avvio o i filmati.</string>
     <string name="settings_help_vu_flag_hack">Utilizza un\'approssimazione più veloce per il tempismo del flag VU. Disabilita questa opzione per verificare la divergenza dello stato VU in scene fisiche, animazioni o con un uso intenso della telecamera.</string>
     <string name="settings_help_instant_vu1">Esegue il lavoro VU1 il più rapidamente possibile anziché preservare un tempismo più rigoroso. Disabilita questa opzione per testare filmati, animazioni e giochi sensibili alla sincronizzazione VU/GS.</string>
-    <string name="settings_enable_vu1_clamping">VU1 Clamping</string>
-    <string name="settings_enable_vu1_clamping_desc">Abilita il clamping VU1 per i casi limite in virgola mobile. Lascialo disattivato a meno che un gioco non ne abbia bisogno per la compatibilità.</string>
-    <string name="settings_help_enable_vu1_clamping">Controlla se il ricompilatore VU1 emette controlli di clamping per overflow, extra overflow, sign overflow e underflow. La maggior parte dei giochi funziona correttamente con VU1 Clamping disattivato; abilitalo solo se un gioco specifico presenta glitch grafici, geometria errata o altri problemi di compatibilità.</string>
     <string name="settings_updates_history_title">Cronologia degli aggiornamenti</string>
     <string name="settings_updates_history_body">Sfoglia le versioni di GitHub, le date di rilascio e i log delle modifiche.</string>
     <string name="settings_updates_history_loading">Caricamento della cronologia delle versioni</string>
@@ -1170,9 +1167,6 @@
     <string name="settings_invert_right_stick_horizontal_desc">Inverti il movimento orizzontale sulla levetta analogica destra.</string>
     <string name="settings_invert_left_stick_horizontal">Inverti orizzontalmente la levetta sinistra</string>
     <string name="settings_invert_left_stick_horizontal_desc">Inverti il movimento orizzontale sulla levetta analogica sinistra.</string>
-    <string name="settings_enable_ee_clamping">EE Clamping</string>
-    <string name="settings_enable_ee_clamping_desc">Abilita il clamping dell\'overflow per le operazioni dell\'Emotion Engine. Lascialo disattivato a meno che un gioco non ne abbia bisogno per la compatibilità.</string>
-    <string name="settings_help_enable_ee_clamping">Controlla se il ricompilatore EE emette controlli di clamping per casi di overflow in virgola mobile. Mantenerlo disabilitato evita codice generato in eccesso nei giochi che non necessitano di questo comportamento. Abilitalo solo se un gioco specifico mostra problemi di fisica, geometria o rendering che richiedono il clamping EE.</string>
     <string name="settings_help_thread_pinning">Fissa i thread principali di emulazione sui core della CPU più veloci anziché lasciare il posizionamento interamente ad Android. Può migliorare la stabilità su chip potenti o console portatili raffreddate, ma potrebbe aumentare il calore o ridurre le prestazioni su alcuni dispositivi se lo scheduler avesse bilanciato meglio il carico.</string>
     <string name="settings_thread_pinning">Ancoraggio dei thread (Thread pinning)</string>
     <string name="settings_thread_pinning_desc">Mantiene il lavoro di EE, VU1 e GS sui core della CPU più veloci, se supportato.</string>
@@ -1189,10 +1183,6 @@
     <string name="memory_card_folder_unlimited">Cartella • Dimensione illimitata</string>
     <string name="memory_card_file_size">File • %1$s</string>
     <string name="game_settings_manager_editor_eyebrow">Impostazioni di gioco</string>
-    <string name="settings_clamping_section">Clamping</string>
-    <string name="settings_enable_vu0_clamping">Clamping VU0</string>
-    <string name="settings_enable_vu0_clamping_desc">Abilita il clamping dell\'overflow per le operazioni a virgola mobile VU0. Lascialo disattivato a meno che un gioco non ne abbia bisogno per motivi di compatibilità.</string>
-    <string name="settings_help_enable_vu0_clamping">Controlla se il ricompilatore VU0 emette istruzioni di clamping per i casi di overflow e underflow a virgola mobile. La maggior parte dei giochi funziona correttamente senza il clamping VU0; abilitalo solo per problemi di compatibilità in un gioco specifico.</string>
     <string name="settings_help_ntsc_framerate">Imposta la frequenza di aggiornamento di base utilizzata dai giochi della regione NTSC quando gli FPS target sono impostati su Auto. Gli FPS manuali sovrascrivono questo valore finché sono abilitati.</string>
     <string name="settings_help_pal_framerate">Imposta la frequenza di aggiornamento di base utilizzata dai giochi della regione PAL quando gli FPS target sono impostati su Auto. Gli FPS manuali sovrascrivono questo valore finché sono abilitati.</string>
     <string name="settings_ntsc_framerate">Framerate NTSC</string>

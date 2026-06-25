@@ -69,9 +69,6 @@ data class SettingsUiState(
     val enableIopRecompiler: Boolean = true,
     val enableVu0Recompiler: Boolean = true,
     val enableVu1Recompiler: Boolean = true,
-    val enableEeClamping: Boolean = false,
-    val enableVu0Clamping: Boolean = false,
-    val enableVu1Clamping: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
     val enableVuFlagHack: Boolean = true,
@@ -191,6 +188,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     init {
         viewModelScope.launch {
+            preferences.cleanupLegacyClampingPreferencesIfNeeded()
             preferences.settingsSnapshot.collect { snapshot ->
                 applySettingsSnapshot(snapshot)
             }
@@ -237,9 +235,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             enableIopRecompiler = snapshot.enableIopRecompiler,
             enableVu0Recompiler = snapshot.enableVu0Recompiler,
             enableVu1Recompiler = snapshot.enableVu1Recompiler,
-            enableEeClamping = snapshot.enableEeClamping,
-            enableVu0Clamping = snapshot.enableVu0Clamping,
-            enableVu1Clamping = snapshot.enableVu1Clamping,
             enableWaitLoopSpeedhack = snapshot.enableWaitLoopSpeedhack,
             enableIntcStatSpeedhack = snapshot.enableIntcStatSpeedhack,
             enableVuFlagHack = snapshot.enableVuFlagHack,
@@ -845,30 +840,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 preferences.setEnableMtvu(false)
                 EmulatorBridge.setSetting("EmuCore/Speedhacks", "vuThread", "bool", "false")
             }
-        }
-    }
-
-    fun setEnableVu0Clamping(enabled: Boolean) {
-        viewModelScope.launch {
-            markPerformancePresetCustom()
-            preferences.setEnableVu0Clamping(enabled)
-            EmulatorBridge.setVu0Clamping(enabled)
-        }
-    }
-
-    fun setEnableVu1Clamping(enabled: Boolean) {
-        viewModelScope.launch {
-            markPerformancePresetCustom()
-            preferences.setEnableVu1Clamping(enabled)
-            EmulatorBridge.setVu1Clamping(enabled)
-        }
-    }
-
-    fun setEnableEeClamping(enabled: Boolean) {
-        viewModelScope.launch {
-            markPerformancePresetCustom()
-            preferences.setEnableEeClamping(enabled)
-            EmulatorBridge.setEeClamping(enabled)
         }
     }
 
@@ -1482,8 +1453,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 enableIopRecompiler = _uiState.value.enableIopRecompiler,
                 enableVu0Recompiler = _uiState.value.enableVu0Recompiler,
                 enableVu1Recompiler = _uiState.value.enableVu1Recompiler,
-                vu0Clamping = _uiState.value.enableVu0Clamping,
-                vu1Clamping = _uiState.value.enableVu1Clamping,
                 waitLoopSpeedhack = _uiState.value.enableWaitLoopSpeedhack,
                 intcStatSpeedhack = _uiState.value.enableIntcStatSpeedhack,
                 vuFlagHack = _uiState.value.enableVuFlagHack,
@@ -1532,8 +1501,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 alignSprite = _uiState.value.alignSprite,
                 mergeSprite = _uiState.value.mergeSprite,
                 forceEvenSpritePosition = _uiState.value.forceEvenSpritePosition,
-                nativePaletteDraw = _uiState.value.nativePaletteDraw,
-                fpuClampMode = if (_uiState.value.enableEeClamping) 3 else 0
+                nativePaletteDraw = _uiState.value.nativePaletteDraw
             )
         }
     }

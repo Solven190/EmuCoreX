@@ -21,9 +21,6 @@ data class PerGameSettings(
     val enableFastBoot: Boolean = true,
     val enableMtvu: Boolean = true,
     val enableThreadPinning: Boolean = false,
-    val enableEeClamping: Boolean = false,
-    val enableVu0Clamping: Boolean = false,
-    val enableVu1Clamping: Boolean = false,
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
     val hwDownloadMode: Int = 0,
@@ -130,12 +127,18 @@ class PerGameSettingsRepository(context: Context) {
         return runCatching {
             val root = JSONObject(file.readText())
             val profiles = root.optJSONArray("profiles") ?: JSONArray()
-            buildList {
+            var hadLegacyClampingKeys = false
+            val items = buildList {
                 for (index in 0 until profiles.length()) {
                     val item = profiles.optJSONObject(index) ?: continue
+                    hadLegacyClampingKeys = hadLegacyClampingKeys || item.hasLegacyClampingKeys()
                     add(item.toPerGameSettings())
                 }
             }
+            if (hadLegacyClampingKeys) {
+                writeAll(items.sortedBy { it.gameTitle.lowercase() })
+            }
+            items
         }.getOrDefault(emptyList())
     }
 
@@ -152,14 +155,18 @@ class PerGameSettingsRepository(context: Context) {
     }
 }
 
+private val legacyClampingProfileKeys = setOf(
+    "enableEeClamping",
+    "enableVu0Clamping",
+    "enableVu1Clamping"
+)
+
+private fun JSONObject.hasLegacyClampingKeys(): Boolean {
+    return legacyClampingProfileKeys.any(::has)
+}
+
 private fun JSONObject.toPerGameSettings(): PerGameSettings {
-    val rawProvidedKeys = keys().asSequence().toSet()
-    val providedKeys = if ("enableVu1Clamping" in rawProvidedKeys && "enableVu0Clamping" !in rawProvidedKeys) {
-        rawProvidedKeys + "enableVu0Clamping"
-    } else {
-        rawProvidedKeys
-    }
-    val vu1Clamping = optBoolean("enableVu1Clamping", false)
+    val providedKeys = keys().asSequence().toSet() - legacyClampingProfileKeys
     return PerGameSettings(
         gameKey = optString("gameKey"),
         gameTitle = optString("gameTitle"),
@@ -172,9 +179,6 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         enableFastBoot = optBoolean("enableFastBoot", true),
         enableMtvu = optBoolean("enableMtvu", true),
         enableThreadPinning = optBoolean("enableThreadPinning", false),
-        enableEeClamping = optBoolean("enableEeClamping", false),
-        enableVu0Clamping = optBoolean("enableVu0Clamping", vu1Clamping),
-        enableVu1Clamping = vu1Clamping,
         enableFastCdvd = optBoolean("enableFastCdvd", false),
         enableCheats = optBoolean("enableCheats", false),
         hwDownloadMode = optInt("hwDownloadMode", 0),
@@ -259,9 +263,6 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("enableFastBoot")) put("enableFastBoot", enableFastBoot)
         if (shouldWrite("enableMtvu")) put("enableMtvu", enableMtvu)
         if (shouldWrite("enableThreadPinning")) put("enableThreadPinning", enableThreadPinning)
-        if (shouldWrite("enableEeClamping")) put("enableEeClamping", enableEeClamping)
-        if (shouldWrite("enableVu0Clamping")) put("enableVu0Clamping", enableVu0Clamping)
-        if (shouldWrite("enableVu1Clamping")) put("enableVu1Clamping", enableVu1Clamping)
         if (shouldWrite("enableFastCdvd")) put("enableFastCdvd", enableFastCdvd)
         if (shouldWrite("enableCheats")) put("enableCheats", enableCheats)
         if (shouldWrite("hwDownloadMode")) put("hwDownloadMode", hwDownloadMode)
