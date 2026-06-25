@@ -505,6 +505,10 @@ PAPX-90517:
   name-sort: "ぷりんす おぶ ぺるしゃ じかんのすな [たいけんばん]"
   name-en: "Prince of Persia - The Sands of Time [Trial]"
   region: "NTSC-J"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -2260,6 +2264,10 @@ SCAJ-20153:
 SCAJ-20154:
   name: "Prince of Persia - Warrior Within"
   region: "NTSC-Unk"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -9228,6 +9236,10 @@ SCPS-15066:
   name-sort: "ぷりんす おぶ ぺるしゃ じかんのすな"
   name-en: "Prince of Persia - The Sands of Time"
   region: "NTSC-J"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -11012,6 +11024,8 @@ SCUS-21295:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     recommendedBlendingLevel: 3 # Fixes water and grass textures.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -13845,6 +13859,10 @@ SLED-51921:
 SLED-51961:
   name: "Prince of Persia - The Sands of Time [Demo]"
   region: "PAL-E"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 4 # Fixes post positioning.
@@ -14042,6 +14060,10 @@ SLED-52899:
 SLED-52929:
   name: "Prince of Persia - Warrior Within [Demo]"
   region: "PAL-M5"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -15524,12 +15546,18 @@ SLES-50435:
   name: "Tony Hawk's Pro Skater 3"
   region: "PAL-E"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1
 SLES-50436:
   name: "Tony Hawk's Pro Skater 3"
   region: "PAL-F"
+  clampModes:
+    vu1ClampMode: 1
 SLES-50437:
   name: "Tony Hawk's Pro Skater 3"
   region: "PAL-G"
+  clampModes:
+    vu1ClampMode: 1
 SLES-50438:
   name: "Motor Mayhem"
   region: "PAL-M3"
@@ -17155,16 +17183,22 @@ SLES-51130:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
 SLES-51131:
   name: "Tony Hawk's Pro Skater 4"
   region: "PAL-F"
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
 SLES-51132:
   name: "Tony Hawk's Pro Skater 4"
   region: "PAL-G"
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
 SLES-51133:
   name: "Red Faction II"
   region: "PAL-M3"
@@ -18898,6 +18932,8 @@ SLES-51848:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -18911,6 +18947,8 @@ SLES-51851:
   region: "PAL-F"
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -18922,6 +18960,8 @@ SLES-51852:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -18932,6 +18972,8 @@ SLES-51853:
   region: "PAL-F"
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -18942,6 +18984,8 @@ SLES-51854:
   region: "PAL-S"
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -19140,6 +19184,10 @@ SLES-51918:
   name: "Prince of Persia - The Sands of Time"
   region: "PAL-M5"
   compat: 5
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -19244,6 +19292,10 @@ SLES-51960:
 SLES-51961:
   name: "Prince of Persia - The Sands of Time" # Pre-order Demo
   region: "PAL-E"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -19770,6 +19822,10 @@ SLES-52187:
   name: "Baldur's Gate - Dark Alliance II"
   region: "PAL-M3"
   compat: 5
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     textureInsideRT: 1 # Fixes half right.
     estimateTextureRegion: 1 # Improves performance and reduces hash cache size.
@@ -19779,6 +19835,10 @@ SLES-52188:
   name: "Baldur's Gate - Dark Alliance II"
   region: "PAL-M3"
   compat: 5
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     textureInsideRT: 1 # Fixes half right.
     estimateTextureRegion: 1 # Improves performance and reduces hash cache size.
@@ -20953,6 +21013,8 @@ SLES-52621:
   region: "PAL-E"
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1 # Fixes VU1 clamp-sensitive geometry without enabling heavier modes.
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     preloadFrameData: 1 # Fixes missing loading screens.
@@ -20964,6 +21026,8 @@ SLES-52622:
   region: "PAL-M4"
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1 # Fixes VU1 clamp-sensitive geometry without enabling heavier modes.
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     preloadFrameData: 1 # Fixes missing loading screens.
@@ -21638,6 +21702,10 @@ SLES-52822:
   name: "Prince of Persia - Warrior Within"
   region: "PAL-M6"
   compat: 5
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -23816,6 +23884,8 @@ SLES-53534:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     recommendedBlendingLevel: 3 # Fixes water and grass textures.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -23827,6 +23897,8 @@ SLES-53535:
   region: "PAL-M4"
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     recommendedBlendingLevel: 3 # Fixes water and grass textures.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -24736,6 +24808,10 @@ SLES-53777:
   name: "Prince of Persia - The Two Thrones"
   region: "PAL-M5"
   compat: 5
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 1 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -26573,6 +26649,8 @@ SLES-54389:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Fixes invalid VU size spam and likely SPS.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -26584,6 +26662,8 @@ SLES-54390:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Fixes invalid VU size spam and likely SPS.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -27620,6 +27700,8 @@ SLES-54713:
 SLES-54714:
   name: "Tony Hawk's Downhill Jam"
   region: "PAL-E"
+  clampModes:
+    vu1ClampMode: 1
   speedHacks:
     mtvu: 0 # Fixes tutorial crashing.
   roundModes:
@@ -27632,6 +27714,8 @@ SLES-54714:
 SLES-54715:
   name: "Tony Hawk's Downhill Jam"
   region: "PAL-M4"
+  clampModes:
+    vu1ClampMode: 1
   speedHacks:
     mtvu: 0 # Fixes tutorial crashing.
   roundModes:
@@ -28442,6 +28526,8 @@ SLES-54963:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -28452,6 +28538,8 @@ SLES-54964:
   region: "PAL-M4"
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -31696,6 +31784,10 @@ SLKA-25120:
   name: "페르시아의 왕자"
   name-en: "Prince of Persia - The Sands of Time"
   region: "NTSC-K"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -32362,6 +32454,10 @@ SLKA-25247:
   name: "페르시아의 왕자 - 전사의 길"
   name-en: "Prince of Persia - Warrior Within"
   region: "NTSC-K"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -32948,6 +33044,10 @@ SLKA-25346:
   name: "페르시아의 왕자 - 두개의 왕좌" # Undumped on ReDump as of 2025-08-28
   name-en: "Prince of Persia - The Two Thrones"
   region: "NTSC-K"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 1 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -33542,6 +33642,10 @@ SLKA-25460:
   name: "페르시아의 왕자 - 시간의 모래 [PlayStation 2 BigHit Series]" # Undumped on ReDump as of 2025-08-28
   name-en: "Prince of Persia - The Sands of Time [PlayStation 2 BigHit Series]"
   region: "NTSC-K"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -33550,6 +33654,10 @@ SLKA-25461:
   name: "페르시아의 왕자 - 두개의 왕좌 [PlayStation 2 BigHit Series]" # Undumped on ReDump as of 2025-08-28
   name-en: "Prince of Persia - The Two Thrones [PlayStation 2 BigHit Series]"
   region: "NTSC-K"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 1 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -33558,6 +33666,10 @@ SLKA-25462:
   name: "페르시아의 왕자 - 전사의 길 [PlayStation 2 BigHit Series]" # Undumped on ReDump as of 2025-08-28
   name-en: "Prince of Persia - Warrior Within [PlayStation 2 BigHit Series]"
   region: "NTSC-K"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -42215,6 +42327,8 @@ SLPM-65190:
   name-sort: "とにーほーく ぷろすけーたー 3"
   name-en: "Tony Hawk's Pro Skater 3"
   region: "NTSC-J"
+  clampModes:
+    vu1ClampMode: 1
 SLPM-65191:
   name: "V-RALLY3"
   name-sort: "V-らりー3"
@@ -43593,6 +43707,8 @@ SLPM-65419:
   region: "NTSC-J"
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
 SLPM-65420:
   name: "ダビつく3 ダービー馬をつくろう！"
   name-sort: "だびつく3 だーびーばをつくろう！"
@@ -46074,6 +46190,10 @@ SLPM-65845:
   name-en: "Baldur's Gate - Dark Alliance II"
   region: "NTSC-J"
   compat: 5
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     textureInsideRT: 1 # Fixes half right.
     estimateTextureRegion: 1 # Improves performance and reduces hash cache size.
@@ -46981,6 +47101,10 @@ SLPM-66002:
   name-sort: "ぷりんす おぶ ぺるしゃ けんし の こころ"
   name-en: "Prince of Persia - Warrior Within"
   region: "NTSC-J"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -49483,6 +49607,10 @@ SLPM-66391:
   name-sort: "ぷりんす おぶ ぺるしゃ ふたつのたましい"
   name-en: "Prince of Persia - The Two Thrones"
   region: "NTSC-J"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 1 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -51269,6 +51397,10 @@ SLPM-66673:
   name-sort: "ぷりんす おぶ ぺるしゃ けんし の こころ [UBISOFT BEST]"
   name-en: "Prince of Persia - Warrior Within [Ubisoft Best]"
   region: "NTSC-J"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -64256,6 +64388,8 @@ SLUS-20013:
   name: "Tony Hawk's Pro Skater 3"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1
 SLUS-20014:
   name: "Armored Core 2"
   region: "NTSC-U"
@@ -66538,6 +66672,8 @@ SLUS-20504:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
 SLUS-20505:
   name: "Mace Griffin - Bounty Hunter"
   region: "NTSC-U"
@@ -67472,6 +67608,10 @@ SLUS-20675:
   name: "Baldur's Gate - Dark Alliance II"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gameFixes:
     - SoftwareRendererFMVHack # Fixes FMVs.
   gsHWFixes:
@@ -67763,6 +67903,8 @@ SLUS-20731:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -67824,6 +67966,10 @@ SLUS-20743:
   name: "Prince of Persia - The Sands of Time"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -69089,6 +69235,8 @@ SLUS-20965:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1 # Fixes VU1 clamp-sensitive geometry without enabling heavier modes.
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     preloadFrameData: 1 # Fixes missing loading screens.
@@ -69480,6 +69628,10 @@ SLUS-21022:
   name: "Prince of Persia - Warrior Within"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -70584,6 +70736,8 @@ SLUS-21208:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     recommendedBlendingLevel: 3 # Fixes water and grass textures.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -71190,6 +71344,10 @@ SLUS-21287:
   name: "Prince of Persia - The Two Thrones"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 1 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
@@ -71243,6 +71401,8 @@ SLUS-21295:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Crashes without.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     recommendedBlendingLevel: 3 # Fixes water and grass textures.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -72270,6 +72430,8 @@ SLUS-21444:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Fixes invalid VU size spam and likely SPS.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -72356,6 +72518,8 @@ SLUS-21456:
   name: "Tony Hawk's Downhill Jam"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1
   speedHacks:
     mtvu: 0 # Fixes tutorial crashing.
   roundModes:
@@ -73148,6 +73312,8 @@ SLUS-21616:
   compat: 5
   roundModes:
     vu1RoundMode: 0 # Fixes SPS and VU size spam.
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     minimumBlendingLevel: 3 # Fixes broken lighting on ground and buildings.
     halfPixelOffset: 4 # Mostly aligns post-processing.
@@ -75367,6 +75533,10 @@ SLUS-29068:
 SLUS-29069:
   name: "Prince of Persia - The Sands of Time [Demo]"
   region: "NTSC-U"
+  clampModes:
+    eeClampMode: 1
+    vu0ClampMode: 1
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Reduces post-processing misalignment.
     halfPixelOffset: 5 # Fixes post positioning.
