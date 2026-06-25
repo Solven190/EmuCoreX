@@ -1218,4 +1218,8 @@
     <string name="settings_help_auto_progressive_scan">Імітує утримання кнопок Трикутник + Хрест протягом кількох секунд після запуску. Використовуйте для ігор, які пропонують увімкнути прогресивну розгортку (або 480p) лише під час утримання цієї комбінації під час завантаження.</string>
     <string name="settings_auto_progressive_scan">Автоматична прогресивна розгортка</string>
     <string name="settings_auto_progressive_scan_desc">Утримує Трикутник + Хрест під час завантаження для ігор із прихованим запитом 480p.</string>
+    <string name="settings_fast_forward_speed">Швидкість прискорення</string>
+    <string name="settings_fast_forward_speed_desc">%1$s</string>
+    <string name="settings_help_fast_forward_speed">Встановлює швидкість, яка використовується під час утримання кнопки Start для прискорення.</string>
+    <string name="emulation_transport_fast_forward">Прискорення</string>
 </resources>

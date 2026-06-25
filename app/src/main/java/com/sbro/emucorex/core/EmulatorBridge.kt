@@ -291,6 +291,7 @@ object EmulatorBridge {
         frameSkip: Int = 0,
         skipDuplicateFrames: Boolean = false,
         frameLimitEnabled: Boolean = true,
+        fastForwardSpeed: Float = AppPreferences.DEFAULT_FAST_FORWARD_SPEED,
         targetFps: Int = 0,
         ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
         palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE,
@@ -478,6 +479,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/GS", "FrameLimitEnable", "bool", frameLimitEnabled.toString()))
                 addAll(targetFpsOps(targetFps, ntscFramerate, palFramerate))
                 add(settingOp("Framerate", "NominalScalar", "float", "1.0"))
+                add(settingOp("Framerate", "TurboScalar", "float", sanitizeFastForwardSpeed(fastForwardSpeed).toString()))
                 add(settingOp("EmuCore/GS", "disable_hw_readbacks", "bool", disableHardwareReadbacks.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "fpuCorrectAddSub", "bool", fpuCorrectAddSub.toString()))
                 add(settingOp("EmuCore/GS", "FrameSkip", "int", frameSkip.toString()))
@@ -1029,6 +1031,17 @@ object EmulatorBridge {
         settingsCache[cacheKey] = value
     }
 
+    suspend fun setTurboModeEnabled(enabled: Boolean) {
+        if (!isNativeLoaded) return
+        runSerial {
+            NativeApp.setTurboModeEnabled(enabled)
+        }
+    }
+
+    suspend fun setFastForwardSpeed(value: Float) {
+        setSetting("Framerate", "TurboScalar", "float", sanitizeFastForwardSpeed(value).toString())
+    }
+
     suspend fun setSkipDuplicateFrames(enabled: Boolean) {
         setSetting("EmuCore/GS", "SkipDuplicateFrames", "bool", enabled.toString())
     }
@@ -1177,5 +1190,13 @@ object EmulatorBridge {
 
     private fun sanitizeFramerate(value: Float, fallback: Float): Float {
         return if (value.isFinite()) value.coerceIn(20f, 120f) else fallback
+    }
+
+    private fun sanitizeFastForwardSpeed(value: Float): Float {
+        return if (value.isFinite()) {
+            value.coerceIn(AppPreferences.MIN_FAST_FORWARD_SPEED, AppPreferences.MAX_FAST_FORWARD_SPEED)
+        } else {
+            AppPreferences.DEFAULT_FAST_FORWARD_SPEED
+        }
     }
 }

@@ -1216,4 +1216,8 @@
     <string name="settings_help_auto_progressive_scan">लॉन्च के बाद कुछ सेकंड के लिए त्रिभुज + क्रॉस (Triangle + Cross) को दबाए रखने का अनुकरण करता है। इसका उपयोग उन गेम के लिए करें जो बूट के दौरान इस कॉम्बो को दबाए रखने पर ही प्रोग्रेसिव स्कैन या 480p प्रॉम्प्ट दिखाते हैं。</string>
     <string name="settings_auto_progressive_scan">ऑटो प्रोग्रेसिव स्कैन</string>
     <string name="settings_auto_progressive_scan_desc">छिपे हुए 480p प्रॉम्प्ट वाले गेम के लिए बूट के दौरान त्रिभुज + क्रॉस दबाए रखें。</string>
+    <string name="settings_fast_forward_speed">फ़ास्ट-फ़ॉरवर्ड गति</string>
+    <string name="settings_fast_forward_speed_desc">%1$s</string>
+    <string name="settings_help_fast_forward_speed">फ़ास्ट-फ़ॉरवर्ड के लिए Start को दबाए रखते हुए उपयोग की जाने वाली गति सेट करता है।</string>
+    <string name="emulation_transport_fast_forward">फ़ास्ट-फ़ॉरवर्ड</string>
 </resources>

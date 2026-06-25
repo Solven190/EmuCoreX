@@ -761,6 +761,10 @@
     <string name="settings_frame_skip_off">Off</string>
     <string name="settings_frame_limiter">Frame limiter</string>
     <string name="settings_frame_limiter_desc">Keeps the game closer to the selected target speed instead of running fully uncapped.</string>
+    <string name="settings_fast_forward_speed">Fast-forward speed</string>
+    <string name="settings_fast_forward_speed_desc">%1$s</string>
+    <string name="settings_help_fast_forward_speed">Sets the speed used while holding Start for fast-forward.</string>
+    <string name="emulation_transport_fast_forward">Fast-forward</string>
     <string name="settings_skip_duplicate_frames">Skip duplicate frames</string>
     <string name="settings_skip_duplicate_frames_desc">Avoids presenting identical frames multiple times in a row.</string>
     <string name="settings_target_fps">Target FPS</string>

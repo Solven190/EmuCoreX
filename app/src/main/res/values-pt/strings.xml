@@ -1218,4 +1218,8 @@
     <string name="settings_help_auto_progressive_scan">Simula manter pressionado Triângulo + Cruz por alguns segundos após o lançamento. Use-o para jogos que revelam um prompt de varredura progressiva ou 480p apenas quando esse combo é mantido durante a inicialização.</string>
     <string name="settings_auto_progressive_scan">Varredura progressiva automática</string>
     <string name="settings_auto_progressive_scan_desc">Mantém pressionado Triângulo + Cruz durante a inicialização para jogos com um prompt de 480p oculto.</string>
+    <string name="settings_fast_forward_speed">Velocidade de avanço rápido</string>
+    <string name="settings_fast_forward_speed_desc">%1$s</string>
+    <string name="settings_help_fast_forward_speed">Define a velocidade usada ao manter pressionado Start para avanço rápido.</string>
+    <string name="emulation_transport_fast_forward">Avanço rápido</string>
 </resources>

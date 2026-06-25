@@ -334,6 +334,30 @@ void AndroidRuntime::SetFrameLimitEnabled(bool enabled)
 	}, false);
 }
 
+void AndroidRuntime::SetTurboModeEnabled(bool enabled)
+{
+	bool active = false;
+	bool frame_limit_enabled = true;
+	{
+		std::lock_guard lock(mutex_);
+		active = vm_active_;
+		const auto it = settings_.find(SettingKey("EmuCore/GS", "FrameLimitEnable"));
+		if (it != settings_.end())
+			frame_limit_enabled = (it->second != "false");
+	}
+
+	if (!active)
+		return;
+
+	Host::RunOnCPUThread([enabled, frame_limit_enabled]() {
+		if (!VMManager::HasValidVM())
+			return;
+
+		VMManager::SetLimiterMode(enabled ? LimiterModeType::Turbo :
+			(frame_limit_enabled ? LimiterModeType::Nominal : LimiterModeType::Unlimited));
+	}, false);
+}
+
 void AndroidRuntime::ReloadPatches()
 {
 	bool active = false;

@@ -1674,6 +1674,21 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_frame_limiter),
                             onResetToDefault = { viewModel.setFrameLimitEnabled(defaults.frameLimitEnabled) }
                         )
+                        SliderItem(
+                            icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_fast_forward_speed),
+                            subtitle = stringResource(
+                                R.string.settings_fast_forward_speed_desc,
+                                formatSpeedMultiplier(uiState.fastForwardSpeed)
+                            ),
+                            value = uiState.fastForwardSpeed,
+                            range = AppPreferences.MIN_FAST_FORWARD_SPEED..AppPreferences.MAX_FAST_FORWARD_SPEED,
+                            steps = 14,
+                            onValueChange = viewModel::setFastForwardSpeed,
+                            valueLabel = { formatSpeedMultiplier(it) },
+                            helpText = stringResource(R.string.settings_help_fast_forward_speed),
+                            onResetToDefault = { viewModel.setFastForwardSpeed(defaults.fastForwardSpeed) }
+                        )
                         ChoiceSection(
                             title = stringResource(R.string.settings_target_fps_mode),
                             options = listOf(
@@ -2524,6 +2539,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Emulation, R.string.settings_gpu_chipset),
         entry(SettingsTab.Emulation, R.string.settings_gpu_accelerator),
         entry(SettingsTab.Emulation, R.string.settings_frame_limiter),
+        entry(SettingsTab.Emulation, R.string.settings_fast_forward_speed),
         entry(SettingsTab.Emulation, R.string.settings_target_fps),
         entry(SettingsTab.Emulation, R.string.settings_ntsc_framerate),
         entry(SettingsTab.Emulation, R.string.settings_pal_framerate),
@@ -3092,6 +3108,10 @@ private fun formatFramerateHz(value: Float): String {
     } else {
         "${rounded} Hz"
     }
+}
+
+private fun formatSpeedMultiplier(value: Float): String {
+    return "%.2fx".format(java.util.Locale.US, value)
 }
 
 @Composable

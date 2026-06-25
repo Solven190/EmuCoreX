@@ -1218,4 +1218,8 @@
     <string name="settings_help_auto_progressive_scan">Simula mantener pulsado Triángulo + Cruz durante unos segundos tras el inicio. Úsalo para juegos que muestran un mensaje de escaneo progresivo o 480p solo cuando se mantiene esta combinación durante el arranque.</string>
     <string name="settings_auto_progressive_scan">Escaneo progresivo automático</string>
     <string name="settings_auto_progressive_scan_desc">Mantiene pulsado Triángulo + Cruz durante el arranque para juegos con un mensaje oculto de 480p.</string>
+    <string name="settings_fast_forward_speed">Velocidad de avance rápido</string>
+    <string name="settings_fast_forward_speed_desc">%1$s</string>
+    <string name="settings_help_fast_forward_speed">Establece la velocidad utilizada al mantener presionado Start para el avance rápido.</string>
+    <string name="emulation_transport_fast_forward">Avance rápido</string>
 </resources>

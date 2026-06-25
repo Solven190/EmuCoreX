@@ -1216,4 +1216,8 @@
     <string name="settings_help_auto_progressive_scan">실행 후 몇 초 동안 세모 + 가위표(X) 버튼을 누르고 있는 것을 시뮬레이션합니다. 부팅 중 이 조합을 누르고 있을 때만 프로그레시브 스캔 또는 480p 프롬프트를 표시하는 게임에 사용하세요.</string>
     <string name="settings_auto_progressive_scan">자동 프로그레시브 스캔</string>
     <string name="settings_auto_progressive_scan_desc">숨겨진 480p 프롬프트가 있는 게임을 위해 부팅 중 세모 + 가위표를 누르고 있습니다.</string>
+    <string name="settings_fast_forward_speed">빨리 감기 속도</string>
+    <string name="settings_fast_forward_speed_desc">%1$s</string>
+    <string name="settings_help_fast_forward_speed">빨리 감기를 위해 Start 버튼을 누르고 있는 동안 사용할 속도를 설정합니다.</string>
+    <string name="emulation_transport_fast_forward">빨리 감기</string>
 </resources>

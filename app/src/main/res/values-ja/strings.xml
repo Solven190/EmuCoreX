@@ -1216,4 +1216,8 @@
     <string name="settings_help_auto_progressive_scan">起動後数秒間、三角 + バツボタンを押し続ける操作をシミュレートします。起動中にこの組み合わせを押し続けている場合にのみ、プログレッシブスキャンまたは480pのプロンプトを表示するゲームに使用します。</string>
     <string name="settings_auto_progressive_scan">オートプログレッシブスキャン</string>
     <string name="settings_auto_progressive_scan_desc">隠された480pプロンプトを持つゲームのために、起動中に三角 + バツボタンを押し続けます。</string>
+    <string name="settings_fast_forward_speed">早送り速度</string>
+    <string name="settings_fast_forward_speed_desc">%1$s</string>
+    <string name="settings_help_fast_forward_speed">Startボタンを押し続けて早送りする際に使用する速度を設定します。</string>
+    <string name="emulation_transport_fast_forward">早送り</string>
 </resources>

@@ -175,6 +175,7 @@ import com.sbro.emucorex.ui.theme.GradientEnd
 import com.sbro.emucorex.ui.theme.GradientStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
@@ -208,6 +209,8 @@ private object PadKey {
     const val RIGHT_STICK_LEFT = 123
 }
 
+private const val TRANSPORT_HOLD_DELAY_MS = 360L
+
 private enum class EmulationMenuTab {
     Session,
     Controls,
@@ -231,7 +234,9 @@ private data class TouchButtonSpec(
     val y: Dp,
     val shape: androidx.compose.ui.graphics.Shape,
     val onPressChange: ((Boolean) -> Unit)? = null,
-    val onClick: (() -> Unit)? = null
+    val onClick: (() -> Unit)? = null,
+    val longPressDelayMs: Long = 0L,
+    val onLongPressChange: ((Boolean) -> Unit)? = null
 )
 
 private data class LiveSelectionOption(
@@ -989,6 +994,18 @@ fun EmulationScreen(
             }
         }
 
+        AnimatedVisibility(
+            visible = uiState.transportMode != EmulationTransportMode.None && !uiState.showMenu && !showControlsEditor,
+            enter = fadeIn(tween(120)) + scaleIn(initialScale = 0.94f, animationSpec = tween(120)),
+            exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.94f, animationSpec = tween(120)),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = overlayTopSafeInset + 14.dp)
+                .zIndex(32f)
+        ) {
+            TransportStatusOverlay(uiState.transportMode)
+        }
+
         // On-screen controls
         if (shouldShowOverlay && !uiState.showMenu && !showControlsEditor) {
             val scaleFactor = uiState.overlayScale / 100f
@@ -1015,6 +1032,7 @@ fun EmulationScreen(
                 centerOffset = uiState.centerOffset,
                 controlLayouts = uiState.controlLayouts,
                 onToggleLeftInputMode = viewModel::toggleLeftInputMode,
+                onFastForwardHoldChange = viewModel::setFastForwardHeld,
                 onPadInput = { keyCode, range, pressed ->
                     touchPadIndex?.let { padIndex ->
                         viewModel.onPadInput(padIndex, keyCode, range, pressed)
@@ -1486,6 +1504,42 @@ fun EmulationScreen(
     }
 }
 
+@Composable
+private fun TransportStatusOverlay(mode: EmulationTransportMode) {
+    if (mode == EmulationTransportMode.None) return
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xDD10131A),
+        tonalElevation = 8.dp,
+        shadowElevation = 10.dp,
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = ">>",
+                color = Color.White,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.sp
+                )
+            )
+            Text(
+                text = stringResource(R.string.emulation_transport_fast_forward),
+                color = Color.White.copy(alpha = 0.9f),
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.sp
+                )
+            )
+        }
+    }
+}
+
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 private fun OnScreenControls(
@@ -1507,6 +1561,7 @@ private fun OnScreenControls(
     centerOffset: Pair<Float, Float>,
     controlLayouts: Map<String, OverlayControlLayout>,
     onToggleLeftInputMode: () -> Unit,
+    onFastForwardHoldChange: (Boolean) -> Unit,
     onPadInput: (Int, Int, Boolean) -> Unit
 ) {
     val density = LocalDensity.current
@@ -1594,7 +1649,9 @@ private fun OnScreenControls(
                     y = spec.y,
                     shape = spec.shape,
                     onPressChange = buttonPressHandler(spec.id),
-                    onClick = if (spec.id == "left_input_toggle") onToggleLeftInputMode else null
+                    onClick = if (spec.id == "left_input_toggle") onToggleLeftInputMode else null,
+                    longPressDelayMs = if (spec.id == "start") TRANSPORT_HOLD_DELAY_MS else 0L,
+                    onLongPressChange = if (spec.id == "start") onFastForwardHoldChange else null
                 )
             }
         }
@@ -1779,8 +1836,11 @@ private fun TouchButtonGroup(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
+    val coroutineScope = rememberCoroutineScope()
     val activeTargets = remember { mutableStateMapOf<Int, String>() }
     val downTargets = remember { mutableMapOf<Int, String?>() }
+    val longPressJobs = remember { mutableMapOf<Int, Job>() }
+    val longPressActiveTargets = remember { mutableStateMapOf<Int, String>() }
     val specById = remember(specs) { specs.associateBy { it.id } }
     val bounds = remember(specs, density) {
         with(density) {
@@ -1807,33 +1867,84 @@ private fun TouchButtonGroup(
     fun hitTarget(x: Float, y: Float): String? =
         specs.lastOrNull { spec -> rects.getValue(spec.id).contains(Offset(x, y)) }?.id
 
+    fun TouchButtonSpec.hasLongPressAction(): Boolean {
+        return onLongPressChange != null && longPressDelayMs > 0L
+    }
+
+    fun cancelLongPress(pointerId: Int) {
+        longPressJobs.remove(pointerId)?.cancel()
+        val activeTarget = longPressActiveTargets.remove(pointerId)
+        if (activeTarget != null && !longPressActiveTargets.containsValue(activeTarget)) {
+            specById[activeTarget]?.onLongPressChange?.invoke(false)
+        }
+    }
+
+    fun startLongPress(pointerId: Int, targetId: String) {
+        val spec = specById[targetId] ?: return
+        if (!spec.hasLongPressAction()) return
+        longPressJobs.remove(pointerId)?.cancel()
+        longPressJobs[pointerId] = coroutineScope.launch {
+            delay(spec.longPressDelayMs)
+            if (activeTargets[pointerId] != targetId) return@launch
+            val wasAlreadyActive = longPressActiveTargets.containsValue(targetId)
+            longPressActiveTargets[pointerId] = targetId
+            if (!wasAlreadyActive) {
+                spec.onLongPressChange?.invoke(true)
+            }
+        }
+    }
+
+    fun sendShortTap(spec: TouchButtonSpec) {
+        val press = spec.onPressChange ?: return
+        coroutineScope.launch {
+            press(true)
+            delay(70L)
+            press(false)
+        }
+    }
+
     fun updatePointerTarget(pointerId: Int, newTarget: String?) {
         val oldTarget = activeTargets[pointerId]
         if (oldTarget == newTarget) return
 
         if (oldTarget != null) {
             activeTargets.remove(pointerId)
-            if (!activeTargets.containsValue(oldTarget)) {
-                specById[oldTarget]?.onPressChange?.invoke(false)
+            val oldSpec = specById[oldTarget]
+            if (oldSpec?.hasLongPressAction() == true) {
+                cancelLongPress(pointerId)
+            } else if (!activeTargets.containsValue(oldTarget)) {
+                oldSpec?.onPressChange?.invoke(false)
             }
         }
 
         if (newTarget != null) {
             val alreadyActive = activeTargets.containsValue(newTarget)
             activeTargets[pointerId] = newTarget
-            if (!alreadyActive) {
-                specById[newTarget]?.onPressChange?.invoke(true)
+            val newSpec = specById[newTarget]
+            if (newSpec?.hasLongPressAction() == true) {
+                startLongPress(pointerId, newTarget)
+            } else if (!alreadyActive) {
+                newSpec?.onPressChange?.invoke(true)
             }
         }
     }
 
     DisposableEffect(specs) {
         onDispose {
+            longPressJobs.values.forEach { it.cancel() }
+            longPressActiveTargets.values.toSet().forEach { targetId ->
+                specById[targetId]?.onLongPressChange?.invoke(false)
+            }
             activeTargets.values.toSet().forEach { targetId ->
-                specById[targetId]?.onPressChange?.invoke(false)
+                val spec = specById[targetId]
+                if (spec?.hasLongPressAction() != true) {
+                    spec?.onPressChange?.invoke(false)
+                }
             }
             activeTargets.clear()
             downTargets.clear()
+            longPressJobs.clear()
+            longPressActiveTargets.clear()
         }
     }
 
@@ -1880,10 +1991,18 @@ private fun TouchButtonGroup(
                             event.getX(index) + groupRect.left,
                             event.getY(index) + groupRect.top
                         )
-                        if (downTarget != null && downTarget == upTarget) {
-                            specById[downTarget]?.onClick?.invoke()
-                        }
+                        val downSpec = downTarget?.let { specById[it] }
+                        val consumedByLongPress = downTarget != null && longPressActiveTargets[pointerId] == downTarget
                         updatePointerTarget(pointerId, null)
+                        if (downTarget != null && downTarget == upTarget) {
+                            if (downSpec?.hasLongPressAction() == true) {
+                                if (!consumedByLongPress) {
+                                    sendShortTap(downSpec)
+                                }
+                            } else {
+                                downSpec?.onClick?.invoke()
+                            }
+                        }
                         downTarget != null || upTarget != null
                     }
 

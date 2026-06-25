@@ -1216,4 +1216,8 @@
     <string name="settings_help_auto_progressive_scan">Başlatmadan sonra birkaç saniye boyunca Üçgen + Çarpı (Cross) tuşlarına basılı tutmayı simüle eder. Yalnızca önyükleme sırasında bu kombinasyon basılı tutulduğunda aşamalı tarama (progressive scan) veya 480p istemini gösteren oyunlar için kullanın.</string>
     <string name="settings_auto_progressive_scan">Otomatik Aşamalı Tarama</string>
     <string name="settings_auto_progressive_scan_desc">Gizli 480p istemi olan oyunlar için önyükleme sırasında Üçgen + Çarpı tuşlarına basılı tutar.</string>
+    <string name="settings_fast_forward_speed">İleri sarma hızı</string>
+    <string name="settings_fast_forward_speed_desc">%1$s</string>
+    <string name="settings_help_fast_forward_speed">İleri sarma için Start tuşuna basılı tutarken kullanılan hızı ayarlar.</string>
+    <string name="emulation_transport_fast_forward">İleri sar</string>
 </resources>

@@ -1218,4 +1218,8 @@
     <string name="settings_help_auto_progressive_scan">Имитирует удержание кнопок Треугольник + Крест в течение нескольких секунд после запуска. Используйте для игр, которые предлагают включить прогрессивную развертку (или 480p) только при удержании этой комбинации во время загрузки.</string>
     <string name="settings_auto_progressive_scan">Автоматическая прогрессивная развертка</string>
     <string name="settings_auto_progressive_scan_desc">Удерживает Треугольник + Крест во время загрузки для игр со скрытым запросом 480p.</string>
+    <string name="settings_fast_forward_speed">Скорость ускорения</string>
+    <string name="settings_fast_forward_speed_desc">%1$s</string>
+    <string name="settings_help_fast_forward_speed">Устанавливает скорость, используемую при удержании кнопки Start для ускорения.</string>
+    <string name="emulation_transport_fast_forward">Ускорение</string>
 </resources>

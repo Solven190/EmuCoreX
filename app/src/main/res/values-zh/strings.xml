@@ -1218,4 +1218,8 @@
     <string name="settings_help_auto_progressive_scan">模拟在启动后按住三角 + 叉号几秒钟。用于仅在启动期间按住此组合键时才显示逐行扫描或 480p 提示的游戏。</string>
     <string name="settings_auto_progressive_scan">自动逐行扫描</string>
     <string name="settings_auto_progressive_scan_desc">在启动期间按住三角 + 叉号，适用于带有隐藏 480p 提示的游戏。</string>
+    <string name="settings_fast_forward_speed">快进速度</string>
+    <string name="settings_fast_forward_speed_desc">%1$s</string>
+    <string name="settings_help_fast_forward_speed">设置按住 Start 键进行快进时使用的速度。</string>
+    <string name="emulation_transport_fast_forward">快进</string>
 </resources>

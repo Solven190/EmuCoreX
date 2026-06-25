@@ -1218,4 +1218,8 @@
     <string name="settings_help_auto_progressive_scan">Simuliert das Gedrückthalten von Dreieck + Kreuz für einige Sekunden nach dem Start. Verwende dies für Spiele, die nur dann eine Eingabeaufforderung für Progressive Scan oder 480p anzeigen, wenn diese Kombination während des Bootvorgangs gedrückt gehalten wird.</string>
     <string name="settings_auto_progressive_scan">Automatischer Progressive Scan</string>
     <string name="settings_auto_progressive_scan_desc">Hält Dreieck + Kreuz während des Bootvorgangs für Spiele mit versteckter 480p-Eingabeaufforderung gedrückt.</string>
+    <string name="settings_fast_forward_speed">Vorspulgeschwindigkeit</string>
+    <string name="settings_fast_forward_speed_desc">%1$s</string>
+    <string name="settings_help_fast_forward_speed">Legt die Geschwindigkeit fest, die beim Gedrückthalten von Start zum Vorspulen verwendet wird.</string>
+    <string name="emulation_transport_fast_forward">Vorspulen</string>
 </resources>

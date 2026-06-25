@@ -39,6 +39,11 @@ import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.util.Locale
 
+enum class EmulationTransportMode {
+    None,
+    FastForward
+}
+
 data class EmulationUiState(
     val isRunning: Boolean = false,
     val isStarting: Boolean = false,
@@ -77,6 +82,7 @@ data class EmulationUiState(
     val fpsOverlayMode: Int = FPS_OVERLAY_MODE_DETAILED,
     val performanceOverlayText: String = "",
     val speedPercent: Float = 100f,
+    val transportMode: EmulationTransportMode = EmulationTransportMode.None,
     val toastMessage: String? = null,
     val statusMessage: String? = null,
     val currentSlot: Int = 1,
@@ -141,6 +147,7 @@ data class EmulationUiState(
     val cheatsGameKey: String? = null,
     val availableCheats: List<CheatBlock> = emptyList(),
     val frameLimitEnabled: Boolean = true,
+    val fastForwardSpeed: Float = AppPreferences.DEFAULT_FAST_FORWARD_SPEED,
     val targetFps: Int = 0,
     val ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
     val palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE,
@@ -188,6 +195,7 @@ private data class EmulationLaunchConfig(
     val frameSkip: Int,
     val skipDuplicateFrames: Boolean,
     val frameLimitEnabled: Boolean,
+    val fastForwardSpeed: Float,
     val targetFps: Int,
     val ntscFramerate: Float,
     val palFramerate: Float,
@@ -257,6 +265,7 @@ private data class LiveRuntimeSnapshot(
     val frameSkip: Int,
     val skipDuplicateFrames: Boolean,
     val frameLimitEnabled: Boolean,
+    val fastForwardSpeed: Float,
     val targetFps: Int,
     val ntscFramerate: Float,
     val palFramerate: Float,
@@ -322,7 +331,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private val _uiState = MutableStateFlow(EmulationUiState())
     val uiState: StateFlow<EmulationUiState> = _uiState.asStateFlow()
     private val lifecycleMutex = Mutex()
+    private val transportMutex = Mutex()
     private var pausedForBackground = false
+    @Volatile
+    private var fastForwardRequested = false
     @Volatile
     private var isShuttingDown = false
     @Volatile
@@ -758,6 +770,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         viewModelScope.launch {
+            preferences.fastForwardSpeed.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(fastForwardSpeed = value) }
+            }
+        }
+        viewModelScope.launch {
             preferences.ntscFramerate.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(ntscFramerate = value) }
             }
@@ -982,6 +999,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     frameSkip = config.frameSkip,
                     skipDuplicateFrames = config.skipDuplicateFrames,
                     frameLimitEnabled = config.frameLimitEnabled,
+                    fastForwardSpeed = config.fastForwardSpeed,
                     targetFps = config.targetFps,
                     ntscFramerate = config.ntscFramerate,
                     palFramerate = config.palFramerate,
@@ -1193,6 +1211,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     forceEvenSpritePosition = liveRuntime.forceEvenSpritePosition,
                     nativePaletteDraw = liveRuntime.nativePaletteDraw,
                     frameLimitEnabled = liveRuntime.frameLimitEnabled,
+                    fastForwardSpeed = liveRuntime.fastForwardSpeed,
                     targetFps = liveRuntime.targetFps,
                     ntscFramerate = liveRuntime.ntscFramerate,
                     palFramerate = liveRuntime.palFramerate
@@ -1806,6 +1825,25 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
             EmulatorBridge.setFrameLimitEnabled(enabled)
             updateCrashContext()
+        }
+    }
+
+    fun setFastForwardHeld(enabled: Boolean) {
+        if (fastForwardRequested == enabled) return
+        fastForwardRequested = enabled
+        _uiState.value = _uiState.value.copy(
+            transportMode = if (enabled) EmulationTransportMode.FastForward else EmulationTransportMode.None
+        )
+        viewModelScope.launch(Dispatchers.IO) {
+            transportMutex.withLock {
+                val requested = fastForwardRequested && _uiState.value.isRunning && !isShuttingDown
+                try {
+                    EmulatorBridge.setTurboModeEnabled(requested)
+                } catch (_: Exception) { }
+                if (!requested && _uiState.value.transportMode == EmulationTransportMode.FastForward) {
+                    _uiState.value = _uiState.value.copy(transportMode = EmulationTransportMode.None)
+                }
+            }
         }
     }
 
@@ -2594,6 +2632,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             frameSkip = settings.frameSkip,
             skipDuplicateFrames = settings.skipDuplicateFrames,
             frameLimitEnabled = settings.frameLimitEnabled,
+            fastForwardSpeed = settings.fastForwardSpeed,
             targetFps = settings.targetFps,
             ntscFramerate = settings.ntscFramerate,
             palFramerate = settings.palFramerate,
@@ -2666,6 +2705,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             frameSkip = preferences.frameSkip.first(),
             skipDuplicateFrames = preferences.skipDuplicateFrames.first(),
             frameLimitEnabled = preferences.frameLimitEnabled.first(),
+            fastForwardSpeed = preferences.fastForwardSpeed.first(),
             targetFps = preferences.targetFps.first(),
             ntscFramerate = preferences.ntscFramerate.first(),
             palFramerate = preferences.palFramerate.first(),
@@ -3294,7 +3334,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (isShuttingDown) return
             isShuttingDown = true
             pausedForBackground = false
+            fastForwardRequested = false
             try {
+                try {
+                    EmulatorBridge.setTurboModeEnabled(false)
+                } catch (_: Exception) { }
                 try {
                     EmulatorBridge.resetKeyStatus()
                 } catch (_: Exception) { }
@@ -3322,6 +3366,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     fps = "0",
                     performanceOverlayText = "",
                     speedPercent = 100f,
+                    transportMode = EmulationTransportMode.None,
                     isJitProfilerActive = false,
                     isHangTraceActive = false,
                     statusMessage = null
@@ -3402,10 +3447,12 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     override fun onCleared() {
         NativeApp.setPerformanceMetricsEnabled(visible = false, detailed = false)
+        fastForwardRequested = false
         if (_uiState.value.isRunning) {
             EmulatorBridge.resetKeyStatus()
             runCatching {
                 kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                    EmulatorBridge.setTurboModeEnabled(false)
                     EmulatorBridge.shutdown()
                 }
             }

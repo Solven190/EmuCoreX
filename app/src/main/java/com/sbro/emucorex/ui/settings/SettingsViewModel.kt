@@ -154,6 +154,7 @@ data class SettingsUiState(
     val gpuDriverDownloads: Map<String, Float> = emptyMap(),
     val appUpdate: AppUpdateUiState = AppUpdateUiState(),
     val frameLimitEnabled: Boolean = true,
+    val fastForwardSpeed: Float = AppPreferences.DEFAULT_FAST_FORWARD_SPEED,
     val targetFps: Int = 0,
     val ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
     val palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE
@@ -313,6 +314,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             gpuDriverType = snapshot.gpuDriverType,
             customDriverPath = snapshot.customDriverPath,
             frameLimitEnabled = snapshot.frameLimitEnabled,
+            fastForwardSpeed = snapshot.fastForwardSpeed,
             targetFps = snapshot.targetFps,
             ntscFramerate = snapshot.ntscFramerate,
             palFramerate = snapshot.palFramerate
@@ -942,6 +944,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             preferences.setFrameLimitEnabled(enabled)
             EmulatorBridge.setFrameLimitEnabled(enabled)
+        }
+    }
+
+    fun setFastForwardSpeed(value: Float) {
+        viewModelScope.launch {
+            preferences.setFastForwardSpeed(value)
+            EmulatorBridge.setFastForwardSpeed(value)
         }
     }
 
