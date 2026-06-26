@@ -1258,7 +1258,7 @@
     <string name="profile_email">ईमेल</string>
     <string name="profile_password">पासवर्ड</string>
     <string name="profile_display_name">प्रदर्शन नाम</string>
-    <string name="profile_edit_name">नाम संपादित करें</string>
+    <string name="profile_edit_name">बदलें</string>
     <string name="profile_sign_in">साइन इन करें</string>
     <string name="profile_create_account">खाता बनाएं</string>
     <string name="profile_google_sign_in">Google के साथ जारी रखें</string>

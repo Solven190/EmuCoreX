@@ -1258,7 +1258,7 @@
     <string name="profile_email">Email</string>
     <string name="profile_password">Password</string>
     <string name="profile_display_name">Nome visualizzato</string>
-    <string name="profile_edit_name">Modifica nome</string>
+    <string name="profile_edit_name">Modifica</string>
     <string name="profile_sign_in">Accedi</string>
     <string name="profile_create_account">Crea account</string>
     <string name="profile_google_sign_in">Continua con Google</string>

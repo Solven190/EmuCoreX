@@ -1258,7 +1258,7 @@
     <string name="profile_email">E-posta</string>
     <string name="profile_password">Şifre</string>
     <string name="profile_display_name">Görünen ad</string>
-    <string name="profile_edit_name">Adı düzenle</string>
+    <string name="profile_edit_name">Düzenle</string>
     <string name="profile_sign_in">Giriş yap</string>
     <string name="profile_create_account">Hesap oluştur</string>
     <string name="profile_google_sign_in">Google ile devam et</string>

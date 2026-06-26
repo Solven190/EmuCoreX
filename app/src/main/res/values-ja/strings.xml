@@ -1258,7 +1258,7 @@
     <string name="profile_email">メールアドレス</string>
     <string name="profile_password">パスワード</string>
     <string name="profile_display_name">表示名</string>
-    <string name="profile_edit_name">名前を編集</string>
+    <string name="profile_edit_name">編集</string>
     <string name="profile_sign_in">サインイン</string>
     <string name="profile_create_account">アカウントを作成</string>
     <string name="profile_google_sign_in">Google で続行</string>

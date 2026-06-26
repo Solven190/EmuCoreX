@@ -3,11 +3,11 @@ package com.sbro.emucorex.core
 import kotlin.math.roundToInt
 
 const val UPSCALE_MIN = 1.0f
-const val UPSCALE_MAX = 5.0f
+const val UPSCALE_MAX = 10.0f
 
 private const val UPSCALE_STEP = 0.25f
 private const val UPSCALE_NATIVE_MULTIPLIER = 1.0f
-private const val UPSCALE_MAX_MULTIPLIER = 5.0f
+private const val UPSCALE_MAX_MULTIPLIER = UPSCALE_MAX
 
 fun normalizeUpscale(value: Float, maxMultiplier: Int = UPSCALE_MAX_MULTIPLIER.roundToInt()): Float {
     val max = maxMultiplier.coerceAtLeast(UPSCALE_NATIVE_MULTIPLIER.roundToInt())

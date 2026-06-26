@@ -1260,7 +1260,7 @@
     <string name="profile_email">E-mail</string>
     <string name="profile_password">Palavra-passe</string>
     <string name="profile_display_name">Nome a apresentar</string>
-    <string name="profile_edit_name">Editar nome</string>
+    <string name="profile_edit_name">Editar</string>
     <string name="profile_sign_in">Iniciar sessão</string>
     <string name="profile_create_account">Criar conta</string>
     <string name="profile_google_sign_in">Continuar com o Google</string>

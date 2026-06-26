@@ -1258,7 +1258,7 @@
     <string name="profile_email">البريد الإلكتروني</string>
     <string name="profile_password">كلمة المرور</string>
     <string name="profile_display_name">اسم العرض</string>
-    <string name="profile_edit_name">تعديل الاسم</string>
+    <string name="profile_edit_name">تعديل</string>
     <string name="profile_sign_in">تسجيل الدخول</string>
     <string name="profile_create_account">إنشاء حساب</string>
     <string name="profile_google_sign_in">المتابعة باستخدام Google</string>

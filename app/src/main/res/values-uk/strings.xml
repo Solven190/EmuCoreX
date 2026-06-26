@@ -1260,7 +1260,7 @@
     <string name="profile_email">Email</string>
     <string name="profile_password">Пароль</string>
     <string name="profile_display_name">Ім’я для відображення</string>
-    <string name="profile_edit_name">Змінити ім’я</string>
+    <string name="profile_edit_name">Змінити</string>
     <string name="profile_sign_in">Увійти</string>
     <string name="profile_create_account">Створити акаунт</string>
     <string name="profile_google_sign_in">Продовжити з Google</string>

@@ -979,15 +979,19 @@ private fun RecentGamesCard(
         border = profileCardBorder()
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
                 text = stringResource(R.string.profile_recently_played),
+                modifier = Modifier.padding(horizontal = 16.dp),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 items(games, key = { it.gameKey }) { game ->
                     Column(
                         modifier = Modifier.width(96.dp),
@@ -1032,16 +1036,20 @@ private fun RecentGamesSkeletonCard() {
         border = profileCardBorder()
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             SkeletonBlock(
                 modifier = Modifier
+                    .padding(horizontal = 16.dp)
                     .width(148.dp)
                     .height(22.dp)
                     .clip(RoundedCornerShape(10.dp))
             )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 items(4) {
                     Column(
                         modifier = Modifier.width(96.dp),
