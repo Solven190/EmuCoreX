@@ -129,6 +129,36 @@ object EmulatorBridge {
         )
     }
 
+    private fun sanitizeFloatRoundMode(value: Int, fallback: Int): Int {
+        return if (value in AppPreferences.FLOAT_ROUND_NEAREST..AppPreferences.FLOAT_ROUND_CHOP) value else fallback
+    }
+
+    private fun sanitizeClampingMode(value: Int, fallback: Int): Int {
+        return if (value in AppPreferences.CLAMPING_NONE..AppPreferences.CLAMPING_FULL) value else fallback
+    }
+
+    private fun eeFpuClampingOps(value: Int): List<RuntimeOp> = listOf(
+        settingOp("EmuCoreX/CPU", "EEClampMode", "int", value.toString()),
+        settingOp("EmuCore/CPU/Recompiler", "fpuOverflow", "bool", (value >= AppPreferences.CLAMPING_NORMAL).toString()),
+        settingOp("EmuCore/CPU/Recompiler", "fpuExtraOverflow", "bool", (value >= AppPreferences.CLAMPING_EXTRA).toString()),
+        settingOp("EmuCore/CPU/Recompiler", "fpuFullMode", "bool", (value >= AppPreferences.CLAMPING_FULL).toString())
+    )
+
+    private fun vuClampingOps(vu0Value: Int, vu1Value: Int): List<RuntimeOp> = buildList {
+        add(settingOp("EmuCoreX/CPU", "VU0ClampMode", "int", vu0Value.toString()))
+        add(settingOp("EmuCoreX/CPU", "VU1ClampMode", "int", vu1Value.toString()))
+        add(vuClampingFlagOp("vu0", vu0Value, "Overflow", AppPreferences.CLAMPING_NORMAL))
+        add(vuClampingFlagOp("vu0", vu0Value, "ExtraOverflow", AppPreferences.CLAMPING_EXTRA))
+        add(vuClampingFlagOp("vu0", vu0Value, "SignOverflow", AppPreferences.CLAMPING_FULL))
+        add(vuClampingFlagOp("vu1", vu1Value, "Overflow", AppPreferences.CLAMPING_NORMAL))
+        add(vuClampingFlagOp("vu1", vu1Value, "ExtraOverflow", AppPreferences.CLAMPING_EXTRA))
+        add(vuClampingFlagOp("vu1", vu1Value, "SignOverflow", AppPreferences.CLAMPING_FULL))
+    }
+
+    private fun vuClampingFlagOp(prefix: String, value: Int, suffix: String, threshold: Int): RuntimeOp {
+        return settingOp("EmuCore/CPU/Recompiler", "$prefix$suffix", "bool", (value >= threshold).toString())
+    }
+
     private fun memoryCardSlotOp(slot: Int, fileName: String?) = RuntimeOp(
         "memory_card_slot",
         listOf(slot.toString(), fileName.orEmpty())
@@ -283,6 +313,12 @@ object EmulatorBridge {
         enableIopRecompiler: Boolean = true,
         enableVu0Recompiler: Boolean = true,
         enableVu1Recompiler: Boolean = true,
+        eeFpuRoundMode: Int = AppPreferences.DEFAULT_EE_FPU_ROUND_MODE,
+        vu0RoundMode: Int = AppPreferences.DEFAULT_VU_ROUND_MODE,
+        vu1RoundMode: Int = AppPreferences.DEFAULT_VU_ROUND_MODE,
+        eeFpuClampingMode: Int = AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE,
+        vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
+        vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
         enableFastmem: Boolean = true,
         waitLoopSpeedhack: Boolean = true,
         intcStatSpeedhack: Boolean = true,
@@ -416,12 +452,18 @@ object EmulatorBridge {
         val directVu1Recompiler = enableVu1Recompiler
         val directMtvu = mtvu && directVu1Recompiler
         val directInstantVu1 = instantVu1
+        val directEeFpuRoundMode = sanitizeFloatRoundMode(eeFpuRoundMode, AppPreferences.DEFAULT_EE_FPU_ROUND_MODE)
+        val directVu0RoundMode = sanitizeFloatRoundMode(vu0RoundMode, AppPreferences.DEFAULT_VU_ROUND_MODE)
+        val directVu1RoundMode = sanitizeFloatRoundMode(vu1RoundMode, AppPreferences.DEFAULT_VU_ROUND_MODE)
+        val directEeFpuClampingMode = sanitizeClampingMode(eeFpuClampingMode, AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE)
+        val directVu0ClampingMode = sanitizeClampingMode(vu0ClampingMode, AppPreferences.DEFAULT_VU0_CLAMPING_MODE)
+        val directVu1ClampingMode = sanitizeClampingMode(vu1ClampingMode, AppPreferences.DEFAULT_VU1_CLAMPING_MODE)
         Log.i(
             "EmuCoreX",
-            "android jit: requested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack mtvu:$mtvu instantVu1:$instantVu1} direct={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem}"
+            "android jit: requested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack mtvu:$mtvu instantVu1:$instantVu1} direct={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem} round={ee:$directEeFpuRoundMode vu0:$directVu0RoundMode vu1:$directVu1RoundMode} clamp={ee:$directEeFpuClampingMode vu0:$directVu0ClampingMode vu1:$directVu1ClampingMode}"
         )
         NativeApp.logCrashBreadcrumb(
-            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack fastBoot:$enableFastBoot fastCdvd:$fastCdvd} gameFixes=true jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
+            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack fastBoot:$enableFastBoot fastCdvd:$fastCdvd} round={ee:$directEeFpuRoundMode vu0:$directVu0RoundMode vu1:$directVu1RoundMode} clamp={ee:$directEeFpuClampingMode vu0:$directVu0ClampingMode vu1:$directVu1ClampingMode} gameFixes=true jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
         )
         val prefs = AppPreferences(context)
         val achievementsHardcore = prefs.getAchievementsHardcoreSync()
@@ -455,6 +497,11 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableVU0", "bool", directVu0Recompiler.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableVU1", "bool", directVu1Recompiler.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableFastmem", "bool", enableFastmem.toString()))
+                add(settingOp("EmuCore/CPU", "FPU.Roundmode", "int", directEeFpuRoundMode.toString()))
+                add(settingOp("EmuCore/CPU", "VU0.Roundmode", "int", directVu0RoundMode.toString()))
+                add(settingOp("EmuCore/CPU", "VU1.Roundmode", "int", directVu1RoundMode.toString()))
+                addAll(eeFpuClampingOps(directEeFpuClampingMode))
+                addAll(vuClampingOps(directVu0ClampingMode, directVu1ClampingMode))
                 add(settingOp("EmuCore/Speedhacks", "WaitLoop", "bool", waitLoopSpeedhack.toString()))
                 add(settingOp("EmuCore/Speedhacks", "IntcStat", "bool", intcStatSpeedhack.toString()))
                 add(settingOp("EmuCore/Speedhacks", "vuFlagHack", "bool", vuFlagHack.toString()))

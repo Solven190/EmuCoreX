@@ -66,6 +66,12 @@ data class SettingsUiState(
     val enableIopRecompiler: Boolean = true,
     val enableVu0Recompiler: Boolean = true,
     val enableVu1Recompiler: Boolean = true,
+    val eeFpuRoundMode: Int = AppPreferences.DEFAULT_EE_FPU_ROUND_MODE,
+    val vu0RoundMode: Int = AppPreferences.DEFAULT_VU_ROUND_MODE,
+    val vu1RoundMode: Int = AppPreferences.DEFAULT_VU_ROUND_MODE,
+    val eeFpuClampingMode: Int = AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE,
+    val vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
+    val vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
     val enableVuFlagHack: Boolean = true,
@@ -226,6 +232,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             enableIopRecompiler = snapshot.enableIopRecompiler,
             enableVu0Recompiler = snapshot.enableVu0Recompiler,
             enableVu1Recompiler = snapshot.enableVu1Recompiler,
+            eeFpuRoundMode = snapshot.eeFpuRoundMode,
+            vu0RoundMode = snapshot.vu0RoundMode,
+            vu1RoundMode = snapshot.vu1RoundMode,
+            eeFpuClampingMode = snapshot.eeFpuClampingMode,
+            vu0ClampingMode = snapshot.vu0ClampingMode,
+            vu1ClampingMode = snapshot.vu1ClampingMode,
             enableWaitLoopSpeedhack = snapshot.enableWaitLoopSpeedhack,
             enableIntcStatSpeedhack = snapshot.enableIntcStatSpeedhack,
             enableVuFlagHack = snapshot.enableVuFlagHack,
@@ -727,12 +739,80 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setEeFpuRoundMode(value: Int) {
+        viewModelScope.launch {
+            val normalized = value.coerceIn(AppPreferences.FLOAT_ROUND_NEAREST, AppPreferences.FLOAT_ROUND_CHOP)
+            markPerformancePresetCustom()
+            preferences.setEeFpuRoundMode(normalized)
+            EmulatorBridge.setSetting("EmuCore/CPU", "FPU.Roundmode", "int", normalized.toString())
+        }
+    }
+
+    fun setVu0RoundMode(value: Int) {
+        viewModelScope.launch {
+            val normalized = value.coerceIn(AppPreferences.FLOAT_ROUND_NEAREST, AppPreferences.FLOAT_ROUND_CHOP)
+            markPerformancePresetCustom()
+            preferences.setVu0RoundMode(normalized)
+            EmulatorBridge.setSetting("EmuCore/CPU", "VU0.Roundmode", "int", normalized.toString())
+        }
+    }
+
+    fun setVu1RoundMode(value: Int) {
+        viewModelScope.launch {
+            val normalized = value.coerceIn(AppPreferences.FLOAT_ROUND_NEAREST, AppPreferences.FLOAT_ROUND_CHOP)
+            markPerformancePresetCustom()
+            preferences.setVu1RoundMode(normalized)
+            EmulatorBridge.setSetting("EmuCore/CPU", "VU1.Roundmode", "int", normalized.toString())
+        }
+    }
+
+    fun setEeFpuClampingMode(value: Int) {
+        viewModelScope.launch {
+            val normalized = value.coerceIn(AppPreferences.CLAMPING_NONE, AppPreferences.CLAMPING_FULL)
+            markPerformancePresetCustom()
+            preferences.setEeFpuClampingMode(normalized)
+            setEeFpuClampingModeCore(normalized)
+        }
+    }
+
+    fun setVu0ClampingMode(value: Int) {
+        viewModelScope.launch {
+            val normalized = value.coerceIn(AppPreferences.CLAMPING_NONE, AppPreferences.CLAMPING_FULL)
+            markPerformancePresetCustom()
+            preferences.setVu0ClampingMode(normalized)
+            setVuClampingModeCore("VU0ClampMode", "vu0", normalized)
+        }
+    }
+
+    fun setVu1ClampingMode(value: Int) {
+        viewModelScope.launch {
+            val normalized = value.coerceIn(AppPreferences.CLAMPING_NONE, AppPreferences.CLAMPING_FULL)
+            markPerformancePresetCustom()
+            preferences.setVu1ClampingMode(normalized)
+            setVuClampingModeCore("VU1ClampMode", "vu1", normalized)
+        }
+    }
+
     fun setEnableWaitLoopSpeedhack(enabled: Boolean) {
         viewModelScope.launch {
             markPerformancePresetCustom()
             preferences.setEnableWaitLoopSpeedhack(enabled)
             EmulatorBridge.setSetting("EmuCore/Speedhacks", "WaitLoop", "bool", enabled.toString())
         }
+    }
+
+    private suspend fun setEeFpuClampingModeCore(value: Int) {
+        EmulatorBridge.setSetting("EmuCoreX/CPU", "EEClampMode", "int", value.toString())
+        EmulatorBridge.setSetting("EmuCore/CPU/Recompiler", "fpuOverflow", "bool", (value >= AppPreferences.CLAMPING_NORMAL).toString())
+        EmulatorBridge.setSetting("EmuCore/CPU/Recompiler", "fpuExtraOverflow", "bool", (value >= AppPreferences.CLAMPING_EXTRA).toString())
+        EmulatorBridge.setSetting("EmuCore/CPU/Recompiler", "fpuFullMode", "bool", (value >= AppPreferences.CLAMPING_FULL).toString())
+    }
+
+    private suspend fun setVuClampingModeCore(modeKey: String, prefix: String, value: Int) {
+        EmulatorBridge.setSetting("EmuCoreX/CPU", modeKey, "int", value.toString())
+        EmulatorBridge.setSetting("EmuCore/CPU/Recompiler", "${prefix}Overflow", "bool", (value >= AppPreferences.CLAMPING_NORMAL).toString())
+        EmulatorBridge.setSetting("EmuCore/CPU/Recompiler", "${prefix}ExtraOverflow", "bool", (value >= AppPreferences.CLAMPING_EXTRA).toString())
+        EmulatorBridge.setSetting("EmuCore/CPU/Recompiler", "${prefix}SignOverflow", "bool", (value >= AppPreferences.CLAMPING_FULL).toString())
     }
 
     fun setEnableIntcStatSpeedhack(enabled: Boolean) {

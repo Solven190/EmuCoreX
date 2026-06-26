@@ -106,6 +106,36 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "EnableFastmem", true));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "EnableEECache",
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "EnableEECache", false));
+	si.SetIntValue("EmuCore/CPU", "FPU.Roundmode",
+		GetIntSetting(config.settings, "EmuCore/CPU", "FPU.Roundmode", 3));
+	si.SetIntValue("EmuCore/CPU", "VU0.Roundmode",
+		GetIntSetting(config.settings, "EmuCore/CPU", "VU0.Roundmode", 3));
+	si.SetIntValue("EmuCore/CPU", "VU1.Roundmode",
+		GetIntSetting(config.settings, "EmuCore/CPU", "VU1.Roundmode", 3));
+	si.SetIntValue("EmuCoreX/CPU", "EEClampMode",
+		GetIntSetting(config.settings, "EmuCoreX/CPU", "EEClampMode", 1));
+	si.SetIntValue("EmuCoreX/CPU", "VU0ClampMode",
+		GetIntSetting(config.settings, "EmuCoreX/CPU", "VU0ClampMode", 1));
+	si.SetIntValue("EmuCoreX/CPU", "VU1ClampMode",
+		GetIntSetting(config.settings, "EmuCoreX/CPU", "VU1ClampMode", 0));
+	si.SetBoolValue("EmuCore/CPU/Recompiler", "fpuOverflow",
+		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "fpuOverflow", true));
+	si.SetBoolValue("EmuCore/CPU/Recompiler", "fpuExtraOverflow",
+		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "fpuExtraOverflow", false));
+	si.SetBoolValue("EmuCore/CPU/Recompiler", "fpuFullMode",
+		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "fpuFullMode", false));
+	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu0Overflow",
+		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu0Overflow", true));
+	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu0ExtraOverflow",
+		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu0ExtraOverflow", false));
+	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu0SignOverflow",
+		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu0SignOverflow", false));
+	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu1Overflow",
+		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu1Overflow", false));
+	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu1ExtraOverflow",
+		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu1ExtraOverflow", false));
+	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu1SignOverflow",
+		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu1SignOverflow", false));
 	const bool wait_loop_speedhack = GetBoolSetting(config.settings, "EmuCore/Speedhacks", "WaitLoop", true);
 	const bool intc_stat_speedhack = GetBoolSetting(config.settings, "EmuCore/Speedhacks", "IntcStat", true);
 	const bool vu_flag_hack = GetBoolSetting(config.settings, "EmuCore/Speedhacks", "vuFlagHack", true);

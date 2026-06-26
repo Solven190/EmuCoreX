@@ -1228,4 +1228,27 @@
     <string name="game_settings_manager_profile_active_short">Profil</string>
     <string name="game_settings_manager_tab_system">Sistem ve Performans</string>
     <string name="emulation_hardcore_action_blocked">RetroAchievements Hardcore Modu etkinken bu eylem devre dışı bırakılır.</string>
+    <string name="settings_cpu_float_modes">Kayan Nokta (Floating Point) Modları</string>
+    <string name="settings_cpu_float_modes_note">Belirli oyunlar için uyumluluk geçersiz kılmalarıdır. Bir oyunun farklı bir Round Mode veya Clamping moduna ihtiyaç duyduğu bilinmedikçe varsayılanları koruyun; değişiklikleri uygulamak için oyunu yeniden başlatın.</string>
+    <string name="settings_ee_fpu_round_mode">EE FPU Yuvarlama Modu</string>
+    <string name="settings_vu0_round_mode">VU0 Yuvarlama Modu</string>
+    <string name="settings_vu1_round_mode">VU1 Yuvarlama Modu</string>
+    <string name="settings_ee_fpu_clamping">EE/FPU Sınırlama (Clamping)</string>
+    <string name="settings_vu0_clamping">VU0 Sınırlama (Clamping)</string>
+    <string name="settings_vu1_clamping">VU1 Sınırlama (Clamping)</string>
+    <string name="settings_float_round_nearest">En Yakın (Nearest)</string>
+    <string name="settings_float_round_negative">Negatif (Negative)</string>
+    <string name="settings_float_round_positive">Pozitif (Positive)</string>
+    <string name="settings_float_round_chop">Kes (Chop)</string>
+    <string name="settings_clamping_none">Yok</string>
+    <string name="settings_clamping_normal">Normal</string>
+    <string name="settings_clamping_extra">Ekstra</string>
+    <string name="settings_clamping_full">Tam (Full)</string>
+    <string name="settings_clamping_extra_sign">Ekstra+İşaret (Sign)</string>
+    <string name="settings_help_ee_fpu_round_mode">Emotion Engine FPU\'nun kayan nokta matematiğini nasıl yuvarlayacağını kontrol eder. "Kes" (Chop) sıfıra doğru keser ve PS2 varsayılanıdır. Bunu yalnızca fizik, animasyon, zamanlama veya diğer CPU matematik hatalarını düzeltmek için belirli bir EE/FPU yuvarlama moduna ihtiyaç duyan oyunlar için değiştirin. Uygulamak için oyunu yeniden başlatın.</string>
+    <string name="settings_help_vu0_round_mode">CPU tarafı vektör matematiği, oynanış hesaplamaları ve bazı mikro program işleri için kullanılabilen Vector Unit 0 için kayan nokta yuvarlamayı kontrol eder. "Kes" (Chop) sıfıra doğru keser ve normal PS2 uyumlu varsayılandır. Varsayılan olmayan modları yalnızca bunlara ihtiyaç duyduğu bilinen oyunlarda kullanın, çünkü VU0 matematik değişiklikleri oyun mantığını etkileyebilir. Yeniden başlatın.</string>
+    <string name="settings_help_vu1_round_mode">Dönüşümler, geometri, animasyon ve efektler için yoğun olarak kullanılan Vector Unit 1 için kayan nokta yuvarlamayı kontrol eder. "Kes" normal PS2 varsayılanıdır. Diğer modları yalnızca oyunun bozuk modeller veya kötü efektler gibi bilinen VU1 hassasiyeti sorunları olduğunda deneyin. Uygulamak için oyunu yeniden başlatın.</string>
+    <string name="settings_help_ee_fpu_clamping">EE/FPU taşma (overflow) sınırlama doğruluğunu kontrol eder. "Yok" devre dışı bırakır, "Normal" standart olanı etkinleştirir, "Ekstra" daha sıkı işleme ekler ve "Tam" en sıkı davranışı etkinleştirir. Daha yüksek modlar sorunlu oyunları düzeltebilir, ancak performansı düşürebilir veya zaten doğru çalışan oyunların davranışını değiştirebilir. Uygulamak için yeniden başlatın.</string>
+    <string name="settings_help_vu0_clamping">Vector Unit 0 için taşma sınırlamasını kontrol eder. "Yok" devre dışı bırakır, "Normal" mevcut VU0 varsayılanıyla eşleşir, "Ekstra" daha sıkı işleme ekler ve "Ekstra+İşaret" işaretle ilgili taşma davranışını da sınırlar. Bunu yalnızca daha sıkı VU0 matematiğine ihtiyaç duyan oyunlar için yükseltin. Uygulamak için oyunu yeniden başlatın.</string>
+    <string name="settings_help_vu1_clamping">Vector Unit 1 için taşma sınırlamasını kontrol eder. "Yok" devre dışı bırakır. "Normal" standart olanı etkinleştirir, "Ekstra" daha sıkı işleme ekler ve "Ekstra+İşaret" işaretle ilgili davranışları da sınırlar. Daha yüksek modlar, bozuk geometriye veya efektlere sahip oyunlara yardımcı olabilir, ancak hızı azaltabilir. Uygulamak için oyunu yeniden başlatın.</string>
 </resources>

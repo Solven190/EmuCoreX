@@ -1228,4 +1228,27 @@
     <string name="game_settings_manager_profile_active_short">Profilo</string>
     <string name="game_settings_manager_tab_system">Sistema e prestazioni</string>
     <string name="emulation_hardcore_action_blocked">Questa azione è disabilitata mentre la Modalità Hardcore di RetroAchievements è attiva.</string>
+    <string name="settings_cpu_float_modes">Modalità virgola mobile</string>
+    <string name="settings_cpu_float_modes_note">Override di compatibilità per giochi specifici. Mantieni i valori predefiniti a meno che un gioco non richieda un Round Mode o una modalità di Clamping diversa; riavvia il gioco per applicare le modifiche.</string>
+    <string name="settings_ee_fpu_round_mode">Modalità arrotondamento EE FPU</string>
+    <string name="settings_vu0_round_mode">Modalità arrotondamento VU0</string>
+    <string name="settings_vu1_round_mode">Modalità arrotondamento VU1</string>
+    <string name="settings_ee_fpu_clamping">Clamping EE/FPU</string>
+    <string name="settings_vu0_clamping">Clamping VU0</string>
+    <string name="settings_vu1_clamping">Clamping VU1</string>
+    <string name="settings_float_round_nearest">Più vicino (Nearest)</string>
+    <string name="settings_float_round_negative">Negativo (Negative)</string>
+    <string name="settings_float_round_positive">Positivo (Positive)</string>
+    <string name="settings_float_round_chop">Tronca (Chop)</string>
+    <string name="settings_clamping_none">Nessuno</string>
+    <string name="settings_clamping_normal">Normale</string>
+    <string name="settings_clamping_extra">Extra</string>
+    <string name="settings_clamping_full">Completo (Full)</string>
+    <string name="settings_clamping_extra_sign">Extra+Segno (Sign)</string>
+    <string name="settings_help_ee_fpu_round_mode">Controlla come la FPU dell\'Emotion Engine arrotonda la matematica in virgola mobile. "Tronca" (Chop) tronca verso lo zero ed è l\'impostazione PS2 predefinita. "Più vicino" arrotonda al valore più vicino, "Negativo" arrotonda per difetto e "Positivo" per eccesso. Modifica questo solo per i giochi che necessitano di una modalità specifica per correggere fisica, animazioni o altri bug matematici della CPU. Riavvia per applicare.</string>
+    <string name="settings_help_vu0_round_mode">Controlla l\'arrotondamento per la Vector Unit 0, usata per la matematica vettoriale lato CPU, calcoli di gioco e microprogrammi. "Tronca" tronca verso lo zero ed è lo standard PS2. Usa modalità non predefinite solo per i titoli che ne hanno bisogno, poiché le modifiche matematiche della VU0 possono influenzare la logica o la geometria del gioco. Riavvia per applicare.</string>
+    <string name="settings_help_vu1_round_mode">Controlla l\'arrotondamento per la Vector Unit 1, ampiamente utilizzata per trasformazioni, geometria, animazioni ed effetti. "Tronca" tronca verso lo zero ed è lo standard PS2. Prova altre modalità solo quando un gioco presenta problemi di precisione VU1 noti come modelli corrotti o effetti errati. Riavvia per applicare.</string>
+    <string name="settings_help_ee_fpu_clamping">Controlla la precisione del clamping dell\'overflow EE/FPU. "Nessuno" disabilita il clamping, "Normale" lo abilita e corrisponde all\'impostazione predefinita, "Extra" aggiunge una gestione più rigorosa e "Completo" abilita il comportamento più rigoroso in assoluto. Modalità più elevate possono correggere giochi specifici, ma possono ridurre le prestazioni. Riavvia per applicare.</string>
+    <string name="settings_help_vu0_clamping">Controlla il clamping dell\'overflow per la Vector Unit 0. "Nessuno" lo disabilita, "Normale" abilita il clamp standard (predefinito attuale), "Extra" aggiunge una gestione più rigorosa e "Extra+Segno" blocca anche il comportamento di overflow relativo al segno. Aumentalo solo per giochi che necessitano di matematica VU0 più rigorosa. Riavvia per applicare.</string>
+    <string name="settings_help_vu1_clamping">Controlla il clamping dell\'overflow per la Vector Unit 1. "Nessuno" lo disabilita. "Normale" abilita il clamp standard, "Extra" aggiunge una gestione più rigorosa e "Extra+Segno" blocca anche l\'overflow relativo al segno. Le modalità alte possono aiutare giochi con geometria o effetti rotti, ma possono ridurre la velocità nei giochi che non ne hanno bisogno. Riavvia per applicare.</string>
 </resources>

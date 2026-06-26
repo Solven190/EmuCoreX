@@ -68,6 +68,12 @@ data class SettingsSnapshot(
     val enableIopRecompiler: Boolean = true,
     val enableVu0Recompiler: Boolean = true,
     val enableVu1Recompiler: Boolean = true,
+    val eeFpuRoundMode: Int = AppPreferences.DEFAULT_EE_FPU_ROUND_MODE,
+    val vu0RoundMode: Int = AppPreferences.DEFAULT_VU_ROUND_MODE,
+    val vu1RoundMode: Int = AppPreferences.DEFAULT_VU_ROUND_MODE,
+    val eeFpuClampingMode: Int = AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE,
+    val vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
+    val vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
     val enableVuFlagHack: Boolean = true,
@@ -238,6 +244,19 @@ class AppPreferences(private val context: Context) {
         const val FPS_OVERLAY_CORNER_TOP_RIGHT = 1
         const val FPS_OVERLAY_CORNER_BOTTOM_LEFT = 2
         const val FPS_OVERLAY_CORNER_BOTTOM_RIGHT = 3
+        const val FLOAT_ROUND_NEAREST = 0
+        const val FLOAT_ROUND_NEGATIVE = 1
+        const val FLOAT_ROUND_POSITIVE = 2
+        const val FLOAT_ROUND_CHOP = 3
+        const val CLAMPING_NONE = 0
+        const val CLAMPING_NORMAL = 1
+        const val CLAMPING_EXTRA = 2
+        const val CLAMPING_FULL = 3
+        const val DEFAULT_EE_FPU_ROUND_MODE = FLOAT_ROUND_CHOP
+        const val DEFAULT_VU_ROUND_MODE = FLOAT_ROUND_CHOP
+        const val DEFAULT_EE_FPU_CLAMPING_MODE = CLAMPING_NORMAL
+        const val DEFAULT_VU0_CLAMPING_MODE = CLAMPING_NORMAL
+        const val DEFAULT_VU1_CLAMPING_MODE = CLAMPING_NONE
 
         fun defaultOverlayControlLayouts(stickScale: Int = 100): Map<String, OverlayControlLayout> = mapOf(
             "l2" to OverlayControlLayout(),
@@ -305,6 +324,12 @@ class AppPreferences(private val context: Context) {
         private val ENABLE_IOP_RECOMPILER = booleanPreferencesKey("enable_iop_recompiler")
         private val ENABLE_VU0_RECOMPILER = booleanPreferencesKey("enable_vu0_recompiler")
         private val ENABLE_VU1_RECOMPILER = booleanPreferencesKey("enable_vu1_recompiler")
+        private val EE_FPU_ROUND_MODE = intPreferencesKey("ee_fpu_round_mode")
+        private val VU0_ROUND_MODE = intPreferencesKey("vu0_round_mode")
+        private val VU1_ROUND_MODE = intPreferencesKey("vu1_round_mode")
+        private val EE_FPU_CLAMPING_MODE = intPreferencesKey("ee_fpu_clamping_mode")
+        private val VU0_CLAMPING_MODE = intPreferencesKey("vu0_clamping_mode")
+        private val VU1_CLAMPING_MODE = intPreferencesKey("vu1_clamping_mode")
         private val ENABLE_WAIT_LOOP_SPEEDHACK = booleanPreferencesKey("enable_wait_loop_speedhack")
         private val ENABLE_INTC_STAT_SPEEDHACK = booleanPreferencesKey("enable_intc_stat_speedhack")
         private val ENABLE_VU_FLAG_HACK = booleanPreferencesKey("enable_vu_flag_hack")
@@ -792,6 +817,12 @@ class AppPreferences(private val context: Context) {
                 enableIopRecompiler = prefs[ENABLE_IOP_RECOMPILER] ?: true,
                 enableVu0Recompiler = prefs[ENABLE_VU0_RECOMPILER] ?: true,
                 enableVu1Recompiler = prefs[ENABLE_VU1_RECOMPILER] ?: true,
+                eeFpuRoundMode = sanitizeFloatRoundMode(prefs[EE_FPU_ROUND_MODE], DEFAULT_EE_FPU_ROUND_MODE),
+                vu0RoundMode = sanitizeFloatRoundMode(prefs[VU0_ROUND_MODE], DEFAULT_VU_ROUND_MODE),
+                vu1RoundMode = sanitizeFloatRoundMode(prefs[VU1_ROUND_MODE], DEFAULT_VU_ROUND_MODE),
+                eeFpuClampingMode = sanitizeClampingMode(prefs[EE_FPU_CLAMPING_MODE], DEFAULT_EE_FPU_CLAMPING_MODE),
+                vu0ClampingMode = sanitizeClampingMode(prefs[VU0_CLAMPING_MODE], DEFAULT_VU0_CLAMPING_MODE),
+                vu1ClampingMode = sanitizeClampingMode(prefs[VU1_CLAMPING_MODE], DEFAULT_VU1_CLAMPING_MODE),
                 enableWaitLoopSpeedhack = prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true,
                 enableIntcStatSpeedhack = prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true,
                 enableVuFlagHack = prefs[ENABLE_VU_FLAG_HACK] ?: true,
@@ -1333,6 +1364,54 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setEnableVu1Recompiler(enabled: Boolean) {
         context.dataStore.edit { it[ENABLE_VU1_RECOMPILER] = enabled }
+    }
+
+    val eeFpuRoundMode: Flow<Int> = context.dataStore.data.map { prefs ->
+        sanitizeFloatRoundMode(prefs[EE_FPU_ROUND_MODE], DEFAULT_EE_FPU_ROUND_MODE)
+    }
+
+    suspend fun setEeFpuRoundMode(value: Int) {
+        context.dataStore.edit { it[EE_FPU_ROUND_MODE] = sanitizeFloatRoundMode(value, DEFAULT_EE_FPU_ROUND_MODE) }
+    }
+
+    val vu0RoundMode: Flow<Int> = context.dataStore.data.map { prefs ->
+        sanitizeFloatRoundMode(prefs[VU0_ROUND_MODE], DEFAULT_VU_ROUND_MODE)
+    }
+
+    suspend fun setVu0RoundMode(value: Int) {
+        context.dataStore.edit { it[VU0_ROUND_MODE] = sanitizeFloatRoundMode(value, DEFAULT_VU_ROUND_MODE) }
+    }
+
+    val vu1RoundMode: Flow<Int> = context.dataStore.data.map { prefs ->
+        sanitizeFloatRoundMode(prefs[VU1_ROUND_MODE], DEFAULT_VU_ROUND_MODE)
+    }
+
+    suspend fun setVu1RoundMode(value: Int) {
+        context.dataStore.edit { it[VU1_ROUND_MODE] = sanitizeFloatRoundMode(value, DEFAULT_VU_ROUND_MODE) }
+    }
+
+    val eeFpuClampingMode: Flow<Int> = context.dataStore.data.map { prefs ->
+        sanitizeClampingMode(prefs[EE_FPU_CLAMPING_MODE], DEFAULT_EE_FPU_CLAMPING_MODE)
+    }
+
+    suspend fun setEeFpuClampingMode(value: Int) {
+        context.dataStore.edit { it[EE_FPU_CLAMPING_MODE] = sanitizeClampingMode(value, DEFAULT_EE_FPU_CLAMPING_MODE) }
+    }
+
+    val vu0ClampingMode: Flow<Int> = context.dataStore.data.map { prefs ->
+        sanitizeClampingMode(prefs[VU0_CLAMPING_MODE], DEFAULT_VU0_CLAMPING_MODE)
+    }
+
+    suspend fun setVu0ClampingMode(value: Int) {
+        context.dataStore.edit { it[VU0_CLAMPING_MODE] = sanitizeClampingMode(value, DEFAULT_VU0_CLAMPING_MODE) }
+    }
+
+    val vu1ClampingMode: Flow<Int> = context.dataStore.data.map { prefs ->
+        sanitizeClampingMode(prefs[VU1_CLAMPING_MODE], DEFAULT_VU1_CLAMPING_MODE)
+    }
+
+    suspend fun setVu1ClampingMode(value: Int) {
+        context.dataStore.edit { it[VU1_CLAMPING_MODE] = sanitizeClampingMode(value, DEFAULT_VU1_CLAMPING_MODE) }
     }
 
     val enableWaitLoopSpeedhack: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -2193,6 +2272,12 @@ class AppPreferences(private val context: Context) {
             put("enableIopRecompiler", prefs[ENABLE_IOP_RECOMPILER] ?: true)
             put("enableVu0Recompiler", prefs[ENABLE_VU0_RECOMPILER] ?: true)
             put("enableVu1Recompiler", prefs[ENABLE_VU1_RECOMPILER] ?: true)
+            put("eeFpuRoundMode", sanitizeFloatRoundMode(prefs[EE_FPU_ROUND_MODE], DEFAULT_EE_FPU_ROUND_MODE))
+            put("vu0RoundMode", sanitizeFloatRoundMode(prefs[VU0_ROUND_MODE], DEFAULT_VU_ROUND_MODE))
+            put("vu1RoundMode", sanitizeFloatRoundMode(prefs[VU1_ROUND_MODE], DEFAULT_VU_ROUND_MODE))
+            put("eeFpuClampingMode", sanitizeClampingMode(prefs[EE_FPU_CLAMPING_MODE], DEFAULT_EE_FPU_CLAMPING_MODE))
+            put("vu0ClampingMode", sanitizeClampingMode(prefs[VU0_CLAMPING_MODE], DEFAULT_VU0_CLAMPING_MODE))
+            put("vu1ClampingMode", sanitizeClampingMode(prefs[VU1_CLAMPING_MODE], DEFAULT_VU1_CLAMPING_MODE))
             put("enableWaitLoopSpeedhack", prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true)
             put("enableIntcStatSpeedhack", prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true)
             put("enableVuFlagHack", prefs[ENABLE_VU_FLAG_HACK] ?: true)
@@ -2350,6 +2435,13 @@ class AppPreferences(private val context: Context) {
             prefs[ENABLE_IOP_RECOMPILER] = json.optBoolean("enableIopRecompiler", true)
             prefs[ENABLE_VU0_RECOMPILER] = json.optBoolean("enableVu0Recompiler", true)
             prefs[ENABLE_VU1_RECOMPILER] = json.optBoolean("enableVu1Recompiler", true)
+            prefs[EE_FPU_ROUND_MODE] = sanitizeFloatRoundMode(json.optInt("eeFpuRoundMode", DEFAULT_EE_FPU_ROUND_MODE), DEFAULT_EE_FPU_ROUND_MODE)
+            prefs[VU0_ROUND_MODE] = sanitizeFloatRoundMode(json.optInt("vu0RoundMode", DEFAULT_VU_ROUND_MODE), DEFAULT_VU_ROUND_MODE)
+            prefs[VU1_ROUND_MODE] = sanitizeFloatRoundMode(json.optInt("vu1RoundMode", DEFAULT_VU_ROUND_MODE), DEFAULT_VU_ROUND_MODE)
+            prefs[EE_FPU_CLAMPING_MODE] = sanitizeClampingMode(json.optInt("eeFpuClampingMode", DEFAULT_EE_FPU_CLAMPING_MODE), DEFAULT_EE_FPU_CLAMPING_MODE)
+            val legacyVuClampingMode = json.optInt("vuClampingMode", DEFAULT_VU0_CLAMPING_MODE)
+            prefs[VU0_CLAMPING_MODE] = sanitizeClampingMode(json.optInt("vu0ClampingMode", legacyVuClampingMode), DEFAULT_VU0_CLAMPING_MODE)
+            prefs[VU1_CLAMPING_MODE] = sanitizeClampingMode(json.optInt("vu1ClampingMode", DEFAULT_VU1_CLAMPING_MODE), DEFAULT_VU1_CLAMPING_MODE)
             prefs[ENABLE_WAIT_LOOP_SPEEDHACK] = json.optBoolean("enableWaitLoopSpeedhack", true)
             prefs[ENABLE_INTC_STAT_SPEEDHACK] = json.optBoolean("enableIntcStatSpeedhack", true)
             prefs[ENABLE_VU_FLAG_HACK] = json.optBoolean("enableVuFlagHack", true)
@@ -2465,6 +2557,26 @@ class AppPreferences(private val context: Context) {
     private fun sanitizeRegionFramerate(value: Float?, fallback: Float): Float {
         val raw = value ?: fallback
         return if (raw.isFinite()) raw.coerceIn(20f, 120f) else fallback
+    }
+
+    private fun sanitizeFloatRoundMode(value: Int?, fallback: Int): Int {
+        return when (value) {
+            FLOAT_ROUND_NEAREST,
+            FLOAT_ROUND_NEGATIVE,
+            FLOAT_ROUND_POSITIVE,
+            FLOAT_ROUND_CHOP -> value
+            else -> fallback
+        }
+    }
+
+    private fun sanitizeClampingMode(value: Int?, fallback: Int): Int {
+        return when (value) {
+            CLAMPING_NONE,
+            CLAMPING_NORMAL,
+            CLAMPING_EXTRA,
+            CLAMPING_FULL -> value
+            else -> fallback
+        }
     }
 
     private fun sanitizeFastForwardSpeed(value: Float?): Float {

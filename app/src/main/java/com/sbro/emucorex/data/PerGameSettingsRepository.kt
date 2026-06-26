@@ -24,6 +24,12 @@ data class PerGameSettings(
     val enableThreadPinning: Boolean = false,
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
+    val eeFpuRoundMode: Int = AppPreferences.DEFAULT_EE_FPU_ROUND_MODE,
+    val vu0RoundMode: Int = AppPreferences.DEFAULT_VU_ROUND_MODE,
+    val vu1RoundMode: Int = AppPreferences.DEFAULT_VU_ROUND_MODE,
+    val eeFpuClampingMode: Int = AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE,
+    val vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
+    val vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
     val hwDownloadMode: Int = 0,
     val eeCycleRate: Int = 0,
     val eeCycleSkip: Int = 0,
@@ -183,6 +189,12 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         enableThreadPinning = optBoolean("enableThreadPinning", false),
         enableFastCdvd = optBoolean("enableFastCdvd", false),
         enableCheats = optBoolean("enableCheats", false),
+        eeFpuRoundMode = sanitizeFloatRoundMode(optInt("eeFpuRoundMode", AppPreferences.DEFAULT_EE_FPU_ROUND_MODE), AppPreferences.DEFAULT_EE_FPU_ROUND_MODE),
+        vu0RoundMode = sanitizeFloatRoundMode(optInt("vu0RoundMode", AppPreferences.DEFAULT_VU_ROUND_MODE), AppPreferences.DEFAULT_VU_ROUND_MODE),
+        vu1RoundMode = sanitizeFloatRoundMode(optInt("vu1RoundMode", AppPreferences.DEFAULT_VU_ROUND_MODE), AppPreferences.DEFAULT_VU_ROUND_MODE),
+        eeFpuClampingMode = sanitizeClampingMode(optInt("eeFpuClampingMode", AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE), AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE),
+        vu0ClampingMode = sanitizeClampingMode(optInt("vu0ClampingMode", AppPreferences.DEFAULT_VU0_CLAMPING_MODE), AppPreferences.DEFAULT_VU0_CLAMPING_MODE),
+        vu1ClampingMode = sanitizeClampingMode(optInt("vu1ClampingMode", AppPreferences.DEFAULT_VU1_CLAMPING_MODE), AppPreferences.DEFAULT_VU1_CLAMPING_MODE),
         hwDownloadMode = optInt("hwDownloadMode", 0),
         eeCycleRate = optInt("eeCycleRate", 0),
         eeCycleSkip = optInt("eeCycleSkip", 0),
@@ -268,6 +280,12 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("enableThreadPinning")) put("enableThreadPinning", enableThreadPinning)
         if (shouldWrite("enableFastCdvd")) put("enableFastCdvd", enableFastCdvd)
         if (shouldWrite("enableCheats")) put("enableCheats", enableCheats)
+        if (shouldWrite("eeFpuRoundMode")) put("eeFpuRoundMode", sanitizeFloatRoundMode(eeFpuRoundMode, AppPreferences.DEFAULT_EE_FPU_ROUND_MODE))
+        if (shouldWrite("vu0RoundMode")) put("vu0RoundMode", sanitizeFloatRoundMode(vu0RoundMode, AppPreferences.DEFAULT_VU_ROUND_MODE))
+        if (shouldWrite("vu1RoundMode")) put("vu1RoundMode", sanitizeFloatRoundMode(vu1RoundMode, AppPreferences.DEFAULT_VU_ROUND_MODE))
+        if (shouldWrite("eeFpuClampingMode")) put("eeFpuClampingMode", sanitizeClampingMode(eeFpuClampingMode, AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE))
+        if (shouldWrite("vu0ClampingMode")) put("vu0ClampingMode", sanitizeClampingMode(vu0ClampingMode, AppPreferences.DEFAULT_VU0_CLAMPING_MODE))
+        if (shouldWrite("vu1ClampingMode")) put("vu1ClampingMode", sanitizeClampingMode(vu1ClampingMode, AppPreferences.DEFAULT_VU1_CLAMPING_MODE))
         if (shouldWrite("hwDownloadMode")) put("hwDownloadMode", hwDownloadMode)
         if (shouldWrite("eeCycleRate")) put("eeCycleRate", eeCycleRate)
         if (shouldWrite("eeCycleSkip")) put("eeCycleSkip", eeCycleSkip)
@@ -331,6 +349,22 @@ private fun sanitizeRendererValue(value: Int): Int {
 
 private fun sanitizeAspectRatioValue(value: Int): Int {
     return if (value in 0..4) value else 1
+}
+
+private fun sanitizeFloatRoundMode(value: Int, fallback: Int): Int {
+    return if (value in AppPreferences.FLOAT_ROUND_NEAREST..AppPreferences.FLOAT_ROUND_CHOP) {
+        value
+    } else {
+        fallback
+    }
+}
+
+private fun sanitizeClampingMode(value: Int, fallback: Int): Int {
+    return if (value in AppPreferences.CLAMPING_NONE..AppPreferences.CLAMPING_FULL) {
+        value
+    } else {
+        fallback
+    }
 }
 
 private fun sanitizeRegionFramerate(value: Float, fallback: Float): Float {

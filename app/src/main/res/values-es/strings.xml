@@ -1230,4 +1230,27 @@
     <string name="game_settings_manager_profile_active_short">Perfil</string>
     <string name="game_settings_manager_tab_system">Sistema y rendimiento</string>
     <string name="emulation_hardcore_action_blocked">Esta acción está deshabilitada mientras el Modo Hardcore de RetroAchievements esté activo.</string>
+    <string name="settings_cpu_float_modes">Modos de punto flotante</string>
+    <string name="settings_cpu_float_modes_note">Ajustes de compatibilidad para juegos concretos. Mantén los valores predeterminados salvo que se sepa que un juego necesita otro Round Mode o modo de Clamping; reinicia el juego para aplicar los cambios.</string>
+    <string name="settings_ee_fpu_round_mode">Modo de redondeo EE FPU</string>
+    <string name="settings_vu0_round_mode">Modo de redondeo VU0</string>
+    <string name="settings_vu1_round_mode">Modo de redondeo VU1</string>
+    <string name="settings_ee_fpu_clamping">Clamping de EE/FPU</string>
+    <string name="settings_vu0_clamping">Clamping de VU0</string>
+    <string name="settings_vu1_clamping">Clamping de VU1</string>
+    <string name="settings_float_round_nearest">Más cercano (Nearest)</string>
+    <string name="settings_float_round_negative">Negativo (Negative)</string>
+    <string name="settings_float_round_positive">Positivo (Positive)</string>
+    <string name="settings_float_round_chop">Recortar (Chop)</string>
+    <string name="settings_clamping_none">Ninguno</string>
+    <string name="settings_clamping_normal">Normal</string>
+    <string name="settings_clamping_extra">Extra</string>
+    <string name="settings_clamping_full">Completo (Full)</string>
+    <string name="settings_clamping_extra_sign">Extra+Signo (Sign)</string>
+    <string name="settings_help_ee_fpu_round_mode">Controla cómo la FPU de Emotion Engine redondea las matemáticas de punto flotante. "Recortar" (Chop) trunca hacia cero y es el valor predeterminado de PS2. "Más cercano" redondea al valor más próximo, "Negativo" redondea hacia abajo y "Positivo" hacia arriba. Cámbiolo solo para juegos que necesiten un modo específico para arreglar físicas, animaciones u otros errores de la CPU. Reinicie el juego para aplicar.</string>
+    <string name="settings_help_vu0_round_mode">Controla el redondeo de punto flotante para la Vector Unit 0, que puede usarse para matemáticas de vectores del lado de la CPU, cálculos de juego y algunos microprogramas. "Recortar" trunca hacia cero y es el valor predeterminado de PS2. Usa otros modos solo para títulos que se sepa que los necesitan, porque los cambios en VU0 pueden afectar la lógica o la geometría. Reinicie el juego para aplicar.</string>
+    <string name="settings_help_vu1_round_mode">Controla el redondeo de punto flotante para la Vector Unit 1, que se usa mucho para transformaciones, geometría, animación y efectos. "Recortar" trunca hacia cero y es el valor predeterminado de PS2. Pruebe otros modos solo cuando un juego tenga problemas conocidos de precisión de VU1 como modelos rotos o malos efectos. Reinicie el juego para aplicar.</string>
+    <string name="settings_help_ee_fpu_clamping">Controla la precisión del clamping de desbordamiento de EE/FPU. "Ninguno" lo desactiva, "Normal" habilita el estándar, "Extra" añade un manejo más estricto y "Completo" habilita el comportamiento más estricto. Los modos más altos pueden arreglar juegos específicos, pero pueden costar rendimiento o cambiar el comportamiento en juegos que ya funcionan. Reinicie el juego para aplicar.</string>
+    <string name="settings_help_vu0_clamping">Controla el clamping de desbordamiento para VU0. "Ninguno" lo desactiva, "Normal" coincide con el valor predeterminado actual, "Extra" añade un manejo más estricto y "Extra+Signo" también limita el comportamiento relacionado con el signo. Auméntalo solo para juegos que necesiten matemáticas de VU0 más estrictas; bajarlo es útil para probar compatibilidad o regresiones. Reinicie el juego para aplicar.</string>
+    <string name="settings_help_vu1_clamping">Controla el clamping de desbordamiento para VU1. "Ninguno" lo desactiva. "Normal" habilita el estándar, "Extra" añade un manejo más estricto y "Extra+Signo" también limita el comportamiento de los signos. Los modos altos pueden ayudar a juegos con geometría o efectos rotos, pero pueden reducir la velocidad o afectar la compatibilidad en juegos que no los necesitan. Reinicie el juego para aplicar.</string>
 </resources>

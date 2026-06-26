@@ -64,6 +64,7 @@
 #include "discord_rpc.h"
 #include "fmt/format.h"
 
+#include <algorithm>
 #include <atomic>
 #include <mutex>
 #include <sstream>
@@ -733,6 +734,39 @@ static bool ShouldDisableVU0RecompilerForGame(const std::string& serial)
 	       serial == "SLPM-66404" || serial == "TCPS-10158";
 }
 
+static int GetClampedCpuModeSetting(SettingsInterface& si, const char* section, const char* key, int fallback)
+{
+	return std::clamp(si.GetIntValue(section, key, fallback), 0, 3);
+}
+
+static void ApplyManualCpuModeOverrides(Pcsx2Config& config)
+{
+	SettingsInterface* si = Host::GetSettingsInterface();
+	if (!si)
+		return;
+
+	const int ee_round_mode = GetClampedCpuModeSetting(*si, "EmuCore/CPU", "FPU.Roundmode", 3);
+	const int vu0_round_mode = GetClampedCpuModeSetting(*si, "EmuCore/CPU", "VU0.Roundmode", 3);
+	const int vu1_round_mode = GetClampedCpuModeSetting(*si, "EmuCore/CPU", "VU1.Roundmode", 3);
+	config.Cpu.FPUFPCR.SetRoundMode(static_cast<FPRoundMode>(ee_round_mode));
+	config.Cpu.VU0FPCR.SetRoundMode(static_cast<FPRoundMode>(vu0_round_mode));
+	config.Cpu.VU1FPCR.SetRoundMode(static_cast<FPRoundMode>(vu1_round_mode));
+
+	const int ee_clamp_mode = GetClampedCpuModeSetting(*si, "EmuCoreX/CPU", "EEClampMode", 1);
+	const int vu0_clamp_mode = GetClampedCpuModeSetting(*si, "EmuCoreX/CPU", "VU0ClampMode", 1);
+	const int vu1_clamp_mode = GetClampedCpuModeSetting(*si, "EmuCoreX/CPU", "VU1ClampMode", 0);
+	config.Cpu.Recompiler.SetEEClampMode(static_cast<u32>(ee_clamp_mode));
+	config.Cpu.Recompiler.vu0Overflow = (vu0_clamp_mode >= 1);
+	config.Cpu.Recompiler.vu0ExtraOverflow = (vu0_clamp_mode >= 2);
+	config.Cpu.Recompiler.vu0SignOverflow = (vu0_clamp_mode >= 3);
+	config.Cpu.Recompiler.vu1Overflow = (vu1_clamp_mode >= 1);
+	config.Cpu.Recompiler.vu1ExtraOverflow = (vu1_clamp_mode >= 2);
+	config.Cpu.Recompiler.vu1SignOverflow = (vu1_clamp_mode >= 3);
+
+	Console.WriteLn("EmuCoreX: CPU float modes round={ee:%d vu0:%d vu1:%d} clamp={ee:%d vu0:%d vu1:%d}",
+		ee_round_mode, vu0_round_mode, vu1_round_mode, ee_clamp_mode, vu0_clamp_mode, vu1_clamp_mode);
+}
+
 void VMManager::ApplyGameFixes()
 {
 	if (!HasBootedELF() && !GSDumpReplayer::IsReplayingDump())
@@ -751,6 +785,7 @@ void VMManager::ApplyGameFixes()
 
 	game->applyGameFixes(EmuConfig, EmuConfig.EnableGameFixes);
 	game->applyGSHardwareFixes(EmuConfig.GS);
+	ApplyManualCpuModeOverrides(EmuConfig);
 
 	if (ShouldDisableVU0RecompilerForGame(s_disc_serial))
 	{
@@ -3393,7 +3428,7 @@ void VMManager::WarnAboutUnsafeSettings()
 			TRANSLATE_SV("VMManager", "VU1 Round Mode is not set to default, this may break some games."));
 	}
 	if (!EmuConfig.Cpu.Recompiler.vu0Overflow || EmuConfig.Cpu.Recompiler.vu0ExtraOverflow ||
-		EmuConfig.Cpu.Recompiler.vu0SignOverflow || !EmuConfig.Cpu.Recompiler.vu1Overflow ||
+		EmuConfig.Cpu.Recompiler.vu0SignOverflow || EmuConfig.Cpu.Recompiler.vu1Overflow ||
 		EmuConfig.Cpu.Recompiler.vu1ExtraOverflow || EmuConfig.Cpu.Recompiler.vu1SignOverflow)
 	{
 		append(ICON_PF_MICROCHIP,

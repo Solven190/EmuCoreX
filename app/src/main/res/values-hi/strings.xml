@@ -1228,4 +1228,27 @@
     <string name="game_settings_manager_profile_active_short">प्रोफ़ाइल</string>
     <string name="game_settings_manager_tab_system">सिस्टम और प्रदर्शन</string>
     <string name="emulation_hardcore_action_blocked">RetroAchievements हार्डकोर मोड सक्रिय होने पर यह क्रिया अक्षम हो जाती है।</string>
+    <string name="settings_cpu_float_modes">फ़्लोटिंग पॉइंट मोड</string>
+    <string name="settings_cpu_float_modes_note">खास गेम्स के लिए संगतता ओवरराइड। जब तक किसी गेम को अलग Round Mode या Clamping मोड की जरूरत न हो, डिफ़ॉल्ट रहने दें; बदलाव लागू करने के लिए गेम को पुनरारंभ करें।</string>
+    <string name="settings_ee_fpu_round_mode">EE FPU राउंड मोड</string>
+    <string name="settings_vu0_round_mode">VU0 राउंड मोड</string>
+    <string name="settings_vu1_round_mode">VU1 राउंड मोड</string>
+    <string name="settings_ee_fpu_clamping">EE/FPU क्लैम्पिंग</string>
+    <string name="settings_vu0_clamping">VU0 क्लैम्पिंग</string>
+    <string name="settings_vu1_clamping">VU1 क्लैम्पिंग</string>
+    <string name="settings_float_round_nearest">निकटतम (Nearest)</string>
+    <string name="settings_float_round_negative">नकारात्मक (Negative)</string>
+    <string name="settings_float_round_positive">सकारात्मक (Positive)</string>
+    <string name="settings_float_round_chop">चॉप (Chop)</string>
+    <string name="settings_clamping_none">कोई नहीं (None)</string>
+    <string name="settings_clamping_normal">सामान्य (Normal)</string>
+    <string name="settings_clamping_extra">एक्स्ट्रा (Extra)</string>
+    <string name="settings_clamping_full">पूर्ण (Full)</string>
+    <string name="settings_clamping_extra_sign">एक्स्ट्रा+साइन (Extra+Sign)</string>
+    <string name="settings_help_ee_fpu_round_mode">यह नियंत्रित करता है कि Emotion Engine FPU फ़्लोटिंग पॉइंट गणित को कैसे राउंड करता है। "चॉप" (Chop) शून्य की ओर छोटा करता है और PS2 डिफ़ॉल्ट है। इसे केवल उन गेम्स के लिए बदलें जिन्हें भौतिकी, एनीमेशन, समय या अन्य CPU गणितीय गड़बड़ियों को ठीक करने के लिए विशिष्ट EE/FPU राउंड मोड की आवश्यकता होती है। लागू करने के लिए गेम को पुनरारंभ करें।</string>
+    <string name="settings_help_vu0_round_mode">Vector Unit 0 के लिए फ़्लोटिंग पॉइंट राउंडिंग को नियंत्रित करता है, जिसका उपयोग CPU-साइड वेक्टर गणित, गेमप्ले गणना और कुछ माइक्रोप्रोग्राम कार्यों के लिए किया जा सकता है। "चॉप" PS2-संगत डिफ़ॉल्ट है। गैर-डिफ़ॉल्ट मोड का उपयोग केवल उन शीर्षकों के लिए करें जिन्हें इनकी आवश्यकता है, क्योंकि VU0 परिवर्तन गेम लॉजिक या ज्यामिति (geometry) को प्रभावित कर सकते हैं। पुनरारंभ करें।</string>
+    <string name="settings_help_vu1_round_mode">Vector Unit 1 के लिए फ़्लोटिंग पॉइंट राउंडिंग को नियंत्रित करता है, जिसका उपयोग ट्रांसफॉर्म, ज्यामिति, एनीमेशन और प्रभाव (effects) के लिए भारी रूप से किया जाता है। "चॉप" PS2-संगत डिफ़ॉल्ट है। अन्य मोड का प्रयास केवल तभी करें जब किसी गेम में ज्ञात VU1 परिशुद्धता समस्याएं हों जैसे टूटे हुए मॉडल या खराब प्रभाव। लागू करने के लिए पुनरारंभ करें।</string>
+    <string name="settings_help_ee_fpu_clamping">EE/FPU ओवरफ़्लो क्लैम्पिंग सटीकता को नियंत्रित करता है। "कोई नहीं" क्लैंप अक्षम करता है, "सामान्य" मानक ओवरफ़्लो क्लैंप सक्षम करता है, "एक्स्ट्रा" सख्त हैंडलिंग जोड़ता है, और "पूर्ण" सबसे सख्त व्यवहार सक्षम करता है। उच्च मोड विशिष्ट गेम समस्याओं को ठीक कर सकते हैं, लेकिन प्रदर्शन कम कर सकते हैं। लागू करने के लिए गेम को पुनरारंभ करें।</string>
+    <string name="settings_help_vu0_clamping">Vector Unit 0 के लिए ओवरफ़्लो क्लैम्पिंग को नियंत्रित करता है। "कोई नहीं" VU0 ओवरफ़्लो क्लैम्पिंग को अक्षम करता है, "सामान्य" डिफ़ॉल्ट से मेल खाता है, "एक्स्ट्रा" सख्त हैंडलिंग जोड़ता है, और "एक्स्ट्रा+साइन" साइन-संबंधित ओवरफ़्लो व्यवहार को भी क्लैंप करता है। इसे केवल तभी बढ़ाएं जब गेम्स को सख्त VU0 गणित की आवश्यकता हो। लागू करने के लिए गेम पुनरारंभ करें।</string>
+    <string name="settings_help_vu1_clamping">Vector Unit 1 के लिए ओवरफ़्लो क्लैम्पिंग को नियंत्रित करता है। "कोई नहीं" अक्षम करता है। "सामान्य" मानक क्लैंप सक्षम करता है, "एक्स्ट्रा" सख्त हैंडलिंग जोड़ता है, और "एक्स्ट्रा+साइन" साइन-संबंधित व्यवहार को क्लैंप करता है। उच्च मोड टूटी हुई ज्यामिति या प्रभावों वाले गेम में मदद कर सकते हैं, लेकिन गति को कम कर सकते हैं। लागू करने के लिए गेम को पुनरारंभ करें।</string>
 </resources>

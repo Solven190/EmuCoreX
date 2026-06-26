@@ -1230,4 +1230,27 @@
     <string name="game_settings_manager_profile_active_short">Profil</string>
     <string name="game_settings_manager_tab_system">System &amp; Leistung</string>
     <string name="emulation_hardcore_action_blocked">Diese Aktion ist deaktiviert, solange der RetroAchievements-Hardcore-Modus aktiv ist.</string>
+    <string name="settings_cpu_float_modes">Gleitkomma-Modi</string>
+    <string name="settings_cpu_float_modes_note">Kompatibilitäts-Overrides für bestimmte Spiele. Behalte die Standardwerte bei, sofern ein Spiel nicht nachweislich einen anderen Round Mode oder Clamping-Modus benötigt. Starte das Spiel neu, um Änderungen anzuwenden.</string>
+    <string name="settings_ee_fpu_round_mode">EE FPU-Rundungsmodus</string>
+    <string name="settings_vu0_round_mode">VU0-Rundungsmodus</string>
+    <string name="settings_vu1_round_mode">VU1-Rundungsmodus</string>
+    <string name="settings_ee_fpu_clamping">EE/FPU-Clamping</string>
+    <string name="settings_vu0_clamping">VU0-Clamping</string>
+    <string name="settings_vu1_clamping">VU1-Clamping</string>
+    <string name="settings_float_round_nearest">Nächste (Nearest)</string>
+    <string name="settings_float_round_negative">Negativ (Negative)</string>
+    <string name="settings_float_round_positive">Positiv (Positive)</string>
+    <string name="settings_float_round_chop">Abschneiden (Chop)</string>
+    <string name="settings_clamping_none">Keines</string>
+    <string name="settings_clamping_normal">Normal</string>
+    <string name="settings_clamping_extra">Extra</string>
+    <string name="settings_clamping_full">Voll (Full)</string>
+    <string name="settings_clamping_extra_sign">Extra+Vorzeichen (Sign)</string>
+    <string name="settings_help_ee_fpu_round_mode">Steuert, wie die Emotion Engine FPU Gleitkommaberechnungen rundet. "Abschneiden" (Chop) verkürzt in Richtung Null und ist der PS2-Standard. "Nächste" rundet auf den nächsten Wert, "Negativ" rundet ab und "Positiv" rundet auf. Ändere dies nur für Spiele, die einen bestimmten EE/FPU-Rundungsmodus benötigen, um Physik-, Animations-, Timing- oder andere CPU-Mathematikfehler zu beheben. Neustart zum Anwenden.</string>
+    <string name="settings_help_vu0_round_mode">Steuert die Gleitkomma-Rundung für Vector Unit 0, die für Vektormathematik auf CPU-Seite, Gameplay-Berechnungen und einige Mikroprogramm-Aufgaben verwendet werden kann. "Abschneiden" (Chop) verkürzt in Richtung Null und ist der normale PS2-Standard. Verwende abweichende Modi nur für Titel, die diese bekanntermaßen benötigen, da sich VU0-Änderungen auf Spiellogik oder Geometrie auswirken können. Neustart zum Anwenden.</string>
+    <string name="settings_help_vu1_round_mode">Steuert die Gleitkomma-Rundung für Vector Unit 1, die stark für Transformationen, Geometrie, Animationen und Effekte verwendet wird. "Abschneiden" verkürzt in Richtung Null und ist der PS2-Standard. Versuche andere Modi nur, wenn ein Spiel bekannte VU1-Präzisionsprobleme wie defekte Modelle, schlechte Effekte oder Szenenmathematikprobleme aufweist. Neustart zum Anwenden.</string>
+    <string name="settings_help_ee_fpu_clamping">Steuert die Genauigkeit des EE/FPU-Überlauf-Clampings. "Keines" deaktiviert es, "Normal" aktiviert den Standard, "Extra" fügt strengere Behandlung hinzu und "Voll" aktiviert das strengste EE/FPU-Clamping. Höhere Modi können bestimmte Spiele mit CPU-Gleitkomma-Randfällen reparieren, aber Leistung kosten oder Spiele stören, die bereits funktionieren. Neustart zum Anwenden.</string>
+    <string name="settings_help_vu0_clamping">Steuert das Überlauf-Clamping für Vector Unit 0. "Keines" deaktiviert es, "Normal" entspricht dem VU0-Standard, "Extra" ist strenger, und "Extra+Vorzeichen" klammert auch vorzeichenbezogenes Überlaufverhalten. Erhöhe dies nur für Spiele, die strengere VU0-Mathematik benötigen; eine Verringerung ist nützlich, um Kompatibilitäts- oder Leistungsprobleme zu testen. Neustart zum Anwenden.</string>
+    <string name="settings_help_vu1_clamping">Steuert das Überlauf-Clamping für Vector Unit 1. "Keines" deaktiviert es. "Normal" aktiviert den Standard, "Extra" ist strenger, und "Extra+Vorzeichen" klammert auch vorzeichenbezogenes Verhalten. Höhere Modi können bei defekter Geometrie oder Effekten helfen, aber die Geschwindigkeit verringern oder die Kompatibilität in Spielen beeinträchtigen, die sie nicht benötigen. Neustart zum Anwenden.</string>
 </resources>

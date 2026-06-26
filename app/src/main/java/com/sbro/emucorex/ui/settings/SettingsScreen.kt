@@ -1590,6 +1590,59 @@ private fun SettingsContent(
                             )
                         }
                     }
+                    SettingsSection(title = stringResource(R.string.settings_cpu_float_modes)) {
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_ee_fpu_round_mode),
+                            options = floatRoundModeOptions(),
+                            selectedValue = uiState.eeFpuRoundMode,
+                            onSelect = viewModel::setEeFpuRoundMode,
+                            helpText = stringResource(R.string.settings_help_ee_fpu_round_mode),
+                            onResetToDefault = { viewModel.setEeFpuRoundMode(defaults.eeFpuRoundMode) }
+                        )
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_vu0_round_mode),
+                            options = floatRoundModeOptions(),
+                            selectedValue = uiState.vu0RoundMode,
+                            onSelect = viewModel::setVu0RoundMode,
+                            helpText = stringResource(R.string.settings_help_vu0_round_mode),
+                            onResetToDefault = { viewModel.setVu0RoundMode(defaults.vu0RoundMode) }
+                        )
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_vu1_round_mode),
+                            options = floatRoundModeOptions(),
+                            selectedValue = uiState.vu1RoundMode,
+                            onSelect = viewModel::setVu1RoundMode,
+                            helpText = stringResource(R.string.settings_help_vu1_round_mode),
+                            onResetToDefault = { viewModel.setVu1RoundMode(defaults.vu1RoundMode) }
+                        )
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_ee_fpu_clamping),
+                            options = eeFpuClampingModeOptions(),
+                            selectedValue = uiState.eeFpuClampingMode,
+                            onSelect = viewModel::setEeFpuClampingMode,
+                            helpText = stringResource(R.string.settings_help_ee_fpu_clamping),
+                            onResetToDefault = { viewModel.setEeFpuClampingMode(defaults.eeFpuClampingMode) }
+                        )
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_vu0_clamping),
+                            options = vuClampingModeOptions(),
+                            selectedValue = uiState.vu0ClampingMode,
+                            onSelect = viewModel::setVu0ClampingMode,
+                            helpText = stringResource(R.string.settings_help_vu0_clamping),
+                            onResetToDefault = { viewModel.setVu0ClampingMode(defaults.vu0ClampingMode) }
+                        )
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_vu1_clamping),
+                            options = vuClampingModeOptions(),
+                            selectedValue = uiState.vu1ClampingMode,
+                            onSelect = viewModel::setVu1ClampingMode,
+                            helpText = stringResource(R.string.settings_help_vu1_clamping),
+                            onResetToDefault = { viewModel.setVu1ClampingMode(defaults.vu1ClampingMode) }
+                        )
+                        SettingsInlineNote(
+                            text = stringResource(R.string.settings_cpu_float_modes_note)
+                        )
+                    }
                     SettingsSection(title = stringResource(R.string.settings_speed_hacks)) {
                         val selectedGpuHardwareProfile = GpuHardwareProfiles.normalize(uiState.gpuHardwareProfile)
                         val mediatekGpuSelected = GpuHardwareProfiles.isMediatekProfile(selectedGpuHardwareProfile)
@@ -2514,6 +2567,12 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Emulation, R.string.settings_enable_iop_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_enable_vu0_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_enable_vu1_recompiler),
+        entry(SettingsTab.Emulation, R.string.settings_ee_fpu_round_mode),
+        entry(SettingsTab.Emulation, R.string.settings_vu0_round_mode),
+        entry(SettingsTab.Emulation, R.string.settings_vu1_round_mode),
+        entry(SettingsTab.Emulation, R.string.settings_ee_fpu_clamping),
+        entry(SettingsTab.Emulation, R.string.settings_vu0_clamping),
+        entry(SettingsTab.Emulation, R.string.settings_vu1_clamping),
         entry(SettingsTab.Emulation, R.string.settings_gpu_chipset),
         entry(SettingsTab.Emulation, R.string.settings_gpu_accelerator),
         entry(SettingsTab.Emulation, R.string.settings_frame_limiter),
@@ -3052,6 +3111,30 @@ private fun hwDownloadModeOptions(): List<Pair<Int, String>> = listOf(
     1 to stringResource(R.string.settings_hw_download_mode_no_readbacks),
     2 to stringResource(R.string.settings_hw_download_mode_unsynchronized),
     3 to stringResource(R.string.settings_hw_download_mode_disabled)
+)
+
+@Composable
+private fun floatRoundModeOptions(): List<Pair<Int, String>> = listOf(
+    AppPreferences.FLOAT_ROUND_NEAREST to stringResource(R.string.settings_float_round_nearest),
+    AppPreferences.FLOAT_ROUND_NEGATIVE to stringResource(R.string.settings_float_round_negative),
+    AppPreferences.FLOAT_ROUND_POSITIVE to stringResource(R.string.settings_float_round_positive),
+    AppPreferences.FLOAT_ROUND_CHOP to stringResource(R.string.settings_float_round_chop)
+)
+
+@Composable
+private fun eeFpuClampingModeOptions(): List<Pair<Int, String>> = listOf(
+    AppPreferences.CLAMPING_NONE to stringResource(R.string.settings_clamping_none),
+    AppPreferences.CLAMPING_NORMAL to stringResource(R.string.settings_clamping_normal),
+    AppPreferences.CLAMPING_EXTRA to stringResource(R.string.settings_clamping_extra),
+    AppPreferences.CLAMPING_FULL to stringResource(R.string.settings_clamping_full)
+)
+
+@Composable
+private fun vuClampingModeOptions(): List<Pair<Int, String>> = listOf(
+    AppPreferences.CLAMPING_NONE to stringResource(R.string.settings_clamping_none),
+    AppPreferences.CLAMPING_NORMAL to stringResource(R.string.settings_clamping_normal),
+    AppPreferences.CLAMPING_EXTRA to stringResource(R.string.settings_clamping_extra),
+    AppPreferences.CLAMPING_FULL to stringResource(R.string.settings_clamping_extra_sign)
 )
 
 @Composable

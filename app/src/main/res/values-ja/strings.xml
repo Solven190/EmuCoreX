@@ -1228,4 +1228,27 @@
     <string name="game_settings_manager_profile_active_short">プロファイル</string>
     <string name="game_settings_manager_tab_system">システムとパフォーマンス</string>
     <string name="emulation_hardcore_action_blocked">RetroAchievementsのハードコアモードがアクティブな間、このアクションは無効になります。</string>
+    <string name="settings_cpu_float_modes">浮動小数点モード</string>
+    <string name="settings_cpu_float_modes_note">特定のゲーム向けの互換性オーバーライドです。別の Round Mode や Clamping モードが必要だと分かっている場合を除き、デフォルトのままにしてください。変更を適用するにはゲームを再起動します。</string>
+    <string name="settings_ee_fpu_round_mode">EE FPU 丸めモード</string>
+    <string name="settings_vu0_round_mode">VU0 丸めモード</string>
+    <string name="settings_vu1_round_mode">VU1 丸めモード</string>
+    <string name="settings_ee_fpu_clamping">EE/FPU クランプ</string>
+    <string name="settings_vu0_clamping">VU0 クランプ</string>
+    <string name="settings_vu1_clamping">VU1 クランプ</string>
+    <string name="settings_float_round_nearest">ニアレスト (Nearest)</string>
+    <string name="settings_float_round_negative">ネガティブ (Negative)</string>
+    <string name="settings_float_round_positive">ポジティブ (Positive)</string>
+    <string name="settings_float_round_chop">チョップ (Chop)</string>
+    <string name="settings_clamping_none">なし</string>
+    <string name="settings_clamping_normal">ノーマル</string>
+    <string name="settings_clamping_extra">エクストラ</string>
+    <string name="settings_clamping_full">フル</string>
+    <string name="settings_clamping_extra_sign">エクストラ+サイン (Sign)</string>
+    <string name="settings_help_ee_fpu_round_mode">Emotion Engine FPUが浮動小数点の計算をどのように丸めるかを制御します。「チョップ」(Chop)はゼロに向かって切り捨て、PS2のデフォルトです。これは、物理、アニメーション、タイミング、またはその他のCPU数学のグリッチを修正するために特定のEE/FPU丸めモードを必要とするゲームにのみ変更してください。適用するにはゲームを再起動します。</string>
+    <string name="settings_help_vu0_round_mode">Vector Unit 0の浮動小数点丸めを制御します。これは、CPU側のベクトル計算、ゲームプレイ計算、および一部のマイクロプログラムの処理に使用されます。「チョップ」はPS2互換の通常のデフォルトです。VU0の計算の変更はゲームのロジックやジオメトリに影響を与える可能性があるため、それらを必要とすることが知られているタイトルにのみ非デフォルトのモードを使用してください。適用には再起動が必要です。</string>
+    <string name="settings_help_vu1_round_mode">Vector Unit 1の浮動小数点丸めを制御します。これは、変換、ジオメトリ、アニメーション、およびエフェクトで頻繁に使用されます。「チョップ」はPS2互換の通常のデフォルトです。壊れたモデル、悪いエフェクト、シーンの計算問題など、既知のVU1精度の問題があるゲームにのみ他のモードを試してください。適用には再起動が必要です。</string>
+    <string name="settings_help_ee_fpu_clamping">EE/FPUのオーバーフロークランプの精度を制御します。「なし」はオーバーフロークランプを無効にし、「ノーマル」は標準を有効にしてデフォルトと一致します。「エクストラ」はより厳格な処理を追加し、「フル」は最も厳格なクランプ動作を有効にします。上位モードは特定のゲームを修正できますが、パフォーマンスが低下する可能性があります。適用には再起動が必要です。</string>
+    <string name="settings_help_vu0_clamping">Vector Unit 0のオーバーフロークランプを制御します。「なし」はクランプを無効にし、「ノーマル」は現在のVU0のデフォルトと一致します。「エクストラ」は厳密な処理を追加し、「エクストラ+サイン」は符号関連のオーバーフロー動作もクランプします。より厳密なVU0の計算が必要なゲームでのみこれを上げてください。適用には再起動が必要です。</string>
+    <string name="settings_help_vu1_clamping">Vector Unit 1のオーバーフロークランプを制御します。「なし」はクランプを無効にします。「ノーマル」は標準クランプを有効にし、「エクストラ」はより厳格な処理を追加し、「エクストラ+サイン」は符号関連のオーバーフローもクランプします。上位モードは壊れたジオメトリやエフェクトに役立つ場合がありますが、速度が低下する可能性があります。適用には再起動が必要です。</string>
 </resources>

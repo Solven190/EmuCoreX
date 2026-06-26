@@ -89,6 +89,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -124,6 +125,8 @@ private enum class GameSettingsManagerTab {
     Controls,
     Fixes
 }
+
+private val GameSettingsSectionContentPadding = 16.dp
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -917,6 +920,54 @@ private fun GameSettingsTabContent(
                         onSelected = { onDraftChange(draft.copy(eeCycleSkip = it)) },
                         helpText = stringResource(R.string.settings_help_ee_cycle_skip),
                         onResetToDefault = { onDraftChange(draft.copy(eeCycleSkip = defaultProfile.eeCycleSkip)) }
+                    )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_ee_fpu_round_mode),
+                        options = floatRoundModeOptions(),
+                        selectedValue = draft.eeFpuRoundMode,
+                        onSelected = { onDraftChange(draft.copy(eeFpuRoundMode = it)) },
+                        helpText = stringResource(R.string.settings_help_ee_fpu_round_mode),
+                        onResetToDefault = { onDraftChange(draft.copy(eeFpuRoundMode = defaultProfile.eeFpuRoundMode)) }
+                    )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_vu0_round_mode),
+                        options = floatRoundModeOptions(),
+                        selectedValue = draft.vu0RoundMode,
+                        onSelected = { onDraftChange(draft.copy(vu0RoundMode = it)) },
+                        helpText = stringResource(R.string.settings_help_vu0_round_mode),
+                        onResetToDefault = { onDraftChange(draft.copy(vu0RoundMode = defaultProfile.vu0RoundMode)) }
+                    )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_vu1_round_mode),
+                        options = floatRoundModeOptions(),
+                        selectedValue = draft.vu1RoundMode,
+                        onSelected = { onDraftChange(draft.copy(vu1RoundMode = it)) },
+                        helpText = stringResource(R.string.settings_help_vu1_round_mode),
+                        onResetToDefault = { onDraftChange(draft.copy(vu1RoundMode = defaultProfile.vu1RoundMode)) }
+                    )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_ee_fpu_clamping),
+                        options = eeFpuClampingModeOptions(),
+                        selectedValue = draft.eeFpuClampingMode,
+                        onSelected = { onDraftChange(draft.copy(eeFpuClampingMode = it)) },
+                        helpText = stringResource(R.string.settings_help_ee_fpu_clamping),
+                        onResetToDefault = { onDraftChange(draft.copy(eeFpuClampingMode = defaultProfile.eeFpuClampingMode)) }
+                    )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_vu0_clamping),
+                        options = vuClampingModeOptions(),
+                        selectedValue = draft.vu0ClampingMode,
+                        onSelected = { onDraftChange(draft.copy(vu0ClampingMode = it)) },
+                        helpText = stringResource(R.string.settings_help_vu0_clamping),
+                        onResetToDefault = { onDraftChange(draft.copy(vu0ClampingMode = defaultProfile.vu0ClampingMode)) }
+                    )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_vu1_clamping),
+                        options = vuClampingModeOptions(),
+                        selectedValue = draft.vu1ClampingMode,
+                        onSelected = { onDraftChange(draft.copy(vu1ClampingMode = it)) },
+                        helpText = stringResource(R.string.settings_help_vu1_clamping),
+                        onResetToDefault = { onDraftChange(draft.copy(vu1ClampingMode = defaultProfile.vu1ClampingMode)) }
                     )
                     SelectionRow(
                         title = stringResource(R.string.settings_target_fps_mode),
@@ -2008,7 +2059,7 @@ private fun EditorSection(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(GameSettingsSectionContentPadding),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 content()
@@ -2055,16 +2106,34 @@ private fun SelectionRow(
                 SettingHelpButton(title = title, description = it)
             }
         }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            options.forEach { (value, label) ->
-                FilterChip(
-                    selected = selectedValue == value,
-                    onClick = { onSelected(value) },
-                    label = { Text(label) }
-                )
+        if (options.size > 3) {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .sectionContentFullBleed(GameSettingsSectionContentPadding),
+                contentPadding = PaddingValues(horizontal = GameSettingsSectionContentPadding),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(options, key = { it.first }) { (value, label) ->
+                    FilterChip(
+                        selected = selectedValue == value,
+                        onClick = { onSelected(value) },
+                        label = { Text(label) }
+                    )
+                }
+            }
+        } else {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                options.forEach { (value, label) ->
+                    FilterChip(
+                        selected = selectedValue == value,
+                        onClick = { onSelected(value) },
+                        label = { Text(label) }
+                    )
+                }
             }
         }
     }
@@ -2304,6 +2373,20 @@ private fun ProfileBadge(text: String) {
 private fun Modifier.gameManagerFullBleed(): Modifier {
     return layout { measurable, constraints ->
         val sidePadding = ScreenHorizontalPadding.roundToPx()
+        val expandedConstraints = constraints.copy(
+            minWidth = (constraints.minWidth + sidePadding * 2).coerceAtLeast(0),
+            maxWidth = (constraints.maxWidth + sidePadding * 2).coerceAtLeast(0)
+        )
+        val placeable = measurable.measure(expandedConstraints)
+        layout(constraints.maxWidth, placeable.height) {
+            placeable.placeRelative(-sidePadding, 0)
+        }
+    }
+}
+
+private fun Modifier.sectionContentFullBleed(horizontalPadding: Dp): Modifier {
+    return layout { measurable, constraints ->
+        val sidePadding = horizontalPadding.roundToPx()
         val expandedConstraints = constraints.copy(
             minWidth = (constraints.minWidth + sidePadding * 2).coerceAtLeast(0),
             maxWidth = (constraints.maxWidth + sidePadding * 2).coerceAtLeast(0)
@@ -2706,6 +2789,30 @@ private fun eeCycleSkipOptions(): List<Pair<Int, String>> = listOf(
 )
 
 @Composable
+private fun floatRoundModeOptions(): List<Pair<Int, String>> = listOf(
+    AppPreferences.FLOAT_ROUND_NEAREST to stringResource(R.string.settings_float_round_nearest),
+    AppPreferences.FLOAT_ROUND_NEGATIVE to stringResource(R.string.settings_float_round_negative),
+    AppPreferences.FLOAT_ROUND_POSITIVE to stringResource(R.string.settings_float_round_positive),
+    AppPreferences.FLOAT_ROUND_CHOP to stringResource(R.string.settings_float_round_chop)
+)
+
+@Composable
+private fun eeFpuClampingModeOptions(): List<Pair<Int, String>> = listOf(
+    AppPreferences.CLAMPING_NONE to stringResource(R.string.settings_clamping_none),
+    AppPreferences.CLAMPING_NORMAL to stringResource(R.string.settings_clamping_normal),
+    AppPreferences.CLAMPING_EXTRA to stringResource(R.string.settings_clamping_extra),
+    AppPreferences.CLAMPING_FULL to stringResource(R.string.settings_clamping_full)
+)
+
+@Composable
+private fun vuClampingModeOptions(): List<Pair<Int, String>> = listOf(
+    AppPreferences.CLAMPING_NONE to stringResource(R.string.settings_clamping_none),
+    AppPreferences.CLAMPING_NORMAL to stringResource(R.string.settings_clamping_normal),
+    AppPreferences.CLAMPING_EXTRA to stringResource(R.string.settings_clamping_extra),
+    AppPreferences.CLAMPING_FULL to stringResource(R.string.settings_clamping_extra_sign)
+)
+
+@Composable
 private fun blendingAccuracyOptions(): List<Pair<Int, String>> = listOf(
     0 to stringResource(R.string.settings_blending_accuracy_minimum),
     1 to stringResource(R.string.settings_blending_accuracy_basic),
@@ -2954,6 +3061,12 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         enableMtvu = enableMtvu,
         enableFastCdvd = enableFastCdvd,
         enableCheats = enableCheats,
+        eeFpuRoundMode = eeFpuRoundMode,
+        vu0RoundMode = vu0RoundMode,
+        vu1RoundMode = vu1RoundMode,
+        eeFpuClampingMode = eeFpuClampingMode,
+        vu0ClampingMode = vu0ClampingMode,
+        vu1ClampingMode = vu1ClampingMode,
         hwDownloadMode = hwDownloadMode,
         eeCycleRate = eeCycleRate,
         eeCycleSkip = eeCycleSkip,
@@ -3027,6 +3140,12 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         enableMtvu = pick("enableMtvu", enableMtvu, defaultProfile.enableMtvu),
         enableFastCdvd = pick("enableFastCdvd", enableFastCdvd, defaultProfile.enableFastCdvd),
         enableCheats = pick("enableCheats", enableCheats, defaultProfile.enableCheats),
+        eeFpuRoundMode = pick("eeFpuRoundMode", eeFpuRoundMode, defaultProfile.eeFpuRoundMode),
+        vu0RoundMode = pick("vu0RoundMode", vu0RoundMode, defaultProfile.vu0RoundMode),
+        vu1RoundMode = pick("vu1RoundMode", vu1RoundMode, defaultProfile.vu1RoundMode),
+        eeFpuClampingMode = pick("eeFpuClampingMode", eeFpuClampingMode, defaultProfile.eeFpuClampingMode),
+        vu0ClampingMode = pick("vu0ClampingMode", vu0ClampingMode, defaultProfile.vu0ClampingMode),
+        vu1ClampingMode = pick("vu1ClampingMode", vu1ClampingMode, defaultProfile.vu1ClampingMode),
         hwDownloadMode = pick("hwDownloadMode", hwDownloadMode, defaultProfile.hwDownloadMode),
         eeCycleRate = pick("eeCycleRate", eeCycleRate, defaultProfile.eeCycleRate),
         eeCycleSkip = pick("eeCycleSkip", eeCycleSkip, defaultProfile.eeCycleSkip),

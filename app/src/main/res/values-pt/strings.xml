@@ -1230,4 +1230,27 @@
     <string name="game_settings_manager_profile_active_short">Perfil</string>
     <string name="game_settings_manager_tab_system">Sistema e Desempenho</string>
     <string name="emulation_hardcore_action_blocked">Esta ação é desativada enquanto o Modo Hardcore do RetroAchievements estiver ativo.</string>
+    <string name="settings_cpu_float_modes">Modos de ponto flutuante</string>
+    <string name="settings_cpu_float_modes_note">Substituições de compatibilidade para jogos específicos. Mantenha os padrões a menos que um jogo precise de outro Round Mode ou modo de Clamping; reinicie o jogo para aplicar as alterações.</string>
+    <string name="settings_ee_fpu_round_mode">Modo de arredondamento EE FPU</string>
+    <string name="settings_vu0_round_mode">Modo de arredondamento VU0</string>
+    <string name="settings_vu1_round_mode">Modo de arredondamento VU1</string>
+    <string name="settings_ee_fpu_clamping">Clamping EE/FPU</string>
+    <string name="settings_vu0_clamping">Clamping VU0</string>
+    <string name="settings_vu1_clamping">Clamping VU1</string>
+    <string name="settings_float_round_nearest">Mais próximo (Nearest)</string>
+    <string name="settings_float_round_negative">Negativo (Negative)</string>
+    <string name="settings_float_round_positive">Positivo (Positive)</string>
+    <string name="settings_float_round_chop">Cortar (Chop)</string>
+    <string name="settings_clamping_none">Nenhum</string>
+    <string name="settings_clamping_normal">Normal</string>
+    <string name="settings_clamping_extra">Extra</string>
+    <string name="settings_clamping_full">Completo (Full)</string>
+    <string name="settings_clamping_extra_sign">Extra+Sinal (Sign)</string>
+    <string name="settings_help_ee_fpu_round_mode">Controla como a FPU do Emotion Engine arredonda a matemática de ponto flutuante. "Cortar" (Chop) trunca em direção a zero e é o padrão da PS2. Altere isto apenas para jogos que precisam de um modo específico de arredondamento EE/FPU para corrigir físicas, animações, timing ou outras falhas matemáticas da CPU. Reinicie o jogo para aplicar.</string>
+    <string name="settings_help_vu0_round_mode">Controla o arredondamento de ponto flutuante para a Vector Unit 0, que pode ser usada para matemática de vetores do lado da CPU, cálculos de jogabilidade e alguns microprogramas. "Cortar" é o padrão normal compatível com a PS2. Use modos não padrão apenas para títulos que se sabe que precisam deles, pois alterações matemáticas na VU0 podem afetar a lógica do jogo ou a geometria. Reinicie para aplicar.</string>
+    <string name="settings_help_vu1_round_mode">Controla o arredondamento de ponto flutuante para a Vector Unit 1, que é muito usada para transformações, geometria, animações e efeitos. "Cortar" é o padrão normal compatível com a PS2. Tente outros modos apenas quando um jogo tem problemas de precisão VU1 conhecidos, como modelos quebrados ou maus efeitos. Reinicie o jogo para aplicar.</string>
+    <string name="settings_help_ee_fpu_clamping">Controla a precisão do clamping de overflow (transbordamento) EE/FPU. "Nenhum" desativa-o, "Normal" ativa o padrão, "Extra" adiciona tratamento mais restrito, e "Completo" ativa o comportamento de clamp EE/FPU mais restrito. Modos mais altos podem corrigir jogos específicos, mas podem custar desempenho ou alterar o comportamento em jogos que já funcionam corretamente. Reinicie para aplicar.</string>
+    <string name="settings_help_vu0_clamping">Controla o clamping de overflow para a Vector Unit 0. "Nenhum" desativa-o, "Normal" ativa o clamp padrão (atual padrão VU0), "Extra" adiciona um tratamento mais restrito, e "Extra+Sinal" também limita o comportamento de overflow relacionado com o sinal. Aumente apenas para jogos que precisam de matemática VU0 mais restrita. Reinicie para aplicar.</string>
+    <string name="settings_help_vu1_clamping">Controla o clamping de overflow para a Vector Unit 1. "Nenhum" desativa-o. "Normal" ativa o clamp padrão, "Extra" adiciona tratamento mais restrito, e "Extra+Sinal" também limita o comportamento de overflow relacionado ao sinal. Modos altos podem ajudar jogos com geometria ou efeitos quebrados, mas podem reduzir a velocidade nos jogos que não precisam deles. Reinicie para aplicar.</string>
 </resources>

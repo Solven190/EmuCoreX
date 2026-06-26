@@ -1228,4 +1228,27 @@
     <string name="game_settings_manager_profile_active_short">ملف التعريف</string>
     <string name="game_settings_manager_tab_system">النظام والأداء</string>
     <string name="emulation_hardcore_action_blocked">هذا الإجراء معطل أثناء تنشيط وضع RetroAchievements Hardcore.</string>
+    <string name="settings_cpu_float_modes">أوضاع النقطة العائمة (Floating Point)</string>
+    <string name="settings_cpu_float_modes_note">تجاوزات توافق لألعاب محددة. اترك القيم الافتراضية ما لم تكن اللعبة معروفة بأنها تحتاج إلى Round Mode أو Clamping مختلف؛ أعد تشغيل اللعبة لتطبيق التغييرات.</string>
+    <string name="settings_ee_fpu_round_mode">وضع تقريب EE FPU</string>
+    <string name="settings_vu0_round_mode">وضع تقريب VU0</string>
+    <string name="settings_vu1_round_mode">وضع تقريب VU1</string>
+    <string name="settings_ee_fpu_clamping">تقييد EE/FPU</string>
+    <string name="settings_vu0_clamping">تقييد VU0</string>
+    <string name="settings_vu1_clamping">تقييد VU1</string>
+    <string name="settings_float_round_nearest">الأقرب (Nearest)</string>
+    <string name="settings_float_round_negative">سالب (Negative)</string>
+    <string name="settings_float_round_positive">موجب (Positive)</string>
+    <string name="settings_float_round_chop">اقتطاع (Chop)</string>
+    <string name="settings_clamping_none">بلا</string>
+    <string name="settings_clamping_normal">عادي</string>
+    <string name="settings_clamping_extra">إضافي</string>
+    <string name="settings_clamping_full">كامل</string>
+    <string name="settings_clamping_extra_sign">إضافي+إشارة (Extra+Sign)</string>
+    <string name="settings_help_ee_fpu_round_mode">يتحكم في كيفية تقريب Emotion Engine FPU لعمليات النقطة العائمة الرياضية. "اقتطاع" (Chop) يقتطع القيمة نحو الصفر وهو الافتراضي لجهاز PS2. "الأقرب" يقرب إلى أقرب قيمة، "سالب" يقرب لأسفل، و"موجب" يقرب لأعلى. قم بتغيير هذا فقط للألعاب التي تحتاج إلى وضع تقريب EE/FPU محدد لإصلاح مشاكل الفيزياء، أو الرسوم المتحركة، أو التوقيت، أو أخطاء حسابية أخرى في وحدة المعالجة المركزية. أعد تشغيل اللعبة للتطبيق.</string>
+    <string name="settings_help_vu0_round_mode">يتحكم في تقريب النقطة العائمة لوحدة المتجهات 0 (VU0)، والتي يمكن استخدامها لحسابات المتجهات على جانب وحدة المعالجة المركزية (CPU)، وحسابات أسلوب اللعب، وبعض أعمال البرامج الدقيقة. "اقتطاع" يقتطع القيمة نحو الصفر وهو الافتراضي المتوافق مع PS2. استخدم الأوضاع غير الافتراضية فقط للألعاب التي يُعرف أنها تحتاج إليها، لأن تغييرات رياضيات VU0 يمكن أن تؤثر على منطق اللعبة أو هندستها. أعد تشغيل اللعبة للتطبيق.</string>
+    <string name="settings_help_vu1_round_mode">يتحكم في تقريب النقطة العائمة لوحدة المتجهات 1 (VU1)، والتي تُستخدم بكثافة للتحويلات، والهندسة، والرسوم المتحركة، والتأثيرات. "اقتطاع" يقتطع القيمة نحو الصفر وهو الافتراضي المتوافق مع PS2. جرب الأوضاع الأخرى فقط عندما يكون للعبة مشاكل دقة VU1 معروفة مثل النماذج المكسورة، أو التأثيرات السيئة، أو مشاكل حسابية في المشهد. أعد تشغيل اللعبة للتطبيق.</string>
+    <string name="settings_help_ee_fpu_clamping">يتحكم في دقة تقييد تجاوز سعة EE/FPU. "بلا" يعطل تقييد التجاوز، "عادي" يمكن تقييد التجاوز القياسي ويطابق الافتراضي، "إضافي" يضيف معالجة تجاوز أكثر صرامة، و"كامل" يمكن سلوك تقييد EE/FPU الأكثر صرامة. يمكن للأوضاع الأعلى إصلاح ألعاب معينة ذات حالات حافة سيئة للنقطة العائمة لوحدة المعالجة المركزية، ولكن قد تكلف الأداء أو تغير السلوك في الألعاب التي تعمل بشكل صحيح بالفعل. أعد تشغيل اللعبة للتطبيق.</string>
+    <string name="settings_help_vu0_clamping">يتحكم في تقييد التجاوز لوحدة المتجهات 0. "بلا" يعطل تقييد التجاوز، "عادي" يطابق الافتراضي الحالي لـ VU0، "إضافي" يضيف معالجة تجاوز أكثر صرامة، و"إضافي+إشارة" يقيد أيضًا سلوك التجاوز المرتبط بالإشارة. ارفع هذا فقط للألعاب التي تحتاج تحديدًا إلى حسابات VU0 أكثر صرامة؛ خفضه مفيد بشكل أساسي لاختبار التوافق أو تراجعات الأداء. أعد تشغيل اللعبة للتطبيق.</string>
+    <string name="settings_help_vu1_clamping">يتحكم في تقييد التجاوز لوحدة المتجهات 1. "بلا" يعطل التقييد ويطابق الافتراضي الحالي لـ VU1. "عادي" يمكن التقييد القياسي، "إضافي" يضيف معالجة أكثر صرامة، و"إضافي+إشارة" يقيد أيضًا سلوك التجاوز المرتبط بالإشارة. قد تساعد الأوضاع الأعلى الألعاب ذات الهندسة أو التأثيرات أو رياضيات متجهات VU1 المكسورة، لكنها قد تقلل السرعة أو تؤثر على التوافق في الألعاب التي لا تحتاج إليها. أعد تشغيل اللعبة للتطبيق.</string>
 </resources>

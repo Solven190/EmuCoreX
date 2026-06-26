@@ -1230,4 +1230,27 @@
     <string name="game_settings_manager_profile_active_short">Profil</string>
     <string name="game_settings_manager_tab_system">Système &amp; Performances</string>
     <string name="emulation_hardcore_action_blocked">Cette action est désactivée tant que le mode Hardcore de RetroAchievements est actif.</string>
+    <string name="settings_cpu_float_modes">Modes à virgule flottante</string>
+    <string name="settings_cpu_float_modes_note">Réglages de compatibilité pour des jeux précis. Gardez les valeurs par défaut sauf si un jeu nécessite un autre Round Mode ou mode de Clamping ; redémarrez le jeu pour appliquer les modifications.</string>
+    <string name="settings_ee_fpu_round_mode">Mode d\'arrondi EE FPU</string>
+    <string name="settings_vu0_round_mode">Mode d\'arrondi VU0</string>
+    <string name="settings_vu1_round_mode">Mode d\'arrondi VU1</string>
+    <string name="settings_ee_fpu_clamping">Clamping EE/FPU</string>
+    <string name="settings_vu0_clamping">Clamping VU0</string>
+    <string name="settings_vu1_clamping">Clamping VU1</string>
+    <string name="settings_float_round_nearest">Le plus proche (Nearest)</string>
+    <string name="settings_float_round_negative">Négatif (Negative)</string>
+    <string name="settings_float_round_positive">Positif (Positive)</string>
+    <string name="settings_float_round_chop">Tronquer (Chop)</string>
+    <string name="settings_clamping_none">Aucun</string>
+    <string name="settings_clamping_normal">Normal</string>
+    <string name="settings_clamping_extra">Extra</string>
+    <string name="settings_clamping_full">Complet (Full)</string>
+    <string name="settings_clamping_extra_sign">Extra+Signe (Sign)</string>
+    <string name="settings_help_ee_fpu_round_mode">Contrôle la façon dont le FPU de l\'Emotion Engine arrondit les calculs à virgule flottante. "Tronquer" (Chop) tronque vers zéro et est la valeur par défaut PS2. Ne modifiez cela que pour les jeux qui ont besoin d\'un mode spécifique pour corriger la physique, l\'animation, le timing ou d\'autres problèmes de processeur. Redémarrez le jeu pour appliquer.</string>
+    <string name="settings_help_vu0_round_mode">Contrôle l\'arrondi à virgule flottante pour le Vector Unit 0, utilisé pour les mathématiques vectorielles du processeur, les calculs de gameplay, etc. "Tronquer" tronque vers zéro et est la valeur par défaut PS2. N\'utilisez des modes non standard que pour les titres connus pour en avoir besoin, car les changements mathématiques VU0 peuvent affecter la logique ou la géométrie. Redémarrez pour appliquer.</string>
+    <string name="settings_help_vu1_round_mode">Contrôle l\'arrondi à virgule flottante pour le Vector Unit 1, fortement utilisé pour les transformations, la géométrie, les animations et les effets. "Tronquer" tronque vers zéro et est la valeur par défaut PS2. Essayez d\'autres modes uniquement lorsqu\'un jeu a des problèmes de précision VU1 connus tels que des modèles cassés ou de mauvais effets. Redémarrez pour appliquer.</string>
+    <string name="settings_help_ee_fpu_clamping">Contrôle la précision du clamping de dépassement EE/FPU. "Aucun" le désactive, "Normal" active le standard, "Extra" ajoute une gestion plus stricte, et "Complet" active le clamping EE/FPU le plus strict. Les modes plus élevés peuvent corriger des jeux spécifiques, mais peuvent réduire les performances ou altérer les jeux qui fonctionnent déjà. Redémarrez pour appliquer.</string>
+    <string name="settings_help_vu0_clamping">Contrôle le clamping de dépassement pour le VU0. "Aucun" le désactive, "Normal" active le standard, "Extra" ajoute une gestion plus stricte, et "Extra+Signe" limite également le comportement lié aux signes. N\'augmentez cela que pour les jeux nécessitant des calculs VU0 plus stricts ; le baisser est utile pour tester la compatibilité ou les régressions de performances. Redémarrez pour appliquer.</string>
+    <string name="settings_help_vu1_clamping">Contrôle le clamping de dépassement pour le VU1. "Aucun" le désactive. "Normal" active le standard, "Extra" ajoute une gestion plus stricte, et "Extra+Signe" limite également le comportement lié aux signes. Les modes élevés peuvent aider les jeux avec une géométrie ou des effets cassés, mais peuvent réduire la vitesse ou affecter la compatibilité. Redémarrez pour appliquer.</string>
 </resources>

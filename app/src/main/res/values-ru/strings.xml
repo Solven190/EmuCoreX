@@ -1230,4 +1230,27 @@
     <string name="game_settings_manager_profile_active_short">Профиль</string>
     <string name="game_settings_manager_tab_system">Система и производительность</string>
     <string name="emulation_hardcore_action_blocked">Это действие отключено, пока активен хардкорный режим RetroAchievements.</string>
+    <string name="settings_cpu_float_modes">Режимы плавающей запятой (Floating Point)</string>
+    <string name="settings_cpu_float_modes_note">Настройки совместимости для конкретных игр. Оставляйте дефолтные значения, если игре не нужен другой Round Mode или Clamping; перезапустите игру, чтобы применить изменения.</string>
+    <string name="settings_ee_fpu_round_mode">EE FPU Round Mode</string>
+    <string name="settings_vu0_round_mode">VU0 Round Mode</string>
+    <string name="settings_vu1_round_mode">VU1 Round Mode</string>
+    <string name="settings_ee_fpu_clamping">EE/FPU Clamping</string>
+    <string name="settings_vu0_clamping">VU0 Clamping</string>
+    <string name="settings_vu1_clamping">VU1 Clamping</string>
+    <string name="settings_float_round_nearest">Nearest</string>
+    <string name="settings_float_round_negative">Negative</string>
+    <string name="settings_float_round_positive">Positive</string>
+    <string name="settings_float_round_chop">Chop</string>
+    <string name="settings_clamping_none">None</string>
+    <string name="settings_clamping_normal">Normal</string>
+    <string name="settings_clamping_extra">Extra</string>
+    <string name="settings_clamping_full">Full</string>
+    <string name="settings_clamping_extra_sign">Extra+Sign</string>
+    <string name="settings_help_ee_fpu_round_mode">Управляет тем, как Emotion Engine FPU округляет вычисления с плавающей запятой. Chop отсекает к нулю и является стандартным поведением PS2. Nearest округляет к ближайшему значению, Negative округляет вниз, а Positive — вверх. Меняйте это только для игр, которым нужен конкретный EE/FPU Round Mode для исправления физики, анимации или таймингов. Перезапустите игру для применения.</string>
+    <string name="settings_help_vu0_round_mode">Управляет Round Mode для Vector Unit 0, который может использоваться для векторной математики CPU, расчетов геймплея и микропрограмм. Chop отсекает к нулю и является стандартным поведением PS2. Nearest округляет к ближайшему значению, Negative округляет вниз, а Positive — вверх. Используйте нестандартные режимы только для игр, которым это необходимо, так как изменения математики VU0 могут повлиять на логику или геометрию игры. Перезапустите игру для применения.</string>
+    <string name="settings_help_vu1_round_mode">Управляет Round Mode для Vector Unit 1, который интенсивно используется для трансформаций, геометрии, анимации и эффектов. Chop отсекает к нулю и является стандартным поведением PS2. Nearest округляет к ближайшему значению, Negative округляет вниз, а Positive — вверх. Пробуйте другие режимы только если в игре известны проблемы с точностью VU1, например сломанные модели или эффекты. Перезапустите игру для применения.</string>
+    <string name="settings_help_ee_fpu_clamping">Управляет точностью EE/FPU Clamping для переполнения и граничных случаев FPU. None отключает overflow clamp, Normal включает стандартный clamp и является дефолтом, Extra добавляет более строгую обработку overflow, а Full включает самое строгое поведение EE/FPU Clamping. Более высокие режимы могут исправить конкретные игры, но могут снизить производительность или изменить поведение там, где это не нужно. Перезапустите игру для применения.</string>
+    <string name="settings_help_vu0_clamping">Управляет VU0 Clamping для переполнения в Vector Unit 0. None отключает VU0 overflow clamping, Normal включает стандартный clamp и соответствует текущему дефолту VU0, Extra добавляет более строгую обработку overflow, а Extra+Sign также ограничивает поведение, связанное со знаком. Повышайте значение только для игр, которым нужна более строгая математика VU0. Перезапустите игру для применения.</string>
+    <string name="settings_help_vu1_clamping">Управляет VU1 Clamping для переполнения в Vector Unit 1. None отключает VU1 overflow clamping и соответствует текущему дефолту VU1 в этом core. Normal включает стандартный clamp, Extra добавляет более строгую обработку overflow, а Extra+Sign также ограничивает переполнение, связанное со знаком. Более высокие режимы могут помочь играм со сломанной геометрией или эффектами, но могут снизить скорость там, где это не нужно. Перезапустите игру для применения.</string>
 </resources>

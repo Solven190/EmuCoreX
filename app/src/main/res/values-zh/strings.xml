@@ -1230,4 +1230,27 @@
     <string name="emulation_hardcore_action_blocked">在 RetroAchievements 硬核模式处于激活状态时，此操作将被禁用。</string>
     <string name="game_settings_manager_profile_active_short">配置文件</string>
     <string name="game_settings_manager_tab_system">系统与性能</string>
+    <string name="settings_cpu_float_modes">浮点模式 (Floating Point)</string>
+    <string name="settings_cpu_float_modes_note">针对特定游戏的兼容性覆盖设置。除非已知某款游戏需要不同的 Round Mode 或 Clamping 模式，否则请保留默认值；重新启动游戏以应用更改。</string>
+    <string name="settings_ee_fpu_round_mode">EE FPU 舍入模式</string>
+    <string name="settings_vu0_round_mode">VU0 舍入模式</string>
+    <string name="settings_vu1_round_mode">VU1 舍入模式</string>
+    <string name="settings_ee_fpu_clamping">EE/FPU 钳位 (Clamping)</string>
+    <string name="settings_vu0_clamping">VU0 钳位 (Clamping)</string>
+    <string name="settings_vu1_clamping">VU1 钳位 (Clamping)</string>
+    <string name="settings_float_round_nearest">最近 (Nearest)</string>
+    <string name="settings_float_round_negative">负向 (Negative)</string>
+    <string name="settings_float_round_positive">正向 (Positive)</string>
+    <string name="settings_float_round_chop">截断 (Chop)</string>
+    <string name="settings_clamping_none">无</string>
+    <string name="settings_clamping_normal">正常</string>
+    <string name="settings_clamping_extra">额外 (Extra)</string>
+    <string name="settings_clamping_full">完全 (Full)</string>
+    <string name="settings_clamping_extra_sign">额外+符号 (Sign)</string>
+    <string name="settings_help_ee_fpu_round_mode">控制 Emotion Engine FPU 如何对浮点运算进行舍入。“截断” (Chop) 向零截断，是 PS2 的默认设置。“最近”舍入到最接近的值，“负向”向下舍入，“正向”向上舍入。仅对于需要特定 EE/FPU 舍入模式来修复物理、动画、计时或其他 CPU 数学故障的游戏，才更改此设置。重新启动游戏即可应用。</string>
+    <string name="settings_help_vu0_round_mode">控制 Vector Unit 0 的浮点舍入，该单元可用于 CPU 端矢量数学、游戏逻辑计算和一些微程序工作。“截断” (Chop) 向零截断，是兼容 PS2 的正常默认设置。仅对已知需要它们的标题使用非默认模式，因为 VU0 数学更改可能会影响游戏逻辑或几何图形。重新启动游戏以应用。</string>
+    <string name="settings_help_vu1_round_mode">控制 Vector Unit 1 的浮点舍入，该单元大量用于变换、几何体、动画和效果。“截断” (Chop) 向零截断，是兼容 PS2 的正常默认设置。仅当游戏存在已知的 VU1 精度问题（例如破损的模型、糟糕的特效或场景数学问题）时，才尝试其他模式。重新启动游戏以应用。</string>
+    <string name="settings_help_ee_fpu_clamping">控制 EE/FPU 溢出钳位精度。“无”禁用溢出钳位，“正常”启用标准溢出钳位并匹配默认值，“额外”添加更严格的溢出处理，“完全”启用最严格的 EE/FPU 钳位行为。更高的模式可以修复特定游戏中的 CPU 浮点边缘情况问题，但在已经正常工作的游戏中可能会降低性能或改变行为。重新启动以应用。</string>
+    <string name="settings_help_vu0_clamping">控制 Vector Unit 0 的溢出钳位。“无”禁用 VU0 溢出钳位，“正常”启用标准钳位并匹配当前的 VU0 默认值，“额外”添加更严格的溢出处理，“额外+符号”还钳制与符号相关的溢出行为。仅对于特别需要更严格的 VU0 数学的游戏才提高此值。重新启动游戏以应用。</string>
+    <string name="settings_help_vu1_clamping">控制 Vector Unit 1 的溢出钳位。“无”禁用 VU1 溢出钳位。“正常”启用标准钳位，“额外”添加更严格的溢出处理，“额外+符号”还钳制与符号相关的行为。更高的模式可以帮助修复几何图形或效果破损的游戏，但可能会降低不需要它们的游戏的速度或影响其兼容性。重新启动游戏以应用。</string>
 </resources>
