@@ -54,9 +54,11 @@ import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.VideoLibrary
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -85,6 +87,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -367,7 +370,12 @@ fun GameDetailScreen(
                     CommentsSection(
                         comments = comments,
                         isLoading = uiState.isCommentsLoading,
-                        loadFailed = uiState.commentsLoadFailed
+                        loadFailed = uiState.commentsLoadFailed,
+                        signedIn = uiState.account != null,
+                        isSubmitting = uiState.isCommentSubmitting,
+                        submitError = uiState.commentSubmitError,
+                        onSubmit = viewModel::submitComment,
+                        onClearSubmitError = viewModel::clearCommentSubmitError
                     )
                 }
             }
@@ -399,7 +407,12 @@ fun GameDetailScreen(
 private fun CommentsSection(
     comments: List<GameComment>,
     isLoading: Boolean,
-    loadFailed: Boolean
+    loadFailed: Boolean,
+    signedIn: Boolean,
+    isSubmitting: Boolean,
+    submitError: String?,
+    onSubmit: (Int, String) -> Unit,
+    onClearSubmitError: () -> Unit
 ) {
     var visibleCount by remember(comments) { mutableIntStateOf(minOf(3, comments.size)) }
     val visibleComments = comments.take(visibleCount)
@@ -419,6 +432,15 @@ private fun CommentsSection(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurface
             )
+
+            if (signedIn) {
+                CommentComposer(
+                    isSubmitting = isSubmitting,
+                    submitError = submitError,
+                    onSubmit = onSubmit,
+                    onClearSubmitError = onClearSubmitError
+                )
+            }
 
             when {
                 isLoading -> {
@@ -466,6 +488,85 @@ private fun CommentsSection(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommentComposer(
+    isSubmitting: Boolean,
+    submitError: String?,
+    onSubmit: (Int, String) -> Unit,
+    onClearSubmitError: () -> Unit
+) {
+    var rating by rememberSaveable { mutableIntStateOf(0) }
+    var text by rememberSaveable { mutableStateOf("") }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                repeat(5) { index ->
+                    val value = index + 1
+                    IconButton(
+                        onClick = {
+                            rating = value
+                            onClearSubmitError()
+                        },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Star,
+                            contentDescription = null,
+                            tint = if (value <= rating) Color(0xFFFFC857) else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+            OutlinedTextField(
+                value = text,
+                onValueChange = {
+                    text = it.take(800)
+                    onClearSubmitError()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(112.dp),
+                minLines = 2,
+                maxLines = 4,
+                shape = RoundedCornerShape(18.dp),
+                placeholder = {
+                    Text(
+                        text = stringResource(R.string.detail_comment_placeholder),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            )
+            submitError?.let { error ->
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            Button(
+                enabled = !isSubmitting && rating > 0 && text.isNotBlank(),
+                onClick = {
+                    onSubmit(rating, text)
+                    text = ""
+                    rating = 0
+                }
+            ) {
+                Text(stringResource(R.string.detail_comment_post))
             }
         }
     }

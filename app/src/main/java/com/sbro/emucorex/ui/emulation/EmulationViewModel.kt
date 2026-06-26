@@ -22,10 +22,14 @@ import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
 import com.sbro.emucorex.data.CheatBlock
 import com.sbro.emucorex.data.OverlayControlLayout
 import com.sbro.emucorex.data.CheatRepository
+import com.sbro.emucorex.data.GameRepository
 import com.sbro.emucorex.data.MemoryCardRepository
 import com.sbro.emucorex.data.OverlayLayoutSnapshot
 import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
+import com.sbro.emucorex.data.PlayTimeSyncCacheRepository
+import com.sbro.emucorex.data.PlayerPlayTimeDelta
+import com.sbro.emucorex.data.PlayerProfileRepository
 import com.sbro.emucorex.data.pcsx2.Pcsx2CompatibilityRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -328,6 +332,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private companion object {
         const val TAG = "EmulationViewModel"
         private const val AUTO_SAVE_SLOT = 0
+        private const val PLAY_TIME_LOCAL_CACHE_INTERVAL_MS = 60_000L
+        private const val PLAY_TIME_CLOUD_SYNC_INTERVAL_MS = 10L * 60_000L
         private val SAVE_STATE_FILE_REGEX = Regex("""^(.+?) \(([0-9A-Fa-f]{8})\)\.(\d{2})\.p2s$""")
     }
 
@@ -337,6 +343,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private val memoryCardRepository = MemoryCardRepository(application, preferences)
     private val perGameSettingsRepository = PerGameSettingsRepository(application)
     private val compatibilityRepository = Pcsx2CompatibilityRepository(application)
+    private val gameRepository = GameRepository()
+    private val playerProfileRepository = PlayerProfileRepository(application)
+    private val playTimeSyncCacheRepository = PlayTimeSyncCacheRepository(application)
     private val _uiState = MutableStateFlow(EmulationUiState())
     val uiState: StateFlow<EmulationUiState> = _uiState.asStateFlow()
     private val lifecycleMutex = Mutex()
@@ -355,10 +364,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     @Volatile
     private var currentGameSerial: String = ""
     @Volatile
+    private var currentGameCoverArtPath: String? = null
+    @Volatile
     private var currentGameCrc: String = ""
     @Volatile
     private var currentGameSource: String = ""
     private var lastAutoSavePlayTimeMs: Long = 0L
+    private var pendingPlayTimeSyncMs: Long = 0L
+    private var lastCloudPlayTimeSyncAtMs: Long = 0L
+    private var shouldCountCurrentProfileSession = false
+    private val playTimeSyncMutex = Mutex()
     init {
         viewModelScope.launch {
             preferences.cleanupLegacyClampingPreferencesIfNeeded()
@@ -878,6 +893,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
         val nextPlayTimeMs = state.activePlayTimeMs + 1_000L
         _uiState.value = state.copy(activePlayTimeMs = nextPlayTimeMs)
+        pendingPlayTimeSyncMs += 1_000L
+        if (pendingPlayTimeSyncMs >= PLAY_TIME_LOCAL_CACHE_INTERVAL_MS) {
+            viewModelScope.launch(Dispatchers.IO) {
+                cachePendingPlayTime()
+                flushCachedPlayTimeIfDue(force = false)
+            }
+        }
 
         val intervalMs = state.autoSaveIntervalMinutes.coerceIn(1, 999) * 60_000L
         if (!state.autoSaveEnabled ||
@@ -890,6 +912,62 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
         lastAutoSavePlayTimeMs = nextPlayTimeMs
         performAutoSave()
+    }
+
+    private suspend fun cachePendingPlayTime() {
+        playTimeSyncMutex.withLock {
+            val durationMs = pendingPlayTimeSyncMs
+            if (durationMs <= 0L) return@withLock
+            val path = currentGamePath
+            val title = currentGameTitle
+            val serial = currentGameSerial.takeIf { it.isNotBlank() }
+            val coverArtPath = currentGameCoverArtPath
+            pendingPlayTimeSyncMs = 0L
+            val cached = runCatching {
+                playTimeSyncCacheRepository.add(
+                    PlayerPlayTimeDelta(
+                        gamePath = path,
+                        title = title,
+                        serial = serial,
+                        coverArtPath = coverArtPath,
+                        durationMs = durationMs,
+                        sessionCount = if (shouldCountCurrentProfileSession) 1L else 0L
+                    )
+                )
+            }.isSuccess
+            if (cached) {
+                shouldCountCurrentProfileSession = false
+            } else {
+                pendingPlayTimeSyncMs += durationMs
+            }
+        }
+    }
+
+    private suspend fun flushCachedPlayTimeIfDue(force: Boolean) {
+        val nowMs = System.currentTimeMillis()
+        val lastSyncAtMs = maxOf(lastCloudPlayTimeSyncAtMs, playTimeSyncCacheRepository.getLastCloudSyncAtMs())
+        if (!force && nowMs - lastSyncAtMs < PLAY_TIME_CLOUD_SYNC_INTERVAL_MS) {
+            return
+        }
+        if (!playerProfileRepository.hasSignedInUser()) {
+            return
+        }
+        val entries = playTimeSyncCacheRepository.drain()
+        if (entries.isEmpty()) return
+        val synced = runCatching {
+            playerProfileRepository.recordPlayTimeBatch(entries)
+        }.isSuccess
+        if (synced) {
+            lastCloudPlayTimeSyncAtMs = nowMs
+            playTimeSyncCacheRepository.setLastCloudSyncAtMs(nowMs)
+        } else {
+            playTimeSyncCacheRepository.restore(entries)
+        }
+    }
+
+    private suspend fun syncPendingPlayTime(forceCloud: Boolean = true) {
+        cachePendingPlayTime()
+        flushCachedPlayTimeIfDue(force = forceCloud)
     }
 
     private fun performAutoSave() {
@@ -962,8 +1040,18 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val hasPendingStateLoad = !bootToBios && !bootSmokeProbe && normalizedSlotToLoad != null
         cancelPendingStart = false
         pausedForBackground = false
+        if (pendingPlayTimeSyncMs > 0L) {
+            runCatching {
+                kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                    cachePendingPlayTime()
+                }
+            }
+        }
         currentGamePath = if (bootToBios) null else path?.takeIf { it.isNotBlank() }
+        currentGameCoverArtPath = null
         lastAutoSavePlayTimeMs = 0L
+        pendingPlayTimeSyncMs = 0L
+        shouldCountCurrentProfileSession = false
         _uiState.value = _uiState.value.copy(
             activePlayTimeMs = 0L,
             currentSlotLastModified = 0L,
@@ -1146,8 +1234,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     currentGameTitle = "PlayStation 2 BIOS"
                     currentGamePath = null
                     currentGameSerial = ""
+                    currentGameCoverArtPath = null
                     currentGameCrc = ""
                     currentGameSource = "bios_only"
+                    shouldCountCurrentProfileSession = false
                     _uiState.value = _uiState.value.copy(
                         currentGameTitle = currentGameTitle,
                         currentGameSubtitle = currentGameSubtitle(),
@@ -1159,8 +1249,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     val safePath = path.orEmpty()
                     currentGameTitle = File(safePath).nameWithoutExtension.ifBlank { "Autotest ELF" }
                     currentGameSerial = ""
+                    currentGameCoverArtPath = null
                     currentGameCrc = ""
                     currentGameSource = "autotest_elf"
+                    shouldCountCurrentProfileSession = false
                     _uiState.value = _uiState.value.copy(
                         currentGameTitle = currentGameTitle,
                         currentGameSubtitle = currentGameSubtitle(),
@@ -1175,6 +1267,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     currentGameTitle = compatibilityRepository.findBySerial(metadata.serial)?.title
                         ?: EmulatorBridge.cleanGameDisplayTitle(metadata.title, safePath)
                     currentGameSerial = metadata.serial.orEmpty()
+                    currentGameCoverArtPath = gameRepository.findCoverForGame(
+                        path = safePath,
+                        context = getApplication(),
+                        serial = currentGameSerial.takeIf { it.isNotBlank() },
+                        title = currentGameTitle
+                    )
+                    shouldCountCurrentProfileSession = true
                     currentGameCrc = metadata.serialWithCrc.extractCrc().orEmpty()
                     currentGameSource = when {
                         safePath.startsWith("content://") -> "content_uri"
@@ -3421,6 +3520,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         cancelPendingStart = true
         pausedForBackground = false
         viewModelScope.launch(Dispatchers.IO) {
+            syncPendingPlayTime()
             performShutdown()
             if (onExit != null) {
                 kotlinx.coroutines.withContext(Dispatchers.Main) {
@@ -3441,6 +3541,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     EmulatorBridge.pause()
                     pausedForBackground = true
                     _uiState.value = state.copy(isPaused = true)
+                    syncPendingPlayTime(forceCloud = false)
                     updateCrashContext(launchState = "paused")
                 } catch (_: Exception) { }
             }
@@ -3565,6 +3666,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         currentGameTitle = ""
         currentGamePath = null
         currentGameSerial = ""
+        currentGameCoverArtPath = null
         currentGameCrc = ""
         _uiState.value = _uiState.value.copy(
             currentGameTitle = "",
@@ -3590,6 +3692,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     override fun onCleared() {
         NativeApp.setPerformanceMetricsEnabled(visible = false, detailed = false)
         fastForwardRequested = false
+        runCatching {
+            kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                cachePendingPlayTime()
+            }
+        }
         if (_uiState.value.isRunning) {
             EmulatorBridge.resetKeyStatus()
             runCatching {

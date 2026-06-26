@@ -143,6 +143,21 @@ class CoverArtRepository(private val context: Context) {
         return result
     }
 
+    fun buildPublicCoverUrl(
+        serial: String?,
+        styleOverride: Int? = AppPreferences.COVER_ART_STYLE_DEFAULT
+    ): String? {
+        val normalizedSerial = normalizeSerial(serial) ?: return null
+        val style = resolveCoverArtStyle(styleOverride)
+        val baseUrl = if (style == AppPreferences.COVER_ART_STYLE_3D) {
+            DEFAULT_COVER_3D_BASE_URL
+        } else {
+            DEFAULT_COVER_BASE_URL
+        }
+        val extension = if (style == AppPreferences.COVER_ART_STYLE_3D) "png" else "jpg"
+        return "$baseUrl/$normalizedSerial.$extension"
+    }
+
     private fun downloadFromUrl(
         urlString: String,
         coverFile: File,

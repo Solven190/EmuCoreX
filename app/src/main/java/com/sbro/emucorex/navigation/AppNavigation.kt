@@ -57,6 +57,7 @@ import com.sbro.emucorex.ui.formats.SupportedFormatsScreen
 import com.sbro.emucorex.ui.home.HomeScreen
 import com.sbro.emucorex.ui.memorycards.MemoryCardManagerScreen
 import com.sbro.emucorex.ui.onboarding.OnboardingScreen
+import com.sbro.emucorex.ui.profile.ProfileScreen
 import com.sbro.emucorex.ui.saves.SaveManagerScreen
 import com.sbro.emucorex.ui.settings.LanguageSettingsScreen
 import com.sbro.emucorex.ui.settings.PerGameSettingsManagerScreen
@@ -125,6 +126,9 @@ object TextureManagerRoute
 
 @Serializable
 object AchievementsRoute
+
+@Serializable
+object ProfileRoute
 
 @Serializable
 object AccountUnlockedAchievementsRoute
@@ -276,6 +280,11 @@ fun AppNavigation(
             launchSingleTop = true
         }
     }
+    val navigateProfile: () -> Unit = {
+        navController.navigate(ProfileRoute) {
+            launchSingleTop = true
+        }
+    }
     val launchGamePickerAction: () -> Unit = {
         launchGamePicker.launch(arrayOf("*/*"))
     }
@@ -362,6 +371,7 @@ fun AppNavigation(
                             launchSingleTop = true
                         }
                     },
+                    onNavigateProfile = navigateProfile,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -449,6 +459,7 @@ fun AppNavigation(
                             launchSingleTop = true
                         }
                     },
+                    onNavigateProfile = navigateProfile,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -527,6 +538,7 @@ fun AppNavigation(
                             launchSingleTop = true
                         }
                     },
+                    onNavigateProfile = navigateProfile,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -572,6 +584,7 @@ fun AppNavigation(
                             launchSingleTop = true
                         }
                     },
+                    onNavigateProfile = navigateProfile,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -638,6 +651,7 @@ fun AppNavigation(
                         }
                     },
                     onNavigateAchievements = { },
+                    onNavigateProfile = navigateProfile,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -663,6 +677,60 @@ fun AppNavigation(
                             }
                         },
                         onBackClick = { navController.popBackStack() }
+                    )
+                }
+            }
+
+            composable<ProfileRoute> {
+                AdaptiveShell(
+                    selected = PrimaryDestination.Profile,
+                    onNavigateHome = {
+                        navController.navigate(HomeRoute) {
+                            launchSingleTop = true
+                            popUpTo(HomeRoute) { inclusive = false }
+                        }
+                    },
+                    onNavigateSearch = {
+                        navController.navigate(CatalogSearchRoute) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateFormats = {
+                        navController.navigate(SupportedFormatsRoute) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateSettings = {
+                        navController.navigate(SettingsRoute()) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateAchievements = {
+                        navController.navigate(AchievementsRoute) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateProfile = { },
+                    onNavigateGameSettingsManager = navigateGameSettingsManager,
+                    onNavigateDataTransfer = navigateDataTransfer,
+                    onResetAllSettings = resetAllSettingsAndOpenOnboarding,
+                    onNavigateSaveManager = {
+                        navController.navigate(SaveManagerRoute()) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateMemoryCardManager = navigateMemoryCardManager,
+                    onNavigateTextureManager = navigateTextureManager,
+                    onBackClick = { navController.popBackStack() },
+                    onLaunchGame = launchGamePickerAction
+                ) {
+                    ProfileScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onOpenGameDetails = { catalogGameId ->
+                            navController.navigate(GameDetailRoute(catalogGameId = catalogGameId)) {
+                                launchSingleTop = true
+                            }
+                        }
                     )
                 }
             }

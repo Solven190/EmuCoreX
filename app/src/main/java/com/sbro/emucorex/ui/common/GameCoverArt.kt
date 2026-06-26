@@ -196,31 +196,61 @@ private fun loadBitmap(context: android.content.Context, coverPath: String?): Bi
 
 private fun getOrCreateRemoteImageCacheFile(context: android.content.Context, url: String): File? {
     val cacheDir = File(context.cacheDir, "remote-image-cache").apply { mkdirs() }
-    val extension = url.substringAfterLast('.', "").substringBefore('?').lowercase()
-        .takeIf { it in setOf("jpg", "jpeg", "png", "webp") }
-        ?: "img"
-    val targetFile = File(cacheDir, "${url.sha1()}.$extension")
-    if (targetFile.exists() && targetFile.length() > 0L) {
-        return targetFile
-    }
+    for (candidateUrl in remoteImageCandidates(url)) {
+        val extension = candidateUrl.substringAfterLast('.', "").substringBefore('?').lowercase()
+            .takeIf { it in setOf("jpg", "jpeg", "png", "webp") }
+            ?: "img"
+        val targetFile = File(cacheDir, "${candidateUrl.sha1()}.$extension")
+        if (targetFile.exists() && targetFile.length() > 0L) {
+            return targetFile
+        }
 
-    val tempFile = File(cacheDir, "${targetFile.name}.tmp")
-    return runCatching {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        connection.connectTimeout = 8_000
-        connection.readTimeout = 12_000
-        connection.instanceFollowRedirects = true
-        connection.inputStream.use { input ->
-            tempFile.outputStream().use { output ->
-                input.copyTo(output)
+        val tempFile = File(cacheDir, "${targetFile.name}.tmp")
+        val downloaded = runCatching {
+            val connection = URL(candidateUrl).openConnection() as HttpURLConnection
+            connection.connectTimeout = 8_000
+            connection.readTimeout = 12_000
+            connection.instanceFollowRedirects = true
+            if (connection.responseCode !in 200..299) {
+                connection.disconnect()
+                return@runCatching null
             }
+            connection.inputStream.use { input ->
+                tempFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            connection.disconnect()
+            if (targetFile.exists()) {
+                targetFile.delete()
+            }
+            tempFile.renameTo(targetFile)
+            targetFile.takeIf { it.exists() && it.length() > 0L }
+        }.getOrNull()
+
+        if (downloaded != null) {
+            return downloaded
         }
-        if (targetFile.exists()) {
-            targetFile.delete()
-        }
-        tempFile.renameTo(targetFile)
-        targetFile.takeIf { it.exists() && it.length() > 0L }
-    }.getOrNull()
+        tempFile.delete()
+    }
+    return null
+}
+
+private fun remoteImageCandidates(url: String): List<String> {
+    val withoutQuery = url.substringBefore('?')
+    return when {
+        withoutQuery.endsWith(".jpg", ignoreCase = true) -> listOf(url, url.replaceSuffixPreservingQuery(".jpg", ".png"))
+        withoutQuery.endsWith(".jpeg", ignoreCase = true) -> listOf(url, url.replaceSuffixPreservingQuery(".jpeg", ".png"))
+        withoutQuery.endsWith(".png", ignoreCase = true) -> listOf(url, url.replaceSuffixPreservingQuery(".png", ".jpg"))
+        else -> listOf(url)
+    }.distinct()
+}
+
+private fun String.replaceSuffixPreservingQuery(oldSuffix: String, newSuffix: String): String {
+    val query = substringAfter('?', missingDelimiterValue = "")
+    val base = substringBefore('?')
+    val replacedBase = base.removeSuffix(oldSuffix).removeSuffix(oldSuffix.uppercase()) + newSuffix
+    return if (query.isBlank()) replacedBase else "$replacedBase?$query"
 }
 
 private fun String.sha1(): String {

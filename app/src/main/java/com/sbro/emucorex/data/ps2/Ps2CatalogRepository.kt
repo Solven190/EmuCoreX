@@ -134,6 +134,32 @@ class Ps2CatalogRepository(private val context: Context) {
         }
     }
 
+    fun findBestMatchId(serial: String?, title: String?): Long? {
+        if (!ensureDatabaseReady()) return null
+        val compatibility = compatibilityRepository.findBest(serial, title)
+        val candidateQueries = listOfNotNull(
+            compatibility?.title,
+            title
+        ).distinctBy { normalizeSearchText(it) }
+
+        candidateQueries.forEach { query ->
+            val candidates = search(query = query, limit = 12)
+            if (!serial.isNullOrBlank()) {
+                val normalizedSerial = serial.normalizeSerialForMatch()
+                candidates.firstOrNull {
+                    it.primarySerial?.normalizeSerialForMatch() == normalizedSerial
+                }?.let { return it.igdbId }
+            }
+            val normalizedQuery = normalizeSearchText(query)
+            candidates.firstOrNull {
+                it.normalizedName == normalizedQuery || normalizeSearchText(it.name) == normalizedQuery
+            }?.let { return it.igdbId }
+            candidates.firstOrNull()?.let { return it.igdbId }
+        }
+
+        return null
+    }
+
     fun topRated(
         genre: String?,
         year: Int?,
@@ -434,6 +460,10 @@ class Ps2CatalogRepository(private val context: Context) {
             .replace(Regex("""[^a-z0-9]+"""), " ")
             .replace(Regex("""\s+"""), " ")
             .trim()
+    }
+
+    private fun String.normalizeSerialForMatch(): String {
+        return trim().uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
     }
 
     private fun toHighResImageUrl(url: String?): String? {

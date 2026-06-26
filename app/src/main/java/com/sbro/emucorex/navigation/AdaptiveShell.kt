@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Search
@@ -80,7 +81,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class PrimaryDestination {
-    Home, Search, Formats, Achievements, Settings
+    Home, Search, Formats, Achievements, Profile, Settings
 }
 
 private enum class MobileLeadingAction {
@@ -99,6 +100,7 @@ fun AdaptiveShell(
     onNavigateFormats: () -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateAchievements: () -> Unit,
+    onNavigateProfile: (() -> Unit)? = null,
     onNavigateGameSettingsManager: (() -> Unit)? = null,
     onNavigateDataTransfer: (() -> Unit)? = null,
     onResetAllSettings: (() -> Unit)? = null,
@@ -118,6 +120,7 @@ fun AdaptiveShell(
             onNavigateFormats = onNavigateFormats,
             onNavigateSettings = onNavigateSettings,
             onNavigateAchievements = onNavigateAchievements,
+            onNavigateProfile = onNavigateProfile,
             onNavigateGameSettingsManager = onNavigateGameSettingsManager,
             onNavigateDataTransfer = onNavigateDataTransfer,
             onResetAllSettings = onResetAllSettings,
@@ -164,6 +167,7 @@ fun AdaptiveShell(
             onNavigateFormats = onNavigateFormats,
             onNavigateSettings = onNavigateSettings,
             onNavigateAchievements = onNavigateAchievements,
+            onNavigateProfile = onNavigateProfile,
             onNavigateGameSettingsManager = onNavigateGameSettingsManager,
             onNavigateDataTransfer = onNavigateDataTransfer,
             onResetAllSettings = onResetAllSettings,
@@ -189,6 +193,7 @@ private fun CompactAdaptiveShell(
     onNavigateFormats: () -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateAchievements: () -> Unit,
+    onNavigateProfile: (() -> Unit)?,
     onNavigateGameSettingsManager: (() -> Unit)?,
     onNavigateDataTransfer: (() -> Unit)?,
     onResetAllSettings: (() -> Unit)?,
@@ -283,6 +288,7 @@ private fun CompactAdaptiveShell(
                     onNavigateFormats = onNavigateFormats,
                     onNavigateSettings = onNavigateSettings,
                     onNavigateAchievements = onNavigateAchievements,
+                    onNavigateProfile = onNavigateProfile,
                     onNavigateGameSettingsManager = onNavigateGameSettingsManager,
                     onNavigateDataTransfer = onNavigateDataTransfer,
                     onResetAllSettings = onResetAllSettings,
@@ -344,6 +350,7 @@ private fun SideNavigation(
     onNavigateFormats: () -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateAchievements: () -> Unit,
+    onNavigateProfile: (() -> Unit)?,
     onNavigateGameSettingsManager: (() -> Unit)?,
     onNavigateDataTransfer: (() -> Unit)?,
     onResetAllSettings: (() -> Unit)?,
@@ -378,6 +385,11 @@ private fun SideNavigation(
     }
     val navigateAchievements = rememberDebouncedClick {
         closeDrawerThen(onNavigateAchievements)
+    }
+    val navigateProfile = onNavigateProfile?.let {
+        rememberDebouncedClick {
+            closeDrawerThen(it)
+        }
     }
     val navigateGameSettingsManager = onNavigateGameSettingsManager?.let {
         rememberDebouncedClick {
@@ -478,6 +490,17 @@ private fun SideNavigation(
                 } else Modifier,
                 onClick = navigateAchievements
             )
+            if (navigateProfile != null) {
+                ShellItem(
+                    icon = Icons.Rounded.Person,
+                    label = stringResource(R.string.profile_title),
+                    selected = selected == PrimaryDestination.Profile,
+                    modifier = if (selected == PrimaryDestination.Profile && selectedItemFocusRequester != null) {
+                        Modifier.focusRequester(selectedItemFocusRequester)
+                    } else Modifier,
+                    onClick = navigateProfile
+                )
+            }
 
             HorizontalDivider(
                 thickness = 1.dp,
