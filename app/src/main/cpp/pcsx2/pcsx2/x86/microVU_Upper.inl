@@ -1932,8 +1932,8 @@ static void mVU_MADD_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane
 	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
 		return;
 
-	const bool needsVu1MaddwVuDouble = isVU1 && (lane == 3);
-	const bool useFtLane = !clampE && !needsVu1MaddwVuDouble;
+	const bool needsVu1MaddLaneVuDouble = isVU1 && (lane == 0 || lane == 3);
+	const bool useFtLane = !clampE && !needsVu1MaddLaneVuDouble;
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	int FtL = VU_HOST_NO_XMM;
 	if (!useFtLane)
@@ -1948,15 +1948,15 @@ static void mVU_MADD_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane
 	const int ACC = mVU.regAlloc->allocRegId(32);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
 	const int tempFs = mVU.regAlloc->allocRegId();
-	const int t1 = needsVu1MaddwVuDouble ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
-	const int t2 = needsVu1MaddwVuDouble ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
+	const int t1 = needsVu1MaddLaneVuDouble ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
+	const int t2 = needsVu1MaddLaneVuDouble ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
 
 	recBeginOaknutEmit();
 	oakAsm->MOV(oakQRegister(tempFs).B16(), oakQRegister(Fs).B16());
 	oakAsm->MOV(oakQRegister(Fs).B16(), oakQRegister(ACC).B16());
 	if (_XYZW_SS2)
 		mVUUpperPshufd_oaknut(Fs, Fs, shuffleSS(_X_Y_Z_W));
-	if (needsVu1MaddwVuDouble)
+	if (needsVu1MaddLaneVuDouble)
 	{
 		mVUUpperVuDoubleVector_oaknut(Fs, t1, t2);
 		mVUUpperVuDoubleVector_oaknut(tempFs, t1, t2);
@@ -1976,7 +1976,7 @@ static void mVU_MADD_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane
 		else
 			mVUUpperFmlaPs_oaknut(mVU, Fs, tempFs, FtL);
 	}
-	if (needsVu1MaddwVuDouble)
+	if (needsVu1MaddLaneVuDouble)
 	{
 		if (_XYZW_SS)
 			mVUClampDenormalScalarBits_oaknut(Fs);
@@ -1987,7 +1987,7 @@ static void mVU_MADD_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane
 
 	mVUupdateFlags_oaknut(mVU, Fs, useFtLane ? tempFs : FtL);
 
-	if (needsVu1MaddwVuDouble)
+	if (needsVu1MaddLaneVuDouble)
 	{
 		mVU.regAlloc->clearNeededXmmId(t2);
 		mVU.regAlloc->clearNeededXmmId(t1);
