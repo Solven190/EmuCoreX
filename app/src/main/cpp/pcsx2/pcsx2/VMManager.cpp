@@ -154,6 +154,8 @@ namespace VMManager
 
 static constexpr u32 SETTINGS_VERSION = 1;
 
+static void ApplyManualCpuModeOverrides(Pcsx2Config& config, SettingsInterface& si);
+
 static std::unique_ptr<INISettingsInterface> s_game_settings_interface;
 static std::unique_ptr<INISettingsInterface> s_input_settings_interface;
 
@@ -663,6 +665,7 @@ void VMManager::LoadCoreSettings(SettingsInterface& si)
 
 	// Achievements hardcore mode disallows setting some configuration options.
 	EnforceAchievementsChallengeModeSettings();
+	ApplyManualCpuModeOverrides(EmuConfig, si);
 
 	// Remove any user-specified hacks in the config (we don't want stale/conflicting values when it's globally disabled).
 	EmuConfig.GS.MaskUserHacks();
@@ -739,22 +742,18 @@ static int GetClampedCpuModeSetting(SettingsInterface& si, const char* section, 
 	return std::clamp(si.GetIntValue(section, key, fallback), 0, 3);
 }
 
-static void ApplyManualCpuModeOverrides(Pcsx2Config& config)
+static void ApplyManualCpuModeOverrides(Pcsx2Config& config, SettingsInterface& si)
 {
-	SettingsInterface* si = Host::GetSettingsInterface();
-	if (!si)
-		return;
-
-	const int ee_round_mode = GetClampedCpuModeSetting(*si, "EmuCore/CPU", "FPU.Roundmode", 3);
-	const int vu0_round_mode = GetClampedCpuModeSetting(*si, "EmuCore/CPU", "VU0.Roundmode", 3);
-	const int vu1_round_mode = GetClampedCpuModeSetting(*si, "EmuCore/CPU", "VU1.Roundmode", 3);
+	const int ee_round_mode = GetClampedCpuModeSetting(si, "EmuCore/CPU", "FPU.Roundmode", 3);
+	const int vu0_round_mode = GetClampedCpuModeSetting(si, "EmuCore/CPU", "VU0.Roundmode", 3);
+	const int vu1_round_mode = GetClampedCpuModeSetting(si, "EmuCore/CPU", "VU1.Roundmode", 3);
 	config.Cpu.FPUFPCR.SetRoundMode(static_cast<FPRoundMode>(ee_round_mode));
 	config.Cpu.VU0FPCR.SetRoundMode(static_cast<FPRoundMode>(vu0_round_mode));
 	config.Cpu.VU1FPCR.SetRoundMode(static_cast<FPRoundMode>(vu1_round_mode));
 
-	const int ee_clamp_mode = GetClampedCpuModeSetting(*si, "EmuCoreX/CPU", "EEClampMode", 1);
-	const int vu0_clamp_mode = GetClampedCpuModeSetting(*si, "EmuCoreX/CPU", "VU0ClampMode", 1);
-	const int vu1_clamp_mode = GetClampedCpuModeSetting(*si, "EmuCoreX/CPU", "VU1ClampMode", 0);
+	const int ee_clamp_mode = GetClampedCpuModeSetting(si, "EmuCoreX/CPU", "EEClampMode", 1);
+	const int vu0_clamp_mode = GetClampedCpuModeSetting(si, "EmuCoreX/CPU", "VU0ClampMode", 1);
+	const int vu1_clamp_mode = GetClampedCpuModeSetting(si, "EmuCoreX/CPU", "VU1ClampMode", 0);
 	config.Cpu.Recompiler.SetEEClampMode(static_cast<u32>(ee_clamp_mode));
 	config.Cpu.Recompiler.vu0Overflow = (vu0_clamp_mode >= 1);
 	config.Cpu.Recompiler.vu0ExtraOverflow = (vu0_clamp_mode >= 2);
@@ -785,7 +784,6 @@ void VMManager::ApplyGameFixes()
 
 	game->applyGameFixes(EmuConfig, EmuConfig.EnableGameFixes);
 	game->applyGSHardwareFixes(EmuConfig.GS);
-	ApplyManualCpuModeOverrides(EmuConfig);
 
 	if (ShouldDisableVU0RecompilerForGame(s_disc_serial))
 	{
