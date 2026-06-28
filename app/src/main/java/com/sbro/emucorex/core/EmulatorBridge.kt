@@ -29,7 +29,6 @@ object EmulatorBridge {
     private const val AUTO_PROGRESSIVE_SCAN_PAD_INDEX = 0
     private const val AUTO_PROGRESSIVE_SCAN_CROSS = 96
     private const val AUTO_PROGRESSIVE_SCAN_TRIANGLE = 100
-    private const val AUTO_PROGRESSIVE_SCAN_BOOT_DELAY_MS = 350L
     private const val AUTO_PROGRESSIVE_SCAN_HOLD_MS = 5_000L
 
     private val aspectRatioSettingValues = mapOf(
@@ -663,8 +662,7 @@ object EmulatorBridge {
         }
         NativeApp.logCrashBreadcrumb("startEmulation requested pathType=$pathType vmActive=$isVmActive")
         Log.i(TAG, "startEmulation requested pathType=$pathType bootSmoke=$bootSmokeProbe vmActive=$isVmActive")
-
-        maybeStartAutoProgressiveScanHold(path, bootSmokeProbe, allowBiosBoot)
+        val shouldAutoProgressiveScanHold = shouldStartAutoProgressiveScanHold(path, bootSmokeProbe, allowBiosBoot)
 
         return runSerial {
             isVmActive = true
@@ -691,8 +689,10 @@ object EmulatorBridge {
                 Log.e(TAG, "startEmulation native call failed", error)
                 false
             }
-            if (!result) {
-                autoProgressiveScanJob?.cancel()
+            if (result) {
+                startAutoProgressiveScanHoldIfEnabled(shouldAutoProgressiveScanHold)
+            } else {
+                stopAutoProgressiveScanHold()
             }
             if (bootSmokeProbe) {
                 isVmActive = false
@@ -707,27 +707,38 @@ object EmulatorBridge {
         }
     }
 
-    private suspend fun maybeStartAutoProgressiveScanHold(
+    private suspend fun shouldStartAutoProgressiveScanHold(
         path: String,
         bootSmokeProbe: Boolean,
         allowBiosBoot: Boolean
-    ) {
-        if (bootSmokeProbe || allowBiosBoot || path.isBlank()) return
-        val enabled = runCatching {
+    ): Boolean {
+        if (bootSmokeProbe || allowBiosBoot || path.isBlank()) return false
+        return runCatching {
             getContext()?.let { AppPreferences(it).autoProgressiveScan.first() } == true
         }.getOrDefault(false)
-        if (!enabled) return
+    }
 
-        autoProgressiveScanJob?.cancel()
-        autoProgressiveScanJob = inputScope.launch {
+    private fun startAutoProgressiveScanHoldIfEnabled(enabled: Boolean) {
+        if (!enabled) return
+        stopAutoProgressiveScanHold()
+        val job = inputScope.launch {
             try {
-                delay(AUTO_PROGRESSIVE_SCAN_BOOT_DELAY_MS)
                 setAutoProgressiveScanButtons(pressed = true)
                 delay(AUTO_PROGRESSIVE_SCAN_HOLD_MS)
             } finally {
                 setAutoProgressiveScanButtons(pressed = false)
+                if (autoProgressiveScanJob === coroutineContext[Job]) {
+                    autoProgressiveScanJob = null
+                }
             }
         }
+        autoProgressiveScanJob = job
+    }
+
+    private fun stopAutoProgressiveScanHold() {
+        autoProgressiveScanJob?.cancel()
+        autoProgressiveScanJob = null
+        setAutoProgressiveScanButtons(pressed = false)
     }
 
     private fun setAutoProgressiveScanButtons(pressed: Boolean) {
@@ -827,7 +838,7 @@ object EmulatorBridge {
 
     suspend fun shutdown() {
         if (!isNativeLoaded || !isVmActive || shutdownRequested) return
-        autoProgressiveScanJob?.cancel()
+        stopAutoProgressiveScanHold()
         runSerial {
             if (!isVmActive || shutdownRequested) return@runSerial
             shutdownRequested = true
