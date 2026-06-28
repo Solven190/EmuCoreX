@@ -1292,8 +1292,8 @@
     <string name="settings_game_fixes">GameDB Düzeltmeleri</string>
     <string name="settings_game_fixes_desc">GameDB\'den uyumluluk düzeltmelerini uygula.</string>
     <string name="settings_help_game_fixes">Bilinen oyunlar için otomatik sınırlama (clamp) ve yuvarlama modu geçersiz kılmaları dahil olmak üzere GameDB uyumluluk düzeltmelerini kullanır. Bunu yalnızca belirli bir oyunun GameDB değerleri yerine manuel sınırlama ayarlarınıza ihtiyacı olduğunda devre dışı bırakın; uygulamak için oyunu yeniden başlatın.</string>
-    <string name="settings_help_gamepad_right_stick_up_to_r2">Fiziksel sağ çubuktaki yukarı hareketi R2 analog tetiğine eşler. Bu, yarış oyunlarının gaz kontrolü için çubuğu kullanmasına yardımcı olabilir.</string>
-    <string name="settings_help_gamepad_right_stick_down_to_l2">Fiziksel sağ çubuktaki aşağı hareketi L2 analog tetiğine eşler. Bu, yarış oyunlarının fren kontrolü için çubuğu kullanmasına yardımcı olabilir.</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">Sağ çubuğun yukarı hareketini hem gamepadlerde hem de ekran kontrollerinde R2 analog tetiğine eşler. Bu, yarış oyunlarının gaz kontrolü için çubuğu kullanmasına yardımcı olabilir.</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">Sağ çubuğun aşağı hareketini hem gamepadlerde hem de ekran kontrollerinde L2 analog tetiğine eşler. Bu, yarış oyunlarının fren kontrolü için çubuğu kullanmasına yardımcı olabilir.</string>
     <string name="settings_gamepad_right_stick_up_to_r2">Sağ Çubuk Yukarı R2\'ye</string>
     <string name="settings_gamepad_right_stick_up_to_r2_desc">Sağ çubuğu yukarı olarak sağ tetik yerine kullan.</string>
     <string name="settings_gamepad_right_stick_down_to_l2">Sağ Çubuk Aşağı L2\'ye</string>

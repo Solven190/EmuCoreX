@@ -1292,8 +1292,8 @@
     <string name="settings_game_fixes">GameDB修正</string>
     <string name="settings_game_fixes_desc">GameDBからの互換性修正を適用します。</string>
     <string name="settings_help_game_fixes">既知のゲームにGameDBの互換性修正（クランプおよび丸めモードの自動上書きを含む）を使用します。特定のゲームがGameDBの値ではなく手動のクランプ設定を必要とする場合にのみ、これを無効にしてください。変更を適用するにはゲームを再起動します。</string>
-    <string name="settings_help_gamepad_right_stick_up_to_r2">物理的な右スティックの上方向への動きをR2アナログトリガーに割り当てます。これにより、レースゲームでスティックをアクセル操作に使用できるようになります。</string>
-    <string name="settings_help_gamepad_right_stick_down_to_l2">物理的な右スティックの下方向への動きをL2アナログトリガーに割り当てます。これにより、レースゲームでスティックをブレーキ操作に使用できるようになります。</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">右スティックの上方向への動きを、ゲームパッドと画面上の操作の両方でR2アナログトリガーに割り当てます。これにより、レースゲームでスティックをアクセル操作に使用できるようになります。</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">右スティックの下方向への動きを、ゲームパッドと画面上の操作の両方でL2アナログトリガーに割り当てます。これにより、レースゲームでスティックをブレーキ操作に使用できるようになります。</string>
     <string name="settings_gamepad_right_stick_up_to_r2">右スティック上をR2に</string>
     <string name="settings_gamepad_right_stick_up_to_r2_desc">右スティックの上方向を右トリガーとして使用します。</string>
     <string name="settings_gamepad_right_stick_down_to_l2">右スティック下をL2に</string>

@@ -1294,8 +1294,8 @@
     <string name="settings_game_fixes">Correções da GameDB</string>
     <string name="settings_game_fixes_desc">Aplicar correções de compatibilidade da GameDB.</string>
     <string name="settings_help_game_fixes">Usa correções de compatibilidade da GameDB para jogos conhecidos, incluindo substituições automáticas do modo de arredondamento e clamping. Desative isto apenas quando um jogo específico precisar das suas configurações manuais de clamping em vez dos valores da GameDB; reinicie o jogo para aplicar.</string>
-    <string name="settings_help_gamepad_right_stick_up_to_r2">Mapeia o movimento para cima do analógico direito físico para o gatilho analógico R2. Isto pode ajudar os jogos de corrida a usar o analógico para o controlo do acelerador.</string>
-    <string name="settings_help_gamepad_right_stick_down_to_l2">Mapeia o movimento para baixo do analógico direito físico para o gatilho analógico L2. Isto pode ajudar os jogos de corrida a usar o analógico para o controlo do travão.</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">Mapeia o movimento para cima do analógico direito para o gatilho analógico R2 em gamepads e controles na tela. Isto pode ajudar os jogos de corrida a usar o analógico para o controlo do acelerador.</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">Mapeia o movimento para baixo do analógico direito para o gatilho analógico L2 em gamepads e controles na tela. Isto pode ajudar os jogos de corrida a usar o analógico para o controlo do travão.</string>
     <string name="settings_gamepad_right_stick_up_to_r2">Analógico direito para cima para R2</string>
     <string name="settings_gamepad_right_stick_up_to_r2_desc">Usar o analógico direito para cima como o gatilho direito.</string>
     <string name="settings_gamepad_right_stick_down_to_l2">Analógico direito para baixo para L2</string>

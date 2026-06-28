@@ -1294,8 +1294,8 @@
     <string name="settings_game_fixes">Correcciones de GameDB</string>
     <string name="settings_game_fixes_desc">Aplicar correcciones de compatibilidad de la GameDB.</string>
     <string name="settings_help_game_fixes">Utiliza las correcciones de compatibilidad de GameDB para juegos conocidos, incluidas las anulaciones automáticas del modo de redondeo y clamping. Desactívalo solo cuando un juego específico necesite tus ajustes manuales de clamping en lugar de los valores de GameDB; reinicia el juego para aplicar.</string>
-    <string name="settings_help_gamepad_right_stick_up_to_r2">Asigna el movimiento hacia arriba del stick derecho físico al gatillo analógico R2. Esto puede ayudar a que los juegos de carreras usen el stick para controlar el acelerador.</string>
-    <string name="settings_help_gamepad_right_stick_down_to_l2">Asigna el movimiento hacia abajo del stick derecho físico al gatillo analógico L2. Esto puede ayudar a que los juegos de carreras usen el stick para controlar el freno.</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">Asigna el movimiento hacia arriba del stick derecho al gatillo analógico R2 tanto en gamepads como en controles en pantalla. Esto puede ayudar a que los juegos de carreras usen el stick para controlar el acelerador.</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">Asigna el movimiento hacia abajo del stick derecho al gatillo analógico L2 tanto en gamepads como en controles en pantalla. Esto puede ayudar a que los juegos de carreras usen el stick para controlar el freno.</string>
     <string name="settings_gamepad_right_stick_up_to_r2">Stick derecho arriba a R2</string>
     <string name="settings_gamepad_right_stick_up_to_r2_desc">Usa el stick derecho hacia arriba como el gatillo derecho.</string>
     <string name="settings_gamepad_right_stick_down_to_l2">Stick derecho abajo a L2</string>

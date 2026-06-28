@@ -1292,8 +1292,8 @@
     <string name="settings_game_fixes">GameDB फ़िक्सेस</string>
     <string name="settings_game_fixes_desc">GameDB से संगतता फ़िक्सेस लागू करें।</string>
     <string name="settings_help_game_fixes">ज्ञात गेम्स के लिए GameDB संगतता फ़िक्सेस का उपयोग करता है, जिसमें स्वचालित क्लैंप और राउंड मोड ओवरराइड शामिल हैं। इसे केवल तभी अक्षम करें जब किसी विशिष्ट गेम को GameDB मानों के बजाय आपकी मैन्युअल क्लैम्पिंग सेटिंग्स की आवश्यकता हो; लागू करने के लिए गेम को पुनरारंभ करें。</string>
-    <string name="settings_help_gamepad_right_stick_up_to_r2">भौतिक राइट स्टिक पर ऊपर की ओर की गति को R2 एनालॉग ट्रिगर पर मैप करता है। यह रेसिंग गेम्स को थ्रॉटल (एक्सेलेरेटर) नियंत्रण के लिए स्टिक का उपयोग करने में मदद कर सकता है。</string>
-    <string name="settings_help_gamepad_right_stick_down_to_l2">भौतिक राइट स्टिक पर नीचे की ओर की गति को L2 एनालॉग ट्रिगर पर मैप करता है। यह रेसिंग गेम्स को ब्रेक नियंत्रण के लिए स्टिक का उपयोग करने में मदद कर सकता है。</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">राइट स्टिक की ऊपर की ओर गति को गेमपैड और ऑन-स्क्रीन नियंत्रण दोनों के लिए R2 एनालॉग ट्रिगर पर मैप करता है। यह रेसिंग गेम्स को थ्रॉटल (एक्सेलेरेटर) नियंत्रण के लिए स्टिक का उपयोग करने में मदद कर सकता है。</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">राइट स्टिक की नीचे की ओर गति को गेमपैड और ऑन-स्क्रीन नियंत्रण दोनों के लिए L2 एनालॉग ट्रिगर पर मैप करता है। यह रेसिंग गेम्स को ब्रेक नियंत्रण के लिए स्टिक का उपयोग करने में मदद कर सकता है。</string>
     <string name="settings_gamepad_right_stick_up_to_r2">राइट स्टिक अप से R2 (Right Stick Up to R2)</string>
     <string name="settings_gamepad_right_stick_up_to_r2_desc">दाएँ ट्रिगर के रूप में राइट स्टिक अप का उपयोग करें。</string>
     <string name="settings_gamepad_right_stick_down_to_l2">राइट स्टिक डाउन से L2 (Right Stick Down to L2)</string>

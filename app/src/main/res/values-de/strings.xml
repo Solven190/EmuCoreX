@@ -1294,8 +1294,8 @@
     <string name="settings_game_fixes">GameDB-Fixes</string>
     <string name="settings_game_fixes_desc">Kompatibilitäts-Fixes aus der GameDB anwenden.</string>
     <string name="settings_help_game_fixes">Verwendet GameDB-Kompatibilitäts-Fixes für bekannte Spiele, einschließlich automatischer Überschreibungen für Clamping- und Rundungsmodi. Deaktiviere dies nur, wenn ein bestimmtes Spiel deine manuellen Clamping-Einstellungen anstelle der GameDB-Werte benötigt. Starte das Spiel neu, um Änderungen anzuwenden.</string>
-    <string name="settings_help_gamepad_right_stick_up_to_r2">Weist die Aufwärtsbewegung des physischen rechten Sticks dem analogen R2-Trigger zu. Dies kann bei Rennspielen helfen, den Stick für die Gassteuerung zu verwenden.</string>
-    <string name="settings_help_gamepad_right_stick_down_to_l2">Weist die Abwärtsbewegung des physischen rechten Sticks dem analogen L2-Trigger zu. Dies kann bei Rennspielen helfen, den Stick für die Bremssteuerung zu verwenden.</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">Weist die Aufwärtsbewegung des rechten Sticks dem analogen R2-Trigger zu, sowohl für Gamepads als auch für Bildschirmsteuerungen. Dies kann bei Rennspielen helfen, den Stick für die Gassteuerung zu verwenden.</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">Weist die Abwärtsbewegung des rechten Sticks dem analogen L2-Trigger zu, sowohl für Gamepads als auch für Bildschirmsteuerungen. Dies kann bei Rennspielen helfen, den Stick für die Bremssteuerung zu verwenden.</string>
     <string name="settings_gamepad_right_stick_up_to_r2">Rechter Stick hoch zu R2</string>
     <string name="settings_gamepad_right_stick_up_to_r2_desc">Verwende die Aufwärtsbewegung des rechten Sticks als rechten Trigger.</string>
     <string name="settings_gamepad_right_stick_down_to_l2">Rechter Stick runter zu L2</string>

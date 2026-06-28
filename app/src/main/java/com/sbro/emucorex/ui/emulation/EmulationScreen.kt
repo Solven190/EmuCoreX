@@ -1025,6 +1025,8 @@ fun EmulationScreen(
                 invertRightStick = uiState.invertRightStick,
                 invertLeftStickHorizontal = uiState.invertLeftStickHorizontal,
                 invertRightStickHorizontal = uiState.invertRightStickHorizontal,
+                rightStickUpToR2 = uiState.gamepadRightStickUpToR2,
+                rightStickDownToL2 = uiState.gamepadRightStickDownToL2,
                 dpadOffset = uiState.dpadOffset,
                 lstickOffset = uiState.lstickOffset,
                 rstickOffset = uiState.rstickOffset,
@@ -1558,6 +1560,8 @@ private fun OnScreenControls(
     invertRightStick: Boolean = false,
     invertLeftStickHorizontal: Boolean = false,
     invertRightStickHorizontal: Boolean = false,
+    rightStickUpToR2: Boolean = false,
+    rightStickDownToL2: Boolean = false,
     dpadOffset: Pair<Float, Float>,
     lstickOffset: Pair<Float, Float>,
     rstickOffset: Pair<Float, Float>,
@@ -1579,10 +1583,49 @@ private fun OnScreenControls(
     val safeTop = maxOf(cutoutPadding.calculateTopPadding(), navBarPadding.calculateTopPadding())
     val safeBottom = maxOf(cutoutPadding.calculateBottomPadding(), navBarPadding.calculateBottomPadding())
     val safeHorizontalInset = maxOf(safeLeft, safeRight)
+    val currentOnPadInput by rememberUpdatedState(onPadInput)
+    var touchL2Pressed by remember { mutableStateOf(false) }
+    var touchR2Pressed by remember { mutableStateOf(false) }
+    var rightStickMappedL2Range by remember { mutableIntStateOf(0) }
+    var rightStickMappedR2Range by remember { mutableIntStateOf(0) }
+
+    fun dispatchTouchTrigger(key: Int, buttonPressed: Boolean, mappedRange: Int) {
+        val range = maxOf(if (buttonPressed) 255 else 0, mappedRange.coerceIn(0, 255))
+        currentOnPadInput(key, range, range > 0)
+    }
+
+    fun dispatchTouchL2() {
+        dispatchTouchTrigger(PadKey.L2, touchL2Pressed, rightStickMappedL2Range)
+    }
+
+    fun dispatchTouchR2() {
+        dispatchTouchTrigger(PadKey.R2, touchR2Pressed, rightStickMappedR2Range)
+    }
+
+    LaunchedEffect(rightStickUpToR2) {
+        if (!rightStickUpToR2 && rightStickMappedR2Range != 0) {
+            rightStickMappedR2Range = 0
+            dispatchTouchR2()
+        }
+    }
+
+    LaunchedEffect(rightStickDownToL2) {
+        if (!rightStickDownToL2 && rightStickMappedL2Range != 0) {
+            rightStickMappedL2Range = 0
+            dispatchTouchL2()
+        }
+    }
+
     fun buttonPressHandler(id: String): ((Boolean) -> Unit)? = when (id) {
-        "l2" -> { pressed -> onPadInput(PadKey.L2, 0, pressed) }
+        "l2" -> { pressed ->
+            touchL2Pressed = pressed
+            dispatchTouchL2()
+        }
         "l1" -> { pressed -> onPadInput(PadKey.L1, 0, pressed) }
-        "r2" -> { pressed -> onPadInput(PadKey.R2, 0, pressed) }
+        "r2" -> { pressed ->
+            touchR2Pressed = pressed
+            dispatchTouchR2()
+        }
         "r1" -> { pressed -> onPadInput(PadKey.R1, 0, pressed) }
         "dpad_up" -> { pressed -> onPadInput(PadKey.UP, 0, pressed) }
         "dpad_down" -> { pressed -> onPadInput(PadKey.DOWN, 0, pressed) }
@@ -1625,7 +1668,6 @@ private fun OnScreenControls(
         )
         var extraDpadDirections by remember { mutableStateOf(emptySet<OverlayDpadDirection>()) }
         val currentExtraDpadDirections by rememberUpdatedState(extraDpadDirections)
-        val currentOnPadInput by rememberUpdatedState(onPadInput)
 
         fun dpadKeyFor(direction: OverlayDpadDirection): Int = when (direction) {
             OverlayDpadDirection.Up -> PadKey.UP
@@ -1745,14 +1787,20 @@ private fun OnScreenControls(
                 analogHeight = stick.size,
                 surfaceOnly = stickIsSurfaceOnly(stick),
                 onValueChange = { x, y ->
-                    updateAnalogStick(
+                    updateRightAnalogStick(
                         x = if (invertRightStickHorizontal) -x else x,
                         y = if (invertRightStick) -y else y,
                         sensitivity = rightStickSensitivity,
-                        upKey = PadKey.RIGHT_STICK_UP,
-                        rightKey = PadKey.RIGHT_STICK_RIGHT,
-                        downKey = PadKey.RIGHT_STICK_DOWN,
-                        leftKey = PadKey.RIGHT_STICK_LEFT,
+                        upToR2 = rightStickUpToR2,
+                        downToL2 = rightStickDownToL2,
+                        onMappedR2RangeChange = { range ->
+                            rightStickMappedR2Range = range
+                            dispatchTouchR2()
+                        },
+                        onMappedL2RangeChange = { range ->
+                            rightStickMappedL2Range = range
+                            dispatchTouchL2()
+                        },
                         onPadInput = onPadInput
                     )
                 },
@@ -2090,6 +2138,39 @@ private fun updateAnalogStick(
     onPadInput(rightKey, right, right > 0)
     onPadInput(downKey, down, down > 0)
     onPadInput(leftKey, left, left > 0)
+}
+
+private fun updateRightAnalogStick(
+    x: Float,
+    y: Float,
+    sensitivity: Float = 1f,
+    upToR2: Boolean,
+    downToL2: Boolean,
+    onMappedR2RangeChange: (Int) -> Unit,
+    onMappedL2RangeChange: (Int) -> Unit,
+    onPadInput: (Int, Int, Boolean) -> Unit
+) {
+    val scaledY = (y * sensitivity.coerceIn(0.5f, 2f)).coerceIn(-1f, 1f)
+    val triggerUp = if (upToR2) ((-scaledY).coerceAtLeast(0f) * 255f).roundToInt() else 0
+    val triggerDown = if (downToL2) (scaledY.coerceAtLeast(0f) * 255f).roundToInt() else 0
+    val stickY = when {
+        upToR2 && scaledY < 0f -> 0f
+        downToL2 && scaledY > 0f -> 0f
+        else -> y
+    }
+
+    updateAnalogStick(
+        x = x,
+        y = stickY,
+        sensitivity = sensitivity,
+        upKey = PadKey.RIGHT_STICK_UP,
+        rightKey = PadKey.RIGHT_STICK_RIGHT,
+        downKey = PadKey.RIGHT_STICK_DOWN,
+        leftKey = PadKey.RIGHT_STICK_LEFT,
+        onPadInput = onPadInput
+    )
+    if (upToR2) onMappedR2RangeChange(triggerUp.coerceIn(0, 255))
+    if (downToL2) onMappedL2RangeChange(triggerDown.coerceIn(0, 255))
 }
 
 private fun formatSaveTimestamp(timestamp: Long): String {

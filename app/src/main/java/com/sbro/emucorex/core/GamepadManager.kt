@@ -464,11 +464,11 @@ object GamepadManager {
             rightStickSensitivity
         )
         val rightY = physicalRightY.let { if (invertRightStick) -it else it }
-        val mappedR2FromRightStick = if (rightStickUpToR2) (-physicalRightY).coerceAtLeast(0f) else 0f
-        val mappedL2FromRightStick = if (rightStickDownToL2) physicalRightY.coerceAtLeast(0f) else 0f
+        val mappedR2FromRightStick = if (rightStickUpToR2) (-rightY).coerceAtLeast(0f) else 0f
+        val mappedL2FromRightStick = if (rightStickDownToL2) rightY.coerceAtLeast(0f) else 0f
         val rightStickY = when {
-            rightStickUpToR2 && physicalRightY < 0f -> 0f
-            rightStickDownToL2 && physicalRightY > 0f -> 0f
+            rightStickUpToR2 && rightY < 0f -> 0f
+            rightStickDownToL2 && rightY > 0f -> 0f
             else -> rightY
         }
         if (rightX != state.prevRightX || rightStickY != state.prevRightY) {

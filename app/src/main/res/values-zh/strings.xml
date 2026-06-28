@@ -1294,8 +1294,8 @@
     <string name="settings_game_fixes">GameDB 修复</string>
     <string name="settings_game_fixes_desc">应用 GameDB 中的兼容性修复。</string>
     <string name="settings_help_game_fixes">对已知游戏使用 GameDB 兼容性修复，包括自动覆盖钳位和舍入模式。仅当特定游戏需要您的手动钳位设置而不是 GameDB 值时，才禁用此选项；重新启动游戏以应用。</string>
-    <string name="settings_help_gamepad_right_stick_up_to_r2">将物理右摇杆的向上移动映射到 R2 模拟扳机。这可以帮助赛车游戏使用摇杆进行油门控制。</string>
-    <string name="settings_help_gamepad_right_stick_down_to_l2">将物理右摇杆的向下移动映射到 L2 模拟扳机。这可以帮助赛车游戏使用摇杆进行刹车控制。</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">将右摇杆的向上移动映射到 R2 模拟扳机，适用于手柄和屏幕控制。这可以帮助赛车游戏使用摇杆进行油门控制。</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">将右摇杆的向下移动映射到 L2 模拟扳机，适用于手柄和屏幕控制。这可以帮助赛车游戏使用摇杆进行刹车控制。</string>
     <string name="settings_gamepad_right_stick_up_to_r2">右摇杆向上映射为 R2</string>
     <string name="settings_gamepad_right_stick_up_to_r2_desc">将右摇杆向上作为右扳机使用。</string>
     <string name="settings_gamepad_right_stick_down_to_l2">右摇杆向下映射为 L2</string>
