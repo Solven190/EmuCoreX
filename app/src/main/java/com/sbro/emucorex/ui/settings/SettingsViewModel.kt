@@ -72,6 +72,7 @@ data class SettingsUiState(
     val eeFpuClampingMode: Int = AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE,
     val vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
     val vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
+    val enableGameFixes: Boolean = true,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
     val enableVuFlagHack: Boolean = true,
@@ -238,6 +239,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             eeFpuClampingMode = snapshot.eeFpuClampingMode,
             vu0ClampingMode = snapshot.vu0ClampingMode,
             vu1ClampingMode = snapshot.vu1ClampingMode,
+            enableGameFixes = snapshot.enableGameFixes,
             enableWaitLoopSpeedhack = snapshot.enableWaitLoopSpeedhack,
             enableIntcStatSpeedhack = snapshot.enableIntcStatSpeedhack,
             enableVuFlagHack = snapshot.enableVuFlagHack,
@@ -790,6 +792,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             markPerformancePresetCustom()
             preferences.setVu1ClampingMode(normalized)
             setVuClampingModeCore("VU1ClampMode", "vu1", normalized)
+        }
+    }
+
+    fun setEnableGameFixes(enabled: Boolean) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            preferences.setEnableGameFixes(enabled)
+            EmulatorBridge.setSetting("EmuCore", "EnableGameFixes", "bool", enabled.toString())
         }
     }
 
@@ -1425,6 +1435,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 enableIopRecompiler = _uiState.value.enableIopRecompiler,
                 enableVu0Recompiler = _uiState.value.enableVu0Recompiler,
                 enableVu1Recompiler = _uiState.value.enableVu1Recompiler,
+                eeFpuRoundMode = _uiState.value.eeFpuRoundMode,
+                vu0RoundMode = _uiState.value.vu0RoundMode,
+                vu1RoundMode = _uiState.value.vu1RoundMode,
+                eeFpuClampingMode = _uiState.value.eeFpuClampingMode,
+                vu0ClampingMode = _uiState.value.vu0ClampingMode,
+                vu1ClampingMode = _uiState.value.vu1ClampingMode,
+                enableGameFixes = _uiState.value.enableGameFixes,
                 waitLoopSpeedhack = _uiState.value.enableWaitLoopSpeedhack,
                 intcStatSpeedhack = _uiState.value.enableIntcStatSpeedhack,
                 vuFlagHack = _uiState.value.enableVuFlagHack,

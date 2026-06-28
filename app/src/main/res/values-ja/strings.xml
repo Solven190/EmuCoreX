@@ -1289,4 +1289,7 @@
     <string name="profile_name_updated">表示名が更新されました。</string>
     <string name="profile_signed_out">サインアウトしました。</string>
     <string name="profile_done">完了。</string>
+    <string name="settings_game_fixes">GameDB修正</string>
+    <string name="settings_game_fixes_desc">GameDBからの互換性修正を適用します。</string>
+    <string name="settings_help_game_fixes">既知のゲームにGameDBの互換性修正（クランプおよび丸めモードの自動上書きを含む）を使用します。特定のゲームがGameDBの値ではなく手動のクランプ設定を必要とする場合にのみ、これを無効にしてください。変更を適用するにはゲームを再起動します。</string>
 </resources>

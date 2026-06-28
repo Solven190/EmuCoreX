@@ -1289,4 +1289,7 @@
     <string name="profile_name_updated">Nome visualizzato aggiornato.</string>
     <string name="profile_signed_out">Disconnesso.</string>
     <string name="profile_done">Fatto.</string>
+    <string name="settings_game_fixes">Correzioni GameDB</string>
+    <string name="settings_game_fixes_desc">Applica le correzioni di compatibilità dal GameDB.</string>
+    <string name="settings_help_game_fixes">Utilizza le correzioni di compatibilità del GameDB per i giochi noti, incluse le sovrascritture automatiche della modalità di arrotondamento e clamping. Disabilita questa opzione solo quando un gioco specifico necessita delle tue impostazioni manuali di clamping invece dei valori del GameDB; riavvia il gioco per applicare.</string>
 </resources>

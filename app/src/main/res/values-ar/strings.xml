@@ -1289,4 +1289,7 @@
     <string name="profile_name_updated">تم تحديث اسم العرض.</string>
     <string name="profile_signed_out">تم تسجيل الخروج.</string>
     <string name="profile_done">تم.</string>
+    <string name="settings_game_fixes">إصلاحات GameDB</string>
+    <string name="settings_game_fixes_desc">تطبيق إصلاحات التوافق من GameDB.</string>
+    <string name="settings_help_game_fixes">يستخدم إصلاحات التوافق من GameDB للألعاب المعروفة، بما في ذلك التجاوزات التلقائية لوضع التقييد (clamp) والتقريب (round). قم بتعطيل هذا فقط عندما تحتاج لعبة معينة إلى إعدادات التقييد اليدوية بدلاً من قيم GameDB؛ أعد تشغيل اللعبة للتطبيق.</string>
 </resources>

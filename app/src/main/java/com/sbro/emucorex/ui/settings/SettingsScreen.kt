@@ -1639,6 +1639,15 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_vu1_clamping),
                             onResetToDefault = { viewModel.setVu1ClampingMode(defaults.vu1ClampingMode) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.settings_game_fixes),
+                            subtitle = stringResource(R.string.settings_game_fixes_desc),
+                            checked = uiState.enableGameFixes,
+                            onCheckedChange = viewModel::setEnableGameFixes,
+                            helpText = stringResource(R.string.settings_help_game_fixes),
+                            onResetToDefault = { viewModel.setEnableGameFixes(defaults.enableGameFixes) }
+                        )
                         SettingsInlineNote(
                             text = stringResource(R.string.settings_cpu_float_modes_note)
                         )
@@ -2567,6 +2576,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Emulation, R.string.settings_enable_iop_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_enable_vu0_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_enable_vu1_recompiler),
+        entry(SettingsTab.Emulation, R.string.settings_game_fixes),
         entry(SettingsTab.Emulation, R.string.settings_ee_fpu_round_mode),
         entry(SettingsTab.Emulation, R.string.settings_vu0_round_mode),
         entry(SettingsTab.Emulation, R.string.settings_vu1_round_mode),

@@ -1291,4 +1291,7 @@
     <string name="profile_name_updated">Nom d\'affichage mis à jour.</string>
     <string name="profile_signed_out">Déconnecté.</string>
     <string name="profile_done">Terminé.</string>
+    <string name="settings_game_fixes">Correctifs GameDB</string>
+    <string name="settings_game_fixes_desc">Appliquer les correctifs de compatibilité de la GameDB.</string>
+    <string name="settings_help_game_fixes">Utilise les correctifs de compatibilité de la GameDB pour les jeux connus, y compris les remplacements automatiques des modes de clamping et d\'arrondi. Désactivez cette option uniquement lorsqu\'un jeu spécifique nécessite vos paramètres de clamping manuels au lieu des valeurs de la GameDB ; redémarrez le jeu pour appliquer.</string>
 </resources>

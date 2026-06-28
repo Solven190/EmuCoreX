@@ -1291,4 +1291,7 @@
     <string name="profile_name_updated">显示名称已更新。</string>
     <string name="profile_signed_out">已登出。</string>
     <string name="profile_done">完成。</string>
+    <string name="settings_game_fixes">GameDB 修复</string>
+    <string name="settings_game_fixes_desc">应用 GameDB 中的兼容性修复。</string>
+    <string name="settings_help_game_fixes">对已知游戏使用 GameDB 兼容性修复，包括自动覆盖钳位和舍入模式。仅当特定游戏需要您的手动钳位设置而不是 GameDB 值时，才禁用此选项；重新启动游戏以应用。</string>
 </resources>

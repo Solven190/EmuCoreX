@@ -1291,4 +1291,7 @@
     <string name="profile_name_updated">Nombre actualizado.</string>
     <string name="profile_signed_out">Sesión cerrada.</string>
     <string name="profile_done">Hecho.</string>
+    <string name="settings_game_fixes">Correcciones de GameDB</string>
+    <string name="settings_game_fixes_desc">Aplicar correcciones de compatibilidad de la GameDB.</string>
+    <string name="settings_help_game_fixes">Utiliza las correcciones de compatibilidad de GameDB para juegos conocidos, incluidas las anulaciones automáticas del modo de redondeo y clamping. Desactívalo solo cuando un juego específico necesite tus ajustes manuales de clamping en lugar de los valores de GameDB; reinicia el juego para aplicar.</string>
 </resources>

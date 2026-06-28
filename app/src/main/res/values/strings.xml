@@ -242,6 +242,9 @@
     <string name="settings_jit_mtvu_note">If you disable VU1 recompiler, also turn off MTVU below. MTVU only makes sense with VU1 recompilation enabled.</string>
     <string name="settings_cpu_float_modes">Floating Point Modes</string>
     <string name="settings_cpu_float_modes_note">Compatibility overrides for specific games. Leave the defaults unless a title is known to need a different Round Mode or Clamping mode; restart the game to apply changes.</string>
+    <string name="settings_game_fixes">GameDB Fixes</string>
+    <string name="settings_game_fixes_desc">Apply compatibility fixes from the GameDB.</string>
+    <string name="settings_help_game_fixes">Uses GameDB compatibility fixes for known games, including automatic clamp and round mode overrides. Disable this only when a specific game needs your manual clamping settings instead of the GameDB values; restart the game to apply.</string>
     <string name="settings_ee_fpu_round_mode">EE FPU Round Mode</string>
     <string name="settings_vu0_round_mode">VU0 Round Mode</string>
     <string name="settings_vu1_round_mode">VU1 Round Mode</string>

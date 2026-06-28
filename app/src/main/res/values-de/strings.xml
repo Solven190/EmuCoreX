@@ -1291,4 +1291,7 @@
     <string name="profile_name_updated">Anzeigename aktualisiert.</string>
     <string name="profile_signed_out">Abgemeldet.</string>
     <string name="profile_done">Fertig.</string>
+    <string name="settings_game_fixes">GameDB-Fixes</string>
+    <string name="settings_game_fixes_desc">Kompatibilitäts-Fixes aus der GameDB anwenden.</string>
+    <string name="settings_help_game_fixes">Verwendet GameDB-Kompatibilitäts-Fixes für bekannte Spiele, einschließlich automatischer Überschreibungen für Clamping- und Rundungsmodi. Deaktiviere dies nur, wenn ein bestimmtes Spiel deine manuellen Clamping-Einstellungen anstelle der GameDB-Werte benötigt. Starte das Spiel neu, um Änderungen anzuwenden.</string>
 </resources>

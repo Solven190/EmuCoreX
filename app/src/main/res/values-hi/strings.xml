@@ -1289,4 +1289,7 @@
     <string name="profile_name_updated">प्रदर्शन नाम अपडेट किया गया।</string>
     <string name="profile_signed_out">साइन आउट किया गया।</string>
     <string name="profile_done">हो गया।</string>
+    <string name="settings_game_fixes">GameDB फ़िक्सेस</string>
+    <string name="settings_game_fixes_desc">GameDB से संगतता फ़िक्सेस लागू करें।</string>
+    <string name="settings_help_game_fixes">ज्ञात गेम्स के लिए GameDB संगतता फ़िक्सेस का उपयोग करता है, जिसमें स्वचालित क्लैंप और राउंड मोड ओवरराइड शामिल हैं। इसे केवल तभी अक्षम करें जब किसी विशिष्ट गेम को GameDB मानों के बजाय आपकी मैन्युअल क्लैम्पिंग सेटिंग्स की आवश्यकता हो; लागू करने के लिए गेम को पुनरारंभ करें。</string>
 </resources>

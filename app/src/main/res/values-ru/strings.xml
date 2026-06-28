@@ -1291,4 +1291,7 @@
     <string name="profile_name_updated">Отображаемое имя обновлено.</string>
     <string name="profile_signed_out">Выход выполнен.</string>
     <string name="profile_done">Готово.</string>
+    <string name="settings_game_fixes">Исправления GameDB</string>
+    <string name="settings_game_fixes_desc">Применить исправления совместимости из GameDB.</string>
+    <string name="settings_help_game_fixes">Использует исправления совместимости GameDB для известных игр, включая автоматическое переопределение режимов клэмпинга и округления. Отключайте это только в том случае, если конкретной игре требуются ваши ручные настройки клэмпинга вместо значений GameDB; перезапустите игру для применения.</string>
 </resources>

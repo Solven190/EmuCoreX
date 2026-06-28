@@ -1289,4 +1289,7 @@
     <string name="profile_name_updated">Görünen ad güncellendi.</string>
     <string name="profile_signed_out">Çıkış yapıldı.</string>
     <string name="profile_done">Bitti.</string>
+    <string name="settings_game_fixes">GameDB Düzeltmeleri</string>
+    <string name="settings_game_fixes_desc">GameDB\'den uyumluluk düzeltmelerini uygula.</string>
+    <string name="settings_help_game_fixes">Bilinen oyunlar için otomatik sınırlama (clamp) ve yuvarlama modu geçersiz kılmaları dahil olmak üzere GameDB uyumluluk düzeltmelerini kullanır. Bunu yalnızca belirli bir oyunun GameDB değerleri yerine manuel sınırlama ayarlarınıza ihtiyacı olduğunda devre dışı bırakın; uygulamak için oyunu yeniden başlatın.</string>
 </resources>
