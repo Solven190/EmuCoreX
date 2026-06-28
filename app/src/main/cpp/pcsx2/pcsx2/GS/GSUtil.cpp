@@ -5,12 +5,18 @@
 #include "GS/GSExtra.h"
 #include "GS/GSUtil.h"
 #include "MultiISA.h"
+#include "common/Console.h"
 #include "common/StringUtil.h"
 
 #include <array>
 
 #ifdef ENABLE_VULKAN
 #include "GS/Renderers/Vulkan/GSDeviceVK.h"
+#endif
+
+#if defined(__ANDROID__)
+#include "GS/Renderers/Common/GSGPUProfile.h"
+#include "Host.h"
 #endif
 
 #ifdef _WIN32
@@ -288,6 +294,39 @@ GSRendererType GSUtil::GetPreferredRenderer()
 #elif defined(_WIN32)
 		// Use D3D device info to select renderer.
 		preferred_renderer = D3D::GetPreferredRenderer();
+#elif defined(__ANDROID__)
+		const std::string gpu_profile_override =
+			Host::GetBaseStringSettingValue("EmuCore/GS", "AndroidGpuProfileOverride", "auto");
+		const GpuProfileSelection gpu_profile_selection =
+			GpuProfileDetector::Resolve(gpu_profile_override, {}, {});
+		if (gpu_profile_selection.runtime_profile == RuntimeGpuProfile::Mali ||
+			gpu_profile_selection.runtime_profile == RuntimeGpuProfile::PowerVR)
+		{
+			Console.Warning("MediaTek GPU profile detected: preferring OpenGL renderer.");
+#if defined(ENABLE_OPENGL)
+			preferred_renderer = GSRendererType::OGL;
+#elif defined(ENABLE_VULKAN)
+			preferred_renderer = GSRendererType::VK;
+#else
+			preferred_renderer = GSRendererType::SW;
+#endif
+		}
+		else
+		{
+#if defined(ENABLE_VULKAN)
+			if (GSDeviceVK::IsSuitableDefaultRenderer())
+				preferred_renderer = GSRendererType::VK;
+#endif
+
+			if (preferred_renderer == GSRendererType::Auto)
+#if defined(ENABLE_OPENGL)
+				preferred_renderer = GSRendererType::OGL;
+#elif defined(ENABLE_VULKAN)
+				preferred_renderer = GSRendererType::VK;
+#else
+				preferred_renderer = GSRendererType::SW;
+#endif
+		}
 #else
 		// Linux: Prefer Vulkan if the driver isn't buggy.
 #if defined(ENABLE_VULKAN)

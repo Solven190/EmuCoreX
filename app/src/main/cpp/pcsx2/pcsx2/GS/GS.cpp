@@ -22,6 +22,10 @@
 #include "GS/Renderers/HW/GSTextureReplacements.h"
 #include "VMManager.h"
 
+#if defined(__ANDROID__) && defined(ENABLE_OPENGL)
+#include "GS/Renderers/Common/GSGPUProfile.h"
+#endif
+
 #ifdef ENABLE_OPENGL
 #include "GS/Renderers/OpenGL/GSDeviceOGL.h"
 #endif
@@ -362,6 +366,21 @@ bool GSopen(const Pcsx2Config::GSOptions& config, GSRendererType renderer, u8* b
 
 	if (renderer == GSRendererType::Auto)
 		renderer = GSUtil::GetPreferredRenderer();
+
+#if defined(__ANDROID__) && defined(ENABLE_OPENGL)
+	if (renderer == GSRendererType::VK)
+	{
+		const GpuProfileSelection gpu_profile_selection =
+			GpuProfileDetector::Resolve(GSConfig.AndroidGpuProfileOverride, {}, {});
+		const bool mediatek_profile = (gpu_profile_selection.runtime_profile == RuntimeGpuProfile::Mali ||
+			gpu_profile_selection.runtime_profile == RuntimeGpuProfile::PowerVR);
+		if (mediatek_profile)
+		{
+			Console.Warning("MediaTek GS profile selected with Vulkan; forcing OpenGL for startup stability.");
+			renderer = GSRendererType::OGL;
+		}
+	}
+#endif
 
 	bool res = OpenGSDevice(renderer, true, false, vsync_mode, allow_present_throttle);
 	if (res)

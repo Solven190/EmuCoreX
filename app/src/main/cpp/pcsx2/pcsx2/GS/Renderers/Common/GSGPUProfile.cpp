@@ -79,7 +79,15 @@ static std::string BuildHints(std::string_view gpu_vendor, std::string_view gpu_
 		"ro.soc.platform",
 		"ro.board.platform",
 		"ro.hardware",
+		"ro.hardware.chipname",
+		"ro.chipname",
 		"ro.product.board",
+		"ro.product.manufacturer",
+		"ro.product.model",
+		"ro.vendor.product.manufacturer",
+		"ro.vendor.product.model",
+		"ro.mediatek.platform",
+		"ro.vendor.mediatek.platform",
 		"ro.product.cpu.abi",
 		"ro.vendor.product.cpu.abilist",
 	};
@@ -98,33 +106,8 @@ static bool LooksLikeAdreno(std::string_view lowered_hints)
 	return (has_adreno || has_qualcomm);
 }
 
-static MobileGpuTier ResolveAdrenoTier(std::string_view lowered_hints)
+static MobileGpuTier ResolveAdrenoTier(std::string_view /*lowered_hints*/)
 {
-	if (ContainsAny(lowered_hints,
-			{"adreno 7", "adreno (tm) 7", "adreno 8", "adreno (tm) 8", "sm8750", "sm8650", "sm8550",
-				"sm8475", "sm8450"}))
-	{
-		return MobileGpuTier::High;
-	}
-
-	if (ContainsAny(lowered_hints,
-			{"adreno 610", "adreno 612", "adreno 615", "adreno 616", "adreno 618", "adreno 619",
-				"adreno 620", "adreno (tm) 610", "adreno (tm) 612", "adreno (tm) 615", "adreno (tm) 616",
-				"adreno (tm) 618", "adreno (tm) 619", "adreno (tm) 620", "adreno 5", "adreno (tm) 5",
-				"sm6375", "sm6350", "sm6225", "sm6115", "sdm730", "sdm720", "sdm710", "sdm670", "sdm660"}))
-	{
-		return MobileGpuTier::Low;
-	}
-
-	if (ContainsAny(lowered_hints,
-			{"adreno 630", "adreno 640", "adreno 642", "adreno 650", "adreno 660", "adreno (tm) 630",
-				"adreno (tm) 640", "adreno (tm) 642", "adreno (tm) 650", "adreno (tm) 660", "adreno 6",
-				"adreno (tm) 6", "sm8350", "sm8250", "sm8150", "sm7325", "sm7315", "sm7250", "sm7225",
-				"sm7150", "sm7125", "sdm845"}))
-	{
-		return MobileGpuTier::Mid;
-	}
-
 	return MobileGpuTier::High;
 }
 
@@ -133,9 +116,18 @@ static bool LooksLikePowerVR(std::string_view lowered_hints)
 	return ContainsAny(lowered_hints, {"imagination", "powervr", "img"});
 }
 
+static bool LooksLikeMediaTek(std::string_view lowered_hints)
+{
+	return ContainsAny(lowered_hints, {
+		"mediatek", "mtk", "dimensity", "helio",
+		"mt67", "mt68", "mt69",
+	});
+}
+
 static bool LooksLikeMali(std::string_view lowered_hints)
 {
-	return ContainsAny(lowered_hints, {"mali", "valhall", "bifrost", "midgard"});
+	return ContainsAny(lowered_hints, {"mali", "valhall", "bifrost", "midgard"}) ||
+		LooksLikeMediaTek(lowered_hints);
 }
 
 static MobileGpuTier ResolveMaliTier(std::string_view lowered_hints)
