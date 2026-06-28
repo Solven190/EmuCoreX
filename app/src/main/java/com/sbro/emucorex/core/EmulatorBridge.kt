@@ -333,7 +333,7 @@ object EmulatorBridge {
         eeCycleRate: Int = 0,
         eeCycleSkip: Int = 0,
         frameSkip: Int = 0,
-        skipDuplicateFrames: Boolean = false,
+        skipDuplicateFrames: Boolean = true,
         frameLimitEnabled: Boolean = true,
         fastForwardSpeed: Float = AppPreferences.DEFAULT_FAST_FORWARD_SPEED,
         targetFps: Int = 0,
@@ -354,6 +354,7 @@ object EmulatorBridge {
         shadeBoostGamma: Int = 50,
         anisotropicFiltering: Int = 0,
         enableHwMipmapping: Boolean = GsHackDefaults.HW_MIPMAPPING_DEFAULT,
+        antiBlur: Boolean = GsHackDefaults.ANTI_BLUR_DEFAULT,
         widescreenPatches: Boolean = false,
         noInterlacingPatches: Boolean = false,
         cpuSpriteRenderSize: Int = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
@@ -564,6 +565,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/GS", "ShadeBoost_Gamma", "int", shadeBoostGamma.toString()))
                 add(settingOp("EmuCore/GS", "MaxAnisotropy", "int", anisotropicFiltering.toString()))
                 add(settingOp("EmuCore/GS", "hw_mipmap", "bool", enableHwMipmapping.toString()))
+                add(settingOp("EmuCore/GS", "pcrtc_antiblur", "bool", antiBlur.toString()))
                 add(settingOp("EmuCore", "EnableWideScreenPatches", "bool", widescreenPatches.toString()))
                 add(settingOp("EmuCore", "EnableNoInterlacingPatches", "bool", noInterlacingPatches.toString()))
                 add(settingOp("EmuCore/GS", "UserHacks", "bool", manualHardwareFixes.toString()))

@@ -488,7 +488,7 @@
     <string name="settings_help_stick_scale">아날로그 스틱 터치 영역의 크기를 변경합니다. 값이 클수록 액션이 많은 게임에서 잡기 쉽고, 값이 작을수록 사진 및 주변 버튼을 위한 공간이 더 많이 남습니다.</string>
     <string name="settings_help_performance_preset">테스트된 그래픽 및 속도 설정 그룹을 한 번에 적용합니다. 수동으로 조정하기 전에 여기서 시작하세요: 낮은 프리셋은 안정성과 배터리에 유리하며, 더 빠른 프리셋은 속도를 위해 이미지 품질이나 호환성을 희생합니다.</string>
     <string name="settings_help_frame_limiter">게임 속도를 가능한 한 빨리 실행하는 대신 선택한 목표 프레임 속도에 맞춰 유지합니다. 정상적인 플레이를 위해 활성화해 두세요. 테스트, 제한 해제(uncapped) 동작 또는 매우 특정한 사용 사례에만 비활성화하세요.</string>
-    <string name="settings_help_skip_duplicate_frames">게임이 동일한 이미지를 반복해서 계속 그릴 때 동일한 프레임 표시를 건너뜁니다. 일부 25/30 FPS 타이틀에서 GPU 작업 및 입력 지연(latency)을 낮출 수 있지만, 표시할 때마다 기대하는 게임에서는 프레임 페이싱이나 타이밍이 악화될 수 있으므로 게임이 확실히 이점을 얻지 않는 한 꺼두는 것이 좋습니다.</string>
+    <string name="settings_help_skip_duplicate_frames">게임이 동일한 이미지를 반복해서 계속 그릴 때 동일한 프레임 표시를 건너뜁니다. 많은 25/30 FPS 타이틀에서 반복 표시, GPU 작업 및 입력 지연(latency)을 줄이려면 일반 플레이에서는 켜 둔 상태로 사용하세요. 특정 게임에서 프레임 페이싱이나 타이밍이 나빠질 때만 끄세요.</string>
     <string name="settings_help_target_fps">리미터에서 사용하는 속도 목표를 설정합니다. 대부분의 게임은 네이티브 상한선을 유지해야 하므로, 게임이나 패치가 다른 목표를 안전하게 지원한다는 것을 아는 경우에만 이 값을 변경하세요.</string>
     <string name="settings_help_ee_cycle_rate">에뮬레이터가 각 프레임에서 게임에 얼마나 많은 EE CPU 시간을 할당할지 조정합니다. 값이 낮으면 성능이 부족한 기기에서 한계 성능을 구출할 수 있지만 게임 타이밍이 덜 정확해지고 속도 저하, 오디오 문제 또는 논리적 오류가 발생할 수 있습니다.</string>
     <string name="settings_help_ee_cycle_skip">에뮬레이터가 속도를 얻기 위해 EE 작업량의 일부를 건너뛰도록 합니다. 이는 사이클 비율(Cycle Rate)보다 강력하고 위험합니다. 게임이 최고 속도에 가까울 때 유용하지만 너무 공격적인 값은 끊김(stutter), 입력 지연, 효과 누락 또는 불안정한 동작을 유발할 수 있습니다.</string>
@@ -1298,4 +1298,7 @@
     <string name="settings_gamepad_right_stick_up_to_r2_desc">오른쪽 스틱 위를 오른쪽 트리거로 사용합니다.</string>
     <string name="settings_gamepad_right_stick_down_to_l2">오른쪽 스틱 아래를 L2로</string>
     <string name="settings_gamepad_right_stick_down_to_l2_desc">오른쪽 스틱 아래를 왼쪽 트리거로 사용합니다.</string>
+    <string name="settings_help_anti_blur">내부 GS 안티 블러 처리를 활성화합니다. 이렇게 하면 많은 게임에서 PS2 디스플레이 필드가 번갈아 나타나면서 발생하는 흐림 현상이나 깜박임을 줄일 수 있지만, 원래 콘솔 출력과 정확히 일치하지 않으며 일부 효과가 약간 변경될 수 있습니다.</string>
+    <string name="settings_anti_blur">안티 블러</string>
+    <string name="settings_anti_blur_desc">번갈아 나타나는 디스플레이 필드의 흐림 현상이나 깜박임 감소</string>
 </resources>

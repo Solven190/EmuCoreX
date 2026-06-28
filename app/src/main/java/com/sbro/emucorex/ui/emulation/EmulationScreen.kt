@@ -1146,6 +1146,7 @@ fun EmulationScreen(
                     onSetShadeBoostGamma = { viewModel.setShadeBoostGamma(it) },
                     onSetEnableWidescreenPatches = { viewModel.setEnableWidescreenPatches(it) },
                     onSetEnableNoInterlacingPatches = { viewModel.setEnableNoInterlacingPatches(it) },
+                    onSetAntiBlur = { viewModel.setAntiBlur(it) },
                     onSetAnisotropicFiltering = { viewModel.setAnisotropicFiltering(it) },
                     onSetEnableHwMipmapping = { viewModel.setEnableHwMipmapping(it) },
                     onSetCpuSpriteRenderSize = { viewModel.setCpuSpriteRenderSize(it) },
@@ -2179,6 +2180,7 @@ private fun EmulationSidebarMenu(
     onSetShadeBoostGamma: (Int) -> Unit,
     onSetEnableWidescreenPatches: (Boolean) -> Unit,
     onSetEnableNoInterlacingPatches: (Boolean) -> Unit,
+    onSetAntiBlur: (Boolean) -> Unit,
     onSetAnisotropicFiltering: (Int) -> Unit,
     onSetEnableHwMipmapping: (Boolean) -> Unit,
     onSetCpuSpriteRenderSize: (Int) -> Unit,
@@ -3356,6 +3358,13 @@ private fun EmulationSidebarMenu(
                             onCheckedChange = onSetEnableNoInterlacingPatches,
                             helpText = stringResource(R.string.settings_help_no_interlacing_patches),
                             onResetToDefault = { onSetEnableNoInterlacingPatches(globalDefaults.enableNoInterlacingPatches) }
+                        )
+                        SettingsToggle(
+                            title = stringResource(R.string.settings_anti_blur),
+                            checked = uiState.antiBlur,
+                            onCheckedChange = onSetAntiBlur,
+                            helpText = stringResource(R.string.settings_help_anti_blur),
+                            onResetToDefault = { onSetAntiBlur(globalDefaults.antiBlur) }
                         )
 
                         SidebarSectionTitle(

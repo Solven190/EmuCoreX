@@ -2000,6 +2000,15 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_no_interlacing_patches),
                             onResetToDefault = { viewModel.setEnableNoInterlacingPatches(defaults.enableNoInterlacingPatches) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.Visibility,
+                            title = stringResource(R.string.settings_anti_blur),
+                            subtitle = stringResource(R.string.settings_anti_blur_desc),
+                            checked = uiState.antiBlur,
+                            onCheckedChange = viewModel::setAntiBlur,
+                            helpText = stringResource(R.string.settings_help_anti_blur),
+                            onResetToDefault = { viewModel.setAntiBlur(defaults.antiBlur) }
+                        )
                     }
                     SettingsSection(title = stringResource(R.string.settings_hardware_fixes)) {
                         ChoiceSection(
@@ -2560,6 +2569,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Graphics, R.string.settings_shadeboost),
         entry(SettingsTab.Fixes, R.string.settings_widescreen_patches),
         entry(SettingsTab.Fixes, R.string.settings_no_interlacing_patches),
+        entry(SettingsTab.Fixes, R.string.settings_anti_blur),
         entry(SettingsTab.Controls, R.string.settings_overlay_scale),
         entry(SettingsTab.Controls, R.string.settings_overlay_opacity),
         entry(SettingsTab.Controls, R.string.settings_racing_mode),

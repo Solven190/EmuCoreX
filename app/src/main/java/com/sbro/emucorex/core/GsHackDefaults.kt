@@ -13,6 +13,7 @@ object GsHackDefaults {
     const val TEXTURE_PRELOADING_DEFAULT = 2
     const val ANISOTROPIC_FILTERING_DEFAULT = 0
     const val HW_MIPMAPPING_DEFAULT = true
+    const val ANTI_BLUR_DEFAULT = true
     const val HW_DOWNLOAD_MODE_DEFAULT = 0
     const val HALF_PIXEL_OFFSET_DEFAULT = 0
     const val NATIVE_SCALING_DEFAULT = 0

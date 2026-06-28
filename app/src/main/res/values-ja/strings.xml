@@ -488,7 +488,7 @@
     <string name="settings_help_stick_scale">アナログスティックのタッチ領域のサイズを変更します。値を大きくすると、アクションの激しいゲーム中に掴みやすくなり、値を小さくすると、画像と近くのボタンのためのスペースが広くなります。</string>
     <string name="settings_help_performance_preset">テスト済みのグラフィックと速度設定のグループを1ステップで適用します。手動でチューニングする前にここから始めてください。低いプリセットは安定性とバッテリーを優先し、高速なプリセットは速度のために画質や互換性を犠牲にします。</string>
     <string name="settings_help_frame_limiter">ゲームの速度を、可能な限り速く実行するのではなく、選択した目標フレームレートに結び付けます。通常のプレイでは有効のままにしてください。テスト、制限なしの動作、または非常に特殊なユースケースの場合にのみ無効にしてください。</string>
-    <string name="settings_help_skip_duplicate_frames">ゲームが同じ画像を繰り返し描画し続ける場合、同一のフレームの表示をスキップします。一部の25/30 FPSタイトルでGPUの負荷と入力レイテンシを下げることができますが、すべての表示を期待するゲームではフレームペースやタイミングが悪化する可能性があるため、ゲームが明らかに恩恵を受けない限りオフのままにしてください。</string>
+    <string name="settings_help_skip_duplicate_frames">ゲームが同じ画像を繰り返し描画し続ける場合、同一フレームの表示をスキップします。多くの25/30 FPSタイトルで重複表示、GPU負荷、入力レイテンシを減らすため、通常プレイではオンのままにしてください。特定のゲームでフレームペースやタイミングが悪化する場合のみオフにしてください。</string>
     <string name="settings_help_target_fps">リミッターで使用される速度目標を設定します。ほとんどのゲームはネイティブキャップにとどまるはずなので、ゲームまたはパッチが別のターゲットを安全にサポートしていることがわかっている場合にのみこれを変更してください。</string>
     <string name="settings_help_ee_cycle_rate">エミュレーターが各フレームでゲームに与えるEE CPU時間を調整します。値を低くすると、弱いデバイスで限界のパフォーマンスを救うことができますが、ゲームのタイミングが不正確になり、スローダウン、オーディオの問題、またはロジックの破損を引き起こす可能性もあります。</string>
     <string name="settings_help_ee_cycle_skip">エミュレーターが速度を上げるためにEEワークロードの一部をスキップできるようにします。サイクルレートよりも強力でリスクが高くなります。ゲームがフルスピードに近い場合に役立ちますが、強引な値はスタッター、入力遅延、エフェクトの欠落、または不安定な動作を引き起こす可能性があります。</string>
@@ -1298,4 +1298,7 @@
     <string name="settings_gamepad_right_stick_up_to_r2_desc">右スティックの上方向を右トリガーとして使用します。</string>
     <string name="settings_gamepad_right_stick_down_to_l2">右スティック下をL2に</string>
     <string name="settings_gamepad_right_stick_down_to_l2_desc">右スティックの下方向を左トリガーとして使用します。</string>
+    <string name="settings_help_anti_blur">内部のGSアンチブラー処理を有効にします。これにより、多くのゲームでPS2の表示フィールドが交互に切り替わることによって生じるぼやけやちらつきを軽減できますが、元の本体の出力とは異なり、一部のエフェクトがわずかに変化する可能性があります。</string>
+    <string name="settings_anti_blur">アンチブラー</string>
+    <string name="settings_anti_blur_desc">交互の表示フィールドによるぼやけやちらつきを軽減します</string>
 </resources>

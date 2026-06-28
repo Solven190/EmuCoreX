@@ -1105,6 +1105,13 @@ private fun GameSettingsTabContent(
                         helpText = stringResource(R.string.settings_help_no_interlacing_patches),
                         onResetToDefault = { onDraftChange(draft.copy(enableNoInterlacingPatches = defaultProfile.enableNoInterlacingPatches)) }
                     )
+                    ToggleRow(
+                        title = stringResource(R.string.settings_anti_blur),
+                        checked = draft.antiBlur,
+                        onCheckedChange = { onDraftChange(draft.copy(antiBlur = it)) },
+                        helpText = stringResource(R.string.settings_help_anti_blur),
+                        onResetToDefault = { onDraftChange(draft.copy(antiBlur = defaultProfile.antiBlur)) }
+                    )
                 }
                 HardwareFixesRows(
                     draft = draft,
@@ -1777,6 +1784,13 @@ private fun GameSettingsEditorDialog(
                                 onCheckedChange = { draft = draft.copy(enableNoInterlacingPatches = it) },
                                 helpText = stringResource(R.string.settings_help_no_interlacing_patches),
                                 onResetToDefault = { draft = draft.copy(enableNoInterlacingPatches = defaultProfile.enableNoInterlacingPatches) }
+                            )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_anti_blur),
+                                checked = draft.antiBlur,
+                                onCheckedChange = { draft = draft.copy(antiBlur = it) },
+                                helpText = stringResource(R.string.settings_help_anti_blur),
+                                onResetToDefault = { draft = draft.copy(antiBlur = defaultProfile.antiBlur) }
                             )
                         }
                         EditorSection(title = stringResource(R.string.settings_hardware_fixes)) {
@@ -3127,6 +3141,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         shadeBoostGamma = shadeBoostGamma,
         anisotropicFiltering = anisotropicFiltering,
         enableHwMipmapping = enableHwMipmapping,
+        antiBlur = antiBlur,
         enableWidescreenPatches = enableWidescreenPatches,
         enableNoInterlacingPatches = enableNoInterlacingPatches,
         cpuSpriteRenderSize = cpuSpriteRenderSize,
@@ -3208,6 +3223,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         shadeBoostGamma = pick("shadeBoostGamma", shadeBoostGamma, defaultProfile.shadeBoostGamma),
         anisotropicFiltering = pick("anisotropicFiltering", anisotropicFiltering, defaultProfile.anisotropicFiltering),
         enableHwMipmapping = pick("enableHwMipmapping", enableHwMipmapping, defaultProfile.enableHwMipmapping),
+        antiBlur = pick("antiBlur", antiBlur, defaultProfile.antiBlur),
         enableWidescreenPatches = pick("enableWidescreenPatches", enableWidescreenPatches, defaultProfile.enableWidescreenPatches),
         enableNoInterlacingPatches = pick("enableNoInterlacingPatches", enableNoInterlacingPatches, defaultProfile.enableNoInterlacingPatches),
         cpuSpriteRenderSize = pick("cpuSpriteRenderSize", cpuSpriteRenderSize, defaultProfile.cpuSpriteRenderSize),

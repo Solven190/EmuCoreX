@@ -32,7 +32,7 @@ EmulationSettingsWidget::EmulationSettingsWidget(SettingsWindow* settings_dialog
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.vsync, "EmuCore/GS", "VsyncEnable", false);
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.syncToHostRefreshRate, "EmuCore/GS", "SyncToHostRefreshRate", false);
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.useVSyncForTiming, "EmuCore/GS", "UseVSyncForTiming", false);
-	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.skipPresentingDuplicateFrames, "EmuCore/GS", "SkipDuplicateFrames", false);
+	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.skipPresentingDuplicateFrames, "EmuCore/GS", "SkipDuplicateFrames", true);
 	connect(m_ui.optimalFramePacing, &QCheckBox::checkStateChanged, this, &EmulationSettingsWidget::onOptimalFramePacingChanged);
 	connect(m_ui.vsync, &QCheckBox::checkStateChanged, this, &EmulationSettingsWidget::updateUseVSyncForTimingEnabled);
 	connect(m_ui.syncToHostRefreshRate, &QCheckBox::checkStateChanged, this, &EmulationSettingsWidget::updateUseVSyncForTimingEnabled);

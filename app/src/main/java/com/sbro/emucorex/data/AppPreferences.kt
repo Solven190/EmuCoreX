@@ -85,7 +85,7 @@ data class SettingsSnapshot(
     val enableCheats: Boolean = false,
     val hwDownloadMode: Int = PerformanceProfiles.safeConfig.hwDownloadMode,
     val frameSkip: Int = 0,
-    val skipDuplicateFrames: Boolean = false,
+    val skipDuplicateFrames: Boolean = true,
     val textureFiltering: Int = GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
     val trilinearFiltering: Int = GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
     val blendingAccuracy: Int = GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
@@ -101,6 +101,7 @@ data class SettingsSnapshot(
     val shadeBoostGamma: Int = 50,
     val enableWidescreenPatches: Boolean = false,
     val enableNoInterlacingPatches: Boolean = false,
+    val antiBlur: Boolean = GsHackDefaults.ANTI_BLUR_DEFAULT,
     val anisotropicFiltering: Int = 0,
     val enableHwMipmapping: Boolean = GsHackDefaults.HW_MIPMAPPING_DEFAULT,
     val cpuSpriteRenderSize: Int = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
@@ -364,6 +365,7 @@ class AppPreferences(private val context: Context) {
         private val SHADEBOOST_GAMMA = intPreferencesKey("shadeboost_gamma")
         private val ENABLE_WIDESCREEN_PATCHES = booleanPreferencesKey("enable_widescreen_patches")
         private val ENABLE_NO_INTERLACING_PATCHES = booleanPreferencesKey("enable_no_interlacing_patches")
+        private val ANTI_BLUR = booleanPreferencesKey("anti_blur")
         private val ANISOTROPIC_FILTERING = intPreferencesKey("anisotropic_filtering")
         private val ENABLE_HW_MIPMAPPING = booleanPreferencesKey("enable_hw_mipmapping")
         private val CPU_SPRITE_RENDER_SIZE = intPreferencesKey("cpu_sprite_render_size")
@@ -619,7 +621,7 @@ class AppPreferences(private val context: Context) {
     }
 
     val skipDuplicateFrames: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[SKIP_DUPLICATE_FRAMES] ?: false
+        prefs[SKIP_DUPLICATE_FRAMES] ?: true
     }
 
     suspend fun setSkipDuplicateFrames(enabled: Boolean) {
@@ -840,7 +842,7 @@ class AppPreferences(private val context: Context) {
                 enableCheats = prefs[ENABLE_CHEATS] ?: false,
                 hwDownloadMode = prefs[HW_DOWNLOAD_MODE] ?: profileConfig.hwDownloadMode,
                 frameSkip = prefs[FRAME_SKIP] ?: 0,
-                skipDuplicateFrames = prefs[SKIP_DUPLICATE_FRAMES] ?: false,
+                skipDuplicateFrames = prefs[SKIP_DUPLICATE_FRAMES] ?: true,
                 textureFiltering = prefs[TEXTURE_FILTERING] ?: GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
                 trilinearFiltering = prefs[TRILINEAR_FILTERING]?.let(GsHackDefaults::coerceTrilinearFiltering)
                     ?: GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
@@ -863,6 +865,7 @@ class AppPreferences(private val context: Context) {
                 shadeBoostGamma = prefs[SHADEBOOST_GAMMA] ?: 50,
                 enableWidescreenPatches = prefs[ENABLE_WIDESCREEN_PATCHES] ?: false,
                 enableNoInterlacingPatches = prefs[ENABLE_NO_INTERLACING_PATCHES] ?: false,
+                antiBlur = prefs[ANTI_BLUR] ?: GsHackDefaults.ANTI_BLUR_DEFAULT,
                 anisotropicFiltering = prefs[ANISOTROPIC_FILTERING] ?: 0,
                 enableHwMipmapping = prefs[ENABLE_HW_MIPMAPPING] ?: GsHackDefaults.HW_MIPMAPPING_DEFAULT,
                 cpuSpriteRenderSize = prefs[CPU_SPRITE_RENDER_SIZE] ?: GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
@@ -1698,6 +1701,14 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[ENABLE_NO_INTERLACING_PATCHES] = enabled }
     }
 
+    val antiBlur: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ANTI_BLUR] ?: GsHackDefaults.ANTI_BLUR_DEFAULT
+    }
+
+    suspend fun setAntiBlur(enabled: Boolean) {
+        context.dataStore.edit { it[ANTI_BLUR] = enabled }
+    }
+
     // Anisotropic Filtering: 0 = off, 2, 4, 8, 16
     val anisotropicFiltering: Flow<Int> = context.dataStore.data.map { prefs ->
         prefs[ANISOTROPIC_FILTERING] ?: 0
@@ -2327,7 +2338,7 @@ class AppPreferences(private val context: Context) {
             put("enableFastCdvd", prefs[ENABLE_FAST_CDVD] ?: false)
             put("hwDownloadMode", prefs[HW_DOWNLOAD_MODE] ?: 0)
             put("frameSkip", prefs[FRAME_SKIP] ?: 0)
-            put("skipDuplicateFrames", prefs[SKIP_DUPLICATE_FRAMES] ?: false)
+            put("skipDuplicateFrames", prefs[SKIP_DUPLICATE_FRAMES] ?: true)
             put("textureFiltering", prefs[TEXTURE_FILTERING] ?: GsHackDefaults.BILINEAR_FILTERING_DEFAULT)
             put(
                 "trilinearFiltering",
@@ -2346,6 +2357,7 @@ class AppPreferences(private val context: Context) {
             put("tvShader", prefs[TV_SHADER]?.let(GsHackDefaults::coerceTvShader) ?: GsHackDefaults.TV_SHADER_DEFAULT)
             put("enableWidescreenPatches", prefs[ENABLE_WIDESCREEN_PATCHES] ?: false)
             put("enableNoInterlacingPatches", prefs[ENABLE_NO_INTERLACING_PATCHES] ?: false)
+            put("antiBlur", prefs[ANTI_BLUR] ?: GsHackDefaults.ANTI_BLUR_DEFAULT)
             put("anisotropicFiltering", prefs[ANISOTROPIC_FILTERING] ?: 0)
             put("enableHwMipmapping", prefs[ENABLE_HW_MIPMAPPING] ?: GsHackDefaults.HW_MIPMAPPING_DEFAULT)
             put("cpuSpriteRenderSize", prefs[CPU_SPRITE_RENDER_SIZE] ?: GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT)
@@ -2494,7 +2506,7 @@ class AppPreferences(private val context: Context) {
             prefs[ENABLE_FAST_CDVD] = json.optBoolean("enableFastCdvd", false)
             prefs[HW_DOWNLOAD_MODE] = json.optInt("hwDownloadMode", 0).coerceIn(0, 3)
             prefs[FRAME_SKIP] = json.optInt("frameSkip", 0)
-            prefs[SKIP_DUPLICATE_FRAMES] = json.optBoolean("skipDuplicateFrames", false)
+            prefs[SKIP_DUPLICATE_FRAMES] = json.optBoolean("skipDuplicateFrames", true)
             prefs[TEXTURE_FILTERING] = json.optInt("textureFiltering", GsHackDefaults.BILINEAR_FILTERING_DEFAULT).coerceIn(0, 3)
             prefs[TRILINEAR_FILTERING] = GsHackDefaults.coerceTrilinearFiltering(
                 json.optInt("trilinearFiltering", GsHackDefaults.TRILINEAR_FILTERING_DEFAULT)
@@ -2513,6 +2525,7 @@ class AppPreferences(private val context: Context) {
             )
             prefs[ENABLE_WIDESCREEN_PATCHES] = json.optBoolean("enableWidescreenPatches", false)
             prefs[ENABLE_NO_INTERLACING_PATCHES] = json.optBoolean("enableNoInterlacingPatches", false)
+            prefs[ANTI_BLUR] = json.optBoolean("antiBlur", GsHackDefaults.ANTI_BLUR_DEFAULT)
             prefs[ANISOTROPIC_FILTERING] = json.optInt("anisotropicFiltering", 0)
             prefs[ENABLE_HW_MIPMAPPING] = json.optBoolean("enableHwMipmapping", GsHackDefaults.HW_MIPMAPPING_DEFAULT)
             prefs[CPU_SPRITE_RENDER_SIZE] = json.optInt("cpuSpriteRenderSize", GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT).coerceIn(0, 10)

@@ -84,7 +84,7 @@ data class SettingsUiState(
     val enableCheats: Boolean = false,
     val hwDownloadMode: Int = 0,
     val frameSkip: Int = 0,
-    val skipDuplicateFrames: Boolean = false,
+    val skipDuplicateFrames: Boolean = true,
     val textureFiltering: Int = GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
     val trilinearFiltering: Int = GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
     val blendingAccuracy: Int = GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
@@ -102,6 +102,7 @@ data class SettingsUiState(
     val enableNoInterlacingPatches: Boolean = false,
     val anisotropicFiltering: Int = 0,
     val enableHwMipmapping: Boolean = GsHackDefaults.HW_MIPMAPPING_DEFAULT,
+    val antiBlur: Boolean = GsHackDefaults.ANTI_BLUR_DEFAULT,
     val cpuSpriteRenderSize: Int = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
     val cpuSpriteRenderLevel: Int = GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT,
     val softwareClutRender: Int = GsHackDefaults.SOFTWARE_CLUT_RENDER_DEFAULT,
@@ -271,6 +272,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             enableNoInterlacingPatches = snapshot.enableNoInterlacingPatches,
             anisotropicFiltering = snapshot.anisotropicFiltering,
             enableHwMipmapping = snapshot.enableHwMipmapping,
+            antiBlur = snapshot.antiBlur,
             cpuSpriteRenderSize = snapshot.cpuSpriteRenderSize,
             cpuSpriteRenderLevel = snapshot.cpuSpriteRenderLevel,
             softwareClutRender = snapshot.softwareClutRender,
@@ -1118,6 +1120,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setAntiBlur(enabled: Boolean) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            preferences.setAntiBlur(enabled)
+            EmulatorBridge.setSetting("EmuCore/GS", "pcrtc_antiblur", "bool", enabled.toString())
+        }
+    }
+
     fun setCpuSpriteRenderSize(value: Int) {
         viewModelScope.launch {
             markPerformancePresetCustom()
@@ -1470,6 +1480,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 tvShader = _uiState.value.tvShader,
                 anisotropicFiltering = _uiState.value.anisotropicFiltering,
                 enableHwMipmapping = _uiState.value.enableHwMipmapping,
+                antiBlur = _uiState.value.antiBlur,
                 cpuSpriteRenderSize = _uiState.value.cpuSpriteRenderSize,
                 cpuSpriteRenderLevel = _uiState.value.cpuSpriteRenderLevel,
                 softwareClutRender = _uiState.value.softwareClutRender,

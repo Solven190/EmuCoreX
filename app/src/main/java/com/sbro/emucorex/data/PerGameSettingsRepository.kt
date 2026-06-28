@@ -36,7 +36,7 @@ data class PerGameSettings(
     val eeCycleRate: Int = 0,
     val eeCycleSkip: Int = 0,
     val frameSkip: Int = 0,
-    val skipDuplicateFrames: Boolean = false,
+    val skipDuplicateFrames: Boolean = true,
     val frameLimitEnabled: Boolean = true,
     val targetFps: Int = 0,
     val ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
@@ -56,6 +56,7 @@ data class PerGameSettings(
     val shadeBoostGamma: Int = 50,
     val anisotropicFiltering: Int = 0,
     val enableHwMipmapping: Boolean = GsHackDefaults.HW_MIPMAPPING_DEFAULT,
+    val antiBlur: Boolean = GsHackDefaults.ANTI_BLUR_DEFAULT,
     val enableWidescreenPatches: Boolean = false,
     val enableNoInterlacingPatches: Boolean = false,
     val cpuSpriteRenderSize: Int = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
@@ -203,7 +204,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         eeCycleRate = optInt("eeCycleRate", 0),
         eeCycleSkip = optInt("eeCycleSkip", 0),
         frameSkip = optInt("frameSkip", 0),
-        skipDuplicateFrames = optBoolean("skipDuplicateFrames", false),
+        skipDuplicateFrames = optBoolean("skipDuplicateFrames", true),
         frameLimitEnabled = optBoolean("frameLimitEnabled", true),
         targetFps = optInt("targetFps", 0).let { if (it <= 0) 0 else it.coerceIn(20, 120) },
         ntscFramerate = optDouble("ntscFramerate", AppPreferences.DEFAULT_NTSC_FRAMERATE.toDouble()).toFloat().let {
@@ -232,6 +233,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         shadeBoostGamma = optInt("shadeBoostGamma", 50).coerceIn(1, 100),
         anisotropicFiltering = optInt("anisotropicFiltering", 0),
         enableHwMipmapping = optBoolean("enableHwMipmapping", GsHackDefaults.HW_MIPMAPPING_DEFAULT),
+        antiBlur = optBoolean("antiBlur", GsHackDefaults.ANTI_BLUR_DEFAULT),
         enableWidescreenPatches = optBoolean("enableWidescreenPatches", false),
         enableNoInterlacingPatches = optBoolean("enableNoInterlacingPatches", false),
         cpuSpriteRenderSize = optInt("cpuSpriteRenderSize", GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT),
@@ -316,6 +318,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("shadeBoostGamma")) put("shadeBoostGamma", shadeBoostGamma)
         if (shouldWrite("anisotropicFiltering")) put("anisotropicFiltering", anisotropicFiltering)
         if (shouldWrite("enableHwMipmapping")) put("enableHwMipmapping", enableHwMipmapping)
+        if (shouldWrite("antiBlur")) put("antiBlur", antiBlur)
         if (shouldWrite("enableWidescreenPatches")) put("enableWidescreenPatches", enableWidescreenPatches)
         if (shouldWrite("enableNoInterlacingPatches")) put("enableNoInterlacingPatches", enableNoInterlacingPatches)
         if (shouldWrite("cpuSpriteRenderSize")) put("cpuSpriteRenderSize", cpuSpriteRenderSize)

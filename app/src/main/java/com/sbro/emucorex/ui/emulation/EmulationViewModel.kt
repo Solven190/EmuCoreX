@@ -108,7 +108,7 @@ data class EmulationUiState(
     val eeCycleRate: Int = PerformanceProfiles.safeConfig.eeCycleRate,
     val eeCycleSkip: Int = PerformanceProfiles.safeConfig.eeCycleSkip,
     val frameSkip: Int = 0,
-    val skipDuplicateFrames: Boolean = false,
+    val skipDuplicateFrames: Boolean = true,
     val textureFiltering: Int = GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
     val trilinearFiltering: Int = GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
     val blendingAccuracy: Int = GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
@@ -124,6 +124,7 @@ data class EmulationUiState(
     val shadeBoostGamma: Int = 50,
     val anisotropicFiltering: Int = 0,
     val enableHwMipmapping: Boolean = GsHackDefaults.HW_MIPMAPPING_DEFAULT,
+    val antiBlur: Boolean = GsHackDefaults.ANTI_BLUR_DEFAULT,
     val widescreenPatches: Boolean = false,
     val noInterlacingPatches: Boolean = false,
     val cpuSpriteRenderSize: Int = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
@@ -230,6 +231,7 @@ private data class EmulationLaunchConfig(
     val shadeBoostGamma: Int,
     val anisotropicFiltering: Int,
     val enableHwMipmapping: Boolean,
+    val antiBlur: Boolean,
     val widescreenPatches: Boolean,
     val noInterlacingPatches: Boolean,
     val cpuSpriteRenderSize: Int,
@@ -303,6 +305,7 @@ private data class LiveRuntimeSnapshot(
     val shadeBoostGamma: Int,
     val anisotropicFiltering: Int,
     val enableHwMipmapping: Boolean,
+    val antiBlur: Boolean,
     val widescreenPatches: Boolean,
     val noInterlacingPatches: Boolean,
     val cpuSpriteRenderSize: Int,
@@ -703,6 +706,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.enableHwMipmapping.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(enableHwMipmapping = value) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.antiBlur.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(antiBlur = value) }
             }
         }
         viewModelScope.launch {
@@ -1194,6 +1202,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     shadeBoostGamma = config.shadeBoostGamma,
                     anisotropicFiltering = config.anisotropicFiltering,
                     enableHwMipmapping = config.enableHwMipmapping,
+                    antiBlur = config.antiBlur,
                     widescreenPatches = config.widescreenPatches,
                     noInterlacingPatches = config.noInterlacingPatches,
                     cpuSpriteRenderSize = config.cpuSpriteRenderSize,
@@ -1368,6 +1377,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     shadeBoostGamma = liveRuntime.shadeBoostGamma,
                     anisotropicFiltering = liveRuntime.anisotropicFiltering,
                     enableHwMipmapping = liveRuntime.enableHwMipmapping,
+                    antiBlur = liveRuntime.antiBlur,
                     widescreenPatches = liveRuntime.widescreenPatches,
                     noInterlacingPatches = liveRuntime.noInterlacingPatches,
                     cpuSpriteRenderSize = liveRuntime.cpuSpriteRenderSize,
@@ -2367,6 +2377,18 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun setAntiBlur(enabled: Boolean) {
+        viewModelScope.launch {
+            val newState = markPerformancePresetCustom(_uiState.value).copy(antiBlur = enabled)
+            persistRuntimeState(newState) {
+                preferences.setPerformancePreset(PerformancePresets.CUSTOM)
+                preferences.setAntiBlur(enabled)
+            }
+            EmulatorBridge.setSetting("EmuCore/GS", "pcrtc_antiblur", "bool", enabled.toString())
+            updateCrashContext()
+        }
+    }
+
     fun setCpuSpriteRenderSize(value: Int) {
         viewModelScope.launch {
             val newState = markPerformancePresetCustom(_uiState.value).copy(cpuSpriteRenderSize = value)
@@ -2916,6 +2938,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             shadeBoostGamma = settings.shadeBoostGamma,
             anisotropicFiltering = settings.anisotropicFiltering,
             enableHwMipmapping = settings.enableHwMipmapping,
+            antiBlur = settings.antiBlur,
             widescreenPatches = settings.enableWidescreenPatches,
             noInterlacingPatches = settings.enableNoInterlacingPatches,
             cpuSpriteRenderSize = settings.cpuSpriteRenderSize,
@@ -2992,6 +3015,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             shadeBoostGamma = preferences.shadeBoostGamma.first(),
             anisotropicFiltering = preferences.anisotropicFiltering.first(),
             enableHwMipmapping = preferences.enableHwMipmapping.first(),
+            antiBlur = preferences.antiBlur.first(),
             widescreenPatches = preferences.enableWidescreenPatches.first(),
             noInterlacingPatches = preferences.enableNoInterlacingPatches.first(),
             cpuSpriteRenderSize = preferences.cpuSpriteRenderSize.first(),
@@ -3069,6 +3093,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             shadeBoostGamma = pick("shadeBoostGamma", shadeBoostGamma) { shadeBoostGamma },
             anisotropicFiltering = pick("anisotropicFiltering", anisotropicFiltering) { anisotropicFiltering },
             enableHwMipmapping = pick("enableHwMipmapping", enableHwMipmapping) { enableHwMipmapping },
+            antiBlur = pick("antiBlur", antiBlur) { antiBlur },
             widescreenPatches = pick("enableWidescreenPatches", widescreenPatches) { enableWidescreenPatches },
             noInterlacingPatches = pick("enableNoInterlacingPatches", noInterlacingPatches) { enableNoInterlacingPatches },
             cpuSpriteRenderSize = pick("cpuSpriteRenderSize", cpuSpriteRenderSize) { cpuSpriteRenderSize },
@@ -3145,6 +3170,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             shadeBoostGamma = pick("shadeBoostGamma", shadeBoostGamma) { shadeBoostGamma },
             anisotropicFiltering = pick("anisotropicFiltering", anisotropicFiltering) { anisotropicFiltering },
             enableHwMipmapping = pick("enableHwMipmapping", enableHwMipmapping) { enableHwMipmapping },
+            antiBlur = pick("antiBlur", antiBlur) { antiBlur },
             widescreenPatches = pick("enableWidescreenPatches", widescreenPatches) { enableWidescreenPatches },
             noInterlacingPatches = pick("enableNoInterlacingPatches", noInterlacingPatches) { enableNoInterlacingPatches },
             cpuSpriteRenderSize = pick("cpuSpriteRenderSize", cpuSpriteRenderSize) { cpuSpriteRenderSize },
@@ -3202,6 +3228,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalPalFramerate = preferences.palFramerate.first()
         val globalWidescreenPatches = preferences.enableWidescreenPatches.first()
         val globalNoInterlacingPatches = preferences.enableNoInterlacingPatches.first()
+        val globalAntiBlur = preferences.antiBlur.first()
 
         val profile = PerGameSettings(
             gameKey = gameKey,
@@ -3244,6 +3271,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             shadeBoostGamma = shadeBoostGamma,
             anisotropicFiltering = anisotropicFiltering,
             enableHwMipmapping = enableHwMipmapping,
+            antiBlur = antiBlur,
             enableWidescreenPatches = widescreenPatches,
             enableNoInterlacingPatches = noInterlacingPatches,
             cpuSpriteRenderSize = cpuSpriteRenderSize,
@@ -3313,6 +3341,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (shadeBoostGamma != preferences.shadeBoostGamma.first()) add("shadeBoostGamma")
             if (anisotropicFiltering != preferences.anisotropicFiltering.first()) add("anisotropicFiltering")
             if (enableHwMipmapping != preferences.enableHwMipmapping.first()) add("enableHwMipmapping")
+            if (antiBlur != globalAntiBlur) add("antiBlur")
             if (profile.enableWidescreenPatches != globalWidescreenPatches) add("enableWidescreenPatches")
             if (profile.enableNoInterlacingPatches != globalNoInterlacingPatches) add("enableNoInterlacingPatches")
             if (cpuSpriteRenderSize != preferences.cpuSpriteRenderSize.first()) add("cpuSpriteRenderSize")
