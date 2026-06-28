@@ -1073,6 +1073,20 @@ private fun GameSettingsTabContent(
                         helpText = stringResource(R.string.settings_help_racing_mode),
                         onResetToDefault = { onDraftChange(draft.copy(racingMode = defaultProfile.racingMode)) }
                     )
+                    ToggleRow(
+                        title = stringResource(R.string.settings_gamepad_right_stick_up_to_r2),
+                        checked = draft.gamepadRightStickUpToR2,
+                        onCheckedChange = { onDraftChange(draft.copy(gamepadRightStickUpToR2 = it)) },
+                        helpText = stringResource(R.string.settings_help_gamepad_right_stick_up_to_r2),
+                        onResetToDefault = { onDraftChange(draft.copy(gamepadRightStickUpToR2 = defaultProfile.gamepadRightStickUpToR2)) }
+                    )
+                    ToggleRow(
+                        title = stringResource(R.string.settings_gamepad_right_stick_down_to_l2),
+                        checked = draft.gamepadRightStickDownToL2,
+                        onCheckedChange = { onDraftChange(draft.copy(gamepadRightStickDownToL2 = it)) },
+                        helpText = stringResource(R.string.settings_help_gamepad_right_stick_down_to_l2),
+                        onResetToDefault = { onDraftChange(draft.copy(gamepadRightStickDownToL2 = defaultProfile.gamepadRightStickDownToL2)) }
+                    )
                 }
             }
             GameSettingsManagerTab.Fixes -> {
@@ -1403,6 +1417,20 @@ private fun GameSettingsEditorDialog(
                                 onCheckedChange = { draft = draft.copy(racingMode = it) },
                                 helpText = stringResource(R.string.settings_help_racing_mode),
                                 onResetToDefault = { draft = draft.copy(racingMode = defaultProfile.racingMode) }
+                            )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_gamepad_right_stick_up_to_r2),
+                                checked = draft.gamepadRightStickUpToR2,
+                                onCheckedChange = { draft = draft.copy(gamepadRightStickUpToR2 = it) },
+                                helpText = stringResource(R.string.settings_help_gamepad_right_stick_up_to_r2),
+                                onResetToDefault = { draft = draft.copy(gamepadRightStickUpToR2 = defaultProfile.gamepadRightStickUpToR2) }
+                            )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_gamepad_right_stick_down_to_l2),
+                                checked = draft.gamepadRightStickDownToL2,
+                                onCheckedChange = { draft = draft.copy(gamepadRightStickDownToL2 = it) },
+                                helpText = stringResource(R.string.settings_help_gamepad_right_stick_down_to_l2),
+                                onResetToDefault = { draft = draft.copy(gamepadRightStickDownToL2 = defaultProfile.gamepadRightStickDownToL2) }
                             )
                             SelectionRow(
                                 title = stringResource(R.string.settings_fps_overlay_mode),
@@ -2053,8 +2081,14 @@ private fun EditorSection(
             color = MaterialTheme.colorScheme.onSurface
         )
         Surface(
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp,
+            border = BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+            )
         ) {
             Column(
                 modifier = Modifier
@@ -3057,6 +3091,8 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         showFps = showFps,
         fpsOverlayMode = fpsOverlayMode,
         racingMode = racingMode,
+        gamepadRightStickUpToR2 = gamepadRightStickUpToR2,
+        gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
         enableFastBoot = enableFastBoot,
         enableMtvu = enableMtvu,
         enableFastCdvd = enableFastCdvd,
@@ -3136,6 +3172,8 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         showFps = pick("showFps", showFps, defaultProfile.showFps),
         fpsOverlayMode = pick("fpsOverlayMode", fpsOverlayMode, defaultProfile.fpsOverlayMode),
         racingMode = pick("racingMode", racingMode, defaultProfile.racingMode),
+        gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2, defaultProfile.gamepadRightStickUpToR2),
+        gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2, defaultProfile.gamepadRightStickDownToL2),
         enableFastBoot = pick("enableFastBoot", enableFastBoot, defaultProfile.enableFastBoot),
         enableMtvu = pick("enableMtvu", enableMtvu, defaultProfile.enableMtvu),
         enableFastCdvd = pick("enableFastCdvd", enableFastCdvd, defaultProfile.enableFastCdvd),

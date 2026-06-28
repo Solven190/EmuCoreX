@@ -1292,4 +1292,10 @@
     <string name="settings_game_fixes">Correzioni GameDB</string>
     <string name="settings_game_fixes_desc">Applica le correzioni di compatibilità dal GameDB.</string>
     <string name="settings_help_game_fixes">Utilizza le correzioni di compatibilità del GameDB per i giochi noti, incluse le sovrascritture automatiche della modalità di arrotondamento e clamping. Disabilita questa opzione solo quando un gioco specifico necessita delle tue impostazioni manuali di clamping invece dei valori del GameDB; riavvia il gioco per applicare.</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">Mappa il movimento verso l\'alto della levetta destra fisica sul grilletto analogico R2. Questo può aiutare i giochi di corse a utilizzare la levetta per il controllo dell\'acceleratore.</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">Mappa il movimento verso il basso della levetta destra fisica sul grilletto analogico L2. Questo può aiutare i giochi di corse a utilizzare la levetta per il controllo del freno.</string>
+    <string name="settings_gamepad_right_stick_up_to_r2">Levetta destra su verso R2</string>
+    <string name="settings_gamepad_right_stick_up_to_r2_desc">Usa la levetta destra verso l\'alto come grilletto destro.</string>
+    <string name="settings_gamepad_right_stick_down_to_l2">Levetta destra giù verso L2</string>
+    <string name="settings_gamepad_right_stick_down_to_l2_desc">Usa la levetta destra verso il basso come grilletto sinistro.</string>
 </resources>

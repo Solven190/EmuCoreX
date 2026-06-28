@@ -1292,4 +1292,10 @@
     <string name="settings_game_fixes">GameDB 수정 사항</string>
     <string name="settings_game_fixes_desc">GameDB의 호환성 수정 사항을 적용합니다.</string>
     <string name="settings_help_game_fixes">알려진 게임에 대해 자동 클램프 및 반올림 모드 재정의를 포함하여 GameDB 호환성 수정 사항을 사용합니다. 특정 게임이 GameDB 값 대신 수동 클램핑 설정을 필요로 할 때만 이 옵션을 비활성화하세요. 적용하려면 게임을 다시 시작합니다.</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">물리적 오른쪽 스틱의 위쪽 움직임을 R2 아날로그 트리거에 매핑합니다. 레이싱 게임에서 스틱을 가속 제어에 사용하는 데 도움이 될 수 있습니다.</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">물리적 오른쪽 스틱의 아래쪽 움직임을 L2 아날로그 트리거에 매핑합니다. 레이싱 게임에서 스틱을 브레이크 제어에 사용하는 데 도움이 될 수 있습니다.</string>
+    <string name="settings_gamepad_right_stick_up_to_r2">오른쪽 스틱 위를 R2로</string>
+    <string name="settings_gamepad_right_stick_up_to_r2_desc">오른쪽 스틱 위를 오른쪽 트리거로 사용합니다.</string>
+    <string name="settings_gamepad_right_stick_down_to_l2">오른쪽 스틱 아래를 L2로</string>
+    <string name="settings_gamepad_right_stick_down_to_l2_desc">오른쪽 스틱 아래를 왼쪽 트리거로 사용합니다.</string>
 </resources>

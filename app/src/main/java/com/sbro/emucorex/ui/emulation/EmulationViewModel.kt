@@ -9,6 +9,7 @@ import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.EmulatorStorage
+import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.GpuDriverManager
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.NativeApp
@@ -82,6 +83,8 @@ data class EmulationUiState(
     val gamepadStickDeadzone: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE,
     val gamepadLeftStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
     val gamepadRightStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
+    val gamepadRightStickUpToR2: Boolean = false,
+    val gamepadRightStickDownToL2: Boolean = false,
     val stickSurfaceMode: Boolean = false,
     val controlLayouts: Map<String, OverlayControlLayout> = AppPreferences.defaultOverlayControlLayouts(),
     val fps: String = "0.0",
@@ -280,6 +283,8 @@ private data class LiveRuntimeSnapshot(
     val frameLimitEnabled: Boolean,
     val fastForwardSpeed: Float,
     val racingMode: Boolean,
+    val gamepadRightStickUpToR2: Boolean,
+    val gamepadRightStickDownToL2: Boolean,
     val targetFps: Int,
     val ntscFramerate: Float,
     val palFramerate: Float,
@@ -389,12 +394,20 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         if (current.gameSettingsProfileActive) return
         _uiState.value = transform(current)
         syncNativePerformanceOverlayState(_uiState.value)
+        syncGamepadRightStickTriggerMapping(_uiState.value)
     }
 
     private fun syncNativePerformanceOverlayState(state: EmulationUiState) {
         NativeApp.setPerformanceMetricsEnabled(
             visible = state.showFps,
             detailed = state.showFps && state.fpsOverlayMode != FPS_OVERLAY_MODE_SIMPLE
+        )
+    }
+
+    private fun syncGamepadRightStickTriggerMapping(state: EmulationUiState) {
+        GamepadManager.setRightStickTriggerMapping(
+            upToR2 = state.gamepadRightStickUpToR2,
+            downToL2 = state.gamepadRightStickDownToL2
         )
     }
 
@@ -523,6 +536,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.gamepadRightStickSensitivity.collect { value ->
                 _uiState.value = _uiState.value.copy(gamepadRightStickSensitivity = value)
+            }
+        }
+        viewModelScope.launch {
+            preferences.gamepadRightStickUpToR2.collect { enabled ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(gamepadRightStickUpToR2 = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.gamepadRightStickDownToL2.collect { enabled ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(gamepadRightStickDownToL2 = enabled) }
             }
         }
         viewModelScope.launch {
@@ -1377,11 +1400,14 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     frameLimitEnabled = liveRuntime.frameLimitEnabled,
                     fastForwardSpeed = liveRuntime.fastForwardSpeed,
                     racingMode = liveRuntime.racingMode,
+                    gamepadRightStickUpToR2 = liveRuntime.gamepadRightStickUpToR2,
+                    gamepadRightStickDownToL2 = liveRuntime.gamepadRightStickDownToL2,
                     targetFps = liveRuntime.targetFps,
                     ntscFramerate = liveRuntime.ntscFramerate,
                     palFramerate = liveRuntime.palFramerate
                 )
                 syncNativePerformanceOverlayState(_uiState.value)
+                syncGamepadRightStickTriggerMapping(_uiState.value)
                 updateCrashContext(
                     launchState = "starting",
                     launchPath = path
@@ -1761,6 +1787,22 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             val normalized = value.coerceIn(50, 200)
             preferences.setGamepadRightStickSensitivity(normalized)
             _uiState.value = _uiState.value.copy(gamepadRightStickSensitivity = normalized)
+        }
+    }
+
+    fun setGamepadRightStickUpToR2(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setGamepadRightStickUpToR2(enabled)
+            _uiState.value = _uiState.value.copy(gamepadRightStickUpToR2 = enabled)
+            syncGamepadRightStickTriggerMapping(_uiState.value)
+        }
+    }
+
+    fun setGamepadRightStickDownToL2(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setGamepadRightStickDownToL2(enabled)
+            _uiState.value = _uiState.value.copy(gamepadRightStickDownToL2 = enabled)
+            syncGamepadRightStickTriggerMapping(_uiState.value)
         }
     }
 
@@ -2930,6 +2972,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             frameLimitEnabled = preferences.frameLimitEnabled.first(),
             fastForwardSpeed = preferences.fastForwardSpeed.first(),
             racingMode = preferences.racingMode.first(),
+            gamepadRightStickUpToR2 = preferences.gamepadRightStickUpToR2.first(),
+            gamepadRightStickDownToL2 = preferences.gamepadRightStickDownToL2.first(),
             targetFps = preferences.targetFps.first(),
             ntscFramerate = preferences.ntscFramerate.first(),
             palFramerate = preferences.palFramerate.first(),
@@ -3067,6 +3111,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             showFps = pick("showFps", showFps) { showFps },
             fpsOverlayMode = pick("fpsOverlayMode", fpsOverlayMode) { fpsOverlayMode },
             racingMode = pick("racingMode", racingMode) { racingMode },
+            gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2) { gamepadRightStickUpToR2 },
+            gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2) { gamepadRightStickDownToL2 },
             renderer = pick("renderer", renderer) { renderer },
             upscale = pick("upscaleMultiplier", upscale) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
@@ -3149,6 +3195,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalSkipDuplicateFrames = preferences.skipDuplicateFrames.first()
         val globalFrameLimitEnabled = preferences.frameLimitEnabled.first()
         val globalRacingMode = preferences.racingMode.first()
+        val globalGamepadRightStickUpToR2 = preferences.gamepadRightStickUpToR2.first()
+        val globalGamepadRightStickDownToL2 = preferences.gamepadRightStickDownToL2.first()
         val globalTargetFps = preferences.targetFps.first()
         val globalNtscFramerate = preferences.ntscFramerate.first()
         val globalPalFramerate = preferences.palFramerate.first()
@@ -3176,6 +3224,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             skipDuplicateFrames = skipDuplicateFrames,
             frameLimitEnabled = frameLimitEnabled,
             racingMode = racingMode,
+            gamepadRightStickUpToR2 = gamepadRightStickUpToR2,
+            gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
             targetFps = targetFps,
             ntscFramerate = ntscFramerate,
             palFramerate = palFramerate,
@@ -3243,6 +3293,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (skipDuplicateFrames != globalSkipDuplicateFrames) add("skipDuplicateFrames")
             if (frameLimitEnabled != globalFrameLimitEnabled) add("frameLimitEnabled")
             if (racingMode != globalRacingMode) add("racingMode")
+            if (gamepadRightStickUpToR2 != globalGamepadRightStickUpToR2) add("gamepadRightStickUpToR2")
+            if (gamepadRightStickDownToL2 != globalGamepadRightStickDownToL2) add("gamepadRightStickDownToL2")
             if (targetFps != globalTargetFps) add("targetFps")
             if (ntscFramerate != globalNtscFramerate) add("ntscFramerate")
             if (palFramerate != globalPalFramerate) add("palFramerate")

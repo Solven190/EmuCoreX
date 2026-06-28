@@ -1294,4 +1294,10 @@
     <string name="settings_game_fixes">Исправления GameDB</string>
     <string name="settings_game_fixes_desc">Применить исправления совместимости из GameDB.</string>
     <string name="settings_help_game_fixes">Использует исправления совместимости GameDB для известных игр, включая автоматическое переопределение режимов клэмпинга и округления. Отключайте это только в том случае, если конкретной игре требуются ваши ручные настройки клэмпинга вместо значений GameDB; перезапустите игру для применения.</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">Назначает движение физического правого стика вверх на аналоговый триггер R2. Это может помочь в гоночных играх использовать стик для управления газом.</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">Назначает движение физического правого стика вниз на аналоговый триггер L2. Это может помочь в гоночных играх использовать стик для управления тормозом.</string>
+    <string name="settings_gamepad_right_stick_up_to_r2">Правый стик вверх на R2</string>
+    <string name="settings_gamepad_right_stick_up_to_r2_desc">Использовать правый стик вверх как правый триггер.</string>
+    <string name="settings_gamepad_right_stick_down_to_l2">Правый стик вниз на L2</string>
+    <string name="settings_gamepad_right_stick_down_to_l2_desc">Использовать правый стик вниз как левый триггер.</string>
 </resources>

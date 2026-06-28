@@ -146,6 +146,8 @@ data class SettingsSnapshot(
     val gamepadStickDeadzone: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE,
     val gamepadLeftStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
     val gamepadRightStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
+    val gamepadRightStickUpToR2: Boolean = false,
+    val gamepadRightStickDownToL2: Boolean = false,
     val gamepadBindings: Map<String, Int> = emptyMap(),
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
@@ -397,6 +399,8 @@ class AppPreferences(private val context: Context) {
         private val GAMEPAD_STICK_DEADZONE = intPreferencesKey("gamepad_stick_deadzone")
         private val GAMEPAD_LEFT_STICK_SENSITIVITY = intPreferencesKey("gamepad_left_stick_sensitivity")
         private val GAMEPAD_RIGHT_STICK_SENSITIVITY = intPreferencesKey("gamepad_right_stick_sensitivity")
+        private val GAMEPAD_RIGHT_STICK_UP_TO_R2 = booleanPreferencesKey("gamepad_right_stick_up_to_r2")
+        private val GAMEPAD_RIGHT_STICK_DOWN_TO_L2 = booleanPreferencesKey("gamepad_right_stick_down_to_l2")
         private val GAMEPAD_BINDINGS = stringPreferencesKey("gamepad_bindings")
         private val GPU_DRIVER_TYPE = intPreferencesKey("gpu_driver_type")
         private val CUSTOM_DRIVER_PATH = stringPreferencesKey("custom_driver_path")
@@ -904,6 +908,8 @@ class AppPreferences(private val context: Context) {
                 gamepadStickDeadzone = prefs[GAMEPAD_STICK_DEADZONE] ?: DEFAULT_GAMEPAD_STICK_DEADZONE,
                 gamepadLeftStickSensitivity = prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY,
                 gamepadRightStickSensitivity = prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY,
+                gamepadRightStickUpToR2 = prefs[GAMEPAD_RIGHT_STICK_UP_TO_R2] ?: false,
+                gamepadRightStickDownToL2 = prefs[GAMEPAD_RIGHT_STICK_DOWN_TO_L2] ?: false,
                 gamepadBindings = decodeGamepadBindings(prefs[GAMEPAD_BINDINGS]),
                 gamepadBindingsByPad = decodeGamepadBindingsByPad(prefs[GAMEPAD_BINDINGS]),
                 gpuDriverType = prefs[GPU_DRIVER_TYPE] ?: 0,
@@ -1310,6 +1316,26 @@ class AppPreferences(private val context: Context) {
     suspend fun setGamepadRightStickSensitivity(value: Int) {
         context.dataStore.edit { prefs ->
             prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] = value.coerceIn(50, 200)
+        }
+    }
+
+    val gamepadRightStickUpToR2: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[GAMEPAD_RIGHT_STICK_UP_TO_R2] ?: false
+    }
+
+    suspend fun setGamepadRightStickUpToR2(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[GAMEPAD_RIGHT_STICK_UP_TO_R2] = enabled
+        }
+    }
+
+    val gamepadRightStickDownToL2: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[GAMEPAD_RIGHT_STICK_DOWN_TO_L2] ?: false
+    }
+
+    suspend fun setGamepadRightStickDownToL2(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[GAMEPAD_RIGHT_STICK_DOWN_TO_L2] = enabled
         }
     }
 
@@ -2276,6 +2302,8 @@ class AppPreferences(private val context: Context) {
             put("gamepadStickDeadzone", prefs[GAMEPAD_STICK_DEADZONE] ?: DEFAULT_GAMEPAD_STICK_DEADZONE)
             put("gamepadLeftStickSensitivity", prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
             put("gamepadRightStickSensitivity", prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
+            put("gamepadRightStickUpToR2", prefs[GAMEPAD_RIGHT_STICK_UP_TO_R2] ?: false)
+            put("gamepadRightStickDownToL2", prefs[GAMEPAD_RIGHT_STICK_DOWN_TO_L2] ?: false)
             put("enableFastBoot", prefs[ENABLE_FAST_BOOT] ?: true)
             put("eeCycleRate", prefs[EE_CYCLE_RATE] ?: 0)
             put("eeCycleSkip", prefs[EE_CYCLE_SKIP] ?: 0)
@@ -2440,6 +2468,8 @@ class AppPreferences(private val context: Context) {
             prefs[GAMEPAD_STICK_DEADZONE] = json.optInt("gamepadStickDeadzone", DEFAULT_GAMEPAD_STICK_DEADZONE).coerceIn(0, 35)
             prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] = json.optInt("gamepadLeftStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)
             prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] = json.optInt("gamepadRightStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)
+            prefs[GAMEPAD_RIGHT_STICK_UP_TO_R2] = json.optBoolean("gamepadRightStickUpToR2", false)
+            prefs[GAMEPAD_RIGHT_STICK_DOWN_TO_L2] = json.optBoolean("gamepadRightStickDownToL2", false)
             prefs[ENABLE_FAST_BOOT] = json.optBoolean("enableFastBoot", true)
             prefs[EE_CYCLE_RATE] = json.optInt("eeCycleRate", 0)
             prefs[EE_CYCLE_SKIP] = json.optInt("eeCycleSkip", 0)

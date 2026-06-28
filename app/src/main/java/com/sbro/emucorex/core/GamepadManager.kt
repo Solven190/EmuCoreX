@@ -154,6 +154,10 @@ object GamepadManager {
     @Volatile
     private var invertRightStickHorizontal = false
     @Volatile
+    private var rightStickUpToR2 = false
+    @Volatile
+    private var rightStickDownToL2 = false
+    @Volatile
     private var singleGamepadReplacesTouch = true
 
     private val connectionLock = Any()
@@ -285,6 +289,16 @@ object GamepadManager {
             }
         }
         scope.launch {
+            preferences.gamepadRightStickUpToR2.collectLatest { enabled ->
+                rightStickUpToR2 = enabled
+            }
+        }
+        scope.launch {
+            preferences.gamepadRightStickDownToL2.collectLatest { enabled ->
+                rightStickDownToL2 = enabled
+            }
+        }
+        scope.launch {
             preferences.enableAutoGamepad.collectLatest { enabled ->
                 singleGamepadReplacesTouch = enabled
                 refreshConnectedGamepads()
@@ -394,6 +408,11 @@ object GamepadManager {
         }
     }
 
+    fun setRightStickTriggerMapping(upToR2: Boolean, downToL2: Boolean) {
+        rightStickUpToR2 = upToR2
+        rightStickDownToL2 = downToL2
+    }
+
     fun isEmulationInputEnabled(): Boolean = emulationInputEnabled
 
     fun handleKeyEvent(event: KeyEvent): Boolean {
@@ -440,26 +459,36 @@ object GamepadManager {
             getAxisValueWithFallback(event, MotionEvent.AXIS_Z, MotionEvent.AXIS_RX),
             rightStickSensitivity
         ).let { if (invertRightStickHorizontal) -it else it }
-        val rightY = processStickAxis(
+        val physicalRightY = processStickAxis(
             getAxisValueWithFallback(event, MotionEvent.AXIS_RZ, MotionEvent.AXIS_RY),
             rightStickSensitivity
-        ).let { if (invertRightStick) -it else it }
-        if (rightX != state.prevRightX || rightY != state.prevRightY) {
+        )
+        val rightY = physicalRightY.let { if (invertRightStick) -it else it }
+        val mappedR2FromRightStick = if (rightStickUpToR2) (-physicalRightY).coerceAtLeast(0f) else 0f
+        val mappedL2FromRightStick = if (rightStickDownToL2) physicalRightY.coerceAtLeast(0f) else 0f
+        val rightStickY = when {
+            rightStickUpToR2 && physicalRightY < 0f -> 0f
+            rightStickDownToL2 && physicalRightY > 0f -> 0f
+            else -> rightY
+        }
+        if (rightX != state.prevRightX || rightStickY != state.prevRightY) {
             dispatchAnalogStick(
                 padIndex = padIndex,
                 x = rightX,
-                y = rightY,
+                y = rightStickY,
                 upKey = PadKey.RightStickUp,
                 rightKey = PadKey.RightStickRight,
                 downKey = PadKey.RightStickDown,
                 leftKey = PadKey.RightStickLeft
             )
             state.prevRightX = rightX
-            state.prevRightY = rightY
+            state.prevRightY = rightStickY
         }
 
         val lt = getAxisValueWithFallback(event, MotionEvent.AXIS_LTRIGGER, MotionEvent.AXIS_BRAKE)
+            .coerceAtLeast(mappedL2FromRightStick)
         val rt = getAxisValueWithFallback(event, MotionEvent.AXIS_RTRIGGER, MotionEvent.AXIS_GAS)
+            .coerceAtLeast(mappedR2FromRightStick)
         if (lt != state.prevLT) {
             dispatchAnalogButton(padIndex, PadKey.L2, lt)
             state.prevLT = lt

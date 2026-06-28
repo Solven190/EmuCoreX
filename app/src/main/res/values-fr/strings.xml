@@ -1294,4 +1294,10 @@
     <string name="settings_game_fixes">Correctifs GameDB</string>
     <string name="settings_game_fixes_desc">Appliquer les correctifs de compatibilité de la GameDB.</string>
     <string name="settings_help_game_fixes">Utilise les correctifs de compatibilité de la GameDB pour les jeux connus, y compris les remplacements automatiques des modes de clamping et d\'arrondi. Désactivez cette option uniquement lorsqu\'un jeu spécifique nécessite vos paramètres de clamping manuels au lieu des valeurs de la GameDB ; redémarrez le jeu pour appliquer.</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">Associe le mouvement vers le haut du stick droit physique à la gâchette analogique R2. Cela peut aider les jeux de course à utiliser le stick pour le contrôle de l\'accélérateur.</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">Associe le mouvement vers le bas du stick droit physique à la gâchette analogique L2. Cela peut aider les jeux de course à utiliser le stick pour le contrôle des freins.</string>
+    <string name="settings_gamepad_right_stick_up_to_r2">Stick droit vers le haut sur R2</string>
+    <string name="settings_gamepad_right_stick_up_to_r2_desc">Utiliser le stick droit vers le haut comme gâchette droite.</string>
+    <string name="settings_gamepad_right_stick_down_to_l2">Stick droit vers le bas sur L2</string>
+    <string name="settings_gamepad_right_stick_down_to_l2_desc">Utiliser le stick droit vers le bas comme gâchette gauche.</string>
 </resources>

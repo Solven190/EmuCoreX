@@ -1112,6 +1112,8 @@ fun EmulationScreen(
                     onSetGamepadStickDeadzone = { viewModel.setGamepadStickDeadzone(it) },
                     onSetGamepadLeftStickSensitivity = { viewModel.setGamepadLeftStickSensitivity(it) },
                     onSetGamepadRightStickSensitivity = { viewModel.setGamepadRightStickSensitivity(it) },
+                    onSetGamepadRightStickUpToR2 = { viewModel.setGamepadRightStickUpToR2(it) },
+                    onSetGamepadRightStickDownToL2 = { viewModel.setGamepadRightStickDownToL2(it) },
                     onToggleControls = toggleControlsClick,
                     onOpenControlsEditor = { showControlsEditor = true },
                     onOpenGamepadMapping = { showGamepadMappingDialog = true },
@@ -2143,6 +2145,8 @@ private fun EmulationSidebarMenu(
     onSetGamepadStickDeadzone: (Int) -> Unit,
     onSetGamepadLeftStickSensitivity: (Int) -> Unit,
     onSetGamepadRightStickSensitivity: (Int) -> Unit,
+    onSetGamepadRightStickUpToR2: (Boolean) -> Unit,
+    onSetGamepadRightStickDownToL2: (Boolean) -> Unit,
     onToggleControls: () -> Unit,
     onOpenControlsEditor: () -> Unit,
     onOpenGamepadMapping: () -> Unit,
@@ -2860,6 +2864,24 @@ private fun EmulationSidebarMenu(
                             onValueChange = { onSetGamepadRightStickSensitivity(it.toInt()) },
                             helpText = stringResource(R.string.settings_help_gamepad_right_stick_sensitivity),
                             onResetToDefault = { onSetGamepadRightStickSensitivity(AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY) }
+                        )
+
+                        SettingsToggle(
+                            title = stringResource(R.string.settings_gamepad_right_stick_up_to_r2),
+                            checked = uiState.gamepadRightStickUpToR2,
+                            enabled = gamepadConnected,
+                            onCheckedChange = onSetGamepadRightStickUpToR2,
+                            helpText = stringResource(R.string.settings_help_gamepad_right_stick_up_to_r2),
+                            onResetToDefault = { onSetGamepadRightStickUpToR2(globalDefaults.gamepadRightStickUpToR2) }
+                        )
+
+                        SettingsToggle(
+                            title = stringResource(R.string.settings_gamepad_right_stick_down_to_l2),
+                            checked = uiState.gamepadRightStickDownToL2,
+                            enabled = gamepadConnected,
+                            onCheckedChange = onSetGamepadRightStickDownToL2,
+                            helpText = stringResource(R.string.settings_help_gamepad_right_stick_down_to_l2),
+                            onResetToDefault = { onSetGamepadRightStickDownToL2(globalDefaults.gamepadRightStickDownToL2) }
                         )
 
                         MenuButton(
@@ -4238,6 +4260,7 @@ private fun gamepadPlayerLabel(padIndex: Int): String {
 private fun SettingsToggle(
     title: String,
     checked: Boolean,
+    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
     helpText: String? = null,
     onResetToDefault: (() -> Unit)? = null
@@ -4252,13 +4275,14 @@ private fun SettingsToggle(
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication = null,
+                enabled = enabled,
                 onClick = { onCheckedChange(!checked) },
-                onLongClick = onResetToDefault?.let {
+                onLongClick = if (enabled) onResetToDefault?.let {
                     {
                         it()
                         Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
                     }
-                }
+                } else null
             )
             .gamepadFocusableCard(
                 shape = shape,
@@ -4284,7 +4308,7 @@ private fun SettingsToggle(
                     text = title,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                     modifier = Modifier.weight(1f, fill = false),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 helpText?.let {
                     SettingHelpButton(title = title, description = it)
@@ -4293,6 +4317,7 @@ private fun SettingsToggle(
             Switch(
                 checked = checked,
                 onCheckedChange = null,
+                enabled = enabled,
                 modifier = Modifier.scale(0.85f),
                 colors = androidx.compose.material3.SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.primary,

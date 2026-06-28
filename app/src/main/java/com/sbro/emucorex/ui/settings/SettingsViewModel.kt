@@ -147,6 +147,8 @@ data class SettingsUiState(
     val gamepadStickDeadzone: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE,
     val gamepadLeftStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
     val gamepadRightStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
+    val gamepadRightStickUpToR2: Boolean = false,
+    val gamepadRightStickDownToL2: Boolean = false,
     val gamepadBindings: Map<String, Int> = emptyMap(),
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
@@ -312,6 +314,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             gamepadStickDeadzone = snapshot.gamepadStickDeadzone,
             gamepadLeftStickSensitivity = snapshot.gamepadLeftStickSensitivity,
             gamepadRightStickSensitivity = snapshot.gamepadRightStickSensitivity,
+            gamepadRightStickUpToR2 = snapshot.gamepadRightStickUpToR2,
+            gamepadRightStickDownToL2 = snapshot.gamepadRightStickDownToL2,
             gamepadBindings = snapshot.gamepadBindings,
             gamepadBindingsByPad = snapshot.gamepadBindingsByPad,
             gpuDriverType = snapshot.gpuDriverType,
@@ -1412,6 +1416,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setGamepadStickDeadzone(value: Int) { viewModelScope.launch { preferences.setGamepadStickDeadzone(value) } }
     fun setGamepadLeftStickSensitivity(value: Int) { viewModelScope.launch { preferences.setGamepadLeftStickSensitivity(value) } }
     fun setGamepadRightStickSensitivity(value: Int) { viewModelScope.launch { preferences.setGamepadRightStickSensitivity(value) } }
+    fun setGamepadRightStickUpToR2(enabled: Boolean) { viewModelScope.launch { preferences.setGamepadRightStickUpToR2(enabled) } }
+    fun setGamepadRightStickDownToL2(enabled: Boolean) { viewModelScope.launch { preferences.setGamepadRightStickDownToL2(enabled) } }
 
     fun setBiosPath(uri: Uri) {
         val application = getApplication<Application>()

@@ -1328,6 +1328,24 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_gamepad_right_stick_sensitivity),
                             onResetToDefault = { viewModel.setGamepadRightStickSensitivity(defaults.gamepadRightStickSensitivity) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.Gamepad,
+                            title = stringResource(R.string.settings_gamepad_right_stick_up_to_r2),
+                            subtitle = stringResource(R.string.settings_gamepad_right_stick_up_to_r2_desc),
+                            checked = uiState.gamepadRightStickUpToR2,
+                            onCheckedChange = viewModel::setGamepadRightStickUpToR2,
+                            helpText = stringResource(R.string.settings_help_gamepad_right_stick_up_to_r2),
+                            onResetToDefault = { viewModel.setGamepadRightStickUpToR2(defaults.gamepadRightStickUpToR2) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Gamepad,
+                            title = stringResource(R.string.settings_gamepad_right_stick_down_to_l2),
+                            subtitle = stringResource(R.string.settings_gamepad_right_stick_down_to_l2_desc),
+                            checked = uiState.gamepadRightStickDownToL2,
+                            onCheckedChange = viewModel::setGamepadRightStickDownToL2,
+                            helpText = stringResource(R.string.settings_help_gamepad_right_stick_down_to_l2),
+                            onResetToDefault = { viewModel.setGamepadRightStickDownToL2(defaults.gamepadRightStickDownToL2) }
+                        )
                     }
                     SettingsSection(title = stringResource(R.string.settings_gamepad_mapping_title)) {
                         val selectedBindings = uiState.gamepadBindingsByPad[selectedGamepadPadIndex].orEmpty()
@@ -2557,6 +2575,8 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Controls, R.string.settings_gamepad_stick_deadzone),
         entry(SettingsTab.Controls, R.string.settings_gamepad_left_stick_sensitivity),
         entry(SettingsTab.Controls, R.string.settings_gamepad_right_stick_sensitivity),
+        entry(SettingsTab.Controls, R.string.settings_gamepad_right_stick_up_to_r2),
+        entry(SettingsTab.Controls, R.string.settings_gamepad_right_stick_down_to_l2),
         entry(SettingsTab.Controls, R.string.settings_pad_vibration),
         entry(SettingsTab.Controls, R.string.settings_pad_vibration_strength),
         entry(SettingsTab.Controls, R.string.settings_pad_vibration_test),

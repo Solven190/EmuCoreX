@@ -1292,4 +1292,10 @@
     <string name="settings_game_fixes">إصلاحات GameDB</string>
     <string name="settings_game_fixes_desc">تطبيق إصلاحات التوافق من GameDB.</string>
     <string name="settings_help_game_fixes">يستخدم إصلاحات التوافق من GameDB للألعاب المعروفة، بما في ذلك التجاوزات التلقائية لوضع التقييد (clamp) والتقريب (round). قم بتعطيل هذا فقط عندما تحتاج لعبة معينة إلى إعدادات التقييد اليدوية بدلاً من قيم GameDB؛ أعد تشغيل اللعبة للتطبيق.</string>
+    <string name="settings_help_gamepad_right_stick_up_to_r2">يعيّن الحركة لأعلى على العصا اليمنى الفعلية إلى المحفز التناظري R2. يمكن أن يساعد ذلك ألعاب السباق في استخدام العصا للتحكم في دواسة الوقود.</string>
+    <string name="settings_help_gamepad_right_stick_down_to_l2">يعيّن الحركة لأسفل على العصا اليمنى الفعلية إلى المحفز التناظري L2. يمكن أن يساعد ذلك ألعاب السباق في استخدام العصا للتحكم في الفرامل.</string>
+    <string name="settings_gamepad_right_stick_up_to_r2">العصا اليمنى لأعلى إلى R2</string>
+    <string name="settings_gamepad_right_stick_up_to_r2_desc">استخدم العصا اليمنى لأعلى كمحفز أيمن.</string>
+    <string name="settings_gamepad_right_stick_down_to_l2">العصا اليمنى لأسفل إلى L2</string>
+    <string name="settings_gamepad_right_stick_down_to_l2_desc">استخدم العصا اليمنى لأسفل كمحفز أيسر.</string>
 </resources>
