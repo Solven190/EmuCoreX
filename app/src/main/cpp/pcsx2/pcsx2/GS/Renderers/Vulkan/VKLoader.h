@@ -26,7 +26,7 @@ class Error;
 #define VK_USE_PLATFORM_METAL_EXT
 #endif
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) && !defined(VK_USE_PLATFORM_ANDROID_KHR)
 #define VK_USE_PLATFORM_ANDROID_KHR
 #endif
 

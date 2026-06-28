@@ -119,7 +119,7 @@ static __fi void mVUCompileLoadCurIToIReg_emit_oaknut(mV)
 	oakLoad64(OAK_XSCRATCH,
 		mVUBranchOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].Micro))));
 	oakLoad32(OAK_WSCRATCH,
-		{OAK_XSCRATCH, static_cast<s64>(mVU.prog.IRinfo.curPC)});
+		{OAK_XSCRATCH, static_cast<s64>(mVU.prog.IRinfo.curPC * sizeof(u32))});
 	oakStore32(OAK_WSCRATCH,
 		mVUBranchOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].VI[REG_I].UL))));
 	recEndOaknutEmit();

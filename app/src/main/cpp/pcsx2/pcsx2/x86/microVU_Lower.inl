@@ -1535,7 +1535,7 @@ static void mVU_IADDI_load_ibithack_imm5_emit_oaknut(mV, oak::WReg dst)
 {
 	oakLoad64(OAK_XSCRATCH, {oak::util::X27,
 		static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].Micro))});
-	oakLoad32(dst, {OAK_XSCRATCH, static_cast<s64>(mVU.prog.IRinfo.curPC)});
+	oakLoad32(dst, {OAK_XSCRATCH, static_cast<s64>(mVU.prog.IRinfo.curPC * sizeof(u32))});
 	oakAsm->LSL(dst, dst, 21);
 	oakAsm->ASR(dst, dst, 27);
 }
@@ -1599,7 +1599,7 @@ static void mVU_IADDIU_load_ibithack_imm15_emit_oaknut(mV, oak::WReg dst)
 {
 	oakLoad64(OAK_XSCRATCH, {oak::util::X27,
 		static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].Micro))});
-	oakLoad32(dst, {OAK_XSCRATCH, static_cast<s64>(mVU.prog.IRinfo.curPC)});
+	oakLoad32(dst, {OAK_XSCRATCH, static_cast<s64>(mVU.prog.IRinfo.curPC * sizeof(u32))});
 	oakAsm->MOV(OAK_WSCRATCH2, dst);
 	oakAsm->LSR(OAK_WSCRATCH2, OAK_WSCRATCH2, 10);
 	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, 0x7800);
@@ -1750,7 +1750,7 @@ static void mVU_ISUBIU_load_ibithack_imm15_emit_oaknut(mV, oak::WReg dst)
 {
 	oakLoad64(OAK_XSCRATCH, {oak::util::X27,
 		static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].Micro))});
-	oakLoad32(dst, {OAK_XSCRATCH, static_cast<s64>(mVU.prog.IRinfo.curPC)});
+	oakLoad32(dst, {OAK_XSCRATCH, static_cast<s64>(mVU.prog.IRinfo.curPC * sizeof(u32))});
 	oakAsm->MOV(OAK_WSCRATCH2, dst);
 	oakAsm->LSR(OAK_WSCRATCH2, OAK_WSCRATCH2, 10);
 	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, 0x7800);
@@ -2101,8 +2101,10 @@ static void mVU_makeMemoryAddress_oaknut(mP, int addr, int vi, s32 imm, s32 byte
 	}
 	else
 	{
+		oakLoad64(OAK_XSCRATCH,
+			mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].Micro))));
 		oakLoad32(OAK_WSCRATCH,
-			mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[mVU.index].Micro)) + mVU.prog.IRinfo.curPC));
+			{OAK_XSCRATCH, static_cast<s64>(mVU.prog.IRinfo.curPC * sizeof(u32))});
 		oakAsm->LSL(OAK_WSCRATCH, OAK_WSCRATCH, 21);
 		oakAsm->ASR(OAK_WSCRATCH, OAK_WSCRATCH, 21);
 		oakAsm->ADD(addr_w, addr_w, OAK_WSCRATCH);
