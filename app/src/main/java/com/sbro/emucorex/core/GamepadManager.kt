@@ -51,8 +51,17 @@ object GamepadManager {
         var prevRightY: Float = 0f,
         var prevLT: Float = 0f,
         var prevRT: Float = 0f,
+        var prevMappedL2FromRightStick: Float = 0f,
+        var prevMappedR2FromRightStick: Float = 0f,
         var prevHatX: Float = 0f,
         var prevHatY: Float = 0f
+    )
+
+    private data class RightStickTriggerReset(
+        val padIndex: Int,
+        val releaseRightStickY: Boolean,
+        val releaseL2: Boolean,
+        val releaseR2: Boolean
     )
 
     private data class RumbleState(
@@ -290,12 +299,12 @@ object GamepadManager {
         }
         scope.launch {
             preferences.gamepadRightStickUpToR2.collectLatest { enabled ->
-                rightStickUpToR2 = enabled
+                setRightStickTriggerMapping(enabled, rightStickDownToL2)
             }
         }
         scope.launch {
             preferences.gamepadRightStickDownToL2.collectLatest { enabled ->
-                rightStickDownToL2 = enabled
+                setRightStickTriggerMapping(rightStickUpToR2, enabled)
             }
         }
         scope.launch {
@@ -409,8 +418,12 @@ object GamepadManager {
     }
 
     fun setRightStickTriggerMapping(upToR2: Boolean, downToL2: Boolean) {
+        val changed = rightStickUpToR2 != upToR2 || rightStickDownToL2 != downToL2
         rightStickUpToR2 = upToR2
         rightStickDownToL2 = downToL2
+        if (changed) {
+            resetRightStickTriggerState()
+        }
     }
 
     fun isEmulationInputEnabled(): Boolean = emulationInputEnabled
@@ -497,6 +510,8 @@ object GamepadManager {
             dispatchAnalogButton(padIndex, PadKey.R2, rt)
             state.prevRT = rt
         }
+        state.prevMappedL2FromRightStick = mappedL2FromRightStick
+        state.prevMappedR2FromRightStick = mappedR2FromRightStick
 
         val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
         val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
@@ -603,6 +618,42 @@ object GamepadManager {
     private fun dispatchAnalogButton(padIndex: Int, key: Int, value: Float) {
         val range = (value.coerceIn(0f, 1f) * 255f).roundToInt().coerceIn(0, 255)
         EmulatorBridge.setPadButton(padIndex, key, range, range > 0)
+    }
+
+    private fun resetRightStickTriggerState() {
+        val resets = synchronized(connectionLock) {
+            analogStatesByDeviceId.mapNotNull { (deviceId, state) ->
+                val padIndex = deviceToPadIndex[deviceId] ?: return@mapNotNull null
+                val reset = RightStickTriggerReset(
+                    padIndex = padIndex,
+                    releaseRightStickY = state.prevRightY != 0f,
+                    releaseL2 = state.prevMappedL2FromRightStick > 0f &&
+                        state.prevLT <= state.prevMappedL2FromRightStick,
+                    releaseR2 = state.prevMappedR2FromRightStick > 0f &&
+                        state.prevRT <= state.prevMappedR2FromRightStick
+                )
+                state.prevRightY = 0f
+                state.prevLT = 0f
+                state.prevRT = 0f
+                state.prevMappedL2FromRightStick = 0f
+                state.prevMappedR2FromRightStick = 0f
+                reset
+            }
+        }
+        if (!emulationInputEnabled) return
+
+        resets.forEach { reset ->
+            if (reset.releaseRightStickY) {
+                EmulatorBridge.setPadButton(reset.padIndex, PadKey.RightStickUp, 0, false)
+                EmulatorBridge.setPadButton(reset.padIndex, PadKey.RightStickDown, 0, false)
+            }
+            if (reset.releaseL2) {
+                EmulatorBridge.setPadButton(reset.padIndex, PadKey.L2, 0, false)
+            }
+            if (reset.releaseR2) {
+                EmulatorBridge.setPadButton(reset.padIndex, PadKey.R2, 0, false)
+            }
+        }
     }
 
     private fun mapKeyCodeToPadKey(padIndex: Int, keyCode: Int): Int? {

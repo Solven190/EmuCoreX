@@ -237,7 +237,8 @@ private data class TouchButtonSpec(
     val onClick: (() -> Unit)? = null,
     val tapToHold: Boolean = false,
     val longPressDelayMs: Long = 0L,
-    val onLongPressChange: ((Boolean) -> Unit)? = null
+    val onLongPressChange: ((Boolean) -> Unit)? = null,
+    val externalPressed: Boolean = false
 )
 
 private data class LiveSelectionOption(
@@ -373,6 +374,7 @@ fun EmulationScreen(
     val connectedGamepadCount by GamepadManager.connectedGamepadCountState.collectAsState()
     val gamepadConnected = connectedGamepadCount > 0
     val touchPadIndex = GamepadManager.resolveTouchPadIndex()
+    val overlayPadIndex = touchPadIndex ?: 0
     var showGamepadIndicator by remember { mutableStateOf(gamepadConnected) }
 
     val shouldShowOverlay = uiState.controlsVisible && (
@@ -1039,9 +1041,7 @@ fun EmulationScreen(
                 onToggleLeftInputMode = viewModel::toggleLeftInputMode,
                 onFastForwardHoldChange = viewModel::setFastForwardHeld,
                 onPadInput = { keyCode, range, pressed ->
-                    touchPadIndex?.let { padIndex ->
-                        viewModel.onPadInput(padIndex, keyCode, range, pressed)
-                    }
+                    viewModel.onPadInput(overlayPadIndex, keyCode, range, pressed)
                 }
             )
         }
@@ -1607,6 +1607,7 @@ private fun OnScreenControls(
             rightStickMappedR2Range = 0
             dispatchTouchR2()
         }
+        currentOnPadInput(PadKey.RIGHT_STICK_UP, 0, false)
     }
 
     LaunchedEffect(rightStickDownToL2) {
@@ -1614,6 +1615,7 @@ private fun OnScreenControls(
             rightStickMappedL2Range = 0
             dispatchTouchL2()
         }
+        currentOnPadInput(PadKey.RIGHT_STICK_DOWN, 0, false)
     }
 
     fun buttonPressHandler(id: String): ((Boolean) -> Unit)? = when (id) {
@@ -1706,7 +1708,12 @@ private fun OnScreenControls(
                     onClick = if (spec.id == "left_input_toggle") onToggleLeftInputMode else null,
                     tapToHold = racingMode && isRacingTapToHoldButton(spec.id),
                     longPressDelayMs = if (spec.id == "start") TRANSPORT_HOLD_DELAY_MS else 0L,
-                    onLongPressChange = if (spec.id == "start") onFastForwardHoldChange else null
+                    onLongPressChange = if (spec.id == "start") onFastForwardHoldChange else null,
+                    externalPressed = when (spec.id) {
+                        "l2" -> rightStickMappedL2Range > 0
+                        "r2" -> rightStickMappedR2Range > 0
+                        else -> false
+                    }
                 )
             }
         }
@@ -2110,7 +2117,9 @@ private fun TouchButtonGroup(
                 height = spec.height,
                 shape = spec.shape,
                 interactive = false,
-                pressed = activeTargets.containsValue(spec.id) || latchedTargets[spec.id] == true,
+                pressed = activeTargets.containsValue(spec.id) ||
+                    latchedTargets[spec.id] == true ||
+                    spec.externalPressed,
                 modifier = Modifier.offset {
                     IntOffset(
                         (spec.x.roundToPx() - groupRect.left.roundToInt()),
@@ -2952,7 +2961,6 @@ private fun EmulationSidebarMenu(
                         SettingsToggle(
                             title = stringResource(R.string.settings_gamepad_right_stick_up_to_r2),
                             checked = uiState.gamepadRightStickUpToR2,
-                            enabled = gamepadConnected,
                             onCheckedChange = onSetGamepadRightStickUpToR2,
                             helpText = stringResource(R.string.settings_help_gamepad_right_stick_up_to_r2),
                             onResetToDefault = { onSetGamepadRightStickUpToR2(globalDefaults.gamepadRightStickUpToR2) }
@@ -2961,7 +2969,6 @@ private fun EmulationSidebarMenu(
                         SettingsToggle(
                             title = stringResource(R.string.settings_gamepad_right_stick_down_to_l2),
                             checked = uiState.gamepadRightStickDownToL2,
-                            enabled = gamepadConnected,
                             onCheckedChange = onSetGamepadRightStickDownToL2,
                             helpText = stringResource(R.string.settings_help_gamepad_right_stick_down_to_l2),
                             onResetToDefault = { onSetGamepadRightStickDownToL2(globalDefaults.gamepadRightStickDownToL2) }

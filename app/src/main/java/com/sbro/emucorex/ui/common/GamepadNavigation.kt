@@ -185,9 +185,7 @@ object GamepadUiInputRouter {
     private fun resolveAxisDirection(event: MotionEvent): GamepadUiDirection? {
         val vectors = listOf(
             AxisVector(event.getAxisValue(MotionEvent.AXIS_HAT_X), event.getAxisValue(MotionEvent.AXIS_HAT_Y)),
-            AxisVector(event.getAxisValue(MotionEvent.AXIS_X), event.getAxisValue(MotionEvent.AXIS_Y)),
-            AxisVector(event.getAxisValue(MotionEvent.AXIS_Z), event.getAxisValue(MotionEvent.AXIS_RZ)),
-            AxisVector(event.getAxisValue(MotionEvent.AXIS_RX), event.getAxisValue(MotionEvent.AXIS_RY))
+            AxisVector(event.getAxisValue(MotionEvent.AXIS_X), event.getAxisValue(MotionEvent.AXIS_Y))
         )
         val strongest = vectors.maxByOrNull { hypot(it.x.toDouble(), it.y.toDouble()) } ?: return null
         if (abs(strongest.x) < AXIS_RELEASE_THRESHOLD && abs(strongest.y) < AXIS_RELEASE_THRESHOLD) {
