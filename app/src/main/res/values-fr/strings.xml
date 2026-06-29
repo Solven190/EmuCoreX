@@ -1303,4 +1303,7 @@
     <string name="settings_help_anti_blur">Active la gestion interne de l\'anti-flou (anti-blur) du GS. Cela peut réduire le flou ou le scintillement causé par l\'alternance des champs d\'affichage de la PS2 dans de nombreux jeux, mais c\'est moins fidèle au rendu de la console d\'origine et peut légèrement modifier certains effets.</string>
     <string name="settings_anti_blur">Anti-flou (Anti-Blur)</string>
     <string name="settings_anti_blur_desc">Réduire le flou ou le scintillement des champs d\'affichage alternés</string>
+    <string name="settings_vsync">Synchronisation verticale (V-Sync)</string>
+    <string name="settings_vsync_desc">Synchronise la présentation des images avec le taux de rafraîchissement de l\'écran.</string>
+    <string name="settings_help_vsync">Fait correspondre les images présentées au rafraîchissement de l\'écran de l\'appareil. Cela peut réduire les déchirures d\'image (tearing), mais sur certains appareils ou modes de jeu, cela peut provoquer de lourds blocages ou une présentation lente. Laissez cette option désactivée, sauf si une configuration spécifique en bénéficie.</string>
 </resources>

@@ -559,6 +559,7 @@
     <string name="settings_help_stick_scale">Changes the size of the analog stick touch areas. Larger values make them easier to grab during action-heavy games, while smaller values leave more room for the picture and nearby buttons.</string>
     <string name="settings_help_performance_preset">Applies a tested group of graphics and speed settings in one step. Start here before tuning manually: lower presets favor stability and battery, while faster presets trade image quality or compatibility for speed.</string>
     <string name="settings_help_frame_limiter">Keeps game speed tied to the selected target frame rate instead of running as fast as possible. Leave it enabled for normal play; disable it only for testing, uncapped behavior, or very specific use cases.</string>
+    <string name="settings_help_vsync">Matches presented frames to the device display refresh. This can reduce tearing, but on some devices or game modes it may cause heavy stalls or slow presentation. Leave it off unless a specific setup benefits from it.</string>
     <string name="settings_help_skip_duplicate_frames">Skips presenting identical frames when the game keeps drawing the same image repeatedly. Leave it enabled for normal play to reduce repeated presents, GPU work, and input latency in many 25/30 FPS titles; turn it off only if a specific game shows worse frame pacing or timing.</string>
     <string name="settings_help_target_fps">Sets the speed target used by the limiter. Most games should stay at their native cap, so change this only if you know the game or patch supports a different target safely.</string>
     <string name="settings_help_ntsc_framerate">Sets the base refresh rate used by NTSC-region games when Target FPS is set to Auto. Manual FPS overrides this value while it is enabled.</string>
@@ -800,6 +801,8 @@
     <string name="settings_frame_skip_off">Off</string>
     <string name="settings_frame_limiter">Frame limiter</string>
     <string name="settings_frame_limiter_desc">Keeps the game closer to the selected target speed instead of running fully uncapped.</string>
+    <string name="settings_vsync">Vertical sync</string>
+    <string name="settings_vsync_desc">Synchronizes frame presentation with the display refresh rate.</string>
     <string name="settings_fast_forward_speed">Fast-forward speed</string>
     <string name="settings_fast_forward_speed_desc">%1$s</string>
     <string name="settings_help_fast_forward_speed">Sets the speed used while holding Start for fast-forward.</string>

@@ -1303,4 +1303,7 @@
     <string name="settings_help_anti_blur">启用内部 GS 抗模糊处理。这可以减少许多游戏中因交替 PS2 显示场而引起的模糊或闪烁，但与原始主机输出相比不够精确，并且可能会略微改变某些效果。</string>
     <string name="settings_anti_blur">抗模糊 (Anti-Blur)</string>
     <string name="settings_anti_blur_desc">减少交替显示场带来的模糊或闪烁</string>
+    <string name="settings_vsync">垂直同步 (V-Sync)</string>
+    <string name="settings_vsync_desc">将帧显示与显示器刷新率同步。</string>
+    <string name="settings_help_vsync">使呈现的帧与设备显示器的刷新率相匹配。这可以减少画面撕裂，但在某些设备或游戏模式下，可能会导致严重的卡顿或显示缓慢。除非特定设置能从中受益，否则请保持关闭状态。</string>
 </resources>

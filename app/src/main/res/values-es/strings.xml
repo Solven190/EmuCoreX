@@ -1303,4 +1303,7 @@
     <string name="settings_help_anti_blur">Habilita el manejo interno de anti-desenfoque (anti-blur) del GS. Esto puede reducir el desenfoque o parpadeo causado por la alternancia de campos de visualización de PS2 en muchos juegos, pero es menos exacto a la salida original de la consola y puede cambiar ligeramente algunos efectos.</string>
     <string name="settings_anti_blur">Anti-desenfoque (Anti-Blur)</string>
     <string name="settings_anti_blur_desc">Reduce el desenfoque o el parpadeo de los campos de visualización alternos</string>
+    <string name="settings_vsync">Sincronización vertical (V-Sync)</string>
+    <string name="settings_vsync_desc">Sincroniza la presentación de fotogramas con la frecuencia de actualización de la pantalla.</string>
+    <string name="settings_help_vsync">Iguala los fotogramas presentados con la actualización de la pantalla del dispositivo. Esto puede reducir el tearing (desgarro de pantalla), pero en algunos dispositivos o modos de juego puede causar parones fuertes o una presentación lenta. Déjalo desactivado a menos que una configuración específica se beneficie de ello.</string>
 </resources>

@@ -1303,4 +1303,7 @@
     <string name="settings_help_anti_blur">Aktiviert die interne GS-Anti-Blur-Verarbeitung. Dies kann die Unschärfe oder das Flackern reduzieren, das in vielen Spielen durch abwechselnde PS2-Anzeigefelder verursacht wird. Es ist jedoch weniger exakt im Vergleich zur originalen Konsolenausgabe und kann einige Effekte leicht verändern.</string>
     <string name="settings_anti_blur">Anti-Blur</string>
     <string name="settings_anti_blur_desc">Reduziert Unschärfe oder Flackern durch abwechselnde Anzeigefelder</string>
+    <string name="settings_vsync">Vertikale Synchronisation (V-Sync)</string>
+    <string name="settings_vsync_desc">Synchronisiert die Bildausgabe mit der Bildwiederholrate des Bildschirms.</string>
+    <string name="settings_help_vsync">Passt die angezeigten Bilder an die Bildwiederholrate des Geräts an. Dies kann Tearing (Bildzerreißen) reduzieren, kann aber auf einigen Geräten oder in bestimmten Spielmodi zu starken Rucklern oder einer langsamen Darstellung führen. Lass es deaktiviert, es sei denn, ein bestimmtes Setup profitiert davon.</string>
 </resources>

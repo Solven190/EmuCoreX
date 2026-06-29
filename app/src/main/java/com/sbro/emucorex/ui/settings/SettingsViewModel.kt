@@ -156,6 +156,7 @@ data class SettingsUiState(
     val customDriverPath: String? = null,
     val appUpdate: AppUpdateUiState = AppUpdateUiState(),
     val frameLimitEnabled: Boolean = true,
+    val vSyncEnabled: Boolean = false,
     val fastForwardSpeed: Float = AppPreferences.DEFAULT_FAST_FORWARD_SPEED,
     val targetFps: Int = 0,
     val ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
@@ -323,6 +324,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             gpuDriverType = snapshot.gpuDriverType,
             customDriverPath = snapshot.customDriverPath,
             frameLimitEnabled = snapshot.frameLimitEnabled,
+            vSyncEnabled = snapshot.vSyncEnabled,
             fastForwardSpeed = snapshot.fastForwardSpeed,
             targetFps = snapshot.targetFps,
             ntscFramerate = snapshot.ntscFramerate,
@@ -918,6 +920,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setVSyncEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setVSyncEnabled(enabled)
+            EmulatorBridge.setVSyncEnabled(enabled)
+        }
+    }
+
     fun setFastForwardSpeed(value: Float) {
         viewModelScope.launch {
             preferences.setFastForwardSpeed(value)
@@ -1467,6 +1476,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 enableFastBoot = _uiState.value.enableFastBoot,
                 hwDownloadMode = _uiState.value.hwDownloadMode,
                 frameLimitEnabled = _uiState.value.frameLimitEnabled,
+                vSyncEnabled = _uiState.value.vSyncEnabled,
                 targetFps = _uiState.value.targetFps,
                 ntscFramerate = _uiState.value.ntscFramerate,
                 palFramerate = _uiState.value.palFramerate,

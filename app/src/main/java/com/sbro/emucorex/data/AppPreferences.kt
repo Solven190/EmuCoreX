@@ -154,6 +154,7 @@ data class SettingsSnapshot(
     val gpuDriverType: Int = 0,
     val customDriverPath: String? = null,
     val frameLimitEnabled: Boolean = true,
+    val vSyncEnabled: Boolean = false,
     val fastForwardSpeed: Float = AppPreferences.DEFAULT_FAST_FORWARD_SPEED,
     val targetFps: Int = 0,
     val ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
@@ -408,6 +409,7 @@ class AppPreferences(private val context: Context) {
         private val CUSTOM_DRIVER_PATH = stringPreferencesKey("custom_driver_path")
         private val SCREEN_SETTINGS_RESET_HINT_SHOWN = booleanPreferencesKey("screen_settings_reset_hint_shown")
         private val FRAME_LIMIT_ENABLED = booleanPreferencesKey("frame_limit_enabled")
+        private val VSYNC_ENABLED = booleanPreferencesKey("vsync_enabled")
         private val FAST_FORWARD_SPEED = floatPreferencesKey("fast_forward_speed")
         private val TARGET_FPS = intPreferencesKey("target_fps")
         private val NTSC_FRAMERATE = floatPreferencesKey("ntsc_framerate")
@@ -570,6 +572,14 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs[FRAME_LIMIT_ENABLED] = if (prefs[ACHIEVEMENTS_HARDCORE] == true) true else enabled
         }
+    }
+
+    val vSyncEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[VSYNC_ENABLED] ?: false
+    }
+
+    suspend fun setVSyncEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[VSYNC_ENABLED] = enabled }
     }
 
     val fastForwardSpeed: Flow<Float> = context.dataStore.data.map { prefs ->
@@ -918,6 +928,7 @@ class AppPreferences(private val context: Context) {
                 gpuDriverType = prefs[GPU_DRIVER_TYPE] ?: 0,
                 customDriverPath = prefs[CUSTOM_DRIVER_PATH],
                 frameLimitEnabled = prefs[FRAME_LIMIT_ENABLED] ?: true,
+                vSyncEnabled = prefs[VSYNC_ENABLED] ?: false,
                 fastForwardSpeed = sanitizeFastForwardSpeed(prefs[FAST_FORWARD_SPEED]),
                 targetFps = prefs[TARGET_FPS] ?: 0,
                 ntscFramerate = sanitizeRegionFramerate(prefs[NTSC_FRAMERATE], DEFAULT_NTSC_FRAMERATE),
@@ -2394,6 +2405,7 @@ class AppPreferences(private val context: Context) {
             put("gpuDriverType", prefs[GPU_DRIVER_TYPE] ?: 0)
             put("customDriverPath", prefs[CUSTOM_DRIVER_PATH])
             put("frameLimitEnabled", prefs[FRAME_LIMIT_ENABLED] ?: true)
+            put("vSyncEnabled", prefs[VSYNC_ENABLED] ?: false)
             put("fastForwardSpeed", sanitizeFastForwardSpeed(prefs[FAST_FORWARD_SPEED]).toDouble())
             put("targetFps", prefs[TARGET_FPS] ?: 0)
             put("ntscFramerate", sanitizeRegionFramerate(prefs[NTSC_FRAMERATE], DEFAULT_NTSC_FRAMERATE).toDouble())
@@ -2561,6 +2573,7 @@ class AppPreferences(private val context: Context) {
             prefs[GPU_DRIVER_TYPE] = json.optInt("gpuDriverType", 0)
             json.optString("customDriverPath").takeIf { it.isNotBlank() }?.let { prefs[CUSTOM_DRIVER_PATH] = it } ?: prefs.remove(CUSTOM_DRIVER_PATH)
             prefs[FRAME_LIMIT_ENABLED] = json.optBoolean("frameLimitEnabled", true)
+            prefs[VSYNC_ENABLED] = json.optBoolean("vSyncEnabled", false)
             prefs[FAST_FORWARD_SPEED] = sanitizeFastForwardSpeed(json.optDouble("fastForwardSpeed", DEFAULT_FAST_FORWARD_SPEED.toDouble()).toFloat())
             prefs[TARGET_FPS] = json.optInt("targetFps", 0).let { if (it <= 0) 0 else it.coerceIn(20, 120) }
             prefs[NTSC_FRAMERATE] = sanitizeRegionFramerate(json.optDouble("ntscFramerate", DEFAULT_NTSC_FRAMERATE.toDouble()).toFloat(), DEFAULT_NTSC_FRAMERATE)

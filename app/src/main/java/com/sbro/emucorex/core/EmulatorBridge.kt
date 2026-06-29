@@ -335,6 +335,7 @@ object EmulatorBridge {
         frameSkip: Int = 0,
         skipDuplicateFrames: Boolean = true,
         frameLimitEnabled: Boolean = true,
+        vSyncEnabled: Boolean = false,
         fastForwardSpeed: Float = AppPreferences.DEFAULT_FAST_FORWARD_SPEED,
         targetFps: Int = 0,
         ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
@@ -537,6 +538,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/Speedhacks", "EECycleRate", "int", eeCycleRate.toString()))
                 add(settingOp("EmuCore/Speedhacks", "EECycleSkip", "int", eeCycleSkip.toString()))
                 add(settingOp("EmuCore/GS", "FrameLimitEnable", "bool", effectiveFrameLimitEnabled.toString()))
+                add(settingOp("EmuCore/GS", "VsyncEnable", "bool", vSyncEnabled.toString()))
                 addAll(targetFpsOps(targetFps, ntscFramerate, palFramerate))
                 add(settingOp("Framerate", "NominalScalar", "float", "1.0"))
                 add(settingOp("Framerate", "TurboScalar", "float", sanitizeFastForwardSpeed(fastForwardSpeed).toString()))
@@ -1103,6 +1105,10 @@ object EmulatorBridge {
             NativeApp.setFrameLimitEnabled(enabled)
         }
         settingsCache[cacheKey] = value
+    }
+
+    suspend fun setVSyncEnabled(enabled: Boolean) {
+        setSetting("EmuCore/GS", "VsyncEnable", "bool", enabled.toString())
     }
 
     suspend fun setTurboModeEnabled(enabled: Boolean) {

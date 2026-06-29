@@ -1303,4 +1303,7 @@
     <string name="settings_help_anti_blur">Ativa o tratamento interno de anti-desfoque (anti-blur) do GS. Isto pode reduzir o desfoque ou a cintilação causados pela alternância de campos de exibição da PS2 em muitos jogos, mas é menos exato em relação à saída original da consola e pode alterar ligeiramente alguns efeitos.</string>
     <string name="settings_anti_blur">Anti-desfoque (Anti-Blur)</string>
     <string name="settings_anti_blur_desc">Reduzir o desfoque ou cintilação dos campos de exibição alternados</string>
+    <string name="settings_vsync">Sincronização vertical (V-Sync)</string>
+    <string name="settings_vsync_desc">Sincroniza a apresentação dos fotogramas com a taxa de atualização do ecrã.</string>
+    <string name="settings_help_vsync">Iguala os fotogramas apresentados com a atualização do ecrã do dispositivo. Isto pode reduzir o "tearing" (quebra de imagem), mas em alguns dispositivos ou modos de jogo pode causar paragens pesadas ou uma apresentação lenta. Deixe desativado, a menos que uma configuração específica beneficie com isso.</string>
 </resources>

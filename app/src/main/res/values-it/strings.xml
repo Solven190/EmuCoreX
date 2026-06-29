@@ -1301,4 +1301,7 @@
     <string name="settings_help_anti_blur">Abilita la gestione interna anti-sfocatura (anti-blur) del GS. Questo può ridurre la sfocatura o lo sfarfallio causato dall\'alternanza dei campi di visualizzazione PS2 in molti giochi, ma è meno fedele all\'output originale della console e potrebbe modificare leggermente alcuni effetti.</string>
     <string name="settings_anti_blur">Anti-sfocatura (Anti-Blur)</string>
     <string name="settings_anti_blur_desc">Riduci la sfocatura o lo sfarfallio causato dall\'alternanza dei campi di visualizzazione</string>
+    <string name="settings_vsync">Sincronizzazione verticale (V-Sync)</string>
+    <string name="settings_vsync_desc">Sincronizza la presentazione dei fotogrammi con la frequenza di aggiornamento del display.</string>
+    <string name="settings_help_vsync">Adatta i fotogrammi presentati all\'aggiornamento del display del dispositivo. Questo può ridurre il tearing (sfalsamento dell\'immagine), ma su alcuni dispositivi o modalità di gioco potrebbe causare pesanti rallentamenti o una presentazione lenta. Lascialo disattivato a meno che una configurazione specifica non ne tragga vantaggio.</string>
 </resources>

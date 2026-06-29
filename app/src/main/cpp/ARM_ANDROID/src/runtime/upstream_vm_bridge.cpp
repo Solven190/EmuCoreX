@@ -165,7 +165,8 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 	si.SetBoolValue("Logging", "EnableIOPConsole", autotest_mode);
 	si.SetIntValue("EmuCore/GS", "Renderer",
 		GetIntSetting(config.settings, "EmuCore/GS", "Renderer", static_cast<s32>(GSRendererType::VK)));
-	si.SetBoolValue("EmuCore/GS", "VsyncEnable", false);
+	si.SetBoolValue("EmuCore/GS", "VsyncEnable",
+		GetBoolSetting(config.settings, "EmuCore/GS", "VsyncEnable", false));
 	si.SetStringValue("SPU2/Output", "Backend", "SDL");
 	si.SetStringValue("SPU2/Output", "DriverName", "");
 	si.SetStringValue("SPU2/Output", "DeviceName", "");

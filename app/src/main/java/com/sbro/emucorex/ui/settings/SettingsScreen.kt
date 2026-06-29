@@ -1733,6 +1733,15 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_frame_limiter),
                             onResetToDefault = { viewModel.setFrameLimitEnabled(defaults.frameLimitEnabled) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_vsync),
+                            subtitle = stringResource(R.string.settings_vsync_desc),
+                            checked = uiState.vSyncEnabled,
+                            onCheckedChange = viewModel::setVSyncEnabled,
+                            helpText = stringResource(R.string.settings_help_vsync),
+                            onResetToDefault = { viewModel.setVSyncEnabled(defaults.vSyncEnabled) }
+                        )
                         SliderItem(
                             icon = Icons.Rounded.Speed,
                             title = stringResource(R.string.settings_fast_forward_speed),
@@ -2616,6 +2625,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Emulation, R.string.settings_gpu_chipset),
         entry(SettingsTab.Emulation, R.string.settings_gpu_accelerator),
         entry(SettingsTab.Emulation, R.string.settings_frame_limiter),
+        entry(SettingsTab.Emulation, R.string.settings_vsync),
         entry(SettingsTab.Emulation, R.string.settings_fast_forward_speed),
         entry(SettingsTab.Emulation, R.string.settings_target_fps),
         entry(SettingsTab.Emulation, R.string.settings_ntsc_framerate),

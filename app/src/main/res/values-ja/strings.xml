@@ -1301,4 +1301,7 @@
     <string name="settings_help_anti_blur">内部のGSアンチブラー処理を有効にします。これにより、多くのゲームでPS2の表示フィールドが交互に切り替わることによって生じるぼやけやちらつきを軽減できますが、元の本体の出力とは異なり、一部のエフェクトがわずかに変化する可能性があります。</string>
     <string name="settings_anti_blur">アンチブラー</string>
     <string name="settings_anti_blur_desc">交互の表示フィールドによるぼやけやちらつきを軽減します</string>
+    <string name="settings_vsync">垂直同期 (V-Sync)</string>
+    <string name="settings_vsync_desc">フレームの表示をディスプレイのリフレッシュレートと同期させます。</string>
+    <string name="settings_help_vsync">表示されるフレームをデバイスのディスプレイ更新に合わせます。これによりティアリングを軽減できますが、一部のデバイスやゲームモードでは、重いストールや表示の遅延が発生する可能性があります。特定の環境でメリットがない限り、オフのままにしてください。</string>
 </resources>

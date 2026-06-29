@@ -1301,4 +1301,7 @@
     <string name="settings_help_anti_blur">내부 GS 안티 블러 처리를 활성화합니다. 이렇게 하면 많은 게임에서 PS2 디스플레이 필드가 번갈아 나타나면서 발생하는 흐림 현상이나 깜박임을 줄일 수 있지만, 원래 콘솔 출력과 정확히 일치하지 않으며 일부 효과가 약간 변경될 수 있습니다.</string>
     <string name="settings_anti_blur">안티 블러</string>
     <string name="settings_anti_blur_desc">번갈아 나타나는 디스플레이 필드의 흐림 현상이나 깜박임 감소</string>
+    <string name="settings_vsync">수직 동기화 (V-Sync)</string>
+    <string name="settings_vsync_desc">프레임 표시를 디스플레이 새로고침 빈도와 동기화합니다.</string>
+    <string name="settings_help_vsync">표시되는 프레임을 기기 디스플레이 새로고침에 맞춥니다. 이로 인해 화면 찢어짐(테어링)을 줄일 수 있지만, 일부 기기나 게임 모드에서는 심각한 멈춤이나 느린 화면 표시가 발생할 수 있습니다. 특정 설정에서 이점이 없다면 꺼두세요.</string>
 </resources>
