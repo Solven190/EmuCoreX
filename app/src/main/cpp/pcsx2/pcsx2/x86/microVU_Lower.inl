@@ -86,6 +86,26 @@ static __fi void mVU_prepareSqrtOperand_oaknut(mV, int xmmReg)
 	oakAsm->l(done);
 }
 
+static __fi void mVU_prepareMacroSqrtOperand_oaknut(mV, int xmmReg)
+{
+	oak::Label non_negative;
+
+	oakAsm->FMOV(OAK_WSCRATCH, oakSRegister(xmmReg));
+	oakAsm->TST(OAK_WSCRATCH, 0x80000000u);
+	oakAsm->B(oak::util::EQ, non_negative);
+	mVU_storeDivFlag_oaknut(mVU, divI);
+	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x7fffffffu);
+	oakAsm->FMOV(oakSRegister(xmmReg), OAK_WSCRATCH);
+	oakAsm->l(non_negative);
+
+	if (CHECK_VU_OVERFLOW(mVU.index))
+	{
+		oakAsm->MOV(OAK_WSCRATCH, 0x7f7fffffu);
+		oakAsm->FMOV(OAK_SSCRATCH, OAK_WSCRATCH);
+		oakAsm->FMINNM(oakSRegister(xmmReg), oakSRegister(xmmReg), OAK_SSCRATCH);
+	}
+}
+
 static __fi void mVU_testVuZero_oaknut(int xmmReg)
 {
 	oakAsm->FMOV(OAK_WSCRATCH, oakSRegister(xmmReg));
@@ -210,7 +230,8 @@ static void mVU_SQRT_direct_emit_oaknut(mP)
 
 	recBeginOaknutEmit();
 	mVU_storeDivFlag_oaknut(mVU, 0);
-	mVU_prepareSqrtOperand_oaknut(mVU, Ft);
+	// Match legacy microVU VSQRT behavior: flag negative raw inputs, abs them, then clamp before FSQRT.
+	mVU_prepareMacroSqrtOperand_oaknut(mVU, Ft);
 	oakAsm->FSQRT(oakSRegister(Ft), oakSRegister(Ft));
 	recEndOaknutEmit();
 
