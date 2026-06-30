@@ -2039,6 +2039,8 @@ static void mVU_MSUB_direct_emit_oaknut(mP)
 	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
 		return;
 
+	const bool needsVu1XyzwVuDouble = isVU1 && !isCOP2 && _XYZW_PS;
+
 	int Ft;
 	int tempFt;
 	if (_XYZW_SS2)
@@ -2059,22 +2061,54 @@ static void mVU_MSUB_direct_emit_oaknut(mP)
 
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
 	const int Fd = mVU.regAlloc->allocRegId(32, _Fd_, _X_Y_Z_W);
+	const int FsWork = needsVu1XyzwVuDouble ? mVU.regAlloc->allocRegId() : Fs;
+	const int FtWork = needsVu1XyzwVuDouble ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
+	const int t1 = needsVu1XyzwVuDouble ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
+	const int t2 = needsVu1XyzwVuDouble ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
 
 	recBeginOaknutEmit();
+	if (needsVu1XyzwVuDouble)
+	{
+		oakAsm->MOV(oakQRegister(FsWork).B16(), oakQRegister(Fs).B16());
+		oakAsm->MOV(oakQRegister(FtWork).B16(), oakQRegister(Ft).B16());
+		mVUUpperVuDoubleVector_oaknut(Fd, t1, t2);
+		mVUUpperVuDoubleVector_oaknut(FsWork, t1, t2);
+		mVUUpperVuDoubleVector_oaknut(FtWork, t1, t2);
+	}
 	if (isCOP2)
 	{
 		if (_XYZW_SS)
-			mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
+			mVUUpperClamp2Scalar_oaknut(mVU, FsWork, false);
 		else
-			mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
+			mVUUpperClamp2Vector_oaknut(mVU, FsWork, false);
 	}
 	if (_XYZW_SS)
-		mVUUpperFmlsSs_oaknut(mVU, Fd, Fs, Ft);
+		mVUUpperFmlsSs_oaknut(mVU, Fd, FsWork, Ft);
 	else
-		mVUUpperFmlsPs_oaknut(mVU, Fd, Fs, Ft);
+	{
+		mVUUpperFmlsPs_oaknut(mVU, Fd, FsWork, needsVu1XyzwVuDouble ? FtWork : Ft);
+		if (needsVu1XyzwVuDouble)
+		{
+			if (CHECK_VU_OVERFLOW(mVU.index))
+				mVUClamp1VectorBits_oaknut(Fd);
+			else
+				mVUClampDenormalVectorBits_oaknut(Fd);
+		}
+	}
 	recEndOaknutEmit();
 
-	mVUupdateFlags_oaknut(mVU, Fd, Fs, tempFt);
+	if (needsVu1XyzwVuDouble)
+		mVUupdateFlags_oaknut(mVU, Fd, tempFt);
+	else
+		mVUupdateFlags_oaknut(mVU, Fd, Fs, tempFt);
+
+	if (needsVu1XyzwVuDouble)
+	{
+		mVU.regAlloc->clearNeededXmmId(t2);
+		mVU.regAlloc->clearNeededXmmId(t1);
+		mVU.regAlloc->clearNeededXmmId(FtWork);
+		mVU.regAlloc->clearNeededXmmId(FsWork);
+	}
 
 	mVU.regAlloc->clearNeededXmmId(Fd);
 	mVU.regAlloc->clearNeededXmmId(Ft);
