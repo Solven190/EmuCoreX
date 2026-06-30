@@ -1809,7 +1809,8 @@ static void mVU_MADDAw_emit(mP)
 	{
 		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::W))
 		{
-			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::W);
+			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 3, false);
+			mVUExactVu0AccFlagsFromCpu_emit_oaknut(mVU, recPass);
 		}
 		else
 		{
