@@ -1572,7 +1572,7 @@ static __fi bool mVUNeedsVu1MaddaExactFlagsPath(const microVU& mVU)
 
 static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
-	const bool needsVu1MaddaLaneVuDouble = mVUNeedsVu1MaddaExactFlagsPath(mVU) && lane != 3 && !_XYZW_SS && _X_Y_Z_W != 0;
+	const bool needsVu1MaddaLaneVuDouble = mVUNeedsVu1MaddaExactFlagsPath(mVU) && lane != 3 && _X_Y_Z_W != 0;
 	const bool useFtLane = !clampE && !needsVu1MaddaLaneVuDouble;
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	int FtL = VU_HOST_NO_XMM;
@@ -1698,7 +1698,13 @@ static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 static void mVU_MADDAx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (mVUNeedsVu1MaddaExactFlagsPath(mVU) && (_XYZW_SS || _X_Y_Z_W == 0)) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::X); else mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 0); }
+	pass2
+	{
+		if (mVUNeedsVu1MaddaExactFlagsPath(mVU) && _X_Y_Z_W == 0)
+			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::X);
+		else
+			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 0);
+	}
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -1706,7 +1712,15 @@ static void mVU_MADDAx_emit(mP)
 static void mVU_MADDAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y) || (mVUNeedsVu1MaddaExactFlagsPath(mVU) && (_XYZW_SS || _X_Y_Z_W == 0))) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y); else mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 1); }
+	pass2
+	{
+		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y))
+			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y);
+		else if (mVUNeedsVu1MaddaExactFlagsPath(mVU) && _X_Y_Z_W == 0)
+			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y);
+		else
+			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 1);
+	}
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -1714,7 +1728,15 @@ static void mVU_MADDAy_emit(mP)
 static void mVU_MADDAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Z) || (mVUNeedsVu1MaddaExactFlagsPath(mVU) && (_XYZW_SS || _X_Y_Z_W == 0))) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Z); else mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 2); }
+	pass2
+	{
+		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Z))
+			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Z);
+		else if (mVUNeedsVu1MaddaExactFlagsPath(mVU) && _X_Y_Z_W == 0)
+			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Z);
+		else
+			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 2);
+	}
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
