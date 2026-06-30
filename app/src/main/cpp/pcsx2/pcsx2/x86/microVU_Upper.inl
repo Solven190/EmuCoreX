@@ -784,6 +784,58 @@ static void mVUExactVu0AccOp_emit_oaknut(mP, mVUExactVu0AccOp op, mVUExactVu0FtM
 	recEndOaknutEmit();
 }
 
+static void mVUExactVu0AccFlagsFromCpu_emit_oaknut(mP)
+{
+	mVU.regAlloc->flushAll();
+	const int vuIndex = mVU.index;
+
+	recBeginOaknutEmit();
+	oakLoad32(OAK_WSCRATCH2, mVUExactVu0CpuMem(mVUExactVu0MacFlagOffset(vuIndex)));
+
+	if (_X)
+	{
+		mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH, mVUExactVu0AccLaneOffset(vuIndex, 0), vuIndex);
+		mVUExactVu0StoreMacResultLaneTo_oaknut(vuIndex, 0, OAK_SSCRATCH, OAK_WSCRATCH2, -1);
+	}
+	else
+	{
+		mVUExactVu0ClearMacLane_oaknut(OAK_WSCRATCH2, 0);
+	}
+
+	if (_Y)
+	{
+		mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH, mVUExactVu0AccLaneOffset(vuIndex, 1), vuIndex);
+		mVUExactVu0StoreMacResultLaneTo_oaknut(vuIndex, 1, OAK_SSCRATCH, OAK_WSCRATCH2, -1);
+	}
+	else
+	{
+		mVUExactVu0ClearMacLane_oaknut(OAK_WSCRATCH2, 1);
+	}
+
+	if (_Z)
+	{
+		mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH, mVUExactVu0AccLaneOffset(vuIndex, 2), vuIndex);
+		mVUExactVu0StoreMacResultLaneTo_oaknut(vuIndex, 2, OAK_SSCRATCH, OAK_WSCRATCH2, -1);
+	}
+	else
+	{
+		mVUExactVu0ClearMacLane_oaknut(OAK_WSCRATCH2, 2);
+	}
+
+	if (_W)
+	{
+		mVUExactVu0LoadVuDoubleLane_oaknut(OAK_SSCRATCH, mVUExactVu0AccLaneOffset(vuIndex, 3), vuIndex);
+		mVUExactVu0StoreMacResultLaneTo_oaknut(vuIndex, 3, OAK_SSCRATCH, OAK_WSCRATCH2, -1);
+	}
+	else
+	{
+		mVUExactVu0ClearMacLane_oaknut(OAK_WSCRATCH2, 3);
+	}
+
+	oakStore32(OAK_WSCRATCH2, mVUExactVu0CpuMem(mVUExactVu0MacFlagOffset(vuIndex)));
+	mVUExactVu0StatUpdate_oaknut(vuIndex, OAK_WSCRATCH2);
+	recEndOaknutEmit();
+}
 static void mVUExactVu0DestOp_emit_oaknut(mP, mVUExactVu0AccOp op, mVUExactVu0FtMode ftMode)
 {
 	mVU.regAlloc->flushAll();
@@ -1570,7 +1622,7 @@ static __fi bool mVUNeedsVu1MaddaExactFlagsPath(const microVU& mVU)
 	return isVU1 && CHECK_VU_OVERFLOW(1) && (sFLAG.doFlag || mFLAG.doFlag);
 }
 
-static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
+static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane, bool updateFlags = true)
 {
 	const bool needsVu1MaddaLaneVuDouble = mVUNeedsVu1MaddaExactFlagsPath(mVU) && lane != 3 && _X_Y_Z_W != 0;
 	const bool useFtLane = !clampE && !needsVu1MaddaLaneVuDouble;
@@ -1612,7 +1664,8 @@ static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 			if (needsVu1MaddaLaneVuDouble)
 				mVUClampDenormalScalarBits_oaknut(ACC);
 			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, useFtLane ? VU_HOST_NO_XMM : FtL);
+			if (updateFlags)
+				mVUupdateFlags_oaknut(mVU, ACC, Fs, useFtLane ? VU_HOST_NO_XMM : FtL);
 			recBeginOaknutEmit();
 			const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
 			oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
@@ -1655,7 +1708,8 @@ static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 					mVUClampDenormalVectorBits_oaknut(ACC);
 			}
 			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, useFtLane ? VU_HOST_NO_XMM : FtL);
+			if (updateFlags)
+				mVUupdateFlags_oaknut(mVU, ACC, Fs, useFtLane ? VU_HOST_NO_XMM : FtL);
 		}
 	}
 	else
@@ -1678,7 +1732,8 @@ static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 			mVUClampDenormalVectorBits_oaknut(tempACC);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, useFtLane ? VU_HOST_NO_XMM : FtL);
+		if (updateFlags)
+				mVUupdateFlags_oaknut(mVU, ACC, Fs, useFtLane ? VU_HOST_NO_XMM : FtL);
 		mVU.regAlloc->clearNeededXmmId(tempACC);
 	}
 
@@ -1715,7 +1770,10 @@ static void mVU_MADDAy_emit(mP)
 	pass2
 	{
 		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y))
-			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y);
+		{
+			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 1, false);
+			mVUExactVu0AccFlagsFromCpu_emit_oaknut(mVU, recPass);
+		}
 		else if (mVUNeedsVu1MaddaExactFlagsPath(mVU) && _X_Y_Z_W == 0)
 			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y);
 		else
