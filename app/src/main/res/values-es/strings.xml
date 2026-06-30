@@ -1306,4 +1306,8 @@
     <string name="settings_vsync">Sincronización vertical (V-Sync)</string>
     <string name="settings_vsync_desc">Sincroniza la presentación de fotogramas con la frecuencia de actualización de la pantalla.</string>
     <string name="settings_help_vsync">Iguala los fotogramas presentados con la actualización de la pantalla del dispositivo. Esto puede reducir el tearing (desgarro de pantalla), pero en algunos dispositivos o modos de juego puede causar parones fuertes o una presentación lenta. Déjalo desactivado a menos que una configuración específica se beneficie de ello.</string>
+    <string name="emulation_auto_save_on_exit">Guardado automático al salir</string>
+    <string name="emulation_auto_save_on_exit_desc">Guarda este juego en el espacio de guardado automático antes de cerrar el emulador.</string>
+    <string name="emulation_auto_load_on_start">Carga automática al iniciar</string>
+    <string name="emulation_auto_load_on_start_desc">Carga automáticamente el último guardado automático de este juego cuando se inicie.</string>
 </resources>

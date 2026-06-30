@@ -1304,4 +1304,8 @@
     <string name="settings_vsync">वर्टिकल सिंक (Vertical sync)</string>
     <string name="settings_vsync_desc">फ्रेम प्रस्तुति को डिस्प्ले रिफ्रेश दर के साथ सिंक्रनाइज़ करता है।</string>
     <string name="settings_help_vsync">प्रस्तुत किए गए फ़्रेम को डिवाइस डिस्प्ले रिफ्रेश से मिलाता है। यह टियरिंग (tearing) को कम कर सकता है, लेकिन कुछ उपकरणों या गेम मोड पर यह भारी रुकावट (stalls) या धीमी प्रस्तुति का कारण बन सकता है। इसे तब तक बंद रखें जब तक कि किसी विशिष्ट सेटअप को इससे लाभ न हो。</string>
+    <string name="emulation_auto_save_on_exit">बाहर निकलने पर ऑटो सेव</string>
+    <string name="emulation_auto_save_on_exit_desc">एमुलेटर बंद करने से पहले इस गेम को ऑटो-सेव स्लॉट में सेव करें।</string>
+    <string name="emulation_auto_load_on_start">शुरू होने पर ऑटो लोड</string>
+    <string name="emulation_auto_load_on_start_desc">जब यह शुरू होता है तो स्वचालित रूप से इस गेम का नवीनतम ऑटो-सेव लोड करें।</string>
 </resources>

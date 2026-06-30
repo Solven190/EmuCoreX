@@ -887,6 +887,20 @@ private fun GameSettingsTabContent(
                         helpText = stringResource(R.string.settings_help_fast_boot),
                         onResetToDefault = { onDraftChange(draft.copy(enableFastBoot = defaultProfile.enableFastBoot)) }
                     )
+                    ToggleRow(
+                        title = stringResource(R.string.emulation_auto_save_on_exit),
+                        checked = draft.autoSaveOnExit,
+                        onCheckedChange = { onDraftChange(draft.copy(autoSaveOnExit = it)) },
+                        helpText = stringResource(R.string.emulation_auto_save_on_exit_desc),
+                        onResetToDefault = { onDraftChange(draft.copy(autoSaveOnExit = defaultProfile.autoSaveOnExit)) }
+                    )
+                    ToggleRow(
+                        title = stringResource(R.string.emulation_auto_load_on_start),
+                        checked = draft.autoLoadOnStart,
+                        onCheckedChange = { onDraftChange(draft.copy(autoLoadOnStart = it)) },
+                        helpText = stringResource(R.string.emulation_auto_load_on_start_desc),
+                        onResetToDefault = { onDraftChange(draft.copy(autoLoadOnStart = defaultProfile.autoLoadOnStart)) }
+                    )
                     SelectionRow(
                         title = stringResource(R.string.settings_fps_overlay_mode),
                         options = listOf(
@@ -3107,6 +3121,8 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         racingMode = racingMode,
         gamepadRightStickUpToR2 = gamepadRightStickUpToR2,
         gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
+        autoSaveOnExit = false,
+        autoLoadOnStart = false,
         enableFastBoot = enableFastBoot,
         enableMtvu = enableMtvu,
         enableFastCdvd = enableFastCdvd,
@@ -3189,6 +3205,8 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         racingMode = pick("racingMode", racingMode, defaultProfile.racingMode),
         gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2, defaultProfile.gamepadRightStickUpToR2),
         gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2, defaultProfile.gamepadRightStickDownToL2),
+        autoSaveOnExit = pick("autoSaveOnExit", autoSaveOnExit, defaultProfile.autoSaveOnExit),
+        autoLoadOnStart = pick("autoLoadOnStart", autoLoadOnStart, defaultProfile.autoLoadOnStart),
         enableFastBoot = pick("enableFastBoot", enableFastBoot, defaultProfile.enableFastBoot),
         enableMtvu = pick("enableMtvu", enableMtvu, defaultProfile.enableMtvu),
         enableFastCdvd = pick("enableFastCdvd", enableFastCdvd, defaultProfile.enableFastCdvd),

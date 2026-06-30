@@ -167,6 +167,8 @@ data class EmulationUiState(
     val currentSlotLastModified: Long = 0L,
     val autoSaveEnabled: Boolean = false,
     val autoSaveIntervalMinutes: Int = 1,
+    val autoSaveOnExit: Boolean = false,
+    val autoLoadOnStart: Boolean = false,
     val autoSaveLastModified: Long = 0L,
     val isAutoSaveInProgress: Boolean = false,
     val activePlayTimeMs: Long = 0L,
@@ -288,6 +290,8 @@ private data class LiveRuntimeSnapshot(
     val racingMode: Boolean,
     val gamepadRightStickUpToR2: Boolean,
     val gamepadRightStickDownToL2: Boolean,
+    val autoSaveOnExit: Boolean,
+    val autoLoadOnStart: Boolean,
     val targetFps: Int,
     val ntscFramerate: Float,
     val palFramerate: Float,
@@ -1005,26 +1009,50 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun performAutoSave() {
         viewModelScope.launch(Dispatchers.IO) {
-            val path = currentGamePath
-            val previousModified = path?.let { saveStateLastModified(it, AUTO_SAVE_SLOT) } ?: 0L
-            _uiState.value = _uiState.value.copy(isAutoSaveInProgress = true)
-            val scheduled = lifecycleMutex.withLock {
-                if (isShuttingDown || !_uiState.value.isRunning || _uiState.value.isPaused || _uiState.value.showMenu) {
+            saveAutoSaveSlot(allowWhileMenu = false, allowPaused = false, showActionProgress = false)
+        }
+    }
+
+    private suspend fun saveAutoSaveSlot(
+        allowWhileMenu: Boolean,
+        allowPaused: Boolean,
+        showActionProgress: Boolean
+    ): Boolean {
+        val path = currentGamePath ?: return false
+        val previousModified = saveStateLastModified(path, AUTO_SAVE_SLOT)
+        val before = _uiState.value
+        _uiState.value = before.copy(
+            isAutoSaveInProgress = true,
+            isActionInProgress = if (showActionProgress) true else before.isActionInProgress,
+            actionLabel = if (showActionProgress) "saving" else before.actionLabel
+        )
+        val scheduled = lifecycleMutex.withLock {
+            val state = _uiState.value
+            if (isShuttingDown ||
+                !state.isRunning ||
+                (!allowPaused && state.isPaused) ||
+                (!allowWhileMenu && state.showMenu)
+            ) {
+                false
+            } else {
+                try {
+                    EmulatorBridge.saveState(AUTO_SAVE_SLOT)
+                } catch (_: Exception) {
                     false
-                } else {
-                    try {
-                        EmulatorBridge.saveState(AUTO_SAVE_SLOT)
-                    } catch (_: Exception) {
-                        false
-                    }
                 }
             }
-            val success = scheduled && path != null && waitForSaveStateUpdate(path, AUTO_SAVE_SLOT, previousModified)
-            _uiState.value = _uiState.value.copy(isAutoSaveInProgress = false)
-            if (success) {
-                refreshSaveStateMetadata()
-            }
         }
+        val success = scheduled && waitForSaveStateUpdate(path, AUTO_SAVE_SLOT, previousModified)
+        val after = _uiState.value
+        _uiState.value = after.copy(
+            isAutoSaveInProgress = false,
+            isActionInProgress = if (showActionProgress) false else after.isActionInProgress,
+            actionLabel = if (showActionProgress) null else after.actionLabel
+        )
+        if (success) {
+            refreshSaveStateMetadata()
+        }
+        return success
     }
 
     private fun pollNativePerformanceMetrics() {
@@ -1414,6 +1442,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     racingMode = liveRuntime.racingMode,
                     gamepadRightStickUpToR2 = liveRuntime.gamepadRightStickUpToR2,
                     gamepadRightStickDownToL2 = liveRuntime.gamepadRightStickDownToL2,
+                    autoSaveOnExit = liveRuntime.autoSaveOnExit,
+                    autoLoadOnStart = liveRuntime.autoLoadOnStart,
                     targetFps = liveRuntime.targetFps,
                     ntscFramerate = liveRuntime.ntscFramerate,
                     palFramerate = liveRuntime.palFramerate
@@ -1503,6 +1533,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     var waitFrames = 0
                     while (waitFrames < 60 && isActive) {
                         if (EmulatorBridge.hasValidVm()) {
+                            if (tryAutoLoadOnStart()) {
+                                break
+                            }
                             _uiState.value = _uiState.value.copy(statusMessage = "status_running")
                             delay(2000)
                             if (_uiState.value.statusMessage == "status_running") {
@@ -3000,6 +3033,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             racingMode = preferences.racingMode.first(),
             gamepadRightStickUpToR2 = preferences.gamepadRightStickUpToR2.first(),
             gamepadRightStickDownToL2 = preferences.gamepadRightStickDownToL2.first(),
+            autoSaveOnExit = false,
+            autoLoadOnStart = false,
             targetFps = preferences.targetFps.first(),
             ntscFramerate = preferences.ntscFramerate.first(),
             palFramerate = preferences.palFramerate.first(),
@@ -3141,6 +3176,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             racingMode = pick("racingMode", racingMode) { racingMode },
             gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2) { gamepadRightStickUpToR2 },
             gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2) { gamepadRightStickDownToL2 },
+            autoSaveOnExit = pick("autoSaveOnExit", autoSaveOnExit) { autoSaveOnExit },
+            autoLoadOnStart = pick("autoLoadOnStart", autoLoadOnStart) { autoLoadOnStart },
             renderer = pick("renderer", renderer) { renderer },
             upscale = pick("upscaleMultiplier", upscale) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
@@ -3256,6 +3293,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             racingMode = racingMode,
             gamepadRightStickUpToR2 = gamepadRightStickUpToR2,
             gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
+            autoSaveOnExit = autoSaveOnExit,
+            autoLoadOnStart = autoLoadOnStart,
             targetFps = targetFps,
             ntscFramerate = ntscFramerate,
             palFramerate = palFramerate,
@@ -3326,6 +3365,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (racingMode != globalRacingMode) add("racingMode")
             if (gamepadRightStickUpToR2 != globalGamepadRightStickUpToR2) add("gamepadRightStickUpToR2")
             if (gamepadRightStickDownToL2 != globalGamepadRightStickDownToL2) add("gamepadRightStickDownToL2")
+            if (autoSaveOnExit) add("autoSaveOnExit")
+            if (autoLoadOnStart) add("autoLoadOnStart")
             if (targetFps != globalTargetFps) add("targetFps")
             if (ntscFramerate != globalNtscFramerate) add("ntscFramerate")
             if (palFramerate != globalPalFramerate) add("palFramerate")
@@ -3433,6 +3474,20 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     fun setAutoSaveIntervalMinutes(value: Int) {
         viewModelScope.launch {
             preferences.setAutoSaveIntervalMinutes(value)
+        }
+    }
+
+    fun setAutoSaveOnExit(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val updated = _uiState.value.copy(autoSaveOnExit = enabled)
+            persistRuntimeState(updated)
+        }
+    }
+
+    fun setAutoLoadOnStart(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val updated = _uiState.value.copy(autoLoadOnStart = enabled)
+            persistRuntimeState(updated)
         }
     }
 
@@ -3603,10 +3658,60 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    private suspend fun tryAutoLoadOnStart(): Boolean {
+        val path = currentGamePath ?: return false
+        if (!_uiState.value.autoLoadOnStart || saveStateLastModified(path, AUTO_SAVE_SLOT) <= 0L) {
+            return false
+        }
+        if (isRetroAchievementsHardcoreRestricted()) {
+            showHardcoreBlockedToast()
+            return false
+        }
+
+        _uiState.value = _uiState.value.copy(
+            isActionInProgress = true,
+            actionLabel = "loading",
+            statusMessage = "status_loading_state"
+        )
+        val success = lifecycleMutex.withLock {
+            if (isShuttingDown || !_uiState.value.isRunning) {
+                false
+            } else {
+                try {
+                    EmulatorBridge.loadState(AUTO_SAVE_SLOT)
+                } catch (_: Exception) {
+                    false
+                }
+            }
+        }
+        _uiState.value = _uiState.value.copy(
+            isActionInProgress = false,
+            actionLabel = null,
+            statusMessage = if (success) "status_running" else null,
+            toastMessage = if (success) "loaded" else "load_failed"
+        )
+        refreshSaveStateMetadata()
+        delay(2000)
+        if (_uiState.value.statusMessage == "status_running") {
+            _uiState.value = _uiState.value.copy(statusMessage = null)
+        }
+        if (_uiState.value.toastMessage == "loaded" || _uiState.value.toastMessage == "load_failed") {
+            _uiState.value = _uiState.value.copy(toastMessage = null)
+        }
+        return success
+    }
+
     fun stopEmulation(onExit: (() -> Unit)? = null) {
         cancelPendingStart = true
         pausedForBackground = false
         viewModelScope.launch(Dispatchers.IO) {
+            if (_uiState.value.autoSaveOnExit && currentGamePath != null) {
+                saveAutoSaveSlot(
+                    allowWhileMenu = true,
+                    allowPaused = true,
+                    showActionProgress = true
+                )
+            }
             syncPendingPlayTime()
             performShutdown()
             if (onExit != null) {

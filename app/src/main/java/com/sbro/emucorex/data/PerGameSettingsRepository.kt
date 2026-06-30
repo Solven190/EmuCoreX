@@ -21,6 +21,8 @@ data class PerGameSettings(
     val racingMode: Boolean = false,
     val gamepadRightStickUpToR2: Boolean = false,
     val gamepadRightStickDownToL2: Boolean = false,
+    val autoSaveOnExit: Boolean = false,
+    val autoLoadOnStart: Boolean = false,
     val enableFastBoot: Boolean = true,
     val enableMtvu: Boolean = true,
     val enableThreadPinning: Boolean = false,
@@ -189,6 +191,8 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         racingMode = optBoolean("racingMode", false),
         gamepadRightStickUpToR2 = optBoolean("gamepadRightStickUpToR2", false),
         gamepadRightStickDownToL2 = optBoolean("gamepadRightStickDownToL2", false),
+        autoSaveOnExit = optBoolean("autoSaveOnExit", false),
+        autoLoadOnStart = optBoolean("autoLoadOnStart", false),
         enableFastBoot = optBoolean("enableFastBoot", true),
         enableMtvu = optBoolean("enableMtvu", true),
         enableThreadPinning = optBoolean("enableThreadPinning", false),
@@ -283,6 +287,8 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("racingMode")) put("racingMode", racingMode)
         if (shouldWrite("gamepadRightStickUpToR2")) put("gamepadRightStickUpToR2", gamepadRightStickUpToR2)
         if (shouldWrite("gamepadRightStickDownToL2")) put("gamepadRightStickDownToL2", gamepadRightStickDownToL2)
+        if (shouldWrite("autoSaveOnExit")) put("autoSaveOnExit", autoSaveOnExit)
+        if (shouldWrite("autoLoadOnStart")) put("autoLoadOnStart", autoLoadOnStart)
         if (shouldWrite("enableFastBoot")) put("enableFastBoot", enableFastBoot)
         if (shouldWrite("enableMtvu")) put("enableMtvu", enableMtvu)
         if (shouldWrite("enableThreadPinning")) put("enableThreadPinning", enableThreadPinning)

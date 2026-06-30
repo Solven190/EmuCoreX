@@ -1304,4 +1304,8 @@
     <string name="settings_vsync">المزامنة الرأسية (V-Sync)</string>
     <string name="settings_vsync_desc">يزامن عرض الإطارات مع معدل تحديث الشاشة.</string>
     <string name="settings_help_vsync">يطابق الإطارات المعروضة مع تحديث شاشة الجهاز. يمكن أن يقلل هذا من تمزق الشاشة، ولكن على بعض الأجهزة أو أوضاع اللعبة قد يتسبب في توقفات ثقيلة أو عرض بطيء. اتركه معطلاً ما لم يستفد منه إعداد معين.</string>
+    <string name="emulation_auto_save_on_exit">حفظ تلقائي عند الخروج</string>
+    <string name="emulation_auto_save_on_exit_desc">احفظ هذه اللعبة في فتحة الحفظ التلقائي قبل إغلاق المحاكي.</string>
+    <string name="emulation_auto_load_on_start">تحميل تلقائي عند البدء</string>
+    <string name="emulation_auto_load_on_start_desc">قم بتحميل أحدث حفظ تلقائي لهذه اللعبة تلقائيًا عند بدئها.</string>
 </resources>

@@ -1306,4 +1306,8 @@
     <string name="settings_vsync">Вертикальная синхронизация (V-Sync)</string>
     <string name="settings_vsync_desc">Синхронизирует вывод кадров с частотой обновления экрана.</string>
     <string name="settings_help_vsync">Сопоставляет выводимые кадры с частотой обновления дисплея устройства. Это может уменьшить разрывы экрана (tearing), но на некоторых устройствах или в некоторых игровых режимах может вызвать сильные зависания или замедление вывода. Оставьте выключенным, если только это не дает преимуществ в вашей конкретной конфигурации.</string>
+    <string name="emulation_auto_save_on_exit">Автосохранение при выходе</string>
+    <string name="emulation_auto_save_on_exit_desc">Сохранить эту игру в слот автосохранения перед закрытием эмулятора.</string>
+    <string name="emulation_auto_load_on_start">Автозагрузка при старте</string>
+    <string name="emulation_auto_load_on_start_desc">Автоматически загружать последнее автосохранение этой игры при ее запуске.</string>
 </resources>

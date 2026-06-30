@@ -1304,4 +1304,8 @@
     <string name="settings_vsync">垂直同期 (V-Sync)</string>
     <string name="settings_vsync_desc">フレームの表示をディスプレイのリフレッシュレートと同期させます。</string>
     <string name="settings_help_vsync">表示されるフレームをデバイスのディスプレイ更新に合わせます。これによりティアリングを軽減できますが、一部のデバイスやゲームモードでは、重いストールや表示の遅延が発生する可能性があります。特定の環境でメリットがない限り、オフのままにしてください。</string>
+    <string name="emulation_auto_save_on_exit">終了時にオートセーブ</string>
+    <string name="emulation_auto_save_on_exit_desc">エミュレータを閉じる前に、このゲームをオートセーブスロットに保存します。</string>
+    <string name="emulation_auto_load_on_start">起動時にオートロード</string>
+    <string name="emulation_auto_load_on_start_desc">起動時に、このゲームの最新のオートセーブを自動的にロードします。</string>
 </resources>

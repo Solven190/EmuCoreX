@@ -1110,6 +1110,8 @@ fun EmulationScreen(
                     onLoadAutoSave = requestAutoSaveLoadClick,
                     onSetAutoSaveEnabled = { viewModel.setAutoSaveEnabled(it) },
                     onSetAutoSaveIntervalMinutes = { viewModel.setAutoSaveIntervalMinutes(it) },
+                    onSetAutoSaveOnExit = { viewModel.setAutoSaveOnExit(it) },
+                    onSetAutoLoadOnStart = { viewModel.setAutoLoadOnStart(it) },
                     onSaveGameSettingsProfile = { viewModel.saveCurrentGameSettingsProfile() },
                     onResetGameSettingsProfile = { viewModel.resetCurrentGameSettingsProfile() },
                     onNextSlot = { viewModel.setSlot(uiState.currentSlot + 1) },
@@ -2228,6 +2230,8 @@ private fun EmulationSidebarMenu(
     onLoadAutoSave: () -> Unit,
     onSetAutoSaveEnabled: (Boolean) -> Unit,
     onSetAutoSaveIntervalMinutes: (Int) -> Unit,
+    onSetAutoSaveOnExit: (Boolean) -> Unit,
+    onSetAutoLoadOnStart: (Boolean) -> Unit,
     onSaveGameSettingsProfile: () -> Unit,
     onResetGameSettingsProfile: () -> Unit,
     onNextSlot: () -> Unit,
@@ -2725,6 +2729,24 @@ private fun EmulationSidebarMenu(
                                         )
                                     }
                                 }
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                                SettingsToggle(
+                                    title = stringResource(R.string.emulation_auto_save_on_exit),
+                                    checked = uiState.autoSaveOnExit,
+                                    enabled = !uiState.isActionInProgress,
+                                    onCheckedChange = onSetAutoSaveOnExit,
+                                    helpText = stringResource(R.string.emulation_auto_save_on_exit_desc)
+                                )
+
+                                SettingsToggle(
+                                    title = stringResource(R.string.emulation_auto_load_on_start),
+                                    checked = uiState.autoLoadOnStart,
+                                    enabled = !uiState.isActionInProgress,
+                                    onCheckedChange = onSetAutoLoadOnStart,
+                                    helpText = stringResource(R.string.emulation_auto_load_on_start_desc)
+                                )
                             }
                         }
 

@@ -1306,4 +1306,8 @@
     <string name="settings_vsync">Vertikale Synchronisation (V-Sync)</string>
     <string name="settings_vsync_desc">Synchronisiert die Bildausgabe mit der Bildwiederholrate des Bildschirms.</string>
     <string name="settings_help_vsync">Passt die angezeigten Bilder an die Bildwiederholrate des Geräts an. Dies kann Tearing (Bildzerreißen) reduzieren, kann aber auf einigen Geräten oder in bestimmten Spielmodi zu starken Rucklern oder einer langsamen Darstellung führen. Lass es deaktiviert, es sei denn, ein bestimmtes Setup profitiert davon.</string>
+    <string name="emulation_auto_save_on_exit">Automatisches Speichern beim Beenden</string>
+    <string name="emulation_auto_save_on_exit_desc">Speichere dieses Spiel im Auto-Save-Slot, bevor du den Emulator schließt.</string>
+    <string name="emulation_auto_load_on_start">Automatisches Laden beim Start</string>
+    <string name="emulation_auto_load_on_start_desc">Lade automatisch den neuesten Auto-Save dieses Spiels, wenn es gestartet wird.</string>
 </resources>

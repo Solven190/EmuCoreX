@@ -103,6 +103,10 @@
     <string name="emulation_auto_save_last_saved">Last auto save: %1$s</string>
     <string name="emulation_auto_save_interval_label">Every</string>
     <string name="emulation_auto_save_interval_suffix">min</string>
+    <string name="emulation_auto_save_on_exit">Auto save on exit</string>
+    <string name="emulation_auto_save_on_exit_desc">Save this game to the auto-save slot before closing the emulator.</string>
+    <string name="emulation_auto_load_on_start">Auto load on start</string>
+    <string name="emulation_auto_load_on_start_desc">Load this game\'s latest auto-save automatically when it starts.</string>
     <string name="emulation_play_time_badge">Play time %1$s</string>
     <string name="emulation_settings">Settings</string>
     <string name="emulation_menu_subtitle">Manage the current session without leaving the game.</string>
