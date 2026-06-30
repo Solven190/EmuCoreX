@@ -16,7 +16,9 @@ import com.sbro.emucorex.data.AppPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
@@ -29,8 +31,13 @@ import kotlin.math.sign
 object GamepadManager {
     data class MappableButtonAction(
         val id: String,
-        val padKey: Int,
+        val padKey: Int?,
         val defaultKeyCodes: List<Int>
+    )
+
+    data class GamepadShortcutAction(
+        val padIndex: Int,
+        val actionId: String
     )
 
     data class ConnectedGamepad(
@@ -79,6 +86,8 @@ object GamepadManager {
     private const val RUMBLE_PULSE_DURATION_MS = 80L
     private const val TEST_RUMBLE_DURATION_MS = 260L
     private const val MISSING_VIBRATOR_LOG_INTERVAL_MS = 1500L
+    const val ACTION_QUICK_SAVE = "quick_save"
+    const val ACTION_QUICK_LOAD = "quick_load"
     private val FINGERPRINT_UINPUT_DEVICE_TOKENS = setOf(
         "uinput-fpc",
         "uinput-goodix",
@@ -158,6 +167,8 @@ object GamepadManager {
     @Volatile
     private var customBindingsByPadAndKeyCode: Map<Int, Map<Int, Int>> = emptyMap()
     @Volatile
+    private var customShortcutBindingsByPadAndKeyCode: Map<Int, Map<Int, String>> = emptyMap()
+    @Volatile
     private var analogDeadzone = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE / 100f
     @Volatile
     private var leftStickSensitivity = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY / 100f
@@ -225,12 +236,17 @@ object GamepadManager {
         MappableButtonAction("r3", PadKey.R3, listOf(KeyEvent.KEYCODE_BUTTON_THUMBR)),
         MappableButtonAction("select", PadKey.Select, listOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_9)),
         MappableButtonAction("start", PadKey.Start, listOf(KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_BUTTON_10)),
+        MappableButtonAction(ACTION_QUICK_SAVE, null, emptyList()),
+        MappableButtonAction(ACTION_QUICK_LOAD, null, emptyList()),
         MappableButtonAction("dpad_up", PadKey.Up, listOf(KeyEvent.KEYCODE_DPAD_UP)),
         MappableButtonAction("dpad_down", PadKey.Down, listOf(KeyEvent.KEYCODE_DPAD_DOWN)),
         MappableButtonAction("dpad_left", PadKey.Left, listOf(KeyEvent.KEYCODE_DPAD_LEFT)),
         MappableButtonAction("dpad_right", PadKey.Right, listOf(KeyEvent.KEYCODE_DPAD_RIGHT))
     )
     private val actionsById = mappableActions.associateBy { it.id }
+    private val shortcutActionIds = setOf(ACTION_QUICK_SAVE, ACTION_QUICK_LOAD)
+    private val _gamepadShortcutActions = MutableSharedFlow<GamepadShortcutAction>(extraBufferCapacity = 8)
+    val gamepadShortcutActions: SharedFlow<GamepadShortcutAction> = _gamepadShortcutActions
     private val _connectedGamepadCountState = MutableStateFlow(0)
     val connectedGamepadCountState: StateFlow<Int> = _connectedGamepadCountState
     private var connectedGamepadSnapshot: List<ConnectedGamepad> = emptyList()
@@ -245,7 +261,12 @@ object GamepadManager {
                 customBindingsByPad = bindingsByPad
                 customBindingsByPadAndKeyCode = bindingsByPad.mapValues { (_, bindings) ->
                     bindings.entries.mapNotNull { (actionId, keyCode) ->
-                        actionsById[actionId]?.let { keyCode to it.padKey }
+                        actionsById[actionId]?.padKey?.let { padKey -> keyCode to padKey }
+                    }.toMap()
+                }
+                customShortcutBindingsByPadAndKeyCode = bindingsByPad.mapValues { (_, bindings) ->
+                    bindings.entries.mapNotNull { (actionId, keyCode) ->
+                        actionId.takeIf { it in shortcutActionIds }?.let { keyCode to it }
                     }.toMap()
                 }
             }
@@ -442,6 +463,12 @@ object GamepadManager {
         if (!isGameController(event.device)) return false
 
         val padIndex = resolvePadIndexForDevice(event.deviceId) ?: return false
+        mapKeyCodeToShortcutActionId(padIndex, event.keyCode)?.let { actionId ->
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                _gamepadShortcutActions.tryEmit(GamepadShortcutAction(padIndex, actionId))
+            }
+            return true
+        }
         val padKey = mapKeyCodeToPadKey(padIndex, event.keyCode) ?: return false
         val pressed = event.action == KeyEvent.ACTION_DOWN
         val range = if (pressed && padKey in ANALOG_STICK_DIRECTION_KEYS) 255 else 0
@@ -658,6 +685,10 @@ object GamepadManager {
                 EmulatorBridge.setPadButton(reset.padIndex, PadKey.R2, 0, false)
             }
         }
+    }
+
+    private fun mapKeyCodeToShortcutActionId(padIndex: Int, keyCode: Int): String? {
+        return customShortcutBindingsByPadAndKeyCode[normalizePadIndex(padIndex)]?.get(keyCode)
     }
 
     private fun mapKeyCodeToPadKey(padIndex: Int, keyCode: Int): Int? {

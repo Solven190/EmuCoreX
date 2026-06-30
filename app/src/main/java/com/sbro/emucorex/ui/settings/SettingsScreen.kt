@@ -1387,7 +1387,7 @@ private fun SettingsContent(
                                 title = gamepadActionLabel(action.id),
                                 value = assignedKeyCode?.let(GamepadManager::keyCodeLabel)
                                     ?: stringResource(R.string.settings_not_set),
-                                autoLabel = if (isCustomBinding) null else {
+                                autoLabel = if (isCustomBinding || action.defaultKeyCodes.isEmpty()) null else {
                                     stringResource(R.string.settings_gamepad_mapping_auto_format)
                                 },
                                 onBindClick = { onRequestGamepadBinding(selectedGamepadPadIndex, action.id) },
@@ -3354,6 +3354,8 @@ private fun gamepadActionLabelRes(actionId: String): Int = when (actionId) {
     "r3" -> R.string.settings_gamepad_action_r3
     "select" -> R.string.settings_gamepad_action_select
     "start" -> R.string.settings_gamepad_action_start
+    GamepadManager.ACTION_QUICK_SAVE -> R.string.emulation_quick_save
+    GamepadManager.ACTION_QUICK_LOAD -> R.string.emulation_quick_load
     "dpad_up" -> R.string.settings_gamepad_action_dpad_up
     "dpad_down" -> R.string.settings_gamepad_action_dpad_down
     "dpad_left" -> R.string.settings_gamepad_action_dpad_left
