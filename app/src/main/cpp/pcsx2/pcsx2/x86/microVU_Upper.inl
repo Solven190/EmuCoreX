@@ -1592,7 +1592,7 @@ static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 
 	if (_XYZW_SS || _X_Y_Z_W == 0xf)
 	{
-		if (_XYZW_SS2)
+		if (_XYZW_SS)
 		{
 			const int tempACC = mVU.regAlloc->allocRegId();
 			recBeginOaknutEmit();
@@ -1726,12 +1726,6 @@ static void mVU_MADDAw_emit(mP)
 	{
 		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::W))
 		{
-			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::W);
-		}
-		else if (isVU0 && isCOP2)
-		{
-			// COP2 VMADDAw needs the per-lane VU0 exact path, but keeping it scoped here avoids the wider VU1 MADDA cost.
-			iFlushCall(FLUSH_FREE_VU0);
 			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::W);
 		}
 		else
