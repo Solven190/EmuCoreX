@@ -97,7 +97,8 @@ data class EmulationRoute(
     val enableMtvu: Boolean? = null,
     val renderer: Int? = null,
     val gsDumpFrames: Int? = null,
-    val gsDumpDelayMs: Int? = null
+    val gsDumpDelayMs: Int? = null,
+    val exitAppOnExit: Boolean = false
 )
 
 @Serializable
@@ -503,10 +504,14 @@ fun AppNavigation(
                     gsDumpDelayMs = route.gsDumpDelayMs,
                     restoredAfterProcessDeath = blockRestoredEmulationRoute,
                     onExit = {
-                        if (!navController.popBackStack(HomeRoute, inclusive = false)) {
-                            navController.navigate(HomeRoute) {
-                                launchSingleTop = true
-                                popUpTo(navController.graph.startDestinationId) { inclusive = false }
+                        if (route.exitAppOnExit) {
+                            activity?.finishAndRemoveTask()
+                        } else {
+                            if (!navController.popBackStack(HomeRoute, inclusive = false)) {
+                                navController.navigate(HomeRoute) {
+                                    launchSingleTop = true
+                                    popUpTo(navController.graph.startDestinationId) { inclusive = false }
+                                }
                             }
                         }
                     }
@@ -804,7 +809,8 @@ fun AppNavigation(
                     enableMtvu = launchRequest.enableMtvu,
                     renderer = launchRequest.renderer,
                     gsDumpFrames = launchRequest.gsDumpFrames,
-                    gsDumpDelayMs = launchRequest.gsDumpDelayMs
+                    gsDumpDelayMs = launchRequest.gsDumpDelayMs,
+                    exitAppOnExit = true
                 )
             ) {
                 launchSingleTop = true

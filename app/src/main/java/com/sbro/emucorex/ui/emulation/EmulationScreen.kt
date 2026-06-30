@@ -237,8 +237,17 @@ private data class TouchButtonSpec(
     val onClick: (() -> Unit)? = null,
     val tapToHold: Boolean = false,
     val longPressDelayMs: Long = 0L,
-    val onLongPressChange: ((Boolean) -> Unit)? = null,
-    val externalPressed: Boolean = false
+    val onLongPressChange: ((Boolean) -> Unit)? = null
+)
+
+private data class TouchButtonLayoutKey(
+    val id: String,
+    val width: Dp,
+    val height: Dp,
+    val x: Dp,
+    val y: Dp,
+    val tapToHold: Boolean,
+    val hasLongPressAction: Boolean
 )
 
 private data class LiveSelectionOption(
@@ -1586,36 +1595,42 @@ private fun OnScreenControls(
     val currentOnPadInput by rememberUpdatedState(onPadInput)
     var touchL2Pressed by remember { mutableStateOf(false) }
     var touchR2Pressed by remember { mutableStateOf(false) }
-    var rightStickMappedL2Range by remember { mutableIntStateOf(0) }
-    var rightStickMappedR2Range by remember { mutableIntStateOf(0) }
 
-    fun dispatchTouchTrigger(key: Int, buttonPressed: Boolean, mappedRange: Int) {
-        val range = maxOf(if (buttonPressed) 255 else 0, mappedRange.coerceIn(0, 255))
-        currentOnPadInput(key, range, range > 0)
+    fun dispatchTouchAnalogDirection(key: Int, pressed: Boolean) {
+        val range = if (pressed) 255 else 0
+        currentOnPadInput(key, range, pressed)
     }
 
     fun dispatchTouchL2() {
-        dispatchTouchTrigger(PadKey.L2, touchL2Pressed, rightStickMappedL2Range)
+        if (rightStickDownToL2) {
+            currentOnPadInput(PadKey.L2, 0, false)
+            dispatchTouchAnalogDirection(PadKey.RIGHT_STICK_DOWN, touchL2Pressed)
+        } else {
+            currentOnPadInput(PadKey.RIGHT_STICK_DOWN, 0, false)
+            dispatchTouchAnalogDirection(PadKey.L2, touchL2Pressed)
+        }
     }
 
     fun dispatchTouchR2() {
-        dispatchTouchTrigger(PadKey.R2, touchR2Pressed, rightStickMappedR2Range)
+        if (rightStickUpToR2) {
+            currentOnPadInput(PadKey.R2, 0, false)
+            dispatchTouchAnalogDirection(PadKey.RIGHT_STICK_UP, touchR2Pressed)
+        } else {
+            currentOnPadInput(PadKey.RIGHT_STICK_UP, 0, false)
+            dispatchTouchAnalogDirection(PadKey.R2, touchR2Pressed)
+        }
     }
 
     LaunchedEffect(rightStickUpToR2) {
-        if (!rightStickUpToR2 && rightStickMappedR2Range != 0) {
-            rightStickMappedR2Range = 0
-            dispatchTouchR2()
-        }
+        currentOnPadInput(PadKey.R2, 0, false)
         currentOnPadInput(PadKey.RIGHT_STICK_UP, 0, false)
+        dispatchTouchR2()
     }
 
     LaunchedEffect(rightStickDownToL2) {
-        if (!rightStickDownToL2 && rightStickMappedL2Range != 0) {
-            rightStickMappedL2Range = 0
-            dispatchTouchL2()
-        }
+        currentOnPadInput(PadKey.L2, 0, false)
         currentOnPadInput(PadKey.RIGHT_STICK_DOWN, 0, false)
+        dispatchTouchL2()
     }
 
     fun buttonPressHandler(id: String): ((Boolean) -> Unit)? = when (id) {
@@ -1708,12 +1723,7 @@ private fun OnScreenControls(
                     onClick = if (spec.id == "left_input_toggle") onToggleLeftInputMode else null,
                     tapToHold = racingMode && isRacingTapToHoldButton(spec.id),
                     longPressDelayMs = if (spec.id == "start") TRANSPORT_HOLD_DELAY_MS else 0L,
-                    onLongPressChange = if (spec.id == "start") onFastForwardHoldChange else null,
-                    externalPressed = when (spec.id) {
-                        "l2" -> rightStickMappedL2Range > 0
-                        "r2" -> rightStickMappedR2Range > 0
-                        else -> false
-                    }
+                    onLongPressChange = if (spec.id == "start") onFastForwardHoldChange else null
                 )
             }
         }
@@ -1730,6 +1740,11 @@ private fun OnScreenControls(
             val width = stickPanelWidth(stick)
             return if (stickIsSurfaceOnly(stick)) stick.x - ((width - stick.size) / 2f) else stick.x
         }
+
+        val rightStickTriggerVisualY = (
+            (if (rightStickDownToL2 && touchL2Pressed) 1f else 0f) -
+                (if (rightStickUpToR2 && touchR2Pressed) 1f else 0f)
+            ).coerceIn(-1f, 1f)
 
         val leftShoulderSpecs = runtimeSpecs(layout.leftShoulders)
         if (leftShoulderSpecs.isNotEmpty()) {
@@ -1793,21 +1808,12 @@ private fun OnScreenControls(
                 analogWidth = panelWidth,
                 analogHeight = stick.size,
                 surfaceOnly = stickIsSurfaceOnly(stick),
+                visualY = rightStickTriggerVisualY,
                 onValueChange = { x, y ->
                     updateRightAnalogStick(
                         x = if (invertRightStickHorizontal) -x else x,
                         y = if (invertRightStick) -y else y,
                         sensitivity = rightStickSensitivity,
-                        upToR2 = rightStickUpToR2,
-                        downToL2 = rightStickDownToL2,
-                        onMappedR2RangeChange = { range ->
-                            rightStickMappedR2Range = range
-                            dispatchTouchR2()
-                        },
-                        onMappedL2RangeChange = { range ->
-                            rightStickMappedL2Range = range
-                            dispatchTouchL2()
-                        },
                         onPadInput = onPadInput
                     )
                 },
@@ -1910,8 +1916,20 @@ private fun TouchButtonGroup(
     val latchedTargets = remember { mutableStateMapOf<String, Boolean>() }
     val longPressJobs = remember { mutableMapOf<Int, Job>() }
     val longPressActiveTargets = remember { mutableStateMapOf<Int, String>() }
-    val specById = remember(specs) { specs.associateBy { it.id } }
-    val bounds = remember(specs, density) {
+    val specById = specs.associateBy { it.id }
+    val currentSpecById by rememberUpdatedState(specById)
+    val layoutKey = specs.map { spec ->
+        TouchButtonLayoutKey(
+            id = spec.id,
+            width = spec.width,
+            height = spec.height,
+            x = spec.x,
+            y = spec.y,
+            tapToHold = spec.tapToHold,
+            hasLongPressAction = spec.onLongPressChange != null && spec.longPressDelayMs > 0L
+        )
+    }
+    val bounds = remember(layoutKey, density) {
         with(density) {
             val rects = specs.associate { spec ->
                 spec.id to Rect(
@@ -2016,17 +2034,17 @@ private fun TouchButtonGroup(
         }
     }
 
-    DisposableEffect(specs) {
+    DisposableEffect(layoutKey) {
         onDispose {
             longPressJobs.values.forEach { it.cancel() }
             longPressActiveTargets.values.toSet().forEach { targetId ->
-                specById[targetId]?.onLongPressChange?.invoke(false)
+                currentSpecById[targetId]?.onLongPressChange?.invoke(false)
             }
             latchedTargets.keys.toList().forEach { targetId ->
-                specById[targetId]?.onPressChange?.invoke(false)
+                currentSpecById[targetId]?.onPressChange?.invoke(false)
             }
             activeTargets.values.toSet().forEach { targetId ->
-                val spec = specById[targetId]
+                val spec = currentSpecById[targetId]
                 if (spec?.hasLongPressAction() != true && spec?.hasTapToHoldAction() != true) {
                     spec?.onPressChange?.invoke(false)
                 }
@@ -2117,9 +2135,7 @@ private fun TouchButtonGroup(
                 height = spec.height,
                 shape = spec.shape,
                 interactive = false,
-                pressed = activeTargets.containsValue(spec.id) ||
-                    latchedTargets[spec.id] == true ||
-                    spec.externalPressed,
+                pressed = activeTargets.containsValue(spec.id) || latchedTargets[spec.id] == true,
                 modifier = Modifier.offset {
                     IntOffset(
                         (spec.x.roundToPx() - groupRect.left.roundToInt()),
@@ -2153,24 +2169,11 @@ private fun updateRightAnalogStick(
     x: Float,
     y: Float,
     sensitivity: Float = 1f,
-    upToR2: Boolean,
-    downToL2: Boolean,
-    onMappedR2RangeChange: (Int) -> Unit,
-    onMappedL2RangeChange: (Int) -> Unit,
     onPadInput: (Int, Int, Boolean) -> Unit
 ) {
-    val scaledY = (y * sensitivity.coerceIn(0.5f, 2f)).coerceIn(-1f, 1f)
-    val triggerUp = if (upToR2) ((-scaledY).coerceAtLeast(0f) * 255f).roundToInt() else 0
-    val triggerDown = if (downToL2) (scaledY.coerceAtLeast(0f) * 255f).roundToInt() else 0
-    val stickY = when {
-        upToR2 && scaledY < 0f -> 0f
-        downToL2 && scaledY > 0f -> 0f
-        else -> y
-    }
-
     updateAnalogStick(
         x = x,
-        y = stickY,
+        y = y,
         sensitivity = sensitivity,
         upKey = PadKey.RIGHT_STICK_UP,
         rightKey = PadKey.RIGHT_STICK_RIGHT,
@@ -2178,8 +2181,6 @@ private fun updateRightAnalogStick(
         leftKey = PadKey.RIGHT_STICK_LEFT,
         onPadInput = onPadInput
     )
-    if (upToR2) onMappedR2RangeChange(triggerUp.coerceIn(0, 255))
-    if (downToL2) onMappedL2RangeChange(triggerDown.coerceIn(0, 255))
 }
 
 private fun formatSaveTimestamp(timestamp: Long): String {

@@ -307,6 +307,8 @@ fun VectorAnalogStick(
     alpha: Float = 1f,
     selected: Boolean = false,
     surfaceOnly: Boolean = false,
+    visualX: Float = 0f,
+    visualY: Float = 0f,
     interactive: Boolean = true,
     onClick: (() -> Unit)? = null,
     onValueChange: ((Float, Float) -> Unit)? = null
@@ -401,6 +403,31 @@ fun VectorAnalogStick(
         }
     }
 
+    val visualMaxDistance = minOf(size.width, size.height) * 0.5f
+    val visualThumbOffset = if (visualMaxDistance > 0f) {
+        Offset(
+            x = visualX.coerceIn(-1f, 1f) * visualMaxDistance,
+            y = visualY.coerceIn(-1f, 1f) * visualMaxDistance
+        )
+    } else {
+        Offset.Zero
+    }
+    val animatedVisualThumbX by animateFloatAsState(
+        targetValue = visualThumbOffset.x,
+        animationSpec = tween(durationMillis = 90),
+        label = "vector_analog_stick_visual_x"
+    )
+    val animatedVisualThumbY by animateFloatAsState(
+        targetValue = visualThumbOffset.y,
+        animationSpec = tween(durationMillis = 90),
+        label = "vector_analog_stick_visual_y"
+    )
+    val displayedThumbOffset = if (activePointerId != MotionEvent.INVALID_POINTER_ID) {
+        thumbOffset
+    } else {
+        Offset(animatedVisualThumbX, animatedVisualThumbY)
+    }
+
     Box(
         modifier = modifier
             .size(width = analogWidth, height = analogHeight)
@@ -454,7 +481,7 @@ fun VectorAnalogStick(
                     .size(guideSize * 0.14f)
                     .clip(CircleShape)
                     .background(Color(0xFF7CC8FF).copy(alpha = 0.38f))
-                    .offset { IntOffset(thumbOffset.x.roundToInt(), thumbOffset.y.roundToInt()) }
+                    .offset { IntOffset(displayedThumbOffset.x.roundToInt(), displayedThumbOffset.y.roundToInt()) }
             )
         } else {
             Image(
@@ -468,7 +495,7 @@ fun VectorAnalogStick(
                 contentDescription = null,
                 modifier = Modifier
                     .size(analogSize * 0.52f)
-                    .offset { IntOffset(thumbOffset.x.roundToInt(), thumbOffset.y.roundToInt()) },
+                    .offset { IntOffset(displayedThumbOffset.x.roundToInt(), displayedThumbOffset.y.roundToInt()) },
                 contentScale = ContentScale.Fit
             )
         }

@@ -51,8 +51,7 @@ object GamepadManager {
         var prevRightY: Float = 0f,
         var prevLT: Float = 0f,
         var prevRT: Float = 0f,
-        var prevMappedL2FromRightStick: Float = 0f,
-        var prevMappedR2FromRightStick: Float = 0f,
+        var prevRightStickYFromTriggers: Float = 0f,
         var prevHatX: Float = 0f,
         var prevHatY: Float = 0f
     )
@@ -129,6 +128,16 @@ object GamepadManager {
         MotionEvent.AXIS_GAS,
         MotionEvent.AXIS_HAT_X,
         MotionEvent.AXIS_HAT_Y
+    )
+    private val ANALOG_STICK_DIRECTION_KEYS = setOf(
+        PadKey.LeftStickUp,
+        PadKey.LeftStickRight,
+        PadKey.LeftStickDown,
+        PadKey.LeftStickLeft,
+        PadKey.RightStickUp,
+        PadKey.RightStickRight,
+        PadKey.RightStickDown,
+        PadKey.RightStickLeft
     )
 
     @Volatile
@@ -435,8 +444,9 @@ object GamepadManager {
         val padIndex = resolvePadIndexForDevice(event.deviceId) ?: return false
         val padKey = mapKeyCodeToPadKey(padIndex, event.keyCode) ?: return false
         val pressed = event.action == KeyEvent.ACTION_DOWN
+        val range = if (pressed && padKey in ANALOG_STICK_DIRECTION_KEYS) 255 else 0
 
-        EmulatorBridge.setPadButton(padIndex, padKey, 0, pressed)
+        EmulatorBridge.setPadButton(padIndex, padKey, range, pressed)
         return true
     }
 
@@ -477,13 +487,13 @@ object GamepadManager {
             rightStickSensitivity
         )
         val rightY = physicalRightY.let { if (invertRightStick) -it else it }
-        val mappedR2FromRightStick = if (rightStickUpToR2) (-rightY).coerceAtLeast(0f) else 0f
-        val mappedL2FromRightStick = if (rightStickDownToL2) rightY.coerceAtLeast(0f) else 0f
-        val rightStickY = when {
-            rightStickUpToR2 && rightY < 0f -> 0f
-            rightStickDownToL2 && rightY > 0f -> 0f
-            else -> rightY
-        }
+        val physicalLT = getAxisValueWithFallback(event, MotionEvent.AXIS_LTRIGGER, MotionEvent.AXIS_BRAKE)
+        val physicalRT = getAxisValueWithFallback(event, MotionEvent.AXIS_RTRIGGER, MotionEvent.AXIS_GAS)
+        val rightStickYFromTriggers = (
+            (if (rightStickDownToL2) physicalLT else 0f) -
+                (if (rightStickUpToR2) physicalRT else 0f)
+            ).coerceIn(-1f, 1f)
+        val rightStickY = (rightY + rightStickYFromTriggers).coerceIn(-1f, 1f)
         if (rightX != state.prevRightX || rightStickY != state.prevRightY) {
             dispatchAnalogStick(
                 padIndex = padIndex,
@@ -498,10 +508,8 @@ object GamepadManager {
             state.prevRightY = rightStickY
         }
 
-        val lt = getAxisValueWithFallback(event, MotionEvent.AXIS_LTRIGGER, MotionEvent.AXIS_BRAKE)
-            .coerceAtLeast(mappedL2FromRightStick)
-        val rt = getAxisValueWithFallback(event, MotionEvent.AXIS_RTRIGGER, MotionEvent.AXIS_GAS)
-            .coerceAtLeast(mappedR2FromRightStick)
+        val lt = if (rightStickDownToL2) 0f else physicalLT
+        val rt = if (rightStickUpToR2) 0f else physicalRT
         if (lt != state.prevLT) {
             dispatchAnalogButton(padIndex, PadKey.L2, lt)
             state.prevLT = lt
@@ -510,8 +518,7 @@ object GamepadManager {
             dispatchAnalogButton(padIndex, PadKey.R2, rt)
             state.prevRT = rt
         }
-        state.prevMappedL2FromRightStick = mappedL2FromRightStick
-        state.prevMappedR2FromRightStick = mappedR2FromRightStick
+        state.prevRightStickYFromTriggers = rightStickYFromTriggers
 
         val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
         val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
@@ -626,17 +633,14 @@ object GamepadManager {
                 val padIndex = deviceToPadIndex[deviceId] ?: return@mapNotNull null
                 val reset = RightStickTriggerReset(
                     padIndex = padIndex,
-                    releaseRightStickY = state.prevRightY != 0f,
-                    releaseL2 = state.prevMappedL2FromRightStick > 0f &&
-                        state.prevLT <= state.prevMappedL2FromRightStick,
-                    releaseR2 = state.prevMappedR2FromRightStick > 0f &&
-                        state.prevRT <= state.prevMappedR2FromRightStick
+                    releaseRightStickY = state.prevRightStickYFromTriggers != 0f,
+                    releaseL2 = state.prevLT != 0f,
+                    releaseR2 = state.prevRT != 0f
                 )
                 state.prevRightY = 0f
                 state.prevLT = 0f
                 state.prevRT = 0f
-                state.prevMappedL2FromRightStick = 0f
-                state.prevMappedR2FromRightStick = 0f
+                state.prevRightStickYFromTriggers = 0f
                 reset
             }
         }
@@ -657,8 +661,10 @@ object GamepadManager {
     }
 
     private fun mapKeyCodeToPadKey(padIndex: Int, keyCode: Int): Int? {
-        customBindingsByPadAndKeyCode[normalizePadIndex(padIndex)]?.get(keyCode)?.let { return it }
-        return when (keyCode) {
+        customBindingsByPadAndKeyCode[normalizePadIndex(padIndex)]?.get(keyCode)?.let {
+            return remapTriggerPadKeyForRightStick(it)
+        }
+        val padKey = when (keyCode) {
             KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_1 -> PadKey.Cross
             KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BUTTON_2 -> PadKey.Circle
             KeyEvent.KEYCODE_BUTTON_X, KeyEvent.KEYCODE_BUTTON_3 -> PadKey.Square
@@ -676,6 +682,15 @@ object GamepadManager {
             KeyEvent.KEYCODE_DPAD_LEFT -> PadKey.Left
             KeyEvent.KEYCODE_DPAD_RIGHT -> PadKey.Right
             else -> null
+        }
+        return padKey?.let(::remapTriggerPadKeyForRightStick)
+    }
+
+    private fun remapTriggerPadKeyForRightStick(padKey: Int): Int {
+        return when (padKey) {
+            PadKey.L2 -> if (rightStickDownToL2) PadKey.RightStickDown else PadKey.L2
+            PadKey.R2 -> if (rightStickUpToR2) PadKey.RightStickUp else PadKey.R2
+            else -> padKey
         }
     }
 
