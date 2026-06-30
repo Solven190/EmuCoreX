@@ -469,7 +469,11 @@ object GamepadManager {
             }
             return true
         }
-        val padKey = mapKeyCodeToPadKey(padIndex, event.keyCode) ?: return false
+        val rawPadKey = mapKeyCodeToRawPadKey(padIndex, event.keyCode) ?: return false
+        if (shouldUseAnalogTriggerAxisForRightStickMapping(event.device, rawPadKey)) {
+            return true
+        }
+        val padKey = remapTriggerPadKeyForRightStick(rawPadKey)
         val pressed = event.action == KeyEvent.ACTION_DOWN
         val range = if (pressed && padKey in ANALOG_STICK_DIRECTION_KEYS) 255 else 0
 
@@ -691,11 +695,27 @@ object GamepadManager {
         return customShortcutBindingsByPadAndKeyCode[normalizePadIndex(padIndex)]?.get(keyCode)
     }
 
-    private fun mapKeyCodeToPadKey(padIndex: Int, keyCode: Int): Int? {
-        customBindingsByPadAndKeyCode[normalizePadIndex(padIndex)]?.get(keyCode)?.let {
-            return remapTriggerPadKeyForRightStick(it)
+    private fun shouldUseAnalogTriggerAxisForRightStickMapping(device: InputDevice?, padKey: Int): Boolean {
+        return when (padKey) {
+            PadKey.L2 -> rightStickDownToL2 && hasAnyJoystickAxis(
+                device = device,
+                MotionEvent.AXIS_LTRIGGER,
+                MotionEvent.AXIS_BRAKE
+            )
+            PadKey.R2 -> rightStickUpToR2 && hasAnyJoystickAxis(
+                device = device,
+                MotionEvent.AXIS_RTRIGGER,
+                MotionEvent.AXIS_GAS
+            )
+            else -> false
         }
-        val padKey = when (keyCode) {
+    }
+
+    private fun mapKeyCodeToRawPadKey(padIndex: Int, keyCode: Int): Int? {
+        customBindingsByPadAndKeyCode[normalizePadIndex(padIndex)]?.get(keyCode)?.let {
+            return it
+        }
+        return when (keyCode) {
             KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_1 -> PadKey.Cross
             KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BUTTON_2 -> PadKey.Circle
             KeyEvent.KEYCODE_BUTTON_X, KeyEvent.KEYCODE_BUTTON_3 -> PadKey.Square
@@ -714,7 +734,6 @@ object GamepadManager {
             KeyEvent.KEYCODE_DPAD_RIGHT -> PadKey.Right
             else -> null
         }
-        return padKey?.let(::remapTriggerPadKeyForRightStick)
     }
 
     private fun remapTriggerPadKeyForRightStick(padKey: Int): Int {
@@ -775,6 +794,14 @@ object GamepadManager {
             (range.source and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK &&
                 range.axis == axis
         } == true
+    }
+
+    private fun hasAnyJoystickAxis(device: InputDevice?, vararg axes: Int): Boolean {
+        if (device == null || axes.isEmpty()) return false
+        return device.motionRanges.any { range ->
+            (range.source and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK &&
+                range.axis in axes
+        }
     }
 
     private fun resolvePadIndexForDevice(deviceId: Int): Int? {
