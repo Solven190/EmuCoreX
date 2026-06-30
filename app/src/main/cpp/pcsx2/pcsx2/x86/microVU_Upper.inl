@@ -2634,7 +2634,7 @@ static void mVU_MSUBAq_emit(mP)
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
 
-static void mVU_MSUBA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
+static void mVU_MSUBA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane, bool updateFlags = true)
 {
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	const int FtL = mVU.regAlloc->allocRegId();
@@ -2657,7 +2657,8 @@ static void mVU_MSUBA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
 			mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtL);
 			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
+			if (updateFlags)
+				mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 			recBeginOaknutEmit();
 			const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
 			oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
@@ -2673,7 +2674,8 @@ static void mVU_MSUBA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 			else
 				mVUUpperFmlsPs_oaknut(mVU, ACC, Fs, FtL);
 			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
+			if (updateFlags)
+				mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 		}
 	}
 	else
@@ -2684,7 +2686,8 @@ static void mVU_MSUBA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 		mVUUpperFmlsPs_oaknut(mVU, tempACC, Fs, FtL);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
+		if (updateFlags)
+			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 		mVU.regAlloc->clearNeededXmmId(tempACC);
 	}
 
@@ -2704,7 +2707,18 @@ static void mVU_MSUBAx_emit(mP)
 static void mVU_MSUBAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Y)) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Y); else mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 1); }
+	pass2
+	{
+		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Y))
+		{
+			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 1, false);
+			mVUExactVu0AccFlagsFromCpu_emit_oaknut(mVU, recPass);
+		}
+		else
+		{
+			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 1);
+		}
+	}
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
