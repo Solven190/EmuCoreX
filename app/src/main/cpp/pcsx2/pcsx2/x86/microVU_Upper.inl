@@ -2423,7 +2423,7 @@ static void mVU_MSUBA_direct_emit_oaknut(mP)
 				mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
 			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			mVU_FMACbSubSs_oaknut(mVU, ACC, Fs, Ft);
+			mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, Ft);
 			recEndOaknutEmit();
 			mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFt);
 			recBeginOaknutEmit();
@@ -2444,7 +2444,7 @@ static void mVU_MSUBA_direct_emit_oaknut(mP)
 					mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
 			}
 			if (_XYZW_SS)
-				mVU_FMACbSubSs_oaknut(mVU, ACC, Fs, Ft);
+				mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, Ft);
 			else
 				mVU_FMACbSubPs_oaknut(mVU, ACC, Fs, Ft);
 			recEndOaknutEmit();
