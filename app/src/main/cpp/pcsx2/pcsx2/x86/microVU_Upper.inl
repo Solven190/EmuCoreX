@@ -1468,7 +1468,7 @@ static void mVU_MADDAi_direct_emit_oaknut(mP)
 
 	if (_XYZW_SS || _X_Y_Z_W == 0xf)
 	{
-		if (_XYZW_SS2)
+		if (_XYZW_SS)
 		{
 			const int tempACC = mVU.regAlloc->allocRegId();
 			recBeginOaknutEmit();
@@ -2064,16 +2064,25 @@ static void mVU_MADDi_direct_emit_oaknut(mP)
 	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
 		return;
 
+	const bool needsVu0Exact = (_X_Y_Z_W == 0xf) && mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::I);
 	const int Fi = mVU.regAlloc->allocRegId(33, 0, _X_Y_Z_W);
 	const int ACC = mVU.regAlloc->allocRegId(32);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, _Fd_, _X_Y_Z_W);
 	const int tempFs = mVU.regAlloc->allocRegId();
+	const int t1 = needsVu0Exact ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
+	const int t2 = needsVu0Exact ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
 
 	recBeginOaknutEmit();
 	oakAsm->MOV(oakQRegister(tempFs).B16(), oakQRegister(Fs).B16());
 	oakAsm->MOV(oakQRegister(Fs).B16(), oakQRegister(ACC).B16());
 	if (_XYZW_SS2)
 		mVUUpperPshufd_oaknut(Fs, Fs, shuffleSS(_X_Y_Z_W));
+	if (needsVu0Exact)
+	{
+		mVUUpperVuDoubleVector_oaknut(Fs, t1, t2);
+		mVUUpperVuDoubleVector_oaknut(tempFs, t1, t2);
+		mVUUpperVuDoubleVector_oaknut(Fi, t1, t2);
+	}
 	if (_XYZW_SS)
 		mVUUpperFmlaSs_oaknut(mVU, Fs, tempFs, Fi);
 	else
@@ -2082,8 +2091,16 @@ static void mVU_MADDi_direct_emit_oaknut(mP)
 
 	mVU.regAlloc->clearNeededXmmId(tempFs);
 
-	mVUupdateFlags_oaknut(mVU, Fs, Fi);
+	if (needsVu0Exact)
+		mVUExactVu0AccFlagsFromHost_emit_oaknut(mVU, recPass, Fs);
+	else
+		mVUupdateFlags_oaknut(mVU, Fs, Fi);
 
+	if (needsVu0Exact)
+	{
+		mVU.regAlloc->clearNeededXmmId(t2);
+		mVU.regAlloc->clearNeededXmmId(t1);
+	}
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
 	mVU.regAlloc->clearNeededXmmId(ACC);
@@ -2094,10 +2111,7 @@ static void mVU_MADDi_emit(mP)
 	pass1 { mVUanalyzeFMAC1(mVU, _Fd_, _Fs_, 0); }
 	pass2
 	{
-		if ((_X_Y_Z_W == 0xf) && mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::I))
-			mVUExactVu0DestOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::I);
-		else
-			mVU_MADDi_direct_emit_oaknut(mVU, recPass);
+		mVU_MADDi_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3
 	{
