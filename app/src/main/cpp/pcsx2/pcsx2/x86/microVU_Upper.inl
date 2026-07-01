@@ -2745,7 +2745,18 @@ static void mVU_MSUBAz_emit(mP)
 static void mVU_MSUBAw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::W)) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::W); else mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 3); }
+	pass2
+	{
+		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::W))
+		{
+			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 3, false);
+			mVUExactVu0AccFlagsFromCpu_emit_oaknut(mVU, recPass);
+		}
+		else
+		{
+			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 3);
+		}
+	}
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
