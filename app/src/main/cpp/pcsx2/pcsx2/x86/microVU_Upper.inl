@@ -3,6 +3,7 @@
 
 #pragma once
 
+
 //------------------------------------------------------------------
 // mVUupdateFlags() - Updates status/mac flags
 //------------------------------------------------------------------
@@ -232,7 +233,8 @@ static __fi void mVUUpperFmlaSs_oaknut(mV, int acc, int left, int right)
 	mVUUpperClamp3Scalar_oaknut(mVU, left);
 	mVUUpperClamp3Scalar_oaknut(mVU, right);
 	oakAsm->FMUL(OAK_SSCRATCH, oakSRegister(left), oakQRegister(right).Selem()[0]);
-	oakAsm->FADD(oakSRegister(acc), oakSRegister(acc), OAK_SSCRATCH);
+	oakAsm->FADD(OAK_SSCRATCH, oakSRegister(acc), OAK_SSCRATCH);
+	oakAsm->MOV(oakQRegister(acc).Selem()[0], OAK_QSCRATCH.Selem()[0]);
 	mVUUpperClamp4Scalar_oaknut(mVU, acc);
 }
 
@@ -245,7 +247,8 @@ static __fi void mVUUpperFmlaPsLane_oaknut(int acc, int left, int right, int lan
 static __fi void mVUUpperFmlaSsLane_oaknut(int acc, int left, int right, int lane)
 {
 	oakAsm->FMUL(OAK_SSCRATCH, oakSRegister(left), oakQRegister(right).Selem()[lane]);
-	oakAsm->FADD(oakSRegister(acc), oakSRegister(acc), OAK_SSCRATCH);
+	oakAsm->FADD(OAK_SSCRATCH, oakSRegister(acc), OAK_SSCRATCH);
+	oakAsm->MOV(oakQRegister(acc).Selem()[0], OAK_QSCRATCH.Selem()[0]);
 }
 
 static __fi void mVUUpperVuDoubleVector_oaknut(int reg, int t1, int t2)
@@ -837,6 +840,78 @@ static void mVUExactVu0AccFlagsFromCpu_emit_oaknut(mP)
 	mVUExactVu0StatUpdate_oaknut(vuIndex, OAK_WSCRATCH2);
 	recEndOaknutEmit();
 }
+
+static __fi void mVUExactVu0StatusFromMac_oaknut(const oak::WReg& status, const oak::WReg& mac)
+{
+	oakAsm->MOV(status, 0);
+	mVUExactVu0SetStatusBitIf_oaknut(status, mac, 0x000fu, 0x1);
+	mVUExactVu0SetStatusBitIf_oaknut(status, mac, 0x00f0u, 0x2);
+	mVUExactVu0SetStatusBitIf_oaknut(status, mac, 0x0f00u, 0x4);
+	mVUExactVu0SetStatusBitIf_oaknut(status, mac, 0xf000u, 0x8);
+}
+
+static void mVUExactVu0AccFlagsFromHost_emit_oaknut(mP, int acc)
+{
+	const int vuIndex = mVU.index;
+	const int mReg = VU_HOST_T1;
+	const int sReg = getFlagRegId(sFLAG.write);
+	const oak::WReg mac = OAK_WSCRATCH2;
+	const oak::WReg status = oakWRegister(sReg);
+	const oak::WReg temp = OAK_WSCRATCH;
+
+	if (sFLAG.doFlag)
+		mVUallocSFLAGa(sReg, sFLAG.lastWrite);
+
+	recBeginOaknutEmit();
+	oakAsm->MOV(mac, 0);
+	if (_X)
+	{
+		oakAsm->MOV(OAK_QSCRATCH.Selem()[0], oakQRegister(acc).Selem()[0]);
+		mVUExactVu0StoreMacResultLaneTo_oaknut(vuIndex, 0, OAK_SSCRATCH, mac, -1);
+	}
+	if (_Y)
+	{
+		oakAsm->MOV(OAK_QSCRATCH.Selem()[0], oakQRegister(acc).Selem()[1]);
+		mVUExactVu0StoreMacResultLaneTo_oaknut(vuIndex, 1, OAK_SSCRATCH, mac, -1);
+	}
+	if (_Z)
+	{
+		oakAsm->MOV(OAK_QSCRATCH.Selem()[0], oakQRegister(acc).Selem()[2]);
+		mVUExactVu0StoreMacResultLaneTo_oaknut(vuIndex, 2, OAK_SSCRATCH, mac, -1);
+	}
+	if (_W)
+	{
+		oakAsm->MOV(OAK_QSCRATCH.Selem()[0], oakQRegister(acc).Selem()[3]);
+		mVUExactVu0StoreMacResultLaneTo_oaknut(vuIndex, 3, OAK_SSCRATCH, mac, -1);
+	}
+
+	oakStore32(mac, mVUExactVu0CpuMem(mVUExactVu0MacFlagOffset(vuIndex)));
+	mVUExactVu0StatusFromMac_oaknut(temp, mac);
+	oakStore32(temp, mVUExactVu0CpuMem(mVUExactVu0StatusFlagOffset(vuIndex)));
+
+	if (sFLAG.doFlag)
+	{
+		if (sFLAG.doNonSticky)
+		{
+			oakAsm->MOV(OAK_WSCRATCH, 0xfffc00ff);
+			oakAsm->AND(status, status, OAK_WSCRATCH);
+		}
+		oakAsm->AND(temp, mac, 0xff);
+		oakAsm->ORR(status, status, temp);
+		if (sFLAG.doNonSticky)
+		{
+			oakAsm->LSL(temp, temp, 8);
+			oakAsm->ORR(status, status, temp);
+		}
+	}
+	if (mFLAG.doFlag)
+		oakAsm->MOV(oakWRegister(mReg), mac);
+
+	recEndOaknutEmit();
+
+	if (mFLAG.doFlag)
+		mVUallocMFLAGb(mVU, mReg, mFLAG.write);
+}
 static void mVUExactVu0DestOp_emit_oaknut(mP, mVUExactVu0AccOp op, mVUExactVu0FtMode ftMode)
 {
 	mVU.regAlloc->flushAll();
@@ -1384,9 +1459,12 @@ static void mVU_ADDAw_emit(mP)
 // MADDAi Opcode
 static void mVU_MADDAi_direct_emit_oaknut(mP)
 {
+	const bool needsVu0Exact = mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::I);
 	const int Fi = mVU.regAlloc->allocRegId(33, 0, _X_Y_Z_W);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
 	const int ACC = mVU.regAlloc->allocRegId(32, 32, 0xf, false);
+	const int t1 = needsVu0Exact ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
+	const int t2 = needsVu0Exact ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
 
 	if (_XYZW_SS || _X_Y_Z_W == 0xf)
 	{
@@ -1396,24 +1474,60 @@ static void mVU_MADDAi_direct_emit_oaknut(mP)
 			recBeginOaknutEmit();
 			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
+			if (needsVu0Exact)
+			{
+				mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(ACC), mVU.index);
+				mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(Fs), mVU.index);
+				mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(Fi), mVU.index);
+			}
 			mVUUpperFmlaSs_oaknut(mVU, ACC, Fs, Fi);
+			if (needsVu0Exact)
+			{
+				oakAsm->MOV(oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))], oakQRegister(ACC).Selem()[0]);
+				oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
+			}
 			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
-			recBeginOaknutEmit();
-			oakAsm->MOV(oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))], oakQRegister(ACC).Selem()[0]);
-			oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-			recEndOaknutEmit();
+			if (needsVu0Exact)
+			{
+				mVUExactVu0AccFlagsFromHost_emit_oaknut(mVU, recPass, ACC);
+			}
+			else
+			{
+				mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
+				recBeginOaknutEmit();
+				oakAsm->MOV(oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))], oakQRegister(ACC).Selem()[0]);
+				oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
+				recEndOaknutEmit();
+			}
 			mVU.regAlloc->clearNeededXmmId(tempACC);
 		}
 		else
 		{
 			recBeginOaknutEmit();
+			if (needsVu0Exact)
+			{
+				if (_XYZW_SS)
+				{
+					mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(ACC), mVU.index);
+					mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(Fs), mVU.index);
+					mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(Fi), mVU.index);
+				}
+				else
+				{
+					mVUUpperVuDoubleVector_oaknut(ACC, t1, t2);
+					mVUUpperVuDoubleVector_oaknut(Fs, t1, t2);
+					mVUUpperVuDoubleVector_oaknut(Fi, t1, t2);
+				}
+			}
 			if (_XYZW_SS)
 				mVUUpperFmlaSs_oaknut(mVU, ACC, Fs, Fi);
 			else
 				mVUUpperFmlaPs_oaknut(mVU, ACC, Fs, Fi);
 			recEndOaknutEmit();
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
+			if (needsVu0Exact)
+				mVUExactVu0AccFlagsFromHost_emit_oaknut(mVU, recPass, ACC);
+			else
+				mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
 		}
 	}
 	else
@@ -1421,13 +1535,27 @@ static void mVU_MADDAi_direct_emit_oaknut(mP)
 		const int tempACC = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
+		if (needsVu0Exact)
+		{
+			mVUUpperVuDoubleVector_oaknut(tempACC, t1, t2);
+			mVUUpperVuDoubleVector_oaknut(Fs, t1, t2);
+			mVUUpperVuDoubleVector_oaknut(Fi, t1, t2);
+		}
 		mVUUpperFmlaPs_oaknut(mVU, tempACC, Fs, Fi);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
+		if (needsVu0Exact)
+			mVUExactVu0AccFlagsFromHost_emit_oaknut(mVU, recPass, ACC);
+		else
+			mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
 		mVU.regAlloc->clearNeededXmmId(tempACC);
 	}
 
+	if (needsVu0Exact)
+	{
+		mVU.regAlloc->clearNeededXmmId(t2);
+		mVU.regAlloc->clearNeededXmmId(t1);
+	}
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
@@ -1438,10 +1566,7 @@ static void mVU_MADDAi_emit(mP)
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, 0); }
 	pass2
 	{
-		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::I))
-			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::I);
-		else
-			mVU_MADDAi_direct_emit_oaknut(mVU, recPass);
+		mVU_MADDAi_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3
 	{
