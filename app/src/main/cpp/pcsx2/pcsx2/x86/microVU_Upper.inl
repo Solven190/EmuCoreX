@@ -306,7 +306,8 @@ static __fi void mVUUpperFmlsSs_oaknut(mV, int acc, int left, int right)
 	mVUUpperClamp3Scalar_oaknut(mVU, left);
 	mVUUpperClamp3Scalar_oaknut(mVU, right);
 	oakAsm->FMUL(OAK_SSCRATCH, oakSRegister(left), oakQRegister(right).Selem()[0]);
-	oakAsm->FSUB(oakSRegister(acc), oakSRegister(acc), OAK_SSCRATCH);
+	oakAsm->FSUB(OAK_SSCRATCH, oakSRegister(acc), OAK_SSCRATCH);
+	oakAsm->MOV(oakQRegister(acc).Selem()[0], OAK_QSCRATCH.Selem()[0]);
 	mVUUpperClamp4Scalar_oaknut(mVU, acc);
 }
 
@@ -2477,7 +2478,7 @@ static void mVU_MSUBA_direct_emit_oaknut(mP)
 static void mVU_MSUBA_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::PerLane)) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::PerLane); else mVU_MSUBA_direct_emit_oaknut(mVU, recPass); }
+	pass2 { mVU_MSUBA_direct_emit_oaknut(mVU, recPass); }
 	pass3
 	{
 		mVUlog("MSUBA");
