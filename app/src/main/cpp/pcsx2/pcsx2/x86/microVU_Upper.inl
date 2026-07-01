@@ -290,6 +290,30 @@ static __fi void mVUUpperMulSsLane_oaknut(int to, int from, int lane)
 	oakAsm->FMUL(oakSRegister(to), oakSRegister(to), oakQRegister(from).Selem()[lane]);
 }
 
+static __fi void mVU_FMACbAddPs_oaknut(mV, int acc, int fs, int ft)
+{
+	mVUUpperMulPs_oaknut(mVU, fs, ft);
+	mVUUpperAddPs_oaknut(mVU, acc, fs);
+}
+
+static __fi void mVU_FMACbAddSs_oaknut(mV, int acc, int fs, int ft)
+{
+	mVUUpperMulSs_oaknut(mVU, fs, ft);
+	mVUUpperAddSs_oaknut(mVU, acc, fs);
+}
+
+static __fi void mVU_FMACbSubPs_oaknut(mV, int acc, int fs, int ft)
+{
+	mVUUpperMulPs_oaknut(mVU, fs, ft);
+	mVUUpperSubPs_oaknut(mVU, acc, fs);
+}
+
+static __fi void mVU_FMACbSubSs_oaknut(mV, int acc, int fs, int ft)
+{
+	mVUUpperMulSs_oaknut(mVU, fs, ft);
+	mVUUpperSubSs_oaknut(mVU, acc, fs);
+}
+
 static __fi void mVUUpperFmlsPs_oaknut(mV, int acc, int left, int right)
 {
 	const oak::QReg acc_q = oakQRegister(acc);
@@ -1459,12 +1483,9 @@ static void mVU_ADDAw_emit(mP)
 // MADDAi Opcode
 static void mVU_MADDAi_direct_emit_oaknut(mP)
 {
-	const bool needsVu0Exact = mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::I);
 	const int Fi = mVU.regAlloc->allocRegId(33, 0, _X_Y_Z_W);
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
 	const int ACC = mVU.regAlloc->allocRegId(32, 32, 0xf, false);
-	const int t1 = needsVu0Exact ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
-	const int t2 = needsVu0Exact ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
 
 	if (_XYZW_SS || _X_Y_Z_W == 0xf)
 	{
@@ -1474,60 +1495,21 @@ static void mVU_MADDAi_direct_emit_oaknut(mP)
 			recBeginOaknutEmit();
 			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			if (needsVu0Exact)
-			{
-				mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(ACC), mVU.index);
-				mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(Fs), mVU.index);
-				mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(Fi), mVU.index);
-			}
-			mVUUpperFmlaSs_oaknut(mVU, ACC, Fs, Fi);
-			if (needsVu0Exact)
-			{
-				oakAsm->MOV(oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))], oakQRegister(ACC).Selem()[0]);
-				oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-			}
+			mVU_FMACbAddSs_oaknut(mVU, ACC, Fs, Fi);
 			recEndOaknutEmit();
-			if (needsVu0Exact)
-			{
-				mVUExactVu0AccFlagsFromHost_emit_oaknut(mVU, recPass, ACC);
-			}
-			else
-			{
-				mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
-				recBeginOaknutEmit();
-				oakAsm->MOV(oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))], oakQRegister(ACC).Selem()[0]);
-				oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
-				recEndOaknutEmit();
-			}
+			mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
+			recBeginOaknutEmit();
+			oakAsm->MOV(oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))], oakQRegister(ACC).Selem()[0]);
+			oakAsm->MOV(oakQRegister(ACC).B16(), oakQRegister(tempACC).B16());
+			recEndOaknutEmit();
 			mVU.regAlloc->clearNeededXmmId(tempACC);
 		}
 		else
 		{
 			recBeginOaknutEmit();
-			if (needsVu0Exact)
-			{
-				if (_XYZW_SS)
-				{
-					mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(ACC), mVU.index);
-					mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(Fs), mVU.index);
-					mVUExactVu0VuDoubleScalar_oaknut(oakSRegister(Fi), mVU.index);
-				}
-				else
-				{
-					mVUUpperVuDoubleVector_oaknut(ACC, t1, t2);
-					mVUUpperVuDoubleVector_oaknut(Fs, t1, t2);
-					mVUUpperVuDoubleVector_oaknut(Fi, t1, t2);
-				}
-			}
-			if (_XYZW_SS)
-				mVUUpperFmlaSs_oaknut(mVU, ACC, Fs, Fi);
-			else
-				mVUUpperFmlaPs_oaknut(mVU, ACC, Fs, Fi);
+			mVU_FMACbAddPs_oaknut(mVU, ACC, Fs, Fi);
 			recEndOaknutEmit();
-			if (needsVu0Exact)
-				mVUExactVu0AccFlagsFromHost_emit_oaknut(mVU, recPass, ACC);
-			else
-				mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
+			mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
 		}
 	}
 	else
@@ -1535,27 +1517,13 @@ static void mVU_MADDAi_direct_emit_oaknut(mP)
 		const int tempACC = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		if (needsVu0Exact)
-		{
-			mVUUpperVuDoubleVector_oaknut(tempACC, t1, t2);
-			mVUUpperVuDoubleVector_oaknut(Fs, t1, t2);
-			mVUUpperVuDoubleVector_oaknut(Fi, t1, t2);
-		}
-		mVUUpperFmlaPs_oaknut(mVU, tempACC, Fs, Fi);
+		mVU_FMACbAddPs_oaknut(mVU, tempACC, Fs, Fi);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
-		if (needsVu0Exact)
-			mVUExactVu0AccFlagsFromHost_emit_oaknut(mVU, recPass, ACC);
-		else
-			mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
+		mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
 		mVU.regAlloc->clearNeededXmmId(tempACC);
 	}
 
-	if (needsVu0Exact)
-	{
-		mVU.regAlloc->clearNeededXmmId(t2);
-		mVU.regAlloc->clearNeededXmmId(t1);
-	}
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
 	mVU.regAlloc->clearNeededXmmId(Fi);
@@ -1609,7 +1577,7 @@ static void mVU_MADDA_direct_emit_oaknut(mP)
 			recBeginOaknutEmit();
 			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			mVUUpperFmlaSs_oaknut(mVU, ACC, Fs, Ft);
+			mVU_FMACbAddSs_oaknut(mVU, ACC, Fs, Ft);
 			recEndOaknutEmit();
 			mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFt);
 			recBeginOaknutEmit();
@@ -1623,9 +1591,9 @@ static void mVU_MADDA_direct_emit_oaknut(mP)
 		{
 			recBeginOaknutEmit();
 			if (_XYZW_SS)
-				mVUUpperFmlaSs_oaknut(mVU, ACC, Fs, Ft);
+				mVU_FMACbAddSs_oaknut(mVU, ACC, Fs, Ft);
 			else
-				mVUUpperFmlaPs_oaknut(mVU, ACC, Fs, Ft);
+				mVU_FMACbAddPs_oaknut(mVU, ACC, Fs, Ft);
 			recEndOaknutEmit();
 			mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFt);
 		}
@@ -1635,7 +1603,7 @@ static void mVU_MADDA_direct_emit_oaknut(mP)
 		const int tempACC = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		mVUUpperFmlaPs_oaknut(mVU, tempACC, Fs, Ft);
+		mVU_FMACbAddPs_oaknut(mVU, tempACC, Fs, Ft);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
 		mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFt);
@@ -1690,7 +1658,7 @@ static void mVU_MADDAq_direct_emit_oaknut(mP)
 			recBeginOaknutEmit();
 			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			mVUUpperFmlaSs_oaknut(mVU, ACC, Fs, Fq);
+			mVU_FMACbAddSs_oaknut(mVU, ACC, Fs, Fq);
 			recEndOaknutEmit();
 			mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFq);
 			recBeginOaknutEmit();
@@ -1704,9 +1672,9 @@ static void mVU_MADDAq_direct_emit_oaknut(mP)
 		{
 			recBeginOaknutEmit();
 			if (_XYZW_SS)
-				mVUUpperFmlaSs_oaknut(mVU, ACC, Fs, Fq);
+				mVU_FMACbAddSs_oaknut(mVU, ACC, Fs, Fq);
 			else
-				mVUUpperFmlaPs_oaknut(mVU, ACC, Fs, Fq);
+				mVU_FMACbAddPs_oaknut(mVU, ACC, Fs, Fq);
 			recEndOaknutEmit();
 			mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFq);
 		}
@@ -1716,7 +1684,7 @@ static void mVU_MADDAq_direct_emit_oaknut(mP)
 		const int tempACC = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		mVUUpperFmlaPs_oaknut(mVU, tempACC, Fs, Fq);
+		mVU_FMACbAddPs_oaknut(mVU, tempACC, Fs, Fq);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
 		mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFq);
@@ -1742,31 +1710,17 @@ static void mVU_MADDAq_emit(mP)
 }
 
 // MADDA lane Opcodes
-static __fi bool mVUNeedsVu1MaddaExactFlagsPath(const microVU& mVU)
-{
-	// Keep VU1 MADDA accuracy scoped to clamping-accurate blocks whose flags are consumed.
-	return isVU1 && CHECK_VU_OVERFLOW(1) && (sFLAG.doFlag || mFLAG.doFlag);
-}
-
 static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane, bool updateFlags = true)
 {
-	const bool needsVu1MaddaLaneVuDouble = mVUNeedsVu1MaddaExactFlagsPath(mVU) && lane != 3 && _X_Y_Z_W != 0;
-	const bool useFtLane = !clampE && !needsVu1MaddaLaneVuDouble;
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
-	int FtL = VU_HOST_NO_XMM;
-	if (!useFtLane)
-	{
-		FtL = mVU.regAlloc->allocRegId();
-		recBeginOaknutEmit();
-		mVUUpperDupLane_oaknut(FtL, FtRaw, lane);
-		recEndOaknutEmit();
-		mVU.regAlloc->clearNeededXmmId(FtRaw);
-	}
+	const int FtL = mVU.regAlloc->allocRegId();
+	recBeginOaknutEmit();
+	mVUUpperDupLane_oaknut(FtL, FtRaw, lane);
+	recEndOaknutEmit();
+	mVU.regAlloc->clearNeededXmmId(FtRaw);
 
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, _X_Y_Z_W);
 	const int ACC = mVU.regAlloc->allocRegId(32, 32, 0xf, false);
-	const int t1 = needsVu1MaddaLaneVuDouble ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
-	const int t2 = needsVu1MaddaLaneVuDouble ? mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
 
 	if (_XYZW_SS || _X_Y_Z_W == 0xf)
 	{
@@ -1774,24 +1728,13 @@ static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 		{
 			const int tempACC = mVU.regAlloc->allocRegId();
 			recBeginOaknutEmit();
-			if (needsVu1MaddaLaneVuDouble)
-			{
-				mVUUpperVuDoubleVector_oaknut(ACC, t1, t2);
-				mVUUpperVuDoubleVector_oaknut(Fs, t1, t2);
-				mVUUpperVuDoubleVector_oaknut(FtL, t1, t2);
-			}
 			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
 			mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-			if (useFtLane)
-				mVUUpperFmlaSsLane_oaknut(ACC, Fs, FtRaw, lane);
-			else
-				mVUUpperFmlaSs_oaknut(mVU, ACC, Fs, FtL);
-			if (needsVu1MaddaLaneVuDouble)
-				mVUClampDenormalScalarBits_oaknut(ACC);
+			mVU_FMACbAddSs_oaknut(mVU, ACC, Fs, FtL);
 			recEndOaknutEmit();
 			if (updateFlags)
-				mVUupdateFlags_oaknut(mVU, ACC, Fs, useFtLane ? VU_HOST_NO_XMM : FtL);
+				mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 			recBeginOaknutEmit();
 			const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
 			oakAsm->MOV(oakQRegister(tempACC).Selem()[laneIdx], oakQRegister(ACC).Selem()[0]);
@@ -1802,40 +1745,11 @@ static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 		else
 		{
 			recBeginOaknutEmit();
-			if (needsVu1MaddaLaneVuDouble)
-			{
-				mVUUpperVuDoubleVector_oaknut(ACC, t1, t2);
-				mVUUpperVuDoubleVector_oaknut(Fs, t1, t2);
-				mVUUpperVuDoubleVector_oaknut(FtL, t1, t2);
-			}
-			if (_XYZW_SS)
-				mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
-			else
-				mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
-			if (_XYZW_SS)
-			{
-				if (useFtLane)
-					mVUUpperFmlaSsLane_oaknut(ACC, Fs, FtRaw, lane);
-				else
-					mVUUpperFmlaSs_oaknut(mVU, ACC, Fs, FtL);
-			}
-			else
-			{
-				if (useFtLane)
-					mVUUpperFmlaPsLane_oaknut(ACC, Fs, FtRaw, lane);
-				else
-					mVUUpperFmlaPs_oaknut(mVU, ACC, Fs, FtL);
-			}
-			if (needsVu1MaddaLaneVuDouble)
-			{
-				if (_XYZW_SS)
-					mVUClampDenormalScalarBits_oaknut(ACC);
-				else
-					mVUClampDenormalVectorBits_oaknut(ACC);
-			}
+			mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
+			mVU_FMACbAddPs_oaknut(mVU, ACC, Fs, FtL);
 			recEndOaknutEmit();
 			if (updateFlags)
-				mVUupdateFlags_oaknut(mVU, ACC, Fs, useFtLane ? VU_HOST_NO_XMM : FtL);
+				mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 		}
 	}
 	else
@@ -1843,49 +1757,24 @@ static void mVU_MADDA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 		const int tempACC = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		if (needsVu1MaddaLaneVuDouble)
-		{
-			mVUUpperVuDoubleVector_oaknut(tempACC, t1, t2);
-			mVUUpperVuDoubleVector_oaknut(Fs, t1, t2);
-			mVUUpperVuDoubleVector_oaknut(FtL, t1, t2);
-		}
 		mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
-		if (useFtLane)
-			mVUUpperFmlaPsLane_oaknut(tempACC, Fs, FtRaw, lane);
-		else
-			mVUUpperFmlaPs_oaknut(mVU, tempACC, Fs, FtL);
-		if (needsVu1MaddaLaneVuDouble)
-			mVUClampDenormalVectorBits_oaknut(tempACC);
+		mVU_FMACbAddPs_oaknut(mVU, tempACC, Fs, FtL);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
 		if (updateFlags)
-				mVUupdateFlags_oaknut(mVU, ACC, Fs, useFtLane ? VU_HOST_NO_XMM : FtL);
+			mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
 		mVU.regAlloc->clearNeededXmmId(tempACC);
 	}
 
-	if (needsVu1MaddaLaneVuDouble)
-	{
-		mVU.regAlloc->clearNeededXmmId(t2);
-		mVU.regAlloc->clearNeededXmmId(t1);
-	}
 	mVU.regAlloc->clearNeededXmmId(ACC);
 	mVU.regAlloc->clearNeededXmmId(Fs);
-	if (useFtLane)
-		mVU.regAlloc->clearNeededXmmId(FtRaw);
-	else
-		mVU.regAlloc->clearNeededXmmId(FtL);
+	mVU.regAlloc->clearNeededXmmId(FtL);
 }
 
 static void mVU_MADDAx_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		if (mVUNeedsVu1MaddaExactFlagsPath(mVU) && _X_Y_Z_W == 0)
-			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::X);
-		else
-			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 0);
-	}
+	pass2 { mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 0); }
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dx", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -1893,18 +1782,7 @@ static void mVU_MADDAx_emit(mP)
 static void mVU_MADDAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y))
-		{
-			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 1, false);
-			mVUExactVu0AccFlagsFromCpu_emit_oaknut(mVU, recPass);
-		}
-		else if (mVUNeedsVu1MaddaExactFlagsPath(mVU) && _X_Y_Z_W == 0)
-			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Y);
-		else
-			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 1);
-	}
+	pass2 { mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -1912,18 +1790,7 @@ static void mVU_MADDAy_emit(mP)
 static void mVU_MADDAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Z))
-		{
-			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 2, false);
-			mVUExactVu0AccFlagsFromCpu_emit_oaknut(mVU, recPass);
-		}
-		else if (mVUNeedsVu1MaddaExactFlagsPath(mVU) && _X_Y_Z_W == 0)
-			mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::Z);
-		else
-			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 2);
-	}
+	pass2 { mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -1931,18 +1798,7 @@ static void mVU_MADDAz_emit(mP)
 static void mVU_MADDAw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MAdd, mVUExactVu0FtMode::W))
-		{
-			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 3, false);
-			mVUExactVu0AccFlagsFromCpu_emit_oaknut(mVU, recPass);
-		}
-		else
-		{
-			mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 3);
-		}
-	}
+	pass2 { mVU_MADDA_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("MADDA"); mVUlogACC(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -2567,7 +2423,7 @@ static void mVU_MSUBA_direct_emit_oaknut(mP)
 				mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
 			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, Ft);
+			mVU_FMACbSubSs_oaknut(mVU, ACC, Fs, Ft);
 			recEndOaknutEmit();
 			mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFt);
 			recBeginOaknutEmit();
@@ -2588,9 +2444,9 @@ static void mVU_MSUBA_direct_emit_oaknut(mP)
 					mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
 			}
 			if (_XYZW_SS)
-				mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, Ft);
+				mVU_FMACbSubSs_oaknut(mVU, ACC, Fs, Ft);
 			else
-				mVUUpperFmlsPs_oaknut(mVU, ACC, Fs, Ft);
+				mVU_FMACbSubPs_oaknut(mVU, ACC, Fs, Ft);
 			recEndOaknutEmit();
 			mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFt);
 		}
@@ -2602,7 +2458,7 @@ static void mVU_MSUBA_direct_emit_oaknut(mP)
 		if (isCOP2)
 			mVUUpperClamp2Vector_oaknut(mVU, Fs, false);
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		mVUUpperFmlsPs_oaknut(mVU, tempACC, Fs, Ft);
+		mVU_FMACbSubPs_oaknut(mVU, tempACC, Fs, Ft);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
 		mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFt);
@@ -2642,7 +2498,7 @@ static void mVU_MSUBAi_direct_emit_oaknut(mP)
 			recBeginOaknutEmit();
 			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, Fi);
+			mVU_FMACbSubSs_oaknut(mVU, ACC, Fs, Fi);
 			recEndOaknutEmit();
 			mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
 			recBeginOaknutEmit();
@@ -2656,9 +2512,9 @@ static void mVU_MSUBAi_direct_emit_oaknut(mP)
 		{
 			recBeginOaknutEmit();
 			if (_XYZW_SS)
-				mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, Fi);
+				mVU_FMACbSubSs_oaknut(mVU, ACC, Fs, Fi);
 			else
-				mVUUpperFmlsPs_oaknut(mVU, ACC, Fs, Fi);
+				mVU_FMACbSubPs_oaknut(mVU, ACC, Fs, Fi);
 			recEndOaknutEmit();
 			mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
 		}
@@ -2668,7 +2524,7 @@ static void mVU_MSUBAi_direct_emit_oaknut(mP)
 		const int tempACC = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		mVUUpperFmlsPs_oaknut(mVU, tempACC, Fs, Fi);
+		mVU_FMACbSubPs_oaknut(mVU, tempACC, Fs, Fi);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
 		mVUupdateFlags_oaknut(mVU, ACC, Fs, Fi);
@@ -2723,7 +2579,7 @@ static void mVU_MSUBAq_direct_emit_oaknut(mP)
 			recBeginOaknutEmit();
 			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, Fq);
+			mVU_FMACbSubSs_oaknut(mVU, ACC, Fs, Fq);
 			recEndOaknutEmit();
 			mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFq);
 			recBeginOaknutEmit();
@@ -2737,9 +2593,9 @@ static void mVU_MSUBAq_direct_emit_oaknut(mP)
 		{
 			recBeginOaknutEmit();
 			if (_XYZW_SS)
-				mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, Fq);
+				mVU_FMACbSubSs_oaknut(mVU, ACC, Fs, Fq);
 			else
-				mVUUpperFmlsPs_oaknut(mVU, ACC, Fs, Fq);
+				mVU_FMACbSubPs_oaknut(mVU, ACC, Fs, Fq);
 			recEndOaknutEmit();
 			mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFq);
 		}
@@ -2749,7 +2605,7 @@ static void mVU_MSUBAq_direct_emit_oaknut(mP)
 		const int tempACC = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		mVUUpperFmlsPs_oaknut(mVU, tempACC, Fs, Fq);
+		mVU_FMACbSubPs_oaknut(mVU, tempACC, Fs, Fq);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
 		mVUupdateFlags_oaknut(mVU, ACC, Fs, tempFq);
@@ -2795,7 +2651,7 @@ static void mVU_MSUBA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 			recBeginOaknutEmit();
 			oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
 			oakAsm->MOV(oakQRegister(ACC).Selem()[0], oakQRegister(tempACC).Selem()[(_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)))]);
-			mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtL);
+			mVU_FMACbSubSs_oaknut(mVU, ACC, Fs, FtL);
 			recEndOaknutEmit();
 			if (updateFlags)
 				mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
@@ -2810,9 +2666,9 @@ static void mVU_MSUBA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 		{
 			recBeginOaknutEmit();
 			if (_XYZW_SS)
-				mVUUpperFmlsSs_oaknut(mVU, ACC, Fs, FtL);
+				mVU_FMACbSubSs_oaknut(mVU, ACC, Fs, FtL);
 			else
-				mVUUpperFmlsPs_oaknut(mVU, ACC, Fs, FtL);
+				mVU_FMACbSubPs_oaknut(mVU, ACC, Fs, FtL);
 			recEndOaknutEmit();
 			if (updateFlags)
 				mVUupdateFlags_oaknut(mVU, ACC, Fs, FtL);
@@ -2823,7 +2679,7 @@ static void mVU_MSUBA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 		const int tempACC = mVU.regAlloc->allocRegId();
 		recBeginOaknutEmit();
 		oakAsm->MOV(oakQRegister(tempACC).B16(), oakQRegister(ACC).B16());
-		mVUUpperFmlsPs_oaknut(mVU, tempACC, Fs, FtL);
+		mVU_FMACbSubPs_oaknut(mVU, tempACC, Fs, FtL);
 		mVUUpperMergeRegs_oaknut(ACC, tempACC, _X_Y_Z_W);
 		recEndOaknutEmit();
 		if (updateFlags)
@@ -2847,18 +2703,7 @@ static void mVU_MSUBAx_emit(mP)
 static void mVU_MSUBAy_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Y))
-		{
-			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 1, false);
-			mVUExactVu0AccFlagsFromCpu_emit_oaknut(mVU, recPass);
-		}
-		else
-		{
-			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 1);
-		}
-	}
+	pass2 { mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 1); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dy", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -2866,18 +2711,7 @@ static void mVU_MSUBAy_emit(mP)
 static void mVU_MSUBAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Z))
-		{
-			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 2, false);
-			mVUExactVu0AccFlagsFromCpu_emit_oaknut(mVU, recPass);
-		}
-		else
-		{
-			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 2);
-		}
-	}
+	pass2 { mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 2); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
@@ -2885,18 +2719,7 @@ static void mVU_MSUBAz_emit(mP)
 static void mVU_MSUBAw_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2
-	{
-		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::W))
-		{
-			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 3, false);
-			mVUExactVu0AccFlagsFromCpu_emit_oaknut(mVU, recPass);
-		}
-		else
-		{
-			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 3);
-		}
-	}
+	pass2 { mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 3); }
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dw", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
