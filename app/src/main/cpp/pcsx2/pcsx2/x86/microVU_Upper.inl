@@ -2649,7 +2649,7 @@ static void mVU_MSUBA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lan
 
 	if ((_XYZW_SS && !useMaskedVectorPath) || _X_Y_Z_W == 0xf)
 	{
-		if (_XYZW_SS2)
+		if (_XYZW_SS)
 		{
 			const int tempACC = mVU.regAlloc->allocRegId();
 			recBeginOaknutEmit();
@@ -2726,7 +2726,18 @@ static void mVU_MSUBAy_emit(mP)
 static void mVU_MSUBAz_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC3(mVU, 0, _Fs_, _Ft_); }
-	pass2 { if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Z)) mVUExactVu0AccOp_emit_oaknut(mVU, recPass, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Z); else mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 2); }
+	pass2
+	{
+		if (mVUNeedsVu0MicroAccExactPath(mVU, mVUExactVu0AccOp::MSub, mVUExactVu0FtMode::Z))
+		{
+			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 2, false);
+			mVUExactVu0AccFlagsFromCpu_emit_oaknut(mVU, recPass);
+		}
+		else
+		{
+			mVU_MSUBA_lane_direct_emit_oaknut(mVU, recPass, 2);
+		}
+	}
 	pass3 { mVUlog("MSUBA"); mVUlogACC(); mVUlog(", vf%02dz", _Ft_); }
 	pass4 { mVUregs.needExactMatch |= 8; }
 }
