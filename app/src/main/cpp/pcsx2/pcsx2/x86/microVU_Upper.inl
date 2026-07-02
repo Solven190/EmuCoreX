@@ -2009,7 +2009,12 @@ static void mVU_MSUBA_direct_emit_oaknut(mP)
 static void mVU_MSUBA_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC1(mVU, 0, _Fs_, _Ft_); }
-	pass2 { mVU_MSUBA_direct_emit_oaknut(mVU, recPass); }
+	pass2
+	{
+		if (isVU0 && !isCOP2 && _X_Y_Z_W == 0xe)
+			mVU.regAlloc->flushAll();
+		mVU_MSUBA_direct_emit_oaknut(mVU, recPass);
+	}
 	pass3
 	{
 		mVUlog("MSUBA");
