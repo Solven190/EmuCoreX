@@ -114,7 +114,7 @@ GraphicsSettingsWidget::GraphicsSettingsWidget(SettingsWindow* settings_dialog, 
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_hw.accurateAlphaTest, "EmuCore/GS", "HWAccurateAlphaTest", false);
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_hw.hwAA1, "EmuCore/GS", "HWAA1", false);
 	SettingWidgetBinder::BindWidgetToIntSetting(
-		sif, m_hw.blending, "EmuCore/GS", "accurate_blending_unit", static_cast<int>(AccBlendLevel::Basic));
+		sif, m_hw.blending, "EmuCore/GS", "accurate_blending_unit", static_cast<int>(Pcsx2Config::GSOptions::DEFAULT_BLENDING_ACCURACY));
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_hw.enableHWFixes, "EmuCore/GS", "UserHacks", false);
 	connect(m_hw.upscaleMultiplier, &QComboBox::currentIndexChanged, this,
 		&GraphicsSettingsWidget::onUpscaleMultiplierChanged);
@@ -520,7 +520,7 @@ GraphicsSettingsWidget::GraphicsSettingsWidget(SettingsWindow* settings_dialog, 
 			   "Unscaled: Native dithering / Lowest dithering effect, does not increase size of squares when upscaling.<br> "
 			   "Force 32bit: Treats all draws as if they were 32bit to avoid banding and dithering."));
 
-		dialog()->registerWidgetHelp(m_hw.blending, tr("Blending Accuracy"), tr("Basic (Recommended)"),
+		dialog()->registerWidgetHelp(m_hw.blending, tr("Blending Accuracy"), tr("Medium (Recommended)"),
 			tr("Control the accuracy level of the GS blending unit emulation.<br> "
 			   "The higher the setting, the more blending is emulated in the shader accurately, and the higher the speed penalty will be."));
 

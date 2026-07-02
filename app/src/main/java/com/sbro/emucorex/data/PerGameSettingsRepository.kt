@@ -88,8 +88,21 @@ data class PerGameSettings(
     val mergeSprite: Boolean = false,
     val forceEvenSpritePosition: Boolean = false,
     val nativePaletteDraw: Boolean = false,
+    val touchControlsLayout: TouchControlsLayoutProfile? = null,
     val providedKeys: Set<String>? = null,
     val updatedAt: Long = System.currentTimeMillis()
+)
+
+data class TouchControlsLayoutProfile(
+    val dpadOffset: Pair<Float, Float> = AppPreferences.DEFAULT_DPAD_OFFSET_X to AppPreferences.DEFAULT_DPAD_OFFSET_Y,
+    val lstickOffset: Pair<Float, Float> = AppPreferences.DEFAULT_LSTICK_OFFSET_X to AppPreferences.DEFAULT_LSTICK_OFFSET_Y,
+    val rstickOffset: Pair<Float, Float> = AppPreferences.DEFAULT_RSTICK_OFFSET_X to AppPreferences.DEFAULT_RSTICK_OFFSET_Y,
+    val actionOffset: Pair<Float, Float> = AppPreferences.DEFAULT_ACTION_OFFSET_X to AppPreferences.DEFAULT_ACTION_OFFSET_Y,
+    val lbtnOffset: Pair<Float, Float> = AppPreferences.DEFAULT_LBTN_OFFSET_X to AppPreferences.DEFAULT_LBTN_OFFSET_Y,
+    val rbtnOffset: Pair<Float, Float> = AppPreferences.DEFAULT_RBTN_OFFSET_X to AppPreferences.DEFAULT_RBTN_OFFSET_Y,
+    val centerOffset: Pair<Float, Float> = AppPreferences.DEFAULT_CENTER_OFFSET_X to AppPreferences.DEFAULT_CENTER_OFFSET_Y,
+    val stickScale: Int = 100,
+    val controlLayouts: Map<String, OverlayControlLayout> = AppPreferences.defaultOverlayControlLayouts()
 )
 
 class PerGameSettingsRepository(context: Context) {
@@ -267,6 +280,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         mergeSprite = optBoolean("mergeSprite", false),
         forceEvenSpritePosition = optBoolean("forceEvenSpritePosition", false),
         nativePaletteDraw = optBoolean("nativePaletteDraw", false),
+        touchControlsLayout = optJSONObject("touchControlsLayout")?.toTouchControlsLayoutProfile(),
         providedKeys = providedKeys,
         updatedAt = optLong("updatedAt", System.currentTimeMillis())
     )
@@ -354,8 +368,87 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("mergeSprite")) put("mergeSprite", mergeSprite)
         if (shouldWrite("forceEvenSpritePosition")) put("forceEvenSpritePosition", forceEvenSpritePosition)
         if (shouldWrite("nativePaletteDraw")) put("nativePaletteDraw", nativePaletteDraw)
+        if (shouldWrite("touchControlsLayout")) touchControlsLayout?.let { put("touchControlsLayout", it.toJson()) }
         put("updatedAt", updatedAt)
     }
+}
+
+private fun TouchControlsLayoutProfile.toJson(): JSONObject {
+    return JSONObject().apply {
+        put("dpadOffset", dpadOffset.toJson())
+        put("lstickOffset", lstickOffset.toJson())
+        put("rstickOffset", rstickOffset.toJson())
+        put("actionOffset", actionOffset.toJson())
+        put("lbtnOffset", lbtnOffset.toJson())
+        put("rbtnOffset", rbtnOffset.toJson())
+        put("centerOffset", centerOffset.toJson())
+        put("stickScale", stickScale.coerceIn(50, 200))
+        put("controlLayouts", controlLayouts.toJson())
+    }
+}
+
+private fun JSONObject.toTouchControlsLayoutProfile(): TouchControlsLayoutProfile {
+    val stickScale = optInt("stickScale", 100).coerceIn(50, 200)
+    val layouts = optJSONObject("controlLayouts")
+        ?.toOverlayControlLayouts()
+        ?.takeIf { it.isNotEmpty() }
+        ?: AppPreferences.defaultOverlayControlLayouts(stickScale)
+    return TouchControlsLayoutProfile(
+        dpadOffset = readOffset("dpadOffset", AppPreferences.DEFAULT_DPAD_OFFSET_X to AppPreferences.DEFAULT_DPAD_OFFSET_Y),
+        lstickOffset = readOffset("lstickOffset", AppPreferences.DEFAULT_LSTICK_OFFSET_X to AppPreferences.DEFAULT_LSTICK_OFFSET_Y),
+        rstickOffset = readOffset("rstickOffset", AppPreferences.DEFAULT_RSTICK_OFFSET_X to AppPreferences.DEFAULT_RSTICK_OFFSET_Y),
+        actionOffset = readOffset("actionOffset", AppPreferences.DEFAULT_ACTION_OFFSET_X to AppPreferences.DEFAULT_ACTION_OFFSET_Y),
+        lbtnOffset = readOffset("lbtnOffset", AppPreferences.DEFAULT_LBTN_OFFSET_X to AppPreferences.DEFAULT_LBTN_OFFSET_Y),
+        rbtnOffset = readOffset("rbtnOffset", AppPreferences.DEFAULT_RBTN_OFFSET_X to AppPreferences.DEFAULT_RBTN_OFFSET_Y),
+        centerOffset = readOffset("centerOffset", AppPreferences.DEFAULT_CENTER_OFFSET_X to AppPreferences.DEFAULT_CENTER_OFFSET_Y),
+        stickScale = stickScale,
+        controlLayouts = layouts
+    )
+}
+
+private fun Pair<Float, Float>.toJson(): JSONObject {
+    return JSONObject()
+        .put("x", first.toDouble())
+        .put("y", second.toDouble())
+}
+
+private fun JSONObject.readOffset(key: String, fallback: Pair<Float, Float>): Pair<Float, Float> {
+    val json = optJSONObject(key) ?: return fallback
+    return json.optDouble("x", fallback.first.toDouble()).toFloat() to
+        json.optDouble("y", fallback.second.toDouble()).toFloat()
+}
+
+private fun Map<String, OverlayControlLayout>.toJson(): JSONObject {
+    return JSONObject().apply {
+        forEach { (id, layout) ->
+            put(id, layout.toJson())
+        }
+    }
+}
+
+private fun JSONObject.toOverlayControlLayouts(): Map<String, OverlayControlLayout> {
+    return keys().asSequence().associateWith { id ->
+        optJSONObject(id)?.toOverlayControlLayout() ?: OverlayControlLayout()
+    }
+}
+
+private fun OverlayControlLayout.toJson(): JSONObject {
+    return JSONObject()
+        .put("offset", offset.toJson())
+        .put("scale", scale.coerceIn(50, 200))
+        .put("widthScale", widthScale.coerceIn(100, 240))
+        .put("visible", visible)
+        .put("surfaceOnly", surfaceOnly)
+}
+
+private fun JSONObject.toOverlayControlLayout(): OverlayControlLayout {
+    return OverlayControlLayout(
+        offset = readOffset("offset", 0f to 0f),
+        scale = optInt("scale", 100).coerceIn(50, 200),
+        widthScale = optInt("widthScale", 100).coerceIn(100, 240),
+        visible = optBoolean("visible", true),
+        surfaceOnly = optBoolean("surfaceOnly", false)
+    )
 }
 
 private fun sanitizeRendererValue(value: Int): Int {

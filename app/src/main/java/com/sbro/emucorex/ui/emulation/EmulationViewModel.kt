@@ -28,6 +28,7 @@ import com.sbro.emucorex.data.MemoryCardRepository
 import com.sbro.emucorex.data.OverlayLayoutSnapshot
 import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
+import com.sbro.emucorex.data.TouchControlsLayoutProfile
 import com.sbro.emucorex.data.PlayTimeSyncCacheRepository
 import com.sbro.emucorex.data.PlayerPlayTimeDelta
 import com.sbro.emucorex.data.PlayerProfileRepository
@@ -348,6 +349,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         private const val AUTO_SAVE_SLOT = 0
         private const val PLAY_TIME_LOCAL_CACHE_INTERVAL_MS = 60_000L
         private const val PLAY_TIME_CLOUD_SYNC_INTERVAL_MS = 10L * 60_000L
+        private const val TOUCH_CONTROLS_LAYOUT_KEY = "touchControlsLayout"
         private val SAVE_STATE_FILE_REGEX = Regex("""^(.+?) \(([0-9A-Fa-f]{8})\)\.(\d{2})\.p2s$""")
     }
 
@@ -383,6 +385,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private var currentGameCrc: String = ""
     @Volatile
     private var currentGameSource: String = ""
+    private var currentTouchControlsLayoutProfile: TouchControlsLayoutProfile? = null
     private var lastAutoSavePlayTimeMs: Long = 0L
     private var pendingPlayTimeSyncMs: Long = 0L
     private var lastCloudPlayTimeSyncAtMs: Long = 0L
@@ -1109,6 +1112,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         currentGamePath = if (bootToBios) null else path?.takeIf { it.isNotBlank() }
+        currentTouchControlsLayoutProfile = null
         currentGameCoverArtPath = null
         lastAutoSavePlayTimeMs = 0L
         pendingPlayTimeSyncMs = 0L
@@ -1327,6 +1331,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 } else {
                     val safePath = path.orEmpty()
                     val existingProfile = currentGamePath?.let(perGameSettingsRepository::get)
+                    currentTouchControlsLayoutProfile = existingProfile?.touchControlsLayout
                     val metadata = EmulatorBridge.getGameMetadata(safePath)
                     currentGameTitle = compatibilityRepository.findBySerial(metadata.serial)?.title
                         ?: EmulatorBridge.cleanGameDisplayTitle(metadata.title, safePath)
@@ -1374,8 +1379,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 }
 
                 val liveRuntime = loadLiveRuntimeSnapshot()
+                val overlaySnapshot = preferences.overlayLayoutSnapshot.first()
 
-                _uiState.value = _uiState.value.copy(
+                val runtimeState = _uiState.value.copy(
                     showFps = liveRuntime.showFps,
                     fpsOverlayMode = liveRuntime.fpsOverlayMode,
                     renderer = liveRuntime.renderer,
@@ -1448,6 +1454,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     ntscFramerate = liveRuntime.ntscFramerate,
                     palFramerate = liveRuntime.palFramerate
                 )
+                val overlayState = runtimeState.withOverlayLayoutSnapshot(overlaySnapshot)
+                _uiState.value = currentTouchControlsLayoutProfile?.let { overlayState.withTouchControlsLayout(it) } ?: overlayState
                 syncNativePerformanceOverlayState(_uiState.value)
                 syncGamepadRightStickTriggerMapping(_uiState.value)
                 updateCrashContext(
@@ -1741,29 +1749,12 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     updatedLayouts[id] = existing.copy(scale = scaledValue)
                 }
             }
-            val updatedState = current.copy(
-                stickScale = scaledValue,
-                controlLayouts = updatedLayouts
+            persistTouchControlsLayout(
+                current.copy(
+                    stickScale = scaledValue,
+                    controlLayouts = updatedLayouts
+                )
             )
-            preferences.setControlsLayout(
-                dpadX = updatedState.dpadOffset.first,
-                dpadY = updatedState.dpadOffset.second,
-                lstickX = updatedState.lstickOffset.first,
-                lstickY = updatedState.lstickOffset.second,
-                rstickX = updatedState.rstickOffset.first,
-                rstickY = updatedState.rstickOffset.second,
-                actionX = updatedState.actionOffset.first,
-                actionY = updatedState.actionOffset.second,
-                lbtnX = updatedState.lbtnOffset.first,
-                lbtnY = updatedState.lbtnOffset.second,
-                rbtnX = updatedState.rbtnOffset.first,
-                rbtnY = updatedState.rbtnOffset.second,
-                centerX = updatedState.centerOffset.first,
-                centerY = updatedState.centerOffset.second,
-                stickScaleVal = updatedState.stickScale,
-                controlLayouts = updatedLayouts
-            )
-            _uiState.value = updatedState
         }
     }
 
@@ -1865,33 +1856,91 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 updatedLayouts[id] = currentLayout.copy(visible = showingStick)
             }
 
-            val updatedState = current.copy(
-                controlLayouts = updatedLayouts,
-                dpadOffset = current.lstickOffset,
-                lstickOffset = current.dpadOffset
+            persistTouchControlsLayout(
+                current.copy(
+                    controlLayouts = updatedLayouts,
+                    dpadOffset = current.lstickOffset,
+                    lstickOffset = current.dpadOffset
+                )
             )
-            preferences.setControlsLayout(
-                dpadX = updatedState.dpadOffset.first,
-                dpadY = updatedState.dpadOffset.second,
-                lstickX = updatedState.lstickOffset.first,
-                lstickY = updatedState.lstickOffset.second,
-                rstickX = updatedState.rstickOffset.first,
-                rstickY = updatedState.rstickOffset.second,
-                actionX = updatedState.actionOffset.first,
-                actionY = updatedState.actionOffset.second,
-                lbtnX = updatedState.lbtnOffset.first,
-                lbtnY = updatedState.lbtnOffset.second,
-                rbtnX = updatedState.rbtnOffset.first,
-                rbtnY = updatedState.rbtnOffset.second,
-                centerX = updatedState.centerOffset.first,
-                centerY = updatedState.centerOffset.second,
-                stickScaleVal = updatedState.stickScale,
-                controlLayouts = updatedLayouts
-            )
-            _uiState.value = updatedState
         }
     }
 
+    fun updateTouchControlOffset(controlId: String, offset: Pair<Float, Float>) {
+        viewModelScope.launch {
+            val current = _uiState.value
+            val updatedLayouts = current.controlLayouts.toMutableMap()
+            val defaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+            val control = updatedLayouts[controlId] ?: defaults[controlId] ?: OverlayControlLayout()
+            updatedLayouts[controlId] = control.copy(offset = offset)
+            persistTouchControlsLayout(current.copy(controlLayouts = updatedLayouts))
+        }
+    }
+
+    fun updateTouchControlOffsets(offsets: Map<String, Pair<Float, Float>>) {
+        if (offsets.isEmpty()) return
+        viewModelScope.launch {
+            val current = _uiState.value
+            val updatedLayouts = current.controlLayouts.toMutableMap()
+            val defaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+            offsets.forEach { (controlId, offset) ->
+                val control = updatedLayouts[controlId] ?: defaults[controlId] ?: OverlayControlLayout()
+                updatedLayouts[controlId] = control.copy(offset = offset)
+            }
+            persistTouchControlsLayout(current.copy(controlLayouts = updatedLayouts))
+        }
+    }
+
+    fun updateTouchControlScale(controlId: String, scale: Int) {
+        viewModelScope.launch {
+            val current = _uiState.value
+            val updatedLayouts = current.controlLayouts.toMutableMap()
+            val defaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+            val control = updatedLayouts[controlId] ?: defaults[controlId] ?: OverlayControlLayout()
+            updatedLayouts[controlId] = control.copy(scale = scale.coerceIn(50, 200))
+            persistTouchControlsLayout(current.copy(controlLayouts = updatedLayouts))
+        }
+    }
+
+    fun updateTouchControlWidthScale(controlId: String, widthScale: Int) {
+        viewModelScope.launch {
+            val current = _uiState.value
+            val updatedLayouts = current.controlLayouts.toMutableMap()
+            val defaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+            val control = updatedLayouts[controlId] ?: defaults[controlId] ?: OverlayControlLayout()
+            updatedLayouts[controlId] = control.copy(widthScale = widthScale.coerceIn(100, 240))
+            persistTouchControlsLayout(current.copy(controlLayouts = updatedLayouts))
+        }
+    }
+
+    fun setTouchControlVisible(controlId: String, visible: Boolean) {
+        viewModelScope.launch {
+            val current = _uiState.value
+            val updatedLayouts = current.controlLayouts.toMutableMap()
+            val defaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+            val control = updatedLayouts[controlId] ?: defaults[controlId] ?: OverlayControlLayout()
+            updatedLayouts[controlId] = control.copy(visible = visible)
+            persistTouchControlsLayout(current.copy(controlLayouts = updatedLayouts))
+        }
+    }
+
+    fun setTouchStickSurfaceMode(controlId: String, enabled: Boolean) {
+        if (controlId != "left_stick" && controlId != "right_stick") return
+        viewModelScope.launch {
+            val current = _uiState.value
+            val updatedLayouts = current.controlLayouts.toMutableMap()
+            val defaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+            val control = updatedLayouts[controlId] ?: defaults[controlId] ?: OverlayControlLayout()
+            updatedLayouts[controlId] = control.copy(surfaceOnly = enabled)
+            persistTouchControlsLayout(current.copy(controlLayouts = updatedLayouts))
+        }
+    }
+
+    fun resetTouchControlsLayout() {
+        viewModelScope.launch {
+            resetTouchControlsLayoutForCurrentScope()
+        }
+    }
     fun toggleFpsVisibility() {
         viewModelScope.launch {
             val newValue = !_uiState.value.showFps
@@ -2817,7 +2866,12 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun applyOverlayLayoutSnapshot(snapshot: OverlayLayoutSnapshot) {
-        _uiState.value = _uiState.value.copy(
+        val overlayState = _uiState.value.withOverlayLayoutSnapshot(snapshot)
+        _uiState.value = currentTouchControlsLayoutProfile?.let { overlayState.withTouchControlsLayout(it) } ?: overlayState
+    }
+
+    private fun EmulationUiState.withOverlayLayoutSnapshot(snapshot: OverlayLayoutSnapshot): EmulationUiState {
+        return copy(
             overlayScale = snapshot.overlayScale,
             overlayOpacity = snapshot.overlayOpacity,
             hideOverlayOnGamepad = snapshot.hideOverlayOnGamepad,
@@ -2840,6 +2894,34 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         )
     }
 
+    private fun EmulationUiState.withTouchControlsLayout(profile: TouchControlsLayoutProfile): EmulationUiState {
+        return copy(
+            dpadOffset = profile.dpadOffset,
+            lstickOffset = profile.lstickOffset,
+            rstickOffset = profile.rstickOffset,
+            actionOffset = profile.actionOffset,
+            lbtnOffset = profile.lbtnOffset,
+            rbtnOffset = profile.rbtnOffset,
+            centerOffset = profile.centerOffset,
+            stickScale = profile.stickScale,
+            controlLayouts = profile.controlLayouts
+        )
+    }
+
+    private fun EmulationUiState.toTouchControlsLayoutProfile(): TouchControlsLayoutProfile {
+        return TouchControlsLayoutProfile(
+            dpadOffset = dpadOffset,
+            lstickOffset = lstickOffset,
+            rstickOffset = rstickOffset,
+            actionOffset = actionOffset,
+            lbtnOffset = lbtnOffset,
+            rbtnOffset = rbtnOffset,
+            centerOffset = centerOffset,
+            stickScale = stickScale,
+            controlLayouts = controlLayouts
+        )
+    }
+
     private fun currentGameSubtitle(): String = buildList {
         currentGameSerial.takeIf { it.isNotBlank() }?.let(::add)
         currentGameCrc.takeIf { it.isNotBlank() }?.let(::add)
@@ -2855,17 +2937,115 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             ?: "Unknown Game"
     }
 
+    private suspend fun persistGlobalTouchControlsLayout(state: EmulationUiState) {
+        preferences.setControlsLayout(
+            dpadX = state.dpadOffset.first,
+            dpadY = state.dpadOffset.second,
+            lstickX = state.lstickOffset.first,
+            lstickY = state.lstickOffset.second,
+            rstickX = state.rstickOffset.first,
+            rstickY = state.rstickOffset.second,
+            actionX = state.actionOffset.first,
+            actionY = state.actionOffset.second,
+            lbtnX = state.lbtnOffset.first,
+            lbtnY = state.lbtnOffset.second,
+            rbtnX = state.rbtnOffset.first,
+            rbtnY = state.rbtnOffset.second,
+            centerX = state.centerOffset.first,
+            centerY = state.centerOffset.second,
+            stickScaleVal = state.stickScale,
+            controlLayouts = state.controlLayouts
+        )
+    }
+
+    private suspend fun persistTouchControlsLayout(updatedState: EmulationUiState): EmulationUiState {
+        val gameKey = activePerGameKey()
+        return if (gameKey != null) {
+            val layout = updatedState.toTouchControlsLayoutProfile()
+            val existing = perGameSettingsRepository.get(gameKey)
+            val providedKeys = when {
+                existing == null -> setOf(TOUCH_CONTROLS_LAYOUT_KEY)
+                existing.providedKeys == null -> null
+                else -> existing.providedKeys + TOUCH_CONTROLS_LAYOUT_KEY
+            }
+            perGameSettingsRepository.save(
+                (existing ?: PerGameSettings(
+                    gameKey = gameKey,
+                    gameTitle = resolvePerGameTitle(updatedState),
+                    gameSerial = currentGameSerial.takeIf { it.isNotBlank() },
+                    providedKeys = providedKeys
+                )).copy(
+                    gameTitle = resolvePerGameTitle(updatedState),
+                    gameSerial = currentGameSerial.takeIf { it.isNotBlank() },
+                    touchControlsLayout = layout,
+                    providedKeys = providedKeys
+                )
+            )
+            currentTouchControlsLayoutProfile = layout
+            val finalState = updatedState.copy(gameSettingsProfileActive = true)
+            _uiState.value = finalState
+            finalState
+        } else {
+            persistGlobalTouchControlsLayout(updatedState)
+            currentTouchControlsLayoutProfile = null
+            _uiState.value = updatedState
+            updatedState
+        }
+    }
+
+    private suspend fun resetTouchControlsLayoutForCurrentScope() {
+        val gameKey = activePerGameKey()
+        if (gameKey == null) {
+            currentTouchControlsLayoutProfile = null
+            preferences.resetControlsLayout()
+            _uiState.value = _uiState.value.withOverlayLayoutSnapshot(preferences.overlayLayoutSnapshot.first())
+            return
+        }
+
+        val existing = perGameSettingsRepository.get(gameKey)
+        if (existing != null) {
+            val providedKeys = existing.providedKeys?.minus(TOUCH_CONTROLS_LAYOUT_KEY)
+            if (providedKeys != null && providedKeys.isEmpty()) {
+                perGameSettingsRepository.delete(gameKey)
+            } else {
+                perGameSettingsRepository.save(
+                    existing.copy(
+                        touchControlsLayout = null,
+                        providedKeys = providedKeys
+                    )
+                )
+            }
+        }
+
+        currentTouchControlsLayoutProfile = null
+        val profileStillActive = perGameSettingsRepository.get(gameKey) != null
+        _uiState.value = _uiState.value
+            .withOverlayLayoutSnapshot(preferences.overlayLayoutSnapshot.first())
+            .copy(gameSettingsProfileActive = profileStillActive)
+    }
+
     private suspend fun persistRuntimeState(
         updatedState: EmulationUiState,
         persistGlobal: suspend () -> Unit = {}
     ): EmulationUiState {
         val gameKey = activePerGameKey()
         return if (gameKey != null) {
+            val existingProfile = perGameSettingsRepository.get(gameKey)
+            val touchControlsLayout = existingProfile?.touchControlsLayout ?: currentTouchControlsLayoutProfile
+            val runtimeProfile = updatedState.toPerGameSettings(
+                gameKey = gameKey,
+                gameTitle = resolvePerGameTitle(updatedState),
+                gameSerial = currentGameSerial.takeIf { it.isNotBlank() }
+            )
+            val providedKeys = when {
+                touchControlsLayout == null -> runtimeProfile.providedKeys
+                runtimeProfile.providedKeys == null -> null
+                else -> runtimeProfile.providedKeys + TOUCH_CONTROLS_LAYOUT_KEY
+            }
             perGameSettingsRepository.save(
-                updatedState.toPerGameSettings(
-                    gameKey = gameKey,
-                    gameTitle = resolvePerGameTitle(updatedState),
-                    gameSerial = currentGameSerial.takeIf { it.isNotBlank() }
+                runtimeProfile.copy(
+                    touchControlsLayout = touchControlsLayout,
+                    providedKeys = providedKeys
                 )
             )
             val finalState = updatedState.copy(gameSettingsProfileActive = true)
@@ -2898,6 +3078,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private fun resetCurrentGameProfile() {
         val gameKey = activePerGameKey() ?: return
         perGameSettingsRepository.delete(gameKey)
+        currentTouchControlsLayoutProfile = null
         _uiState.value = _uiState.value.copy(gameSettingsProfileActive = false)
     }
 
@@ -3857,6 +4038,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private fun clearCrashContext() {
         currentGameTitle = ""
         currentGamePath = null
+        currentTouchControlsLayoutProfile = null
         currentGameSerial = ""
         currentGameCoverArtPath = null
         currentGameCrc = ""

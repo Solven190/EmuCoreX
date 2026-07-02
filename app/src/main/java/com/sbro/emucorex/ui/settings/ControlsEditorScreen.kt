@@ -61,7 +61,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.OverlayControlLayout
@@ -96,7 +95,14 @@ fun ControlsEditorScreen(
     overlayHorizontalSafeInset: Dp? = null,
     overlayTopSafeInset: Dp? = null,
     overlayBottomSafeInset: Dp? = null,
-    viewModel: ControlsEditorViewModel = viewModel()
+    onUpdateControlOffset: (String, Pair<Float, Float>) -> Unit,
+    onUpdateControlOffsets: (Map<String, Pair<Float, Float>>) -> Unit,
+    onUpdateControlScale: (String, Int) -> Unit,
+    onUpdateControlWidthScale: (String, Int) -> Unit,
+    onToggleLeftInputMode: () -> Unit,
+    onSetControlVisible: (String, Boolean) -> Unit,
+    onSetStickSurfaceMode: (String, Boolean) -> Unit,
+    onResetLayout: () -> Unit
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -138,14 +144,14 @@ fun ControlsEditorScreen(
 
     fun persistControlPosition(controlId: String) {
         val current = currentLayoutFor(controlId, if (controlId.contains("stick")) state.stickScale else 100)
-        viewModel.updateControlOffset(controlId, current.offset)
+        onUpdateControlOffset(controlId, current.offset)
     }
 
     fun persistControlPositions(controlIds: List<String>) {
         val offsets = controlIds.associateWith { controlId ->
             currentLayoutFor(controlId, if (controlId.contains("stick")) state.stickScale else 100).offset
         }
-        viewModel.updateControlOffsets(offsets)
+        onUpdateControlOffsets(offsets)
     }
 
     fun setControlVisibleLocally(controlId: String, visible: Boolean) {
@@ -153,7 +159,7 @@ fun ControlsEditorScreen(
         editorControlLayouts = editorControlLayouts.toMutableMap().apply {
             put(controlId, current.copy(visible = visible))
         }
-        viewModel.setControlVisible(controlId, visible)
+        onSetControlVisible(controlId, visible)
     }
 
     fun setControlScaleLocally(controlId: String, scale: Int) {
@@ -162,7 +168,7 @@ fun ControlsEditorScreen(
         editorControlLayouts = editorControlLayouts.toMutableMap().apply {
             put(controlId, current.copy(scale = nextScale))
         }
-        viewModel.updateControlScale(controlId, nextScale)
+        onUpdateControlScale(controlId, nextScale)
     }
 
     fun setControlWidthScaleLocally(controlId: String, widthScale: Int) {
@@ -171,7 +177,7 @@ fun ControlsEditorScreen(
         editorControlLayouts = editorControlLayouts.toMutableMap().apply {
             put(controlId, current.copy(widthScale = nextWidthScale))
         }
-        viewModel.updateControlWidthScale(controlId, nextWidthScale)
+        onUpdateControlWidthScale(controlId, nextWidthScale)
     }
 
     fun setStickSurfaceModeLocally(controlId: String, enabled: Boolean) {
@@ -180,7 +186,7 @@ fun ControlsEditorScreen(
         editorControlLayouts = editorControlLayouts.toMutableMap().apply {
             put(controlId, current.copy(surfaceOnly = enabled))
         }
-        viewModel.setStickSurfaceMode(controlId, enabled)
+        onSetStickSurfaceMode(controlId, enabled)
     }
 
     BackHandler(onBack = onBackClick)
@@ -255,7 +261,7 @@ fun ControlsEditorScreen(
             ) {
                 OutlinedButton(
                     onClick = {
-                        viewModel.toggleLeftInputMode()
+                        onToggleLeftInputMode()
                         selectedControlId = if (isShowingLeftStick) "dpad_up" else "left_stick"
                     },
                     shape = RoundedCornerShape(16.dp),
@@ -269,7 +275,7 @@ fun ControlsEditorScreen(
                 }
 
                 OutlinedButton(
-                    onClick = { viewModel.resetLayout() },
+                    onClick = { onResetLayout() },
                     shape = RoundedCornerShape(16.dp),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(

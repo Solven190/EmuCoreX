@@ -149,12 +149,12 @@
      </item>
      <item>
       <property name="text">
-       <string>Basic (Recommended)</string>
+       <string>Basic</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>Medium</string>
+       <string>Medium (Recommended)</string>
       </property>
      </item>
      <item>

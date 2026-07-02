@@ -1072,7 +1072,15 @@ fun EmulationScreen(
                 manageActivityOrientation = false,
                 overlayHorizontalSafeInset = overlayHorizontalSafeInset,
                 overlayTopSafeInset = overlayTopSafeInset,
-                overlayBottomSafeInset = overlayBottomSafeInset
+                overlayBottomSafeInset = overlayBottomSafeInset,
+                onUpdateControlOffset = viewModel::updateTouchControlOffset,
+                onUpdateControlOffsets = viewModel::updateTouchControlOffsets,
+                onUpdateControlScale = viewModel::updateTouchControlScale,
+                onUpdateControlWidthScale = viewModel::updateTouchControlWidthScale,
+                onToggleLeftInputMode = viewModel::toggleLeftInputMode,
+                onSetControlVisible = viewModel::setTouchControlVisible,
+                onSetStickSurfaceMode = viewModel::setTouchStickSurfaceMode,
+                onResetLayout = viewModel::resetTouchControlsLayout
             )
         }
 
