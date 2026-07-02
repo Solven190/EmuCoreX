@@ -130,7 +130,12 @@ static __fi void mVU_makeRsqrtSignedMax_oaknut(int dst)
 static __fi void mVU_clamp1ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
 {
 	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
-		mVUClamp1ScalarBits_oaknut(reg);
+	{
+		if (isVU1)
+			mVUClamp1ScalarFast_oaknut(reg);
+		else
+			mVUClamp1ScalarBits_oaknut(reg);
+	}
 }
 
 static __fi void mVU_clamp1Scalar_oaknut(mV, int reg, bool bClampE)
@@ -141,7 +146,12 @@ static __fi void mVU_clamp1Scalar_oaknut(mV, int reg, bool bClampE)
 static __fi void mVU_clamp1Vector_oaknut(mV, int reg, bool bClampE)
 {
 	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && mVU.regAlloc->checkVFClamp(reg))
-		mVUClamp1VectorBits_oaknut(reg);
+	{
+		if (isVU1)
+			mVUClamp1VectorFast_oaknut(reg);
+		else
+			mVUClamp1VectorBits_oaknut(reg);
+	}
 }
 
 static __fi void mVU_clamp2ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)

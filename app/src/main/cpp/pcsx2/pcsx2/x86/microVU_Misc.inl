@@ -303,6 +303,24 @@ static __fi void mVUClamp1ScalarBits_oaknut(int reg)
 	oakAsm->l(done);
 }
 
+static __fi void mVUClamp1ScalarFast_oaknut(int reg)
+{
+	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, maxvals)));
+	oakAsm->FMINNM(OAK_SSCRATCH2, oakSRegister(reg), OAK_SSCRATCH3);
+	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, minvals)));
+	oakAsm->FMAXNM(OAK_SSCRATCH2, OAK_SSCRATCH2, OAK_SSCRATCH3);
+	oakAsm->MOV(oakQRegister(reg).Selem()[0], OAK_QSCRATCH2.Selem()[0]);
+}
+
+static __fi void mVUClamp1VectorFast_oaknut(int reg)
+{
+	const oak::QReg reg_q = oakQRegister(reg);
+
+	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, maxvals)));
+	oakAsm->FMINNM(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
+	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, minvals)));
+	oakAsm->FMAXNM(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
+}
 static __fi void mVUClamp1VectorBits_oaknut(int reg)
 {
 	const oak::QReg reg_q = oakQRegister(reg);

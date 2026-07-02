@@ -51,6 +51,18 @@ static __fi void mVUUpperPshufd_oaknut(int dst, int src, u8 imm)
 	oakAsm->TBL(dst_q.B16(), oak::List(OAK_QSCRATCH2.B16()), OAK_QSCRATCH3.B16());
 }
 
+enum clampModes
+{
+	cFt = 0x01,
+	cFs = 0x02,
+	cACC = 0x04,
+};
+
+static __fi bool mVUUpperWillClampFt_oaknut(mV, int clampType)
+{
+	return clampE || ((clampType & cFt) && !clampE && (CHECK_VU_OVERFLOW(mVU.index) || CHECK_VU_SIGN_OVERFLOW(mVU.index)));
+}
+
 static __fi void mVUUpperMovmskps_oaknut(const oak::WReg& dst, const oak::QReg& src)
 {
 	oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, mac_mask)));
@@ -63,7 +75,12 @@ static __fi void mVUUpperMovmskps_oaknut(const oak::WReg& dst, const oak::QReg& 
 static __fi void mVUUpperClamp1VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
 {
 	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
-		mVUClamp1VectorBits_oaknut(reg);
+	{
+		if (isVU1)
+			mVUClamp1VectorFast_oaknut(reg);
+		else
+			mVUClamp1VectorBits_oaknut(reg);
+	}
 }
 
 static __fi void mVUUpperClamp1Vector_oaknut(mV, int reg, bool bClampE)
@@ -77,9 +94,9 @@ static __fi void mVUUpperClamp2VectorIf_oaknut(mV, int reg, bool bClampE, bool c
 		canClamp)
 	{
 		const oak::QReg reg_q = oakQRegister(reg);
-		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_maxvals[0][0])));
+		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_maxvals[1][0])));
 		oakAsm->SMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
-		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_minvals[0][0])));
+		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_minvals[1][0])));
 		oakAsm->UMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
 		return;
 	}
@@ -113,7 +130,12 @@ static __fi void mVUUpperClamp4Vector_oaknut(mV, int reg)
 static __fi void mVUUpperClamp1ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
 {
 	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
-		mVUClamp1ScalarBits_oaknut(reg);
+	{
+		if (isVU1)
+			mVUClamp1ScalarFast_oaknut(reg);
+		else
+			mVUClamp1ScalarBits_oaknut(reg);
+	}
 }
 
 static __fi void mVUUpperClamp1Scalar_oaknut(mV, int reg, bool bClampE)
@@ -543,7 +565,7 @@ static void mVUupdateFlags_oaknut(mV, int reg, int regT1in = VU_HOST_NO_XMM, int
 		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_compvals[1][0])));
 		oakAsm->AND(t1_q.B16(), t1_q.B16(), OAK_QSCRATCH3.B16());
 		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_compvals[0][0])));
-		oakAsm->FCMEQ(t1_q.S4(), t1_q.S4(), OAK_QSCRATCH3.S4());
+		oakAsm->FCMGE(t1_q.S4(), t1_q.S4(), OAK_QSCRATCH3.S4());
 		mVUUpperMovmskps_oaknut(temp_w, t1_q);
 		oakAsm->MOV(OAK_WSCRATCH, AND_XYZW);
 		oakAsm->AND(temp_w, temp_w, OAK_WSCRATCH);
@@ -1715,7 +1737,7 @@ static void mVU_MSUB_direct_emit_oaknut(mP)
 		if (needsVu1XyzwVuDouble)
 		{
 			if (CHECK_VU_OVERFLOW(mVU.index))
-				mVUClamp1VectorBits_oaknut(Fd);
+				mVUClamp1VectorFast_oaknut(Fd);
 			else
 				mVUClampDenormalVectorBits_oaknut(Fd);
 		}
@@ -2816,7 +2838,8 @@ static void mVU_SUB_direct_emit_oaknut(mP)
 
 	int Ft;
 	int tempFt;
-	const bool needsFullFtForClamp = clampE || _XYZW_PS;
+	const int clampType = _XYZW_PS ? (cFs | cFt) : 0;
+	const bool needsFullFtForClamp = mVUUpperWillClampFt_oaknut(mVU, clampType);
 
 	if (_XYZW_SS2)
 	{
@@ -3638,7 +3661,8 @@ static void mVU_MULAq_emit(mP)
 // MULA lane Opcodes
 static void mVU_MULA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 {
-	const bool useFtLane = !clampE;
+	const bool shouldClampFt = (lane == 3) && _XYZW_PS && mVUUpperWillClampFt_oaknut(mVU, cFt);
+	const bool useFtLane = !shouldClampFt;
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	int FtL = VU_HOST_NO_XMM;
 	if (!useFtLane)
@@ -3862,7 +3886,8 @@ static void mVU_MUL_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane)
 	if (mVUtryEmitNoLaneFmacFlags_oaknut(mVU))
 		return;
 
-	const bool useFtLane = !clampE;
+	const bool shouldClampFt = _XYZW_PS && mVUUpperWillClampFt_oaknut(mVU, cFt);
+	const bool useFtLane = !shouldClampFt;
 	const int FtRaw = mVU.regAlloc->allocRegId(_Ft_);
 	int FtL = VU_HOST_NO_XMM;
 	if (!useFtLane)
