@@ -2,7 +2,6 @@ package com.sbro.emucorex.ui.settings
 
 import android.app.Activity
 import android.app.Application
-import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,6 +17,7 @@ import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.PerformancePresets
 import com.sbro.emucorex.core.ProPurchaseManager
 import com.sbro.emucorex.core.SetupValidator
+import com.sbro.emucorex.core.StorageAccess
 import com.sbro.emucorex.core.normalizeUpscale
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
@@ -1278,10 +1278,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setBiosPath(uri: Uri) {
         val application = getApplication<Application>()
-        application.contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION
-        )
+        if (!StorageAccess.takePersistableReadPermission(application, uri)) return
         viewModelScope.launch {
             preferences.setBiosPath(uri.toString())
             EmulatorBridge.applyRuntimeConfig(
@@ -1363,10 +1360,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setGamePath(uri: Uri) {
         val application = getApplication<Application>()
-        application.contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION
-        )
+        if (!StorageAccess.takePersistableReadPermission(application, uri)) return
         val rawPath = uri.toString()
         if (!SetupValidator.hasCoreReadableGameFile(application, rawPath)) return
         viewModelScope.launch { preferences.setGamePath(rawPath) }
@@ -1374,10 +1368,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setEmulatorDataPath(uri: Uri) {
         val application = getApplication<Application>()
-        application.contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        )
+        if (!StorageAccess.takePersistableReadWritePermission(application, uri)) return
 
         val resolvedPath = DocumentPathResolver.resolveDirectoryPath(uri.toString()) ?: return
         if (!EmulatorStorage.prepareCustomDataRoot(resolvedPath)) return

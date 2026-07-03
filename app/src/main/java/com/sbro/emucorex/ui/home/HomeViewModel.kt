@@ -9,6 +9,7 @@ import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.SetupValidator
 import com.sbro.emucorex.core.ProPurchaseManager
+import com.sbro.emucorex.core.StorageAccess
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.CoverArtRepository
 import com.sbro.emucorex.data.CustomGameCoverRepository
@@ -263,10 +264,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onFolderSelected(uri: Uri) {
         val context = getApplication<Application>()
-        context.contentResolver.takePersistableUriPermission(
-            uri,
-            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-        )
+        if (!StorageAccess.takePersistableReadPermission(context, uri)) return
 
         val rawPath = uri.toString()
         if (!SetupValidator.hasCoreReadableGameFile(context, rawPath)) return
@@ -278,10 +276,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onBiosFolderSelected(uri: Uri) {
         val context = getApplication<Application>()
-        context.contentResolver.takePersistableUriPermission(
-            uri,
-            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-        )
+        if (!StorageAccess.takePersistableReadPermission(context, uri)) return
 
         viewModelScope.launch {
             preferences.setBiosPath(uri.toString())

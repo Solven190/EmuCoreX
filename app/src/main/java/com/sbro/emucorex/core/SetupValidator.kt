@@ -6,8 +6,9 @@ import androidx.documentfile.provider.DocumentFile
 import java.io.File
 
 object SetupValidator {
-    private val supportedGameExtensions = setOf("iso", "bin", "chd", "cso", "gz", "elf")
+    private val supportedGameExtensions = setOf("iso", "bin", "img", "mdf", "gz", "cso", "zso", "chd", "elf")
     private const val MAX_GAME_READ_PROBE_FILES = 24
+    private const val MAX_GAME_READ_PROBE_DIRECTORIES = 96
 
     fun isGameFolderPresentForStartup(context: Context, rawPath: String?): Boolean {
         if (rawPath.isNullOrBlank()) return false
@@ -50,45 +51,44 @@ object SetupValidator {
 
         return if (rawPath.startsWith("content://")) {
             val root = DocumentFile.fromTreeUri(context, rawPath.toUri()) ?: return false
-            findReadableDocumentGame(context, root, 0) != null
+            findReadableDocumentGame(context, root, ProbeBudget()) != null
         } else {
             val dir = File(rawPath)
             if (dir.isDirectory) {
-                findReadableLocalGame(context, dir, 0) != null
+                findReadableLocalGame(context, dir, ProbeBudget()) != null
             } else {
                 false
             }
         }
     }
 
-    private fun findReadableLocalGame(context: Context, dir: File, checkedFiles: Int): String? {
-        var checked = checkedFiles
+    private fun findReadableLocalGame(context: Context, dir: File, budget: ProbeBudget): String? {
+        if (!budget.tryEnterDirectory()) return null
         val children = dir.listFiles().orEmpty()
         for (child in children) {
-            if (checked >= MAX_GAME_READ_PROBE_FILES) return null
             if (child.isDirectory) {
-                findReadableLocalGame(context, child, checked)?.let { return it }
+                findReadableLocalGame(context, child, budget)?.let { return it }
             } else if (child.isFile && child.extension.lowercase() in supportedGameExtensions) {
-                checked++
+                if (!budget.tryCheckFile()) return null
                 if (isLaunchPathReadable(context, child.absolutePath)) return child.absolutePath
             }
         }
         return null
     }
 
-    private fun findReadableDocumentGame(context: Context, root: DocumentFile, checkedFiles: Int): String? {
-        var checked = checkedFiles
-        for (child in root.listFiles()) {
-            if (checked >= MAX_GAME_READ_PROBE_FILES) return null
+    private fun findReadableDocumentGame(context: Context, root: DocumentFile, budget: ProbeBudget): String? {
+        if (!budget.tryEnterDirectory()) return null
+        val children = runCatching { root.listFiles() }.getOrDefault(emptyArray())
+        for (child in children) {
             if (child.isDirectory) {
-                findReadableDocumentGame(context, child, checked)?.let { return it }
+                findReadableDocumentGame(context, child, budget)?.let { return it }
             } else if (child.isFile) {
                 val displayName = child.name.orEmpty().ifBlank {
                     DocumentPathResolver.getDisplayName(context, child.uri.toString())
                 }
                 val extension = displayName.substringAfterLast('.', "").lowercase()
                 if (extension !in supportedGameExtensions) continue
-                checked++
+                if (!budget.tryCheckFile()) return null
                 val uriPath = child.uri.toString()
                 if (isLaunchPathReadable(context, uriPath)) return uriPath
             }
@@ -108,6 +108,23 @@ object SetupValidator {
         } else {
             val file = File(preparedPath)
             file.isFile && file.canRead() && file.length() > 0L
+        }
+    }
+
+    private class ProbeBudget {
+        private var checkedFiles = 0
+        private var checkedDirectories = 0
+
+        fun tryCheckFile(): Boolean {
+            if (checkedFiles >= MAX_GAME_READ_PROBE_FILES) return false
+            checkedFiles++
+            return true
+        }
+
+        fun tryEnterDirectory(): Boolean {
+            if (checkedDirectories >= MAX_GAME_READ_PROBE_DIRECTORIES) return false
+            checkedDirectories++
+            return true
         }
     }
 }

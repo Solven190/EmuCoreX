@@ -556,7 +556,10 @@ fun HomeScreen(
             }
         }
     }
-    if (uiState.showWelcomeDialog && !isShelfView) {
+    val canShowWelcomeDialog = !uiState.isBootstrapping &&
+        !uiState.isLoading &&
+        !uiState.isRefreshing
+    if (uiState.showWelcomeDialog && canShowWelcomeDialog && !isShelfView) {
         WelcomeProDialog(
             isProUnlocked = uiState.isProUnlocked,
             proPrice = uiState.proPrice,

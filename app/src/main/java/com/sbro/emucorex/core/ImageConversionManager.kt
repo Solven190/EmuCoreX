@@ -20,7 +20,7 @@ object ImageConversionManager {
     private const val defaultUnitBytes = 2048
     private const val ioBufferSize = 64 * 1024
 
-    val libraryFormats = listOf("ISO", "BIN", "CHD", "CSO", "GZ")
+    val libraryFormats = listOf("ISO", "BIN", "IMG", "MDF", "GZ", "CSO", "ZSO", "CHD", "ELF")
     val recommendedFormats = listOf("ISO", "CHD", "BIN")
     val isoMimeTypes = arrayOf(
         "application/octet-stream",

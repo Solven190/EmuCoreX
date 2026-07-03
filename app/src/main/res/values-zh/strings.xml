@@ -764,7 +764,7 @@
     <string name="settings_help_force_even_sprite_position">将精灵图位置吸附到偶数坐标，以减少较高分辨率下像素之间的微小间隙或闪烁。对于重度 2D 的游戏很有帮助，但可能会轻微偏移某些元素。</string>
     <string name="settings_help_native_palette_draw">以更接近原生精度的方式绘制基于调色板的特效。这可以修复在升频时损坏的色彩索引效果、调色板阴影或其他重度使用 CLUT 的技巧，但也可能使高分辨率输出看起来不够干净。</string>
     <string name="settings_help_bilinear_filtering">控制渲染器使用的主要纹理过滤模式。“最近邻”(Nearest) 保持最锐利的原始外观，“PS2”最接近原始主机的表现，而“强制”(Forced) 模式则会更激进地进行平滑处理。如果游戏看起来太有像素块感或太模糊，这是首先需要调整的过滤选项。</string>
-    <string name="settings_help_game_path">选择 EmuCoreX 扫描游戏所用的库文件夹。扫描是递归的，因此支持子文件夹。支持的镜像文件包括 .iso、.bin、.chd、.cso 和 .gz。ISO 是最安全的基准，而 CHD 通常是最好的长期格式，因为它在不牺牲正常使用的情况下节省了空间。</string>
+    <string name="settings_help_game_path">选择 EmuCoreX 扫描游戏所用的库文件夹。扫描是递归的，因此支持子文件夹。支持的镜像文件包括 .iso、.bin、.img、.mdf、.gz、.cso、.zso、.chd 和 .elf。ISO 是最安全的基准，而 CHD 通常是最好的长期格式，因为它在不牺牲正常使用的情况下节省了空间。</string>
     <string name="settings_help_cover_download_url">覆盖用于自动下载的内置封面来源。此 URL 应直接指向包含以游戏序列号命名的 JPG 封面的文件夹，例如 SLUS-20312.jpg。仅当您托管自己的镜像或希望使用其他兼容的封面库时才更改此设置。</string>
     <string name="settings_cover_download_url">封面下载 URL</string>
     <string name="settings_cover_download_url_dialog_title">自定义封面来源</string>

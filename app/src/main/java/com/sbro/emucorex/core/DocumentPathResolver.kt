@@ -198,8 +198,7 @@ object DocumentPathResolver {
             ?.absolutePath
         if (!directPath.isNullOrBlank()) return directPath
 
-        Log.w(TAG, "Cannot launch ELF from content URI without a resolvable filesystem path: $uri")
-        return null
+        return uri.toString()
     }
 
     fun prepareGameLaunchPath(context: Context, rawPath: String): String? {

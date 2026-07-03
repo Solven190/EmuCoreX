@@ -811,5 +811,5 @@ fun AppNavigation(
 
 private fun isSupportedGameImage(fileName: String): Boolean {
     val extension = fileName.substringAfterLast('.', "").lowercase()
-    return extension in setOf("iso", "bin", "chd", "cso", "gz", "elf")
+    return extension in setOf("iso", "bin", "img", "mdf", "gz", "cso", "zso", "chd", "elf")
 }

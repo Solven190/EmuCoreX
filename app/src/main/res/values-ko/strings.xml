@@ -432,7 +432,7 @@
     <string name="settings_help_home_search">홈 화면에 라이브러리 검색창을 직접 표시합니다. 라이브러리가 크면 켜두고, 이름으로 검색하는 일이 드물고 깔끔한 레이아웃을 선호한다면 끄세요.</string>
     <string name="settings_help_prefer_english_game_titles">일본어 또는 기타 지역 이름으로 출시된 게임에 대해 PCSX2의 GameIndex 데이터베이스에 있는 영어 제목을 사용합니다. 주로 수입 게임을 라이브러리에서 더 명확하게 읽을 수 있도록 도와주며, 영어 데이터베이스 제목이 없는 게임은 원래 이름을 유지합니다.</string>
     <string name="settings_help_bios_path">EmuCoreX가 PS2 BIOS 이미지 파일을 찾을 수 있도록 경로를 지정합니다. 본인 콘솔에서 추출한 깨끗한 덤프가 가장 좋습니다. 앱은 보통 .bin 또는 .rom 파일과 같은 기본 BIOS 이미지를 사용하며, 생성된 NVRAM/MEC 파일은 가져온 사본 옆에 유지합니다.</string>
-    <string name="settings_help_game_path">EmuCoreX가 게임을 스캔할 라이브러리 폴더를 선택합니다. 스캔은 재귀적으로 이루어지므로 하위 폴더도 허용됩니다. 지원되는 이미지에는 .iso, .bin, .chd, .cso 및 .gz가 포함됩니다. ISO가 가장 안전한 기준점이며, CHD는 일반적으로 일반적인 사용을 포기하지 않으면서 공간을 절약할 수 있어 장기적으로 가장 좋은 형식입니다.</string>
+    <string name="settings_help_game_path">EmuCoreX가 게임을 스캔할 라이브러리 폴더를 선택합니다. 스캔은 재귀적으로 이루어지므로 하위 폴더도 허용됩니다. 지원되는 이미지에는 .iso, .bin, .img, .mdf, .gz, .cso, .zso, .chd 및 .elf가 포함됩니다. ISO가 가장 안전한 기준점이며, CHD는 일반적으로 일반적인 사용을 포기하지 않으면서 공간을 절약할 수 있어 장기적으로 가장 좋은 형식입니다.</string>
     <string name="settings_help_cover_art_style">아트워크를 다운로드할 때 사용되는 기본 커버 유형을 선택합니다. 평면(Flat) 커버는 고전적인 전면 박스 모양과 일치하며, 3D 박스는 소스에서 제공하는 경우 각진 박스 렌더링을 사용합니다. 3D 커버는 더 극적으로 보일 수 있지만 평면 아트보다 구하기 약간 어려울 수 있습니다.</string>
     <string name="settings_help_cover_download_url">자동 다운로드에 사용되는 기본 내장 커버 소스를 재정의합니다. URL은 SLUS-20312.jpg와 같이 게임 시리얼 번호로 명명된 JPG 커버가 포함된 폴더를 직접 가리켜야 합니다. 자체 미러를 호스팅하거나 호환되는 다른 커버 라이브러리를 사용하려는 경우에만 변경하세요.</string>
     <string name="settings_help_renderer">하드웨어 렌더링에 사용되는 그래픽 백엔드를 선택합니다. Vulkan은 일반적으로 최신 기기에서 가장 빠르며, OpenGL은 일부 GPU에서 호환성에 더 안전할 수 있고, 소프트웨어는 주로 테스트용이나 하드웨어 모드에서 심하게 깨지는 게임을 위한 대체 수단입니다.</string>
