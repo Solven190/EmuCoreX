@@ -1308,4 +1308,7 @@
     <string name="pro_message_purchase_failed">无法完成 Pro 购买。</string>
     <string name="pro_message_pending_confirmation">Pro 购买等待确认中。</string>
     <string name="pro_price_unavailable">Pro 尚未可用</string>
+    <string name="settings_help_mediatek_angle_opengl">当应用内附带 ANGLE 库时，通过这些捆绑的库路由 MediaTek OpenGL 渲染器。此功能仅适用于 Mali 和 PowerVR 配置文件，并且默认处于关闭状态。</string>
+    <string name="settings_mediatek_angle_opengl">适用于 OpenGL 的 ANGLE</string>
+    <string name="settings_mediatek_angle_opengl_desc">对 MediaTek OpenGL 路径使用捆绑的 ANGLE 库。</string>
 </resources>

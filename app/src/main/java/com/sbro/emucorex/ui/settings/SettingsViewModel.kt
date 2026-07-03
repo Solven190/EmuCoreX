@@ -162,6 +162,7 @@ data class SettingsUiState(
     val gamepadBindings: Map<String, Int> = emptyMap(),
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
+    val mediatekAngleOpenGl: Boolean = false,
     val customDriverPath: String? = null,
     val appUpdate: AppUpdateUiState = AppUpdateUiState(),
     val frameLimitEnabled: Boolean = true,
@@ -335,6 +336,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             gamepadBindings = snapshot.gamepadBindings,
             gamepadBindingsByPad = snapshot.gamepadBindingsByPad,
             gpuDriverType = snapshot.gpuDriverType,
+            mediatekAngleOpenGl = snapshot.mediatekAngleOpenGl,
             customDriverPath = snapshot.customDriverPath,
             frameLimitEnabled = snapshot.frameLimitEnabled,
             vSyncEnabled = snapshot.vSyncEnabled,
@@ -371,8 +373,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setGpuHardwareProfile(value: Int) {
         viewModelScope.launch {
-            preferences.setGpuHardwareProfile(value)
-            EmulatorBridge.setGpuHardwareProfile(value)
+            val normalized = GpuHardwareProfiles.normalize(value)
+            preferences.setGpuHardwareProfile(normalized)
+            EmulatorBridge.setGpuHardwareProfile(normalized)
+            if (!GpuHardwareProfiles.isMediatekProfile(normalized)) {
+                preferences.setMediatekAngleOpenGl(false)
+                EmulatorBridge.setSetting("EmuCore/GS", "AndroidUseAngleOpenGL", "bool", "false")
+            }
         }
     }
 
@@ -797,6 +804,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             markPerformancePresetCustom()
             preferences.setBlendingAccuracy(value)
             EmulatorBridge.setSetting("EmuCore/GS", "accurate_blending_unit", "int", value.toString())
+        }
+    }
+
+    fun setMediatekAngleOpenGl(enabled: Boolean) {
+        viewModelScope.launch {
+            val effectiveEnabled = enabled &&
+                GpuHardwareProfiles.isMediatekProfile(_uiState.value.gpuHardwareProfile) &&
+                EmulatorBridge.isBundledAngleAvailable()
+            preferences.setMediatekAngleOpenGl(effectiveEnabled)
+            EmulatorBridge.setSetting("EmuCore/GS", "AndroidUseAngleOpenGL", "bool", effectiveEnabled.toString())
         }
     }
 
@@ -1277,6 +1294,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 gpuDriverType = _uiState.value.gpuDriverType,
                 customDriverPath = _uiState.value.customDriverPath,
                 gpuHardwareProfile = _uiState.value.gpuHardwareProfile,
+                mediatekAngleOpenGl = _uiState.value.mediatekAngleOpenGl,
                 enableEeRecompiler = _uiState.value.enableEeRecompiler,
                 enableIopRecompiler = _uiState.value.enableIopRecompiler,
                 enableVu0Recompiler = _uiState.value.enableVu0Recompiler,

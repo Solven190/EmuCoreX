@@ -153,6 +153,7 @@ data class SettingsSnapshot(
     val gamepadBindings: Map<String, Int> = emptyMap(),
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
+    val mediatekAngleOpenGl: Boolean = false,
     val customDriverPath: String? = null,
     val frameLimitEnabled: Boolean = true,
     val vSyncEnabled: Boolean = false,
@@ -409,6 +410,7 @@ class AppPreferences(private val context: Context) {
         private val GAMEPAD_RIGHT_STICK_DOWN_TO_L2 = booleanPreferencesKey("gamepad_right_stick_down_to_l2")
         private val GAMEPAD_BINDINGS = stringPreferencesKey("gamepad_bindings")
         private val GPU_DRIVER_TYPE = intPreferencesKey("gpu_driver_type")
+        private val MEDIATEK_ANGLE_OPENGL = booleanPreferencesKey("mediatek_angle_opengl")
         private val CUSTOM_DRIVER_PATH = stringPreferencesKey("custom_driver_path")
         private val SCREEN_SETTINGS_RESET_HINT_SHOWN = booleanPreferencesKey("screen_settings_reset_hint_shown")
         private val FRAME_LIMIT_ENABLED = booleanPreferencesKey("frame_limit_enabled")
@@ -541,7 +543,13 @@ class AppPreferences(private val context: Context) {
     }
 
     suspend fun setGpuHardwareProfile(value: Int) {
-        context.dataStore.edit { it[GPU_HARDWARE_PROFILE] = GpuHardwareProfiles.normalize(value) }
+        context.dataStore.edit { prefs ->
+            val normalized = GpuHardwareProfiles.normalize(value)
+            prefs[GPU_HARDWARE_PROFILE] = normalized
+            if (!GpuHardwareProfiles.isMediatekProfile(normalized)) {
+                prefs[MEDIATEK_ANGLE_OPENGL] = false
+            }
+        }
     }
 
     private fun defaultRendererForGpuProfile(gpuHardwareProfile: Int): Int {
@@ -549,6 +557,14 @@ class AppPreferences(private val context: Context) {
             EmulatorBridge.OPENGL_RENDERER
         } else {
             EmulatorBridge.DEFAULT_RENDERER
+        }
+    }
+
+    private fun defaultBlendingAccuracyForGpuProfile(gpuHardwareProfile: Int): Int {
+        return if (GpuHardwareProfiles.isMediatekProfile(gpuHardwareProfile)) {
+            GsHackDefaults.BLENDING_ACCURACY_FULL
+        } else {
+            GsHackDefaults.BLENDING_ACCURACY_DEFAULT
         }
     }
 
@@ -881,7 +897,7 @@ class AppPreferences(private val context: Context) {
                 textureFiltering = prefs[TEXTURE_FILTERING] ?: GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
                 trilinearFiltering = prefs[TRILINEAR_FILTERING]?.let(GsHackDefaults::coerceTrilinearFiltering)
                     ?: GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
-                blendingAccuracy = prefs[BLENDING_ACCURACY] ?: GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
+                blendingAccuracy = prefs[BLENDING_ACCURACY] ?: defaultBlendingAccuracyForGpuProfile(gpuHardwareProfile),
                 texturePreloading = prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
                 enableFxaa = prefs[ENABLE_FXAA] ?: false,
                 casMode = prefs[CAS_MODE] ?: 0,
@@ -951,6 +967,7 @@ class AppPreferences(private val context: Context) {
                 gamepadBindings = decodeGamepadBindings(prefs[GAMEPAD_BINDINGS]),
                 gamepadBindingsByPad = decodeGamepadBindingsByPad(prefs[GAMEPAD_BINDINGS]),
                 gpuDriverType = prefs[GPU_DRIVER_TYPE] ?: 0,
+                mediatekAngleOpenGl = prefs[MEDIATEK_ANGLE_OPENGL] ?: false,
                 customDriverPath = prefs[CUSTOM_DRIVER_PATH],
                 frameLimitEnabled = prefs[FRAME_LIMIT_ENABLED] ?: true,
                 vSyncEnabled = prefs[VSYNC_ENABLED] ?: false,
@@ -1595,11 +1612,19 @@ class AppPreferences(private val context: Context) {
     }
 
     val blendingAccuracy: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[BLENDING_ACCURACY] ?: GsHackDefaults.BLENDING_ACCURACY_DEFAULT
+        prefs[BLENDING_ACCURACY] ?: defaultBlendingAccuracyForGpuProfile(resolveGpuHardwareProfile(prefs))
     }
 
     suspend fun setBlendingAccuracy(value: Int) {
         context.dataStore.edit { it[BLENDING_ACCURACY] = value.coerceIn(0, 5) }
+    }
+
+    val mediatekAngleOpenGl: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[MEDIATEK_ANGLE_OPENGL] ?: false
+    }
+
+    suspend fun setMediatekAngleOpenGl(enabled: Boolean) {
+        context.dataStore.edit { it[MEDIATEK_ANGLE_OPENGL] = enabled }
     }
 
     val texturePreloading: Flow<Int> = context.dataStore.data.map { prefs ->
@@ -2318,6 +2343,7 @@ class AppPreferences(private val context: Context) {
             put("performanceProfile", resolvePerformanceProfile(prefs))
             put("gpuHardwareProfile", gpuHardwareProfile)
             put("renderer", normalizeRendererPreference(prefs[RENDERER], gpuHardwareProfile))
+            put("mediatekAngleOpenGl", prefs[MEDIATEK_ANGLE_OPENGL] ?: false)
             put("upscaleMultiplier", readUpscale(prefs).toDouble())
             put("biosPath", prefs[BIOS_PATH])
             put("gamePath", prefs[GAME_PATH])
@@ -2381,7 +2407,7 @@ class AppPreferences(private val context: Context) {
                 prefs[TRILINEAR_FILTERING]?.let(GsHackDefaults::coerceTrilinearFiltering)
                     ?: GsHackDefaults.TRILINEAR_FILTERING_DEFAULT
             )
-            put("blendingAccuracy", prefs[BLENDING_ACCURACY] ?: GsHackDefaults.BLENDING_ACCURACY_DEFAULT)
+            put("blendingAccuracy", prefs[BLENDING_ACCURACY] ?: defaultBlendingAccuracyForGpuProfile(gpuHardwareProfile))
             put("texturePreloading", prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT)
             put("textureReplacementsEnabled", prefs[TEXTURE_REPLACEMENTS_ENABLED] ?: false)
             put("textureReplacementsAsync", prefs[TEXTURE_REPLACEMENTS_ASYNC] ?: true)
@@ -2475,6 +2501,8 @@ class AppPreferences(private val context: Context) {
                 if (json.has("renderer")) json.optInt("renderer") else null,
                 gpuHardwareProfile
             )
+            prefs[MEDIATEK_ANGLE_OPENGL] = json.optBoolean("mediatekAngleOpenGl", false) &&
+                GpuHardwareProfiles.isMediatekProfile(gpuHardwareProfile)
             prefs[UPSCALE] = json.readUpscaleMultiplier()
             json.optString("biosPath").takeIf { it.isNotBlank() }?.let { prefs[BIOS_PATH] = it } ?: prefs.remove(BIOS_PATH)
             json.optString("gamePath").takeIf { it.isNotBlank() }?.let { prefs[GAME_PATH] = it } ?: prefs.remove(GAME_PATH)
@@ -2548,7 +2576,12 @@ class AppPreferences(private val context: Context) {
             prefs[TRILINEAR_FILTERING] = GsHackDefaults.coerceTrilinearFiltering(
                 json.optInt("trilinearFiltering", GsHackDefaults.TRILINEAR_FILTERING_DEFAULT)
             )
-            prefs[BLENDING_ACCURACY] = json.optInt("blendingAccuracy", GsHackDefaults.BLENDING_ACCURACY_DEFAULT).coerceIn(0, 5)
+            val importedBlendingAccuracy = if (json.has("blendingAccuracy")) {
+                json.optInt("blendingAccuracy")
+            } else {
+                defaultBlendingAccuracyForGpuProfile(gpuHardwareProfile)
+            }
+            prefs[BLENDING_ACCURACY] = importedBlendingAccuracy.coerceIn(0, 5)
             prefs[TEXTURE_PRELOADING] = json.optInt("texturePreloading", GsHackDefaults.TEXTURE_PRELOADING_DEFAULT).coerceIn(0, 2)
             prefs[TEXTURE_REPLACEMENTS_ENABLED] = json.optBoolean("textureReplacementsEnabled", false)
             prefs[TEXTURE_REPLACEMENTS_ASYNC] = json.optBoolean("textureReplacementsAsync", true)

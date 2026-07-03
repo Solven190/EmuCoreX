@@ -17,6 +17,8 @@ app/build/
 .cxx/
 app/.cxx/
 .externalNativeBuild/
+.angle-build/
+scripts/
 captures/
 out/
 dist/

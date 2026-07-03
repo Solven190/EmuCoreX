@@ -2737,26 +2737,24 @@ private fun EmulationSidebarMenu(
                                         )
                                     }
                                 }
-
-                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-
-                                SettingsToggle(
-                                    title = stringResource(R.string.emulation_auto_save_on_exit),
-                                    checked = uiState.autoSaveOnExit,
-                                    enabled = !uiState.isActionInProgress,
-                                    onCheckedChange = onSetAutoSaveOnExit,
-                                    helpText = stringResource(R.string.emulation_auto_save_on_exit_desc)
-                                )
-
-                                SettingsToggle(
-                                    title = stringResource(R.string.emulation_auto_load_on_start),
-                                    checked = uiState.autoLoadOnStart,
-                                    enabled = !uiState.isActionInProgress,
-                                    onCheckedChange = onSetAutoLoadOnStart,
-                                    helpText = stringResource(R.string.emulation_auto_load_on_start_desc)
-                                )
                             }
                         }
+
+                        SettingsToggle(
+                            title = stringResource(R.string.emulation_auto_save_on_exit),
+                            checked = uiState.autoSaveOnExit,
+                            enabled = !uiState.isActionInProgress,
+                            onCheckedChange = onSetAutoSaveOnExit,
+                            helpText = stringResource(R.string.emulation_auto_save_on_exit_desc)
+                        )
+
+                        SettingsToggle(
+                            title = stringResource(R.string.emulation_auto_load_on_start),
+                            checked = uiState.autoLoadOnStart,
+                            enabled = !uiState.isActionInProgress,
+                            onCheckedChange = onSetAutoLoadOnStart,
+                            helpText = stringResource(R.string.emulation_auto_load_on_start_desc)
+                        )
 
                         SidebarSectionTitle(
                             text = stringResource(R.string.game_settings_overlay_section).uppercase(),

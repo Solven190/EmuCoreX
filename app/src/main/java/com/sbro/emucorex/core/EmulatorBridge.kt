@@ -25,6 +25,8 @@ object EmulatorBridge {
     const val OPENGL_RENDERER = 12
     const val VULKAN_RENDERER = 14
     const val DEFAULT_RENDERER = VULKAN_RENDERER
+    private const val ANGLE_EGL_LIBRARY_NAME = "libEGL_angle.so"
+    private const val ANGLE_GLES_LIBRARY_NAME = "libGLESv2_angle.so"
     private const val BOOT_SMOKE_PROBE_STEPS = 67_108_864
     private const val AUTO_PROGRESSIVE_SCAN_PAD_INDEX = 0
     private const val AUTO_PROGRESSIVE_SCAN_CROSS = 96
@@ -115,6 +117,24 @@ object EmulatorBridge {
             file.setExecutable(true, true)
         }
         return path
+    }
+
+    fun isBundledAngleAvailable(): Boolean {
+        val context = getContext() ?: return false
+        val nativeLibDir = context.applicationInfo.nativeLibraryDir ?: return false
+        return File(nativeLibDir, ANGLE_EGL_LIBRARY_NAME).isFile &&
+            File(nativeLibDir, ANGLE_GLES_LIBRARY_NAME).isFile
+    }
+
+    private fun shouldUseMediatekAngleOpenGl(
+        requested: Boolean,
+        gpuHardwareProfile: Int,
+        renderer: Int
+    ): Boolean {
+        return requested &&
+            renderer == OPENGL_RENDERER &&
+            GpuHardwareProfiles.isMediatekProfile(gpuHardwareProfile) &&
+            isBundledAngleAvailable()
     }
 
     private fun refreshBiosOp() = RuntimeOp("refresh_bios", emptyList())
@@ -307,6 +327,7 @@ object EmulatorBridge {
         gpuDriverType: Int = 0,
         customDriverPath: String? = null,
         gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO,
+        mediatekAngleOpenGl: Boolean = false,
         aspectRatio: Int = 1,
         enableEeRecompiler: Boolean = true,
         enableIopRecompiler: Boolean = true,
@@ -440,9 +461,15 @@ object EmulatorBridge {
         val effectiveGpuDriverType = if (gpuDriverType == 1 && customDriverSupported) 1 else 0
         val normalizedGpuHardwareProfile = GpuHardwareProfiles.normalize(gpuHardwareProfile)
         val gpuHardwareProfileOverride = GpuHardwareProfiles.coreOverrideFor(normalizedGpuHardwareProfile)
+        val effectiveMediatekAngleOpenGl = shouldUseMediatekAngleOpenGl(
+            requested = mediatekAngleOpenGl,
+            gpuHardwareProfile = normalizedGpuHardwareProfile,
+            renderer = resolvedRenderer
+        )
         NativeApp.setCrashContextString("emu_renderer_name", rendererName(resolvedRenderer))
         NativeApp.setCrashContextString("emu_gpu_driver_mode", if (effectiveGpuDriverType == 1) "custom" else "system")
         NativeApp.setCrashContextString("emu_gpu_profile", gpuHardwareProfileOverride)
+        NativeApp.setCrashContextBool("emu_mediatek_angle_opengl", effectiveMediatekAngleOpenGl)
         val resolvedCustomDriverPath = if (effectiveGpuDriverType == 1) {
             prepareCustomDriverLibrary(customDriverPath.orEmpty())
         } else {
@@ -516,6 +543,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore", "EnableCheats", "bool", effectiveEnableCheats.toString()))
                 add(settingOp("EmuCore/GS", "HWDownloadMode", "int", hwDownloadMode.toString()))
                 add(settingOp("EmuCore/GS", "AndroidGpuProfileOverride", "string", gpuHardwareProfileOverride))
+                add(settingOp("EmuCore/GS", "AndroidUseAngleOpenGL", "bool", effectiveMediatekAngleOpenGl.toString()))
                 add(settingOp("EmuCore/GS", "OsdShowSpeed", "bool", "false"))
                 add(settingOp("EmuCore/GS", "OsdShowFPS", "bool", "false"))
                 add(settingOp("EmuCore/GS", "OsdShowVPS", "bool", "false"))

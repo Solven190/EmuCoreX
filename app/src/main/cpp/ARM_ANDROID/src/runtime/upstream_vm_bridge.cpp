@@ -15,6 +15,7 @@
 #include "common/Path.h"
 #include "common/Threading.h"
 
+#include <SDL3/SDL_hints.h>
 #include <android/log.h>
 
 #include <chrono>
@@ -76,6 +77,46 @@ bool GetBoolSetting(const RuntimeSettings& settings, const char* section, const 
 	if (value == "false" || value == "0")
 		return false;
 	return fallback;
+}
+
+bool IsMediatekGpuProfileOverride(const RuntimeSettings& settings)
+{
+	const auto it = settings.find("EmuCore/GS\nAndroidGpuProfileOverride");
+	if (it == settings.end())
+		return false;
+
+	return it->second == "mali" || it->second == "powervr";
+}
+
+bool FileExists(const std::string& path)
+{
+	return !path.empty() && FileSystem::FileExists(path.c_str());
+}
+
+void ApplyAngleOpenGLLibraryHints(const VmLaunchConfig& config)
+{
+	const bool requested = GetBoolSetting(config.settings, "EmuCore/GS", "AndroidUseAngleOpenGL", false);
+	const int renderer = GetIntSetting(config.settings, "EmuCore/GS", "Renderer", static_cast<s32>(GSRendererType::VK));
+	const bool mediatek_profile = IsMediatekGpuProfileOverride(config.settings);
+	const bool eligible = requested && mediatek_profile && renderer == static_cast<s32>(GSRendererType::OGL);
+
+	const std::string egl_path = Path::Combine(config.paths.native_library_dir, "libEGL_angle.so");
+	const std::string gles_path = Path::Combine(config.paths.native_library_dir, "libGLESv2_angle.so");
+	if (eligible && FileExists(egl_path) && FileExists(gles_path))
+	{
+		SDL_SetHintWithPriority(SDL_HINT_EGL_LIBRARY, egl_path.c_str(), SDL_HINT_OVERRIDE);
+		SDL_SetHintWithPriority(SDL_HINT_OPENGL_LIBRARY, gles_path.c_str(), SDL_HINT_OVERRIDE);
+		SDL_SetHintWithPriority(SDL_HINT_OPENGL_ES_DRIVER, "1", SDL_HINT_OVERRIDE);
+		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "MediaTek OpenGL ANGLE enabled with bundled libraries");
+	}
+	else
+	{
+		SDL_SetHintWithPriority(SDL_HINT_EGL_LIBRARY, nullptr, SDL_HINT_OVERRIDE);
+		SDL_SetHintWithPriority(SDL_HINT_OPENGL_LIBRARY, nullptr, SDL_HINT_OVERRIDE);
+		SDL_SetHintWithPriority(SDL_HINT_OPENGL_ES_DRIVER, nullptr, SDL_HINT_OVERRIDE);
+		if (requested)
+			__android_log_write(ANDROID_LOG_WARN, LOG_TAG, "MediaTek OpenGL ANGLE requested but bundled libraries are unavailable or renderer/profile is ineligible");
+	}
 }
 
 void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config)
@@ -216,6 +257,8 @@ void ConfigureImGuiFonts()
 
 void InstallHostSettings(const VmLaunchConfig& config)
 {
+	ApplyAngleOpenGLLibraryHints(config);
+
 	const auto driver_it = config.settings.find("EmuCoreX\nCustomDriverPath");
 	if (driver_it != config.settings.end() && !driver_it->second.empty())
 	{

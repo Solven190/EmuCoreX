@@ -1306,4 +1306,7 @@
     <string name="pro_message_purchase_failed">Impossibile completare l\'acquisto di Pro.</string>
     <string name="pro_message_pending_confirmation">L\'acquisto di Pro è in attesa di conferma.</string>
     <string name="pro_price_unavailable">Pro non è ancora disponibile</string>
+    <string name="settings_help_mediatek_angle_opengl">Indirizza il renderer OpenGL di MediaTek tramite le librerie ANGLE in bundle quando sono pacchettizzate con l\'app. Questo è disponibile solo per i profili Mali e PowerVR e rimane disattivato per impostazione predefinita.</string>
+    <string name="settings_mediatek_angle_opengl">ANGLE per OpenGL</string>
+    <string name="settings_mediatek_angle_opengl_desc">Usa le librerie ANGLE in bundle per il percorso OpenGL di MediaTek.</string>
 </resources>

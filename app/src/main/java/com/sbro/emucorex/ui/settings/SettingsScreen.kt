@@ -113,6 +113,7 @@ import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.GpuHardwareProfiles
+import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.buildUpscaleOptions
 import com.sbro.emucorex.core.upscaleKeyToMultiplier
@@ -1072,7 +1073,15 @@ private fun SettingsContent(
                             selectedValue = uiState.blendingAccuracy,
                             onSelect = viewModel::setBlendingAccuracy,
                             helpText = stringResource(R.string.settings_help_blending_accuracy),
-                            onResetToDefault = { viewModel.setBlendingAccuracy(defaults.blendingAccuracy) }
+                            onResetToDefault = {
+                                viewModel.setBlendingAccuracy(
+                                    if (GpuHardwareProfiles.isMediatekProfile(uiState.gpuHardwareProfile)) {
+                                        GsHackDefaults.BLENDING_ACCURACY_FULL
+                                    } else {
+                                        defaults.blendingAccuracy
+                                    }
+                                )
+                            }
                         )
                         ChoiceSection(
                             title = stringResource(R.string.settings_texture_preloading),
@@ -1702,6 +1711,7 @@ private fun SettingsContent(
                     SettingsSection(title = stringResource(R.string.settings_speed_hacks)) {
                         val selectedGpuHardwareProfile = GpuHardwareProfiles.normalize(uiState.gpuHardwareProfile)
                         val mediatekGpuSelected = GpuHardwareProfiles.isMediatekProfile(selectedGpuHardwareProfile)
+                        val mediatekAngleAvailable = EmulatorBridge.isBundledAngleAvailable()
                         ChoiceSection(
                             title = stringResource(R.string.onboarding_profile_title),
                             options = listOf(
@@ -1753,6 +1763,17 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.onboarding_gpu_profile_subtitle),
                             onResetToDefault = { viewModel.setGpuHardwareProfile(defaults.gpuHardwareProfile) }
                         )
+                        if (mediatekGpuSelected && mediatekAngleAvailable) {
+                            ToggleItem(
+                                icon = Icons.Rounded.SettingsSuggest,
+                                title = stringResource(R.string.settings_mediatek_angle_opengl),
+                                subtitle = stringResource(R.string.settings_mediatek_angle_opengl_desc),
+                                checked = uiState.mediatekAngleOpenGl,
+                                onCheckedChange = viewModel::setMediatekAngleOpenGl,
+                                helpText = stringResource(R.string.settings_help_mediatek_angle_opengl),
+                                onResetToDefault = { viewModel.setMediatekAngleOpenGl(false) }
+                            )
+                        }
                         ToggleItem(
                             icon = Icons.Rounded.Speed,
                             title = stringResource(R.string.settings_frame_limiter),
