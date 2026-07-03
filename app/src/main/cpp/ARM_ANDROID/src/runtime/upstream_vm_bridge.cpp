@@ -104,18 +104,19 @@ void ApplyAngleOpenGLLibraryHints(const VmLaunchConfig& config)
 	const std::string gles_path = Path::Combine(config.paths.native_library_dir, "libGLESv2_angle.so");
 	if (eligible && FileExists(egl_path) && FileExists(gles_path))
 	{
+		setenv("EMUCOREX_ANGLE_EGL_LIBRARY", egl_path.c_str(), 1);
+		setenv("EMUCOREX_ANGLE_GLES_LIBRARY", gles_path.c_str(), 1);
 		SDL_SetHintWithPriority(SDL_HINT_EGL_LIBRARY, egl_path.c_str(), SDL_HINT_OVERRIDE);
 		SDL_SetHintWithPriority(SDL_HINT_OPENGL_LIBRARY, gles_path.c_str(), SDL_HINT_OVERRIDE);
 		SDL_SetHintWithPriority(SDL_HINT_OPENGL_ES_DRIVER, "1", SDL_HINT_OVERRIDE);
-		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "MediaTek OpenGL ANGLE enabled with bundled libraries");
 	}
 	else
 	{
+		unsetenv("EMUCOREX_ANGLE_EGL_LIBRARY");
+		unsetenv("EMUCOREX_ANGLE_GLES_LIBRARY");
 		SDL_SetHintWithPriority(SDL_HINT_EGL_LIBRARY, nullptr, SDL_HINT_OVERRIDE);
 		SDL_SetHintWithPriority(SDL_HINT_OPENGL_LIBRARY, nullptr, SDL_HINT_OVERRIDE);
 		SDL_SetHintWithPriority(SDL_HINT_OPENGL_ES_DRIVER, nullptr, SDL_HINT_OVERRIDE);
-		if (requested)
-			__android_log_write(ANDROID_LOG_WARN, LOG_TAG, "MediaTek OpenGL ANGLE requested but bundled libraries are unavailable or renderer/profile is ineligible");
 	}
 }
 

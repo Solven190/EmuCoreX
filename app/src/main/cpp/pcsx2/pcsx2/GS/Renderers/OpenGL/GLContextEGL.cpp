@@ -11,11 +11,26 @@
 #include <algorithm>
 #include <atomic>
 #include <cstring>
+#include <cstdlib>
 #include <optional>
 #include <vector>
 
 static DynamicLibrary s_egl_library;
 static std::atomic_uint32_t s_egl_refcount = 0;
+
+static bool TryLoadEGLFromOverride(Error* error)
+{
+#ifdef __ANDROID__
+	const char* egl_override = std::getenv("EMUCOREX_ANGLE_EGL_LIBRARY");
+	if (!egl_override || !egl_override[0])
+		return false;
+
+	if (s_egl_library.Open(egl_override, error))
+		return true;
+#endif
+
+	return false;
+}
 
 static bool LoadEGL()
 {
@@ -25,10 +40,13 @@ static bool LoadEGL()
 	{
 		pxAssert(!s_egl_library.IsOpen());
 
+		Error error;
+		if (TryLoadEGLFromOverride(&error))
+			return true;
+
 		std::string egl_libname = DynamicLibrary::GetVersionedFilename("libEGL");
 		Console.WriteLnFmt("Loading EGL from {}...", egl_libname);
 
-		Error error;
 		if (!s_egl_library.Open(egl_libname.c_str(), &error))
 		{
 			// Try versioned.

@@ -1061,7 +1061,7 @@ private fun SettingsContent(
                             onResetToDefault = {
                                 viewModel.setBlendingAccuracy(
                                     if (GpuHardwareProfiles.isMediatekProfile(uiState.gpuHardwareProfile)) {
-                                        GsHackDefaults.BLENDING_ACCURACY_FULL
+                                        GsHackDefaults.BLENDING_ACCURACY_MAXIMUM
                                     } else {
                                         defaults.blendingAccuracy
                                     }
