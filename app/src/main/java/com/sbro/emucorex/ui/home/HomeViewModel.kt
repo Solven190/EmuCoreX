@@ -5,10 +5,8 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sbro.emucorex.core.BiosValidator
-import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.SetupValidator
-import com.sbro.emucorex.core.StoragePermissionHelper
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.CoverArtRepository
 import com.sbro.emucorex.data.CustomGameCoverRepository
@@ -110,19 +108,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             preferences.cleanupLegacyClampingPreferencesIfNeeded()
             preferences.gamePath.distinctUntilChanged().collect { path ->
                 val context = getApplication<Application>()
-                val migratedPath = path
-                    ?.takeIf { !it.startsWith("content://") }
-                    ?.takeIf { !StoragePermissionHelper.hasGameLibraryAccess(context, it) }
-                    ?.let { DocumentPathResolver.findAccessibleTreeUriForRawPath(context, it)?.toString() }
-
-                if (migratedPath != null && migratedPath != path) {
-                    preferences.setGamePath(migratedPath)
-                    return@collect
-                }
-
-                val effectivePath = migratedPath ?: path
+                val effectivePath = path
                 currentLibraryRoot = effectivePath
-                val isAccessible = SetupValidator.isGameFolderAccessible(context, effectivePath)
+                val isAccessible = SetupValidator.hasCoreReadableGameFile(context, effectivePath)
                 if (isAccessible && effectivePath != null) {
                     val cacheSnapshot = resolveCacheSnapshot(effectivePath)
                     val hasCachedGames = cacheSnapshot.games.isNotEmpty()
@@ -253,8 +241,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
         )
 
+        val rawPath = uri.toString()
+        if (!SetupValidator.hasCoreReadableGameFile(context, rawPath)) return
+
         viewModelScope.launch {
-            preferences.setGamePath(uri.toString())
+            preferences.setGamePath(rawPath)
         }
     }
 

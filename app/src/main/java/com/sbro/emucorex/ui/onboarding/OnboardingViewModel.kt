@@ -8,10 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
+import com.sbro.emucorex.core.EmulatorStorage
 import com.sbro.emucorex.core.GpuHardwareProfiles
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.SetupValidator
-import com.sbro.emucorex.core.StoragePermissionHelper
 import com.sbro.emucorex.data.AppPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +26,6 @@ data class OnboardingUiState(
     val emulatorDataPath: String? = null,
     val biosValid: Boolean = false,
     val gamePathValid: Boolean = false,
-    val allFilesAccessGranted: Boolean = StoragePermissionHelper.hasAllFilesAccess(),
     val canContinue: Boolean = false,
     val currentPage: Int = 0,
     val totalPages: Int = 5
@@ -62,7 +61,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                 preferences.gamePath.collect { path ->
                     updateState(
                         gamePath = path,
-                        gamePathValid = SetupValidator.isGameFolderAccessible(getApplication(), path)
+                        gamePathValid = SetupValidator.hasCoreReadableGameFile(getApplication(), path)
                     )
                 }
             }
@@ -102,8 +101,11 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             Intent.FLAG_GRANT_READ_URI_PERMISSION
         )
 
+        val rawPath = uri.toString()
+        if (!SetupValidator.hasCoreReadableGameFile(application, rawPath)) return
+
         viewModelScope.launch {
-            preferences.setGamePath(uri.toString())
+            preferences.setGamePath(rawPath)
         }
     }
 
@@ -115,6 +117,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         )
 
         val resolvedPath = DocumentPathResolver.resolveDirectoryPath(uri.toString()) ?: return
+        if (!EmulatorStorage.prepareCustomDataRoot(resolvedPath)) return
         viewModelScope.launch {
             preferences.setEmulatorDataPath(resolvedPath)
         }
@@ -137,14 +140,6 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.value = currentState.copy(currentPage = page.coerceIn(0, currentState.totalPages - 1))
     }
 
-    fun refreshAllFilesAccess() {
-        val currentState = _uiState.value
-        updateState(
-            gamePathValid = SetupValidator.isGameFolderAccessible(getApplication(), currentState.gamePath),
-            allFilesAccessGranted = StoragePermissionHelper.hasAllFilesAccess()
-        )
-    }
-
     fun completeOnboarding(onFinished: () -> Unit) {
         if (!_uiState.value.canContinue) return
         viewModelScope.launch {
@@ -161,7 +156,6 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         emulatorDataPath: String? = _uiState.value.emulatorDataPath,
         biosValid: Boolean = _uiState.value.biosValid,
         gamePathValid: Boolean = _uiState.value.gamePathValid,
-        allFilesAccessGranted: Boolean = _uiState.value.allFilesAccessGranted,
         currentPage: Int = _uiState.value.currentPage
     ) {
         _uiState.value = OnboardingUiState(
@@ -172,8 +166,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             emulatorDataPath = emulatorDataPath,
             biosValid = biosValid,
             gamePathValid = gamePathValid,
-            allFilesAccessGranted = allFilesAccessGranted,
-            canContinue = biosValid && gamePathValid && allFilesAccessGranted,
+            canContinue = biosValid && gamePathValid,
             currentPage = currentPage,
             totalPages = 5
         )

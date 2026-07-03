@@ -61,7 +61,6 @@ import com.sbro.emucorex.ui.profile.ProfileScreen
 import com.sbro.emucorex.ui.saves.SaveManagerScreen
 import com.sbro.emucorex.ui.settings.LanguageSettingsScreen
 import com.sbro.emucorex.ui.settings.PerGameSettingsManagerScreen
-import com.sbro.emucorex.ui.settings.AppUpdateAvailableDialog
 import com.sbro.emucorex.ui.settings.SettingsScreen
 import com.sbro.emucorex.ui.settings.SettingsViewModel
 import com.sbro.emucorex.ui.textures.TextureManagerScreen
@@ -298,18 +297,7 @@ fun AppNavigation(
             }
         }
     }
-    val canShowStartupUpdateDialog = currentBackStackEntry?.destination?.hasRoute<HomeRoute>() == true
-    LaunchedEffect(startupDestination) {
-        if (startupDestination == StartupDestination.HOME) {
-            settingsViewModel.checkForStartupAppUpdates()
-        }
-    }
-    LaunchedEffect(currentBackStackEntry?.destination, settingsUiState.appUpdate.startupDialogVisible) {
-        val destination = currentBackStackEntry?.destination ?: return@LaunchedEffect
-        if (settingsUiState.appUpdate.startupDialogVisible && !destination.hasRoute<HomeRoute>()) {
-            settingsViewModel.dismissStartupUpdateDialog()
-        }
-    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -818,24 +806,6 @@ fun AppNavigation(
             GameLaunchShortcut.clearLaunchRequest(activity?.intent)
         }
 
-        val startupUpdateRelease = settingsUiState.appUpdate.latestRelease
-        if (
-            canShowStartupUpdateDialog &&
-            settingsUiState.appUpdate.startupDialogVisible &&
-            startupUpdateRelease != null
-        ) {
-            AppUpdateAvailableDialog(
-                release = startupUpdateRelease,
-                onDismiss = settingsViewModel::dismissStartupUpdateDialog,
-                onSkipUpdate = settingsViewModel::skipStartupUpdateDialog,
-                onOpenUpdates = {
-                    settingsViewModel.dismissStartupUpdateDialog()
-                    navController.navigate(SettingsRoute(tab = "updates")) {
-                        launchSingleTop = true
-                    }
-                }
-            )
-        }
     }
 }
 

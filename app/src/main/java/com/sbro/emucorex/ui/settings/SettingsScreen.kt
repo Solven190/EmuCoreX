@@ -2269,14 +2269,7 @@ private fun SettingsContent(
                 SettingsTab.Updates -> {
                     AppUpdateTab(
                         state = uiState.appUpdate,
-                        onCheckForUpdates = { force -> viewModel.checkForAppUpdates(showErrors = true, force = force) },
-                        onLoadReleaseHistory = { force -> viewModel.loadAppReleaseHistory(showErrors = true, force = force) },
-                        onShowCleanInstallDialog = viewModel::showCleanInstallDialog,
-                        onDismissCleanInstallDialog = viewModel::dismissCleanInstallDialog,
-                        onDownloadUpdate = { viewModel.downloadAppUpdate() },
-                        onInstallDownloadedUpdate = { viewModel.installDownloadedAppUpdate() },
-                        onDownloadParallelRelease = { release -> viewModel.downloadParallelAppRelease(release) },
-                        onInstallDownloadedParallelRelease = { release -> viewModel.installDownloadedParallelAppRelease(release) }
+                        onLoadReleaseHistory = { force -> viewModel.loadAppReleaseHistory(showErrors = true, force = force) }
                     )
                 }
 
@@ -2640,8 +2633,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Fixes, R.string.settings_gpu_target_clut),
         entry(SettingsTab.Fixes, R.string.settings_half_pixel_offset),
         entry(SettingsTab.Fixes, R.string.settings_bilinear_upscale),
-        entry(SettingsTab.Updates, R.string.settings_updates_tab),
-        entry(SettingsTab.Updates, R.string.settings_updates_check_now)
+        entry(SettingsTab.Updates, R.string.settings_updates_tab)
     )
 }
 

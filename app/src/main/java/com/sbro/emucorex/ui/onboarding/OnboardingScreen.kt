@@ -1,11 +1,8 @@
 package com.sbro.emucorex.ui.onboarding
 
 import android.annotation.SuppressLint
-import android.content.ActivityNotFoundException
-import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -69,7 +66,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -92,11 +88,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.core.net.toUri
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.GpuHardwareProfiles
@@ -165,7 +157,6 @@ fun OnboardingScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
-    val lifecycleOwner = LocalLifecycleOwner.current
 
     val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp && configuration.screenWidthDp >= 600
     var isCompleting by remember { mutableStateOf(false) }
@@ -213,43 +204,11 @@ fun OnboardingScreen(
     ) { uri: Uri? ->
         uri?.let(viewModel::setEmulatorDataPath)
     }
-    val allFilesAccessLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        viewModel.refreshAllFilesAccess()
-    }
+
     val launchBiosPicker = rememberDebouncedClick(onClick = { biosPicker.launch(arrayOf("*/*")) })
     val launchGamePicker = rememberDebouncedClick(onClick = { gamePicker.launch(null) })
     val launchEmulatorDataPicker = rememberDebouncedClick(onClick = { emulatorDataPicker.launch(null) })
-    val launchAllFilesAccess = rememberDebouncedClick(
-        onClick = {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-                viewModel.refreshAllFilesAccess()
-                return@rememberDebouncedClick
-            }
 
-            val packageUri = "package:${context.packageName}".toUri()
-            val appSettingsIntent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, packageUri)
-            val fallbackIntent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-            try {
-                allFilesAccessLauncher.launch(appSettingsIntent)
-            } catch (_: ActivityNotFoundException) {
-                allFilesAccessLauncher.launch(fallbackIntent)
-            }
-        }
-    )
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.refreshAllFilesAccess()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
     
     val continueClick = rememberDebouncedClick(
         onClick = {
@@ -469,12 +428,10 @@ fun OnboardingScreen(
                                             emulatorDataPath = uiState.emulatorDataPath,
                                             biosValid = uiState.biosValid,
                                             gamePathValid = uiState.gamePathValid,
-                                            allFilesAccessGranted = uiState.allFilesAccessGranted,
                                             context = context,
                                             launchBiosPicker = launchBiosPicker,
                                             launchGamePicker = launchGamePicker,
                                             launchEmulatorDataPicker = launchEmulatorDataPicker,
-                                            launchAllFilesAccess = launchAllFilesAccess,
                                             endInset = 0.dp,
                                             bottomInset = 0.dp,
                                             reserveScrollHintSpace = true,
@@ -583,12 +540,10 @@ fun OnboardingScreen(
                                     emulatorDataPath = uiState.emulatorDataPath,
                                     biosValid = uiState.biosValid,
                                     gamePathValid = uiState.gamePathValid,
-                                    allFilesAccessGranted = uiState.allFilesAccessGranted,
                                     context = context,
                                     launchBiosPicker = launchBiosPicker,
                                     launchGamePicker = launchGamePicker,
                                     launchEmulatorDataPicker = launchEmulatorDataPicker,
-                                    launchAllFilesAccess = launchAllFilesAccess,
                                     endInset = 0.dp,
                                     bottomInset = 0.dp
                                 )
@@ -933,18 +888,16 @@ private fun OnboardingSetupContent(
     emulatorDataPath: String?,
     biosValid: Boolean,
     gamePathValid: Boolean,
-    allFilesAccessGranted: Boolean,
     context: android.content.Context,
     launchBiosPicker: () -> Unit,
     launchGamePicker: () -> Unit,
     launchEmulatorDataPicker: () -> Unit,
-    launchAllFilesAccess: () -> Unit,
     endInset: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
     bottomInset: androidx.compose.ui.unit.Dp = 0.dp,
     reserveScrollHintSpace: Boolean = false,
 ) {
-    val completionProgress = listOf(biosValid, gamePathValid, allFilesAccessGranted).count { it }
+    val completionProgress = listOf(biosValid, gamePathValid).count { it }
     Row(
         modifier = modifier.padding(end = endInset),
         verticalAlignment = Alignment.Top
@@ -1016,25 +969,6 @@ private fun OnboardingSetupContent(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            SetupCard(
-                icon = Icons.Rounded.CheckCircle,
-                title = stringResource(R.string.onboarding_all_files_title),
-                description = stringResource(R.string.onboarding_all_files_desc),
-                status = if (allFilesAccessGranted) {
-                    stringResource(R.string.onboarding_status_ready)
-                } else {
-                    stringResource(R.string.onboarding_status_required)
-                },
-                statusColor = if (allFilesAccessGranted) {
-                    Color(0xFF1B8A5A)
-                } else {
-                    MaterialTheme.colorScheme.tertiary
-                },
-                onClick = launchAllFilesAccess
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
@@ -1056,7 +990,7 @@ private fun OnboardingSetupContent(
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = stringResource(R.string.onboarding_hint_body, completionProgress, 3),
+                        text = stringResource(R.string.onboarding_hint_body, completionProgress, 2),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

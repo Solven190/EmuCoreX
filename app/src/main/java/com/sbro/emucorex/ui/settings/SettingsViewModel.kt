@@ -9,11 +9,13 @@ import com.sbro.emucorex.core.AppUpdateRelease
 import com.sbro.emucorex.core.AppUpdateRepository
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
+import com.sbro.emucorex.core.EmulatorStorage
 import com.sbro.emucorex.core.GpuHardwareProfiles
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.PerformancePresets
+import com.sbro.emucorex.core.SetupValidator
 import com.sbro.emucorex.core.normalizeUpscale
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
@@ -27,7 +29,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 
 data class SettingsUiState(
     val isLoaded: Boolean = false,
@@ -164,26 +165,15 @@ data class SettingsUiState(
 )
 
 data class AppUpdateUiState(
-    val latestRelease: AppUpdateRelease? = null,
     val releaseHistory: List<AppUpdateRelease> = emptyList(),
-    val checking: Boolean = false,
     val historyLoading: Boolean = false,
-    val checkedOnce: Boolean = false,
-    val errorMessage: String? = null,
-    val historyErrorMessage: String? = null,
-    val downloadProgress: Float? = null,
-    val downloadedApkPath: String? = null,
-    val parallelDownloadProgress: Map<String, Float> = emptyMap(),
-    val downloadedParallelApkPaths: Map<String, String> = emptyMap(),
-    val startupDialogVisible: Boolean = false,
-    val cleanInstallDialogVisible: Boolean = false
+    val historyErrorMessage: String? = null
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val preferences = AppPreferences(application)
     private val appUpdateRepository = AppUpdateRepository(application)
-    private var startupUpdateCheckRequested = false
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -356,58 +346,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun checkForAppUpdates(showErrors: Boolean = true, showStartupDialog: Boolean = false, force: Boolean = false) {
-        if (_uiState.value.appUpdate.checking) return
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.value = _uiState.value.copy(
-                appUpdate = _uiState.value.appUpdate.copy(
-                    checking = true,
-                    errorMessage = null
-                )
-            )
-            runCatching {
-                appUpdateRepository.checkLatestRelease(force)
-            }.onSuccess { release ->
-                val startupDialogVisible = showStartupDialog &&
-                    release != null &&
-                    !release.tagName.equals(preferences.skippedUpdateTag, ignoreCase = true)
-                _uiState.value = _uiState.value.copy(
-                    appUpdate = _uiState.value.appUpdate.copy(
-                        latestRelease = release,
-                        checking = false,
-                        checkedOnce = true,
-                        errorMessage = null,
-                        startupDialogVisible = startupDialogVisible
-                    )
-                )
-            }.onFailure { error ->
-                val errorMsg = if (showErrors) {
-                    if (error is com.sbro.emucorex.core.RateLimitException) {
-                        val minutes = ((error.resetTimestampMs - System.currentTimeMillis()) / 60000).coerceAtLeast(1)
-                        getApplication<Application>().getString(com.sbro.emucorex.R.string.settings_updates_rate_limit_error, minutes)
-                    } else {
-                        error.message ?: "Could not check for updates"
-                    }
-                } else null
-
-                _uiState.value = _uiState.value.copy(
-                    appUpdate = _uiState.value.appUpdate.copy(
-                        checking = false,
-                        checkedOnce = true,
-                        errorMessage = errorMsg,
-                        startupDialogVisible = false
-                    )
-                )
-            }
-        }
-    }
-
-    fun checkForStartupAppUpdates() {
-        if (startupUpdateCheckRequested) return
-        startupUpdateCheckRequested = true
-        checkForAppUpdates(showErrors = false, showStartupDialog = true)
-    }
-
     fun loadAppReleaseHistory(showErrors: Boolean = true, force: Boolean = false) {
         if (_uiState.value.appUpdate.historyLoading) return
         viewModelScope.launch(Dispatchers.IO) {
@@ -446,153 +384,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
-
-    fun dismissStartupUpdateDialog() {
-        _uiState.value = _uiState.value.copy(
-            appUpdate = _uiState.value.appUpdate.copy(startupDialogVisible = false)
-        )
-    }
-
-    fun skipStartupUpdateDialog() {
-        val tag = _uiState.value.appUpdate.latestRelease?.tagName
-        if (!tag.isNullOrBlank()) {
-            preferences.skippedUpdateTag = tag
-        }
-        dismissStartupUpdateDialog()
-    }
-
-    fun showCleanInstallDialog() {
-        if (_uiState.value.appUpdate.latestRelease == null) return
-        _uiState.value = _uiState.value.copy(
-            appUpdate = _uiState.value.appUpdate.copy(cleanInstallDialogVisible = true)
-        )
-    }
-
-    fun dismissCleanInstallDialog() {
-        _uiState.value = _uiState.value.copy(
-            appUpdate = _uiState.value.appUpdate.copy(cleanInstallDialogVisible = false)
-        )
-    }
-
-    fun downloadAppUpdate(onComplete: (Result<Unit>) -> Unit = {}) {
-        val release = _uiState.value.appUpdate.latestRelease ?: return
-        if (_uiState.value.appUpdate.downloadProgress != null) return
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.value = _uiState.value.copy(
-                appUpdate = _uiState.value.appUpdate.copy(
-                    downloadProgress = 0f,
-                    errorMessage = null,
-                    downloadedApkPath = null
-                )
-            )
-            val result = runCatching {
-                val apk = appUpdateRepository.downloadApk(release) { progress ->
-                    _uiState.value = _uiState.value.copy(
-                        appUpdate = _uiState.value.appUpdate.copy(downloadProgress = progress)
-                    )
-                }
-                _uiState.value = _uiState.value.copy(
-                    appUpdate = _uiState.value.appUpdate.copy(
-                        downloadProgress = null,
-                        downloadedApkPath = apk.absolutePath
-                    )
-                )
-            }
-            result.onFailure { error ->
-                _uiState.value = _uiState.value.copy(
-                    appUpdate = _uiState.value.appUpdate.copy(
-                        downloadProgress = null,
-                        errorMessage = error.message ?: "Could not download update"
-                    )
-                )
-            }
-            withContext(Dispatchers.Main) {
-                onComplete(result)
-            }
-        }
-    }
-
-    fun installDownloadedAppUpdate(onComplete: (Result<Unit>) -> Unit = {}) {
-        val apkPath = _uiState.value.appUpdate.downloadedApkPath ?: return
-        val result = runCatching {
-            appUpdateRepository.launchInstaller(File(apkPath))
-        }
-        result.onFailure { error ->
-            _uiState.value = _uiState.value.copy(
-                appUpdate = _uiState.value.appUpdate.copy(
-                    errorMessage = error.message ?: "Could not open update installer"
-                )
-            )
-        }
-        onComplete(result)
-    }
-
-    fun downloadParallelAppRelease(
-        release: AppUpdateRelease,
-        onComplete: (Result<Unit>) -> Unit = {}
-    ) {
-        val key = release.updateKey()
-        if (_uiState.value.appUpdate.parallelDownloadProgress.containsKey(key)) return
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.value = _uiState.value.copy(
-                appUpdate = _uiState.value.appUpdate.copy(
-                    historyErrorMessage = null,
-                    parallelDownloadProgress = _uiState.value.appUpdate.parallelDownloadProgress + (key to 0f),
-                    downloadedParallelApkPaths = _uiState.value.appUpdate.downloadedParallelApkPaths - key
-                )
-            )
-            val result = runCatching {
-                val apk = appUpdateRepository.downloadParallelApk(release) { progress ->
-                    _uiState.value = _uiState.value.copy(
-                        appUpdate = _uiState.value.appUpdate.copy(
-                            parallelDownloadProgress = _uiState.value.appUpdate.parallelDownloadProgress + (key to progress)
-                        )
-                    )
-                }
-                _uiState.value = _uiState.value.copy(
-                    appUpdate = _uiState.value.appUpdate.copy(
-                        parallelDownloadProgress = _uiState.value.appUpdate.parallelDownloadProgress - key,
-                        downloadedParallelApkPaths = _uiState.value.appUpdate.downloadedParallelApkPaths + (key to apk.absolutePath)
-                    )
-                )
-            }
-            result.onFailure { error ->
-                _uiState.value = _uiState.value.copy(
-                    appUpdate = _uiState.value.appUpdate.copy(
-                        parallelDownloadProgress = _uiState.value.appUpdate.parallelDownloadProgress - key,
-                        historyErrorMessage = error.message ?: "Could not download parallel APK"
-                    )
-                )
-            }
-            withContext(Dispatchers.Main) {
-                onComplete(result)
-            }
-        }
-    }
-
-    fun installDownloadedParallelAppRelease(
-        release: AppUpdateRelease,
-        onComplete: (Result<Unit>) -> Unit = {}
-    ) {
-        val key = release.updateKey()
-        val apkPath = _uiState.value.appUpdate.downloadedParallelApkPaths[key] ?: return
-        val result = runCatching {
-            appUpdateRepository.launchInstaller(File(apkPath))
-        }
-        result.onFailure { error ->
-            _uiState.value = _uiState.value.copy(
-                appUpdate = _uiState.value.appUpdate.copy(
-                    historyErrorMessage = error.message ?: "Could not open parallel APK installer"
-                )
-            )
-        }
-        onComplete(result)
-    }
-
-    private fun AppUpdateRelease.updateKey(): String {
-        return tagName.ifBlank { htmlUrl.ifBlank { displayName } }
-    }
-
     fun setUpscaleMultiplier(value: Float) {
         viewModelScope.launch {
             val normalizedValue = normalizeUpscale(value)
@@ -1528,7 +1319,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             uri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION
         )
-        viewModelScope.launch { preferences.setGamePath(uri.toString()) }
+        val rawPath = uri.toString()
+        if (!SetupValidator.hasCoreReadableGameFile(application, rawPath)) return
+        viewModelScope.launch { preferences.setGamePath(rawPath) }
     }
 
     fun setEmulatorDataPath(uri: Uri) {
@@ -1539,6 +1332,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         )
 
         val resolvedPath = DocumentPathResolver.resolveDirectoryPath(uri.toString()) ?: return
+        if (!EmulatorStorage.prepareCustomDataRoot(resolvedPath)) return
         viewModelScope.launch { preferences.setEmulatorDataPath(resolvedPath) }
     }
 
