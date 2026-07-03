@@ -1,5 +1,6 @@
 package com.sbro.emucorex.ui.home
 
+import android.app.Activity
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -7,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.SetupValidator
+import com.sbro.emucorex.core.ProPurchaseManager
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.CoverArtRepository
 import com.sbro.emucorex.data.CustomGameCoverRepository
@@ -63,7 +65,12 @@ data class HomeUiState(
     val sortOption: HomeSortOption = HomeSortOption.TITLE_ASC,
     val libraryViewMode: HomeLibraryViewMode = HomeLibraryViewMode.GRID,
     val lastStandardLibraryViewMode: HomeLibraryViewMode = HomeLibraryViewMode.GRID,
-    val isCoverArtDisabled: Boolean = true
+    val isCoverArtDisabled: Boolean = true,
+    val showWelcomeDialog: Boolean = false,
+    val isProUnlocked: Boolean = false,
+    val proPrice: String? = null,
+    val isProPurchaseInProgress: Boolean = false,
+    val proPurchaseMessageResId: Int? = null
 )
 
 private data class DeferredLibraryScan(
@@ -82,6 +89,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val libraryCacheRepository = GameLibraryCacheRepository(application)
     private val customGameCoverRepository = CustomGameCoverRepository(application)
     private val preferences = AppPreferences(application)
+    private val proPurchaseManager = ProPurchaseManager.getInstance(application)
     private var allGames: List<GameItem> = emptyList()
     private var recentEntries: List<RecentGameEntry> = emptyList()
     private var coverSyncJob: Job? = null
@@ -104,6 +112,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            preferences.welcomeDialogShown.distinctUntilChanged().collect { shown ->
+                _uiState.value = _uiState.value.copy(showWelcomeDialog = !shown)
+            }
+        }
+        viewModelScope.launch {
+            proPurchaseManager.state.collect { proState ->
+                _uiState.value = _uiState.value.copy(
+                    isProUnlocked = proState.isProUnlocked,
+                    proPrice = proState.productPrice,
+                    isProPurchaseInProgress = proState.isPurchaseInProgress,
+                    proPurchaseMessageResId = proState.messageResId
+                )
+            }
+        }
         viewModelScope.launch {
             preferences.cleanupLegacyClampingPreferencesIfNeeded()
             preferences.gamePath.distinctUntilChanged().collect { path ->
@@ -637,6 +660,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             games = sorted,
             recentGames = recentGames
         )
+    }
+
+        fun dismissWelcomeDialog() {
+        viewModelScope.launch { preferences.setWelcomeDialogShown(true) }
+    }
+
+    fun purchasePro(activity: Activity) {
+        proPurchaseManager.purchase(activity)
+    }
+
+    fun clearProPurchaseMessage() {
+        proPurchaseManager.clearMessage()
     }
 
     private fun updateBootstrapState() {

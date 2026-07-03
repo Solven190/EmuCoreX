@@ -1,6 +1,7 @@
 package com.sbro.emucorex.ui.settings
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Intent
@@ -200,6 +201,12 @@ fun SettingsScreen(
     val coverUrlInvalidMessage = stringResource(R.string.settings_cover_download_url_invalid)
     stringResource(R.string.settings_not_set)
     val settingsScrollState = rememberScrollState()
+    val proPurchaseMessage = uiState.proPurchaseMessageResId?.let { stringResource(it) }
+    LaunchedEffect(proPurchaseMessage) {
+        val message = proPurchaseMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.clearProPurchaseMessage()
+    }
 
     if (!uiState.isLoaded) {
         Box(
@@ -879,7 +886,28 @@ private fun SettingsContent(
                         )
                         ThemeSelector(
                             selected = uiState.themeMode,
-                            onSelected = viewModel::setThemeMode
+                            isProUnlocked = uiState.isProUnlocked,
+                            onSelected = viewModel::setThemeMode,
+                            onProLockedSelected = {
+                                (context as? Activity)?.let(viewModel::purchasePro)
+                            }
+                        )
+                        SettingsItem(
+                            icon = Icons.Rounded.Star,
+                            label = stringResource(R.string.settings_pro_title),
+                            value = when {
+                                uiState.isProUnlocked -> stringResource(R.string.settings_pro_active)
+                                uiState.proPrice != null -> uiState.proPrice
+                                else -> stringResource(R.string.settings_pro_buy)
+                            },
+                            onClick = {
+                                if (uiState.isProUnlocked) {
+                                    viewModel.setThemeMode(ThemeMode.PRO)
+                                } else {
+                                    (context as? Activity)?.let(viewModel::purchasePro)
+                                }
+                            },
+                            helpText = stringResource(R.string.settings_pro_desc)
                         )
                         ToggleItem(
                             icon = Icons.Rounded.StayPrimaryPortrait,
@@ -2388,29 +2416,36 @@ private fun normalizeSettingsSearchToken(value: String): String {
 @Composable
 private fun ThemeSelector(
     selected: ThemeMode,
-    onSelected: (ThemeMode) -> Unit
+    isProUnlocked: Boolean,
+    onSelected: (ThemeMode) -> Unit,
+    onProLockedSelected: () -> Unit
 ) {
     ChoiceSection(
         title = stringResource(R.string.settings_theme),
         options = listOf(
             0 to stringResource(R.string.settings_theme_system),
             1 to stringResource(R.string.settings_theme_light),
-            2 to stringResource(R.string.settings_theme_dark)
+            2 to stringResource(R.string.settings_theme_dark),
+            3 to if (isProUnlocked) {
+                stringResource(R.string.settings_theme_pro)
+            } else {
+                stringResource(R.string.settings_theme_pro_locked)
+            }
         ),
         selectedValue = when (selected) {
             ThemeMode.SYSTEM -> 0
             ThemeMode.LIGHT -> 1
             ThemeMode.DARK -> 2
+            ThemeMode.PRO -> 3
         },
         onResetToDefault = { onSelected(ThemeMode.SYSTEM) },
         onSelect = { value ->
-            onSelected(
-                when (value) {
-                    1 -> ThemeMode.LIGHT
-                    2 -> ThemeMode.DARK
-                    else -> ThemeMode.SYSTEM
-                }
-            )
+            when (value) {
+                1 -> onSelected(ThemeMode.LIGHT)
+                2 -> onSelected(ThemeMode.DARK)
+                3 -> if (isProUnlocked) onSelected(ThemeMode.PRO) else onProLockedSelected()
+                else -> onSelected(ThemeMode.SYSTEM)
+            }
         }
     )
 }

@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
     primary = AccentPrimary,
@@ -30,6 +31,32 @@ private val DarkColorScheme = darkColorScheme(
     errorContainer = ErrorContainer,
     onErrorContainer = ErrorRed,
     scrim = DarkScrim
+)
+
+private val ProColorScheme = darkColorScheme(
+    primary = ProPrimary,
+    onPrimary = OnAccent,
+    primaryContainer = ProPrimaryContainer,
+    onPrimaryContainer = ProOnPrimaryContainer,
+    secondary = ProSecondary,
+    onSecondary = OnAccent,
+    secondaryContainer = ProSecondaryContainer,
+    onSecondaryContainer = ProSecondary,
+    tertiary = ProTertiary,
+    onTertiary = Color(0xFF1A0D00),
+    background = ProBackground,
+    onBackground = ProOnBackground,
+    surface = ProSurface,
+    onSurface = ProOnSurface,
+    surfaceVariant = ProSurfaceVariant,
+    onSurfaceVariant = ProOnSurfaceVariant,
+    outline = ProOutline,
+    outlineVariant = ProOutline,
+    error = ErrorRed,
+    onError = OnAccent,
+    errorContainer = ErrorContainer,
+    onErrorContainer = ErrorRed,
+    scrim = ProScrim
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -58,7 +85,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 enum class ThemeMode {
-    SYSTEM, LIGHT, DARK
+    SYSTEM, LIGHT, DARK, PRO
 }
 
 @Composable
@@ -70,9 +97,13 @@ fun EmuCoreXTheme(
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
+        ThemeMode.PRO -> true
     }
 
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val colorScheme = when (themeMode) {
+        ThemeMode.PRO -> ProColorScheme
+        else -> if (darkTheme) DarkColorScheme else LightColorScheme
+    }
 
     MaterialTheme(
         colorScheme = colorScheme,

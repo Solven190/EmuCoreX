@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.SYSTEM -> systemDarkTheme
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
+                ThemeMode.PRO -> true
             }
 
             SideEffect {

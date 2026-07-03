@@ -1,8 +1,10 @@
 package com.sbro.emucorex.ui.onboarding
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -56,6 +58,7 @@ import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.RadioButtonChecked
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -209,6 +212,13 @@ fun OnboardingScreen(
     val launchGamePicker = rememberDebouncedClick(onClick = { gamePicker.launch(null) })
     val launchEmulatorDataPicker = rememberDebouncedClick(onClick = { emulatorDataPicker.launch(null) })
 
+    val proPurchaseMessage = uiState.proPurchaseMessageResId?.let { stringResource(it) }
+    LaunchedEffect(proPurchaseMessage) {
+        val message = proPurchaseMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.clearProPurchaseMessage()
+    }
+
     
     val continueClick = rememberDebouncedClick(
         onClick = {
@@ -359,6 +369,10 @@ fun OnboardingScreen(
                                     showSubtitle = false,
                                     modifier = Modifier.padding(bottom = 8.dp)
                                 )
+                                page == 4 -> OnboardingHeroPro(
+                                    showSubtitle = false,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
                                 else -> OnboardingHeroSetup(
                                     showSubtitle = false,
                                     modifier = Modifier.padding(bottom = 8.dp)
@@ -411,6 +425,14 @@ fun OnboardingScreen(
                                         modifier = Modifier.padding(horizontal = 32.dp)
                                     )
                                 }
+                            } else if (page == 4) {
+                                OnboardingProContent(
+                                    isProUnlocked = uiState.isProUnlocked,
+                                    proPrice = uiState.proPrice,
+                                    isPurchaseInProgress = uiState.isProPurchaseInProgress,
+                                    onPurchase = { (context as? Activity)?.let(viewModel::purchasePro) },
+                                    modifier = Modifier.padding(horizontal = 32.dp)
+                                )
                             } else {
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     Column(
@@ -532,6 +554,16 @@ fun OnboardingScreen(
                                 )
                             }
                             4 -> {
+                                OnboardingHeroPro()
+                                Spacer(modifier = Modifier.height(32.dp))
+                                OnboardingProContent(
+                                    isProUnlocked = uiState.isProUnlocked,
+                                    proPrice = uiState.proPrice,
+                                    isPurchaseInProgress = uiState.isProPurchaseInProgress,
+                                    onPurchase = { (context as? Activity)?.let(viewModel::purchasePro) }
+                                )
+                            }
+                            5 -> {
                                 OnboardingHeroSetup()
                                 Spacer(modifier = Modifier.height(32.dp))
                                 OnboardingSetupContent(
@@ -740,6 +772,107 @@ private fun OnboardingHeroProfile(
     }
 }
 
+@Composable
+private fun OnboardingHeroPro(
+    modifier: Modifier = Modifier,
+    showSubtitle: Boolean = true
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.widthIn(max = 480.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(112.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Star,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(56.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(28.dp))
+        Text(
+            text = stringResource(R.string.onboarding_pro_title),
+            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.sp),
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center
+        )
+        if (showSubtitle) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.onboarding_pro_subtitle),
+                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun OnboardingProContent(
+    isProUnlocked: Boolean,
+    proPrice: String?,
+    isPurchaseInProgress: Boolean,
+    onPurchase: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .widthIn(max = 520.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        tonalElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.pro_theme_name),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = stringResource(R.string.pro_feature_theme),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = stringResource(R.string.pro_feature_support),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = if (isProUnlocked) stringResource(R.string.pro_status_active) else proPrice ?: stringResource(R.string.pro_price_loading),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            if (!isProUnlocked) {
+                Button(
+                    onClick = onPurchase,
+                    enabled = !isPurchaseInProgress,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = if (isPurchaseInProgress) {
+                            stringResource(R.string.pro_purchase_busy)
+                        } else {
+                            stringResource(R.string.settings_pro_buy)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
 @Composable
 private fun OnboardingPageIndicator(
     currentPage: Int,

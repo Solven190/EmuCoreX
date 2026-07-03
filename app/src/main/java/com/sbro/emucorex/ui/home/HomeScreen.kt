@@ -1,6 +1,7 @@
 package com.sbro.emucorex.ui.home
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -62,9 +63,12 @@ import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SportsEsports
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.ViewCarousel
 import androidx.compose.material.icons.rounded.ViewModule
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -77,6 +81,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -250,6 +255,13 @@ fun HomeScreen(
         pendingCustomCoverGame = game
         gameAwaitingPickerLaunch = null
         customCoverPicker.launch("image/*")
+    }
+
+        val proPurchaseMessage = uiState.proPurchaseMessageResId?.let { stringResource(it) }
+    LaunchedEffect(proPurchaseMessage) {
+        val message = proPurchaseMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.clearProPurchaseMessage()
     }
 
     var showSortMenu by remember { mutableStateOf(false) }
@@ -544,6 +556,19 @@ fun HomeScreen(
             }
         }
     }
+    if (uiState.showWelcomeDialog && !isShelfView) {
+        WelcomeProDialog(
+            isProUnlocked = uiState.isProUnlocked,
+            proPrice = uiState.proPrice,
+            isPurchaseInProgress = uiState.isProPurchaseInProgress,
+            onDismiss = viewModel::dismissWelcomeDialog,
+            onPurchase = {
+                viewModel.dismissWelcomeDialog()
+                (context as? Activity)?.let(viewModel::purchasePro)
+            }
+        )
+    }
+
 }
 
 @Composable
@@ -553,8 +578,65 @@ private fun HomeSectionDivider(modifier: Modifier = Modifier) {
         thickness = 1.dp,
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
     )
+
 }
 
+@Composable
+private fun WelcomeProDialog(
+    isProUnlocked: Boolean,
+    proPrice: String?,
+    isPurchaseInProgress: Boolean,
+    onDismiss: () -> Unit,
+    onPurchase: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Rounded.Star,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = { Text(text = stringResource(R.string.welcome_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(R.string.welcome_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = if (isProUnlocked) stringResource(R.string.pro_status_active) else proPrice ?: stringResource(R.string.pro_price_loading),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        },
+        confirmButton = {
+            if (isProUnlocked) {
+                Button(onClick = onDismiss) {
+                    Text(text = stringResource(R.string.welcome_secondary))
+                }
+            } else {
+                Button(onClick = onPurchase, enabled = !isPurchaseInProgress) {
+                    Text(
+                        text = if (isPurchaseInProgress) {
+                            stringResource(R.string.pro_purchase_busy)
+                        } else {
+                            stringResource(R.string.welcome_primary)
+                        }
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.welcome_secondary))
+            }
+        }
+    )
+}
 @Composable
 private fun HomeHeader(
     gamesCount: Int,

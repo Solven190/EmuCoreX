@@ -1,5 +1,6 @@
 package com.sbro.emucorex.ui.onboarding
 
+import android.app.Activity
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
@@ -11,6 +12,7 @@ import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.EmulatorStorage
 import com.sbro.emucorex.core.GpuHardwareProfiles
 import com.sbro.emucorex.core.PerformanceProfiles
+import com.sbro.emucorex.core.ProPurchaseManager
 import com.sbro.emucorex.core.SetupValidator
 import com.sbro.emucorex.data.AppPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,17 +30,32 @@ data class OnboardingUiState(
     val gamePathValid: Boolean = false,
     val canContinue: Boolean = false,
     val currentPage: Int = 0,
-    val totalPages: Int = 5
+    val totalPages: Int = 6,
+    val isProUnlocked: Boolean = false,
+    val proPrice: String? = null,
+    val isProPurchaseInProgress: Boolean = false,
+    val proPurchaseMessageResId: Int? = null
 )
 
 class OnboardingViewModel(application: Application) : AndroidViewModel(application) {
 
     private val preferences = AppPreferences(application)
+    private val proPurchaseManager = ProPurchaseManager.getInstance(application)
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
+            launch {
+                proPurchaseManager.state.collect { proState ->
+                    updateState(
+                        isProUnlocked = proState.isProUnlocked,
+                        proPrice = proState.productPrice,
+                        isProPurchaseInProgress = proState.isPurchaseInProgress,
+                        proPurchaseMessageResId = proState.messageResId
+                    )
+                }
+            }
             launch {
                 preferences.performanceProfile.collect { profile ->
                     updateState(performanceProfile = profile)
@@ -71,6 +88,14 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                 }
             }
         }
+    }
+
+    fun purchasePro(activity: Activity) {
+        proPurchaseManager.purchase(activity)
+    }
+
+    fun clearProPurchaseMessage() {
+        proPurchaseManager.clearMessage()
     }
 
     fun setBiosPath(uri: Uri) {
@@ -156,7 +181,11 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         emulatorDataPath: String? = _uiState.value.emulatorDataPath,
         biosValid: Boolean = _uiState.value.biosValid,
         gamePathValid: Boolean = _uiState.value.gamePathValid,
-        currentPage: Int = _uiState.value.currentPage
+        currentPage: Int = _uiState.value.currentPage,
+        isProUnlocked: Boolean = _uiState.value.isProUnlocked,
+        proPrice: String? = _uiState.value.proPrice,
+        isProPurchaseInProgress: Boolean = _uiState.value.isProPurchaseInProgress,
+        proPurchaseMessageResId: Int? = _uiState.value.proPurchaseMessageResId
     ) {
         _uiState.value = OnboardingUiState(
             performanceProfile = performanceProfile,
@@ -167,8 +196,12 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             biosValid = biosValid,
             gamePathValid = gamePathValid,
             canContinue = biosValid && gamePathValid,
-            currentPage = currentPage,
-            totalPages = 5
+            currentPage = currentPage.coerceIn(0, 5),
+            totalPages = 6,
+            isProUnlocked = isProUnlocked,
+            proPrice = proPrice,
+            isProPurchaseInProgress = isProPurchaseInProgress,
+            proPurchaseMessageResId = proPurchaseMessageResId
         )
     }
 }

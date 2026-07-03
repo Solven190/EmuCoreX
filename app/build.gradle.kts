@@ -15,7 +15,7 @@ android {
         applicationId = "com.sbro.emucorex"
         minSdk = 29
         targetSdk = 37
-        versionCode = 104
+        versionCode = 105
         versionName = "0.2.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -89,6 +89,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.documentfile)
+    implementation(libs.google.play.billing)
     implementation(libs.android.youtube.player.core)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)

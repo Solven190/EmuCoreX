@@ -35,6 +35,7 @@ data class RecentGameEntry(
 
 data class SettingsSnapshot(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val proUnlocked: Boolean = false,
     val languageTag: String? = null,
     val performanceProfile: Int = PerformanceProfiles.SAFE,
     val gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO,
@@ -287,6 +288,8 @@ class AppPreferences(private val context: Context) {
         )
 
         private val THEME_MODE = intPreferencesKey("theme_mode")
+        private val PRO_UNLOCKED = booleanPreferencesKey("pro_unlocked")
+        private val WELCOME_DIALOG_SHOWN = booleanPreferencesKey("welcome_dialog_shown")
         private val RENDERER = intPreferencesKey("renderer")
         private val UPSCALE = floatPreferencesKey("upscale_multiplier_v2")
         private val UPSCALE_LEGACY = intPreferencesKey("upscale_multiplier")
@@ -460,26 +463,51 @@ class AppPreferences(private val context: Context) {
                 }
             }.apply()
         }
-
-    // Theme
-    val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
-        when (prefs[THEME_MODE]) {
+    private fun readThemeMode(prefs: Preferences): ThemeMode {
+        return when (prefs[THEME_MODE]) {
             1 -> ThemeMode.LIGHT
             2 -> ThemeMode.DARK
+            3 -> if (prefs[PRO_UNLOCKED] == true) ThemeMode.PRO else ThemeMode.SYSTEM
             else -> ThemeMode.SYSTEM
         }
     }
 
+    // Theme
+    val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs -> readThemeMode(prefs) }
+
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { prefs ->
+            if (mode == ThemeMode.PRO && prefs[PRO_UNLOCKED] != true) return@edit
             prefs[THEME_MODE] = when (mode) {
                 ThemeMode.SYSTEM -> 0
                 ThemeMode.LIGHT -> 1
                 ThemeMode.DARK -> 2
+                ThemeMode.PRO -> 3
             }
         }
     }
 
+
+    val proUnlocked: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[PRO_UNLOCKED] ?: false }
+        .distinctUntilChanged()
+
+    val welcomeDialogShown: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[WELCOME_DIALOG_SHOWN] ?: false }
+        .distinctUntilChanged()
+
+    suspend fun setProUnlocked(unlocked: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[PRO_UNLOCKED] = unlocked
+            if (!unlocked && prefs[THEME_MODE] == 3) {
+                prefs[THEME_MODE] = 0
+            }
+        }
+    }
+
+    suspend fun setWelcomeDialogShown(shown: Boolean) {
+        context.dataStore.edit { prefs -> prefs[WELCOME_DIALOG_SHOWN] = shown }
+    }
 
     val renderer: Flow<Int> = context.dataStore.data.map { prefs ->
         normalizeRendererPreference(prefs[RENDERER], resolveGpuHardwareProfile(prefs))
@@ -787,11 +815,8 @@ class AppPreferences(private val context: Context) {
             val profileConfig = resolvePerformanceProfileConfig(prefs)
             val gpuHardwareProfile = resolveGpuHardwareProfile(prefs)
             SettingsSnapshot(
-                themeMode = when (prefs[THEME_MODE]) {
-                    1 -> ThemeMode.LIGHT
-                    2 -> ThemeMode.DARK
-                    else -> ThemeMode.SYSTEM
-                },
+                themeMode = readThemeMode(prefs),
+                proUnlocked = prefs[PRO_UNLOCKED] ?: false,
                 languageTag = prefs[LANGUAGE_TAG],
                 performanceProfile = performanceProfile,
                 gpuHardwareProfile = gpuHardwareProfile,

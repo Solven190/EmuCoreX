@@ -1,5 +1,6 @@
 package com.sbro.emucorex.ui.settings
 
+import android.app.Activity
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
@@ -15,6 +16,7 @@ import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.PerformancePresets
+import com.sbro.emucorex.core.ProPurchaseManager
 import com.sbro.emucorex.core.SetupValidator
 import com.sbro.emucorex.core.normalizeUpscale
 import com.sbro.emucorex.data.AppPreferences
@@ -33,6 +35,10 @@ import kotlinx.coroutines.withContext
 data class SettingsUiState(
     val isLoaded: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val isProUnlocked: Boolean = false,
+    val proPrice: String? = null,
+    val isProPurchaseInProgress: Boolean = false,
+    val proPurchaseMessageResId: Int? = null,
     val languageTag: String? = null,
     val renderer: Int = EmulatorBridge.DEFAULT_RENDERER,
     val upscaleMultiplier: Float = 1f,
@@ -174,6 +180,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private val preferences = AppPreferences(application)
     private val appUpdateRepository = AppUpdateRepository(application)
+    private val proPurchaseManager = ProPurchaseManager.getInstance(application)
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -182,6 +189,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             preferences.cleanupLegacyClampingPreferencesIfNeeded()
             preferences.settingsSnapshot.collect { snapshot ->
                 applySettingsSnapshot(snapshot)
+            }
+        }
+
+                viewModelScope.launch {
+            proPurchaseManager.state.collect { proState ->
+                _uiState.value = _uiState.value.copy(
+                    isProUnlocked = proState.isProUnlocked,
+                    proPrice = proState.productPrice,
+                    isProPurchaseInProgress = proState.isPurchaseInProgress,
+                    proPurchaseMessageResId = proState.messageResId
+                )
             }
         }
 
@@ -195,6 +213,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _uiState.value = _uiState.value.copy(
             isLoaded = true,
             themeMode = snapshot.themeMode,
+            isProUnlocked = snapshot.proUnlocked,
             languageTag = snapshot.languageTag,
             renderer = snapshot.renderer,
             upscaleMultiplier = snapshot.upscaleMultiplier,
@@ -324,6 +343,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setThemeMode(mode: ThemeMode) { viewModelScope.launch { preferences.setThemeMode(mode) } }
     fun setLanguage(tag: String?) { viewModelScope.launch { preferences.setLanguageTag(tag) } }
+
+    fun purchasePro(activity: Activity) { proPurchaseManager.purchase(activity) }
+
+    fun restoreProPurchases() { proPurchaseManager.restorePurchases(showMessage = true) }
+
+    fun clearProPurchaseMessage() { proPurchaseManager.clearMessage() }
+
 
     fun setRenderer(value: Int) {
         viewModelScope.launch {
