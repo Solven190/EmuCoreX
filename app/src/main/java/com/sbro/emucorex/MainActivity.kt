@@ -46,12 +46,15 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val preferences = AppPreferences(this)
+        if (preferences.getProUnlockedSync()) {
+            setTheme(R.style.Theme_EmuCoreX_Splash_Pro)
+        }
         installSplashScreen().setKeepOnScreenCondition { keepSplashVisible }
         applyEdgeToEdge()
         super.onCreate(savedInstanceState)
         restoredFromSavedState = savedInstanceState != null
 
-        val preferences = AppPreferences(this)
         GamepadManager.ensureInitialized(this)
         appliedLanguageTag = preferences.getStoredLanguageTagSync()
 

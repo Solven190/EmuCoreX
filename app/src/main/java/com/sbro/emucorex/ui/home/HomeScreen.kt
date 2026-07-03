@@ -640,8 +640,10 @@ private fun WelcomeProDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.welcome_secondary))
+            if (!isProUnlocked) {
+                TextButton(onClick = onDismiss) {
+                    Text(text = stringResource(R.string.welcome_secondary))
+                }
             }
         }
     )

@@ -69,6 +69,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -97,6 +98,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalConfiguration
@@ -144,7 +146,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private enum class SettingsTab {
-    General, Graphics, Controls, Emulation, Fixes, Library, About, Updates
+    General, Graphics, Controls, Emulation, Fixes, Library, About, Pro, Updates
 }
 
 @SuppressLint("ConfigurationScreenWidthHeight")
@@ -817,6 +819,7 @@ private fun SettingsTabRow(
                 selected = selectedTab == tab,
                 onClick = { onSelected(tab) },
                 interactionSource = interactionSource,
+                colors = premiumFilterChipColors(),
                 label = { Text(tab.label()) },
                 leadingIcon = {
                     Icon(
@@ -892,24 +895,6 @@ private fun SettingsContent(
                             onProLockedSelected = {
                                 (context as? Activity)?.let(viewModel::purchasePro)
                             }
-                        )
-                        SettingsItem(
-                            icon = Icons.Rounded.Star,
-                            label = stringResource(R.string.settings_pro_title),
-                            value = when {
-                                uiState.isProUnlocked -> stringResource(R.string.settings_pro_active)
-                                uiState.proPrice != null -> uiState.proPrice
-                                uiState.isProProductLoading -> stringResource(R.string.pro_price_loading)
-                                else -> stringResource(R.string.pro_price_unavailable)
-                            },
-                            onClick = {
-                                if (uiState.isProUnlocked) {
-                                    viewModel.setThemeMode(ThemeMode.PRO)
-                                } else {
-                                    (context as? Activity)?.let(viewModel::purchasePro)
-                                }
-                            },
-                            helpText = stringResource(R.string.settings_pro_desc)
                         )
                         ToggleItem(
                             icon = Icons.Rounded.StayPrimaryPortrait,
@@ -2323,6 +2308,15 @@ private fun SettingsContent(
                     )
                 }
 
+                SettingsTab.Pro -> {
+                    ProSettingsTab(
+                        uiState = uiState,
+                        onPurchase = { (context as? Activity)?.let(viewModel::purchasePro) },
+                        onRestore = viewModel::restoreProPurchases,
+                        onApplyCrimson = { viewModel.setThemeMode(ThemeMode.PRO) }
+                    )
+                }
+
                 SettingsTab.About -> {
                     SettingsSection(title = stringResource(R.string.settings_about)) {
                         SettingsItem(
@@ -2371,6 +2365,245 @@ private fun SettingsContent(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProSettingsTab(
+    uiState: SettingsUiState,
+    onPurchase: () -> Unit,
+    onRestore: () -> Unit,
+    onApplyCrimson: () -> Unit
+) {
+    SettingsSection(title = stringResource(R.string.settings_pro_title)) {
+        ProStatusCard(
+            isUnlocked = uiState.isProUnlocked,
+            price = when {
+                uiState.isProUnlocked -> stringResource(R.string.settings_pro_purchased)
+                uiState.proPrice != null -> uiState.proPrice
+                uiState.isProProductLoading -> stringResource(R.string.pro_price_loading)
+                else -> stringResource(R.string.pro_price_unavailable)
+            },
+            purchaseInProgress = uiState.isProPurchaseInProgress,
+            onPurchase = onPurchase,
+            onRestore = onRestore,
+            onApplyCrimson = onApplyCrimson
+        )
+        Text(
+            text = stringResource(R.string.settings_pro_included_title),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .padding(top = 4.dp)
+        )
+        ProFeatureRow(
+            title = stringResource(R.string.settings_pro_feature_crimson_title),
+            description = stringResource(R.string.settings_pro_feature_crimson_desc),
+            active = uiState.isProUnlocked
+        )
+        ProFeatureRow(
+            title = stringResource(R.string.settings_pro_feature_icon_title),
+            description = stringResource(R.string.settings_pro_feature_icon_desc),
+            active = uiState.isProUnlocked
+        )
+        ProFeatureRow(
+            title = stringResource(R.string.settings_pro_feature_support_title),
+            description = stringResource(R.string.settings_pro_feature_support_desc),
+            active = uiState.isProUnlocked
+        )
+    }
+}
+
+@Composable
+private fun ProStatusCard(
+    isUnlocked: Boolean,
+    price: String,
+    purchaseInProgress: Boolean,
+    onPurchase: () -> Unit,
+    onRestore: () -> Unit,
+    onApplyCrimson: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = if (isUnlocked) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f)
+        }
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Star,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(
+                            if (isUnlocked) R.string.settings_pro_unlocked_title
+                            else R.string.settings_pro_locked_title
+                        ),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(
+                            if (isUnlocked) R.string.settings_pro_unlocked_body
+                            else R.string.settings_pro_locked_body
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ProMetaPill(
+                    label = stringResource(R.string.settings_pro_status_label),
+                    value = if (isUnlocked) stringResource(R.string.settings_pro_active) else stringResource(R.string.settings_pro_not_active),
+                    modifier = Modifier.weight(1f)
+                )
+                ProMetaPill(
+                    label = stringResource(
+                        if (isUnlocked) R.string.settings_pro_purchase_label
+                        else R.string.settings_pro_price_label
+                    ),
+                    value = price,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isUnlocked) {
+                    TextButton(onClick = onApplyCrimson) {
+                        Text(stringResource(R.string.settings_pro_apply_theme))
+                    }
+                } else {
+                    TextButton(onClick = onRestore) {
+                        Text(stringResource(R.string.settings_pro_restore))
+                    }
+                    TextButton(
+                        onClick = onPurchase,
+                        enabled = !purchaseInProgress
+                    ) {
+                        Text(
+                            stringResource(
+                                if (purchaseInProgress) R.string.pro_purchase_busy
+                                else R.string.settings_pro_buy
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProMetaPill(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProFeatureRow(
+    title: String,
+    description: String,
+    active: Boolean
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                        else MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Star,
+                    contentDescription = null,
+                    tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -2608,6 +2841,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
     return listOf(
         entry(SettingsTab.General, R.string.settings_language),
         entry(SettingsTab.General, R.string.settings_theme),
+        entry(SettingsTab.Pro, R.string.settings_pro_title),
         entry(SettingsTab.General, R.string.settings_keep_screen_on),
         entry(SettingsTab.General, R.string.settings_show_recent_games),
         entry(SettingsTab.General, R.string.settings_show_home_search),
@@ -2690,6 +2924,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Fixes, R.string.settings_gpu_target_clut),
         entry(SettingsTab.Fixes, R.string.settings_half_pixel_offset),
         entry(SettingsTab.Fixes, R.string.settings_bilinear_upscale),
+        entry(SettingsTab.Pro, R.string.settings_theme_pro),
         entry(SettingsTab.Updates, R.string.settings_updates_tab)
     )
 }
@@ -3139,12 +3374,24 @@ private fun ChoiceSection(
                 FilterChip(
                     selected = selectedValue == value,
                     onClick = { onSelect(value) },
+                    colors = premiumFilterChipColors(),
                     label = { Text(text = label) }
                 )
             }
         }
     }
 }
+
+@Composable
+private fun premiumFilterChipColors() = FilterChipDefaults.filterChipColors(
+    containerColor = Color.Transparent,
+    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    iconColor = MaterialTheme.colorScheme.primary,
+    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    selectedTrailingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+)
 
 @Composable
 private fun SettingsInlineNote(text: String) {
@@ -3674,6 +3921,7 @@ private fun SettingsTab.label(): String {
         SettingsTab.Emulation -> stringResource(R.string.settings_emulation_tab)
         SettingsTab.Fixes -> stringResource(R.string.settings_fixes_tab)
         SettingsTab.Library -> stringResource(R.string.settings_library_tab)
+        SettingsTab.Pro -> stringResource(R.string.settings_pro_tab)
         SettingsTab.Updates -> stringResource(R.string.settings_updates_tab)
         SettingsTab.About -> stringResource(R.string.settings_about)
     }
@@ -3688,6 +3936,7 @@ private fun SettingsTab.icon(): ImageVector {
         SettingsTab.Emulation -> Icons.Rounded.Speed
         SettingsTab.Fixes -> Icons.Rounded.SettingsSuggest
         SettingsTab.Library -> Icons.Rounded.FolderOpen
+        SettingsTab.Pro -> Icons.Rounded.Star
         SettingsTab.Updates -> Icons.Rounded.SystemUpdateAlt
         SettingsTab.About -> Icons.Rounded.Info
     }
@@ -3701,6 +3950,7 @@ private fun String.toSettingsTab(): SettingsTab {
         "cover-art", "cover_art", "data_transfer", "transfer", "backup", "data-transfer", "library" -> SettingsTab.Library
         "performance", "jit", "speedhacks", "speed_hacks", "speed-hacks", "cheats", "cheat", "emulation" -> SettingsTab.Emulation
         "advanced", "fixes", "hacks" -> SettingsTab.Fixes
+        "pro", "premium", "crimson", "support" -> SettingsTab.Pro
         "updates", "update", "app_update", "app-update" -> SettingsTab.Updates
         "about" -> SettingsTab.About
         else -> SettingsTab.General

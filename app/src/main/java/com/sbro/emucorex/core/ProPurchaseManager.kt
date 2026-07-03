@@ -17,9 +17,11 @@ import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
 import com.sbro.emucorex.R
 import com.sbro.emucorex.data.AppPreferences
+import com.sbro.emucorex.ui.theme.ThemeMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -149,12 +151,10 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
             if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                 val hasPro = purchases.any(::isActiveProPurchase)
                 if (hasPro) {
-                    handlePurchases(purchases)
+                    handlePurchases(purchases, showUnlockMessage = showMessage)
                 }
-                if (showMessage) {
-                    _state.value = _state.value.copy(
-                        messageResId = if (hasPro) R.string.pro_message_active else R.string.pro_message_restore_missing
-                    )
+                if (showMessage && !hasPro) {
+                    _state.value = _state.value.copy(messageResId = R.string.pro_message_restore_missing)
                 }
             } else if (showMessage) {
                 _state.value = _state.value.copy(messageResId = R.string.pro_message_restore_failed)
@@ -170,7 +170,7 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
         when (billingResult.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
                 if (!purchases.isNullOrEmpty()) {
-                    handlePurchases(purchases)
+                    handlePurchases(purchases, showUnlockMessage = true)
                 }
             }
             BillingClient.BillingResponseCode.USER_CANCELED -> {
@@ -239,17 +239,17 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
         }
     }
 
-    private fun handlePurchases(purchases: List<Purchase>) {
+    private fun handlePurchases(purchases: List<Purchase>, showUnlockMessage: Boolean) {
         purchases.filter(::isActiveProPurchase).forEach { purchase ->
             if (purchase.isAcknowledged) {
-                unlockPro()
+                unlockPro(showUnlockMessage)
             } else {
                 val params = AcknowledgePurchaseParams.newBuilder()
                     .setPurchaseToken(purchase.purchaseToken)
                     .build()
                 billingClient.acknowledgePurchase(params) { result ->
                     if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                        unlockPro()
+                        unlockPro(showUnlockMessage)
                     } else {
                         _state.value = _state.value.copy(
                             isPurchaseInProgress = false,
@@ -261,13 +261,17 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
         }
     }
 
-    private fun unlockPro() {
+    private fun unlockPro(showMessage: Boolean) {
         scope.launch {
+            val wasUnlocked = preferences.proUnlocked.first()
             preferences.setProUnlocked(true)
+            if (!wasUnlocked) {
+                preferences.setThemeMode(ThemeMode.PRO)
+            }
             _state.value = _state.value.copy(
                 isProUnlocked = true,
                 isPurchaseInProgress = false,
-                messageResId = R.string.pro_message_active
+                messageResId = if (showMessage) R.string.pro_message_active else null
             )
         }
     }

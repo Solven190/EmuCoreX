@@ -494,6 +494,12 @@ class AppPreferences(private val context: Context) {
         .map { prefs -> prefs[PRO_UNLOCKED] ?: false }
         .distinctUntilChanged()
 
+    fun getProUnlockedSync(): Boolean {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { prefs -> prefs[PRO_UNLOCKED] ?: false }.first()
+        }
+    }
+
     val welcomeDialogShown: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[WELCOME_DIALOG_SHOWN] ?: false }
         .distinctUntilChanged()
