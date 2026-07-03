@@ -33,6 +33,8 @@ data class OnboardingUiState(
     val totalPages: Int = 6,
     val isProUnlocked: Boolean = false,
     val proPrice: String? = null,
+    val isProProductLoading: Boolean = false,
+    val isProProductAvailable: Boolean = false,
     val isProPurchaseInProgress: Boolean = false,
     val proPurchaseMessageResId: Int? = null
 )
@@ -51,6 +53,8 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                     updateState(
                         isProUnlocked = proState.isProUnlocked,
                         proPrice = proState.productPrice,
+                        isProProductLoading = proState.isProductLoading,
+                        isProProductAvailable = proState.isProductAvailable,
                         isProPurchaseInProgress = proState.isPurchaseInProgress,
                         proPurchaseMessageResId = proState.messageResId
                     )
@@ -184,6 +188,8 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         currentPage: Int = _uiState.value.currentPage,
         isProUnlocked: Boolean = _uiState.value.isProUnlocked,
         proPrice: String? = _uiState.value.proPrice,
+        isProProductLoading: Boolean = _uiState.value.isProProductLoading,
+        isProProductAvailable: Boolean = _uiState.value.isProProductAvailable,
         isProPurchaseInProgress: Boolean = _uiState.value.isProPurchaseInProgress,
         proPurchaseMessageResId: Int? = _uiState.value.proPurchaseMessageResId
     ) {
@@ -200,6 +206,8 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             totalPages = 6,
             isProUnlocked = isProUnlocked,
             proPrice = proPrice,
+            isProProductLoading = isProProductLoading,
+            isProProductAvailable = isProProductAvailable,
             isProPurchaseInProgress = isProPurchaseInProgress,
             proPurchaseMessageResId = proPurchaseMessageResId
         )

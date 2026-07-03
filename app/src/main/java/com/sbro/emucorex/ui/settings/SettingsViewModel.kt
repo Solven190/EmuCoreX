@@ -37,6 +37,8 @@ data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val isProUnlocked: Boolean = false,
     val proPrice: String? = null,
+    val isProProductLoading: Boolean = false,
+    val isProProductAvailable: Boolean = false,
     val isProPurchaseInProgress: Boolean = false,
     val proPurchaseMessageResId: Int? = null,
     val languageTag: String? = null,
@@ -197,6 +199,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.value = _uiState.value.copy(
                     isProUnlocked = proState.isProUnlocked,
                     proPrice = proState.productPrice,
+                    isProProductLoading = proState.isProductLoading,
+                    isProProductAvailable = proState.isProductAvailable,
                     isProPurchaseInProgress = proState.isPurchaseInProgress,
                     proPurchaseMessageResId = proState.messageResId
                 )

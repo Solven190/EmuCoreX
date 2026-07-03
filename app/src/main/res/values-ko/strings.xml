@@ -1305,4 +1305,5 @@
     <string name="pro_message_restore_failed">지금은 Pro를 복원할 수 없습니다.</string>
     <string name="pro_message_purchase_failed">Pro 구매를 완료할 수 없습니다.</string>
     <string name="pro_message_pending_confirmation">Pro 구매가 확인 대기 중입니다.</string>
+    <string name="pro_price_unavailable">Pro는 아직 사용할 수 없습니다</string>
 </resources>

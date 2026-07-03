@@ -560,6 +560,8 @@ fun HomeScreen(
         WelcomeProDialog(
             isProUnlocked = uiState.isProUnlocked,
             proPrice = uiState.proPrice,
+            isProductLoading = uiState.isProProductLoading,
+            isProductAvailable = uiState.isProProductAvailable,
             isPurchaseInProgress = uiState.isProPurchaseInProgress,
             onDismiss = viewModel::dismissWelcomeDialog,
             onPurchase = {
@@ -585,6 +587,8 @@ private fun HomeSectionDivider(modifier: Modifier = Modifier) {
 private fun WelcomeProDialog(
     isProUnlocked: Boolean,
     proPrice: String?,
+    isProductLoading: Boolean,
+    isProductAvailable: Boolean,
     isPurchaseInProgress: Boolean,
     onDismiss: () -> Unit,
     onPurchase: () -> Unit
@@ -607,7 +611,12 @@ private fun WelcomeProDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = if (isProUnlocked) stringResource(R.string.pro_status_active) else proPrice ?: stringResource(R.string.pro_price_loading),
+                    text = when {
+                        isProUnlocked -> stringResource(R.string.pro_status_active)
+                        proPrice != null -> proPrice
+                        isProductLoading -> stringResource(R.string.pro_price_loading)
+                        else -> stringResource(R.string.pro_price_unavailable)
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -619,7 +628,7 @@ private fun WelcomeProDialog(
                     Text(text = stringResource(R.string.welcome_secondary))
                 }
             } else {
-                Button(onClick = onPurchase, enabled = !isPurchaseInProgress) {
+                Button(onClick = onPurchase, enabled = !isPurchaseInProgress && !isProductLoading) {
                     Text(
                         text = if (isPurchaseInProgress) {
                             stringResource(R.string.pro_purchase_busy)

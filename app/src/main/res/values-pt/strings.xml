@@ -1307,4 +1307,5 @@
     <string name="pro_message_restore_failed">Não é possível restaurar o Pro neste momento.</string>
     <string name="pro_message_purchase_failed">Não foi possível concluir a compra do Pro.</string>
     <string name="pro_message_pending_confirmation">A compra do Pro aguarda confirmação.</string>
+    <string name="pro_price_unavailable">O Pro ainda não está disponível</string>
 </resources>

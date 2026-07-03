@@ -1307,4 +1307,5 @@
     <string name="pro_message_restore_failed">Pro konnte momentan nicht wiederhergestellt werden.</string>
     <string name="pro_message_purchase_failed">Der Pro-Kauf konnte nicht abgeschlossen werden.</string>
     <string name="pro_message_pending_confirmation">Der Pro-Kauf wartet auf Bestätigung.</string>
+    <string name="pro_price_unavailable">Pro ist noch nicht verfügbar</string>
 </resources>

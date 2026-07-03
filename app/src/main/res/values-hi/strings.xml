@@ -1305,4 +1305,5 @@
     <string name="pro_message_restore_failed">अभी Pro को पुनर्स्थापित करने में असमर्थ।</string>
     <string name="pro_message_purchase_failed">Pro की खरीदारी पूरी नहीं की जा सकी।</string>
     <string name="pro_message_pending_confirmation">Pro खरीदारी की पुष्टि लंबित है।</string>
+    <string name="pro_price_unavailable">Pro अभी उपलब्ध नहीं है</string>
 </resources>

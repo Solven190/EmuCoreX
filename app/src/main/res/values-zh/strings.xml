@@ -1307,4 +1307,5 @@
     <string name="pro_message_restore_failed">目前无法恢复 Pro。</string>
     <string name="pro_message_purchase_failed">无法完成 Pro 购买。</string>
     <string name="pro_message_pending_confirmation">Pro 购买等待确认中。</string>
+    <string name="pro_price_unavailable">Pro 尚未可用</string>
 </resources>

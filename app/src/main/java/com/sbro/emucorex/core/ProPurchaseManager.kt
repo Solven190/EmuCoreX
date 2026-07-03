@@ -2,6 +2,7 @@ package com.sbro.emucorex.core
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import androidx.annotation.StringRes
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
@@ -26,11 +27,14 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 private const val PRO_PRODUCT_ID = "emucorex_pro"
+private const val TAG = "ProPurchaseManager"
 
 data class ProPurchaseState(
     val isProUnlocked: Boolean = false,
     val isBillingReady: Boolean = false,
     val isPurchaseInProgress: Boolean = false,
+    val isProductLoading: Boolean = false,
+    val isProductAvailable: Boolean = false,
     val productTitle: String? = null,
     val productPrice: String? = null,
     @StringRes val messageResId: Int? = null
@@ -68,7 +72,7 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
     fun connect() {
         if (billingClient.isReady) {
             _state.value = _state.value.copy(isBillingReady = true)
-            queryProductDetails()
+            queryProductDetails(showMessage = false)
             restorePurchases(showMessage = false)
             return
         }
@@ -81,7 +85,7 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
                     messageResId = if (ready) null else R.string.pro_message_unavailable
                 )
                 if (ready) {
-                    queryProductDetails()
+                    queryProductDetails(showMessage = false)
                     restorePurchases(showMessage = false)
                 }
             }
@@ -105,8 +109,7 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
 
         val details = productDetails
         if (details == null) {
-            queryProductDetails()
-            _state.value = _state.value.copy(messageResId = R.string.pro_message_loading)
+            queryProductDetails(showMessage = true)
             return
         }
 
@@ -182,7 +185,15 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
         }
     }
 
-    private fun queryProductDetails() {
+    private fun queryProductDetails(showMessage: Boolean) {
+        _state.value = _state.value.copy(
+            isProductLoading = true,
+            isProductAvailable = false,
+            productTitle = null,
+            productPrice = null,
+            messageResId = null
+        )
+
         val product = QueryProductDetailsParams.Product.newBuilder()
             .setProductId(PRO_PRODUCT_ID)
             .setProductType(BillingClient.ProductType.INAPP)
@@ -192,13 +203,38 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
             .build()
 
         billingClient.queryProductDetailsAsync(params) { billingResult, result ->
-            if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) return@queryProductDetailsAsync
-            val details = result.productDetailsList.firstOrNull { it.productId == PRO_PRODUCT_ID } ?: return@queryProductDetailsAsync
+            if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) {
+                Log.w(TAG, "Product details query failed: code=${billingResult.responseCode}, message=${billingResult.debugMessage}")
+                _state.value = _state.value.copy(
+                    isProductLoading = false,
+                    isProductAvailable = false,
+                    messageResId = if (showMessage) R.string.pro_message_unavailable else null
+                )
+                return@queryProductDetailsAsync
+            }
+
+            val details = result.productDetailsList.firstOrNull { it.productId == PRO_PRODUCT_ID }
+            if (details == null) {
+                Log.w(TAG, "Product details missing for $PRO_PRODUCT_ID. Returned products=${result.productDetailsList.map { it.productId }}")
+                productDetails = null
+                _state.value = _state.value.copy(
+                    isProductLoading = false,
+                    isProductAvailable = false,
+                    productTitle = null,
+                    productPrice = null,
+                    messageResId = if (showMessage) R.string.pro_message_unavailable else null
+                )
+                return@queryProductDetailsAsync
+            }
+
             productDetails = details
             _state.value = _state.value.copy(
+                isProductLoading = false,
+                isProductAvailable = true,
                 productTitle = details.title,
                 productPrice = details.oneTimePurchaseOfferDetailsList?.firstOrNull()?.formattedPrice
-                    ?: details.oneTimePurchaseOfferDetails?.formattedPrice
+                    ?: details.oneTimePurchaseOfferDetails?.formattedPrice,
+                messageResId = null
             )
         }
     }

@@ -429,6 +429,8 @@ fun OnboardingScreen(
                                 OnboardingProContent(
                                     isProUnlocked = uiState.isProUnlocked,
                                     proPrice = uiState.proPrice,
+                                    isProductLoading = uiState.isProProductLoading,
+                                    isProductAvailable = uiState.isProProductAvailable,
                                     isPurchaseInProgress = uiState.isProPurchaseInProgress,
                                     onPurchase = { (context as? Activity)?.let(viewModel::purchasePro) },
                                     modifier = Modifier.padding(horizontal = 32.dp)
@@ -559,6 +561,8 @@ fun OnboardingScreen(
                                 OnboardingProContent(
                                     isProUnlocked = uiState.isProUnlocked,
                                     proPrice = uiState.proPrice,
+                                    isProductLoading = uiState.isProProductLoading,
+                                    isProductAvailable = uiState.isProProductAvailable,
                                     isPurchaseInProgress = uiState.isProPurchaseInProgress,
                                     onPurchase = { (context as? Activity)?.let(viewModel::purchasePro) }
                                 )
@@ -819,6 +823,8 @@ private fun OnboardingHeroPro(
 private fun OnboardingProContent(
     isProUnlocked: Boolean,
     proPrice: String?,
+    isProductLoading: Boolean,
+    isProductAvailable: Boolean,
     isPurchaseInProgress: Boolean,
     onPurchase: () -> Unit,
     modifier: Modifier = Modifier
@@ -851,14 +857,19 @@ private fun OnboardingProContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = if (isProUnlocked) stringResource(R.string.pro_status_active) else proPrice ?: stringResource(R.string.pro_price_loading),
+                text = when {
+                    isProUnlocked -> stringResource(R.string.pro_status_active)
+                    proPrice != null -> proPrice
+                    isProductLoading -> stringResource(R.string.pro_price_loading)
+                    else -> stringResource(R.string.pro_price_unavailable)
+                },
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
             if (!isProUnlocked) {
                 Button(
                     onClick = onPurchase,
-                    enabled = !isPurchaseInProgress,
+                    enabled = !isPurchaseInProgress && !isProductLoading,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(

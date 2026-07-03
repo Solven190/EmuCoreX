@@ -898,7 +898,8 @@ private fun SettingsContent(
                             value = when {
                                 uiState.isProUnlocked -> stringResource(R.string.settings_pro_active)
                                 uiState.proPrice != null -> uiState.proPrice
-                                else -> stringResource(R.string.settings_pro_buy)
+                                uiState.isProProductLoading -> stringResource(R.string.pro_price_loading)
+                                else -> stringResource(R.string.pro_price_unavailable)
                             },
                             onClick = {
                                 if (uiState.isProUnlocked) {

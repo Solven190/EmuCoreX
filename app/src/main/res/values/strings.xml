@@ -209,6 +209,7 @@
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Crimson theme</string>
     <string name="pro_price_loading">Loading price</string>
+    <string name="pro_price_unavailable">Pro is not available yet</string>
     <string name="pro_status_active">Pro is active</string>
     <string name="pro_purchase_busy">Opening Play Store</string>
     <string name="pro_restore">Restore purchase</string>
