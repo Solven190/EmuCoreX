@@ -1830,17 +1830,21 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setGamepadRightStickUpToR2(enabled: Boolean) {
         viewModelScope.launch {
-            preferences.setGamepadRightStickUpToR2(enabled)
-            _uiState.value = _uiState.value.copy(gamepadRightStickUpToR2 = enabled)
-            syncGamepadRightStickTriggerMapping(_uiState.value)
+            val newState = _uiState.value.copy(gamepadRightStickUpToR2 = enabled)
+            persistRuntimeState(newState) {
+                preferences.setGamepadRightStickUpToR2(enabled)
+            }
+            syncGamepadRightStickTriggerMapping(newState)
         }
     }
 
     fun setGamepadRightStickDownToL2(enabled: Boolean) {
         viewModelScope.launch {
-            preferences.setGamepadRightStickDownToL2(enabled)
-            _uiState.value = _uiState.value.copy(gamepadRightStickDownToL2 = enabled)
-            syncGamepadRightStickTriggerMapping(_uiState.value)
+            val newState = _uiState.value.copy(gamepadRightStickDownToL2 = enabled)
+            persistRuntimeState(newState) {
+                preferences.setGamepadRightStickDownToL2(enabled)
+            }
+            syncGamepadRightStickTriggerMapping(newState)
         }
     }
 
