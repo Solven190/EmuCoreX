@@ -26,6 +26,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
+#include <fcntl.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <unistd.h>
 
 namespace emucorex::android
 {
@@ -43,6 +48,126 @@ char s_game_title[160] = {};
 char s_game_serial[64] = {};
 std::atomic<u32> s_disc_crc{0};
 std::atomic<u32> s_current_crc{0};
+
+// ─── Native crash log file ─────────────────────────────────────────────────
+char s_log_file_path[512] = {};
+struct sigaction s_prev_sigsegv = {};
+struct sigaction s_prev_sigabrt = {};
+struct sigaction s_prev_sigbus  = {};
+struct sigaction s_prev_sigfpe  = {};
+std::atomic_bool s_signal_handler_installed{false};
+std::atomic_bool s_in_signal_handler{false};
+
+// Async-signal-safe timestamp
+void FormatTimestampSafe(char* buf, size_t len)
+{
+	time_t now = time(nullptr);
+	struct tm tm_info = {};
+	gmtime_r(&now, &tm_info);
+	strftime(buf, len, "%Y-%m-%d %H:%M:%S", &tm_info);
+}
+
+// Async-signal-safe append to log file using only write()
+void WriteToLogFile(const char* level, const char* msg)
+{
+	if (s_log_file_path[0] == '\0')
+		return;
+
+	int fd = open(s_log_file_path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
+	if (fd < 0)
+		return;
+
+	char ts[32];
+	FormatTimestampSafe(ts, sizeof(ts));
+
+	write(fd, "[", 1);
+	write(fd, ts, strlen(ts));
+	write(fd, "] ", 2);
+	write(fd, level, strlen(level));
+	write(fd, ": ", 2);
+	write(fd, msg, strlen(msg));
+	write(fd, "\n", 1);
+	close(fd);
+}
+
+void WriteToLogFileFmt(const char* level, const char* fmt, ...)
+{
+	char buf[1024];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+	WriteToLogFile(level, buf);
+}
+
+const char* SignalName(int sig)
+{
+	switch (sig)
+	{
+		case SIGSEGV: return "SIGSEGV";
+		case SIGABRT: return "SIGABRT";
+		case SIGBUS:  return "SIGBUS";
+		case SIGFPE:  return "SIGFPE";
+		default:      return "SIGUNKNOWN";
+	}
+}
+
+void NativeCrashSignalHandler(int sig, siginfo_t* info, void* /*ctx*/)
+{
+	// Guard against recursive crashes in the handler itself
+	if (s_in_signal_handler.exchange(true, std::memory_order_acq_rel))
+	{
+		_exit(sig);
+		return;
+	}
+
+	void* fault_addr = info ? info->si_addr : nullptr;
+
+	// Write summary line to log file (async-signal-safe)
+	WriteToLogFileFmt("NATIVE_CRASH",
+		"signal=%s(%d) fault_addr=%p launch=%llu phase=%s game=\"%s\" serial=%s",
+		SignalName(sig), sig,
+		fault_addr,
+		(unsigned long long)s_launch_id.load(std::memory_order_relaxed),
+		s_execute_phase,
+		s_game_title[0] ? s_game_title : "<unknown>",
+		s_game_serial[0] ? s_game_serial : "<unknown>");
+
+	// Write module info for fault address
+	if (fault_addr)
+	{
+		Dl_info dl = {};
+		if (dladdr(fault_addr, &dl) != 0)
+		{
+			const auto offset = reinterpret_cast<std::uintptr_t>(fault_addr) -
+				reinterpret_cast<std::uintptr_t>(dl.dli_fbase);
+			WriteToLogFileFmt("NATIVE_CRASH",
+				"fault_addr module=%s+0x%zx symbol=%s",
+				dl.dli_fname ? dl.dli_fname : "<unknown>",
+				static_cast<size_t>(offset),
+				dl.dli_sname ? dl.dli_sname : "<unknown>");
+		}
+	}
+
+	// Also run full diagnostics to logcat (existing behaviour)
+	EmuCoreXDumpNativeCrashDiagnostics(sig, nullptr, fault_addr, false, 0);
+
+	// Re-raise to previous handler so Android generates a proper tombstone
+	struct sigaction* prev = nullptr;
+	switch (sig)
+	{
+		case SIGSEGV: prev = &s_prev_sigsegv; break;
+		case SIGABRT: prev = &s_prev_sigabrt; break;
+		case SIGBUS:  prev = &s_prev_sigbus;  break;
+		case SIGFPE:  prev = &s_prev_sigfpe;  break;
+		default: break;
+	}
+
+	if (prev)
+		sigaction(sig, prev, nullptr);
+
+	raise(sig);
+}
 
 void CopyBreadcrumb(char* dest, size_t size, const char* source)
 {
@@ -263,6 +388,36 @@ void RecordGameForCrashDiagnostics(const std::string& title, const std::string& 
 	CopyBreadcrumb(s_game_serial, sizeof(s_game_serial), serial);
 	s_disc_crc.store(disc_crc, std::memory_order_relaxed);
 	s_current_crc.store(current_crc, std::memory_order_relaxed);
+}
+
+void SetNativeCrashLogFilePath(const char* path)
+{
+	if (!path)
+	{
+		s_log_file_path[0] = '\0';
+		return;
+	}
+	std::snprintf(s_log_file_path, sizeof(s_log_file_path), "%s", path);
+	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "Native crash log path set: %s", s_log_file_path);
+}
+
+void InstallNativeCrashSignalHandler()
+{
+	if (s_signal_handler_installed.exchange(true, std::memory_order_acq_rel))
+		return;
+
+	struct sigaction sa = {};
+	sa.sa_sigaction = NativeCrashSignalHandler;
+	sa.sa_flags = SA_SIGINFO | SA_RESETHAND;
+	sigemptyset(&sa.sa_mask);
+
+	sigaction(SIGSEGV, &sa, &s_prev_sigsegv);
+	sigaction(SIGABRT, &sa, &s_prev_sigabrt);
+	sigaction(SIGBUS,  &sa, &s_prev_sigbus);
+	sigaction(SIGFPE,  &sa, &s_prev_sigfpe);
+
+	__android_log_write(ANDROID_LOG_INFO, LOG_TAG,
+		"Native crash signal handler installed (SIGSEGV/SIGABRT/SIGBUS/SIGFPE)");
 }
 } // namespace emucorex::android
 

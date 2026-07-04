@@ -1,4 +1,5 @@
 #include "emucorex/android_runtime.h"
+#include "emucorex/android_crash_diagnostics.h"
 
 #include "GS/GS.h"
 #include "MTGS.h"
@@ -429,4 +430,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_stopHang
 extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_isHangTraceActive(JNIEnv*, jclass)
 {
 	return HangTrace::IsActive() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setNativeCrashLogFilePath(JNIEnv* env, jclass, jstring path)
+{
+	emucorex::android::SetNativeCrashLogFilePath(JStringToString(env, path).c_str());
+	emucorex::android::InstallNativeCrashSignalHandler();
 }

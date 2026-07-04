@@ -99,6 +99,7 @@ object NativeApp {
     @JvmStatic external fun startHangTrace()
     @JvmStatic external fun stopHangTrace()
     @JvmStatic external fun isHangTraceActive(): Boolean
+    @JvmStatic external fun setNativeCrashLogFilePath(path: String)
 
     @JvmStatic
     fun parseMemoryCardList(raw: String?): List<NativeMemoryCardInfo> {
@@ -133,6 +134,10 @@ object NativeApp {
         val caBundle = File(dataRoot, "system-ca-bundle.pem")
         exportSystemCaBundle(caBundle)
         setSystemCaBundlePath(caBundle.absolutePath)
+        // Pass crash log path to native so SIGSEGV/SIGABRT are caught and written to file
+        val nativeCrashLog = File(dataRoot, "logs/crash.log")
+        nativeCrashLog.parentFile?.mkdirs()
+        setNativeCrashLogFilePath(nativeCrashLog.absolutePath)
         initialize(dataRoot, android.os.Build.VERSION.SDK_INT)
     }
 
