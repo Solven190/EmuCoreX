@@ -559,11 +559,7 @@ class AppPreferences(private val context: Context) {
     }
 
     private fun defaultRendererForGpuProfile(gpuHardwareProfile: Int): Int {
-        return if (GpuHardwareProfiles.isMediatekProfile(gpuHardwareProfile)) {
-            EmulatorBridge.OPENGL_RENDERER
-        } else {
-            EmulatorBridge.DEFAULT_RENDERER
-        }
+        return EmulatorBridge.DEFAULT_RENDERER
     }
 
     private fun defaultBlendingAccuracyForGpuProfile(gpuHardwareProfile: Int): Int {
