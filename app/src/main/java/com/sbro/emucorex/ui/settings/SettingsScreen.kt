@@ -157,6 +157,7 @@ fun SettingsScreen(
     onBackClick: (() -> Unit)? = null,
     onOpenLanguageScreen: (() -> Unit)? = null,
     onOpenMemoryCardManager: (() -> Unit)? = null,
+    onOpenGpuDriverManager: (() -> Unit)? = null,
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -413,6 +414,7 @@ fun SettingsScreen(
                     searchQuery = ""
                 },
                 onOpenMemoryCardManager = onOpenMemoryCardManager,
+                onOpenGpuDriverManager = onOpenGpuDriverManager,
                 viewModel = viewModel,
                 topInset = 0.dp,
                 modifier = Modifier
@@ -512,7 +514,7 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showResetAllSettingsDialog.value = false }) {
-                    Text(stringResource(R.string.cancel))
+                    Text(stringResource(android.R.string.cancel))
                 }
             }
         )
@@ -568,7 +570,7 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showBiosDialog.value = false }) {
-                    Text(stringResource(R.string.cancel))
+                    Text(stringResource(android.R.string.cancel))
                 }
             }
         )
@@ -681,7 +683,7 @@ fun SettingsScreen(
                         Text(stringResource(R.string.settings_cover_download_url_use_default))
                     }
                     TextButton(onClick = { showCoverUrlDialog.value = false }) {
-                        Text(stringResource(R.string.cancel))
+                        Text(stringResource(android.R.string.cancel))
                     }
                 }
             }
@@ -854,7 +856,8 @@ private fun SettingsContent(
     viewModel: SettingsViewModel,
     topInset: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
-    onOpenMemoryCardManager: (() -> Unit)? = null
+    onOpenMemoryCardManager: (() -> Unit)? = null,
+    onOpenGpuDriverManager: (() -> Unit)? = null
 ) {
     val gamepadActions = remember { GamepadManager.mappableButtonActions() }
     val defaults = remember { SettingsSnapshot() }
@@ -958,6 +961,17 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_renderer),
                             onResetToDefault = { viewModel.setRenderer(defaults.renderer) }
                         )
+                        if (com.sbro.emucorex.core.GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers() && !com.sbro.emucorex.core.GpuHardwareProfiles.isMediatekProfile(uiState.gpuHardwareProfile)) {
+                            val activeDriverName = uiState.customDriverPath
+                                ?.takeIf { uiState.gpuDriverType == 1 }
+                                ?.let { java.io.File(it).parentFile?.name ?: java.io.File(it).name }
+                            SettingsItem(
+                                icon = Icons.Rounded.Tune,
+                                label = stringResource(R.string.settings_gpu_driver_manager_title),
+                                value = activeDriverName ?: stringResource(R.string.settings_gpu_driver_system),
+                                onClick = onOpenGpuDriverManager ?: {}
+                            )
+                        }
                         val maxUpscaleMultiplier = remember(uiState.renderer) {
                             EmulatorBridge.getMaxUpscaleMultiplier(uiState.renderer)
                         }
@@ -2838,7 +2852,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
     fun entry(tab: SettingsTab, @StringRes titleRes: Int): SettingsSearchEntry {
         return SettingsSearchEntry(tab = tab, title = stringResource(titleRes), summary = tab.label())
     }
-    return listOf(
+    return listOfNotNull(
         entry(SettingsTab.General, R.string.settings_language),
         entry(SettingsTab.General, R.string.settings_theme),
         entry(SettingsTab.Pro, R.string.settings_pro_title),
@@ -2847,6 +2861,8 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.General, R.string.settings_show_home_search),
         entry(SettingsTab.General, R.string.settings_prefer_english_game_titles),
         entry(SettingsTab.Graphics, R.string.settings_renderer),
+        if (com.sbro.emucorex.core.GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()) entry(SettingsTab.Graphics, R.string.settings_gpu_driver) else null,
+        if (com.sbro.emucorex.core.GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()) entry(SettingsTab.Graphics, R.string.settings_gpu_driver_manager_title) else null,
         entry(SettingsTab.Graphics, R.string.settings_upscale),
         entry(SettingsTab.Graphics, R.string.settings_aspect_ratio),
         entry(SettingsTab.Graphics, R.string.settings_bilinear_filtering),

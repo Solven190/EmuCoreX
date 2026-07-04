@@ -460,10 +460,10 @@ object EmulatorBridge {
             nativePaletteDraw = nativePaletteDraw
         )
 
-        val customDriverSupported = GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()
-        val effectiveGpuDriverType = if (gpuDriverType == 1 && customDriverSupported) 1 else 0
         val normalizedGpuHardwareProfile = GpuHardwareProfiles.normalize(gpuHardwareProfile)
         val gpuHardwareProfileOverride = GpuHardwareProfiles.coreOverrideFor(normalizedGpuHardwareProfile)
+        val customDriverSupported = GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers() && !GpuHardwareProfiles.isMediatekProfile(normalizedGpuHardwareProfile)
+        val effectiveGpuDriverType = if (gpuDriverType == 1 && customDriverSupported) 1 else 0
         val effectiveMediatekAngleOpenGl = shouldUseMediatekAngleOpenGl(
             requested = mediatekAngleOpenGl,
             gpuHardwareProfile = normalizedGpuHardwareProfile,

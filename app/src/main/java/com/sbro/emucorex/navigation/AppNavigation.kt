@@ -122,6 +122,12 @@ data class SaveManagerRoute(val gamePath: String? = null, val gameTitle: String?
 object MemoryCardManagerRoute
 
 @Serializable
+object ControlsEditorRoute
+
+@Serializable
+object GpuDriverSettingsRoute
+
+@Serializable
 object TextureManagerRoute
 
 @Serializable
@@ -600,6 +606,11 @@ fun AppNavigation(
                                 launchSingleTop = true
                             }
                         },
+                        onOpenGpuDriverManager = {
+                            navController.navigate(GpuDriverSettingsRoute) {
+                                launchSingleTop = true
+                            }
+                        },
                         viewModel = settingsViewModel
                     )
                 }
@@ -608,6 +619,13 @@ fun AppNavigation(
             composable<LanguageSettingsRoute> {
                 LanguageSettingsScreen(
                     onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            composable<GpuDriverSettingsRoute> {
+                com.sbro.emucorex.ui.settings.GpuDriverScreen(
+                    onBackClick = { navController.popBackStack() },
+                    viewModel = settingsViewModel
                 )
             }
 

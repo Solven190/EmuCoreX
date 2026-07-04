@@ -98,6 +98,8 @@ static bool LoadVulkanLibraryWithAdrenoTools(const std::string& custom_driver_pa
 	s_vulkan_library.Adopt(handle);
 	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
 		"Vulkan custom driver: adrenotools loaded driver=%s", custom_driver_name.c_str());
+	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
+		"Adreno GS path custom driver successfully loaded: %s", custom_driver_name.c_str());
 	Console.WriteLn(Color_StrongGreen, "Vulkan: Loaded custom driver with adrenotools: %s", custom_driver_name.c_str());
 	return true;
 }
