@@ -329,6 +329,13 @@ VMBootParameters CreateBootParameters(const VmLaunchConfig& config)
 
 }
 
+void InitializeSettingsLayer()
+{
+	std::unique_lock settings_lock = Host::GetSettingsLock();
+	if (!Host::Internal::GetBaseSettingsLayer())
+		Host::Internal::SetBaseSettingsLayer(&s_base_settings);
+}
+
 bool IsUpstreamVmBridgeAvailable()
 {
 	return true;

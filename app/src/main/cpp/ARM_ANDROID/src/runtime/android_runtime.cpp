@@ -253,6 +253,7 @@ void AndroidRuntime::Initialize(std::string data_root, int api_version)
 	SDL_SetMainReady();
 	paths_.data_root = std::move(data_root);
 	ApplyAndroidEmuFolders(paths_.data_root);
+	emucorex::android::InitializeSettingsLayer();
 	api_version_ = api_version;
 	initialized_ = true;
 	__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Android runtime initialized for PCSX2 v2.7.316 adapter");

@@ -9,4 +9,5 @@ using VmStartupCallback = void (*)(void* userdata, bool succeeded);
 bool IsUpstreamVmBridgeAvailable();
 bool RunUpstreamVm(const VmLaunchConfig& config, VmStartupCallback startup_callback = nullptr, void* startup_userdata = nullptr);
 void ApplyRuntimeSettingsToUpstream(const VmLaunchConfig& config);
+void InitializeSettingsLayer();
 }
