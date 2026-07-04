@@ -31,6 +31,7 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <unwind.h>
 
 namespace emucorex::android
 {
@@ -112,6 +113,64 @@ const char* SignalName(int sig)
 	}
 }
 
+struct UnwindState
+{
+	int fd;
+	int frame;
+};
+
+// Async-signal-safe: called by _Unwind_Backtrace for each frame
+_Unwind_Reason_Code UnwindCallback(struct _Unwind_Context* ctx, void* arg)
+{
+	UnwindState* state = reinterpret_cast<UnwindState*>(arg);
+	if (state->frame > 64)
+		return _URC_END_OF_STACK;
+
+	uintptr_t pc = _Unwind_GetIP(ctx);
+	if (pc == 0)
+		return _URC_END_OF_STACK;
+
+	// Resolve symbol via dladdr
+	Dl_info info = {};
+	char line[256];
+	int len;
+	if (dladdr(reinterpret_cast<void*>(pc), &info) && info.dli_fbase)
+	{
+		const uintptr_t offset = pc - reinterpret_cast<uintptr_t>(info.dli_fbase);
+		// Extract just the filename from full path
+		const char* fname = info.dli_fname ? info.dli_fname : "?";
+		const char* slash = __builtin_strrchr(fname, '/');
+		if (slash) fname = slash + 1;
+		len = snprintf(line, sizeof(line), "  #%02d  %s+0x%zx  %s",
+			state->frame, fname, static_cast<size_t>(offset),
+			info.dli_sname ? info.dli_sname : "?");
+	}
+	else
+	{
+		len = snprintf(line, sizeof(line), "  #%02d  0x%zx  <unmapped>",
+			state->frame, static_cast<size_t>(pc));
+	}
+
+	if (len > 0)
+	{
+		write(state->fd, line, static_cast<size_t>(len));
+		write(state->fd, "\n", 1);
+	}
+
+	state->frame++;
+	return _URC_NO_REASON;
+}
+
+void WriteStackTrace(int log_fd)
+{
+	const char* header = "NATIVE_CRASH: --- stack trace ---\n";
+	write(log_fd, header, strlen(header));
+	UnwindState state{log_fd, 0};
+	_Unwind_Backtrace(UnwindCallback, &state);
+	const char* footer = "NATIVE_CRASH: --- end of stack ---\n";
+	write(log_fd, footer, strlen(footer));
+}
+
 void NativeCrashSignalHandler(int sig, siginfo_t* info, void* /*ctx*/)
 {
 	// Guard against recursive crashes in the handler itself
@@ -146,6 +205,17 @@ void NativeCrashSignalHandler(int sig, siginfo_t* info, void* /*ctx*/)
 				dl.dli_fname ? dl.dli_fname : "<unknown>",
 				static_cast<size_t>(offset),
 				dl.dli_sname ? dl.dli_sname : "<unknown>");
+		}
+	}
+
+	// Write full stack trace to log file
+	if (s_log_file_path[0] != '\0')
+	{
+		int fd = open(s_log_file_path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
+		if (fd >= 0)
+		{
+			WriteStackTrace(fd);
+			close(fd);
 		}
 	}
 
