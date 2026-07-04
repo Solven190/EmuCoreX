@@ -116,8 +116,9 @@ class MemoryCardRepository(
         val resolvedName = displayName
             ?.takeIf { it.isNotBlank() }
             ?: DocumentPathResolver.getDisplayName(context, uri.toString())
-        val target = File(memoryCardsDir(), buildUniqueCardName(resolvedName))
+        val target = File(memoryCardsDir(), normalizeName(resolvedName))
         return runCatching {
+            target.deleteRecursively()
             context.contentResolver.openInputStream(uri)?.use { input ->
                 target.outputStream().use { output -> input.copyTo(output) }
             } != null
@@ -248,7 +249,7 @@ class MemoryCardRepository(
         return runCatching {
             context.contentResolver.openInputStream(source)?.use { input ->
                 ZipInputStream(input).use { zip ->
-                    val restoredFolderNames = mutableMapOf<String, String>()
+                    val clearedCards = mutableSetOf<String>()
                     generateSequence { zip.nextEntry }.forEach { entry ->
                         val relativeParts = entry.safeMemoryCardZipParts()
                         if (relativeParts.isEmpty()) {
@@ -262,25 +263,26 @@ class MemoryCardRepository(
                             return@forEach
                         }
 
+                        val normalizedName = normalizeName(cardName)
+                        val targetCardRoot = File(memoryCardsDir(), normalizedName)
+                        if (clearedCards.add(normalizedName)) {
+                            targetCardRoot.deleteRecursively()
+                        }
+
                         if (relativeParts.size == 1) {
                             if (!entry.isDirectory) {
-                                val target = File(memoryCardsDir(), buildUniqueCardName(cardName))
-                                target.parentFile?.mkdirs()
-                                target.outputStream().use { output -> zip.copyTo(output) }
+                                targetCardRoot.parentFile?.mkdirs()
+                                targetCardRoot.outputStream().use { output -> zip.copyTo(output) }
                                 restoredCount++
                             }
                             zip.closeEntry()
                             return@forEach
                         }
 
-                        val folderName = restoredFolderNames.getOrPut(cardName) {
-                            buildUniqueCardName(cardName)
-                        }
-                        val targetRoot = File(memoryCardsDir(), folderName)
-                        val target = relativeParts.drop(1).fold(targetRoot) { parent, child ->
+                        val target = relativeParts.drop(1).fold(targetCardRoot) { parent, child ->
                             File(parent, child)
                         }
-                        if (!target.isSafelyInside(targetRoot)) {
+                        if (!target.isSafelyInside(targetCardRoot)) {
                             zip.closeEntry()
                             return@forEach
                         }
