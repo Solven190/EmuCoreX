@@ -151,19 +151,23 @@ object NativeApp {
 
     @JvmStatic
     fun setCrashContextString(key: String, value: String?) {
+        CrashLogger.logContext(key, value)
     }
 
     @JvmStatic
     fun setCrashContextInt(key: String, value: Int) {
+        CrashLogger.logContext(key, value)
     }
 
     @JvmStatic
     fun setCrashContextBool(key: String, value: Boolean) {
+        CrashLogger.logContext(key, value)
     }
 
     @JvmStatic
     fun logCrashBreadcrumb(message: String) {
         Log.i(TAG, message)
+        CrashLogger.logInfo("Native", message)
     }
 
     @JvmStatic
@@ -177,6 +181,7 @@ object NativeApp {
             -1
         }
     }
+
 
     private fun resolveDataRoot(context: Context): String {
         val override = dataRootOverride

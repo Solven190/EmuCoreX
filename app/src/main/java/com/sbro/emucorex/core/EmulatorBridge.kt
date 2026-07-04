@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.Surface
 import androidx.core.net.toUri
 import com.sbro.emucorex.data.AppPreferences
+import com.sbro.emucorex.core.CrashLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -81,6 +82,7 @@ object EmulatorBridge {
         } catch (error: UnsatisfiedLinkError) {
             isNativeLoaded = false
             Log.e(TAG, "libemucore load failed", error)
+            CrashLogger.logError(TAG, "libemucore load FAILED", error)
         }
     }
 
@@ -314,6 +316,7 @@ object EmulatorBridge {
             Log.i(TAG, "initializeOnce completed")
         } catch (error: Exception) {
             Log.e(TAG, "initializeOnce failed", error)
+            CrashLogger.logError(TAG, "initializeOnce FAILED", error)
         }
     }
 
