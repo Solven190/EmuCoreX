@@ -3,6 +3,11 @@
 
 //#version 420 // Keep it for text editor detection
 
+#ifdef DISABLE_DUAL_SOURCE
+#undef PS_NO_COLOR1
+#define PS_NO_COLOR1 1
+#endif
+
 #define FMT_32 0
 #define FMT_24 1
 #define FMT_16 2

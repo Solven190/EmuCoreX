@@ -368,18 +368,7 @@ bool GSopen(const Pcsx2Config::GSOptions& config, GSRendererType renderer, u8* b
 		renderer = GSUtil::GetPreferredRenderer();
 
 #if defined(__ANDROID__) && defined(ENABLE_OPENGL)
-	if (renderer == GSRendererType::VK)
-	{
-		const GpuProfileSelection gpu_profile_selection =
-			GpuProfileDetector::Resolve(GSConfig.AndroidGpuProfileOverride, {}, {});
-		const bool mediatek_profile = (gpu_profile_selection.runtime_profile == RuntimeGpuProfile::Mali ||
-			gpu_profile_selection.runtime_profile == RuntimeGpuProfile::PowerVR);
-		if (mediatek_profile)
-		{
-			Console.Warning("MediaTek GS profile selected with Vulkan; forcing OpenGL for startup stability.");
-			renderer = GSRendererType::OGL;
-		}
-	}
+	// Fallback logic for MediaTek was removed.
 #endif
 
 	bool res = OpenGSDevice(renderer, true, false, vsync_mode, allow_present_throttle);
