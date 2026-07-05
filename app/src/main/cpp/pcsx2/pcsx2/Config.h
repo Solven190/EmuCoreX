@@ -400,6 +400,7 @@ enum class SavestateCompressionLevel : u8
 enum class GSHardwareDownloadMode : u8
 {
 	Enabled,
+	EnabledForceFull,
 	NoReadbacks,
 	Unsynchronized,
 	Disabled
@@ -723,7 +724,7 @@ struct Pcsx2Config
 		static constexpr GSCASMode DEFAULT_CAS_MODE = GSCASMode::Disabled;
 
 		static constexpr float DEFAULT_UPSCALE_MULTIPLIER = 1.0f;
-		static constexpr AccBlendLevel DEFAULT_BLENDING_ACCURACY = AccBlendLevel::Medium;
+		static constexpr AccBlendLevel DEFAULT_BLENDING_ACCURACY = AccBlendLevel::Full;
 		static constexpr BiFiltering DEFAULT_TEXTURE_FILTERING_MODE = BiFiltering::PS2;
 		static constexpr TriFiltering DEFAULT_TRILINEAR_FILTERING_MODE = TriFiltering::Automatic;
 
@@ -760,6 +761,7 @@ struct Pcsx2Config
 					PCRTCOverscan : 1,
 					IntegerScaling : 1,
 					UseDebugDevice : 1,
+					UseDebugBlend : 1,
 					UseBlitSwapChain : 1,
 					DisableShaderCache : 1,
 					DisableFramebufferFetch : 1,
@@ -793,6 +795,10 @@ struct Pcsx2Config
 					HWMipmap : 1,
 					HWAccurateAlphaTest: 1,
 					HWAA1 : 1,
+					HWROV : 1,
+					HWROVLogging : 1,
+					HWROVBarriersVK : 1,
+					EnableAdrenoFramebufferFetch : 1,
 					ManualUserHacks : 1,
 					UserHacks_AlignSpriteX : 1,
 					UserHacks_CPUFBConversion : 1,
@@ -899,7 +905,7 @@ struct Pcsx2Config
 		u8 ShadeBoost_Gamma = DEFAULT_SHADEBOOST_GAMMA;
 		u8 PNGCompressionLevel = 1;
 
-		u16 SWExtraThreads = 2;
+		u16 SWExtraThreads = 4;
 		u16 SWExtraThreadsHeight = 4;
 
 		int SaveDrawStart = 0;

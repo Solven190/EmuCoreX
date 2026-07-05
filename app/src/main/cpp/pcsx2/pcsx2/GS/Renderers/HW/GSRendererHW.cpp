@@ -16,7 +16,7 @@ namespace
 {
 __ri static constexpr bool GSHasBarrierFeedbackSupport(const GSDevice::FeatureSupport& features)
 {
-	return features.texture_barrier || features.multidraw_fb_copy;
+	return features.texture_barrier || features.framebuffer_fetch || features.multidraw_fb_copy;
 }
 
 __ri static constexpr bool GSNeedsBBoxForMultidrawHazardTracking(const GSDevice::FeatureSupport& features)
@@ -78,35 +78,14 @@ __ri static constexpr bool GSCanSampleDepthInPlaceForHLEHardwareDraw(
 	return !config.depth.zwe && features.test_and_sample_depth;
 }
 
-__ri static bool GSPreferMobileFallbackSWBlend(const GSDevice::FeatureSupport& features, bool alpha_eq_less_one,
-	bool alpha_c0_high_max_one)
-{
-#if defined(__ANDROID__)
-	return features.prefer_mobile_sw_blend && g_gs_device && g_gs_device->GetRenderAPI() == RenderAPI::OpenGL &&
-		!features.framebuffer_fetch && (alpha_eq_less_one || alpha_c0_high_max_one);
-#else
-	return false;
-#endif
-}
-
 __ri static constexpr bool GSPreferFastMobileBlendProfiles(const GSDevice::FeatureSupport& features)
 {
-#if defined(__ANDROID__)
-	return features.prefer_mobile_light_gs || !features.framebuffer_fetch;
-#else
 	return false;
-#endif
-}
-
-__ri static constexpr bool GSLimitMobileBlendProfileAccuratePaths(const GSDevice::FeatureSupport& features,
-	AccBlendLevel level)
-{
-	return GSPreferFastMobileBlendProfiles(features) && level <= AccBlendLevel::Medium;
 }
 
 __ri static constexpr std::size_t GSMediumBlendSpriteSWLimit(const GSDevice::FeatureSupport& features)
 {
-	return GSPreferFastMobileBlendProfiles(features) ? 24 : 100;
+	return 100;
 }
 }
 
@@ -5785,15 +5764,13 @@ void GSRendererHW::EmulateBlending(int rt_alpha_min, int rt_alpha_max, const boo
 {
 	const GIFRegALPHA& ALPHA = m_context->ALPHA;
 	{
-		// AA1: Blending needs to be enabled on draw.
-		const bool AA1 = PRIM->AA1 && (m_vt.m_primclass == GS_LINE_CLASS || m_vt.m_primclass == GS_TRIANGLE_CLASS);
 		// PABE: Check condition early as an optimization, no blending when As < 128.
 		// For Cs*As + Cd*(1 - As) if As is 128 then blending can be disabled as well.
 		const bool PABE_skip = m_draw_env->PABE.PABE &&
 			((GetAlphaMinMax().max < 128) || (GetAlphaMinMax().max == 128 && ALPHA.A == 0 && ALPHA.B == 1 && ALPHA.C == 0 && ALPHA.D == 1));
 
 		// No blending or coverage anti-aliasing so early exit
-		if (PABE_skip || !(NeedsBlending() || AA1))
+		if (PABE_skip || !(NeedsBlending() || IsCoverageAlpha()))
 		{
 			m_conf.blend = {};
 
@@ -5877,8 +5854,6 @@ void GSRendererHW::EmulateBlending(int rt_alpha_min, int rt_alpha_max, const boo
 	const bool alpha_eq_one = alpha_c0_eq_one || alpha_c2_eq_one;
 	const bool alpha_high_one = alpha_c0_high_min_one || alpha_c2_high_one;
 	const bool alpha_eq_less_one = alpha_c0_eq_less_max_one || alpha_c2_eq_less_one;
-	const bool prefer_mobile_fallback_sw_blend =
-		GSPreferMobileFallbackSWBlend(features, alpha_eq_less_one, alpha_c0_high_max_one);
 
 	// Optimize blending equations, must be done before index calculation
 	if ((m_conf.ps.blend_a == m_conf.ps.blend_b) || ((m_conf.ps.blend_b == m_conf.ps.blend_d) && alpha_eq_one))
@@ -5929,10 +5904,7 @@ void GSRendererHW::EmulateBlending(int rt_alpha_min, int rt_alpha_max, const boo
 	const bool blend_ad = m_conf.ps.blend_c == 1;
 	bool blend_ad_alpha_masked = blend_ad && !m_conf.colormask.wa;
 	const bool is_basic_blend = GSConfig.AccurateBlendingUnit != AccBlendLevel::Minimum;
-	const bool limit_mobile_blend_profile_accurate_paths =
-		GSLimitMobileBlendProfileAccuratePaths(features, GSConfig.AccurateBlendingUnit);
-	const bool allow_profile_accurate_paths = is_basic_blend && !limit_mobile_blend_profile_accurate_paths;
-	if (blend_ad_alpha_masked && ((allow_profile_accurate_paths || (COLCLAMP.CLAMP == 0) || m_conf.require_one_barrier)))
+	if (blend_ad_alpha_masked && ((is_basic_blend || (COLCLAMP.CLAMP == 0) || m_conf.require_one_barrier)))
 	{
 		// Swap Ad with As for hw blend.
 		m_conf.ps.a_masked = 1;
@@ -5986,7 +5958,7 @@ void GSRendererHW::EmulateBlending(int rt_alpha_min, int rt_alpha_max, const boo
 	// HW blend can be done in multiple passes when there's no overlap.
 	// Blend multi pass is only useful when texture barriers aren't supported.
 	// Speed wise Texture barriers > blend multi pass > texture copies.
-	const bool blend_multi_pass_support = !features.texture_barrier && no_prim_overlap && allow_profile_accurate_paths && COLCLAMP.CLAMP;
+	const bool blend_multi_pass_support = !features.texture_barrier && no_prim_overlap && is_basic_blend && COLCLAMP.CLAMP;
 	const bool bmix1_multi_pass1 = blend_multi_pass_support && blend_mix1 && (alpha_c0_high_max_one || alpha_c2_high_one) && m_conf.ps.blend_d == 2;
 	const bool bmix1_multi_pass2 = blend_multi_pass_support && (blend_flag & BLEND_MIX1) && m_conf.ps.blend_b == m_conf.ps.blend_d && !m_conf.ps.dither && alpha_high_one;
 	const bool bmix3_multi_pass = blend_multi_pass_support && blend_mix3 && !m_conf.ps.dither && alpha_high_one;
@@ -6027,7 +5999,7 @@ void GSRendererHW::EmulateBlending(int rt_alpha_min, int rt_alpha_max, const boo
 	{
 		case AccBlendLevel::Maximum:
 			sw_blending |= true;
-			accumulation_blend &= (GSLocalMemory::m_psm[m_cached_ctx.FRAME.PSM].bpp == 32);
+			accumulation_blend &= !barriers_supported || (GSLocalMemory::m_psm[m_cached_ctx.FRAME.PSM].bpp == 32);
 			[[fallthrough]];
 		case AccBlendLevel::Full:
 			sw_blending |= m_conf.ps.blend_a != m_conf.ps.blend_b && alpha_c0_high_max_one;
@@ -6046,30 +6018,18 @@ void GSRendererHW::EmulateBlending(int rt_alpha_min, int rt_alpha_max, const boo
 			[[fallthrough]];
 		case AccBlendLevel::Basic:
 		default:
-			if (!limit_mobile_blend_profile_accurate_paths)
-			{
-				// Prefer sw blend if possible.
-				color_dest_blend &= !m_conf.ps.dither;
-				color_dest_blend2 &= !(prefer_sw_blend || m_conf.ps.dither);
-				blend_zero_to_one_range &= !(prefer_sw_blend || m_conf.ps.dither);
-				accumulation_blend &= !prefer_sw_blend;
-				// Enable sw blending for barriers.
-				sw_blending |= blend_requires_barrier || prefer_sw_blend;
-				// On Android GL without framebuffer fetch, keep the fallback SW blend on problematic alpha ranges.
-				sw_blending |= (free_blend || prefer_mobile_fallback_sw_blend);
-				// Do not run BLEND MIX if sw blending is already present, it's less accurate.
-				blend_mix &= !sw_blending;
-				sw_blending |= blend_mix;
-			}
-			else
-			{
-				// Keep Android low/mid blend profiles lightweight. High+ still enables costly accurate paths.
-				color_dest_blend &= !m_conf.ps.dither;
-				color_dest_blend2 &= !m_conf.ps.dither;
-				blend_zero_to_one_range &= !m_conf.ps.dither;
-				accumulation_blend = false;
-				blend_mix = false;
-			}
+			// Prefer sw blend if possible.
+			color_dest_blend &= !m_conf.ps.dither;
+			color_dest_blend2 &= !(prefer_sw_blend || m_conf.ps.dither);
+			blend_zero_to_one_range &= !(prefer_sw_blend || m_conf.ps.dither);
+			accumulation_blend &= !prefer_sw_blend;
+			// Enable sw blending for barriers.
+			sw_blending |= blend_requires_barrier || prefer_sw_blend;
+			// Enable sw blending for free blending (non recursive, accumulation).
+			sw_blending |= free_blend;
+			// Do not run BLEND MIX if sw blending is already present, it's less accurate.
+			blend_mix &= !sw_blending;
+			sw_blending |= blend_mix;
 			[[fallthrough]];
 		case AccBlendLevel::Minimum:
 			// Enable sw blending for non recursive mode.
@@ -6087,11 +6047,13 @@ void GSRendererHW::EmulateBlending(int rt_alpha_min, int rt_alpha_max, const boo
 			color_dest_blend = false;
 			accumulation_blend = false;
 			blend_mix = false;
+			color_dest_blend2 = false;
+			blend_zero_to_one_range = false;
 		}
 	}
 
-	if (m_conf.alpha_test == GSHWDrawConfig::AlphaTestMode::FEEDBACK &&
-		GSUsesDepthAsRTFeedback(features, m_conf.ps.IsFeedbackLoopDepth()))
+	if (m_conf.ps.IsFeedbackLoopDepth() &&
+		features.depth_feedback == GSDevice::DepthFeedbackSupport::None)
 	{
 		// If we are doing feedback alpha test with a second RT we must use SW blending to avoid
 		// mixing dual source blending with multiple render targets.
@@ -6099,6 +6061,19 @@ void GSRendererHW::EmulateBlending(int rt_alpha_min, int rt_alpha_max, const boo
 		color_dest_blend = false;
 		accumulation_blend = false;
 		blend_mix = false;
+		color_dest_blend2 = false;
+		blend_zero_to_one_range = false;
+	}
+
+	// Force SW blending with barriers.
+	if (GSConfig.UseDebugBlend)
+	{
+		sw_blending = true;
+		color_dest_blend = false;
+		accumulation_blend = false;
+		blend_mix = false;
+		color_dest_blend2 = false;
+		blend_zero_to_one_range = false;
 	}
 
 	// Color clip
@@ -8508,13 +8483,7 @@ __ri void GSRendererHW::DrawPrims(GSTextureCache::Target* rt, GSTextureCache::Ta
 	pxAssert(!m_conf.require_full_barrier || !m_conf.ps.colclip_hw);
 
 	// Swap full barrier for one barrier when there's no overlap, or a shuffle.
-	// Keep the stricter path for real RT/depth feedback-loop draws, because downgrading
-	// them to a single pre-draw barrier can surface read-after-write corruption when the
-	// overlap heuristic is optimistic.
-	const bool preserve_full_barrier_for_feedback =
-		m_conf.ps.IsFeedbackLoopRT() || m_conf.ps.IsFeedbackLoopDepth();
 	if (GSHasBarrierFeedbackSupport(features) && m_conf.require_full_barrier &&
-		!preserve_full_barrier_for_feedback &&
 		(m_prim_overlap == PRIM_OVERLAP_NO || m_conf.ps.shuffle || m_channel_shuffle))
 	{
 		m_conf.require_full_barrier = false;

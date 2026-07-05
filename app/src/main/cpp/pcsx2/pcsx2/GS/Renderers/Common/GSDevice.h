@@ -944,6 +944,7 @@ public:
 		bool stencil_buffer       : 1; ///< Supports stencil buffer, and can use for DATE.
 		bool cas_sharpening       : 1; ///< Supports sufficient functionality for contrast adaptive sharpening.
 		bool test_and_sample_depth: 1; ///< Supports concurrently binding the depth-stencil buffer for sampling and depth testing.
+		bool aa1                 : 1; ///< Supports AA1 (anti-aliasing for lines/triangles).
 		DepthFeedbackSupport depth_feedback : 2; ///< Support for depth feedback loops.
 		FeatureSupport()
 		{

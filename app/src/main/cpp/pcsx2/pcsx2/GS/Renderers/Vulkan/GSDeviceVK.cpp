@@ -2787,12 +2787,17 @@ bool GSDeviceVK::CheckFeatures()
 	//const bool isNVIDIA = (vendorID == 0x10DE);
 
 	const bool has_framebuffer_fetch_extension = m_optional_extensions.vk_ext_rasterization_order_attachment_access;
-	bool framebuffer_fetch = has_framebuffer_fetch_extension && !GSConfig.DisableFramebufferFetch;
-#ifdef __ANDROID__
-	// Rasterization order attachment access is unreliable on Adreno/Mali Vulkan drivers.
-	// Keep it disabled until validated on Android.
-	framebuffer_fetch = false;
-#endif
+	// Mali (0x13B5): ENABLED by default when ROAA is present. The Mali profile forces SW
+	// blend, so fbfetch reads Cd in-shader and never touches Mali's broken HW dual-source
+	// unit; without fbfetch the per-PRIMITIVE texture-barrier path tanks blend-heavy games
+	// (GT4 = 10-20fps slideshow). No-op on any Mali lacking the extension.
+	//
+	// ADRENO / other non-Mali: OPT-IN only (EnableAdrenoFramebufferFetch, default off).
+	// Gated on ROAA presence, so it is a no-op on any device that does not expose the extension.
+	const bool is_mali_vk = (m_device_properties.vendorID == 0x13B5u);
+	const bool vendor_allows_fbfetch = is_mali_vk || GSConfig.EnableAdrenoFramebufferFetch;
+	bool framebuffer_fetch = vendor_allows_fbfetch &&
+		has_framebuffer_fetch_extension && !GSConfig.DisableFramebufferFetch;
 
 	bool texture_barrier = (GSConfig.OverrideTextureBarriers != 0);
 	m_features.multidraw_fb_copy = false;
@@ -2839,7 +2844,7 @@ bool GSDeviceVK::CheckFeatures()
 	m_features.framebuffer_fetch &= m_features.texture_barrier;
 
 	// Buggy drivers with broken barriers probably have no chance using GENERAL layout for depth either...
-	m_features.test_and_sample_depth = m_features.texture_barrier;
+	m_features.test_and_sample_depth = true;
 
 	// Use D32F depth instead of D32S8 when we have framebuffer fetch.
 	m_features.stencil_buffer &= !m_features.framebuffer_fetch;
@@ -2870,6 +2875,9 @@ bool GSDeviceVK::CheckFeatures()
 	// direct depth feedback path here and let GSRendererHW use its established avoid/copy fallbacks.
 	m_features.depth_feedback = GSDevice::DepthFeedbackSupport::None;
 #endif
+
+	m_features.aa1 = GSConfig.HWAA1 && m_features.vs_expand &&
+		(m_features.texture_barrier || m_features.framebuffer_fetch);
 
 	DevCon.WriteLn("Optional features:%s%s%s%s%s", m_features.primitive_id ? " primitive_id" : "",
 		m_features.texture_barrier ? " texture_barrier" : "", m_features.framebuffer_fetch ? " framebuffer_fetch" : "",

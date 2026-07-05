@@ -840,14 +840,6 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 		return;
 	}
 
-	if (GSConfig.AccurateBlendingUnit != old_config.AccurateBlendingUnit)
-	{
-		if (!GSreopen(false, true, GSConfig.Renderer, &old_config))
-			pxFailRel("Failed to do quick GS reopen for blending accuracy change");
-
-		return;
-	}
-
 	if (GSConfig.UserHacks_DisableRenderFixes != old_config.UserHacks_DisableRenderFixes ||
 		GSConfig.UpscaleMultiplier != old_config.UpscaleMultiplier ||
 		GSConfig.GetSkipCountFunctionId != old_config.GetSkipCountFunctionId ||
@@ -864,10 +856,8 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 	// settings can change how cached sources/targets are sampled or resolved.
 	if (
 		(GSIsHardwareRenderer() && GSConfig.HWMipmap != old_config.HWMipmap) ||
-		GSConfig.TextureFiltering != old_config.TextureFiltering ||
 		GSConfig.TexturePreloading != old_config.TexturePreloading ||
 		GSConfig.TriFilter != old_config.TriFilter ||
-		GSConfig.AccurateBlendingUnit != old_config.AccurateBlendingUnit ||
 		GSConfig.GPUPaletteConversion != old_config.GPUPaletteConversion ||
 		GSConfig.PreloadFrameWithGSData != old_config.PreloadFrameWithGSData ||
 		GSConfig.UserHacks_CPUFBConversion != old_config.UserHacks_CPUFBConversion ||
@@ -885,11 +875,8 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 		g_gs_device->PurgePool();
 	}
 
-	// Clear out the sampler cache when filtering options change, since sampler
-	// state is baked into cached descriptors/objects.
-	if (GSConfig.MaxAnisotropy != old_config.MaxAnisotropy ||
-		GSConfig.TextureFiltering != old_config.TextureFiltering ||
-		GSConfig.TriFilter != old_config.TriFilter)
+	// Clear out the sampler cache when AF options change, since the anisotropy gets baked into them
+	if (GSConfig.MaxAnisotropy != old_config.MaxAnisotropy)
 		g_gs_device->ClearSamplerCache();
 
 	// texture dumping/replacement options

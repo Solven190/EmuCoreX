@@ -722,6 +722,7 @@ Pcsx2Config::GSOptions::GSOptions()
 	UseBlitSwapChain = false;
 	DisableShaderCache = false;
 	DisableFramebufferFetch = false;
+	EnableAdrenoFramebufferFetch = false;
 	DisableVertexShaderExpand = false;
 	SkipDuplicateFrames = true;
 	OsdMessagesPos = OsdOverlayPos::TopLeft;
@@ -755,6 +756,10 @@ Pcsx2Config::GSOptions::GSOptions()
 	HWMipmap = true;
 	HWAccurateAlphaTest = false;
 	HWAA1 = false;
+	UseDebugBlend = false;
+	HWROV = true;
+	HWROVLogging = false;
+	HWROVBarriersVK = false;
 
 	ManualUserHacks = false;
 	UserHacks_AlignSpriteX = false;
@@ -908,6 +913,7 @@ bool Pcsx2Config::GSOptions::RestartOptionsAreEqual(const GSOptions& right) cons
 		   OpEqu(UseBlitSwapChain) &&
 		   OpEqu(DisableShaderCache) &&
 		   OpEqu(DisableFramebufferFetch) &&
+		   OpEqu(EnableAdrenoFramebufferFetch) &&
 		   OpEqu(DisableVertexShaderExpand) &&
 		   OpEqu(OverrideTextureBarriers) &&
 		   OpEqu(AndroidGpuProfileOverride) &&
@@ -957,6 +963,7 @@ void Pcsx2Config::GSOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapBitBool(UseBlitSwapChain);
 	SettingsWrapBitBool(DisableShaderCache);
 	SettingsWrapBitBool(DisableFramebufferFetch);
+	SettingsWrapBitBool(EnableAdrenoFramebufferFetch);
 	SettingsWrapBitBool(DisableVertexShaderExpand);
 	SettingsWrapBitBool(SkipDuplicateFrames);
 	SettingsWrapBitBool(OsdShowSpeed);
@@ -1044,6 +1051,10 @@ void Pcsx2Config::GSOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapBitBoolEx(HWMipmap, "hw_mipmap");
 	SettingsWrapBitBool(HWAccurateAlphaTest);
 	SettingsWrapBitBool(HWAA1);
+	SettingsWrapBitBool(UseDebugBlend);
+	SettingsWrapBitBool(HWROV);
+	SettingsWrapBitBool(HWROVLogging);
+	SettingsWrapBitBool(HWROVBarriersVK);
 	SettingsWrapIntEnumEx(AccurateBlendingUnit, "accurate_blending_unit");
 	SettingsWrapIntEnumEx(TextureFiltering, "filter");
 	SettingsWrapIntEnumEx(TexturePreloading, "texture_preloading");

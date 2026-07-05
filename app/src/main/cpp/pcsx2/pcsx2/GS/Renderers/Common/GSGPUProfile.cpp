@@ -166,6 +166,8 @@ static MobileGsTuning GetMobileGsTuning(RuntimeGpuProfile profile, MobileGpuTier
 			tuning.constrained = true;
 			tuning.prefer_new_textures = false;
 			tuning.force_partial_texture_preloading = true;
+			tuning.prefer_mobile_light_gs = false;
+			tuning.prefer_mobile_sw_blend = false;
 			tuning.pooled_targets = 72;
 			tuning.target_age = 6;
 			tuning.pooled_textures = 72;
@@ -176,6 +178,7 @@ static MobileGsTuning GetMobileGsTuning(RuntimeGpuProfile profile, MobileGpuTier
 			tuning.constrained = true;
 			tuning.prefer_new_textures = false;
 			tuning.force_partial_texture_preloading = true;
+			tuning.prefer_mobile_light_gs = false;
 			tuning.pooled_targets = 96;
 			tuning.target_age = 8;
 			tuning.pooled_textures = 96;
