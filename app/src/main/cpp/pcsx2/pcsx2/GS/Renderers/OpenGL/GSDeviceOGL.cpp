@@ -997,8 +997,6 @@ bool GSDeviceOGL::CheckFeatures()
 		{
 			framebuffer_fetch = true;
 			m_features.framebuffer_fetch = true;
-			if (GSConfig.OverrideTextureBarriers == -1)
-				m_features.texture_barrier = true;
 			DevCon.WriteLn("GL: Mali GPU profile enabled ARM framebuffer fetch path.");
 		}
 		else
