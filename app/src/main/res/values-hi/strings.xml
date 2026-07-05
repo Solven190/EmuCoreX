@@ -1301,7 +1301,7 @@
     <string name="pro_message_purchase_failed">Pro की खरीदारी पूरी नहीं की जा सकी।</string>
     <string name="pro_message_pending_confirmation">Pro खरीदारी की पुष्टि लंबित है।</string>
     <string name="pro_price_unavailable">Pro अभी उपलब्ध नहीं है</string>
-    <string name="settings_help_mediatek_angle_opengl">MediaTek OpenGL रेंडरर को बंडल की गई ANGLE लाइब्रेरी के माध्यम से रूट करता है जब वे ऐप के साथ पैक की जाती हैं। यह केवल Mali और PowerVR प्रोफाइल के लिए उपलब्ध है और डिफ़ॉल्ट रूप से बंद रहता है।</string>
+    <string name="settings_help_mediatek_angle_opengl">MediaTek OpenGL रेंडरर को बंडल की गई ANGLE लाइब्रेरी के माध्यम से रूट करता है। अनुवाद ओवरहेड के कारण, यह गेम के आधार पर प्रदर्शन को बढ़ा या घटा सकता है। Mali और PowerVR प्रोफाइल के लिए उपलब्ध है और डिफ़ॉल्ट रूप से बंद रहता है।</string>
     <string name="settings_mediatek_angle_opengl">OpenGL के लिए ANGLE</string>
     <string name="settings_mediatek_angle_opengl_desc">MediaTek OpenGL पथ के लिए बंडल की गई ANGLE लाइब्रेरी का उपयोग करें।</string>
     <string name="settings_pro_tab">Pro</string>
@@ -1323,7 +1323,7 @@
     <string name="settings_pro_feature_support_title">विकास का समर्थन करें</string>
     <string name="settings_pro_feature_support_desc">फिक्स, संगतता कार्य और नए ऐप सुधारों को निधि देने में मदद करता है।</string>
     <string name="settings_pro_apply_theme">Crimson का उपयोग करें</string>
-    <string name="welcome_body">EmuCoreX आपको अपनी PS2 लाइब्रेरी व्यवस्थित करने, नियंत्रण ट्यून करने और गेम को तेज़ी से लॉन्च करने में मदद करता है। Pro वैकल्पिक है: यह Crimson और गोल्ड ऐप आइकन अनलॉक करता है।</string>
+    <string name="welcome_body">EmuCoreX एक युवा प्रोजेक्ट है और हमें आगे के विकास के लिए आपके समर्थन की आवश्यकता है! Pro संस्करण प्राप्त करके, आप सीधे रचनाकारों का समर्थन करते हैं, और बोनस के रूप में, आप विशेष Crimson थीम और गोल्ड ऐप आइकन अनलॉक करते हैं।</string>
     <string name="pro_feature_theme">पूरे ऐप को गहरे Crimson थीम में स्विच करें।</string>
     <string name="pro_feature_support">गोल्ड लॉन्चर आइकन जोड़ें और निरंतर विकास का समर्थन करें।</string>
     <string name="onboarding_pro_subtitle">Crimson, EmuCoreX को एक गहरा रूप देता है, जबकि Pro विकास को गतिमान रखने में मदद करता है।</string>

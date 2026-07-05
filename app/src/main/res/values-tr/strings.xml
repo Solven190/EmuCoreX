@@ -1301,7 +1301,7 @@
     <string name="pro_message_purchase_failed">Pro satın alımı tamamlanamadı.</string>
     <string name="pro_message_pending_confirmation">Pro satın alımı onay bekliyor.</string>
     <string name="pro_price_unavailable">Pro henüz kullanılamıyor</string>
-    <string name="settings_help_mediatek_angle_opengl">Uygulamayla birlikte paketlendiğinde MediaTek OpenGL oluşturucusunu paketlenmiş ANGLE kitaplıkları üzerinden yönlendirir. Bu yalnızca Mali ve PowerVR profilleri için kullanılabilir ve varsayılan olarak kapalıdır.</string>
+    <string name="settings_help_mediatek_angle_opengl">MediaTek OpenGL oluşturucusunu paketlenmiş ANGLE kitaplıkları üzerinden yönlendirir. Çeviri ek yükü nedeniyle, oyuna bağlı olarak performansı artırabilir veya azaltabilir. Mali ve PowerVR profilleri için mevcuttur ve varsayılan olarak kapalıdır.</string>
     <string name="settings_mediatek_angle_opengl">OpenGL için ANGLE</string>
     <string name="settings_mediatek_angle_opengl_desc">MediaTek OpenGL yolu için paketlenmiş ANGLE kitaplıklarını kullanın.</string>
     <string name="settings_pro_tab">Pro</string>
@@ -1323,7 +1323,7 @@
     <string name="settings_pro_feature_support_title">Geliştirmeyi destekle</string>
     <string name="settings_pro_feature_support_desc">Düzeltmelerin, uyumluluk çalışmalarının ve yeni uygulama iyileştirmelerinin finanse edilmesine yardımcı olur.</string>
     <string name="settings_pro_apply_theme">Crimson Kullan</string>
-    <string name="welcome_body">EmuCoreX, PS2 kitaplığınızı düzenlemenize, kontrolleri ayarlamanıza ve oyunları hızla başlatmanıza yardımcı olur. Pro isteğe bağlıdır: Crimson\'u ve altın uygulama simgesini açar.</string>
+    <string name="welcome_body">EmuCoreX genç bir projedir ve daha fazla geliştirme için desteğinize ihtiyacımız var! Pro sürümünü edinerek doğrudan yaratıcıları desteklersiniz ve bonus olarak özel Crimson temasının ve Altın uygulama simgesinin kilidini açarsınız.</string>
     <string name="pro_feature_theme">Tüm uygulamayı daha koyu olan Crimson temasına geçirin.</string>
     <string name="pro_feature_support">Altın başlatıcı simgesini ekleyin ve sürekli geliştirmeyi destekleyin.</string>
     <string name="onboarding_pro_subtitle">Crimson, EmuCoreX\'e daha koyu bir görünüm kazandırırken Pro, geliştirmenin devam etmesine yardımcı olur.</string>

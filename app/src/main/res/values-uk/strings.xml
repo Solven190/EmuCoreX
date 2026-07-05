@@ -1303,7 +1303,7 @@
     <string name="pro_message_purchase_failed">Не вдалося завершити покупку Pro.</string>
     <string name="pro_message_pending_confirmation">Покупка Pro очікує на підтвердження.</string>
     <string name="pro_price_unavailable">Версія Pro поки недоступна</string>
-    <string name="settings_help_mediatek_angle_opengl">Спрямовує рендерер MediaTek OpenGL через вбудовані бібліотеки ANGLE, якщо вони постачаються разом із додатком. Це доступно лише для профілів Mali та PowerVR і за замовчуванням вимкнено.</string>
+    <string name="settings_help_mediatek_angle_opengl">Спрямовує рендерер MediaTek OpenGL через вбудовані бібліотеки ANGLE. Через витрати на трансляцію це може як збільшити, так і зменшити продуктивність залежно від гри. Доступно лише для профілів Mali та PowerVR і за замовчуванням вимкнено.</string>
     <string name="settings_mediatek_angle_opengl">ANGLE для OpenGL</string>
     <string name="settings_mediatek_angle_opengl_desc">Використовувати вбудовані бібліотеки ANGLE для шляху MediaTek OpenGL.</string>
     <string name="settings_pro_tab">Pro</string>
@@ -1325,7 +1325,7 @@
     <string name="settings_pro_feature_support_title">Підтримка розробки</string>
     <string name="settings_pro_feature_support_desc">Допомагає фінансувати виправлення помилок, роботу над сумісністю та нові вдосконалення застосунку.</string>
     <string name="settings_pro_apply_theme">Використовувати Crimson</string>
-    <string name="welcome_body">EmuCoreX допомагає організовувати бібліотеку PS2, налаштовувати керування та швидко запускати ігри. Версія Pro необов\'язкова: вона розблоковує Crimson та золоту іконку застосунку.</string>
+    <string name="welcome_body">EmuCoreX — це молодий проєкт, і для його розвитку нам потрібна ваша підтримка! Купуючи версію Pro, ви безпосередньо підтримуєте розробників, а як бонус отримуєте тему Crimson та ексклюзивну золоту іконку застосунку.</string>
     <string name="pro_feature_theme">Перемкніть весь застосунок на більш темну тему Crimson.</string>
     <string name="pro_feature_support">Додайте золоту іконку лаунчера та підтримайте безперервну розробку.</string>
     <string name="onboarding_pro_subtitle">Crimson надає EmuCoreX темнішого вигляду, а версія Pro допомагає продовжувати розробку.</string>

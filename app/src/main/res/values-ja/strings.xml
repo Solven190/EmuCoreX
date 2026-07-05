@@ -1301,7 +1301,7 @@
     <string name="pro_message_purchase_failed">Proの購入を完了できませんでした。</string>
     <string name="pro_message_pending_confirmation">Proの購入は確認待ちです。</string>
     <string name="pro_price_unavailable">Proはまだ利用できません</string>
-    <string name="settings_help_mediatek_angle_opengl">アプリに同梱されている場合、MediaTek OpenGLレンダラーを同梱のANGLEライブラリ経由でルーティングします。これはMaliおよびPowerVRプロファイルでのみ利用可能であり、デフォルトではオフのままです。</string>
+    <string name="settings_help_mediatek_angle_opengl">MediaTek OpenGLレンダラーを同梱のANGLEライブラリ経由でルーティングします。変換のオーバーヘッドにより、ゲームによってはパフォーマンスが向上または低下する場合があります。MaliおよびPowerVRプロファイルで利用可能であり、デフォルトではオフのままです。</string>
     <string name="settings_mediatek_angle_opengl">OpenGL用ANGLE</string>
     <string name="settings_mediatek_angle_opengl_desc">MediaTek OpenGLパスに同梱のANGLEライブラリを使用します。</string>
     <string name="settings_pro_tab">Pro</string>
@@ -1323,7 +1323,7 @@
     <string name="settings_pro_feature_support_title">開発のサポート</string>
     <string name="settings_pro_feature_support_desc">バグ修正、互換性の向上、新しいアプリの改善のための資金となります。</string>
     <string name="settings_pro_apply_theme">Crimsonを使用する</string>
-    <string name="welcome_body">EmuCoreXはPS2ライブラリの整理、操作の調整、ゲームの素早い起動をサポートします。Proはオプションです：Crimsonとゴールドのアプリアイコンをアンロックします。</string>
+    <string name="welcome_body">EmuCoreXは若いプロジェクトであり、さらなる開発のために皆様のサポートが必要です！Proバージョンを入手することでクリエイターを直接支援し、ボーナスとして限定のCrimsonテーマとゴールドのアプリアイコンをアンロックできます。</string>
     <string name="pro_feature_theme">アプリ全体を暗めのCrimsonテーマに切り替えます。</string>
     <string name="pro_feature_support">ゴールドのランチャーアイコンを追加し、継続的な開発を支援します。</string>
     <string name="onboarding_pro_subtitle">CrimsonはEmuCoreXに暗い外観を与え、Proは開発の継続を支援します。</string>

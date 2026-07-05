@@ -1303,7 +1303,7 @@
     <string name="pro_message_purchase_failed">无法完成 Pro 购买。</string>
     <string name="pro_message_pending_confirmation">Pro 购买等待确认中。</string>
     <string name="pro_price_unavailable">Pro 尚未可用</string>
-    <string name="settings_help_mediatek_angle_opengl">当应用内附带 ANGLE 库时，通过这些捆绑的库路由 MediaTek OpenGL 渲染器。此功能仅适用于 Mali 和 PowerVR 配置文件，并且默认处于关闭状态。</string>
+    <string name="settings_help_mediatek_angle_opengl">通过捆绑的 ANGLE 库路由 MediaTek OpenGL 渲染器。由于转换开销，根据游戏的不同，这可能会提高或降低性能。适用于 Mali 和 PowerVR 配置文件，默认关闭。</string>
     <string name="settings_mediatek_angle_opengl">适用于 OpenGL 的 ANGLE</string>
     <string name="settings_mediatek_angle_opengl_desc">对 MediaTek OpenGL 路径使用捆绑的 ANGLE 库。</string>
     <string name="settings_pro_tab">Pro</string>
@@ -1325,7 +1325,7 @@
     <string name="settings_pro_feature_support_title">支持开发</string>
     <string name="settings_pro_feature_support_desc">帮助资助错误修复、兼容性工作和新的应用改进。</string>
     <string name="settings_pro_apply_theme">使用 Crimson</string>
-    <string name="welcome_body">EmuCoreX 帮助您整理 PS2 游戏库、调整控制并快速启动游戏。Pro 是可选的：它可解锁 Crimson 和金色应用图标。</string>
+    <string name="welcome_body">EmuCoreX 是一个年轻的项目，我们需要您的支持以进行进一步的开发！通过获取 Pro 版本，您直接支持了创作者，作为奖励，您将解锁独家的 Crimson 主题和金色应用图标。</string>
     <string name="pro_feature_theme">将整个应用切换至更暗的 Crimson 主题。</string>
     <string name="pro_feature_support">添加金色启动器图标并支持持续开发。</string>
     <string name="onboarding_pro_subtitle">Crimson 为 EmuCoreX 带来更暗的视觉效果，而 Pro 帮助推动开发的持续进行。</string>
