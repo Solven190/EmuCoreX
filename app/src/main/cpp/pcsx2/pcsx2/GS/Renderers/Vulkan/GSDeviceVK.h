@@ -279,6 +279,7 @@ private:
 	double m_spin_timestamp_offset = 0;
 	u32 m_spin_queue_family_index = 0;
 	u32 m_command_buffer_render_passes = 0;
+	u32 m_draws_since_submit = 0;
 	u32 m_spin_timer = 0;
 	bool m_spinning_supported = false;
 	bool m_spin_queue_is_graphics_queue = false;

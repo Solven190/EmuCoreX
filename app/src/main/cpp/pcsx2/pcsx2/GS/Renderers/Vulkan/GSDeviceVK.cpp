@@ -1514,6 +1514,8 @@ void GSDeviceVK::ExecuteCommandBuffer(WaitType wait_for_completion)
 	if (m_last_submit_failed)
 		return;
 
+	m_draws_since_submit = 0;
+
 	const u32 current_frame = m_current_frame;
 	SubmitCommandBuffer(nullptr);
 	MoveToNextCommandBuffer();
@@ -2998,6 +3000,7 @@ std::unique_ptr<GSDownloadTexture> GSDeviceVK::CreateDownloadTexture(u32 width, 
 
 void GSDeviceVK::CopyRect(GSTexture* sTex, GSTexture* dTex, const GSVector4i& r, u32 destX, u32 destY)
 {
+
 	// Empty rect, abort copy.
 	if (r.rempty())
 	{
@@ -5228,6 +5231,7 @@ void GSDeviceVK::WarmupCommonTFXPipelines()
 
 bool GSDeviceVK::BindDrawPipeline(const PipelineSelector& p)
 {
+
 	VkPipeline pipeline = GetTFXPipeline(p);
 	if (pipeline == VK_NULL_HANDLE)
 		return false;
@@ -5519,6 +5523,7 @@ bool GSDeviceVK::InRenderPass()
 
 void GSDeviceVK::BeginRenderPass(VkRenderPass rp, const GSVector4i& rect)
 {
+
 	if (m_current_render_pass != VK_NULL_HANDLE)
 		EndRenderPass();
 
@@ -5535,6 +5540,7 @@ void GSDeviceVK::BeginRenderPass(VkRenderPass rp, const GSVector4i& rect)
 
 void GSDeviceVK::BeginClearRenderPass(VkRenderPass rp, const GSVector4i& rect, const VkClearValue* cv, u32 cv_count)
 {
+
 	if (m_current_render_pass != VK_NULL_HANDLE)
 		EndRenderPass();
 
@@ -5550,6 +5556,7 @@ void GSDeviceVK::BeginClearRenderPass(VkRenderPass rp, const GSVector4i& rect, c
 
 void GSDeviceVK::BeginClearRenderPass(VkRenderPass rp, const GSVector4i& rect, u32 clear_color)
 {
+
 	alignas(16) VkClearValue cv;
 	GSVector4::store<true>((void*)cv.color.float32, GSVector4::unorm8(clear_color));
 	BeginClearRenderPass(rp, rect, &cv, 1);
@@ -5557,6 +5564,7 @@ void GSDeviceVK::BeginClearRenderPass(VkRenderPass rp, const GSVector4i& rect, u
 
 void GSDeviceVK::BeginClearRenderPass(VkRenderPass rp, const GSVector4i& rect, float depth, u8 stencil)
 {
+
 	VkClearValue cv;
 	cv.depthStencil.depth = depth;
 	cv.depthStencil.stencil = stencil;
@@ -5565,6 +5573,7 @@ void GSDeviceVK::BeginClearRenderPass(VkRenderPass rp, const GSVector4i& rect, f
 
 void GSDeviceVK::EndRenderPass()
 {
+
 	if (m_current_render_pass == VK_NULL_HANDLE)
 		return;
 
@@ -5850,6 +5859,7 @@ void GSDeviceVK::SetupDATE(GSTexture* rt, GSTexture* ds, SetDATM datm, const GSV
 
 GSTextureVK* GSDeviceVK::SetupPrimitiveTrackingDATE(GSHWDrawConfig& config)
 {
+
 	g_perfmon.Put(GSPerfMon::TextureCopies, 1);
 
 	// How this is done:
@@ -5938,6 +5948,28 @@ GSTextureVK* GSDeviceVK::SetupPrimitiveTrackingDATE(GSHWDrawConfig& config)
 
 void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 {
+
+	m_draws_since_submit++;
+
+	// Mid-frame command-buffer kick.
+	// While a frame records, submit accumulated work to keep the GPU busy
+	// so it runs concurrently with GS-thread recording instead of only starting
+	// when the readback fence-waits on it. This fixes massive slowdowns on tilers.
+	{
+		constexpr u32 kick_threshold = 4000;
+		if (m_draws_since_submit >= kick_threshold)
+		{
+			ScanForCommandBufferCompletion();
+			const u32 next_buffer = (m_current_frame + 1) % NUM_COMMAND_BUFFERS;
+			if (m_frame_resources[next_buffer].fence_counter <= m_completed_fence_counter)
+			{
+				ExecuteCommandBuffer(false);
+				m_draws_since_submit = 0;
+			}
+		}
+	}
+
+	m_pipeline_selector.vs.expand = config.vs.expand;
 	const GSVector2i rtsize(config.rt ? config.rt->GetSize() : config.ds->GetSize());
 	GSTextureVK* draw_rt = static_cast<GSTextureVK*>(config.rt);
 	GSTextureVK* draw_ds = static_cast<GSTextureVK*>(config.ds);
@@ -5988,12 +6020,12 @@ void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 	PipelineSelector& pipe = m_pipeline_selector;
 	UpdateHWPipelineSelector(config, pipe);
 
-	// If we don't have a barrier but the texture was drawn to last draw, end the pass to insert a barrier.
+	// If we don't have a barrier but the texture was drawn to last draw, insert a barrier.
 	if (InRenderPass())
 	{
 		if ((!pipe.IsRTFeedbackLoop() && config.tex == m_current_render_target) ||
 			(!pipe.IsDepthFeedbackLoop() && config.tex == m_current_depth_target))
-			EndRenderPass();
+			config.require_one_barrier = true;
 	}
 
 	// now blit the colclip texture back to the original target
@@ -6356,6 +6388,7 @@ void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 
 void GSDeviceVK::UpdateHWPipelineSelector(GSHWDrawConfig& config, PipelineSelector& pipe)
 {
+
 	pipe.vs.key = config.vs.key;
 	pipe.ps.key_hi = config.ps.key_hi;
 	pipe.ps.key_lo = config.ps.key_lo;
@@ -6387,6 +6420,7 @@ void GSDeviceVK::UpdateHWPipelineSelector(GSHWDrawConfig& config, PipelineSelect
 
 void GSDeviceVK::UploadHWDrawVerticesAndIndices(GSHWDrawConfig& config)
 {
+
 	IASetVertexBuffer(config.verts, sizeof(GSVertex), config.nverts, GetVertexAlignment(config.vs.expand));
 	m_vertex.start *= GetExpansionFactor(config.vs.expand);
 
@@ -6463,6 +6497,7 @@ void GSDeviceVK::SendHWDraw(const GSHWDrawConfig& config, GSTextureVK* draw_rt, 
 	}
 
 	const auto IssueBarriers = [&]() {
+
 		if (draw_rt)
 		{
 			vkCmdPipelineBarrier(GetCurrentCommandBuffer(),
@@ -6504,6 +6539,7 @@ void GSDeviceVK::SendHWDraw(const GSHWDrawConfig& config, GSTextureVK* draw_rt, 
 		g_perfmon.Put(GSPerfMon::Barriers, n_barriers);
 		IssueBarriers();
 	}
+
 
 	DrawIndexedPrimitive();
 }
