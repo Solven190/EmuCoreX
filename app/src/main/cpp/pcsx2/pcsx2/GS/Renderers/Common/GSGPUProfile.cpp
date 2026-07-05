@@ -194,14 +194,7 @@ static MobileGsTuning GetMobileGsTuning(RuntimeGpuProfile profile, MobileGpuTier
 			break;
 	}
 
-	if (profile == RuntimeGpuProfile::Mali || profile == RuntimeGpuProfile::PowerVR)
-	{
-		tuning.prefer_mobile_light_gs = true;
-		tuning.prefer_mobile_sw_blend = true;
-		tuning.prefer_new_textures = false;
-		if (tier != MobileGpuTier::High)
-			tuning.force_partial_texture_preloading = true;
-	}
+	// MediaTek overrides removed to match Snapdragon behavior
 
 	return tuning;
 }

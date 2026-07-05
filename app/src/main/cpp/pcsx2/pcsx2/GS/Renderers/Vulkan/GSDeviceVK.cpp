@@ -473,7 +473,7 @@ bool GSDeviceVK::SelectDeviceExtensions(ExtensionList* extension_list, bool enab
 	m_optional_extensions.vk_ext_rasterization_order_attachment_access =
 		SupportsExtension(VK_EXT_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME, false);
 	m_optional_extensions.vk_ext_attachment_feedback_loop_layout =
-		!IsMaliGPUProfile() && SupportsExtension(VK_EXT_ATTACHMENT_FEEDBACK_LOOP_LAYOUT_EXTENSION_NAME, false);
+		SupportsExtension(VK_EXT_ATTACHMENT_FEEDBACK_LOOP_LAYOUT_EXTENSION_NAME, false);
 	m_optional_extensions.vk_ext_line_rasterization = SupportsExtension(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME, false);
 	m_optional_extensions.vk_khr_push_descriptor =
 		SupportsExtension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, false);
@@ -856,11 +856,7 @@ bool GSDeviceVK::ProcessDeviceExtensions()
 	}
 
 #if defined(__ANDROID__)
-	if (m_optional_extensions.vk_khr_push_descriptor && (IsMaliGPUProfile() || IsPowerVRGPUProfile()))
-	{
-		Console.Warning("VK: MediaTek GPU profile active; using descriptor-set texture binding fallback.");
-		m_optional_extensions.vk_khr_push_descriptor = false;
-	}
+	// MediaTek overrides removed to match Snapdragon
 #endif
 
 	if (m_optional_extensions.vk_ext_line_rasterization && !line_rasterization_feature.bresenhamLines)
