@@ -221,7 +221,7 @@
     <string name="settings_pro_feature_support_desc">Helps fund fixes, compatibility work, and new app refinements.</string>
     <string name="settings_pro_apply_theme">Use Crimson</string>
     <string name="welcome_title">Welcome to EmuCoreX</string>
-    <string name="welcome_body">EmuCoreX is a young project and we need your support for further development! By getting the Pro version, you directly support the creators, and as a bonus, you unlock the exclusive Crimson theme and Gold app icon.</string>
+    <string name="welcome_body">EmuCoreX is a new project in active development, and we need your support! By getting the Pro version, you directly support the creators, and as a bonus, you unlock the exclusive Crimson theme and Gold app icon.</string>
     <string name="welcome_primary">Get Pro</string>
     <string name="welcome_secondary">Continue</string>
     <string name="pro_title">EmuCoreX Pro</string>

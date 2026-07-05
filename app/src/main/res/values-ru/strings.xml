@@ -1325,7 +1325,7 @@
     <string name="settings_pro_feature_support_title">Поддержка разработки</string>
     <string name="settings_pro_feature_support_desc">Помогает финансировать исправления ошибок, работу над совместимостью и новые улучшения приложения.</string>
     <string name="settings_pro_apply_theme">Использовать Crimson</string>
-    <string name="welcome_body">EmuCoreX — это молодой проект, и для его развития нам нужна ваша поддержка! Приобретая версию Pro, вы напрямую поддерживаете разработчиков, а в качестве бонуса получаете тему Crimson и эксклюзивную золотую иконку приложения.</string>
+    <string name="welcome_body">EmuCoreX - это новый проект в активной разработке, и нам нужна ваша поддержка! Приобретая версию Pro, вы напрямую поддерживаете разработчиков, а в качестве бонуса получаете тему Crimson и эксклюзивную золотую иконку приложения.</string>
     <string name="pro_feature_theme">Переключите все приложение на более темную тему Crimson.</string>
     <string name="pro_feature_support">Добавьте золотую иконку лаунчера и поддержите непрерывную разработку.</string>
     <string name="onboarding_pro_subtitle">Crimson придает EmuCoreX более темный вид, а версия Pro помогает продолжать разработку.</string>

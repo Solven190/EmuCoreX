@@ -1325,7 +1325,7 @@
     <string name="settings_pro_feature_support_title">Apoyar el desarrollo</string>
     <string name="settings_pro_feature_support_desc">Ayuda a financiar correcciones, trabajos de compatibilidad y nuevos refinamientos de la aplicación.</string>
     <string name="settings_pro_apply_theme">Usar Crimson</string>
-    <string name="welcome_body">EmuCoreX es un proyecto joven y necesitamos tu apoyo para seguir desarrollándolo. Al obtener la versión Pro, apoyas directamente a los creadores y, como bonificación, desbloqueas el tema Crimson exclusivo y el icono dorado de la aplicación.</string>
+    <string name="welcome_body">EmuCoreX es un proyecto nuevo en desarrollo activo y necesitamos tu apoyo. Al obtener la versión Pro, apoyas directamente a los creadores y, como bonificación, desbloqueas el tema Crimson exclusivo y el icono dorado de la aplicación.</string>
     <string name="pro_feature_theme">Cambia toda la aplicación al tema más oscuro Crimson.</string>
     <string name="pro_feature_support">Añade el icono dorado del lanzador y apoya el desarrollo continuo.</string>
     <string name="onboarding_pro_subtitle">Crimson le da a EmuCoreX un aspecto más oscuro, mientras que Pro ayuda a mantener en marcha el desarrollo.</string>
