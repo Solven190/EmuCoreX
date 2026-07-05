@@ -1073,13 +1073,7 @@ private fun SettingsContent(
                             onSelect = viewModel::setBlendingAccuracy,
                             helpText = stringResource(R.string.settings_help_blending_accuracy),
                             onResetToDefault = {
-                                viewModel.setBlendingAccuracy(
-                                    if (GpuHardwareProfiles.isMediatekProfile(uiState.gpuHardwareProfile)) {
-                                        GsHackDefaults.BLENDING_ACCURACY_MAXIMUM
-                                    } else {
-                                        defaults.blendingAccuracy
-                                    }
-                                )
+                                viewModel.setBlendingAccuracy(defaults.blendingAccuracy)
                             }
                         )
                         ChoiceSection(
