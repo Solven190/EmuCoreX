@@ -137,7 +137,10 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         if (!StorageAccess.takePersistableReadWritePermission(application, uri)) return
 
         val resolvedPath = DocumentPathResolver.resolveDirectoryPath(uri.toString()) ?: return
-        if (!EmulatorStorage.prepareCustomDataRoot(resolvedPath)) return
+        if (!EmulatorStorage.prepareCustomDataRoot(resolvedPath)) {
+            android.widget.Toast.makeText(application, com.sbro.emucorex.R.string.error_otg_read_only, android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
         viewModelScope.launch {
             preferences.setEmulatorDataPath(resolvedPath)
         }

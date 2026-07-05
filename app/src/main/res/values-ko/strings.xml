@@ -1327,4 +1327,5 @@
     <string name="pro_feature_theme">앱 전체를 어두운 Crimson 테마로 전환합니다.</string>
     <string name="pro_feature_support">골드 런처 아이콘을 추가하고 지속적인 개발을 지원합니다.</string>
     <string name="onboarding_pro_subtitle">Crimson은 EmuCoreX에 어두운 느낌을 주며, Pro는 개발을 계속 진행하는 데 도움을 줍니다.</string>
+    <string name="error_otg_read_only">Android 제한으로 인해 이 폴더는 읽기 전용입니다. 내부 저장소 또는 지원되는 SD 카드의 폴더를 선택하세요.</string>
 </resources>

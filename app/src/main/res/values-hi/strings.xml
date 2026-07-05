@@ -1327,4 +1327,5 @@
     <string name="pro_feature_theme">पूरे ऐप को गहरे Crimson थीम में स्विच करें।</string>
     <string name="pro_feature_support">गोल्ड लॉन्चर आइकन जोड़ें और निरंतर विकास का समर्थन करें।</string>
     <string name="onboarding_pro_subtitle">Crimson, EmuCoreX को एक गहरा रूप देता है, जबकि Pro विकास को गतिमान रखने में मदद करता है।</string>
+    <string name="error_otg_read_only">Android प्रतिबंधों के कारण यह फ़ोल्डर केवल पढ़ने के लिए है। कृपया आंतरिक संग्रहण या समर्थित SD कार्ड पर एक फ़ोल्डर चुनें।</string>
 </resources>

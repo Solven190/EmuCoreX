@@ -1342,4 +1342,5 @@
     <string name="jit_profiler_desc">Profiles JIT recompiler execution for EE, IOP, VU0, and VU1.</string>
     <string name="hang_trace_title">Hang Trace</string>
     <string name="hang_trace_desc">Records recent EE, IOP, VU0, and VU1 opcodes to data/hang_trace.txt while reproducing loading hangs.</string>
+    <string name="error_otg_read_only">This folder is read-only due to Android restrictions. Please select a folder on internal storage or a supported SD card.</string>
 </resources>

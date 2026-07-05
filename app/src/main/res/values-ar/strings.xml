@@ -1327,4 +1327,5 @@
     <string name="pro_feature_theme">قم بتبديل التطبيق بالكامل إلى مظهر Crimson الداكن.</string>
     <string name="pro_feature_support">أضف أيقونة المشغل الذهبية وادعم التطوير المستمر.</string>
     <string name="onboarding_pro_subtitle">يمنح مظهر Crimson تطبيق EmuCoreX مظهرًا داكنًا، بينما يساعد إصدار Pro في استمرار التطوير.</string>
+    <string name="error_otg_read_only">هذا المجلد للقراءة فقط بسبب قيود أندرويد. يرجى تحديد مجلد على وحدة التخزين الداخلية أو بطاقة SD مدعومة.</string>
 </resources>

@@ -1329,4 +1329,5 @@
     <string name="pro_feature_theme">Переключите все приложение на более темную тему Crimson.</string>
     <string name="pro_feature_support">Добавьте золотую иконку лаунчера и поддержите непрерывную разработку.</string>
     <string name="onboarding_pro_subtitle">Crimson придает EmuCoreX более темный вид, а версия Pro помогает продолжать разработку.</string>
+    <string name="error_otg_read_only">Эта папка доступна только для чтения из-за ограничений Android. Пожалуйста, выберите папку во внутренней памяти или на поддерживаемой SD-карте.</string>
 </resources>

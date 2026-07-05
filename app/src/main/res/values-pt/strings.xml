@@ -1329,4 +1329,5 @@
     <string name="pro_feature_theme">Mude todo o aplicativo para o tema Crimson mais escuro.</string>
     <string name="pro_feature_support">Adicione o ícone dourado do iniciador e apoie o desenvolvimento contínuo.</string>
     <string name="onboarding_pro_subtitle">O Crimson dá ao EmuCoreX um visual mais sombrio, enquanto o Pro ajuda a manter o desenvolvimento em andamento.</string>
+    <string name="error_otg_read_only">Esta pasta é apenas para leitura devido às restrições do Android. Selecione uma pasta no armazenamento interno ou num cartão SD suportado.</string>
 </resources>

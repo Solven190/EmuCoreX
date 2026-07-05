@@ -1327,4 +1327,5 @@
     <string name="pro_feature_theme">Tüm uygulamayı daha koyu olan Crimson temasına geçirin.</string>
     <string name="pro_feature_support">Altın başlatıcı simgesini ekleyin ve sürekli geliştirmeyi destekleyin.</string>
     <string name="onboarding_pro_subtitle">Crimson, EmuCoreX\'e daha koyu bir görünüm kazandırırken Pro, geliştirmenin devam etmesine yardımcı olur.</string>
+    <string name="error_otg_read_only">Android kısıtlamaları nedeniyle bu klasör salt okunurdur. Lütfen dahili depolamada veya desteklenen bir SD kartta bir klasör seçin.</string>
 </resources>
