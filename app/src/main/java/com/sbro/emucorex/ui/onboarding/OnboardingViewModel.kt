@@ -116,6 +116,8 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setGamePath(uri: Uri) {
         val application = getApplication<Application>()
+        if (!StorageAccess.takePersistableReadPermission(application, uri)) return
+
         val rawPath = uri.toString()
         if (!SetupValidator.hasCoreReadableGameFile(application, rawPath)) return
 
