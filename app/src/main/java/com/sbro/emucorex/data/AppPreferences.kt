@@ -563,7 +563,10 @@ class AppPreferences(private val context: Context) {
     }
 
     private fun defaultBlendingAccuracyForGpuProfile(gpuHardwareProfile: Int): Int {
-        return GsHackDefaults.BLENDING_ACCURACY_DEFAULT
+        return if (GpuHardwareProfiles.isMediatekProfile(gpuHardwareProfile))
+            GsHackDefaults.BLENDING_ACCURACY_MAXIMUM
+        else
+            GsHackDefaults.BLENDING_ACCURACY_DEFAULT
     }
 
     private fun normalizeRendererPreference(
