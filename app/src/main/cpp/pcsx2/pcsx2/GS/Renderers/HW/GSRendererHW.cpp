@@ -5096,7 +5096,7 @@ void GSRendererHW::HandleProvokingVertexFirst()
 	}
 }
 
-void GSRendererHW::SetupIA(float target_scale, float sx, float sy, bool req_vert_backup)
+void GSRendererHW::SetupIA(float target_scale, float sx, float sy, bool req_vert_backup, const bool no_rt)
 {
 	GL_PUSH("HW: IA");
 
@@ -5759,9 +5759,12 @@ __ri u32 GSRendererHW::EmulateChannelShuffle(GSTextureCache::Target* src, bool t
 	return true;
 }
 
-void GSRendererHW::EmulateBlending(int rt_alpha_min, int rt_alpha_max, const bool DATE, bool& DATE_PRIMID, bool& DATE_BARRIER,
+void GSRendererHW::EmulateBlending(int rt_alpha_min, int rt_alpha_max, DATEOptions& date_options,
 	GSTextureCache::Target* rt, bool can_scale_rt_alpha, bool& new_rt_alpha_scale)
 {
+	const bool DATE = date_options.enabled;
+	bool& DATE_PRIMID = date_options.primid;
+	bool& DATE_BARRIER = date_options.barrier;
 	const GIFRegALPHA& ALPHA = m_context->ALPHA;
 	{
 		// PABE: Check condition early as an optimization, no blending when As < 128.
@@ -6570,8 +6573,14 @@ __ri static constexpr bool IsRedundantClamp(u8 clamp, u32 clamp_min, u32 clamp_m
 	else if (clamp == CLAMP_REGION_REPEAT)
 		return (clamp_max == 0 && clamp_min == textent);
 	else
-		return false;
+	return false;
 }
+
+bool GSRendererHW::IsCoverageAlphaSupported()
+{
+	return IsCoverageAlpha() && IsRTWritten() && g_gs_device->Features().aa1;
+}
+
 
 __ri static constexpr u8 EffectiveClamp(u8 clamp, bool has_region)
 {
@@ -7433,9 +7442,13 @@ void GSRendererHW::GetAlphaTestConfigPS(const u32 atst, const u8 aref, const boo
 	}
 }
 
-void GSRendererHW::EmulateAlphaTest(const bool& DATE, bool& DATE_BARRIER, bool& DATE_one, bool& DATE_PRIMID)
+void GSRendererHW::EmulateAlphaTest(DATEOptions& date_options)
 {
 	const GSDevice::FeatureSupport& features = g_gs_device->Features();
+	const bool& DATE = date_options.enabled;
+	bool& DATE_BARRIER = date_options.barrier;
+	bool& DATE_one = date_options.stencil_one;
+	bool& DATE_PRIMID = date_options.primid;
 
 	if (!m_cached_ctx.TEST.ATE)
 	{
@@ -7810,10 +7823,15 @@ __ri void GSRendererHW::DrawPrims(GSTextureCache::Target* rt, GSTextureCache::Ta
 #endif
 
 	const GSDrawingEnvironment& env = *m_draw_env;
-	bool DATE = rt && m_cached_ctx.TEST.DATE && m_cached_ctx.FRAME.PSM != PSMCT24;
-	bool DATE_PRIMID = false;
-	bool DATE_BARRIER = false;
-	bool DATE_one = false;
+	DATEOptions date_options;
+	date_options.enabled = rt && m_cached_ctx.TEST.DATE && m_cached_ctx.FRAME.PSM != PSMCT24;
+	date_options.barrier = false;
+	date_options.primid = false;
+	date_options.stencil_one = false;
+	bool& DATE = date_options.enabled;
+	bool& DATE_PRIMID = date_options.primid;
+	bool& DATE_BARRIER = date_options.barrier;
+	bool& DATE_one = date_options.stencil_one;
 
 	ResetStates();
 
@@ -8210,14 +8228,14 @@ __ri void GSRendererHW::DrawPrims(GSTextureCache::Target* rt, GSTextureCache::Ta
 	m_conf.ps.no_color1 = true;
 
 	// Perform alpha test first pass setup here as bending depends on it.
-	EmulateAlphaTest(DATE, DATE_BARRIER, DATE_one, DATE_PRIMID);
+	EmulateAlphaTest(date_options);
 
 	// AA1: Set alpha source to coverage 128 when there is no alpha blending.
 	m_conf.ps.fixed_one_a = IsCoverageAlpha();
 
 	if ((!IsOpaque() || m_context->ALPHA.IsBlack()) && rt && ((m_conf.colormask.wrgba & 0x7) || (m_texture_shuffle && !m_copy_16bit_to_target_shuffle && !m_same_group_texture_shuffle)))
 	{
-		EmulateBlending(blend_alpha_min, blend_alpha_max, DATE, DATE_PRIMID, DATE_BARRIER, rt, can_scale_rt_alpha, new_scale_rt_alpha);
+		EmulateBlending(blend_alpha_min, blend_alpha_max, date_options, rt, can_scale_rt_alpha, new_scale_rt_alpha);
 	}
 	else
 	{
@@ -8522,7 +8540,7 @@ __ri void GSRendererHW::DrawPrims(GSTextureCache::Target* rt, GSTextureCache::Ta
 
 	HandleProvokingVertexFirst();
 
-	SetupIA(rtscale, sx, sy, m_channel_shuffle_width != 0);
+	SetupIA(rtscale, sx, sy, m_channel_shuffle_width != 0, !rt);
 
 	StartDepthAsRTFeedback(); // Depends on the drawarea and alpha test having been determined.
 	

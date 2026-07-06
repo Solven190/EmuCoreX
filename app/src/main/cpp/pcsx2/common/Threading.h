@@ -237,6 +237,15 @@ namespace Threading
 				m_sema.Post();
 		}
 
+		void Post(int count)
+		{
+			if (m_counter.fetch_add(count, std::memory_order_release) < 0)
+			{
+				for (int i = 0; i < count && m_counter.load(std::memory_order_relaxed) <= 0; i++)
+					m_sema.Post();
+			}
+		}
+
 		void Wait()
 		{
 			if (m_counter.fetch_sub(1, std::memory_order_acquire) <= 0)

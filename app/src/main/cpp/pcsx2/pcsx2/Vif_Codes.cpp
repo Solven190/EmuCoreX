@@ -8,6 +8,7 @@
 #include "VUmicro.h"
 #include "Vif_Dma.h"
 #include "Vif_Dynarec.h"
+#include "VU1Fingerprint.h"
 
 #include <atomic>
 
@@ -384,6 +385,12 @@ static __fi void _vifCode_MPG(int idx, u32 addr, const u32* data, int size)
 		data += (vuMemSize - addr) / 4;
 		memcpy(VUx.Micro, data, size * 4);
 
+		if (idx && VU1Fingerprint::Enabled())
+		{
+			VU1Fingerprint::OnUpload(1, addr, VUx.Micro + addr, vuMemSize - addr);
+			VU1Fingerprint::OnUpload(1, 0, VUx.Micro, size * 4);
+		}
+
 		vifX.tag.addr = size * 4;
 	}
 	else
@@ -397,6 +404,9 @@ static __fi void _vifCode_MPG(int idx, u32 addr, const u32* data, int size)
 		else
 			CpuVU1->Clear(addr, size * 4);
 		memcpy(VUx.Micro + addr, data, size * 4); //from tests, memcpy is 1fps faster on Grandia 3 than memcpy
+
+		if (idx && VU1Fingerprint::Enabled())
+			VU1Fingerprint::OnUpload(1, addr, VUx.Micro + addr, size * 4);
 
 		vifX.tag.addr += size * 4;
 	}
