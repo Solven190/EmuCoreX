@@ -204,18 +204,33 @@ protected:
 	TextureMinMaxResult GetTextureMinMax(GIFRegTEX0 TEX0, GIFRegCLAMP CLAMP, bool linear, bool clamp_to_tsize);
 	bool TryAlphaTest(u32& fm, u32& zm);
 	bool IsOpaque();
+	bool IsFlatShaded();
 	bool IsMipMapDraw();
 	bool IsMipMapActive();
 	bool IsCoverageAlpha();
+	bool IsCoverageAlphaFixedOne();
+	virtual bool IsCoverageAlphaSupported();
 	void CalcAlphaMinMax(const int tex_min, const int tex_max);
 	void CorrectATEAlphaMinMax(const u32 atst, const int aref);
+
+	GSVector4 GetXYWindow(const GSVertex& v);
+	template<bool fst>
+	GSVector4 GetTexCoordsImpl(const GSVertex& v, float q);
+	template<bool fst>
+	GSVector4 GetTexCoordsImpl(const GSVertex& v);
+	GSVector4 GetTexCoords(const GSVertex& v, float q);
+	GSVector4 GetTexCoords(const GSVertex& v);
+
+	static void GetQuadRasterizedPoints(GSVector4& xy, bool keep_order = true);
+	static void GetQuadRasterizedPoints(GSVector4& xy, GSVector4& tex, bool keep_order = true);
 
 public:
 	enum EEGS_TransferType
 	{
 		EE_to_GS,
 		GS_to_GS,
-		GS_to_EE
+		GS_to_EE,
+		Clear
 	};
 
 	struct GSUploadQueue
@@ -241,6 +256,7 @@ public:
 	GSLocalMemory m_mem;
 	GSDrawingEnvironment m_env = {};
 	GSDrawingEnvironment m_prev_env = {};
+	GSDrawingEnvironment m_temp_env = {};
 	const GSDrawingEnvironment* m_draw_env = &m_env;
 	GSDrawingContext* m_context = nullptr;
 	GSVector4i temp_draw_rect = {};

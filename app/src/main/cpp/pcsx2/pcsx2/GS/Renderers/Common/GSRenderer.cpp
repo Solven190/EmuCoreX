@@ -8,6 +8,7 @@
 #include "GS/GSDump.h"
 #include "GS/GSGL.h"
 #include "GS/GSPerfMon.h"
+#include "GS.h"
 #include "GS/GSUtil.h"
 #include "GSDumpReplayer.h"
 #include "platform/host/Host.h"
@@ -16,6 +17,7 @@
 #include "VMManager.h"
 
 #include "common/FileSystem.h"
+#include "common/HostSys.h"
 #include "common/Image.h"
 #include "common/Path.h"
 #include "common/StringUtil.h"
@@ -671,6 +673,62 @@ void GSRenderer::VSync(u32 field, bool registers_written, bool idle_frame)
 		else
 		{
 			m_skipped_duplicate_frames = 0;
+		}
+	}
+
+	// Manual frameskip (Android low-end devices): present 1 of every (N+1)
+	// frames, skipping presentation of N. Reuses the duplicate-frame skip path
+	// (skips present + post-processing). Emulation still runs every frame, so
+	// this trades smoothness for GPU/present headroom.
+	if (const u32 manual_skip = GSGetManualFrameSkip(); manual_skip > 0 && !GSCapture::IsCapturingVideo())
+	{
+		if (m_manual_frameskip_counter < manual_skip)
+		{
+			m_manual_frameskip_counter++;
+			skip_frame = true;
+		}
+		else
+		{
+			m_manual_frameskip_counter = 0;
+		}
+	}
+	else
+	{
+		m_manual_frameskip_counter = 0;
+	}
+
+	// Max-FPS cap (Android): hold the *presented* frame rate at/below a target
+	// without slowing emulation (decoupled from the speed limiter / Speed %). The
+	// EE keeps running full speed, only presents are dropped. Set via setFpsCap.
+	//
+	// ACCUMULATOR pacer: schedule the next present at +cap_interval and drop every
+	// frame until that time. This holds the AVERAGE present rate at ANY target
+	// (e.g. 47 / 55 fps for the per-game "golden spot" tuning), not just whole
+	// divisions of the source rate. Targets between the clean divisions get
+	// slightly uneven spacing (a periodic doubled frame) — the price of an
+	// arbitrary cap. Resync after a stall so we never burst-present to catch up.
+	if (const u64 cap_interval = GSGetMaxPresentInterval(); cap_interval > 0 && !skip_frame && !GSCapture::IsCapturingVideo())
+	{
+		if (GSGetPresentCapSuspended())
+		{
+			// Fast-forward (Turbo): don't drop presents, so the speed-up is
+			// actually visible. Re-prime the schedule so the cap resumes cleanly
+			// the instant FF ends (no burst-present to "catch up").
+			m_fps_cap_next_present = 0;
+		}
+		else
+		{
+			const u64 now = GetCPUTicks();
+			if (m_fps_cap_next_present == 0)
+				m_fps_cap_next_present = now; // first present primes the schedule
+			if (now < m_fps_cap_next_present)
+				skip_frame = true; // not yet time for the next present → drop it
+			else
+			{
+				m_fps_cap_next_present += cap_interval;
+				if (m_fps_cap_next_present < now)
+					m_fps_cap_next_present = now + cap_interval; // stalled → resync, no burst
+			}
 		}
 	}
 

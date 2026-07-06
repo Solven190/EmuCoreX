@@ -19,10 +19,12 @@ private:
 	std::string m_snapshot;
 	u32 m_dump_frames = 0;
 	u32 m_skipped_duplicate_frames = 0;
+	u32 m_manual_frameskip_counter = 0;
 
 	// Tracking draw counters for idle frame detection.
 	u64 m_last_draw_n = 0;
 	u64 m_last_transfer_n = 0;
+	u64 m_fps_cap_next_present = 0;
 
 protected:
 	GSVector2i m_real_size{0, 0};

@@ -6587,3 +6587,114 @@ void GSState::GSPCRTCRegs::CalculateDisplayOffset(bool scanmask)
 		}
 	}
 }
+
+// Vertex/Quad utility functions (ported from old core)
+
+bool GSState::IsFlatShaded()
+{
+	return m_vt.m_eq.rgba == 0xFFFF || m_vt.m_primclass == GS_SPRITE_CLASS ||
+	       m_vt.m_primclass == GS_POINT_CLASS || !PRIM->IIP;
+}
+
+bool GSState::IsCoverageAlphaFixedOne()
+{
+	return IsCoverageAlpha() && !PRIM->ABE && !IsCoverageAlphaSupported();
+}
+
+bool GSState::IsCoverageAlphaSupported()
+{
+	pxFailRel("Not implemented");
+	return false;
+}
+
+__fi GSVector4 GSState::GetXYWindow(const GSVertex& v)
+{
+	return GSVector4(GetVertexXY(v) - m_context->scissor.xyof.xyxy()) / 16.0f;
+}
+
+template<bool fst>
+__fi GSVector4 GSState::GetTexCoordsImpl(const GSVertex& v, float q)
+{
+	if constexpr (fst)
+	{
+		return GSVector4(GetVertexUV(v)) / 16.0f;
+	}
+	else
+	{
+		const float tw = static_cast<float>(1 << m_context->TEX0.TW);
+		const float th = static_cast<float>(1 << m_context->TEX0.TH);
+		const GSVector4 tex_size(tw, th, tw, th);
+		return GSVector4(GetVertexST(v) / q * tex_size);
+	}
+}
+
+template<bool fst>
+__fi GSVector4 GSState::GetTexCoordsImpl(const GSVertex& v)
+{
+	return GetTexCoordsImpl<fst>(v, v.RGBAQ.Q);
+}
+
+__fi GSVector4 GSState::GetTexCoords(const GSVertex& v, float q)
+{
+	if (PRIM->FST)
+	{
+		return GetTexCoordsImpl<true>(v, q);
+	}
+	else
+	{
+		return GetTexCoordsImpl<false>(v, q);
+	}
+}
+
+__fi GSVector4 GSState::GetTexCoords(const GSVertex& v)
+{
+	return GetTexCoords(v, v.RGBAQ.Q);
+}
+
+void GSState::GetQuadRasterizedPoints(GSVector4& xy, GSVector4& tex, bool keep_order)
+{
+	const int swap = (xy.xyxy() > xy.zwzw()).mask();
+
+	if (swap & 1)
+	{
+		xy = xy.zyxw();
+		tex = tex.zyxw();
+	}
+
+	if (swap & 2)
+	{
+		xy = xy.xwzy();
+		tex = tex.xwzy();
+	}
+
+	const GSVector4 grad = (tex.zwzw() - tex.xyxy()) / (xy.zwzw() - xy.xyxy());
+
+	GSVector4 xy_round = xy.ceil().xyzw(xy.floor());
+	const GSVector4 bottom_right = GSVector4::zero().xyzw(xy == xy_round);
+	xy_round = xy_round.blend32(xy_round - GSVector4(1.0f), bottom_right);
+
+	tex += grad * (xy_round - xy);
+
+	xy = xy_round;
+
+	if (keep_order)
+	{
+		if (swap & 1)
+		{
+			xy = xy.zyxw();
+			tex = tex.zyxw();
+		}
+
+		if (swap & 2)
+		{
+			xy = xy.xwzy();
+			tex = tex.xwzy();
+		}
+	}
+}
+
+void GSState::GetQuadRasterizedPoints(GSVector4& xy, bool keep_order)
+{
+	GSVector4 tex_ignore;
+	GetQuadRasterizedPoints(xy, tex_ignore, keep_order);
+}
