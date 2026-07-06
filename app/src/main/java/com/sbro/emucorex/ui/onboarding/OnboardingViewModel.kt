@@ -22,7 +22,6 @@ import kotlinx.coroutines.launch
 
 data class OnboardingUiState(
     val performanceProfile: Int = PerformanceProfiles.SAFE,
-    val gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO,
     val biosPath: String? = null,
     val gamePath: String? = null,
     val emulatorDataPath: String? = null,
@@ -63,11 +62,6 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             launch {
                 preferences.performanceProfile.collect { profile ->
                     updateState(performanceProfile = profile)
-                }
-            }
-            launch {
-                preferences.gpuHardwareProfile.collect { profile ->
-                    updateState(gpuHardwareProfile = profile)
                 }
             }
             launch {
@@ -112,7 +106,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                 biosPath = uri.toString(),
                 emulatorDataPath = _uiState.value.emulatorDataPath,
                 renderer = EmulatorBridge.getSetting("EmuCoreX", "Renderer", "int")?.toIntOrNull() ?: 0,
-                gpuHardwareProfile = _uiState.value.gpuHardwareProfile,
+                gpuHardwareProfile = GpuHardwareProfiles.detectHardwareProfile(),
                 upscaleMultiplier = EmulatorBridge.getSetting("EmuCoreX", "UpscaleMultiplier", "float")?.toFloatOrNull()
                     ?: EmulatorBridge.getSetting("EmuCoreX", "UpscaleMultiplier", "int")?.toIntOrNull()?.toFloat()
                     ?: 1f
@@ -122,8 +116,6 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setGamePath(uri: Uri) {
         val application = getApplication<Application>()
-        if (!StorageAccess.takePersistableReadPermission(application, uri)) return
-
         val rawPath = uri.toString()
         if (!SetupValidator.hasCoreReadableGameFile(application, rawPath)) return
 
@@ -152,12 +144,6 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun setGpuHardwareProfile(profile: Int) {
-        viewModelScope.launch {
-            preferences.setGpuHardwareProfile(profile)
-        }
-    }
-
     fun setCurrentPage(page: Int) {
         val currentState = _uiState.value
         _uiState.value = currentState.copy(currentPage = page.coerceIn(0, currentState.totalPages - 1))
@@ -173,7 +159,6 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
 
     private fun updateState(
         performanceProfile: Int = _uiState.value.performanceProfile,
-        gpuHardwareProfile: Int = _uiState.value.gpuHardwareProfile,
         biosPath: String? = _uiState.value.biosPath,
         gamePath: String? = _uiState.value.gamePath,
         emulatorDataPath: String? = _uiState.value.emulatorDataPath,
@@ -189,7 +174,6 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     ) {
         _uiState.value = OnboardingUiState(
             performanceProfile = performanceProfile,
-            gpuHardwareProfile = gpuHardwareProfile,
             biosPath = biosPath,
             gamePath = gamePath,
             emulatorDataPath = emulatorDataPath,

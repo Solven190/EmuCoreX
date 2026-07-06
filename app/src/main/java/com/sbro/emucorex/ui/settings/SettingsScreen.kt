@@ -961,7 +961,7 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_renderer),
                             onResetToDefault = { viewModel.setRenderer(defaults.renderer) }
                         )
-                        if (com.sbro.emucorex.core.GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers() && !com.sbro.emucorex.core.GpuHardwareProfiles.isMediatekProfile(uiState.gpuHardwareProfile)) {
+                        if (com.sbro.emucorex.core.GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers() && !com.sbro.emucorex.core.GpuHardwareProfiles.isMediaTekHardware()) {
                             val activeDriverName = uiState.customDriverPath
                                 ?.takeIf { uiState.gpuDriverType == 1 }
                                 ?.let { java.io.File(it).parentFile?.name ?: java.io.File(it).name }
@@ -1702,8 +1702,6 @@ private fun SettingsContent(
                         )
                     }
                     SettingsSection(title = stringResource(R.string.settings_speed_hacks)) {
-                        val selectedGpuHardwareProfile = GpuHardwareProfiles.normalize(uiState.gpuHardwareProfile)
-                        val mediatekGpuSelected = GpuHardwareProfiles.isMediatekProfile(selectedGpuHardwareProfile)
                         val mediatekAngleAvailable = EmulatorBridge.isBundledAngleAvailable()
                         ChoiceSection(
                             title = stringResource(R.string.onboarding_profile_title),
@@ -1716,47 +1714,7 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.onboarding_profile_subtitle),
                             onResetToDefault = { viewModel.setPerformanceProfile(defaults.performanceProfile) }
                         )
-                        ChoiceSection(
-                            title = stringResource(R.string.settings_gpu_chipset),
-                            options = listOf(
-                                GpuHardwareProfiles.ADRENO to stringResource(R.string.gpu_chipset_snapdragon_title),
-                                GpuHardwareProfiles.MALI to stringResource(R.string.gpu_chipset_mediatek_title)
-                            ),
-                            selectedValue = if (mediatekGpuSelected) {
-                                GpuHardwareProfiles.MALI
-                            } else {
-                                GpuHardwareProfiles.ADRENO
-                            },
-                            onSelect = { value ->
-                                viewModel.setGpuHardwareProfile(
-                                    if (value == GpuHardwareProfiles.ADRENO) {
-                                        GpuHardwareProfiles.ADRENO
-                                    } else if (selectedGpuHardwareProfile == GpuHardwareProfiles.POWERVR) {
-                                        GpuHardwareProfiles.POWERVR
-                                    } else {
-                                        GpuHardwareProfiles.MALI
-                                    }
-                                )
-                            },
-                            helpText = stringResource(R.string.settings_help_gpu_hardware_profile),
-                            onResetToDefault = { viewModel.setGpuHardwareProfile(defaults.gpuHardwareProfile) }
-                        )
-                        ChoiceSection(
-                            title = stringResource(R.string.settings_gpu_accelerator),
-                            options = if (mediatekGpuSelected) {
-                                listOf(
-                                    GpuHardwareProfiles.MALI to stringResource(R.string.gpu_mali_title),
-                                    GpuHardwareProfiles.POWERVR to stringResource(R.string.gpu_powervr_title)
-                                )
-                            } else {
-                                listOf(GpuHardwareProfiles.ADRENO to stringResource(R.string.gpu_adreno_title))
-                            },
-                            selectedValue = selectedGpuHardwareProfile,
-                            onSelect = viewModel::setGpuHardwareProfile,
-                            helpText = stringResource(R.string.onboarding_gpu_profile_subtitle),
-                            onResetToDefault = { viewModel.setGpuHardwareProfile(defaults.gpuHardwareProfile) }
-                        )
-                        if (mediatekGpuSelected && mediatekAngleAvailable) {
+                        if (GpuHardwareProfiles.isMediaTekHardware() && mediatekAngleAvailable) {
                             ToggleItem(
                                 icon = Icons.Rounded.SettingsSuggest,
                                 title = stringResource(R.string.settings_mediatek_angle_opengl),

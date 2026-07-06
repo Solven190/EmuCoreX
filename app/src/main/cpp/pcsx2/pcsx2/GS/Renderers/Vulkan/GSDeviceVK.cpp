@@ -473,7 +473,7 @@ bool GSDeviceVK::SelectDeviceExtensions(ExtensionList* extension_list, bool enab
 	m_optional_extensions.vk_ext_rasterization_order_attachment_access =
 		SupportsExtension(VK_EXT_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME, false);
 	m_optional_extensions.vk_ext_attachment_feedback_loop_layout =
-		!IsMaliGPUProfile() && SupportsExtension(VK_EXT_ATTACHMENT_FEEDBACK_LOOP_LAYOUT_EXTENSION_NAME, false);
+		(m_device_properties.vendorID != 0x13B5u) && SupportsExtension(VK_EXT_ATTACHMENT_FEEDBACK_LOOP_LAYOUT_EXTENSION_NAME, false);
 	m_optional_extensions.vk_ext_line_rasterization = SupportsExtension(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME, false);
 	m_optional_extensions.vk_khr_push_descriptor =
 		SupportsExtension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, false);
@@ -534,11 +534,17 @@ bool GSDeviceVK::CreateDevice(VkSurfaceKHR surface, bool enable_validation_layer
 	const GpuProfileSelection gpu_profile_selection =
 		GpuProfileDetector::Resolve(GSConfig.AndroidGpuProfileOverride,
 			GetVulkanVendorHint(m_device_properties.vendorID), m_name);
+	m_is_mali_hardware = (gpu_profile_selection.runtime_profile == RuntimeGpuProfile::Mali);
 	SetRuntimeGPUProfile(gpu_profile_selection.runtime_profile);
 	SetMobileGSTuning(gpu_profile_selection.gs_tuning);
+	if (IsMaliGPUProfile())
+	{
+		Console.WriteLn("VK: Mali hardware detected, overriding to Adreno profile for Vulkan.");
+		SetRuntimeGPUProfile(RuntimeGpuProfile::Adreno);
+	}
 	Console.WriteLn("VK: Android GPU profile override='%s' resolved='%s' tier='%s'%s.",
 		GpuProfileDetector::OverrideToConfigString(gpu_profile_selection.override_mode),
-		GpuProfileDetector::RuntimeProfileToString(gpu_profile_selection.runtime_profile),
+		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
 		GpuProfileDetector::MobileTierToString(gpu_profile_selection.gs_tuning.tier),
 		gpu_profile_selection.gs_tuning.constrained ? " constrained" : "");
 	DevCon.WriteLn("VK: Android GPU profile hints: %s", gpu_profile_selection.hints.c_str());
@@ -836,24 +842,27 @@ bool GSDeviceVK::ProcessDeviceExtensions()
 		Vulkan::AddPointerToChain(&properties2, &m_device_driver_properties);
 	}
 
+	VkPhysicalDevicePushDescriptorPropertiesKHR push_descriptor_properties = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR};
 	if (m_optional_extensions.vk_khr_push_descriptor)
-	{
-		VkPhysicalDevicePushDescriptorPropertiesKHR push_descriptor_properties = {
-			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR};
 		Vulkan::AddPointerToChain(&properties2, &push_descriptor_properties);
 
-		// query
-		vkGetPhysicalDeviceProperties2(m_physical_device, &properties2);
+	// query
+	vkGetPhysicalDeviceProperties2(m_physical_device, &properties2);
 
-		// Confirm the implementation can cover our texture set needs. Otherwise fall back to descriptor sets.
-		if (push_descriptor_properties.maxPushDescriptors < NUM_TFX_TEXTURES)
-			m_optional_extensions.vk_khr_push_descriptor = false;
-	}
-	else
+	// Mali (ARM, vendorID 0x13B5) advertises VK_KHR_push_descriptor but its driver
+	// null-derefs inside vkCmdPushDescriptorSetKHR, so never use it there even when present.
+	m_use_push_descriptors = m_optional_extensions.vk_khr_push_descriptor;
+	if (m_use_push_descriptors && push_descriptor_properties.maxPushDescriptors < NUM_TFX_TEXTURES)
 	{
-		// query
-		vkGetPhysicalDeviceProperties2(m_physical_device, &properties2);
+		Console.Warning("VK: maxPushDescriptors (%u) below required (%u) - using descriptor-set fallback.",
+			push_descriptor_properties.maxPushDescriptors, NUM_TFX_TEXTURES);
+		m_use_push_descriptors = false;
 	}
+	if (m_use_push_descriptors && properties2.properties.vendorID == 0x13B5u)
+		m_use_push_descriptors = false;
+	if (!m_use_push_descriptors)
+		Console.Warning("VK: Using non-push-descriptor texture binding fallback.");
 
 #if defined(__ANDROID__)
 	// MediaTek overrides removed to match Snapdragon
@@ -1030,6 +1039,27 @@ bool GSDeviceVK::CreateCommandBuffers()
 			return false;
 		}
 		Vulkan::SetObjectName(m_device, resources.fence, "Frame Fence %u", frame_index);
+
+		if (!m_use_push_descriptors)
+		{
+			static constexpr u32 MAX_FRAME_TEXTURE_SETS = 8192;
+			const VkDescriptorPoolSize frame_pool_sizes[] = {
+				{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAME_TEXTURE_SETS * 2},
+				{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_FRAME_TEXTURE_SETS * 3},
+				{VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, MAX_FRAME_TEXTURE_SETS * 2},
+				{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAME_TEXTURE_SETS * 2},
+			};
+			const VkDescriptorPoolCreateInfo frame_pool_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+				nullptr, 0, MAX_FRAME_TEXTURE_SETS, static_cast<u32>(std::size(frame_pool_sizes)), frame_pool_sizes};
+			res = vkCreateDescriptorPool(m_device, &frame_pool_info, nullptr, &resources.descriptor_pool);
+			if (res != VK_SUCCESS)
+			{
+				LOG_VULKAN_ERROR(res, "vkCreateDescriptorPool (frame) failed: ");
+				return false;
+			}
+			Vulkan::SetObjectName(m_device, resources.descriptor_pool, "Frame Texture Descriptor Pool %u", frame_index);
+		}
+
 		++frame_index;
 	}
 
@@ -1177,6 +1207,23 @@ VkDescriptorSet GSDeviceVK::AllocatePersistentDescriptorSet(VkDescriptorSetLayou
 void GSDeviceVK::FreePersistentDescriptorSet(VkDescriptorSet set)
 {
 	vkFreeDescriptorSets(m_device, m_global_descriptor_pool, 1, &set);
+}
+
+VkDescriptorSet GSDeviceVK::AllocateFrameDescriptorSet(VkDescriptorSetLayout set_layout)
+{
+	const VkDescriptorPool pool = m_frame_resources[m_current_frame].descriptor_pool;
+	const VkDescriptorSetAllocateInfo allocate_info = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, nullptr, pool, 1, &set_layout};
+
+	VkDescriptorSet descriptor_set;
+	VkResult res = vkAllocateDescriptorSets(m_device, &allocate_info, &descriptor_set);
+	if (res != VK_SUCCESS)
+	{
+		LOG_VULKAN_ERROR(res, "vkAllocateDescriptorSets (frame) failed: ");
+		return VK_NULL_HANDLE;
+	}
+
+	return descriptor_set;
 }
 
 void GSDeviceVK::WaitForFenceCounter(u64 fence_counter)
@@ -1482,6 +1529,13 @@ void GSDeviceVK::ActivateCommandBuffer(u32 index)
 	res = vkResetCommandPool(m_device, resources.command_pool, 0);
 	if (res != VK_SUCCESS)
 		LOG_VULKAN_ERROR(res, "vkResetCommandPool failed: ");
+
+	if (resources.descriptor_pool != VK_NULL_HANDLE)
+	{
+		res = vkResetDescriptorPool(m_device, resources.descriptor_pool, 0);
+		if (res != VK_SUCCESS)
+			LOG_VULKAN_ERROR(res, "vkResetDescriptorPool failed: ");
+	}
 
 	// Enable commands to be recorded to the two buffers again.
 	VkCommandBufferBeginInfo begin_info = {
@@ -4793,22 +4847,23 @@ bool GSDeviceVK::DoCAS(
 	Vulkan::DescriptorSetUpdateBuilder dsub;
 	dsub.AddImageDescriptorWrite(VK_NULL_HANDLE, 0, sTexVK->GetView(), sTexVK->GetVkLayout());
 	dsub.AddStorageImageDescriptorWrite(VK_NULL_HANDLE, 1, dTexVK->GetView(), dTexVK->GetVkLayout());
-	if (m_optional_extensions.vk_khr_push_descriptor)
+	if (m_use_push_descriptors)
 	{
 		dsub.PushUpdate(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, m_cas_pipeline_layout, 0, false);
 	}
 	else
 	{
-		const VkDescriptorSet descriptor_set = AllocatePersistentDescriptorSet(m_cas_ds_layout);
-		if (descriptor_set == VK_NULL_HANDLE)
-			return false;
-
-		dsub.UpdateToDescriptorSet(m_device, descriptor_set, true);
-		vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, m_cas_pipeline_layout, 0, 1, &descriptor_set, 0,
-			nullptr);
-		FrameResources& frame_resources = m_frame_resources[m_current_frame];
-		frame_resources.cleanup_resources.push_back(
-			[this, descriptor_set]() { vkFreeDescriptorSets(m_device, m_global_descriptor_pool, 1, &descriptor_set); });
+		const VkDescriptorSet ds = AllocateFrameDescriptorSet(m_cas_ds_layout);
+		if (ds != VK_NULL_HANDLE)
+		{
+			dsub.UpdateToDescriptorSet(m_device, ds, true);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, m_cas_pipeline_layout, 0, 1, &ds, 0,
+				nullptr);
+		}
+		else
+		{
+			dsub.Clear();
+		}
 	}
 
 	// the actual meat and potatoes! only four commands.
@@ -4945,6 +5000,8 @@ void GSDeviceVK::DestroyResources()
 		}
 		if (resources.command_pool != VK_NULL_HANDLE)
 			vkDestroyCommandPool(m_device, resources.command_pool, nullptr);
+		if (resources.descriptor_pool != VK_NULL_HANDLE)
+			vkDestroyDescriptorPool(m_device, resources.descriptor_pool, nullptr);
 	}
 
 	if (m_timestamp_query_pool != VK_NULL_HANDLE)
@@ -5726,6 +5783,9 @@ bool GSDeviceVK::ApplyTFXState(bool already_execed)
 
 	if (flags & DIRTY_FLAG_TFX_TEXTURES)
 	{
+		if (!m_use_push_descriptors)
+			flags |= DIRTY_FLAG_TFX_TEXTURES;
+
 		if (flags & DIRTY_FLAG_TFX_TEXTURE_TEX)
 		{
 			dsub.AddCombinedImageSamplerDescriptorWrite(VK_NULL_HANDLE, TFX_TEXTURE_TEXTURE,
@@ -5753,22 +5813,23 @@ bool GSDeviceVK::ApplyTFXState(bool already_execed)
 				m_tfx_textures[TFX_TEXTURE_DEPTH]->GetVkLayout());
 		}
 
-		if (m_optional_extensions.vk_khr_push_descriptor)
+		if (m_use_push_descriptors)
 		{
 			dsub.PushUpdate(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tfx_pipeline_layout, TFX_DESCRIPTOR_SET_TEXTURES);
 		}
 		else
 		{
-			const VkDescriptorSet descriptor_set = AllocatePersistentDescriptorSet(m_tfx_texture_ds_layout);
-			if (descriptor_set == VK_NULL_HANDLE)
-				return false;
-
-			dsub.UpdateToDescriptorSet(m_device, descriptor_set, true);
-			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tfx_pipeline_layout,
-				TFX_DESCRIPTOR_SET_TEXTURES, 1, &descriptor_set, 0, nullptr);
-			FrameResources& frame_resources = m_frame_resources[m_current_frame];
-			frame_resources.cleanup_resources.push_back(
-				[this, descriptor_set]() { vkFreeDescriptorSets(m_device, m_global_descriptor_pool, 1, &descriptor_set); });
+			const VkDescriptorSet ds = AllocateFrameDescriptorSet(m_tfx_texture_ds_layout);
+			if (ds != VK_NULL_HANDLE)
+			{
+				dsub.UpdateToDescriptorSet(m_device, ds, true);
+				vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tfx_pipeline_layout,
+					TFX_DESCRIPTOR_SET_TEXTURES, 1, &ds, 0, nullptr);
+			}
+			else
+			{
+				dsub.Clear();
+			}
 		}
 	}
 
@@ -5792,22 +5853,23 @@ bool GSDeviceVK::ApplyUtilityState(bool already_execed)
 		Vulkan::DescriptorSetUpdateBuilder dsub;
 		dsub.AddCombinedImageSamplerDescriptorWrite(
 			VK_NULL_HANDLE, 0, m_utility_texture->GetView(), m_utility_sampler, m_utility_texture->GetVkLayout());
-		if (m_optional_extensions.vk_khr_push_descriptor)
+		if (m_use_push_descriptors)
 		{
 			dsub.PushUpdate(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_utility_pipeline_layout, 0, false);
 		}
 		else
 		{
-			const VkDescriptorSet descriptor_set = AllocatePersistentDescriptorSet(m_utility_ds_layout);
-			if (descriptor_set == VK_NULL_HANDLE)
-				return false;
-
-			dsub.UpdateToDescriptorSet(m_device, descriptor_set, true);
-			vkCmdBindDescriptorSets(
-				cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_utility_pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
-			FrameResources& frame_resources = m_frame_resources[m_current_frame];
-			frame_resources.cleanup_resources.push_back(
-				[this, descriptor_set]() { vkFreeDescriptorSets(m_device, m_global_descriptor_pool, 1, &descriptor_set); });
+			const VkDescriptorSet ds = AllocateFrameDescriptorSet(m_utility_ds_layout);
+			if (ds != VK_NULL_HANDLE)
+			{
+				dsub.UpdateToDescriptorSet(m_device, ds, true);
+				vkCmdBindDescriptorSets(
+					cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_utility_pipeline_layout, 0, 1, &ds, 0, nullptr);
+			}
+			else
+			{
+				dsub.Clear();
+			}
 		}
 	}
 

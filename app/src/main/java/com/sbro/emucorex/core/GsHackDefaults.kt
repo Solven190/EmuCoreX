@@ -10,6 +10,7 @@ object GsHackDefaults {
     const val TV_SHADER_MIN = 0
     const val TV_SHADER_MAX = 7
     const val BLENDING_ACCURACY_DEFAULT = 0
+    const val BLENDING_ACCURACY_MINIMUM = 1
     const val BLENDING_ACCURACY_FULL = 4
     const val BLENDING_ACCURACY_MAXIMUM = 5
     const val TEXTURE_PRELOADING_DEFAULT = 2

@@ -124,6 +124,9 @@ public:
 	/// Frees a descriptor set allocated from the global pool.
 	void FreePersistentDescriptorSet(VkDescriptorSet set);
 
+	/// Allocates from the per-frame descriptor pool (non-push-descriptor path only).
+	VkDescriptorSet AllocateFrameDescriptorSet(VkDescriptorSetLayout set_layout);
+
 	// Gets the fence that will be signaled when the currently executing command buffer is
 	// queued and executed. Do not wait for this fence before the buffer is executed.
 	__fi VkFence GetCurrentCommandBufferFence() const { return m_frame_resources[m_current_frame].fence; }
@@ -235,6 +238,7 @@ private:
 		bool init_buffer_used = false;
 		bool needs_fence_wait = false;
 		bool timestamp_written = false;
+		VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
 
 		std::vector<std::function<void()>> cleanup_resources;
 	};
@@ -257,6 +261,7 @@ private:
 	VkCommandBuffer m_current_command_buffer = VK_NULL_HANDLE;
 
 	VkDescriptorPool m_global_descriptor_pool = VK_NULL_HANDLE;
+	bool m_use_push_descriptors = true;
 
 	VkQueue m_graphics_queue = VK_NULL_HANDLE;
 	VkQueue m_present_queue = VK_NULL_HANDLE;

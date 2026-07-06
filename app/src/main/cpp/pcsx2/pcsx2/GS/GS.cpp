@@ -808,16 +808,6 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 	Pcsx2Config::GSOptions old_config(std::move(GSConfig));
 	GSConfig = new_config;
 
-	// Force Maximum blending accuracy on Mali Vulkan to avoid a driver crash
-	// in ApplyTFXState (SIGSEGV at fault_addr=0x64 in libGLES_mali.so).
-	if (g_gs_device && g_gs_device->IsMaliGPUProfile() &&
-		GSGetCurrentRenderer() == GSRendererType::VK &&
-		GSConfig.AccurateBlendingUnit < AccBlendLevel::Maximum)
-	{
-		Console.Warning("GS: Forcing Maximum blending accuracy on Mali Vulkan to avoid driver crash.");
-		GSConfig.AccurateBlendingUnit = AccBlendLevel::Maximum;
-	}
-
 	if (!g_gs_renderer)
 		return;
 

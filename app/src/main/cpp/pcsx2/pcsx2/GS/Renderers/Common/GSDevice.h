@@ -987,6 +987,7 @@ protected:
 	FeatureSupport m_features;
 	u32 m_max_texture_size = 0;
 	RuntimeGpuProfile m_runtime_gpu_profile = RuntimeGpuProfile::Adreno;
+	bool m_is_mali_hardware = false;
 	MobileGsTuning m_mobile_gs_tuning;
 
 	struct
@@ -1101,6 +1102,7 @@ public:
 	__fi bool IsMaliGPUProfile() const { return m_runtime_gpu_profile == RuntimeGpuProfile::Mali; }
 	__fi bool IsAdrenoGPUProfile() const { return m_runtime_gpu_profile == RuntimeGpuProfile::Adreno; }
 	__fi bool IsPowerVRGPUProfile() const { return m_runtime_gpu_profile == RuntimeGpuProfile::PowerVR; }
+	__fi bool IsMaliHardware() const { return m_is_mali_hardware; }
 
 	__fi const WindowInfo& GetWindowInfo() const { return m_window_info; }
 	__fi s32 GetWindowWidth() const { return static_cast<s32>(m_window_info.surface_width); }

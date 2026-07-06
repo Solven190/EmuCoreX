@@ -94,7 +94,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.DocumentPathResolver
-import com.sbro.emucorex.core.GpuHardwareProfiles
+
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
@@ -420,8 +420,6 @@ fun OnboardingScreen(
                                     OnboardingPerformanceProfileContent(
                                         selectedProfile = uiState.performanceProfile,
                                         onSelectProfile = viewModel::setPerformanceProfile,
-                                        selectedGpuProfile = uiState.gpuHardwareProfile,
-                                        onSelectGpuProfile = viewModel::setGpuHardwareProfile,
                                         modifier = Modifier.padding(horizontal = 32.dp)
                                     )
                                 }
@@ -550,9 +548,7 @@ fun OnboardingScreen(
                                 Spacer(modifier = Modifier.height(32.dp))
                                 OnboardingPerformanceProfileContent(
                                     selectedProfile = uiState.performanceProfile,
-                                    onSelectProfile = viewModel::setPerformanceProfile,
-                                    selectedGpuProfile = uiState.gpuHardwareProfile,
-                                    onSelectGpuProfile = viewModel::setGpuHardwareProfile
+                                    onSelectProfile = viewModel::setPerformanceProfile
                                 )
                             }
                             4 -> {
@@ -1215,14 +1211,8 @@ private fun OnboardingSetupScrollHint(
 private fun OnboardingPerformanceProfileContent(
     selectedProfile: Int,
     onSelectProfile: (Int) -> Unit,
-    selectedGpuProfile: Int,
-    onSelectGpuProfile: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gpuProfile = GpuHardwareProfiles.normalize(selectedGpuProfile)
-    val mediatekSelected = GpuHardwareProfiles.isMediatekProfile(gpuProfile)
-    val chipsetInfo = remember { detectDeviceChipsetInfo() }
-    var showChipsetDialog by remember { mutableStateOf(false) }
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -1239,93 +1229,6 @@ private fun OnboardingPerformanceProfileContent(
             description = stringResource(R.string.onboarding_profile_fast_desc),
             selected = selectedProfile == PerformanceProfiles.FAST,
             onClick = { onSelectProfile(PerformanceProfiles.FAST) }
-        )
-        Spacer(modifier = Modifier.height(20.dp))
-        Text(
-            text = stringResource(R.string.onboarding_gpu_profile_title),
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        OutlinedButton(
-            onClick = { showChipsetDialog = true },
-            shape = RoundedCornerShape(14.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Info,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text = stringResource(R.string.onboarding_detect_chipset_button))
-        }
-        Spacer(modifier = Modifier.height(14.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            CompactProfileCard(
-                title = stringResource(R.string.gpu_chipset_snapdragon_title),
-                selected = !mediatekSelected,
-                onClick = { onSelectGpuProfile(GpuHardwareProfiles.ADRENO) },
-                modifier = Modifier.weight(1f)
-            )
-            CompactProfileCard(
-                title = stringResource(R.string.gpu_chipset_mediatek_title),
-                selected = mediatekSelected,
-                onClick = {
-                    onSelectGpuProfile(
-                        if (gpuProfile == GpuHardwareProfiles.POWERVR) {
-                            GpuHardwareProfiles.POWERVR
-                        } else {
-                            GpuHardwareProfiles.MALI
-                        }
-                    )
-                },
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(modifier = Modifier.height(14.dp))
-        Text(
-            text = stringResource(R.string.settings_gpu_accelerator),
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        if (mediatekSelected) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                CompactProfileCard(
-                    title = stringResource(R.string.gpu_mali_title),
-                    selected = gpuProfile == GpuHardwareProfiles.MALI,
-                    onClick = { onSelectGpuProfile(GpuHardwareProfiles.MALI) },
-                    modifier = Modifier.weight(1f)
-                )
-                CompactProfileCard(
-                    title = stringResource(R.string.gpu_powervr_title),
-                    selected = gpuProfile == GpuHardwareProfiles.POWERVR,
-                    onClick = { onSelectGpuProfile(GpuHardwareProfiles.POWERVR) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        } else {
-            CompactProfileCard(
-                title = stringResource(R.string.gpu_adreno_title),
-                selected = true,
-                onClick = { onSelectGpuProfile(GpuHardwareProfiles.ADRENO) },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-
-    if (showChipsetDialog) {
-        ChipsetInfoDialog(
-            chipsetInfo = chipsetInfo,
-            onDismiss = { showChipsetDialog = false }
         )
     }
 }
