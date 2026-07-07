@@ -259,7 +259,7 @@ static __fi void mVUClampDenormalScalarBits_oaknut(int reg)
 	oakAsm->CBNZ(OAK_WSCRATCH2, done);
 	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x80000000u);
 	oakAsm->MOV(OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->MOV(oakQRegister(reg).Selem()[0], OAK_QSCRATCH2.Selem()[0]);
+	oakAsm->INS(oakQRegister(reg).Selem()[0], OAK_WSCRATCH2);
 	oakAsm->l(done);
 }
 
