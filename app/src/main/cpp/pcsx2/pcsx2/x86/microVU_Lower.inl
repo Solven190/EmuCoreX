@@ -131,10 +131,7 @@ static __fi void mVU_clamp1ScalarIf_oaknut(mV, int reg, bool bClampE, bool canCl
 {
 	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
 	{
-		if (isVU1)
-			mVUClamp1ScalarFast_oaknut(reg);
-		else
-			mVUClamp1ScalarBits_oaknut(reg);
+		mVUClamp1ScalarFast_oaknut(reg);
 	}
 }
 
@@ -147,10 +144,7 @@ static __fi void mVU_clamp1Vector_oaknut(mV, int reg, bool bClampE)
 {
 	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && mVU.regAlloc->checkVFClamp(reg))
 	{
-		if (isVU1)
-			mVUClamp1VectorFast_oaknut(reg);
-		else
-			mVUClamp1VectorBits_oaknut(reg);
+		mVUClamp1VectorFast_oaknut(reg);
 	}
 }
 
@@ -159,15 +153,12 @@ static __fi void mVU_clamp2ScalarIf_oaknut(mV, int reg, bool bClampE, bool canCl
 	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
 		canClamp)
 	{
-		const oak::QReg reg_q = oakQRegister(reg);
-		oakLoad128(OAK_QSCRATCH3, mVU_ss4_oaknut(offsetof(mVU_SSE4, sse4_maxvals[0][0])));
-		oakAsm->SMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
-		oakLoad128(OAK_QSCRATCH3, mVU_ss4_oaknut(offsetof(mVU_SSE4, sse4_minvals[0][0])));
-		oakAsm->UMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
-		return;
+		mVUClamp1ScalarBits_oaknut(reg);
 	}
-
-	mVU_clamp1ScalarIf_oaknut(mVU, reg, bClampE, canClamp);
+	else
+	{
+		mVU_clamp1ScalarIf_oaknut(mVU, reg, bClampE, canClamp);
+	}
 }
 
 static __fi void mVU_clamp2Scalar_oaknut(mV, int reg, bool bClampE)
@@ -187,6 +178,19 @@ static __fi void mVU_clamp4Scalar_oaknut(mV, int reg)
 	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
 	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
 		mVU_clamp1ScalarIf_oaknut(mVU, reg, true, true);
+}
+
+static __fi void mVU_clamp2Vector_oaknut(mV, int reg, bool bClampE)
+{
+	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
+		mVU.regAlloc->checkVFClamp(reg))
+	{
+		mVUClamp1VectorBits_oaknut(reg);
+	}
+	else
+	{
+		mVU_clamp1Vector_oaknut(mVU, reg, bClampE);
+	}
 }
 
 static __fi void mVU_addScalar_oaknut(mV, int to, int from)

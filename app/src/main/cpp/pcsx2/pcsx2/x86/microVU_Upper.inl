@@ -76,10 +76,7 @@ static __fi void mVUUpperClamp1VectorIf_oaknut(mV, int reg, bool bClampE, bool c
 {
 	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
 	{
-		if (isVU1)
-			mVUClamp1VectorFast_oaknut(reg);
-		else
-			mVUClamp1VectorBits_oaknut(reg);
+		mVUClamp1VectorFast_oaknut(reg);
 	}
 }
 
@@ -114,8 +111,6 @@ static __fi void mVUUpperClamp3Vector_oaknut(mV, int reg)
 	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
 	if (clampE && canClamp)
 		mVUUpperClamp2VectorIf_oaknut(mVU, reg, true, true);
-	else if (isVU0 && canClamp)
-		mVUClampDenormalVectorBits_oaknut(reg);
 }
 
 static __fi void mVUUpperClamp4Vector_oaknut(mV, int reg)
@@ -123,18 +118,13 @@ static __fi void mVUUpperClamp4Vector_oaknut(mV, int reg)
 	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
 	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
 		mVUUpperClamp1VectorIf_oaknut(mVU, reg, true, true);
-	else if (isVU0 && canClamp)
-		mVUClampDenormalVectorBits_oaknut(reg);
 }
 
 static __fi void mVUUpperClamp1ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
 {
 	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
 	{
-		if (isVU1)
-			mVUClamp1ScalarFast_oaknut(reg);
-		else
-			mVUClamp1ScalarBits_oaknut(reg);
+		mVUClamp1ScalarFast_oaknut(reg);
 	}
 }
 
