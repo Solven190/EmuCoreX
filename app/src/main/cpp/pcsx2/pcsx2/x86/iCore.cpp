@@ -190,6 +190,10 @@ bool _isAllocatableX86reg(int x86reg)
 	if (x86reg == 4)
 		return false;
 
+	// Pinned EE JIT registers: X24=RECCYCLE, X25=fastmem base, X27=cpuRegistersPack, X28=psxRegs, X29=recLUT
+	if (x86reg == 24 || x86reg == 25 || x86reg == 27 || x86reg == 28 || x86reg == 29)
+		return false;
+
 	return true;
 }
 

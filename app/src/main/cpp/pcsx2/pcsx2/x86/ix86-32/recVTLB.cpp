@@ -410,8 +410,10 @@ static void vtlbConstDirectWriteQ128_emit_oaknut(oak::QReg src, oak::XReg ptr)
 
 static void vtlbCallConstReadHandler_emit_oaknut(u32 paddr, const void* handler)
 {
+	recFlushReccycle();
 	oakAsm->MOV(oak::util::W0, paddr);
 	oakEmitCall(handler);
+	recReloadReccycle();
 }
 
 static void vtlbFinishReadHandlerGpr_emit_oaknut(oak::XReg dst, u32 bits, bool sign)
@@ -500,6 +502,7 @@ static void vtlbWriteDmacStatGpr_emit_oaknut(oak::XReg value)
 
 static void vtlbCallConstWriteHandlerGpr_emit_oaknut(u32 paddr, oak::XReg value, const void* handler)
 {
+	recFlushReccycle();
 	if (value.index() == oak::util::X0.index())
 	{
 		oakAsm->MOV(oak::util::X1, value);
@@ -511,20 +514,25 @@ static void vtlbCallConstWriteHandlerGpr_emit_oaknut(u32 paddr, oak::XReg value,
 		oakAsm->MOV(oak::util::X1, value);
 	}
 	oakEmitCall(handler);
+	recReloadReccycle();
 }
 
 static void vtlbCallConstWriteHandlerF32_emit_oaknut(u32 paddr, oak::SReg value, const void* handler)
 {
+	recFlushReccycle();
 	oakAsm->MOV(oak::util::W0, paddr);
 	oakAsm->FMOV(oak::util::W1, value);
 	oakEmitCall(handler);
+	recReloadReccycle();
 }
 
 static void vtlbCallConstWriteHandlerQ128_emit_oaknut(u32 paddr, oak::QReg value, const void* handler)
 {
+	recFlushReccycle();
 	oakAsm->MOV(oak::util::W0, paddr);
 	oakAsm->MOV(oak::util::Q0.B16(), value.B16());
 	oakEmitCall(handler);
+	recReloadReccycle();
 }
 
 static void vtlbV2P_emit_oaknut()
@@ -648,7 +656,9 @@ static void DynGen_IndirectTlbDispatcherOaknut(int mode, int bits, bool sign)
 
 	oakAsm->MOV(X16, reinterpret_cast<uptr>(vtlbdata.RWFT[bits][mode]));
 	oakAsm->LDR(X4, X16, X4, oak::IndexExt::LSL, 3);
+	recFlushReccycle();
 	oakAsm->BLR(X4);
+	recReloadReccycle();
 
 	if (!mode)
 	{
@@ -1320,9 +1330,11 @@ void vtlb_DynGenWrite_Const(u32 bits, bool xmm, u32 addr_const, int value_reg)
 		{
 			_freeX86reg(EE_HOST_RDX);
 			recBeginOaknutEmit();
+			recFlushReccycle();
 			vtlbWriteGuestPC_emit_oaknut(guest_pc);
 			vtlbWriteDmacStatGpr_emit_oaknut(oakXRegister(value_reg));
 			oakEmitCall(reinterpret_cast<const void*>(cpuTestDMACInts));
+			recReloadReccycle();
 			recEndOaknutEmit();
 			return;
 		}

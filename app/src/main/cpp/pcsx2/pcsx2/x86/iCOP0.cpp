@@ -206,8 +206,10 @@ static void recTLBWI_emit_oaknut()
 
 	oak::Label done;
 
+	recFlushReccycle();
 	oakLoad32(oak::util::W5, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
 	oakStore32(oak::util::W5, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	recReloadReccycle();
 
 	oakLoad32(oak::util::W5, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.CP0.n.Index))});
 	oakAsm->AND(oak::util::W5, oak::util::W5, 0x3f);
@@ -241,8 +243,10 @@ static void recTLBWR_emit_oaknut()
 
 	oak::Label done;
 
+	recFlushReccycle();
 	oakLoad32(oak::util::W5, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
 	oakStore32(oak::util::W5, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	recReloadReccycle();
 
 	oakLoad32(oak::util::W5, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.CP0.n.Random))});
 	oakAsm->AND(oak::util::W5, oak::util::W5, 0x3f);
@@ -274,6 +278,7 @@ static void recSetNextEventDelta4_inline_oaknut()
 {
 	oak::Label done;
 
+	recFlushReccycle();
 	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
 	oakLoad32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
 	oakAsm->SUB(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
@@ -281,6 +286,7 @@ static void recSetNextEventDelta4_inline_oaknut()
 	oakAsm->B(oak::Cond::LE, done);
 	oakAsm->ADD(OAK_WSCRATCH, OAK_WSCRATCH, 4);
 	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.nextEventCycle))});
+	recReloadReccycle();
 
 	oakAsm->l(done);
 }
@@ -418,6 +424,8 @@ static void recMFC0UpdateCount_emit_oaknut()
 	const u32 block_cycles = scaleblockcycles_clear();
 
 	recBeginOaknutEmit();
+	// Flush RECCYCLE to get accurate cycle in memory, then add block cycles
+	recFlushReccycle();
 	oakLoad32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
 	oakAsm->ADD(OAK_WSCRATCH2, OAK_WSCRATCH2, block_cycles);
 	oakStore32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
@@ -432,6 +440,7 @@ static void recMFC0UpdateCount_emit_oaknut()
 	oakAsm->ADD(oak::util::W4, oak::util::W4, OAK_WSCRATCH);
 	oakStore32(oak::util::W4, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.CP0.n.Count))});
 	oakStore32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.lastCOP0Cycle))});
+	recReloadReccycle();
 	recEndOaknutEmit();
 }
 
@@ -459,11 +468,13 @@ static void recMTC0UpdateCycle_emit_oaknut(s64 last_cycle_offset = -1)
 	const u32 block_cycles = scaleblockcycles_clear();
 
 	recBeginOaknutEmit();
+	recFlushReccycle();
 	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
 	oakAsm->ADD(OAK_WSCRATCH, OAK_WSCRATCH, block_cycles);
 	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
 	if (last_cycle_offset >= 0)
 		oakStore32(OAK_WSCRATCH, {oak::util::X27, last_cycle_offset});
+	recReloadReccycle();
 	recEndOaknutEmit();
 }
 
@@ -506,7 +517,9 @@ static void recCOP0MoveGPRToArg1_emit_oaknut(int fromgpr)
 static void recCOP0Call_emit_oaknut(const void* fn)
 {
 	recBeginOaknutEmit();
+	recFlushReccycle();
 	oakEmitCall(fn);
+	recReloadReccycle();
 	recEndOaknutEmit();
 }
 
@@ -570,6 +583,7 @@ static void recMTC0Status_emit_oaknut(int rt)
 
 	oakAsm->l(fast_path);
 	oakStore32(OAK_WARG1, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.CP0.n.Status))});
+	recFlushReccycle();
 	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.cycle))});
 	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.lastPERFCycle[0]))});
 	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.lastPERFCycle[1]))});

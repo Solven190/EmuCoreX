@@ -83,6 +83,10 @@ void recBranchCall(void (*func)());
 void recCall(void (*func)());
 u32 scaleblockcycles_clear();
 
+// RECCYCLE delta-cycle helpers: keep cpuRegs.cycle in memory consistent with W24 delta.
+void recFlushReccycle();
+void recReloadReccycle();
+
 namespace R5900
 {
 	namespace Dynarec

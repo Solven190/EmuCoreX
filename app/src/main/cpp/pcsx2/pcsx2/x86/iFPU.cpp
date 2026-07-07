@@ -383,10 +383,7 @@ static void recABS_S_emit_oaknut(int info)
 		oakAsm->FMOV(regd_s, OAK_WSCRATCH2);
 	}
 
-	oakAsm->FMOV(OAK_WSCRATCH2, regd_s);
-	oakAsm->MOV(OAK_WSCRATCH, 0x7fffffff);
-	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->FMOV(regd_s, OAK_WSCRATCH2);
+	oakAsm->FABS(regd_s, regd_s);
 	if (CHECK_FPU_OVERFLOW)
 		oakAsm->FMINNM(regd_s, regd_s, oak::SReg(8));
 	recEndOaknutEmit();
@@ -443,14 +440,8 @@ static void recFpuClampFloat3Operand_emit_oaknut(int reg)
 	if (!CHECK_FPU_OVERFLOW)
 		return;
 
-	oakAsm->FMOV(OAK_WSCRATCH2, oakSRegister(reg));
-	oakAsm->MOV(OAK_WSCRATCH, 0x7f7fffff);
-	oakAsm->CMP(OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->CSEL(OAK_WSCRATCH2, OAK_WSCRATCH, OAK_WSCRATCH2, oak::util::GT);
-	oakAsm->MOV(OAK_WSCRATCH, 0xff7fffff);
-	oakAsm->CMP(OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->CSEL(OAK_WSCRATCH2, OAK_WSCRATCH, OAK_WSCRATCH2, oak::util::HI);
-	oakAsm->FMOV(oakSRegister(reg), OAK_WSCRATCH2);
+	oakAsm->FMINNM(oakSRegister(reg), oakSRegister(reg), oak::SReg(8));
+	oakAsm->FMAXNM(oakSRegister(reg), oakSRegister(reg), oak::SReg(9));
 }
 
 static void recFpuDoubleClampOperand_emit_oaknut(int reg)
@@ -458,62 +449,19 @@ static void recFpuDoubleClampOperand_emit_oaknut(int reg)
 	if (!CHECK_FPU_OVERFLOW)
 		return;
 
-	oak::Label non_zero_exp;
-	oak::Label done;
-
-	oakAsm->FMOV(OAK_WSCRATCH2, oakSRegister(reg));
-	oakAsm->MOV(OAK_WSCRATCH, 0x7f800000);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->CBNZ(OAK_WSCRATCH, non_zero_exp);
-	oakAsm->MOV(OAK_WSCRATCH, 0x80000000);
-	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->FMOV(oakSRegister(reg), OAK_WSCRATCH2);
-	oakAsm->B(done);
-
-	oakAsm->l(non_zero_exp);
-	oakAsm->MOV(OAK_WSCRATCH2, 0x7f800000);
-	oakAsm->CMP(OAK_WSCRATCH, OAK_WSCRATCH2);
-	oakAsm->B(oak::util::NE, done);
-	oakAsm->FMOV(OAK_WSCRATCH2, oakSRegister(reg));
-	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, 0x80000000);
-	oakAsm->MOV(OAK_WSCRATCH, 0x7f7fffff);
-	oakAsm->ORR(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->FMOV(oakSRegister(reg), OAK_WSCRATCH2);
-
-	oakAsm->l(done);
+	oakAsm->SMIN(oakQRegister(reg).S4(), oakQRegister(reg).S4(), oakQRegister(8).S4());
+	oakAsm->UMIN(oakQRegister(reg).S4(), oakQRegister(reg).S4(), oakQRegister(9).S4());
 }
 
 static void recFpuFinishInterpreterResult_emit_oaknut(int reg)
 {
-	oak::Label no_overflow;
-	oak::Label no_underflow;
+	if (!CHECK_FPU_OVERFLOW)
+		return;
 
-	oakAsm->FMOV(OAK_WSCRATCH2, oakSRegister(reg));
-	oakAsm->FMOV(OAK_SSCRATCH2, OAK_WSCRATCH2);
-	oakAsm->MOV(OAK_WSCRATCH, 0x7fffffff);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->MOV(OAK_WSCRATCH2, 0x7f800000);
-	oakAsm->CMP(OAK_WSCRATCH, OAK_WSCRATCH2);
-	oakAsm->FMOV(OAK_WSCRATCH2, OAK_SSCRATCH2);
-	oakAsm->B(oak::util::NE, no_overflow);
-	oakAsm->MOV(OAK_WSCRATCH, 0x7f7fffff);
-	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, 0x80000000);
-	oakAsm->ORR(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->FMOV(oakSRegister(reg), OAK_WSCRATCH2);
-	oakAsm->B(no_underflow);
-
-	oakAsm->l(no_overflow);
-	oakAsm->MOV(OAK_WSCRATCH, 0x7f800000);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->CBNZ(OAK_WSCRATCH, no_underflow);
-	oakAsm->MOV(OAK_WSCRATCH, 0x007fffff);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->CBZ(OAK_WSCRATCH, no_underflow);
-	oakAsm->MOV(OAK_WSCRATCH, 0x80000000);
-	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->FMOV(oakSRegister(reg), OAK_WSCRATCH2);
-
-	oakAsm->l(no_underflow);
+	// Use sign-preserving SMIN/UMIN to clamp overflow and NaN, preserving sign bits.
+	// Denormal flushing is handled naturally by hardware FZ (Flush-to-Zero) flag.
+	oakAsm->SMIN(oakQRegister(reg).S4(), oakQRegister(reg).S4(), oakQRegister(8).S4());
+	oakAsm->UMIN(oakQRegister(reg).S4(), oakQRegister(reg).S4(), oakQRegister(9).S4());
 }
 
 static void recFpuOrFcr31_emit_oaknut(u32 bits)
@@ -1753,18 +1701,7 @@ static void recFpuClampFloatResult_emit_oaknut(int regd)
 
 static void recFpuFinishMulResult_emit_oaknut(int regd)
 {
-	if (!CHECK_FPU_OVERFLOW)
-		return;
-
-	oak::Label done;
-
-	oakAsm->FMOV(OAK_WSCRATCH, oakSRegister(regd));
-	oakAsm->MOV(OAK_WSCRATCH2, 0x7f800000);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
-	oakAsm->CMP(OAK_WSCRATCH, OAK_WSCRATCH2);
-	oakAsm->B(oak::util::EQ, done);
 	recFpuClampFloatResult_emit_oaknut(regd);
-	oakAsm->l(done);
 }
 
 static void recFpuMulExact_emit_oaknut(int info, int regd)
@@ -1854,20 +1791,11 @@ static void recNEG_S_emit_oaknut(int info)
 		oakAsm->FMOV(regd_s, OAK_WSCRATCH2);
 	}
 
-	oakAsm->FMOV(OAK_WSCRATCH2, regd_s);
-	oakAsm->MOV(OAK_WSCRATCH, 0x80000000);
-	oakAsm->EOR(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->FMOV(regd_s, OAK_WSCRATCH2);
+	oakAsm->FNEG(regd_s, regd_s);
 	if (CHECK_FPU_OVERFLOW)
 	{
-		oakAsm->FMOV(OAK_WSCRATCH2, regd_s);
-		oakAsm->MOV(OAK_WSCRATCH, 0x7f7fffff);
-		oakAsm->CMP(OAK_WSCRATCH2, OAK_WSCRATCH);
-		oakAsm->CSEL(OAK_WSCRATCH2, OAK_WSCRATCH, OAK_WSCRATCH2, oak::util::GT);
-		oakAsm->MOV(OAK_WSCRATCH, 0xff7fffff);
-		oakAsm->CMP(OAK_WSCRATCH2, OAK_WSCRATCH);
-		oakAsm->CSEL(OAK_WSCRATCH2, OAK_WSCRATCH, OAK_WSCRATCH2, oak::util::HI);
-		oakAsm->FMOV(regd_s, OAK_WSCRATCH2);
+		oakAsm->SMIN(regd_s.toQ().S4(), regd_s.toQ().S4(), oakQRegister(8).S4());
+		oakAsm->UMIN(regd_s.toQ().S4(), regd_s.toQ().S4(), oakQRegister(9).S4());
 	}
 	recEndOaknutEmit();
 }

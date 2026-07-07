@@ -82,10 +82,12 @@ static __fi OakMemOperand mVUOakCpuMemVu0Mac()
 static void mVUAddBlockCyclesToCpuCycle_emit_oaknut(oak::WReg dst)
 {
 	recBeginOaknutEmit();
+	recFlushReccycle();
 	oakLoad32(dst, mVUOakCpuMemCycle());
 	oakAsm->MOV(OAK_WSCRATCH, scaleblockcycles_clear());
 	oakAsm->ADD(dst, dst, OAK_WSCRATCH);
 	oakStore32(dst, mVUOakCpuMemCycle());
+	recReloadReccycle();
 	recEndOaknutEmit();
 }
 

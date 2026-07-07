@@ -277,30 +277,13 @@ static __fi void mVUClampDenormalVectorBits_oaknut(int reg)
 	oakAsm->MOV(reg_q.B16(), OAK_QSCRATCH.B16());
 }
 
+
 static __fi void mVUClamp1ScalarBits_oaknut(int reg)
 {
-	oak::Label check_infinity;
-	oak::Label done;
-
-	oakAsm->FMOV(OAK_WSCRATCH, oakSRegister(reg));
-	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH, 0x7f800000u);
-	oakAsm->CBNZ(OAK_WSCRATCH2, check_infinity);
-
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x80000000u);
-	oakAsm->FMOV(oakSRegister(reg), OAK_WSCRATCH);
-	oakAsm->B(done);
-
-	oakAsm->l(check_infinity);
-	oakAsm->MOV(OAK_WSCRATCH, 0x7f800000u);
-	oakAsm->CMP(OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->B(oak::util::NE, done);
-	oakAsm->FMOV(OAK_WSCRATCH2, oakSRegister(reg));
-	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, 0x80000000u);
-	oakAsm->MOV(OAK_WSCRATCH, 0x7f7fffffu);
-	oakAsm->ORR(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->FMOV(oakSRegister(reg), OAK_WSCRATCH2);
-
-	oakAsm->l(done);
+	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, maxvals)));
+	oakAsm->SMIN(oakQRegister(reg).S4(), oakQRegister(reg).S4(), OAK_QSCRATCH3.S4());
+	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, minvals)));
+	oakAsm->UMIN(oakQRegister(reg).S4(), oakQRegister(reg).S4(), OAK_QSCRATCH3.S4());
 }
 
 static __fi void mVUClamp1ScalarFast_oaknut(int reg)
@@ -321,38 +304,15 @@ static __fi void mVUClamp1VectorFast_oaknut(int reg)
 	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, minvals)));
 	oakAsm->FMAXNM(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
 }
+
 static __fi void mVUClamp1VectorBits_oaknut(int reg)
 {
 	const oak::QReg reg_q = oakQRegister(reg);
 
-	mVUEmitExponentVector_oaknut(OAK_QSCRATCH3);
-	mVUEmitSignbitVector_oaknut(OAK_QSCRATCH2);
-
-	// Extract exponent and sign
-	oakAsm->AND(OAK_QSCRATCH.B16(), reg_q.B16(), OAK_QSCRATCH3.B16());
-	oakAsm->AND(OAK_QSCRATCH2.B16(), reg_q.B16(), OAK_QSCRATCH2.B16());
-
-	// Denormal clamp mask: check if exponent is 0
-	oakAsm->CMEQ(OAK_QSCRATCH.S4(), OAK_QSCRATCH.S4(), 0);
-
-	// Apply denormal clamp: if exponent was 0, keep only sign, else keep original
-	oakAsm->BSL(OAK_QSCRATCH.B16(), OAK_QSCRATCH2.B16(), reg_q.B16());
-
-	// Re-extract exponent from the denormal-clamped value in OAK_QSCRATCH (Q30)
-	// OAK_QSCRATCH3 still holds the 'exponent' constant
-	oakAsm->AND(OAK_QSCRATCH2.B16(), OAK_QSCRATCH.B16(), OAK_QSCRATCH3.B16());
-
-	// Overflow clamp mask: check if exponent matches 'exponent' constant
-	oakAsm->CMEQ(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4());
-
-	mVUEmitMaxvalsVector_oaknut(OAK_QSCRATCH3);
-
-	// Compute overflow value: sign-preserving max values (OAK_QSCRATCH | maxvals)
-	oakAsm->ORR(OAK_QSCRATCH3.B16(), OAK_QSCRATCH3.B16(), OAK_QSCRATCH.B16());
-
-	// Apply overflow clamp: if overflow, keep overflow value, else keep denormal-clamped value
-	oakAsm->BSL(OAK_QSCRATCH2.B16(), OAK_QSCRATCH3.B16(), OAK_QSCRATCH.B16());
-	oakAsm->MOV(reg_q.B16(), OAK_QSCRATCH2.B16());
+	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, maxvals)));
+	oakAsm->SMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
+	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, minvals)));
+	oakAsm->UMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
 }
 
 static void mVUTBit()
@@ -366,7 +326,6 @@ static void mVUEBit()
 {
 	vu1Thread.mtvuInterrupts.fetch_or(VU_Thread::InterruptFlagVUEBit, std::memory_order_release);
 }
-
 static inline u32 branchAddr(const mV)
 {
 	pxAssumeMsg(islowerOP, "MicroVU: Expected Lower OP code for valid branch addr.");
