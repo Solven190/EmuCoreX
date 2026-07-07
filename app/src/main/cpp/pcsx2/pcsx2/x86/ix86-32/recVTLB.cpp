@@ -233,7 +233,7 @@ alignas(__pagesize) static u8 m_IndirectDispatchers[__pagesize];
 
 static oak::XReg vtlbFastmemBase_emit_oaknut()
 {
-	return oak::util::X25;
+	return oak::util::X19;
 }
 
 static bool vtlbCanUseConstFastmem()
@@ -243,77 +243,77 @@ static bool vtlbCanUseConstFastmem()
 
 static void vtlbFastmemReadU8_emit_oaknut(oak::XReg dst, oak::XReg addr)
 {
-	oakAsm->LDRB(dst.toW(), vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->LDRB(dst.toW(), vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemReadS8_emit_oaknut(oak::XReg dst, oak::XReg addr)
 {
-	oakAsm->LDRSB(dst, vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->LDRSB(dst, vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemReadU16_emit_oaknut(oak::XReg dst, oak::XReg addr)
 {
-	oakAsm->LDRH(dst.toW(), vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->LDRH(dst.toW(), vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemReadS16_emit_oaknut(oak::XReg dst, oak::XReg addr)
 {
-	oakAsm->LDRSH(dst, vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->LDRSH(dst, vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemReadU32_emit_oaknut(oak::XReg dst, oak::XReg addr)
 {
-	oakAsm->LDR(dst.toW(), vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->LDR(dst.toW(), vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemReadS32_emit_oaknut(oak::XReg dst, oak::XReg addr)
 {
-	oakAsm->LDRSW(dst, vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->LDRSW(dst, vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemReadU64_emit_oaknut(oak::XReg dst, oak::XReg addr)
 {
-	oakAsm->LDR(dst, vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->LDR(dst, vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemReadF32_emit_oaknut(oak::SReg dst, oak::XReg addr)
 {
-	oakAsm->LDR(dst, vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->LDR(dst, vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemReadQ128_emit_oaknut(oak::QReg dst, oak::XReg addr)
 {
-	oakAsm->LDR(dst, vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->LDR(dst, vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemWriteU8_emit_oaknut(oak::XReg src, oak::XReg addr)
 {
-	oakAsm->STRB(src.toW(), vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->STRB(src.toW(), vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemWriteU16_emit_oaknut(oak::XReg src, oak::XReg addr)
 {
-	oakAsm->STRH(src.toW(), vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->STRH(src.toW(), vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemWriteU32_emit_oaknut(oak::XReg src, oak::XReg addr)
 {
-	oakAsm->STR(src.toW(), vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->STR(src.toW(), vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemWriteU64_emit_oaknut(oak::XReg src, oak::XReg addr)
 {
-	oakAsm->STR(src, vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->STR(src, vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemWriteF32_emit_oaknut(oak::SReg src, oak::XReg addr)
 {
-	oakAsm->STR(src, vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->STR(src, vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbFastmemWriteQ128_emit_oaknut(oak::QReg src, oak::XReg addr)
 {
-	oakAsm->STR(src, vtlbFastmemBase_emit_oaknut(), addr);
+	oakAsm->STR(src, vtlbFastmemBase_emit_oaknut(), addr.toW(), oak::IndexExt::UXTW);
 }
 
 static void vtlbConstFastmemAddress_emit_oaknut(u32 addr_const)

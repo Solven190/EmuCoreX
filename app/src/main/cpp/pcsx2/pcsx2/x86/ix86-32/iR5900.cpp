@@ -342,7 +342,7 @@ static const void* _DynGen_EnterRecompiledCodeOaknut()
 	oakMoveAddressToReg(X27, &g_cpuRegistersPack);
 
 	if (CHECK_FASTMEM)
-		oakLoad64(X25, {X27, offsetof(cpuRegistersPack, vtlbdata.fastmem_base)});
+		oakLoad64(oak::util::X19, {X27, offsetof(cpuRegistersPack, vtlbdata.fastmem_base)});
 
 	// Pinned FPU clamp constants in callee-saved NEON registers (v8/v9 = s8/s9)
 	// These survive all C function calls per AAPCS64 and provide zero-cost

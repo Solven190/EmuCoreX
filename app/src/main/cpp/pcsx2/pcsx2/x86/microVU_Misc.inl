@@ -258,7 +258,8 @@ static __fi void mVUClampDenormalScalarBits_oaknut(int reg)
 	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH, 0x7f800000u);
 	oakAsm->CBNZ(OAK_WSCRATCH2, done);
 	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x80000000u);
-	oakAsm->FMOV(oakSRegister(reg), OAK_WSCRATCH);
+	oakAsm->MOV(OAK_WSCRATCH2, OAK_WSCRATCH);
+	oakAsm->MOV(oakQRegister(reg).Selem()[0], OAK_QSCRATCH2.Selem()[0]);
 	oakAsm->l(done);
 }
 
@@ -280,10 +281,12 @@ static __fi void mVUClampDenormalVectorBits_oaknut(int reg)
 
 static __fi void mVUClamp1ScalarBits_oaknut(int reg)
 {
+	oakAsm->MOV(OAK_QSCRATCH2.B16(), oakQRegister(reg).B16());
 	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, maxvals)));
-	oakAsm->SMIN(oakQRegister(reg).S4(), oakQRegister(reg).S4(), OAK_QSCRATCH3.S4());
+	oakAsm->SMIN(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4());
 	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, minvals)));
-	oakAsm->UMIN(oakQRegister(reg).S4(), oakQRegister(reg).S4(), OAK_QSCRATCH3.S4());
+	oakAsm->UMIN(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4());
+	oakAsm->MOV(oakQRegister(reg).Selem()[0], OAK_QSCRATCH2.Selem()[0]);
 }
 
 static __fi void mVUClamp1ScalarFast_oaknut(int reg)
