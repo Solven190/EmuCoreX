@@ -222,6 +222,13 @@ int _getFreeXMMreg(u32 maxreg)
 	// check for free registers
 	for (i = 0; i < e; ++i)
 	{
+#if defined(__ANDROID__)
+		// xmm8/xmm9 (s8/s9) are reserved as pinned FPU clamp constants
+		// (+FLT_MAX / -FLT_MAX) loaded once at JIT entry. Skip them to
+		// prevent the allocator from clobbering the pinned values.
+		if (i == 8 || i == 9)
+			continue;
+#endif
 		if (!xmmregs[i].inuse)
 			return i;
 	}
@@ -231,6 +238,10 @@ int _getFreeXMMreg(u32 maxreg)
 	bestcount = 0xffff;
     for (i = 0; i < e; ++i)
 	{
+#if defined(__ANDROID__)
+		if (i == 8 || i == 9)
+			continue;
+#endif
 		pxAssert(xmmregs[i].inuse);
 		if (xmmregs[i].needed)
 			continue;
@@ -278,6 +289,10 @@ int _getFreeXMMreg(u32 maxreg)
 	bestcount = 0xffff;
     for (i = 0; i < e; ++i)
 	{
+#if defined(__ANDROID__)
+		if (i == 8 || i == 9)
+			continue;
+#endif
 		pxAssert(xmmregs[i].inuse);
 		if (xmmregs[i].needed)
 			continue;

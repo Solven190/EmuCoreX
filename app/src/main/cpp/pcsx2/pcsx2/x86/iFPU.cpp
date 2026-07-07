@@ -387,9 +387,9 @@ static void recABS_S_emit_oaknut(int info)
 	oakAsm->MOV(OAK_WSCRATCH, 0x7fffffff);
 	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
 	oakAsm->FMOV(regd_s, OAK_WSCRATCH2);
+	if (CHECK_FPU_OVERFLOW)
+		oakAsm->FMINNM(regd_s, regd_s, oak::SReg(8));
 	recEndOaknutEmit();
-
-	// ABS.S preserves NaN/Inf payload bits and only clears the sign bit.
 }
 
 void recABS_S_xmm(int info)
@@ -1742,14 +1742,12 @@ FPURECOMPILE_CONSTCODE(MSUBA_S, XMMINFO_WRITEACC | XMMINFO_READACC | XMMINFO_REA
 //------------------------------------------------------------------
 static void recFpuClampFloatResult_emit_oaknut(int regd)
 {
+	// Use pinned s8/s9 (loaded once at JIT entry) instead of per-instruction materialization.
+	// Saves 4 instructions per clamp (MOV+FMOV eliminated).
 	if (CHECK_FPU_OVERFLOW)
 	{
-		oakAsm->MOV(OAK_WSCRATCH, 0x7f7fffff);
-		oakAsm->FMOV(OAK_SSCRATCH, OAK_WSCRATCH);
-		oakAsm->FMINNM(oakSRegister(regd), oakSRegister(regd), OAK_SSCRATCH);
-		oakAsm->MOV(OAK_WSCRATCH, 0xff7fffff);
-		oakAsm->FMOV(OAK_SSCRATCH, OAK_WSCRATCH);
-		oakAsm->FMAXNM(oakSRegister(regd), oakSRegister(regd), OAK_SSCRATCH);
+		oakAsm->FMINNM(oakSRegister(regd), oakSRegister(regd), oak::SReg(8));
+		oakAsm->FMAXNM(oakSRegister(regd), oakSRegister(regd), oak::SReg(9));
 	}
 }
 
@@ -1860,9 +1858,18 @@ static void recNEG_S_emit_oaknut(int info)
 	oakAsm->MOV(OAK_WSCRATCH, 0x80000000);
 	oakAsm->EOR(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
 	oakAsm->FMOV(regd_s, OAK_WSCRATCH2);
+	if (CHECK_FPU_OVERFLOW)
+	{
+		oakAsm->FMOV(OAK_WSCRATCH2, regd_s);
+		oakAsm->MOV(OAK_WSCRATCH, 0x7f7fffff);
+		oakAsm->CMP(OAK_WSCRATCH2, OAK_WSCRATCH);
+		oakAsm->CSEL(OAK_WSCRATCH2, OAK_WSCRATCH, OAK_WSCRATCH2, oak::util::GT);
+		oakAsm->MOV(OAK_WSCRATCH, 0xff7fffff);
+		oakAsm->CMP(OAK_WSCRATCH2, OAK_WSCRATCH);
+		oakAsm->CSEL(OAK_WSCRATCH2, OAK_WSCRATCH, OAK_WSCRATCH2, oak::util::HI);
+		oakAsm->FMOV(regd_s, OAK_WSCRATCH2);
+	}
 	recEndOaknutEmit();
-
-	// NEG.S preserves NaN/Inf payload bits and only toggles the sign bit.
 }
 
 void recNEG_S_xmm(int info)

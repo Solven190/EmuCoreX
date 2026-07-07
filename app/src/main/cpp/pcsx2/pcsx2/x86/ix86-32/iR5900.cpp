@@ -306,6 +306,14 @@ static const void* _DynGen_EnterRecompiledCodeOaknut()
 	if (CHECK_FASTMEM)
 		oakLoad64(X25, {X27, offsetof(cpuRegistersPack, vtlbdata.fastmem_base)});
 
+	// Pinned FPU clamp constants in callee-saved NEON registers (v8/v9 = s8/s9)
+	// These survive all C function calls per AAPCS64 and provide zero-cost
+	// clamp bounds for FMINNM/FMAXNM without per-instruction materialization.
+	oakAsm->MOV(OAK_WSCRATCH, 0x7f7fffff);
+	oakAsm->FMOV(oak::SReg(8), OAK_WSCRATCH);  // s8 = +FLT_MAX
+	oakAsm->MOV(OAK_WSCRATCH, 0xff7fffff);
+	oakAsm->FMOV(oak::SReg(9), OAK_WSCRATCH);  // s9 = -FLT_MAX
+
 	oakEmitJmp(DispatcherReg);
 
 	return retval;
