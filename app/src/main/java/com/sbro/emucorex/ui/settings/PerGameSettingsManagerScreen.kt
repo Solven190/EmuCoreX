@@ -983,6 +983,13 @@ private fun GameSettingsTabContent(
                         helpText = stringResource(R.string.settings_help_vu1_clamping),
                         onResetToDefault = { onDraftChange(draft.copy(vu1ClampingMode = defaultProfile.vu1ClampingMode)) }
                     )
+                    ToggleRow(
+                        title = stringResource(R.string.settings_game_fixes),
+                        checked = draft.enableGameFixes,
+                        onCheckedChange = { onDraftChange(draft.copy(enableGameFixes = it)) },
+                        helpText = stringResource(R.string.settings_help_game_fixes),
+                        onResetToDefault = { onDraftChange(draft.copy(enableGameFixes = defaultProfile.enableGameFixes)) }
+                    )
                     SelectionRow(
                         title = stringResource(R.string.settings_target_fps_mode),
                         options = listOf(
@@ -1577,6 +1584,13 @@ private fun GameSettingsEditorDialog(
                                 onCheckedChange = { draft = draft.copy(enableCheats = it) },
                                 helpText = stringResource(R.string.settings_help_cheats),
                                 onResetToDefault = { draft = draft.copy(enableCheats = defaultProfile.enableCheats) }
+                            )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_game_fixes),
+                                checked = draft.enableGameFixes,
+                                onCheckedChange = { draft = draft.copy(enableGameFixes = it) },
+                                helpText = stringResource(R.string.settings_help_game_fixes),
+                                onResetToDefault = { draft = draft.copy(enableGameFixes = defaultProfile.enableGameFixes) }
                             )
                         }
                         EditorSection(title = stringResource(R.string.game_settings_manager_section_graphics)) {
@@ -3127,6 +3141,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         enableMtvu = enableMtvu,
         enableFastCdvd = enableFastCdvd,
         enableCheats = enableCheats,
+        enableGameFixes = enableGameFixes,
         eeFpuRoundMode = eeFpuRoundMode,
         vu0RoundMode = vu0RoundMode,
         vu1RoundMode = vu1RoundMode,
@@ -3211,6 +3226,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         enableMtvu = pick("enableMtvu", enableMtvu, defaultProfile.enableMtvu),
         enableFastCdvd = pick("enableFastCdvd", enableFastCdvd, defaultProfile.enableFastCdvd),
         enableCheats = pick("enableCheats", enableCheats, defaultProfile.enableCheats),
+        enableGameFixes = pick("enableGameFixes", enableGameFixes, defaultProfile.enableGameFixes),
         eeFpuRoundMode = pick("eeFpuRoundMode", eeFpuRoundMode, defaultProfile.eeFpuRoundMode),
         vu0RoundMode = pick("vu0RoundMode", vu0RoundMode, defaultProfile.vu0RoundMode),
         vu1RoundMode = pick("vu1RoundMode", vu1RoundMode, defaultProfile.vu1RoundMode),

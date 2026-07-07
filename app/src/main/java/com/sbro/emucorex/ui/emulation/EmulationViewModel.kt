@@ -3289,6 +3289,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             fastCdvd = pick("enableFastCdvd", fastCdvd) { enableFastCdvd },
             enableFastBoot = pick("enableFastBoot", enableFastBoot) { enableFastBoot },
             enableCheats = pick("enableCheats", enableCheats) { enableCheats },
+            enableGameFixes = pick("enableGameFixes", enableGameFixes) { enableGameFixes },
             eeFpuRoundMode = pick("eeFpuRoundMode", eeFpuRoundMode) { eeFpuRoundMode },
             vu0RoundMode = pick("vu0RoundMode", vu0RoundMode) { vu0RoundMode },
             vu1RoundMode = pick("vu1RoundMode", vu1RoundMode) { vu1RoundMode },
