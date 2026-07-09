@@ -113,6 +113,14 @@ static void mmiLoadWordFromXmm_emit_oaknut(oak::WReg dst, int xmmreg, int lane)
 	}
 }
 
+static void mmiLoadByteShuffleMask_emit_oaknut(u64 low, u64 high)
+{
+	oakAsm->MOV(OAK_XSCRATCH, low);
+	oakAsm->INS(OAK_QSCRATCH3.Delem()[0], OAK_XSCRATCH);
+	oakAsm->MOV(OAK_XSCRATCH, high);
+	oakAsm->INS(OAK_QSCRATCH3.Delem()[1], OAK_XSCRATCH);
+}
+
 enum class MMILogicOp
 {
 	And,
@@ -2040,18 +2048,9 @@ static void recPEXEH_emit_oaknut(int dstreg, int treg, bool rt_zero)
 	}
 	else
 	{
-		const bool alias = (dstreg == treg);
-		if (alias)
-			mmi2LoadQSource_emit_oaknut(OAK_QSCRATCH, treg, false);
-		const oak::QReg src = alias ? OAK_QSCRATCH : oakQRegister(treg);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[0], src.Helem()[2]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[1], src.Helem()[1]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[2], src.Helem()[0]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[3], src.Helem()[3]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[4], src.Helem()[6]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[5], src.Helem()[5]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[6], src.Helem()[4]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[7], src.Helem()[7]);
+		mmiLoadByteShuffleMask_emit_oaknut(0x0706010003020504ull, 0x0f0e09080b0a0d0cull);
+		oakAsm->MOV(OAK_QSCRATCH2.B16(), oakQRegister(treg).B16());
+		oakAsm->TBL(oakQRegister(dstreg).B16(), oak::List(OAK_QSCRATCH2.B16()), OAK_QSCRATCH3.B16());
 	}
 	recEndOaknutEmit();
 }
@@ -2741,17 +2740,9 @@ static void recPEXCH_emit_oaknut(int dstreg, int treg, bool rt_zero)
 	}
 	else
 	{
-		const oak::QReg src = (dstreg == treg) ? OAK_QSCRATCH : oakQRegister(treg);
-		if (dstreg == treg)
-			oakAsm->MOV(OAK_QSCRATCH.B16(), oakQRegister(treg).B16());
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[0], src.Helem()[0]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[1], src.Helem()[2]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[2], src.Helem()[1]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[3], src.Helem()[3]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[4], src.Helem()[4]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[5], src.Helem()[6]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[6], src.Helem()[5]);
-		oakAsm->MOV(oakQRegister(dstreg).Helem()[7], src.Helem()[7]);
+		mmiLoadByteShuffleMask_emit_oaknut(0x0706030205040100ull, 0x0f0e0b0a0d0c0908ull);
+		oakAsm->MOV(OAK_QSCRATCH2.B16(), oakQRegister(treg).B16());
+		oakAsm->TBL(oakQRegister(dstreg).B16(), oak::List(OAK_QSCRATCH2.B16()), OAK_QSCRATCH3.B16());
 	}
 	recEndOaknutEmit();
 }
