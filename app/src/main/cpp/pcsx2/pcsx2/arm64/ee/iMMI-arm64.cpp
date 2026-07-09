@@ -1630,6 +1630,52 @@ static void mmi2LoadQSource_emit_oaknut(oak::QReg dst, int hostreg, bool is_zero
 		oakAsm->MOV(dst.B16(), oakQRegister(hostreg).B16());
 }
 
+enum class MMIVariableWordShift
+{
+	LeftLogical,
+	RightLogical,
+	RightArithmetic,
+};
+
+static void mmi2VariableWordShiftEven_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero, MMIVariableWordShift shift)
+{
+	if (rt_zero)
+	{
+		oakAsm->MOVI(oakQRegister(dstreg).B16(), 0);
+		return;
+	}
+
+	mmi2LoadQSource_emit_oaknut(OAK_QSCRATCH, treg, false);
+	oakAsm->UZP1(OAK_QSCRATCH.S4(), OAK_QSCRATCH.S4(), OAK_QSCRATCH.S4());
+
+	if (rs_zero)
+	{
+		oakAsm->MOV(OAK_QSCRATCH2.B16(), OAK_QSCRATCH.B16());
+	}
+	else
+	{
+		mmi2LoadQSource_emit_oaknut(OAK_QSCRATCH2, sreg, false);
+		oakAsm->UZP1(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4());
+		oakAsm->MOVI(OAK_QSCRATCH3.S4(), 0x1f);
+		oakAsm->AND(OAK_QSCRATCH2.B16(), OAK_QSCRATCH2.B16(), OAK_QSCRATCH3.B16());
+
+		if (shift == MMIVariableWordShift::LeftLogical)
+		{
+			oakAsm->USHL(OAK_QSCRATCH2.S4(), OAK_QSCRATCH.S4(), OAK_QSCRATCH2.S4());
+		}
+		else
+		{
+			oakAsm->NEG(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4());
+			if (shift == MMIVariableWordShift::RightLogical)
+				oakAsm->USHL(OAK_QSCRATCH2.S4(), OAK_QSCRATCH.S4(), OAK_QSCRATCH2.S4());
+			else
+				oakAsm->SSHL(OAK_QSCRATCH2.S4(), OAK_QSCRATCH.S4(), OAK_QSCRATCH2.S4());
+		}
+	}
+
+	oakAsm->SSHLL(oakQRegister(dstreg).D2(), OAK_QSCRATCH2.toD().S2(), 0);
+}
+
 static void mmi2StoreQ_emit_oaknut(int dstreg, oak::QReg src)
 {
 	oakAsm->MOV(oakQRegister(dstreg).B16(), src.B16());
@@ -1775,22 +1821,7 @@ void recPMADDW()
 static void recPSLLVW_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	for (int lane = 0; lane < 2; lane++)
-	{
-		const int word = lane * 2;
-		if (rt_zero)
-			oakAsm->MOV(OAK_WSCRATCH, 0);
-		else
-			mmiLoadWordFromXmm_emit_oaknut(OAK_WSCRATCH, treg, word);
-		if (rs_zero)
-			oakAsm->MOV(OAK_WSCRATCH2, 0);
-		else
-			mmiLoadWordFromXmm_emit_oaknut(OAK_WSCRATCH2, sreg, word);
-		oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, 0x1f);
-		oakAsm->LSL(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
-		oakAsm->SXTW(OAK_XSCRATCH, OAK_WSCRATCH);
-		oakAsm->INS(oakQRegister(dstreg).Delem()[static_cast<u8>(lane)], OAK_XSCRATCH);
-	}
+	mmi2VariableWordShiftEven_emit_oaknut(dstreg, sreg, treg, rs_zero, rt_zero, MMIVariableWordShift::LeftLogical);
 	recEndOaknutEmit();
 }
 
@@ -1810,22 +1841,7 @@ void recPSLLVW()
 static void recPSRLVW_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	for (int lane = 0; lane < 2; lane++)
-	{
-		const int word = lane * 2;
-		if (rt_zero)
-			oakAsm->MOV(OAK_WSCRATCH, 0);
-		else
-			mmiLoadWordFromXmm_emit_oaknut(OAK_WSCRATCH, treg, word);
-		if (rs_zero)
-			oakAsm->MOV(OAK_WSCRATCH2, 0);
-		else
-			mmiLoadWordFromXmm_emit_oaknut(OAK_WSCRATCH2, sreg, word);
-		oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, 0x1f);
-		oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
-		oakAsm->SXTW(OAK_XSCRATCH, OAK_WSCRATCH);
-		oakAsm->INS(oakQRegister(dstreg).Delem()[static_cast<u8>(lane)], OAK_XSCRATCH);
-	}
+	mmi2VariableWordShiftEven_emit_oaknut(dstreg, sreg, treg, rs_zero, rt_zero, MMIVariableWordShift::RightLogical);
 	recEndOaknutEmit();
 }
 
@@ -2441,16 +2457,7 @@ void recPMADDUW()
 static void recPSRAVW_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	for (int lane = 0; lane < 2; lane++)
-	{
-		const int word = lane * 2;
-		mmi3LoadWordSource_emit_oaknut(oak::util::W0, treg, word, rt_zero);
-		mmi3LoadWordSource_emit_oaknut(oak::util::W1, sreg, word, rs_zero);
-		oakAsm->AND(oak::util::W1, oak::util::W1, 0x1f);
-		oakAsm->ASR(oak::util::W0, oak::util::W0, oak::util::W1);
-		oakAsm->SXTW(oak::util::X0, oak::util::W0);
-		oakAsm->INS(oakQRegister(dstreg).Delem()[static_cast<u8>(lane)], oak::util::X0);
-	}
+	mmi2VariableWordShiftEven_emit_oaknut(dstreg, sreg, treg, rs_zero, rt_zero, MMIVariableWordShift::RightArithmetic);
 	recEndOaknutEmit();
 }
 
