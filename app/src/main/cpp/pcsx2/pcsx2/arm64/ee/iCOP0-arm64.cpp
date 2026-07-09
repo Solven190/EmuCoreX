@@ -36,22 +36,17 @@ static void recBC0BranchTest_emit_oaknut()
 
 	// COP0 branch conditionals are based on the following equation:
 	//  (((psHu16(DMAC_STAT) | ~psHu16(DMAC_PCR)) & 0x3ff) == 0x3ff)
+	// By De Morgan, this is equivalent to:
+	//  ((psHu16(DMAC_PCR) & ~psHu16(DMAC_STAT) & 0x3ff) == 0)
 	// BC0F checks if the statement is false, BC0T checks if the statement is true.
-
-	// note: We only want to compare the 16 bit values of DMAC_STAT and PCR.
-	// But using 32-bit loads here is ok (and faster), because we mask off
-	// everything except the lower 10 bits away.
+	// 32-bit loads are ok because the test masks to the lower 10 bits.
 
 	recBeginOaknutEmit();
-	oakMoveAddressToReg(OAK_XSCRATCH, &psHu32(DMAC_PCR));
+	oakMoveAddressToReg(OAK_XSCRATCH, &psHu32(DMAC_STAT));
 	oakAsm->LDR(OAK_WSCRATCH, OAK_XSCRATCH);
-	oakAsm->MOV(OAK_WSCRATCH2, 0x3ff);
-	oakAsm->MVN(OAK_WSCRATCH, OAK_WSCRATCH);
-	oakMoveAddressToReg(oak::util::X4, &psHu32(DMAC_STAT));
-	oakAsm->LDR(oak::util::W4, oak::util::X4);
-	oakAsm->ORR(OAK_WSCRATCH, OAK_WSCRATCH, oak::util::W4);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
-	oakAsm->CMP(OAK_WSCRATCH, OAK_WSCRATCH2);
+	oakAsm->LDR(OAK_WSCRATCH2, OAK_XSCRATCH, oak::POffset<14, 2>(16));
+	oakAsm->BIC(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
+	oakAsm->TST(OAK_WSCRATCH2, 0x3ff);
 	recEndOaknutEmit();
 }
 

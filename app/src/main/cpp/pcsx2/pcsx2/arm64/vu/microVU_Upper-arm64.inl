@@ -72,106 +72,6 @@ static __fi void mVUUpperMovmskps_oaknut(const oak::WReg& dst, const oak::QReg& 
 	oakAsm->FMOV(dst, OAK_SSCRATCH);
 }
 
-static __fi void mVUUpperClamp1VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
-{
-	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
-	{
-		mVUClamp1VectorFast_oaknut(reg);
-	}
-}
-
-static __fi void mVUUpperClamp1Vector_oaknut(mV, int reg, bool bClampE)
-{
-	mVUUpperClamp1VectorIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
-}
-
-static __fi void mVUUpperClamp2VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
-{
-	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
-		canClamp)
-	{
-		const oak::QReg reg_q = oakQRegister(reg);
-		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_maxvals[1][0])));
-		oakAsm->SMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
-		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_minvals[1][0])));
-		oakAsm->UMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
-		return;
-	}
-
-	mVUUpperClamp1VectorIf_oaknut(mVU, reg, bClampE, canClamp);
-}
-
-static __fi void mVUUpperClamp2Vector_oaknut(mV, int reg, bool bClampE)
-{
-	mVUUpperClamp2VectorIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
-}
-
-static __fi void mVUUpperClamp3Vector_oaknut(mV, int reg)
-{
-	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
-	if (clampE && canClamp)
-		mVUUpperClamp2VectorIf_oaknut(mVU, reg, true, true);
-}
-
-static __fi void mVUUpperClamp4Vector_oaknut(mV, int reg)
-{
-	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
-	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
-		mVUUpperClamp1VectorIf_oaknut(mVU, reg, true, true);
-}
-
-static __fi void mVUUpperClamp1ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
-{
-	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
-	{
-		mVUClamp1ScalarFast_oaknut(reg);
-	}
-}
-
-static __fi void mVUUpperClamp1Scalar_oaknut(mV, int reg, bool bClampE)
-{
-	mVUUpperClamp1ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
-}
-
-static __fi void mVUUpperClamp2ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
-{
-	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
-		canClamp)
-	{
-		const oak::QReg reg_q = oakQRegister(reg);
-		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_maxvals[0][0])));
-		oakAsm->SMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
-		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_minvals[0][0])));
-		oakAsm->UMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
-		return;
-	}
-
-	mVUUpperClamp1ScalarIf_oaknut(mVU, reg, bClampE, canClamp);
-}
-
-static __fi void mVUUpperClamp2Scalar_oaknut(mV, int reg, bool bClampE)
-{
-	mVUUpperClamp2ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
-}
-
-static __fi void mVUUpperClamp3Scalar_oaknut(mV, int reg)
-{
-	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
-	if (clampE && canClamp)
-		mVUUpperClamp2ScalarIf_oaknut(mVU, reg, true, true);
-	else if (isVU0 && canClamp)
-		mVUClampDenormalScalarBits_oaknut(reg);
-}
-
-static __fi void mVUUpperClamp4Scalar_oaknut(mV, int reg)
-{
-	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
-	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
-		mVUUpperClamp1ScalarIf_oaknut(mVU, reg, true, true);
-	else if (isVU0 && canClamp)
-		mVUClampDenormalScalarBits_oaknut(reg);
-}
-
 static __fi void mVUUpperAddSs_oaknut(mV, int to, int from)
 {
 	mVUUpperClamp3Scalar_oaknut(mVU, to);
@@ -1615,10 +1515,7 @@ static void mVU_MADD_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane
 	}
 	if (needsVu1MaddLaneVuDouble)
 	{
-		if (_XYZW_SS)
-			mVUClampDenormalScalarBits_oaknut(Fs);
-		else
-			mVUClampDenormalVectorBits_oaknut(Fs);
+		mVUUpperClampVu1MaddLaneResult_oaknut(Fs, _XYZW_SS);
 	}
 	recEndOaknutEmit();
 
@@ -1726,10 +1623,7 @@ static void mVU_MSUB_direct_emit_oaknut(mP)
 		mVUUpperFmlsPs_oaknut(mVU, Fd, FsWork, needsVu1XyzwVuDouble ? FtWork : Ft);
 		if (needsVu1XyzwVuDouble)
 		{
-			if (CHECK_VU_OVERFLOW(mVU.index))
-				mVUClamp1VectorFast_oaknut(Fd);
-			else
-				mVUClampDenormalVectorBits_oaknut(Fd);
+			mVUUpperClampVu1XyzwMsubResult_oaknut(mVU, Fd);
 		}
 	}
 	recEndOaknutEmit();

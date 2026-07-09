@@ -342,6 +342,7 @@ void sortVector(T& v)
 #include "microVU_Misc-arm64.inl"
 #include "microVU_Analyze-arm64.inl"
 #include "microVU_Alloc-arm64.inl"
+#include "microVU_Clamp-arm64.inl"
 #include "microVU_Upper-arm64.inl"
 #include "microVU_Lower-arm64.inl"
 #include "microVU_Tables-arm64.inl"

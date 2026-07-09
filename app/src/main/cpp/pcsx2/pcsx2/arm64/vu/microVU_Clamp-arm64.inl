@@ -1,0 +1,203 @@
+// SPDX-FileCopyrightText: 2002-2025 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
+
+#pragma once
+
+//------------------------------------------------------------------
+// Micro VU - ARM64 Oaknut Clamp Functions
+//------------------------------------------------------------------
+
+static __fi OakMemOperand mVUClampOakSs4Mem(s64 offset)
+{
+	return mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, mVUss4)) + offset);
+}
+
+static __fi void mVUUpperClamp1VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
+{
+	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
+	{
+		mVUClamp1VectorFast_oaknut(reg);
+	}
+}
+
+static __fi void mVUUpperClamp1Vector_oaknut(mV, int reg, bool bClampE)
+{
+	mVUUpperClamp1VectorIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
+}
+
+static __fi void mVUUpperClamp2VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
+{
+	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
+		canClamp)
+	{
+		const oak::QReg reg_q = oakQRegister(reg);
+		oakLoad128(OAK_QSCRATCH3, mVUClampOakSs4Mem(offsetof(mVU_SSE4, sse4_maxvals[1][0])));
+		oakAsm->SMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
+		oakLoad128(OAK_QSCRATCH3, mVUClampOakSs4Mem(offsetof(mVU_SSE4, sse4_minvals[1][0])));
+		oakAsm->UMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
+		return;
+	}
+
+	mVUUpperClamp1VectorIf_oaknut(mVU, reg, bClampE, canClamp);
+}
+
+static __fi void mVUUpperClamp2Vector_oaknut(mV, int reg, bool bClampE)
+{
+	mVUUpperClamp2VectorIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
+}
+
+static __fi void mVUUpperClamp3Vector_oaknut(mV, int reg)
+{
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && canClamp)
+		mVUUpperClamp2VectorIf_oaknut(mVU, reg, true, true);
+}
+
+static __fi void mVUUpperClamp4Vector_oaknut(mV, int reg)
+{
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
+		mVUUpperClamp1VectorIf_oaknut(mVU, reg, true, true);
+}
+
+static __fi void mVUUpperClamp1ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
+{
+	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
+	{
+		mVUClamp1ScalarFast_oaknut(reg);
+	}
+}
+
+static __fi void mVUUpperClamp1Scalar_oaknut(mV, int reg, bool bClampE)
+{
+	mVUUpperClamp1ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
+}
+
+static __fi void mVUUpperClamp2ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
+{
+	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
+		canClamp)
+	{
+		const oak::QReg reg_q = oakQRegister(reg);
+		oakLoad128(OAK_QSCRATCH3, mVUClampOakSs4Mem(offsetof(mVU_SSE4, sse4_maxvals[0][0])));
+		oakAsm->SMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
+		oakLoad128(OAK_QSCRATCH3, mVUClampOakSs4Mem(offsetof(mVU_SSE4, sse4_minvals[0][0])));
+		oakAsm->UMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
+		return;
+	}
+
+	mVUUpperClamp1ScalarIf_oaknut(mVU, reg, bClampE, canClamp);
+}
+
+static __fi void mVUUpperClamp2Scalar_oaknut(mV, int reg, bool bClampE)
+{
+	mVUUpperClamp2ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
+}
+
+static __fi void mVUUpperClamp3Scalar_oaknut(mV, int reg)
+{
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && canClamp)
+		mVUUpperClamp2ScalarIf_oaknut(mVU, reg, true, true);
+	else if (isVU0 && canClamp)
+		mVUClampDenormalScalarBits_oaknut(reg);
+}
+
+static __fi void mVUUpperClamp4Scalar_oaknut(mV, int reg)
+{
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
+		mVUUpperClamp1ScalarIf_oaknut(mVU, reg, true, true);
+	else if (isVU0 && canClamp)
+		mVUClampDenormalScalarBits_oaknut(reg);
+}
+
+//------------------------------------------------------------------
+// Lower micromode clamp wrappers
+//------------------------------------------------------------------
+
+static __fi void mVU_clamp1ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
+{
+	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
+	{
+		mVUClamp1ScalarFast_oaknut(reg);
+	}
+}
+
+static __fi void mVU_clamp1Scalar_oaknut(mV, int reg, bool bClampE)
+{
+	mVU_clamp1ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
+}
+
+static __fi void mVU_clamp1Vector_oaknut(mV, int reg, bool bClampE)
+{
+	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && mVU.regAlloc->checkVFClamp(reg))
+	{
+		mVUClamp1VectorFast_oaknut(reg);
+	}
+}
+
+static __fi void mVU_clamp2ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
+{
+	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
+		canClamp)
+	{
+		mVUClamp1ScalarBits_oaknut(reg);
+	}
+	else
+	{
+		mVU_clamp1ScalarIf_oaknut(mVU, reg, bClampE, canClamp);
+	}
+}
+
+static __fi void mVU_clamp2Scalar_oaknut(mV, int reg, bool bClampE)
+{
+	mVU_clamp2ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
+}
+
+static __fi void mVU_clamp3Scalar_oaknut(mV, int reg)
+{
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && canClamp)
+		mVU_clamp2ScalarIf_oaknut(mVU, reg, true, true);
+}
+
+static __fi void mVU_clamp4Scalar_oaknut(mV, int reg)
+{
+	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
+	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
+		mVU_clamp1ScalarIf_oaknut(mVU, reg, true, true);
+}
+
+static __fi void mVU_clamp2Vector_oaknut(mV, int reg, bool bClampE)
+{
+	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
+		mVU.regAlloc->checkVFClamp(reg))
+	{
+		mVUClamp1VectorBits_oaknut(reg);
+	}
+	else
+	{
+		mVU_clamp1Vector_oaknut(mVU, reg, bClampE);
+	}
+}
+
+//------------------------------------------------------------------
+// Opcode-specific clamp fixups
+//------------------------------------------------------------------
+
+static __fi void mVUUpperClampVu1MaddLaneResult_oaknut(int reg, bool scalar)
+{
+	if (scalar)
+		mVUClampDenormalScalarBits_oaknut(reg);
+	else
+		mVUClampDenormalVectorBits_oaknut(reg);
+}
+
+static __fi void mVUUpperClampVu1XyzwMsubResult_oaknut(mV, int reg)
+{
+	if (CHECK_VU_OVERFLOW(mVU.index))
+		mVUClamp1VectorFast_oaknut(reg);
+	else
+		mVUClampDenormalVectorBits_oaknut(reg);
+}
