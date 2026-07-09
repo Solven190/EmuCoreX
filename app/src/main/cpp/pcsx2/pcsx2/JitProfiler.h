@@ -17,6 +17,23 @@ struct JitBlockProfile
 
 namespace JitProfiler
 {
+	class OpcodeRangeScope
+	{
+	public:
+		OpcodeRangeScope() = default;
+		~OpcodeRangeScope();
+
+		void Begin(int type, u32 guest_pc, u32 opcode, u32 paired_opcode = 0);
+
+	private:
+		bool m_active = false;
+		int m_type = 0;
+		u32 m_guest_pc = 0;
+		u32 m_opcode = 0;
+		u32 m_paired_opcode = 0;
+		uptr m_host_begin = 0;
+	};
+
 	bool IsActive();
 	void Start();
 	void Stop();

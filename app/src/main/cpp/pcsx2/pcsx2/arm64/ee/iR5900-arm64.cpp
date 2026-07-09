@@ -1720,6 +1720,7 @@ static void recompileDelaySlotClearCauseBd_emit_oaknut()
 
 void recompileNextInstruction(bool delayslot, bool swapped_delay_slot)
 {
+	const u32 profiler_pc = pc;
 	if (EmuConfig.EnablePatches)
 		Patch::ApplyDynamicPatches(pc);
 
@@ -1751,6 +1752,9 @@ void recompileNextInstruction(bool delayslot, bool swapped_delay_slot)
 	EEINST* old_inst_info = g_pCurInstInfo;
 
 	cpuRegs.code = *(int*)s_pCode;
+	JitProfiler::OpcodeRangeScope profiler_scope;
+	if (JitProfiler::IsActive())
+		profiler_scope.Begin(0, HWADDR(profiler_pc), static_cast<u32>(cpuRegs.code));
 
 	if (!delayslot)
 	{

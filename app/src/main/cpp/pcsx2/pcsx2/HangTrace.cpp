@@ -166,7 +166,7 @@ namespace
 				const u8* micro = is_vu1 ? VU1.Micro : VU0.Micro;
 				const u32 max_size = is_vu1 ? VU1_PROGSIZE : VU0_PROGSIZE;
 				if (micro && pc + 8 <= max_size)
-					std::memcpy(&lower, &micro[pc + 4], sizeof(lower));
+					std::memcpy(&lower, &micro[pc], sizeof(lower));
 
 				char* upper_dis = is_vu1 ? disVU1MicroUF(code, pc / 8) : disVU0MicroUF(code, pc / 8);
 				char* lower_dis = is_vu1 ? disVU1MicroLF(lower, pc / 8) : disVU0MicroLF(lower, pc / 8);

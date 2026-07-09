@@ -29,11 +29,21 @@
 #include <ctime>
 #include <iomanip>
 #include <limits>
+#include <memory>
 #include <mutex>
+#include <new>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
+
+#if defined(__ANDROID__) && defined(__aarch64__)
+#include <dlfcn.h>
+#include <pthread.h>
+#include <signal.h>
+#include <ucontext.h>
+#endif
 
 extern void EE_JitGetBlockProfiles(std::vector<JitBlockProfile>& outBlocks);
 extern void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& outBlocks);
@@ -48,6 +58,43 @@ namespace
 	static std::chrono::steady_clock::time_point s_start_time;
 	static u64 s_start_frame = 0;
 	static std::mutex s_compile_mutex;
+	static std::mutex s_opcode_range_mutex;
+
+	struct OpcodeRangeEvent
+	{
+		uptr host_begin = 0;
+		uptr host_end = 0;
+		u32 first_sample = 0;
+		u32 guest_pc = 0;
+		u32 opcode = 0;
+		u32 paired_opcode = 0;
+		int type = 0;
+	};
+
+	static std::vector<OpcodeRangeEvent> s_opcode_ranges;
+
+	struct RawPcSample
+	{
+		uptr pc = 0;
+		uptr lr = 0;
+		u8 thread_type = 0;
+	};
+
+	static constexpr u32 SAMPLE_BUFFER_CAPACITY = 1u << 18;
+	static constexpr u32 SAMPLE_INTERVAL_US = 2000;
+	static std::unique_ptr<RawPcSample[]> s_sample_buffer;
+	static RawPcSample* s_raw_samples = nullptr;
+	static std::atomic<u32> s_sample_write{0};
+	static std::atomic<u32> s_sample_dropped{0};
+	static std::atomic<bool> s_sampling_active{false};
+
+#if defined(__ANDROID__) && defined(__aarch64__)
+	static struct sigaction s_previous_sampling_signal = {};
+	static pthread_t s_cpu_sample_target = {};
+	static pthread_t s_vu_sample_target = {};
+	static std::thread s_sampler_thread;
+	static bool s_sampler_installed = false;
+#endif
 
 	struct CompileEvent
 	{
@@ -153,6 +200,98 @@ namespace
 		std::array<u64, 4> cpu_blocks = {};
 	};
 
+#if defined(__ANDROID__) && defined(__aarch64__)
+	void SamplingSignalHandler(int, siginfo_t*, void* context)
+	{
+		if (!s_sampling_active.load(std::memory_order_relaxed) || !s_raw_samples)
+			return;
+
+		const u32 index = s_sample_write.fetch_add(1, std::memory_order_relaxed);
+		if (index >= SAMPLE_BUFFER_CAPACITY)
+		{
+			s_sample_dropped.fetch_add(1, std::memory_order_relaxed);
+			return;
+		}
+
+		const ucontext_t* const uctx = static_cast<const ucontext_t*>(context);
+		s_raw_samples[index].pc = static_cast<uptr>(uctx->uc_mcontext.pc);
+		s_raw_samples[index].lr = static_cast<uptr>(uctx->uc_mcontext.regs[30]);
+		const pthread_t current = pthread_self();
+		s_raw_samples[index].thread_type = (current == s_cpu_sample_target) ? 1 : ((current == s_vu_sample_target) ? 2 : 0);
+	}
+
+	void SamplingThreadMain()
+	{
+		while (s_sampling_active.load(std::memory_order_acquire))
+		{
+			if (s_cpu_sample_target)
+				pthread_kill(s_cpu_sample_target, SIGUSR2);
+			if (s_vu_sample_target)
+				pthread_kill(s_vu_sample_target, SIGUSR2);
+			std::this_thread::sleep_for(std::chrono::microseconds(SAMPLE_INTERVAL_US));
+		}
+	}
+#endif
+
+	bool StartPcSampler()
+	{
+		s_sample_buffer.reset(new (std::nothrow) RawPcSample[SAMPLE_BUFFER_CAPACITY]);
+		if (!s_sample_buffer)
+			return false;
+		s_raw_samples = s_sample_buffer.get();
+		s_sample_write.store(0, std::memory_order_relaxed);
+		s_sample_dropped.store(0, std::memory_order_relaxed);
+
+#if defined(__ANDROID__) && defined(__aarch64__)
+		struct sigaction action = {};
+		action.sa_sigaction = SamplingSignalHandler;
+		action.sa_flags = SA_SIGINFO | SA_RESTART;
+		sigemptyset(&action.sa_mask);
+		if (sigaction(SIGUSR2, &action, &s_previous_sampling_signal) != 0)
+			return false;
+
+		s_sampler_installed = true;
+		s_sampling_active.store(true, std::memory_order_release);
+		s_sampler_thread = std::thread(SamplingThreadMain);
+		return true;
+#else
+		return false;
+#endif
+	}
+
+	void StopPcSampler()
+	{
+		s_sampling_active.store(false, std::memory_order_release);
+
+#if defined(__ANDROID__) && defined(__aarch64__)
+		if (!s_sampler_installed)
+			return;
+
+		if (s_sampler_thread.joinable())
+			s_sampler_thread.join();
+		sigaction(SIGUSR2, &s_previous_sampling_signal, nullptr);
+		s_sampler_installed = false;
+#endif
+	}
+
+	void RecordOpcodeRange(int type, u32 guest_pc, u32 opcode, u32 paired_opcode, uptr host_begin, uptr host_end)
+	{
+		if (host_end <= host_begin)
+			return;
+
+		OpcodeRangeEvent event;
+		event.host_begin = host_begin;
+		event.host_end = host_end;
+		event.first_sample = std::min(s_sample_write.load(std::memory_order_relaxed), SAMPLE_BUFFER_CAPACITY);
+		event.guest_pc = guest_pc;
+		event.opcode = opcode;
+		event.paired_opcode = paired_opcode;
+		event.type = type;
+
+		std::lock_guard<std::mutex> lock(s_opcode_range_mutex);
+		s_opcode_ranges.push_back(event);
+	}
+
 	const char* CpuName(int type)
 	{
 		switch (type)
@@ -229,8 +368,8 @@ namespace
 		if (!micro || byte_offset + 8 > program_size)
 			return false;
 
-		std::memcpy(&upper, &micro[byte_offset], sizeof(upper));
-		std::memcpy(&lower, &micro[byte_offset + 4], sizeof(lower));
+		std::memcpy(&lower, &micro[byte_offset], sizeof(lower));
+		std::memcpy(&upper, &micro[byte_offset + 4], sizeof(upper));
 		return true;
 	}
 
@@ -660,6 +799,249 @@ namespace
 		return out.str();
 	}
 
+	struct TimeSampleStat
+	{
+		std::string cpu;
+		std::string category;
+		std::string name;
+		u64 samples = 0;
+		u64 direct_samples = 0;
+		u64 helper_samples = 0;
+	};
+
+	struct TimePcStat : TimeSampleStat
+	{
+		u32 guest_pc = 0;
+	};
+
+	const OpcodeRangeEvent* FindSampleRange(
+		const std::unordered_map<uptr, std::vector<const OpcodeRangeEvent*>>& page_map,
+		uptr host_pc,
+		u32 sample_index)
+	{
+		const auto page_it = page_map.find(host_pc >> 12);
+		if (page_it == page_map.end())
+			return nullptr;
+
+		const OpcodeRangeEvent* best = nullptr;
+		for (const OpcodeRangeEvent* range : page_it->second)
+		{
+			if (range->first_sample > sample_index || host_pc < range->host_begin || host_pc >= range->host_end)
+				continue;
+
+			if (!best || range->first_sample > best->first_sample ||
+				(range->first_sample == best->first_sample &&
+					(range->host_end - range->host_begin) < (best->host_end - best->host_begin)))
+			{
+				best = range;
+			}
+		}
+		return best;
+	}
+
+	void DescribeSampleRange(const OpcodeRangeEvent& range, std::string& cpu, std::string& category, std::string& name)
+	{
+		cpu = CpuName(range.type);
+		switch (range.type)
+		{
+			case 0:
+				category = ClassifyEE(range.opcode);
+				name = TrimMnemonic(DisassembleEE(range.opcode, range.guest_pc));
+				break;
+			case 1:
+				category = ClassifyIOP(range.opcode);
+				name = TrimMnemonic(DisassembleIOP(range.opcode, range.guest_pc));
+				break;
+			case 2:
+			case 3:
+			{
+				category = (range.type == 2) ? "VU0_PAIR" : "VU1_PAIR";
+				const std::string upper = NormalizeVUUpperDisassembly(
+					range.opcode, DisassembleVUUpper(range.type, range.opcode, range.guest_pc / 8));
+				const std::string lower = DisassembleVULower(range.type, range.paired_opcode, range.guest_pc / 8);
+				name = TrimMnemonic(upper) + " | " + TrimMnemonic(lower);
+				break;
+			}
+			default:
+				category = "UNKNOWN";
+				name = "<unknown>";
+				break;
+		}
+	}
+
+	std::string NativeSampleName(uptr pc)
+	{
+#if defined(__ANDROID__) && defined(__aarch64__)
+		Dl_info info = {};
+		if (dladdr(reinterpret_cast<const void*>(pc), &info) != 0)
+		{
+			if (info.dli_sname && *info.dli_sname)
+				return info.dli_sname;
+			if (info.dli_fname && *info.dli_fname)
+			{
+				const char* slash = std::strrchr(info.dli_fname, '/');
+				return slash ? slash + 1 : info.dli_fname;
+			}
+		}
+#else
+		(void)pc;
+#endif
+		return "<native-or-unmapped>";
+	}
+
+	void AppendSamplingHotspots(std::ostringstream& out)
+	{
+		const u32 captured_samples = std::min(s_sample_write.load(std::memory_order_relaxed), SAMPLE_BUFFER_CAPACITY);
+		const u32 dropped_samples = s_sample_dropped.load(std::memory_order_relaxed);
+
+		std::vector<OpcodeRangeEvent> ranges;
+		{
+			std::lock_guard<std::mutex> lock(s_opcode_range_mutex);
+			ranges = s_opcode_ranges;
+		}
+
+		std::unordered_map<uptr, std::vector<const OpcodeRangeEvent*>> page_map;
+		for (const OpcodeRangeEvent& range : ranges)
+		{
+			const uptr first_page = range.host_begin >> 12;
+			const uptr last_page = (range.host_end - 1) >> 12;
+			for (uptr page = first_page; page <= last_page; page++)
+				page_map[page].push_back(&range);
+		}
+
+		std::unordered_map<std::string, TimeSampleStat> opcode_stats;
+		std::unordered_map<std::string, TimePcStat> pc_stats;
+		std::unordered_map<std::string, u64> native_stats;
+		u64 direct_samples = 0;
+		u64 helper_samples = 0;
+		u64 native_samples = 0;
+		u64 cpu_thread_samples = 0;
+		u64 vu_thread_samples = 0;
+
+		for (u32 i = 0; i < captured_samples; i++)
+		{
+			const RawPcSample& sample = s_raw_samples[i];
+			cpu_thread_samples += (sample.thread_type == 1);
+			vu_thread_samples += (sample.thread_type == 2);
+			const OpcodeRangeEvent* range = FindSampleRange(page_map, sample.pc, i);
+			bool helper = false;
+			if (!range && sample.lr)
+			{
+				range = FindSampleRange(page_map, sample.lr, i);
+				helper = (range != nullptr);
+			}
+
+			if (!range)
+			{
+				const char* thread_name = (sample.thread_type == 1) ? "EE/IOP: " : ((sample.thread_type == 2) ? "VU1: " : "Other: ");
+				native_stats[std::string(thread_name) + NativeSampleName(sample.pc)]++;
+				native_samples++;
+				continue;
+			}
+
+			std::string cpu;
+			std::string category;
+			std::string name;
+			DescribeSampleRange(*range, cpu, category, name);
+
+			const std::string opcode_key = cpu + '\n' + category + '\n' + name;
+			TimeSampleStat& opcode_stat = opcode_stats[opcode_key];
+			opcode_stat.cpu = cpu;
+			opcode_stat.category = category;
+			opcode_stat.name = name;
+			opcode_stat.samples++;
+
+			const std::string pc_key = opcode_key + '\n' + std::to_string(range->guest_pc);
+			TimePcStat& pc_stat = pc_stats[pc_key];
+			pc_stat.cpu = cpu;
+			pc_stat.category = category;
+			pc_stat.name = name;
+			pc_stat.guest_pc = range->guest_pc;
+			pc_stat.samples++;
+
+			if (helper)
+			{
+				opcode_stat.helper_samples++;
+				pc_stat.helper_samples++;
+				helper_samples++;
+			}
+			else
+			{
+				opcode_stat.direct_samples++;
+				pc_stat.direct_samples++;
+				direct_samples++;
+			}
+		}
+
+		std::vector<TimeSampleStat> sorted_opcodes;
+		for (const auto& entry : opcode_stats)
+			sorted_opcodes.push_back(entry.second);
+		std::sort(sorted_opcodes.begin(), sorted_opcodes.end(), [](const TimeSampleStat& a, const TimeSampleStat& b) {
+			return a.samples > b.samples;
+		});
+
+		std::vector<TimePcStat> sorted_pcs;
+		for (const auto& entry : pc_stats)
+			sorted_pcs.push_back(entry.second);
+		std::sort(sorted_pcs.begin(), sorted_pcs.end(), [](const TimePcStat& a, const TimePcStat& b) {
+			return a.samples > b.samples;
+		});
+
+		std::vector<std::pair<std::string, u64>> sorted_native(native_stats.begin(), native_stats.end());
+		std::sort(sorted_native.begin(), sorted_native.end(), [](const auto& a, const auto& b) {
+			return a.second > b.second;
+		});
+
+		out << "Statistical CPU Time Samples\n";
+		out << "----------------------------\n";
+		out << "Sampling interval: " << SAMPLE_INTERVAL_US << " us per target thread\n";
+		out << "Captured samples: " << captured_samples << "\n";
+		out << "EE/IOP thread samples: " << cpu_thread_samples << "\n";
+		out << "VU1 thread samples: " << vu_thread_samples << "\n";
+		out << "Direct JIT samples: " << direct_samples << "\n";
+		out << "JIT helper samples attributed through LR: " << helper_samples << "\n";
+		out << "Native/unmapped samples: " << native_samples << "\n";
+		out << "Dropped samples: " << dropped_samples << "\n";
+		out << "Recorded opcode host ranges: " << ranges.size() << "\n\n";
+
+		out << "Top Opcodes/Pairs by Sampled CPU Time\n";
+		out << "--------------------------------------\n";
+		out << "CPU\tCategory\tName\tSamples\tDirect\tHelper\tSharePercent\n";
+		for (size_t i = 0; i < std::min<size_t>(sorted_opcodes.size(), 120); i++)
+		{
+			const TimeSampleStat& stat = sorted_opcodes[i];
+			const double share = captured_samples ? (static_cast<double>(stat.samples) * 100.0 / captured_samples) : 0.0;
+			out << stat.cpu << '\t' << stat.category << '\t' << stat.name << '\t'
+				<< stat.samples << '\t' << stat.direct_samples << '\t' << stat.helper_samples << '\t'
+				<< std::fixed << std::setprecision(3) << share << "\n";
+		}
+		out << "\n";
+
+		out << "Top Guest PCs by Sampled CPU Time\n";
+		out << "----------------------------------\n";
+		out << "CPU\tPC\tCategory\tName\tSamples\tDirect\tHelper\tSharePercent\n";
+		for (size_t i = 0; i < std::min<size_t>(sorted_pcs.size(), 120); i++)
+		{
+			const TimePcStat& stat = sorted_pcs[i];
+			const double share = captured_samples ? (static_cast<double>(stat.samples) * 100.0 / captured_samples) : 0.0;
+			out << stat.cpu << '\t' << Hex8(stat.guest_pc) << '\t' << stat.category << '\t' << stat.name << '\t'
+				<< stat.samples << '\t' << stat.direct_samples << '\t' << stat.helper_samples << '\t'
+				<< std::fixed << std::setprecision(3) << share << "\n";
+		}
+		out << "\n";
+
+		out << "Top Native/Unmapped Symbols\n";
+		out << "---------------------------\n";
+		out << "Name\tSamples\tSharePercent\n";
+		for (size_t i = 0; i < std::min<size_t>(sorted_native.size(), 80); i++)
+		{
+			const double share = captured_samples ? (static_cast<double>(sorted_native[i].second) * 100.0 / captured_samples) : 0.0;
+			out << sorted_native[i].first << '\t' << sorted_native[i].second << '\t'
+				<< std::fixed << std::setprecision(3) << share << "\n";
+		}
+		out << "\n";
+	}
+
 	void AppendHeader(std::ostringstream& out, const std::vector<JitBlockProfile>& profiles)
 	{
 		const auto now = std::chrono::steady_clock::now();
@@ -669,9 +1051,9 @@ namespace
 		out << "=========================================\n";
 		out << "        EmuCoreX JIT Profiler Report     \n";
 		out << "=========================================\n\n";
-		out << "Purpose: identify hot JIT blocks/opcodes to optimize after a captured gameplay scene.\n";
-		out << "Method: execution counters are injected into recompiled blocks. Opcode/category weights are derived from block execution counts.\n";
-		out << "Note: host byte weights are estimates from generated block size, not precise CPU cycle timings.\n\n";
+		out << "Purpose: identify JIT opcodes and native helpers consuming real CPU time in a captured gameplay scene.\n";
+		out << "Method: periodic process-CPU PC sampling mapped back to guest opcodes through recorded ARM64 host ranges.\n";
+		out << "Note: sampling adds no instructions to generated JIT blocks; results are statistical and improve with longer captures.\n\n";
 
 		out << "Game\n";
 		out << "----\n";
@@ -1326,45 +1708,10 @@ namespace
 		VU0_JitGetBlockProfiles(profiles);
 		VU1_JitGetBlockProfiles(profiles);
 
-		std::array<CpuTotals, 4> totals = {};
-		std::unordered_map<std::string, HotStat> opcode_stats;
-		std::unordered_map<std::string, HotStat> category_stats;
-		std::vector<BlockAnalysis> analyzed_blocks;
-		analyzed_blocks.reserve(profiles.size());
-
-		for (const JitBlockProfile& profile : profiles)
-			analyzed_blocks.push_back(AnalyzeBlock(profile, totals, opcode_stats, category_stats));
-
-		std::vector<HotStat> sorted_opcode_stats = SortedStats(opcode_stats);
-		std::vector<HotStat> sorted_category_stats = SortedStats(category_stats);
-		std::vector<PcAggregate> pc_aggregates = BuildPcAggregates(analyzed_blocks);
-		std::vector<VuNormalizedAggregate> normalized_aggregates = BuildVuNormalizedAggregates(analyzed_blocks);
-
 		std::ostringstream report;
 		AppendHeader(report, profiles);
 		AppendCompilationHotspots(report);
-		AppendFindings(report, totals, pc_aggregates, normalized_aggregates, sorted_opcode_stats);
-		AppendCpuSummary(report, totals);
-		AppendHotStats(report, "Opcode Hotspots", sorted_opcode_stats, 180);
-		AppendHotStats(report, "Category Hotspots", sorted_category_stats, 90);
-		AppendPcAggregateTable(report, pc_aggregates);
-		AppendVuNormalizedAggregateTable(report, normalized_aggregates);
-		AppendBlockTable(report, "Top Blocks by Dynamic Guest Ops", analyzed_blocks, [](const BlockAnalysis& a, const BlockAnalysis& b) {
-			if (a.dynamic_guest_ops != b.dynamic_guest_ops)
-				return a.dynamic_guest_ops > b.dynamic_guest_ops;
-			return a.estimated_dynamic_host_bytes > b.estimated_dynamic_host_bytes;
-		}, 140);
-		AppendBlockTable(report, "Top Blocks by Estimated Dynamic Host Bytes", analyzed_blocks, [](const BlockAnalysis& a, const BlockAnalysis& b) {
-			if (a.estimated_dynamic_host_bytes != b.estimated_dynamic_host_bytes)
-				return a.estimated_dynamic_host_bytes > b.estimated_dynamic_host_bytes;
-			return a.dynamic_guest_ops > b.dynamic_guest_ops;
-		}, 140);
-		AppendBlockTable(report, "Top Blocks by Host Expansion", analyzed_blocks, [](const BlockAnalysis& a, const BlockAnalysis& b) {
-			if (a.host_expansion != b.host_expansion)
-				return a.host_expansion > b.host_expansion;
-			return a.dynamic_guest_ops > b.dynamic_guest_ops;
-		}, 100);
-		AppendDisassembly(report, analyzed_blocks);
+		AppendSamplingHotspots(report);
 
 		const std::string profile_dir = Path::Combine(EmuFolders::DataRoot, "jit_profiles");
 		FileSystem::EnsureDirectoryExists(profile_dir.c_str(), false);
@@ -1383,6 +1730,33 @@ namespace
 bool IsActive()
 {
 	return s_active.load(std::memory_order_relaxed);
+}
+
+void OpcodeRangeScope::Begin(int type, u32 guest_pc, u32 opcode, u32 paired_opcode)
+{
+	if (m_active || !IsActive() || !oakAsm)
+		return;
+
+	m_active = true;
+	m_type = type;
+	m_guest_pc = guest_pc;
+	m_opcode = opcode;
+	m_paired_opcode = paired_opcode;
+	m_host_begin = reinterpret_cast<uptr>(oakGetCurrentCodePointer());
+}
+
+OpcodeRangeScope::~OpcodeRangeScope()
+{
+	if (!m_active || !oakAsm)
+		return;
+
+	RecordOpcodeRange(
+		m_type,
+		m_guest_pc,
+		m_opcode,
+		m_paired_opcode,
+		m_host_begin,
+		reinterpret_cast<uptr>(oakGetCurrentCodePointer()));
 }
 
 void RecordBlockCompile(int type, u32 startpc, u32 guest_size, u32 host_size)
@@ -1404,13 +1778,8 @@ void RecordBlockCompile(int type, u32 startpc, u32 guest_size, u32 host_size)
 
 void EmitBlockIncrement(void* counter_ptr)
 {
-	if (!oakAsm)
-		return;
-
-	oakMoveAddressToReg(oak::util::X16, counter_ptr);
-	oakAsm->LDR(oak::util::X17, oak::util::X16);
-	oakAsm->ADD(oak::util::X17, oak::util::X17, 1);
-	oakAsm->STR(oak::util::X17, oak::util::X16);
+	// Statistical sampling must not perturb short blocks with runtime counter instructions.
+	(void)counter_ptr;
 }
 
 void Start()
@@ -1418,27 +1787,39 @@ void Start()
 	if (s_active.exchange(true))
 		return;
 
-	s_start_time = std::chrono::steady_clock::now();
-	s_start_frame = PerformanceMetrics::GetFrameNumber();
 	{
 		std::lock_guard<std::mutex> lock(s_compile_mutex);
 		s_compile_events.clear();
+	}
+	{
+		std::lock_guard<std::mutex> lock(s_opcode_range_mutex);
+		s_opcode_ranges.clear();
 	}
 
 	Host::RunOnCPUThread([]() {
 		if (THREAD_VU1)
 			vu1Thread.WaitVU();
+#if defined(__ANDROID__) && defined(__aarch64__)
+		s_cpu_sample_target = pthread_self();
+		const void* const vu_handle = (THREAD_VU1 && vu1Thread.IsOpen()) ? static_cast<void*>(vu1Thread.GetThreadHandle()) : nullptr;
+		s_vu_sample_target = vu_handle ? static_cast<pthread_t>(reinterpret_cast<uintptr_t>(vu_handle)) : pthread_t{};
+#endif
 		recCpu.Reset();
 		psxRec.Reset();
 		CpuMicroVU0.Reset();
 		CpuMicroVU1.Reset();
 	}, true);
+
+	s_start_time = std::chrono::steady_clock::now();
+	s_start_frame = PerformanceMetrics::GetFrameNumber();
+	StartPcSampler();
 }
 
 void Stop()
 {
 	if (!s_active.exchange(false))
 		return;
+	StopPcSampler();
 
 	Host::RunOnCPUThread([]() {
 		if (THREAD_VU1)
@@ -1450,5 +1831,8 @@ void Stop()
 		CpuMicroVU0.Reset();
 		CpuMicroVU1.Reset();
 	}, true);
+
+	s_raw_samples = nullptr;
+	s_sample_buffer.reset();
 }
 } // namespace JitProfiler

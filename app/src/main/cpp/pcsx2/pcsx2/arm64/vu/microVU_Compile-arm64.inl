@@ -806,8 +806,8 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 	if (HangTrace::IsActive())
 	{
 		u32 upper = 0;
-		if (mVU.regs().Micro && startPC + sizeof(upper) <= mVU.microMemSize)
-			std::memcpy(&upper, &mVU.regs().Micro[startPC], sizeof(upper));
+		if (mVU.regs().Micro && startPC + 8 <= mVU.microMemSize)
+			std::memcpy(&upper, &mVU.regs().Micro[startPC + 4], sizeof(upper));
 		HangTrace::EmitBlockTrace(isVU1 ? HangTrace::CPU_VU1 : HangTrace::CPU_VU0, startPC, upper);
 	}
 	mVUbranch = 0;
@@ -985,6 +985,17 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 
 	for (; x < endCount; ++x)
 	{
+		JitProfiler::OpcodeRangeScope profiler_scope;
+		if (JitProfiler::IsActive())
+		{
+			const u32 profiler_pc = xPC;
+			u32 profiler_lower = 0;
+			u32 profiler_upper = 0;
+			std::memcpy(&profiler_lower, &mVU.regs().Micro[profiler_pc], sizeof(profiler_lower));
+			std::memcpy(&profiler_upper, &mVU.regs().Micro[profiler_pc + 4], sizeof(profiler_upper));
+			profiler_scope.Begin(isVU1 ? 3 : 2, profiler_pc, profiler_upper, profiler_lower);
+		}
+
 		if (mVUinfo.isEOB)
 		{
 			handleBadOp(mVU, x);

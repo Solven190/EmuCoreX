@@ -1444,7 +1444,7 @@ static void psxEncodeMemcheck()
 
 void psxRecompileNextInstruction(bool delayslot, bool swapped_delayslot)
 {
-
+	const u32 profiler_pc = psxpc;
 	const int old_code = psxRegs.code;
 	EEINST* old_inst_info = g_pCurInstInfo;
 	s_recompilingDelaySlot = delayslot;
@@ -1462,6 +1462,9 @@ void psxRecompileNextInstruction(bool delayslot, bool swapped_delayslot)
 	}
 
 	psxRegs.code = iopMemRead32(psxpc);
+	JitProfiler::OpcodeRangeScope profiler_scope;
+	if (JitProfiler::IsActive())
+		profiler_scope.Begin(1, HWADDR(profiler_pc), static_cast<u32>(psxRegs.code));
 	s_psxBlockCycles++;
 	psxpc += 4;
 
