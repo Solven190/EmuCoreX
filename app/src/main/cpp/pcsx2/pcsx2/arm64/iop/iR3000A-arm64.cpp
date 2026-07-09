@@ -1163,11 +1163,11 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 		oakAsm->MOV(OAK_ECX, OAK_EAX);
 		oakLoad32(OAK_EDX, IOP_CPU(psxRegs.iopCycleEE));
 		oakAsm->ADD(OAK_EDX, OAK_EDX, 7);
-		oakAsm->LSR(OAK_EDX, OAK_EDX, 3);
+		oakAsm->ASR(OAK_EDX, OAK_EDX, 3);
 		oakAsm->ADD(OAK_EAX, OAK_EAX, OAK_EDX);
 		oakLoad32(OAK_EEX, IOP_CPU(psxRegs.iopNextEventCycle));
 		oakAsm->CMP(OAK_EAX, OAK_EEX);
-		oakAsm->CSEL(OAK_EAX, OAK_EEX, OAK_EAX, oak::Cond::PL);
+		oakAsm->CSEL(OAK_EAX, OAK_EEX, OAK_EAX, oak::Cond::HI);
 		oakStore32(OAK_EAX, IOP_CPU(psxRegs.cycle));
 		oakAsm->SUB(OAK_EAX, OAK_EAX, OAK_ECX);
 		oakAsm->LSL(OAK_EAX, OAK_EAX, 3);

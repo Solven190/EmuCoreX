@@ -2761,13 +2761,9 @@ static void mVU_RNEXT_direct_emit_oaknut(mP)
 
 	recBeginOaknutEmit();
 	oakLoad32(rnd, mVU_R_mem_oaknut(mVU));
-	oakAsm->LSR(OAK_WSCRATCH, rnd, 4);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 1);
-	oakAsm->LSR(OAK_WSCRATCH2, rnd, 22);
-	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, 1);
+	oakAsm->EOR(OAK_WSCRATCH, rnd, rnd, oak::LogShift::LSR, 18);
 	oakAsm->LSL(rnd, rnd, 1);
-	oakAsm->EOR(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
-	oakAsm->EOR(rnd, rnd, OAK_WSCRATCH);
+	oakAsm->BFXIL(rnd, OAK_WSCRATCH, 4, 1);
 	oakAsm->AND(rnd, rnd, 0x007fffff);
 	oakAsm->ORR(rnd, rnd, 0x3f800000);
 	oakStore32(rnd, mVU_R_mem_oaknut(mVU));

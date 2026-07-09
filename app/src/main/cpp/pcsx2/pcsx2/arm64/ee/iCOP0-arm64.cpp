@@ -42,9 +42,9 @@ static void recBC0BranchTest_emit_oaknut()
 	// 32-bit loads are ok because the test masks to the lower 10 bits.
 
 	recBeginOaknutEmit();
-	oakMoveAddressToReg(OAK_XSCRATCH, &psHu32(DMAC_STAT));
-	oakAsm->LDR(OAK_WSCRATCH, OAK_XSCRATCH);
-	oakAsm->LDR(OAK_WSCRATCH2, OAK_XSCRATCH, oak::POffset<14, 2>(16));
+	oakMoveAddressToReg(oak::util::X4, &psHu32(DMAC_STAT));
+	oakAsm->LDR(OAK_WSCRATCH, oak::util::X4);
+	oakAsm->LDR(OAK_WSCRATCH2, oak::util::X4, oak::POffset<14, 2>(16));
 	oakAsm->BIC(OAK_WSCRATCH2, OAK_WSCRATCH2, OAK_WSCRATCH);
 	oakAsm->TST(OAK_WSCRATCH2, 0x3ff);
 	recEndOaknutEmit();
