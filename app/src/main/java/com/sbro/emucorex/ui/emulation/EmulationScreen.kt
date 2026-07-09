@@ -1846,7 +1846,6 @@ private fun OnScreenControls(
                 analogWidth = panelWidth,
                 analogHeight = stick.size,
                 surfaceOnly = stickIsSurfaceOnly(stick),
-                onTouchStart = ::performTouchHaptic,
                 onValueChange = { x, y ->
                     updateAnalogStick(
                         x = if (invertLeftStickHorizontal) -x else x,
@@ -1878,7 +1877,6 @@ private fun OnScreenControls(
                 analogHeight = stick.size,
                 surfaceOnly = stickIsSurfaceOnly(stick),
                 visualY = rightStickTriggerVisualY,
-                onTouchStart = ::performTouchHaptic,
                 onValueChange = { x, y ->
                     updateRightAnalogStick(
                         x = if (invertRightStickHorizontal) -x else x,
