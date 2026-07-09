@@ -2295,24 +2295,20 @@ void recPXOR()
 static void recPCPYLD_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	if (rs_zero)
+	if (rs_zero && rt_zero)
 	{
-		oakAsm->MOV(OAK_XSCRATCH, 0);
-		oakAsm->INS(oakQRegister(dstreg).Delem()[1], OAK_XSCRATCH);
+		oakAsm->MOVI(oakQRegister(dstreg).B16(), 0);
 	}
 	else
 	{
-		oakAsm->MOV(oakQRegister(dstreg).Delem()[1], oakQRegister(sreg).Delem()[0]);
-	}
+		if (rt_zero)
+			oakAsm->MOVI(OAK_QSCRATCH.B16(), 0);
+		if (rs_zero)
+			oakAsm->MOVI(OAK_QSCRATCH2.B16(), 0);
 
-	if (rt_zero)
-	{
-		oakAsm->MOV(OAK_XSCRATCH, 0);
-		oakAsm->INS(oakQRegister(dstreg).Delem()[0], OAK_XSCRATCH);
-	}
-	else
-	{
-		oakAsm->MOV(oakQRegister(dstreg).Delem()[0], oakQRegister(treg).Delem()[0]);
+		const oak::QReg tsrc = rt_zero ? OAK_QSCRATCH : oakQRegister(treg);
+		const oak::QReg ssrc = rs_zero ? OAK_QSCRATCH2 : oakQRegister(sreg);
+		oakAsm->ZIP1(oakQRegister(dstreg).D2(), tsrc.D2(), ssrc.D2());
 	}
 	recEndOaknutEmit();
 }
