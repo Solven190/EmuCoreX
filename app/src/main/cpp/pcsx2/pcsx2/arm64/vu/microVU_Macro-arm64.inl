@@ -6,6 +6,7 @@
 
 extern void _vu0WaitMicro();
 extern void _vu0FinishMicro();
+extern void vu0ExecMicro(u32 addr);
 
 static constexpr bool VU0_FORCE_INTERP_COP2_MACRO_TEST = false;
 static constexpr bool VU0_FORCE_INTERP_COP2_TRANSFER_TEST = false;
@@ -1140,8 +1141,42 @@ void recVRXOR()
 
 void recVNOP() {}
 void recVWAITQ() {}
-INTERPRETATE_COP2_FUNC(CALLMS);
-INTERPRETATE_COP2_FUNC(CALLMSR);
+
+static void recVU0CallMicro_emit_oaknut(u32 addr)
+{
+	recBeginOaknutEmit();
+	recFlushReccycle();
+	oakEmitCall(reinterpret_cast<const void*>(_vu0FinishMicro));
+	oakAsm->MOV(OAK_WARG1, addr);
+	oakEmitCall(reinterpret_cast<const void*>(vu0ExecMicro));
+	recReloadReccycle();
+	recEndOaknutEmit();
+}
+
+static void recVU0CallMicroFromCmsar0_emit_oaknut()
+{
+	recBeginOaknutEmit();
+	recFlushReccycle();
+	oakEmitCall(reinterpret_cast<const void*>(_vu0FinishMicro));
+	oakLoad16(OAK_WARG1, mVUOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, vuRegs[0].VI[REG_CMSAR0].US[0]))));
+	oakEmitCall(reinterpret_cast<const void*>(vu0ExecMicro));
+	recReloadReccycle();
+	recEndOaknutEmit();
+}
+
+void recVCALLMS()
+{
+	iFlushCall(FLUSH_FOR_POSSIBLE_MICRO_EXEC);
+	mVUAddBlockCyclesToCpuCycle_emit_oaknut(oak::util::W0);
+	recVU0CallMicro_emit_oaknut((cpuRegs.code >> 6) & 0x7fff);
+}
+
+void recVCALLMSR()
+{
+	iFlushCall(FLUSH_FOR_POSSIBLE_MICRO_EXEC);
+	mVUAddBlockCyclesToCpuCycle_emit_oaknut(oak::util::W0);
+	recVU0CallMicroFromCmsar0_emit_oaknut();
+}
 
 static void recCOP2InterpreterCall(void (*func)())
 {
