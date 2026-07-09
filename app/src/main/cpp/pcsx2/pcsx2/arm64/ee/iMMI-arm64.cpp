@@ -1639,10 +1639,7 @@ static void mmi2WriteSignedDoubleword_emit_oaknut(int hostreg, int lane, oak::WR
 
 static void mmi2WriteRdFromLoHiEvenWords_emit_oaknut(int dstreg, int loreg, int hireg)
 {
-	oakAsm->MOV(oakQRegister(dstreg).Selem()[0], oakQRegister(loreg).Selem()[0]);
-	oakAsm->MOV(oakQRegister(dstreg).Selem()[1], oakQRegister(hireg).Selem()[0]);
-	oakAsm->MOV(oakQRegister(dstreg).Selem()[2], oakQRegister(loreg).Selem()[2]);
-	oakAsm->MOV(oakQRegister(dstreg).Selem()[3], oakQRegister(hireg).Selem()[2]);
+	oakAsm->TRN1(oakQRegister(dstreg).S4(), oakQRegister(loreg).S4(), oakQRegister(hireg).S4());
 }
 
 static void mmi2SignedHalfProduct_emit_oaknut(int sreg, int treg, int half_lane, bool rs_zero, bool rt_zero)
