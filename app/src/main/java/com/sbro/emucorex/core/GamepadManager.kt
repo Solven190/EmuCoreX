@@ -297,11 +297,8 @@ object GamepadManager {
                 }
             }
         }
-        scope.launch {
-            preferences.gamepadButtonHaptics.collectLatest { enabled ->
-                buttonHapticsEnabled = enabled
-            }
-        }
+        // Runtime-only gamepad controls are pushed by EmulationViewModel so per-game
+        // profiles are not overwritten by unrelated global DataStore updates.
         scope.launch {
             preferences.touchHapticsStrength.collectLatest { value ->
                 buttonHapticsStrength = value.coerceIn(10, 100)
@@ -340,16 +337,6 @@ object GamepadManager {
         scope.launch {
             preferences.invertRightStickHorizontal.collectLatest { enabled ->
                 invertRightStickHorizontal = enabled
-            }
-        }
-        scope.launch {
-            preferences.gamepadRightStickUpToR2.collectLatest { enabled ->
-                setRightStickTriggerMapping(enabled, rightStickDownToL2)
-            }
-        }
-        scope.launch {
-            preferences.gamepadRightStickDownToL2.collectLatest { enabled ->
-                setRightStickTriggerMapping(rightStickUpToR2, enabled)
             }
         }
         scope.launch {
