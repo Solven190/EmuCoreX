@@ -571,15 +571,10 @@ void recPMAXW()
 static void recPPACW_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero)
 {
 	recBeginOaknutEmit();
-	const bool s_alias = !rs_zero && (dstreg == sreg);
-	if (rs_zero || s_alias)
+	if (rs_zero)
 		mmi0LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	const oak::QReg ssrc = (rs_zero || s_alias) ? OAK_QSCRATCH : oakQRegister(sreg);
-	oakAsm->MOV(OAK_QSCRATCH2.Selem()[0], oakQRegister(treg).Selem()[0]);
-	oakAsm->MOV(OAK_QSCRATCH2.Selem()[1], oakQRegister(treg).Selem()[2]);
-	oakAsm->MOV(OAK_QSCRATCH2.Selem()[2], ssrc.Selem()[0]);
-	oakAsm->MOV(OAK_QSCRATCH2.Selem()[3], ssrc.Selem()[2]);
-	mmi0StoreQ_emit_oaknut(dstreg, OAK_QSCRATCH2);
+	const oak::QReg ssrc = rs_zero ? OAK_QSCRATCH : oakQRegister(sreg);
+	oakAsm->UZP1(oakQRegister(dstreg).S4(), oakQRegister(treg).S4(), ssrc.S4());
 	recEndOaknutEmit();
 }
 
@@ -599,15 +594,10 @@ void recPPACW()
 static void recPPACH_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero)
 {
 	recBeginOaknutEmit();
-	const bool s_alias = !rs_zero && (dstreg == sreg);
-	if (rs_zero || s_alias)
+	if (rs_zero)
 		mmi0LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	const oak::QReg ssrc = (rs_zero || s_alias) ? OAK_QSCRATCH : oakQRegister(sreg);
-	for (int i = 0; i < 4; i++)
-		oakAsm->MOV(OAK_QSCRATCH2.Helem()[i], oakQRegister(treg).Helem()[i * 2]);
-	for (int i = 0; i < 4; i++)
-		oakAsm->MOV(OAK_QSCRATCH2.Helem()[i + 4], ssrc.Helem()[i * 2]);
-	mmi0StoreQ_emit_oaknut(dstreg, OAK_QSCRATCH2);
+	const oak::QReg ssrc = rs_zero ? OAK_QSCRATCH : oakQRegister(sreg);
+	oakAsm->UZP1(oakQRegister(dstreg).H8(), oakQRegister(treg).H8(), ssrc.H8());
 	recEndOaknutEmit();
 }
 
@@ -626,15 +616,10 @@ void recPPACH()
 static void recPPACB_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero)
 {
 	recBeginOaknutEmit();
-	const bool s_alias = !rs_zero && (dstreg == sreg);
-	if (rs_zero || s_alias)
+	if (rs_zero)
 		mmi0LoadQSource_emit_oaknut(OAK_QSCRATCH, sreg, rs_zero);
-	const oak::QReg ssrc = (rs_zero || s_alias) ? OAK_QSCRATCH : oakQRegister(sreg);
-	for (int i = 0; i < 8; i++)
-		oakAsm->MOV(OAK_QSCRATCH2.Belem()[i], oakQRegister(treg).Belem()[i * 2]);
-	for (int i = 0; i < 8; i++)
-		oakAsm->MOV(OAK_QSCRATCH2.Belem()[i + 8], ssrc.Belem()[i * 2]);
-	mmi0StoreQ_emit_oaknut(dstreg, OAK_QSCRATCH2);
+	const oak::QReg ssrc = rs_zero ? OAK_QSCRATCH : oakQRegister(sreg);
+	oakAsm->UZP1(oakQRegister(dstreg).B16(), oakQRegister(treg).B16(), ssrc.B16());
 	recEndOaknutEmit();
 }
 
@@ -2620,16 +2605,45 @@ void recPDIVUW()
 static void recPCPYUD_emit_oaknut(int dstreg, int sreg, int treg, bool rs_zero, bool rt_zero)
 {
 	recBeginOaknutEmit();
-	if (rs_zero)
-		oakAsm->MOV(oak::util::X0, 0);
+	const bool alias = (!rs_zero && dstreg == sreg) || (!rt_zero && dstreg == treg);
+	if (alias)
+	{
+		if (rs_zero)
+			oakAsm->MOV(OAK_XSCRATCH, 0);
+		else
+			oakAsm->MOV(OAK_XSCRATCH, oakQRegister(sreg).Delem()[1]);
+		if (rt_zero)
+			oakAsm->MOV(OAK_XSCRATCH2, 0);
+		else
+			oakAsm->MOV(OAK_XSCRATCH2, oakQRegister(treg).Delem()[1]);
+		oakAsm->INS(oakQRegister(dstreg).Delem()[0], OAK_XSCRATCH);
+		oakAsm->INS(oakQRegister(dstreg).Delem()[1], OAK_XSCRATCH2);
+	}
+	else if (rs_zero && rt_zero)
+	{
+		oakAsm->MOVI(oakQRegister(dstreg).B16(), 0);
+	}
 	else
-		oakAsm->MOV(oak::util::X0, oakQRegister(sreg).Delem()[1]);
-	if (rt_zero)
-		oakAsm->MOV(oak::util::X1, 0);
-	else
-		oakAsm->MOV(oak::util::X1, oakQRegister(treg).Delem()[1]);
-	oakAsm->INS(oakQRegister(dstreg).Delem()[0], oak::util::X0);
-	oakAsm->INS(oakQRegister(dstreg).Delem()[1], oak::util::X1);
+	{
+		if (rs_zero)
+		{
+			oakAsm->MOV(OAK_XSCRATCH, 0);
+			oakAsm->INS(oakQRegister(dstreg).Delem()[0], OAK_XSCRATCH);
+		}
+		else
+		{
+			oakAsm->MOV(oakQRegister(dstreg).Delem()[0], oakQRegister(sreg).Delem()[1]);
+		}
+		if (rt_zero)
+		{
+			oakAsm->MOV(OAK_XSCRATCH, 0);
+			oakAsm->INS(oakQRegister(dstreg).Delem()[1], OAK_XSCRATCH);
+		}
+		else
+		{
+			oakAsm->MOV(oakQRegister(dstreg).Delem()[1], oakQRegister(treg).Delem()[1]);
+		}
+	}
 	recEndOaknutEmit();
 }
 
@@ -2688,11 +2702,13 @@ static void recPCPYH_emit_oaknut(int dstreg, int treg, bool rt_zero)
 	}
 	else
 	{
-		const oak::QReg src = oakQRegister(treg);
-		for (int i = 0; i < 4; i++)
-			oakAsm->MOV(oakQRegister(dstreg).Helem()[i], src.Helem()[0]);
-		for (int i = 4; i < 8; i++)
-			oakAsm->MOV(oakQRegister(dstreg).Helem()[i], src.Helem()[4]);
+		const bool alias = (dstreg == treg);
+		if (alias)
+			oakAsm->MOV(OAK_QSCRATCH.B16(), oakQRegister(treg).B16());
+		const oak::QReg src = alias ? OAK_QSCRATCH : oakQRegister(treg);
+		oakAsm->DUP(oakQRegister(dstreg).H8(), src.Helem()[0]);
+		oakAsm->DUP(OAK_QSCRATCH2.H8(), src.Helem()[4]);
+		oakAsm->MOV(oakQRegister(dstreg).Delem()[1], OAK_QSCRATCH2.Delem()[0]);
 	}
 	recEndOaknutEmit();
 }
