@@ -49,6 +49,7 @@ data class SettingsSnapshot(
     val showFps: Boolean = false,
     val fpsOverlayMode: Int = AppPreferences.FPS_OVERLAY_MODE_DETAILED,
     val fpsOverlayCorner: Int = AppPreferences.FPS_OVERLAY_CORNER_TOP_RIGHT,
+    val confirmSaveLoadActions: Boolean = true,
     val compactControls: Boolean = true,
     val keepScreenOn: Boolean = true,
     val showRecentGames: Boolean = true,
@@ -137,6 +138,7 @@ data class SettingsSnapshot(
     val overlayOpacity: Int = 80,
     val overlayShow: Boolean = true,
     val racingMode: Boolean = false,
+    val touchHaptics: Boolean = false,
     val leftStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val invertLeftStick: Boolean = false,
@@ -150,6 +152,7 @@ data class SettingsSnapshot(
     val gamepadRightStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
     val gamepadRightStickUpToR2: Boolean = false,
     val gamepadRightStickDownToL2: Boolean = false,
+    val gamepadButtonHaptics: Boolean = false,
     val gamepadBindings: Map<String, Int> = emptyMap(),
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
@@ -239,6 +242,9 @@ class AppPreferences(private val context: Context) {
         const val DEFAULT_CENTER_OFFSET_X = 0f
         const val DEFAULT_CENTER_OFFSET_Y = 10f
         const val DEFAULT_STICK_SENSITIVITY = 100
+        const val OVERLAY_CONTROL_SCALE_MIN = 50
+        const val OVERLAY_CONTROL_SCALE_MAX = 500
+        const val OVERLAY_CONTROL_SCALE_DEFAULT = 100
         const val DEFAULT_GAMEPAD_STICK_DEADZONE = 15
         const val DEFAULT_GAMEPAD_STICK_SENSITIVITY = 100
         const val DEFAULT_PAD_VIBRATION_STRENGTH = 100
@@ -265,7 +271,7 @@ class AppPreferences(private val context: Context) {
         const val DEFAULT_VU0_CLAMPING_MODE = CLAMPING_NORMAL
         const val DEFAULT_VU1_CLAMPING_MODE = CLAMPING_NONE
 
-        fun defaultOverlayControlLayouts(stickScale: Int = 100): Map<String, OverlayControlLayout> = mapOf(
+        fun defaultOverlayControlLayouts(stickScale: Int = OVERLAY_CONTROL_SCALE_DEFAULT): Map<String, OverlayControlLayout> = mapOf(
             "l2" to OverlayControlLayout(),
             "l1" to OverlayControlLayout(),
             "r2" to OverlayControlLayout(),
@@ -311,6 +317,7 @@ class AppPreferences(private val context: Context) {
         private val SHOW_FPS = booleanPreferencesKey("show_fps")
         private val FPS_OVERLAY_MODE = intPreferencesKey("fps_overlay_mode")
         private val FPS_OVERLAY_CORNER = intPreferencesKey("fps_overlay_corner")
+        private val CONFIRM_SAVE_LOAD_ACTIONS = booleanPreferencesKey("confirm_save_load_actions")
         private val COMPACT_CONTROLS = booleanPreferencesKey("compact_controls")
         private val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         private val SHOW_RECENT_GAMES = booleanPreferencesKey("show_recent_games")
@@ -403,6 +410,8 @@ class AppPreferences(private val context: Context) {
         private val PERFORMANCE_PRESET = intPreferencesKey("performance_preset")
         private val ENABLE_AUTO_GAMEPAD = booleanPreferencesKey("enable_auto_gamepad")
         private val HIDE_OVERLAY_ON_GAMEPAD = booleanPreferencesKey("hide_overlay_on_gamepad")
+        private val TOUCH_HAPTICS = booleanPreferencesKey("touch_haptics")
+        private val GAMEPAD_BUTTON_HAPTICS = booleanPreferencesKey("gamepad_button_haptics")
         private val GAMEPAD_STICK_DEADZONE = intPreferencesKey("gamepad_stick_deadzone")
         private val GAMEPAD_LEFT_STICK_SENSITIVITY = intPreferencesKey("gamepad_left_stick_sensitivity")
         private val GAMEPAD_RIGHT_STICK_SENSITIVITY = intPreferencesKey("gamepad_right_stick_sensitivity")
@@ -859,6 +868,7 @@ class AppPreferences(private val context: Context) {
                     FPS_OVERLAY_CORNER_BOTTOM_RIGHT -> prefs[FPS_OVERLAY_CORNER] ?: FPS_OVERLAY_CORNER_TOP_RIGHT
                     else -> FPS_OVERLAY_CORNER_TOP_RIGHT
                 },
+                confirmSaveLoadActions = prefs[CONFIRM_SAVE_LOAD_ACTIONS] ?: true,
                 compactControls = prefs[COMPACT_CONTROLS] ?: true,
                 keepScreenOn = prefs[KEEP_SCREEN_ON] ?: true,
                 showRecentGames = prefs[SHOW_RECENT_GAMES] ?: true,
@@ -958,6 +968,7 @@ class AppPreferences(private val context: Context) {
                 overlayOpacity = prefs[OVERLAY_OPACITY] ?: 80,
                 overlayShow = prefs[OVERLAY_SHOW] ?: true,
                 racingMode = prefs[RACING_MODE] ?: false,
+                touchHaptics = prefs[TOUCH_HAPTICS] ?: false,
                 leftStickSensitivity = prefs[LEFT_STICK_SENSITIVITY] ?: DEFAULT_STICK_SENSITIVITY,
                 rightStickSensitivity = prefs[RIGHT_STICK_SENSITIVITY] ?: DEFAULT_STICK_SENSITIVITY,
                 invertLeftStick = prefs[INVERT_LEFT_STICK] ?: false,
@@ -971,6 +982,7 @@ class AppPreferences(private val context: Context) {
                 gamepadRightStickSensitivity = prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY,
                 gamepadRightStickUpToR2 = prefs[GAMEPAD_RIGHT_STICK_UP_TO_R2] ?: false,
                 gamepadRightStickDownToL2 = prefs[GAMEPAD_RIGHT_STICK_DOWN_TO_L2] ?: false,
+                gamepadButtonHaptics = prefs[GAMEPAD_BUTTON_HAPTICS] ?: false,
                 gamepadBindings = decodeGamepadBindings(prefs[GAMEPAD_BINDINGS]),
                 gamepadBindingsByPad = decodeGamepadBindingsByPad(prefs[GAMEPAD_BINDINGS]),
                 gpuDriverType = prefs[GPU_DRIVER_TYPE] ?: 0,
@@ -1024,7 +1036,8 @@ class AppPreferences(private val context: Context) {
                     prefs[CENTER_OFFSET],
                     DEFAULT_CENTER_OFFSET_X to DEFAULT_CENTER_OFFSET_Y
                 ),
-                stickScale = prefs[STICK_SCALE] ?: 100,
+                stickScale = (prefs[STICK_SCALE] ?: OVERLAY_CONTROL_SCALE_DEFAULT)
+                    .coerceIn(OVERLAY_CONTROL_SCALE_MIN, OVERLAY_CONTROL_SCALE_MAX),
                 leftStickSensitivity = prefs[LEFT_STICK_SENSITIVITY] ?: 100,
                 rightStickSensitivity = prefs[RIGHT_STICK_SENSITIVITY] ?: 100,
                 invertLeftStick = prefs[INVERT_LEFT_STICK] ?: false,
@@ -1084,6 +1097,22 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[PAD_VIBRATION_FALLBACK] = enabled }
     }
 
+    val touchHaptics: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[TOUCH_HAPTICS] ?: false
+    }
+
+    suspend fun setTouchHaptics(enabled: Boolean) {
+        context.dataStore.edit { it[TOUCH_HAPTICS] = enabled }
+    }
+
+    val gamepadButtonHaptics: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[GAMEPAD_BUTTON_HAPTICS] ?: false
+    }
+
+    suspend fun setGamepadButtonHaptics(enabled: Boolean) {
+        context.dataStore.edit { it[GAMEPAD_BUTTON_HAPTICS] = enabled }
+    }
+
     val showFps: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[SHOW_FPS] ?: false
     }
@@ -1120,6 +1149,14 @@ class AppPreferences(private val context: Context) {
                 else -> FPS_OVERLAY_CORNER_TOP_RIGHT
             }
         }
+    }
+
+    val confirmSaveLoadActions: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[CONFIRM_SAVE_LOAD_ACTIONS] ?: true
+    }
+
+    suspend fun setConfirmSaveLoadActions(enabled: Boolean) {
+        context.dataStore.edit { it[CONFIRM_SAVE_LOAD_ACTIONS] = enabled }
     }
 
     val compactControls: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -2089,7 +2126,8 @@ class AppPreferences(private val context: Context) {
                         id,
                         OverlayControlLayout(
                             offset = (item.optDouble("x", 0.0).toFloat()) to (item.optDouble("y", 0.0).toFloat()),
-                            scale = item.optInt("scale", 100).coerceIn(50, 200),
+                            scale = item.optInt("scale", OVERLAY_CONTROL_SCALE_DEFAULT)
+                                .coerceIn(OVERLAY_CONTROL_SCALE_MIN, OVERLAY_CONTROL_SCALE_MAX),
                             widthScale = item.optInt(
                                 "widthScale",
                                 if (id.contains("stick")) 160 else 100
@@ -2112,7 +2150,7 @@ class AppPreferences(private val context: Context) {
                     JSONObject().apply {
                         put("x", layout.offset.first.toDouble())
                         put("y", layout.offset.second.toDouble())
-                        put("scale", layout.scale.coerceIn(50, 200))
+                        put("scale", layout.scale.coerceIn(OVERLAY_CONTROL_SCALE_MIN, OVERLAY_CONTROL_SCALE_MAX))
                         put("widthScale", layout.widthScale.coerceIn(100, 240))
                         put("visible", layout.visible)
                         put("surfaceOnly", layout.surfaceOnly)
@@ -2124,7 +2162,8 @@ class AppPreferences(private val context: Context) {
 
     private fun migrateGlobalStickSurfaceMode(prefs: MutablePreferences) {
         if (prefs[STICK_SURFACE_MODE] == true) {
-            val stickScale = prefs[STICK_SCALE] ?: 100
+            val stickScale = (prefs[STICK_SCALE] ?: OVERLAY_CONTROL_SCALE_DEFAULT)
+                .coerceIn(OVERLAY_CONTROL_SCALE_MIN, OVERLAY_CONTROL_SCALE_MAX)
             val defaults = defaultOverlayControlLayouts(stickScale)
             val layouts = decodeControlLayouts(prefs[CONTROL_LAYOUTS]).toMutableMap()
             listOf("left_stick", "right_stick").forEach { id ->
@@ -2158,7 +2197,10 @@ class AppPreferences(private val context: Context) {
         parseOffsetStr(it[CENTER_OFFSET], DEFAULT_CENTER_OFFSET_X to DEFAULT_CENTER_OFFSET_Y)
     }
     
-    val stickScale: Flow<Int> = context.dataStore.data.map { it[STICK_SCALE] ?: 100 }
+    val stickScale: Flow<Int> = context.dataStore.data.map {
+        (it[STICK_SCALE] ?: OVERLAY_CONTROL_SCALE_DEFAULT)
+            .coerceIn(OVERLAY_CONTROL_SCALE_MIN, OVERLAY_CONTROL_SCALE_MAX)
+    }
 
     val leftStickSensitivity: Flow<Int> = context.dataStore.data.map { it[LEFT_STICK_SENSITIVITY] ?: 100 }
 
@@ -2227,7 +2269,7 @@ class AppPreferences(private val context: Context) {
             prefs[LBTN_OFFSET] = formatOffsetStr(lbtnX, lbtnY)
             prefs[RBTN_OFFSET] = formatOffsetStr(rbtnX, rbtnY)
             prefs[CENTER_OFFSET] = formatOffsetStr(centerX, centerY)
-            prefs[STICK_SCALE] = stickScaleVal.coerceIn(50, 200)
+            prefs[STICK_SCALE] = stickScaleVal.coerceIn(OVERLAY_CONTROL_SCALE_MIN, OVERLAY_CONTROL_SCALE_MAX)
             prefs[OVERLAY_LAYOUT_VERSION] = CURRENT_OVERLAY_LAYOUT_VERSION
             encodeControlLayouts(controlLayouts)?.let { prefs[CONTROL_LAYOUTS] = it } ?: prefs.remove(CONTROL_LAYOUTS)
         }
@@ -2369,6 +2411,7 @@ class AppPreferences(private val context: Context) {
             put("showFps", prefs[SHOW_FPS] ?: false)
             put("fpsOverlayMode", prefs[FPS_OVERLAY_MODE] ?: FPS_OVERLAY_MODE_DETAILED)
             put("fpsOverlayCorner", prefs[FPS_OVERLAY_CORNER] ?: FPS_OVERLAY_CORNER_TOP_RIGHT)
+            put("confirmSaveLoadActions", prefs[CONFIRM_SAVE_LOAD_ACTIONS] ?: true)
             put("compactControls", prefs[COMPACT_CONTROLS] ?: true)
             put("keepScreenOn", prefs[KEEP_SCREEN_ON] ?: true)
             put("showRecentGames", prefs[SHOW_RECENT_GAMES] ?: true)
@@ -2381,11 +2424,13 @@ class AppPreferences(private val context: Context) {
             put("overlayOpacity", prefs[OVERLAY_OPACITY] ?: 80)
             put("overlayShow", prefs[OVERLAY_SHOW] ?: true)
             put("racingMode", prefs[RACING_MODE] ?: false)
+            put("touchHaptics", prefs[TOUCH_HAPTICS] ?: false)
             put("gamepadStickDeadzone", prefs[GAMEPAD_STICK_DEADZONE] ?: DEFAULT_GAMEPAD_STICK_DEADZONE)
             put("gamepadLeftStickSensitivity", prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
             put("gamepadRightStickSensitivity", prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
             put("gamepadRightStickUpToR2", prefs[GAMEPAD_RIGHT_STICK_UP_TO_R2] ?: false)
             put("gamepadRightStickDownToL2", prefs[GAMEPAD_RIGHT_STICK_DOWN_TO_L2] ?: false)
+            put("gamepadButtonHaptics", prefs[GAMEPAD_BUTTON_HAPTICS] ?: false)
             put("enableFastBoot", prefs[ENABLE_FAST_BOOT] ?: true)
             put("eeCycleRate", prefs[EE_CYCLE_RATE] ?: 0)
             put("eeCycleSkip", prefs[EE_CYCLE_SKIP] ?: 0)
@@ -2480,7 +2525,11 @@ class AppPreferences(private val context: Context) {
             put("lbtnOffset", prefs[LBTN_OFFSET])
             put("rbtnOffset", prefs[RBTN_OFFSET])
             put("centerOffset", prefs[CENTER_OFFSET])
-            put("stickScale", prefs[STICK_SCALE] ?: 100)
+            put(
+                "stickScale",
+                (prefs[STICK_SCALE] ?: OVERLAY_CONTROL_SCALE_DEFAULT)
+                    .coerceIn(OVERLAY_CONTROL_SCALE_MIN, OVERLAY_CONTROL_SCALE_MAX)
+            )
             put("leftStickSensitivity", prefs[LEFT_STICK_SENSITIVITY] ?: 100)
             put("rightStickSensitivity", prefs[RIGHT_STICK_SENSITIVITY] ?: 100)
             put("invertLeftStick", prefs[INVERT_LEFT_STICK] ?: false)
@@ -2540,6 +2589,7 @@ class AppPreferences(private val context: Context) {
                 FPS_OVERLAY_CORNER_TOP_LEFT,
                 FPS_OVERLAY_CORNER_BOTTOM_RIGHT
             )
+            prefs[CONFIRM_SAVE_LOAD_ACTIONS] = json.optBoolean("confirmSaveLoadActions", true)
             prefs[COMPACT_CONTROLS] = json.optBoolean("compactControls", true)
             prefs[KEEP_SCREEN_ON] = json.optBoolean("keepScreenOn", true)
             prefs[SHOW_RECENT_GAMES] = json.optBoolean("showRecentGames", true)
@@ -2552,11 +2602,13 @@ class AppPreferences(private val context: Context) {
             prefs[OVERLAY_OPACITY] = json.optInt("overlayOpacity", 80)
             prefs[OVERLAY_SHOW] = json.optBoolean("overlayShow", true)
             prefs[RACING_MODE] = json.optBoolean("racingMode", false)
+            prefs[TOUCH_HAPTICS] = json.optBoolean("touchHaptics", false)
             prefs[GAMEPAD_STICK_DEADZONE] = json.optInt("gamepadStickDeadzone", DEFAULT_GAMEPAD_STICK_DEADZONE).coerceIn(0, 35)
             prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] = json.optInt("gamepadLeftStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)
             prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] = json.optInt("gamepadRightStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)
             prefs[GAMEPAD_RIGHT_STICK_UP_TO_R2] = json.optBoolean("gamepadRightStickUpToR2", false)
             prefs[GAMEPAD_RIGHT_STICK_DOWN_TO_L2] = json.optBoolean("gamepadRightStickDownToL2", false)
+            prefs[GAMEPAD_BUTTON_HAPTICS] = json.optBoolean("gamepadButtonHaptics", false)
             prefs[ENABLE_FAST_BOOT] = json.optBoolean("enableFastBoot", true)
             prefs[EE_CYCLE_RATE] = json.optInt("eeCycleRate", 0)
             prefs[EE_CYCLE_SKIP] = json.optInt("eeCycleSkip", 0)
@@ -2670,7 +2722,8 @@ class AppPreferences(private val context: Context) {
             json.optString("lbtnOffset").takeIf { it.isNotBlank() }?.let { prefs[LBTN_OFFSET] = it } ?: prefs.remove(LBTN_OFFSET)
             json.optString("rbtnOffset").takeIf { it.isNotBlank() }?.let { prefs[RBTN_OFFSET] = it } ?: prefs.remove(RBTN_OFFSET)
             json.optString("centerOffset").takeIf { it.isNotBlank() }?.let { prefs[CENTER_OFFSET] = it } ?: prefs.remove(CENTER_OFFSET)
-            prefs[STICK_SCALE] = json.optInt("stickScale", 100)
+            prefs[STICK_SCALE] = json.optInt("stickScale", OVERLAY_CONTROL_SCALE_DEFAULT)
+                .coerceIn(OVERLAY_CONTROL_SCALE_MIN, OVERLAY_CONTROL_SCALE_MAX)
             prefs[LEFT_STICK_SENSITIVITY] = json.optInt("leftStickSensitivity", 100).coerceIn(50, 200)
             prefs[RIGHT_STICK_SENSITIVITY] = json.optInt("rightStickSensitivity", 100).coerceIn(50, 200)
             prefs[INVERT_LEFT_STICK] = json.optBoolean("invertLeftStick", false)

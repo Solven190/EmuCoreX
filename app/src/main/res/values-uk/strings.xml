@@ -1330,4 +1330,21 @@
     <string name="pro_feature_support">Додайте золоту іконку лаунчера та підтримайте безперервну розробку.</string>
     <string name="onboarding_pro_subtitle">Crimson надає EmuCoreX темнішого вигляду, а версія Pro допомагає продовжувати розробку.</string>
     <string name="error_otg_read_only">Ця папка доступна лише для читання через обмеження Android. Будь ласка, оберіть папку у внутрішній пам\'яті або на підтримуваній SD-карті.</string>
+    <string name="settings_about_privacy_policy">Політика конфіденційності</string>
+    <string name="settings_about_privacy_policy_desc">Відкрити політику конфіденційності EmuCoreX.</string>
+    <string name="settings_about_privacy_policy_url">https://sites.google.com/view/emucorexpolicy/%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D0%BD%D0%B0-%D1%81%D1%82%D0%BE%D1%80%D1%96%D0%BD%D0%BA%D0%B0</string>
+    <string name="settings_touch_haptics">Тактильна віддача сенсорного керування</string>
+    <string name="settings_touch_haptics_desc">Короткочасна тактильна віддача при натисканні на екранні елементи керування.</string>
+    <string name="settings_gamepad_button_haptics">Тактильна віддача кнопок геймпада</string>
+    <string name="settings_gamepad_button_haptics_desc">Короткочасна вібрація при натисканні фізичних кнопок геймпада.</string>
+    <string name="settings_confirm_save_load_actions">Підтверджувати збереження/завантаження</string>
+    <string name="settings_confirm_save_load_actions_desc">Запитувати перед швидким збереженням або швидким завантаженням.</string>
+    <string name="settings_help_touch_haptics">Додає легку тактильну віддачу Android при першому натисканні екранної кнопки, напрямку хрестовини або аналогового стіка. Це впливає лише на відчуття від керування і не змінює вібрацію в грі.</string>
+    <string name="settings_help_gamepad_button_haptics">Додає короткий слабкий імпульс при натисканні фізичних кнопок геймпада. Це працює окремо від ігрової вібрації, тому підтримувані ігри можуть продовжувати керувати стандартною вібрацією контролера.</string>
+    <string name="settings_help_confirm_save_load_actions">Показує діалогове вікно підтвердження перед перезаписом або завантаженням збереження. Вимкніть для швидкого збереження та завантаження в один дотик.</string>
+    <string name="settings_about_app_source">Репозиторій EmuCoreX</string>
+    <string name="settings_about_app_source_desc">Відкрити репозиторій EmuCoreX на GitHub із вихідним кодом додатка та проєкту.</string>
+    <string name="settings_about_app_source_link">Відкрити EmuCoreX на GitHub</string>
+    <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
+    <string name="settings_about_privacy_policy_link">Відкрити Політику конфіденційності</string>
 </resources>

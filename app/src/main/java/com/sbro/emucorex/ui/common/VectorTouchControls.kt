@@ -311,6 +311,7 @@ fun VectorAnalogStick(
     visualY: Float = 0f,
     interactive: Boolean = true,
     onClick: (() -> Unit)? = null,
+    onTouchStart: (() -> Unit)? = null,
     onValueChange: ((Float, Float) -> Unit)? = null
 ) {
     var size by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
@@ -360,6 +361,7 @@ fun VectorAnalogStick(
                     if (activePointerId == MotionEvent.INVALID_POINTER_ID) {
                         val index = event.actionIndex
                         activePointerId = event.getPointerId(index)
+                        onTouchStart?.invoke()
                         updateStickFromPosition(Offset(event.getX(index), event.getY(index)))
                     }
                     true

@@ -164,7 +164,10 @@ fun ControlsEditorScreen(
 
     fun setControlScaleLocally(controlId: String, scale: Int) {
         val current = currentLayoutFor(controlId, if (controlId.contains("stick")) state.stickScale else 100)
-        val nextScale = scale.coerceIn(50, 200)
+        val nextScale = scale.coerceIn(
+            AppPreferences.OVERLAY_CONTROL_SCALE_MIN,
+            AppPreferences.OVERLAY_CONTROL_SCALE_MAX
+        )
         editorControlLayouts = editorControlLayouts.toMutableMap().apply {
             put(controlId, current.copy(scale = nextScale))
         }
@@ -362,7 +365,7 @@ fun ControlsEditorScreen(
                     ) {
                         OutlinedButton(
                             onClick = { setControlScaleLocally(controlId, scale - 10) },
-                            enabled = scale > 50,
+                            enabled = scale > AppPreferences.OVERLAY_CONTROL_SCALE_MIN,
                             shape = RoundedCornerShape(14.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
@@ -380,7 +383,7 @@ fun ControlsEditorScreen(
                         )
                         OutlinedButton(
                             onClick = { setControlScaleLocally(controlId, scale + 10) },
-                            enabled = scale < 200,
+                            enabled = scale < AppPreferences.OVERLAY_CONTROL_SCALE_MAX,
                             shape = RoundedCornerShape(14.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
                             colors = ButtonDefaults.outlinedButtonColors(

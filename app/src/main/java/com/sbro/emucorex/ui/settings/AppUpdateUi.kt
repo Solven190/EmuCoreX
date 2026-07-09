@@ -110,6 +110,8 @@ private fun ReleaseHistoryCard(
     onReleaseClick: (AppUpdateRelease) -> Unit
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val cardColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f)
+    val cardBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f))
     UpdateSectionCard(
         title = stringResource(R.string.settings_updates_history_title),
         contentPadding = PaddingValues(16.dp)
@@ -118,10 +120,8 @@ private fun ReleaseHistoryCard(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                tonalElevation = 1.dp,
-                shadowElevation = 2.dp,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+                color = cardColor,
+                border = cardBorder,
                 onClick = { expanded = !expanded }
             ) {
                 Row(
@@ -233,10 +233,8 @@ private fun ReleaseHistoryRow(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 1.dp,
-        shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f)),
         onClick = onClick
     ) {
         Row(
@@ -454,7 +452,8 @@ private fun UpdateMetric(label: String, value: String, modifier: Modifier = Modi
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f))
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(

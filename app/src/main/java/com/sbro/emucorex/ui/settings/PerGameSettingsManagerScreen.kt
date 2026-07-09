@@ -1095,6 +1095,13 @@ private fun GameSettingsTabContent(
                         onResetToDefault = { onDraftChange(draft.copy(racingMode = defaultProfile.racingMode)) }
                     )
                     ToggleRow(
+                        title = stringResource(R.string.settings_touch_haptics),
+                        checked = draft.touchHaptics,
+                        onCheckedChange = { onDraftChange(draft.copy(touchHaptics = it)) },
+                        helpText = stringResource(R.string.settings_help_touch_haptics),
+                        onResetToDefault = { onDraftChange(draft.copy(touchHaptics = defaultProfile.touchHaptics)) }
+                    )
+                    ToggleRow(
                         title = stringResource(R.string.settings_gamepad_right_stick_up_to_r2),
                         checked = draft.gamepadRightStickUpToR2,
                         onCheckedChange = { onDraftChange(draft.copy(gamepadRightStickUpToR2 = it)) },
@@ -1107,6 +1114,13 @@ private fun GameSettingsTabContent(
                         onCheckedChange = { onDraftChange(draft.copy(gamepadRightStickDownToL2 = it)) },
                         helpText = stringResource(R.string.settings_help_gamepad_right_stick_down_to_l2),
                         onResetToDefault = { onDraftChange(draft.copy(gamepadRightStickDownToL2 = defaultProfile.gamepadRightStickDownToL2)) }
+                    )
+                    ToggleRow(
+                        title = stringResource(R.string.settings_gamepad_button_haptics),
+                        checked = draft.gamepadButtonHaptics,
+                        onCheckedChange = { onDraftChange(draft.copy(gamepadButtonHaptics = it)) },
+                        helpText = stringResource(R.string.settings_help_gamepad_button_haptics),
+                        onResetToDefault = { onDraftChange(draft.copy(gamepadButtonHaptics = defaultProfile.gamepadButtonHaptics)) }
                     )
                 }
             }
@@ -1447,6 +1461,13 @@ private fun GameSettingsEditorDialog(
                                 onResetToDefault = { draft = draft.copy(racingMode = defaultProfile.racingMode) }
                             )
                             ToggleRow(
+                                title = stringResource(R.string.settings_touch_haptics),
+                                checked = draft.touchHaptics,
+                                onCheckedChange = { draft = draft.copy(touchHaptics = it) },
+                                helpText = stringResource(R.string.settings_help_touch_haptics),
+                                onResetToDefault = { draft = draft.copy(touchHaptics = defaultProfile.touchHaptics) }
+                            )
+                            ToggleRow(
                                 title = stringResource(R.string.settings_gamepad_right_stick_up_to_r2),
                                 checked = draft.gamepadRightStickUpToR2,
                                 onCheckedChange = { draft = draft.copy(gamepadRightStickUpToR2 = it) },
@@ -1459,6 +1480,13 @@ private fun GameSettingsEditorDialog(
                                 onCheckedChange = { draft = draft.copy(gamepadRightStickDownToL2 = it) },
                                 helpText = stringResource(R.string.settings_help_gamepad_right_stick_down_to_l2),
                                 onResetToDefault = { draft = draft.copy(gamepadRightStickDownToL2 = defaultProfile.gamepadRightStickDownToL2) }
+                            )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_gamepad_button_haptics),
+                                checked = draft.gamepadButtonHaptics,
+                                onCheckedChange = { draft = draft.copy(gamepadButtonHaptics = it) },
+                                helpText = stringResource(R.string.settings_help_gamepad_button_haptics),
+                                onResetToDefault = { draft = draft.copy(gamepadButtonHaptics = defaultProfile.gamepadButtonHaptics) }
                             )
                             SelectionRow(
                                 title = stringResource(R.string.settings_fps_overlay_mode),
@@ -3133,8 +3161,10 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         showFps = showFps,
         fpsOverlayMode = fpsOverlayMode,
         racingMode = racingMode,
+        touchHaptics = touchHaptics,
         gamepadRightStickUpToR2 = gamepadRightStickUpToR2,
         gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
+        gamepadButtonHaptics = gamepadButtonHaptics,
         autoSaveOnExit = false,
         autoLoadOnStart = false,
         enableFastBoot = enableFastBoot,
@@ -3218,8 +3248,10 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         showFps = pick("showFps", showFps, defaultProfile.showFps),
         fpsOverlayMode = pick("fpsOverlayMode", fpsOverlayMode, defaultProfile.fpsOverlayMode),
         racingMode = pick("racingMode", racingMode, defaultProfile.racingMode),
+        touchHaptics = pick("touchHaptics", touchHaptics, defaultProfile.touchHaptics),
         gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2, defaultProfile.gamepadRightStickUpToR2),
         gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2, defaultProfile.gamepadRightStickDownToL2),
+        gamepadButtonHaptics = pick("gamepadButtonHaptics", gamepadButtonHaptics, defaultProfile.gamepadButtonHaptics),
         autoSaveOnExit = pick("autoSaveOnExit", autoSaveOnExit, defaultProfile.autoSaveOnExit),
         autoLoadOnStart = pick("autoLoadOnStart", autoLoadOnStart, defaultProfile.autoLoadOnStart),
         enableFastBoot = pick("enableFastBoot", enableFastBoot, defaultProfile.enableFastBoot),

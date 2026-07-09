@@ -1328,4 +1328,21 @@
     <string name="pro_feature_support">골드 런처 아이콘을 추가하고 지속적인 개발을 지원합니다.</string>
     <string name="onboarding_pro_subtitle">Crimson은 EmuCoreX에 어두운 느낌을 주며, Pro는 개발을 계속 진행하는 데 도움을 줍니다.</string>
     <string name="error_otg_read_only">Android 제한으로 인해 이 폴더는 읽기 전용입니다. 내부 저장소 또는 지원되는 SD 카드의 폴더를 선택하세요.</string>
+    <string name="settings_about_privacy_policy">개인정보처리방침</string>
+    <string name="settings_about_privacy_policy_desc">EmuCoreX 개인정보처리방침을 엽니다.</string>
+    <string name="settings_about_privacy_policy_url">https://sites.google.com/view/emucorexpolicy/%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D0%BD%D0%B0-%D1%81%D1%82%D0%BE%D1%80%D1%96%D0%BD%D0%BA%D0%B0</string>
+    <string name="settings_touch_haptics">터치 컨트롤 햅틱</string>
+    <string name="settings_touch_haptics_desc">화면의 컨트롤을 누를 때 짧은 햅틱 반응을 재생합니다.</string>
+    <string name="settings_gamepad_button_haptics">게임패드 버튼 햅틱</string>
+    <string name="settings_gamepad_button_haptics_desc">물리적 게임패드 버튼을 누를 때 짧은 진동 반응을 재생합니다.</string>
+    <string name="settings_confirm_save_load_actions">저장/불러오기 작업 확인</string>
+    <string name="settings_confirm_save_load_actions_desc">빠른 저장 또는 빠른 불러오기 전에 묻습니다.</string>
+    <string name="settings_help_touch_haptics">화면 버튼, 방향패드 방향 또는 아날로그 스틱을 처음 누를 때 가벼운 Android 햅틱 피드백을 추가합니다. 이는 조작감에만 영향을 미치며 게임 내 진동은 변경하지 않습니다.</string>
+    <string name="settings_help_gamepad_button_haptics">물리적 게임패드 버튼을 누를 때 짧고 약한 펄스를 추가합니다. 이는 게임 진동과는 별개이므로 지원되는 게임은 계속해서 일반 컨트롤러 진동을 제어할 수 있습니다.</string>
+    <string name="settings_help_confirm_save_load_actions">저장 상태를 덮어쓰거나 불러오기 전에 확인 대화 상자를 표시합니다. 원탭 빠른 저장 및 빠른 불러오기를 사용하려면 끕니다.</string>
+    <string name="settings_about_app_source">EmuCoreX 저장소</string>
+    <string name="settings_about_app_source_desc">앱 및 프로젝트 소스에 대한 EmuCoreX GitHub 저장소를 엽니다.</string>
+    <string name="settings_about_app_source_link">GitHub에서 EmuCoreX 열기</string>
+    <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
+    <string name="settings_about_privacy_policy_link">개인정보처리방침 열기</string>
 </resources>

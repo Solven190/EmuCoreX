@@ -106,7 +106,12 @@ class ControlsEditorViewModel(application: Application) : AndroidViewModel(appli
                 val updated = current.controlLayouts.toMutableMap()
                 val controlDefaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
                 val control = updated[controlId] ?: controlDefaults[controlId] ?: OverlayControlLayout()
-                updated[controlId] = control.copy(scale = scale.coerceIn(50, 200))
+                updated[controlId] = control.copy(
+                    scale = scale.coerceIn(
+                        AppPreferences.OVERLAY_CONTROL_SCALE_MIN,
+                        AppPreferences.OVERLAY_CONTROL_SCALE_MAX
+                    )
+                )
                 current.copy(controlLayouts = updated)
             }
         }

@@ -19,8 +19,10 @@ data class PerGameSettings(
     val showFps: Boolean = false,
     val fpsOverlayMode: Int = AppPreferences.FPS_OVERLAY_MODE_DETAILED,
     val racingMode: Boolean = false,
+    val touchHaptics: Boolean = false,
     val gamepadRightStickUpToR2: Boolean = false,
     val gamepadRightStickDownToL2: Boolean = false,
+    val gamepadButtonHaptics: Boolean = false,
     val autoSaveOnExit: Boolean = false,
     val autoLoadOnStart: Boolean = false,
     val enableFastBoot: Boolean = true,
@@ -203,8 +205,10 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         showFps = optBoolean("showFps", false),
         fpsOverlayMode = optInt("fpsOverlayMode", AppPreferences.FPS_OVERLAY_MODE_DETAILED),
         racingMode = optBoolean("racingMode", false),
+        touchHaptics = optBoolean("touchHaptics", false),
         gamepadRightStickUpToR2 = optBoolean("gamepadRightStickUpToR2", false),
         gamepadRightStickDownToL2 = optBoolean("gamepadRightStickDownToL2", false),
+        gamepadButtonHaptics = optBoolean("gamepadButtonHaptics", false),
         autoSaveOnExit = optBoolean("autoSaveOnExit", false),
         autoLoadOnStart = optBoolean("autoLoadOnStart", false),
         enableFastBoot = optBoolean("enableFastBoot", true),
@@ -301,8 +305,10 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("showFps")) put("showFps", showFps)
         if (shouldWrite("fpsOverlayMode")) put("fpsOverlayMode", fpsOverlayMode)
         if (shouldWrite("racingMode")) put("racingMode", racingMode)
+        if (shouldWrite("touchHaptics")) put("touchHaptics", touchHaptics)
         if (shouldWrite("gamepadRightStickUpToR2")) put("gamepadRightStickUpToR2", gamepadRightStickUpToR2)
         if (shouldWrite("gamepadRightStickDownToL2")) put("gamepadRightStickDownToL2", gamepadRightStickDownToL2)
+        if (shouldWrite("gamepadButtonHaptics")) put("gamepadButtonHaptics", gamepadButtonHaptics)
         if (shouldWrite("autoSaveOnExit")) put("autoSaveOnExit", autoSaveOnExit)
         if (shouldWrite("autoLoadOnStart")) put("autoLoadOnStart", autoLoadOnStart)
         if (shouldWrite("enableFastBoot")) put("enableFastBoot", enableFastBoot)
@@ -385,13 +391,17 @@ private fun TouchControlsLayoutProfile.toJson(): JSONObject {
         put("lbtnOffset", lbtnOffset.toJson())
         put("rbtnOffset", rbtnOffset.toJson())
         put("centerOffset", centerOffset.toJson())
-        put("stickScale", stickScale.coerceIn(50, 200))
+        put(
+            "stickScale",
+            stickScale.coerceIn(AppPreferences.OVERLAY_CONTROL_SCALE_MIN, AppPreferences.OVERLAY_CONTROL_SCALE_MAX)
+        )
         put("controlLayouts", controlLayouts.toJson())
     }
 }
 
 private fun JSONObject.toTouchControlsLayoutProfile(): TouchControlsLayoutProfile {
-    val stickScale = optInt("stickScale", 100).coerceIn(50, 200)
+    val stickScale = optInt("stickScale", AppPreferences.OVERLAY_CONTROL_SCALE_DEFAULT)
+        .coerceIn(AppPreferences.OVERLAY_CONTROL_SCALE_MIN, AppPreferences.OVERLAY_CONTROL_SCALE_MAX)
     val layouts = optJSONObject("controlLayouts")
         ?.toOverlayControlLayouts()
         ?.takeIf { it.isNotEmpty() }
@@ -438,7 +448,10 @@ private fun JSONObject.toOverlayControlLayouts(): Map<String, OverlayControlLayo
 private fun OverlayControlLayout.toJson(): JSONObject {
     return JSONObject()
         .put("offset", offset.toJson())
-        .put("scale", scale.coerceIn(50, 200))
+        .put(
+            "scale",
+            scale.coerceIn(AppPreferences.OVERLAY_CONTROL_SCALE_MIN, AppPreferences.OVERLAY_CONTROL_SCALE_MAX)
+        )
         .put("widthScale", widthScale.coerceIn(100, 240))
         .put("visible", visible)
         .put("surfaceOnly", surfaceOnly)
@@ -447,7 +460,8 @@ private fun OverlayControlLayout.toJson(): JSONObject {
 private fun JSONObject.toOverlayControlLayout(): OverlayControlLayout {
     return OverlayControlLayout(
         offset = readOffset("offset", 0f to 0f),
-        scale = optInt("scale", 100).coerceIn(50, 200),
+        scale = optInt("scale", AppPreferences.OVERLAY_CONTROL_SCALE_DEFAULT)
+            .coerceIn(AppPreferences.OVERLAY_CONTROL_SCALE_MIN, AppPreferences.OVERLAY_CONTROL_SCALE_MAX),
         widthScale = optInt("widthScale", 100).coerceIn(100, 240),
         visible = optBoolean("visible", true),
         surfaceOnly = optBoolean("surfaceOnly", false)

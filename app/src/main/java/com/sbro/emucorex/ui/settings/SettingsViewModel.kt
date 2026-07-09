@@ -57,6 +57,7 @@ data class SettingsUiState(
     val showFps: Boolean = true,
     val fpsOverlayMode: Int = FPS_OVERLAY_MODE_DETAILED,
     val fpsOverlayCorner: Int = AppPreferences.FPS_OVERLAY_CORNER_TOP_RIGHT,
+    val confirmSaveLoadActions: Boolean = true,
     val compactControls: Boolean = true,
     val keepScreenOn: Boolean = true,
     val showRecentGames: Boolean = true,
@@ -149,6 +150,7 @@ data class SettingsUiState(
     val overlayOpacity: Int = 80,
     val overlayShow: Boolean = true,
     val racingMode: Boolean = false,
+    val touchHaptics: Boolean = false,
     val leftStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val invertLeftStick: Boolean = false,
@@ -163,6 +165,7 @@ data class SettingsUiState(
     val gamepadRightStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
     val gamepadRightStickUpToR2: Boolean = false,
     val gamepadRightStickDownToL2: Boolean = false,
+    val gamepadButtonHaptics: Boolean = false,
     val gamepadBindings: Map<String, Int> = emptyMap(),
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
@@ -242,6 +245,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             showFps = snapshot.showFps,
             fpsOverlayMode = snapshot.fpsOverlayMode,
             fpsOverlayCorner = snapshot.fpsOverlayCorner,
+            confirmSaveLoadActions = snapshot.confirmSaveLoadActions,
             compactControls = snapshot.compactControls,
             keepScreenOn = snapshot.keepScreenOn,
             showRecentGames = snapshot.showRecentGames,
@@ -331,6 +335,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             overlayOpacity = snapshot.overlayOpacity,
             overlayShow = snapshot.overlayShow,
             racingMode = snapshot.racingMode,
+            touchHaptics = snapshot.touchHaptics,
             leftStickSensitivity = snapshot.leftStickSensitivity,
             rightStickSensitivity = snapshot.rightStickSensitivity,
             invertLeftStick = snapshot.invertLeftStick,
@@ -344,6 +349,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             gamepadRightStickSensitivity = snapshot.gamepadRightStickSensitivity,
             gamepadRightStickUpToR2 = snapshot.gamepadRightStickUpToR2,
             gamepadRightStickDownToL2 = snapshot.gamepadRightStickDownToL2,
+            gamepadButtonHaptics = snapshot.gamepadButtonHaptics,
             gamepadBindings = snapshot.gamepadBindings,
             gamepadBindingsByPad = snapshot.gamepadBindingsByPad,
             gpuDriverType = snapshot.gpuDriverType,
@@ -511,8 +517,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setShowFps(enabled: Boolean) { viewModelScope.launch { preferences.setShowFps(enabled) } }
     fun setFpsOverlayMode(mode: Int) { viewModelScope.launch { preferences.setFpsOverlayMode(mode) } }
     fun setFpsOverlayCorner(corner: Int) { viewModelScope.launch { preferences.setFpsOverlayCorner(corner) } }
+    fun setConfirmSaveLoadActions(enabled: Boolean) { viewModelScope.launch { preferences.setConfirmSaveLoadActions(enabled) } }
     fun setKeepScreenOn(enabled: Boolean) { viewModelScope.launch { preferences.setKeepScreenOn(enabled) } }
     fun setRacingMode(enabled: Boolean) { viewModelScope.launch { preferences.setRacingMode(enabled) } }
+    fun setTouchHaptics(enabled: Boolean) { viewModelScope.launch { preferences.setTouchHaptics(enabled) } }
     fun setShowRecentGames(enabled: Boolean) { viewModelScope.launch { preferences.setShowRecentGames(enabled) } }
     fun setShowHomeSearch(enabled: Boolean) { viewModelScope.launch { preferences.setShowHomeSearch(enabled) } }
     fun setShowDebugOptions(enabled: Boolean) { viewModelScope.launch { preferences.setShowDebugOptions(enabled) } }
@@ -1274,6 +1282,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setGamepadRightStickSensitivity(value: Int) { viewModelScope.launch { preferences.setGamepadRightStickSensitivity(value) } }
     fun setGamepadRightStickUpToR2(enabled: Boolean) { viewModelScope.launch { preferences.setGamepadRightStickUpToR2(enabled) } }
     fun setGamepadRightStickDownToL2(enabled: Boolean) { viewModelScope.launch { preferences.setGamepadRightStickDownToL2(enabled) } }
+    fun setGamepadButtonHaptics(enabled: Boolean) { viewModelScope.launch { preferences.setGamepadButtonHaptics(enabled) } }
 
     fun setBiosPath(uri: Uri) {
         val application = getApplication<Application>()

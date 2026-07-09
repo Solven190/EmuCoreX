@@ -3,6 +3,7 @@ package com.sbro.emucorex.ui.emulation
 import android.annotation.SuppressLint
 import android.content.pm.ActivityInfo
 import android.graphics.PixelFormat
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -393,8 +394,20 @@ fun EmulationScreen(
     val toggleMenuClick = rememberDebouncedClick(onClick = { viewModel.toggleMenu() })
     val toggleControlsClick = rememberDebouncedClick(onClick = { viewModel.toggleControlsVisibility() })
     val togglePauseClick = rememberDebouncedClick(onClick = { viewModel.togglePause() })
-    val requestQuickSaveClick = rememberDebouncedClick(onClick = { showQuickSaveDialog = true })
-    val requestQuickLoadClick = rememberDebouncedClick(onClick = { showQuickLoadDialog = true })
+    val requestQuickSaveClick = rememberDebouncedClick(onClick = {
+        if (uiState.confirmSaveLoadActions) {
+            showQuickSaveDialog = true
+        } else {
+            viewModel.quickSave()
+        }
+    })
+    val requestQuickLoadClick = rememberDebouncedClick(onClick = {
+        if (uiState.confirmSaveLoadActions) {
+            showQuickLoadDialog = true
+        } else {
+            viewModel.quickLoad()
+        }
+    })
     val requestAutoSaveLoadClick = rememberDebouncedClick(onClick = { showAutoSaveLoadDialog = true })
     val confirmQuickSaveClick = rememberDebouncedClick(onClick = {
         showQuickSaveDialog = false
@@ -649,11 +662,23 @@ fun EmulationScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(uiState.confirmSaveLoadActions) {
         GamepadManager.gamepadShortcutActions.collect { action ->
             when (action.actionId) {
-                GamepadManager.ACTION_QUICK_SAVE -> showQuickSaveDialog = true
-                GamepadManager.ACTION_QUICK_LOAD -> showQuickLoadDialog = true
+                GamepadManager.ACTION_QUICK_SAVE -> {
+                    if (uiState.confirmSaveLoadActions) {
+                        showQuickSaveDialog = true
+                    } else {
+                        viewModel.quickSave()
+                    }
+                }
+                GamepadManager.ACTION_QUICK_LOAD -> {
+                    if (uiState.confirmSaveLoadActions) {
+                        showQuickLoadDialog = true
+                    } else {
+                        viewModel.quickLoad()
+                    }
+                }
             }
         }
     }
@@ -1047,6 +1072,7 @@ fun EmulationScreen(
                 invertRightStickHorizontal = uiState.invertRightStickHorizontal,
                 rightStickUpToR2 = uiState.gamepadRightStickUpToR2,
                 rightStickDownToL2 = uiState.gamepadRightStickDownToL2,
+                touchHaptics = uiState.touchHaptics,
                 dpadOffset = uiState.dpadOffset,
                 lstickOffset = uiState.lstickOffset,
                 rstickOffset = uiState.rstickOffset,
@@ -1594,6 +1620,7 @@ private fun OnScreenControls(
     invertRightStickHorizontal: Boolean = false,
     rightStickUpToR2: Boolean = false,
     rightStickDownToL2: Boolean = false,
+    touchHaptics: Boolean = false,
     dpadOffset: Pair<Float, Float>,
     lstickOffset: Pair<Float, Float>,
     rstickOffset: Pair<Float, Float>,
@@ -1615,9 +1642,16 @@ private fun OnScreenControls(
     val safeTop = maxOf(cutoutPadding.calculateTopPadding(), navBarPadding.calculateTopPadding())
     val safeBottom = maxOf(cutoutPadding.calculateBottomPadding(), navBarPadding.calculateBottomPadding())
     val safeHorizontalInset = maxOf(safeLeft, safeRight)
+    val hapticView = LocalView.current
     val currentOnPadInput by rememberUpdatedState(onPadInput)
     var touchL2Pressed by remember { mutableStateOf(false) }
     var touchR2Pressed by remember { mutableStateOf(false) }
+
+    fun performTouchHaptic() {
+        if (touchHaptics) {
+            hapticView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        }
+    }
 
     fun dispatchTouchAnalogDirection(key: Int, pressed: Boolean) {
         val range = if (pressed) 255 else 0
@@ -1720,6 +1754,9 @@ private fun OnScreenControls(
             val released = extraDpadDirections - next
             val pressed = next - extraDpadDirections
             released.forEach { direction -> currentOnPadInput(dpadKeyFor(direction), 0, false) }
+            if (pressed.isNotEmpty()) {
+                performTouchHaptic()
+            }
             pressed.forEach { direction -> currentOnPadInput(dpadKeyFor(direction), 0, true) }
             extraDpadDirections = next
         }
@@ -1771,17 +1808,17 @@ private fun OnScreenControls(
 
         val leftShoulderSpecs = runtimeSpecs(layout.leftShoulders)
         if (leftShoulderSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = leftShoulderSpecs)
+            TouchButtonGroup(specs = leftShoulderSpecs, onTouchHaptic = ::performTouchHaptic)
         }
 
         val rightShoulderSpecs = runtimeSpecs(layout.rightShoulders)
         if (rightShoulderSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = rightShoulderSpecs)
+            TouchButtonGroup(specs = rightShoulderSpecs, onTouchHaptic = ::performTouchHaptic)
         }
 
         val dpadSpecs = runtimeSpecs(layout.dpadButtons)
         if (dpadSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = dpadSpecs)
+            TouchButtonGroup(specs = dpadSpecs, onTouchHaptic = ::performTouchHaptic)
         }
 
         layout.dpadCluster?.takeIf { it.visible }?.let { cluster ->
@@ -1801,6 +1838,7 @@ private fun OnScreenControls(
                 analogWidth = panelWidth,
                 analogHeight = stick.size,
                 surfaceOnly = stickIsSurfaceOnly(stick),
+                onTouchStart = ::performTouchHaptic,
                 onValueChange = { x, y ->
                     updateAnalogStick(
                         x = if (invertLeftStickHorizontal) -x else x,
@@ -1821,7 +1859,7 @@ private fun OnScreenControls(
 
         val actionSpecs = runtimeSpecs(layout.actionButtons)
         if (actionSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = actionSpecs)
+            TouchButtonGroup(specs = actionSpecs, onTouchHaptic = ::performTouchHaptic)
         }
 
         layout.rightStick?.takeIf { it.visible }?.let { stick ->
@@ -1832,6 +1870,7 @@ private fun OnScreenControls(
                 analogHeight = stick.size,
                 surfaceOnly = stickIsSurfaceOnly(stick),
                 visualY = rightStickTriggerVisualY,
+                onTouchStart = ::performTouchHaptic,
                 onValueChange = { x, y ->
                     updateRightAnalogStick(
                         x = if (invertRightStickHorizontal) -x else x,
@@ -1848,7 +1887,7 @@ private fun OnScreenControls(
 
         val centerSpecs = runtimeSpecs(layout.centerButtons)
         if (centerSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = centerSpecs)
+            TouchButtonGroup(specs = centerSpecs, onTouchHaptic = ::performTouchHaptic)
         }
     }
 }
@@ -1930,6 +1969,7 @@ private fun RetroAchievementsNotificationToast(
 @Composable
 private fun TouchButtonGroup(
     specs: List<TouchButtonSpec>,
+    onTouchHaptic: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -2047,6 +2087,9 @@ private fun TouchButtonGroup(
             val alreadyActive = activeTargets.containsValue(newTarget)
             activeTargets[pointerId] = newTarget
             val newSpec = specById[newTarget]
+            if (!alreadyActive) {
+                onTouchHaptic()
+            }
             if (newSpec?.hasLongPressAction() == true) {
                 startLongPress(pointerId, newTarget)
             } else if (newSpec?.hasTapToHoldAction() == true) {
@@ -2886,8 +2929,10 @@ private fun EmulationSidebarMenu(
                             title = stringResource(R.string.emulation_stick_scale),
                             valueLabelForValue = { "$it%" },
                             value = uiState.stickScale.toFloat(),
-                            range = 50f..200f,
-                            steps = 149,
+                            range = AppPreferences.OVERLAY_CONTROL_SCALE_MIN.toFloat()..
+                                AppPreferences.OVERLAY_CONTROL_SCALE_MAX.toFloat(),
+                            steps = AppPreferences.OVERLAY_CONTROL_SCALE_MAX -
+                                AppPreferences.OVERLAY_CONTROL_SCALE_MIN - 1,
                             onValueChange = { onSetStickScale(it.toInt()) },
                             helpText = stringResource(R.string.settings_help_stick_scale),
                             onResetToDefault = { onSetStickScale(overlayDefaults.stickScale) }

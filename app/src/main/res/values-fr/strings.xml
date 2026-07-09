@@ -1330,4 +1330,21 @@
     <string name="pro_feature_support">Ajoutez l\'icône dorée du lanceur et soutenez le développement continu.</string>
     <string name="onboarding_pro_subtitle">Crimson donne à EmuCoreX un aspect plus sombre, tandis que Pro aide à faire avancer le développement.</string>
     <string name="error_otg_read_only">Ce dossier est en lecture seule en raison des restrictions d\'Android. Veuillez sélectionner un dossier sur le stockage interne ou une carte SD prise en charge.</string>
+    <string name="settings_about_privacy_policy">Politique de confidentialité</string>
+    <string name="settings_about_privacy_policy_desc">Ouvrir la politique de confidentialité d\'EmuCoreX.</string>
+    <string name="settings_about_privacy_policy_url">https://sites.google.com/view/emucorexpolicy/%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D0%BD%D0%B0-%D1%81%D1%82%D0%BE%D1%80%D1%96%D0%BD%D0%BA%D0%B0</string>
+    <string name="settings_touch_haptics">Retour haptique tactile</string>
+    <string name="settings_touch_haptics_desc">Émettre un bref retour haptique lors d\'une pression sur les commandes à l\'écran.</string>
+    <string name="settings_gamepad_button_haptics">Retour haptique des boutons de la manette</string>
+    <string name="settings_gamepad_button_haptics_desc">Émettre une brève vibration lors d\'une pression sur les boutons physiques de la manette.</string>
+    <string name="settings_confirm_save_load_actions">Confirmer les actions de sauvegarde/chargement</string>
+    <string name="settings_confirm_save_load_actions_desc">Demander avant une sauvegarde rapide ou un chargement rapide.</string>
+    <string name="settings_help_touch_haptics">Ajoute un léger retour haptique Android lorsqu\'un bouton à l\'écran, une direction de la croix directionnelle ou un stick analogique est pressé pour la première fois. Cela affecte uniquement la sensation de contrôle et ne modifie pas les vibrations du jeu.</string>
+    <string name="settings_help_gamepad_button_haptics">Ajoute une courte impulsion de faible intensité lors de la pression sur les boutons physiques de la manette. Ceci est distinct des vibrations du jeu, les jeux compatibles peuvent donc toujours contrôler les vibrations normales de la manette.</string>
+    <string name="settings_help_confirm_save_load_actions">Affiche une boîte de dialogue de confirmation avant d\'écraser ou de charger une sauvegarde. Désactivez cette option pour sauvegarder et charger rapidement en un seul clic.</string>
+    <string name="settings_about_app_source">Dépôt EmuCoreX</string>
+    <string name="settings_about_app_source_desc">Ouvrir le dépôt GitHub d\'EmuCoreX pour l\'application et le code source du projet.</string>
+    <string name="settings_about_app_source_link">Ouvrir EmuCoreX sur GitHub</string>
+    <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
+    <string name="settings_about_privacy_policy_link">Ouvrir la politique de confidentialité</string>
 </resources>

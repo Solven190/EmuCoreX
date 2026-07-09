@@ -494,6 +494,14 @@
     <string name="settings_about_website_desc">Open the official EmuCoreX website for updates, information, and useful links.</string>
     <string name="settings_about_website_link">Open Website</string>
     <string name="settings_about_website_url">https://emucorex.web.app/</string>
+    <string name="settings_about_privacy_policy">Privacy Policy</string>
+    <string name="settings_about_privacy_policy_desc">Open the EmuCoreX privacy policy.</string>
+    <string name="settings_about_privacy_policy_link">Open Privacy Policy</string>
+    <string name="settings_about_privacy_policy_url">https://sites.google.com/view/emucorexpolicy/%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D0%BD%D0%B0-%D1%81%D1%82%D0%BE%D1%80%D1%96%D0%BD%D0%BA%D0%B0</string>
+    <string name="settings_about_app_source">EmuCoreX Repository</string>
+    <string name="settings_about_app_source_desc">Open the EmuCoreX GitHub repository for the app and project source.</string>
+    <string name="settings_about_app_source_link">Open EmuCoreX on GitHub</string>
+    <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
     <string name="settings_about_core_source">Core Source</string>
     <string name="settings_about_core_source_desc">EmuCoreX combines its own Android interface and library features with an emulation core derived from the open-source PCSX2 project. The JIT recompiler was written by the EmuCoreX team.</string>
     <string name="settings_about_core_source_link">Open PCSX2 on GitHub</string>
@@ -518,6 +526,12 @@
     <string name="settings_pad_vibration_test_action">Test</string>
     <string name="settings_pad_vibration_fallback">Use device vibration fallback</string>
     <string name="settings_pad_vibration_fallback_desc">Vibrate the handheld or phone body when the controller does not expose its own motor.</string>
+    <string name="settings_touch_haptics">Touch control haptics</string>
+    <string name="settings_touch_haptics_desc">Play a short haptic tick when pressing on-screen controls.</string>
+    <string name="settings_gamepad_button_haptics">Gamepad button haptics</string>
+    <string name="settings_gamepad_button_haptics_desc">Play a short vibration tick when pressing physical gamepad buttons.</string>
+    <string name="settings_confirm_save_load_actions">Confirm save/load actions</string>
+    <string name="settings_confirm_save_load_actions_desc">Ask before quick save or quick load.</string>
     <string name="settings_auto_progressive_scan">Auto Progressive Scan</string>
     <string name="settings_auto_progressive_scan_desc">Hold Triangle + Cross during boot for games with a hidden 480p prompt.</string>
     <string name="settings_show_fps">Show FPS counter</string>
@@ -541,6 +555,9 @@
     <string name="settings_help_pad_vibration_strength">Scales game rumble before it is sent to Android. Lower it for noisy handheld motors, or raise it when a controller feels too weak.</string>
     <string name="settings_help_pad_vibration_test">Sends a direct Android vibration request to the connected controller first, then to the phone or handheld fallback when enabled.</string>
     <string name="settings_help_pad_vibration_fallback">Some handheld controls report as a gamepad but expose vibration only through the device vibrator. This fallback keeps rumble working on those devices, but external controllers without rumble will vibrate the phone or handheld instead.</string>
+    <string name="settings_help_touch_haptics">Adds light Android haptic feedback when an on-screen button, D-pad direction, or analog stick is first pressed. This affects control feel only and does not change in-game rumble.</string>
+    <string name="settings_help_gamepad_button_haptics">Adds a short low-strength pulse on physical gamepad button presses. This is separate from game rumble, so supported games can still control normal controller vibration.</string>
+    <string name="settings_help_confirm_save_load_actions">Shows a confirmation dialog before overwriting a save state or loading one. Turn it off for one-tap quick save and quick load.</string>
     <string name="settings_help_auto_progressive_scan">Simulates holding Triangle + Cross for a few seconds after launch. Use it for games that reveal a progressive scan or 480p prompt only when this combo is held during boot.</string>
     <string name="settings_help_recent_games">Shows a quick-access row for the games you played last. Good if you bounce between a few titles often; turn it off if you want a cleaner home screen.</string>
     <string name="settings_help_home_search">Shows the library search bar directly on the home screen. Leave it on for big libraries; turn it off if you prefer a cleaner layout and rarely search by name.</string>

@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -64,6 +65,7 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -74,6 +76,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -909,6 +912,15 @@ private fun SettingsContent(
                             onResetToDefault = { viewModel.setKeepScreenOn(defaults.keepScreenOn) }
                         )
                         ToggleItem(
+                            icon = Icons.Rounded.Save,
+                            title = stringResource(R.string.settings_confirm_save_load_actions),
+                            subtitle = stringResource(R.string.settings_confirm_save_load_actions_desc),
+                            checked = uiState.confirmSaveLoadActions,
+                            onCheckedChange = viewModel::setConfirmSaveLoadActions,
+                            helpText = stringResource(R.string.settings_help_confirm_save_load_actions),
+                            onResetToDefault = { viewModel.setConfirmSaveLoadActions(defaults.confirmSaveLoadActions) }
+                        )
+                        ToggleItem(
                             icon = Icons.Rounded.Visibility,
                             title = stringResource(R.string.settings_show_recent_games),
                             subtitle = stringResource(R.string.settings_show_recent_games_desc),
@@ -1195,6 +1207,15 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_racing_mode),
                             onResetToDefault = { viewModel.setRacingMode(defaults.racingMode) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.Vibration,
+                            title = stringResource(R.string.settings_touch_haptics),
+                            subtitle = stringResource(R.string.settings_touch_haptics_desc),
+                            checked = uiState.touchHaptics,
+                            onCheckedChange = viewModel::setTouchHaptics,
+                            helpText = stringResource(R.string.settings_help_touch_haptics),
+                            onResetToDefault = { viewModel.setTouchHaptics(defaults.touchHaptics) }
+                        )
                         SliderItem(
                             icon = Icons.Rounded.Gamepad,
                             title = stringResource(R.string.settings_left_stick_sensitivity),
@@ -1293,6 +1314,15 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setPadVibration,
                             helpText = stringResource(R.string.settings_help_pad_vibration),
                             onResetToDefault = { viewModel.setPadVibration(defaults.padVibration) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Vibration,
+                            title = stringResource(R.string.settings_gamepad_button_haptics),
+                            subtitle = stringResource(R.string.settings_gamepad_button_haptics_desc),
+                            checked = uiState.gamepadButtonHaptics,
+                            onCheckedChange = viewModel::setGamepadButtonHaptics,
+                            helpText = stringResource(R.string.settings_help_gamepad_button_haptics),
+                            onResetToDefault = { viewModel.setGamepadButtonHaptics(defaults.gamepadButtonHaptics) }
                         )
                         SliderItem(
                             icon = Icons.Rounded.Vibration,
@@ -2312,6 +2342,12 @@ private fun SettingsContent(
                             linkUrl = stringResource(R.string.settings_about_website_url)
                         )
                         AboutNote(
+                            title = stringResource(R.string.settings_about_app_source),
+                            body = stringResource(R.string.settings_about_app_source_desc),
+                            linkLabel = stringResource(R.string.settings_about_app_source_link),
+                            linkUrl = stringResource(R.string.settings_about_app_source_url)
+                        )
+                        AboutNote(
                             title = stringResource(R.string.settings_about_core_source),
                             body = stringResource(R.string.settings_about_core_source_desc),
                             linkLabel = stringResource(R.string.settings_about_core_source_link),
@@ -2328,6 +2364,12 @@ private fun SettingsContent(
                             body = stringResource(R.string.settings_about_more_apps_desc),
                             linkLabel = stringResource(R.string.settings_about_more_apps_link),
                             linkUrl = stringResource(R.string.settings_about_more_apps_url)
+                        )
+                        AboutNote(
+                            title = stringResource(R.string.settings_about_privacy_policy),
+                            body = stringResource(R.string.settings_about_privacy_policy_desc),
+                            linkLabel = stringResource(R.string.settings_about_privacy_policy_link),
+                            linkUrl = stringResource(R.string.settings_about_privacy_policy_url)
                         )
                     }
                 }
@@ -2401,7 +2443,8 @@ private fun ProStatusCard(
             MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
         } else {
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f)
-        }
+        },
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.68f))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
@@ -2465,26 +2508,46 @@ private fun ProStatusCard(
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (isUnlocked) {
-                    TextButton(onClick = onApplyCrimson) {
-                        Text(stringResource(R.string.settings_pro_apply_theme))
-                    }
-                } else {
-                    TextButton(onClick = onRestore) {
-                        Text(stringResource(R.string.settings_pro_restore))
-                    }
-                    TextButton(
-                        onClick = onPurchase,
-                        enabled = !purchaseInProgress
+                    Button(
+                        onClick = onApplyCrimson,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(
-                            stringResource(
+                            text = stringResource(R.string.settings_pro_apply_theme),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = onRestore,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_pro_restore),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Button(
+                        onClick = onPurchase,
+                        enabled = !purchaseInProgress,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = stringResource(
                                 if (purchaseInProgress) R.string.pro_purchase_busy
                                 else R.string.settings_pro_buy
-                            )
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -2502,7 +2565,8 @@ private fun ProMetaPill(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -2535,7 +2599,8 @@ private fun ProFeatureRow(
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
@@ -2583,30 +2648,37 @@ private fun AboutNote(
     linkUrl: String? = null
 ) {
     val context = LocalContext.current
-    Column(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenHorizontalPadding, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f))
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = body,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        if (!linkLabel.isNullOrBlank() && !linkUrl.isNullOrBlank()) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Text(
-                text = linkLabel,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.primary,
-                textDecoration = TextDecoration.Underline,
-                modifier = Modifier.clickable { openUriInChrome(context, linkUrl) }
+                text = title,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
             )
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (!linkLabel.isNullOrBlank() && !linkUrl.isNullOrBlank()) {
+                Text(
+                    text = linkLabel,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.primary,
+                    textDecoration = TextDecoration.Underline,
+                    modifier = Modifier.clickable { openUriInChrome(context, linkUrl) }
+                )
+            }
         }
     }
 }
@@ -2809,6 +2881,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.General, R.string.settings_theme),
         entry(SettingsTab.Pro, R.string.settings_pro_title),
         entry(SettingsTab.General, R.string.settings_keep_screen_on),
+        entry(SettingsTab.General, R.string.settings_confirm_save_load_actions),
         entry(SettingsTab.General, R.string.settings_show_recent_games),
         entry(SettingsTab.General, R.string.settings_show_home_search),
         entry(SettingsTab.General, R.string.settings_prefer_english_game_titles),

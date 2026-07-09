@@ -1330,4 +1330,21 @@
     <string name="pro_feature_support">Füge das goldene Launcher-Symbol hinzu und unterstütze die kontinuierliche Entwicklung.</string>
     <string name="onboarding_pro_subtitle">Crimson verleiht EmuCoreX einen dunkleren Look, während Pro hilft, die Entwicklung am Laufen zu halten.</string>
     <string name="error_otg_read_only">Dieser Ordner ist aufgrund von Android-Einschränkungen schreibgeschützt. Bitte wählen Sie einen Ordner im internen Speicher oder auf einer unterstützten SD-Karte.</string>
+    <string name="settings_about_privacy_policy">Datenschutzrichtlinie</string>
+    <string name="settings_about_privacy_policy_desc">Öffne die EmuCoreX-Datenschutzrichtlinie.</string>
+    <string name="settings_about_privacy_policy_url">https://sites.google.com/view/emucorexpolicy/%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D0%BD%D0%B0-%D1%81%D1%82%D0%BE%D1%80%D1%96%D0%BD%D0%BA%D0%B0</string>
+    <string name="settings_touch_haptics">Haptisches Feedback für Touch-Steuerung</string>
+    <string name="settings_touch_haptics_desc">Spiele ein kurzes haptisches Ticken ab, wenn On-Screen-Bedienelemente gedrückt werden.</string>
+    <string name="settings_gamepad_button_haptics">Haptisches Feedback für Gamepad-Tasten</string>
+    <string name="settings_gamepad_button_haptics_desc">Spiele ein kurzes Vibrations-Ticken ab, wenn physische Gamepad-Tasten gedrückt werden.</string>
+    <string name="settings_confirm_save_load_actions">Speichern/Laden bestätigen</string>
+    <string name="settings_confirm_save_load_actions_desc">Vor dem Schnellspeichern oder Schnellladen nachfragen.</string>
+    <string name="settings_help_touch_haptics">Fügt ein leichtes haptisches Android-Feedback hinzu, wenn eine On-Screen-Taste, eine Steuerkreuz-Richtung oder ein Analogstick zum ersten Mal gedrückt wird. Dies wirkt sich nur auf das Steuerungsgefühl aus und ändert nicht das Rumble im Spiel.</string>
+    <string name="settings_help_gamepad_button_haptics">Fügt beim Drücken physischer Gamepad-Tasten einen kurzen, schwachen Impuls hinzu. Dies ist unabhängig vom Rumble im Spiel, sodass unterstützte Spiele weiterhin die normale Controller-Vibration steuern können.</string>
+    <string name="settings_help_confirm_save_load_actions">Zeigt einen Bestätigungsdialog an, bevor ein Speicherstand überschrieben oder geladen wird. Schalte es für Schnellspeichern und Schnellladen mit einem Tippen aus.</string>
+    <string name="settings_about_app_source">EmuCoreX-Repository</string>
+    <string name="settings_about_app_source_desc">Öffne das EmuCoreX-GitHub-Repository für den App- und Projektquellcode.</string>
+    <string name="settings_about_app_source_link">EmuCoreX auf GitHub öffnen</string>
+    <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
+    <string name="settings_about_privacy_policy_link">Datenschutzrichtlinie öffnen</string>
 </resources>

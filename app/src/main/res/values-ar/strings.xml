@@ -1328,4 +1328,21 @@
     <string name="pro_feature_support">أضف أيقونة المشغل الذهبية وادعم التطوير المستمر.</string>
     <string name="onboarding_pro_subtitle">يمنح مظهر Crimson تطبيق EmuCoreX مظهرًا داكنًا، بينما يساعد إصدار Pro في استمرار التطوير.</string>
     <string name="error_otg_read_only">هذا المجلد للقراءة فقط بسبب قيود أندرويد. يرجى تحديد مجلد على وحدة التخزين الداخلية أو بطاقة SD مدعومة.</string>
+    <string name="settings_about_privacy_policy">سياسة الخصوصية</string>
+    <string name="settings_about_privacy_policy_desc">افتح سياسة خصوصية EmuCoreX.</string>
+    <string name="settings_about_privacy_policy_url">https://sites.google.com/view/emucorexpolicy/%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D0%BD%D0%B0-%D1%81%D1%82%D0%BE%D1%80%D1%96%D0%BD%D0%BA%D0%B0</string>
+    <string name="settings_touch_haptics">استجابة اللمس لعناصر التحكم</string>
+    <string name="settings_touch_haptics_desc">تشغيل نبضة اهتزاز قصيرة عند الضغط على عناصر التحكم على الشاشة.</string>
+    <string name="settings_gamepad_button_haptics">استجابة اللمس لأزرار لوحة الألعاب</string>
+    <string name="settings_gamepad_button_haptics_desc">تشغيل نبضة اهتزاز قصيرة عند الضغط على أزرار لوحة الألعاب الفعلية.</string>
+    <string name="settings_confirm_save_load_actions">تأكيد إجراءات الحفظ/التحميل</string>
+    <string name="settings_confirm_save_load_actions_desc">السؤال قبل الحفظ السريع أو التحميل السريع.</string>
+    <string name="settings_help_touch_haptics">يضيف استجابة لمس Android خفيفة عند الضغط لأول مرة على زر على الشاشة أو اتجاه D-pad أو عصا تناظرية. هذا يؤثر على الشعور بالتحكم فقط ولا يغير اهتزاز اللعبة.</string>
+    <string name="settings_help_gamepad_button_haptics">يضيف نبضة قصيرة منخفضة القوة عند الضغط على أزرار لوحة الألعاب الفعلية. هذا منفصل عن اهتزاز اللعبة، لذلك يمكن للألعاب المدعومة الاستمرار في التحكم في اهتزاز وحدة التحكم العادي.</string>
+    <string name="settings_help_confirm_save_load_actions">يعرض مربع حوار تأكيد قبل الكتابة فوق حالة حفظ أو تحميل واحدة. قم بإيقاف تشغيله للحفظ السريع والتحميل السريع بنقرة واحدة.</string>
+    <string name="settings_about_app_source">مستودع EmuCoreX</string>
+    <string name="settings_about_app_source_desc">افتح مستودع GitHub لـ EmuCoreX للحصول على التطبيق ومصدر المشروع.</string>
+    <string name="settings_about_app_source_link">افتح EmuCoreX على GitHub</string>
+    <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
+    <string name="settings_about_privacy_policy_link">افتح سياسة الخصوصية</string>
 </resources>
