@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "arm64/cpuRegistersPack.h"
+#include "arm64/cpuRegistersPack-arm64.h"
 
 #ifndef _PC_
 

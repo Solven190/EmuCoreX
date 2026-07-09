@@ -6,7 +6,7 @@
 #include "GS/Renderers/Common/GSFunctionMap.h"
 #include "GS/Renderers/SW/GSScanlineEnvironment.h"
 
-#include "arm64/OaknutHelpers.h"
+#include "arm64/OaknutHelpers-arm64.h"
 
 class GSDrawScanlineCodeGenerator
 {

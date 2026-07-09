@@ -73,7 +73,7 @@
     <Filter Include="System\Ps2\EmotionEngine\EE\Dynarec">
       <UniqueIdentifier>{79aa85ae-b75b-421a-838c-8144d9dacd76}</UniqueIdentifier>
     </Filter>
-    <Filter Include="System\Ps2\EmotionEngine\EE\Dynarec\ix86-32">
+    <Filter Include="System\Ps2\EmotionEngine\EE\Dynarec\ARM64">
       <UniqueIdentifier>{094486fe-8ffc-4b98-81d6-6c381554fd8e}</UniqueIdentifier>
     </Filter>
     <Filter Include="System\Ps2\EmotionEngine\EE\Interpreter">
@@ -297,40 +297,37 @@
     <None Include="ps2\eeHwTraceLog.inl">
       <Filter>System\Ps2\EmotionEngine\Hardware</Filter>
     </None>
-    <None Include="x86\microVU_Alloc.inl">
+    <None Include="arm64\vu\microVU_Alloc-arm64.inl">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </None>
-    <None Include="x86\microVU_Analyze.inl">
+    <None Include="arm64\vu\microVU_Analyze-arm64.inl">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </None>
-    <None Include="x86\microVU_Branch.inl">
+    <None Include="arm64\vu\microVU_Branch-arm64.inl">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </None>
-    <None Include="x86\microVU_Compile.inl">
+    <None Include="arm64\vu\microVU_Compile-arm64.inl">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </None>
-    <None Include="x86\microVU_Execute.inl">
+    <None Include="arm64\vu\microVU_Execute-arm64.inl">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </None>
-    <None Include="x86\microVU_Flags.inl">
+    <None Include="arm64\vu\microVU_Flags-arm64.inl">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </None>
-    <None Include="x86\microVU_Log.inl">
+    <None Include="arm64\vu\microVU_Lower-arm64.inl">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </None>
-    <None Include="x86\microVU_Lower.inl">
+    <None Include="arm64\vu\microVU_Macro-arm64.inl">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </None>
-    <None Include="x86\microVU_Macro.inl">
+    <None Include="arm64\vu\microVU_Misc-arm64.inl">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </None>
-    <None Include="x86\microVU_Misc.inl">
+    <None Include="arm64\vu\microVU_Tables-arm64.inl">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </None>
-    <None Include="x86\microVU_Tables.inl">
-      <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
-    </None>
-    <None Include="x86\microVU_Upper.inl">
+    <None Include="arm64\vu\microVU_Upper-arm64.inl">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </None>
     <None Include="..\bin\resources\shaders\common\fxaa.fx">
@@ -428,7 +425,7 @@
     <ClCompile Include="Elfheader.cpp">
       <Filter>System\ISO</Filter>
     </ClCompile>
-    <ClCompile Include="x86\BaseblockEx.cpp">
+    <ClCompile Include="arm64\ee\BaseblockEx-arm64.cpp">
       <Filter>System\Ps2</Filter>
     </ClCompile>
     <ClCompile Include="FiFo.cpp">
@@ -449,7 +446,7 @@
     <ClCompile Include="Memory.cpp">
       <Filter>System\Ps2\EmotionEngine\Memory</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\recVTLB.cpp">
+    <ClCompile Include="arm64\ee\recVTLB-arm64.cpp">
       <Filter>System\Ps2\EmotionEngine\Memory</Filter>
     </ClCompile>
     <ClCompile Include="vtlb.cpp">
@@ -464,7 +461,7 @@
     <ClCompile Include="VUmicroMem.cpp">
       <Filter>System\Ps2\EmotionEngine\VU</Filter>
     </ClCompile>
-    <ClCompile Include="x86\microVU.cpp">
+    <ClCompile Include="arm64\vu\microVU-arm64.cpp">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </ClCompile>
     <ClCompile Include="VU0.cpp">
@@ -518,10 +515,10 @@
     <ClCompile Include="Vif_Unpack.cpp">
       <Filter>System\Ps2\EmotionEngine\DMAC\Vif\Unpack</Filter>
     </ClCompile>
-    <ClCompile Include="x86\Vif_Dynarec.cpp">
+    <ClCompile Include="x86\legacy_vif\LegacyVif_Dynarec.cpp">
       <Filter>System\Ps2\EmotionEngine\DMAC\Vif\Unpack\newVif\Dynarec</Filter>
     </ClCompile>
-    <ClCompile Include="x86\Vif_UnpackSSE.cpp">
+    <ClCompile Include="x86\legacy_vif\LegacyVif_UnpackSSE.cpp">
       <Filter>System\Ps2\EmotionEngine\DMAC\Vif\Unpack\newVif\Dynarec</Filter>
     </ClCompile>
     <ClCompile Include="SPR.cpp">
@@ -533,50 +530,50 @@
     <ClCompile Include="R5900OpcodeTables.cpp">
       <Filter>System\Ps2\EmotionEngine\EE</Filter>
     </ClCompile>
-    <ClCompile Include="x86\iCOP0.cpp">
+    <ClCompile Include="arm64\ee\iCOP0-arm64.cpp">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClCompile>
-    <ClCompile Include="x86\iFPU.cpp">
+    <ClCompile Include="arm64\ee\iFPU-arm64.cpp">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClCompile>
-    <ClCompile Include="x86\iFPUd.cpp">
+    <ClCompile Include="arm64\ee\iFPUd-arm64.cpp">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClCompile>
-    <ClCompile Include="x86\iMMI.cpp">
+    <ClCompile Include="arm64\ee\iMMI-arm64.cpp">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClCompile>
-    <ClCompile Include="x86\iR5900Misc.cpp">
+    <ClCompile Include="arm64\ee\iR5900Misc-arm64.cpp">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900.cpp">
-      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ix86-32</Filter>
+    <ClCompile Include="arm64\ee\iR5900-arm64.cpp">
+      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ARM64</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Arit.cpp">
-      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ix86-32</Filter>
+    <ClCompile Include="arm64\ee\iR5900Arit-arm64.cpp">
+      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ARM64</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900AritImm.cpp">
-      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ix86-32</Filter>
+    <ClCompile Include="arm64\ee\iR5900AritImm-arm64.cpp">
+      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ARM64</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Branch.cpp">
-      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ix86-32</Filter>
+    <ClCompile Include="arm64\ee\iR5900Branch-arm64.cpp">
+      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ARM64</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Jump.cpp">
-      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ix86-32</Filter>
+    <ClCompile Include="arm64\ee\iR5900Jump-arm64.cpp">
+      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ARM64</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900LoadStore.cpp">
-      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ix86-32</Filter>
+    <ClCompile Include="arm64\ee\iR5900LoadStore-arm64.cpp">
+      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ARM64</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Move.cpp">
-      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ix86-32</Filter>
+    <ClCompile Include="arm64\ee\iR5900Move-arm64.cpp">
+      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ARM64</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900MultDiv.cpp">
-      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ix86-32</Filter>
+    <ClCompile Include="arm64\ee\iR5900MultDiv-arm64.cpp">
+      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ARM64</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Shift.cpp">
-      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ix86-32</Filter>
+    <ClCompile Include="arm64\ee\iR5900Shift-arm64.cpp">
+      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ARM64</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Templates.cpp">
-      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ix86-32</Filter>
+    <ClCompile Include="arm64\ee\iR5900Templates-arm64.cpp">
+      <Filter>System\Ps2\EmotionEngine\EE\Dynarec\ARM64</Filter>
     </ClCompile>
     <ClCompile Include="COP0.cpp">
       <Filter>System\Ps2\EmotionEngine\EE\Interpreter</Filter>
@@ -623,10 +620,10 @@
     <ClCompile Include="R3000AOpcodeTables.cpp">
       <Filter>System\Ps2\Iop</Filter>
     </ClCompile>
-    <ClCompile Include="x86\iR3000A.cpp">
+    <ClCompile Include="arm64\iop\iR3000A-arm64.cpp">
       <Filter>System\Ps2\Iop\Dynarec</Filter>
     </ClCompile>
-    <ClCompile Include="x86\iR3000Atables.cpp">
+    <ClCompile Include="arm64\iop\iR3000Atables-arm64.cpp">
       <Filter>System\Ps2\Iop\Dynarec</Filter>
     </ClCompile>
     <ClCompile Include="IopHw.cpp">
@@ -698,10 +695,10 @@
     <ClCompile Include="rdebug\deci2_ttyp.cpp">
       <Filter>System\Ps2\Debug\rdebug</Filter>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iCore.cpp">
+    <ClCompile Include="arm64\ee\EERegisterAllocator-arm64.cpp">
       <Filter>System\Ps2\iCore</Filter>
     </ClCompile>
-    <ClCompile Include="x86\iCore.cpp">
+    <ClCompile Include="arm64\ee\iCore-arm64.cpp">
       <Filter>System\Ps2\iCore</Filter>
     </ClCompile>
     <ClCompile Include="GameDatabase.cpp">
@@ -1109,7 +1106,7 @@
     <ClCompile Include="GS\Renderers\HW\GSTextureReplacementLoaders.cpp">
       <Filter>System\Ps2\GS\Renderers\Hardware</Filter>
     </ClCompile>
-    <ClCompile Include="x86\iR5900Analysis.cpp">
+    <ClCompile Include="arm64\ee\iR5900Analysis-arm64.cpp">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClCompile>
     <ClCompile Include="GS\Renderers\DX12\GSTexture12.cpp">
@@ -1428,10 +1425,10 @@
     <ClCompile Include="GS\Renderers\SW\GSSetupPrimCodeGenerator.arm64.cpp">
       <Filter>System\Ps2\GS\Renderers\Software</Filter>
     </ClCompile>
-    <ClCompile Include="arm64\Vif_Dynarec.cpp">
+    <ClCompile Include="arm64\vu\Vif_Dynarec-arm64.cpp">
       <Filter>System\Ps2\EmotionEngine\DMAC\Vif\Unpack\newVif\Dynarec\arm64</Filter>
     </ClCompile>
-    <ClCompile Include="arm64\Vif_UnpackNEON.cpp">
+    <ClCompile Include="arm64\vu\Vif_UnpackNEON-arm64.cpp">
       <Filter>System\Ps2\EmotionEngine\DMAC\Vif\Unpack\newVif\Dynarec\arm64</Filter>
     </ClCompile>
     <ClCompile Include="SIO\Pad\PadJogcon.cpp">
@@ -1499,13 +1496,13 @@
     <ClInclude Include="VUmicro.h">
       <Filter>System\Ps2\EmotionEngine\VU</Filter>
     </ClInclude>
-    <ClInclude Include="x86\microVU.h">
+    <ClInclude Include="arm64\vu\microVU-arm64.h">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </ClInclude>
-    <ClInclude Include="x86\microVU_IR.h">
+    <ClInclude Include="arm64\vu\microVU_IR-arm64.h">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </ClInclude>
-    <ClInclude Include="x86\microVU_Misc.h">
+    <ClInclude Include="arm64\vu\microVU_Misc-arm64.h">
       <Filter>System\Ps2\EmotionEngine\VU\Dynarec\microVU</Filter>
     </ClInclude>
     <ClInclude Include="VUflags.h">
@@ -1529,10 +1526,10 @@
     <ClInclude Include="Vif_Unpack.h">
       <Filter>System\Ps2\EmotionEngine\DMAC\Vif\Unpack</Filter>
     </ClInclude>
-    <ClInclude Include="x86\newVif.h">
+    <ClInclude Include="x86\legacy_vif\LegacyNewVif.h">
       <Filter>System\Ps2\EmotionEngine\DMAC\Vif\Unpack\newVif</Filter>
     </ClInclude>
-    <ClInclude Include="x86\Vif_UnpackSSE.h">
+    <ClInclude Include="x86\legacy_vif\LegacyVif_UnpackSSE.h">
       <Filter>System\Ps2\EmotionEngine\DMAC\Vif\Unpack\newVif\Dynarec</Filter>
     </ClInclude>
     <ClInclude Include="SPR.h">
@@ -1550,40 +1547,40 @@
     <ClInclude Include="COP0.h">
       <Filter>System\Ps2\EmotionEngine\EE</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iCOP0.h">
+    <ClInclude Include="arm64\ee\iCOP0-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iFPU.h">
+    <ClInclude Include="arm64\ee\iFPU-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iMMI.h">
+    <ClInclude Include="arm64\ee\iMMI-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iR5900.h">
+    <ClInclude Include="arm64\ee\iR5900-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iR5900Arit.h">
+    <ClInclude Include="arm64\ee\iR5900Arit-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iR5900AritImm.h">
+    <ClInclude Include="arm64\ee\iR5900AritImm-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iR5900Branch.h">
+    <ClInclude Include="arm64\ee\iR5900Branch-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iR5900Jump.h">
+    <ClInclude Include="arm64\ee\iR5900Jump-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iR5900LoadStore.h">
+    <ClInclude Include="arm64\ee\iR5900LoadStore-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iR5900Move.h">
+    <ClInclude Include="arm64\ee\iR5900Move-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iR5900MultDiv.h">
+    <ClInclude Include="arm64\ee\iR5900MultDiv-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iR5900Shift.h">
+    <ClInclude Include="arm64\ee\iR5900Shift-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
     <ClInclude Include="IopBios.h">
@@ -1601,7 +1598,7 @@
     <ClInclude Include="R3000A.h">
       <Filter>System\Ps2\Iop</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iR3000A.h">
+    <ClInclude Include="arm64\iop\iR3000A-arm64.h">
       <Filter>System\Ps2\Iop\Dynarec</Filter>
     </ClInclude>
     <ClInclude Include="IopHw.h">
@@ -1646,7 +1643,7 @@
     <ClInclude Include="DebugTools\DisVUops.h">
       <Filter>System\Ps2\Debug</Filter>
     </ClInclude>
-    <ClInclude Include="x86\BaseblockEx.h">
+    <ClInclude Include="arm64\ee\BaseblockEx-arm64.h">
       <Filter>System\Ps2\Include</Filter>
     </ClInclude>
     <ClInclude Include="ps2\BiosTools.h">
@@ -1655,7 +1652,7 @@
     <ClInclude Include="MemoryTypes.h">
       <Filter>System\Ps2\Include</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iCore.h">
+    <ClInclude Include="arm64\ee\iCore-arm64.h">
       <Filter>System\Ps2\iCore</Filter>
     </ClInclude>
     <ClInclude Include="GameDatabase.h">
@@ -1709,7 +1706,7 @@
     <ClInclude Include="CDVD\GzippedFileReader.h">
       <Filter>System\ISO</Filter>
     </ClInclude>
-    <ClInclude Include="x86\R5900_Profiler.h">
+    <ClInclude Include="arm64\ee\R5900_Profiler-arm64.h">
       <Filter>System\Include</Filter>
     </ClInclude>
     <ClInclude Include="IopGte.h">
@@ -2052,7 +2049,7 @@
     <ClInclude Include="GS\Renderers\HW\GSTextureReplacements.h">
       <Filter>System\Ps2\GS\Renderers\Hardware</Filter>
     </ClInclude>
-    <ClInclude Include="x86\iR5900Analysis.h">
+    <ClInclude Include="arm64\ee\iR5900Analysis-arm64.h">
       <Filter>System\Ps2\EmotionEngine\EE\Dynarec</Filter>
     </ClInclude>
     <ClInclude Include="GS\Renderers\DX12\GSTexture12.h">
@@ -2395,7 +2392,7 @@
     <ClInclude Include="GS\GSVector4i_arm64.h">
       <Filter>System\Ps2\GS</Filter>
     </ClInclude>
-    <ClInclude Include="arm64\Vif_UnpackNEON.h">
+    <ClInclude Include="arm64\vu\Vif_UnpackNEON-arm64.h">
       <Filter>System\Ps2\EmotionEngine\DMAC\Vif\Unpack\newVif\Dynarec\arm64</Filter>
     </ClInclude>
     <ClInclude Include="SIO\Pad\PadJogcon.h">

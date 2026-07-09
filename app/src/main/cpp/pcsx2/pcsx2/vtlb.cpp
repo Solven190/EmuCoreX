@@ -221,7 +221,7 @@ __inline int CheckCache(u32 addr)
 // --------------------------------------------------------------------------------------
 // Interpreter Implementations of VTLB Memory Operations.
 // --------------------------------------------------------------------------------------
-// See recVTLB.cpp for the dynarec versions.
+// See recVTLB-arm64.cpp for the dynarec versions.
 
 template <typename DataType>
 DataType vtlb_memRead(u32 addr)

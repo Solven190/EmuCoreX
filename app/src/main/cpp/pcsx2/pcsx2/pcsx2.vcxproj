@@ -96,26 +96,25 @@
     </None>
     <None Include="Docs\License.txt" />
     <None Include="ps2\eeHwTraceLog.inl" />
-    <None Include="x86\microVU_Alloc.inl" />
-    <None Include="x86\microVU_Analyze.inl" />
-    <None Include="x86\microVU_Branch.inl" />
-    <None Include="x86\microVU_Compile.inl" />
-    <None Include="x86\microVU_Execute.inl" />
-    <None Include="x86\microVU_Flags.inl" />
-    <None Include="x86\microVU_Log.inl" />
-    <None Include="x86\microVU_Lower.inl" />
-    <None Include="x86\microVU_Macro.inl" />
-    <None Include="x86\microVU_Misc.inl" />
-    <None Include="x86\microVU_Tables.inl" />
-    <None Include="x86\microVU_Upper.inl" />
+    <None Include="arm64\vu\microVU_Alloc-arm64.inl" />
+    <None Include="arm64\vu\microVU_Analyze-arm64.inl" />
+    <None Include="arm64\vu\microVU_Branch-arm64.inl" />
+    <None Include="arm64\vu\microVU_Compile-arm64.inl" />
+    <None Include="arm64\vu\microVU_Execute-arm64.inl" />
+    <None Include="arm64\vu\microVU_Flags-arm64.inl" />
+    <None Include="arm64\vu\microVU_Lower-arm64.inl" />
+    <None Include="arm64\vu\microVU_Macro-arm64.inl" />
+    <None Include="arm64\vu\microVU_Misc-arm64.inl" />
+    <None Include="arm64\vu\microVU_Tables-arm64.inl" />
+    <None Include="arm64\vu\microVU_Upper-arm64.inl" />
     <!-- Generate Recording GUI Image Headers -->
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Achievements.cpp" />
-    <ClCompile Include="arm64\Vif_Dynarec.cpp">
+    <ClCompile Include="arm64\vu\Vif_Dynarec-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="arm64\Vif_UnpackNEON.cpp">
+    <ClCompile Include="arm64\vu\Vif_UnpackNEON-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="CDVD\BlockdumpFileReader.cpp" />
@@ -410,7 +409,7 @@
     <ClCompile Include="SourceLog.cpp" />
     <ClCompile Include="Elfheader.cpp" />
     <ClCompile Include="CDVD\InputIsoFile.cpp" />
-    <ClCompile Include="x86\BaseblockEx.cpp">
+    <ClCompile Include="arm64\ee\BaseblockEx-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="ps2\BiosTools.cpp" />
@@ -422,17 +421,17 @@
     <ClCompile Include="HwWrite.cpp" />
     <ClCompile Include="Cache.cpp" />
     <ClCompile Include="Memory.cpp" />
-    <ClCompile Include="x86\iR5900Analysis.cpp">
+    <ClCompile Include="arm64\ee\iR5900Analysis-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\recVTLB.cpp">
+    <ClCompile Include="arm64\ee\recVTLB-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="vtlb.cpp" />
     <ClCompile Include="MTVU.cpp" />
     <ClCompile Include="VUmicro.cpp" />
     <ClCompile Include="VUmicroMem.cpp" />
-    <ClCompile Include="x86\microVU.cpp">
+    <ClCompile Include="arm64\vu\microVU-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="VU0.cpp" />
@@ -452,58 +451,58 @@
     <ClCompile Include="Vif_Codes.cpp" />
     <ClCompile Include="Vif_Transfer.cpp" />
     <ClCompile Include="Vif_Unpack.cpp" />
-    <ClCompile Include="x86\Vif_Dynarec.cpp">
+    <ClCompile Include="x86\legacy_vif\LegacyVif_Dynarec.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\Vif_UnpackSSE.cpp">
+    <ClCompile Include="x86\legacy_vif\LegacyVif_UnpackSSE.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SPR.cpp" />
     <ClCompile Include="Gif.cpp" />
     <ClCompile Include="R5900OpcodeTables.cpp" />
-    <ClCompile Include="x86\iCOP0.cpp">
+    <ClCompile Include="arm64\ee\iCOP0-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\iFPU.cpp">
+    <ClCompile Include="arm64\ee\iFPU-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\iFPUd.cpp">
+    <ClCompile Include="arm64\ee\iFPUd-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\iMMI.cpp">
+    <ClCompile Include="arm64\ee\iMMI-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\iR5900Misc.cpp">
+    <ClCompile Include="arm64\ee\iR5900Misc-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900.cpp">
+    <ClCompile Include="arm64\ee\iR5900-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Arit.cpp">
+    <ClCompile Include="arm64\ee\iR5900Arit-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900AritImm.cpp">
+    <ClCompile Include="arm64\ee\iR5900AritImm-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Branch.cpp">
+    <ClCompile Include="arm64\ee\iR5900Branch-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Jump.cpp">
+    <ClCompile Include="arm64\ee\iR5900Jump-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900LoadStore.cpp">
+    <ClCompile Include="arm64\ee\iR5900LoadStore-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Move.cpp">
+    <ClCompile Include="arm64\ee\iR5900Move-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900MultDiv.cpp">
+    <ClCompile Include="arm64\ee\iR5900MultDiv-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Shift.cpp">
+    <ClCompile Include="arm64\ee\iR5900Shift-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iR5900Templates.cpp">
+    <ClCompile Include="arm64\ee\iR5900Templates-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="COP0.cpp" />
@@ -521,10 +520,10 @@
     <ClCompile Include="R3000A.cpp" />
     <ClCompile Include="R3000AInterpreter.cpp" />
     <ClCompile Include="R3000AOpcodeTables.cpp" />
-    <ClCompile Include="x86\iR3000A.cpp">
+    <ClCompile Include="arm64\iop\iR3000A-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\iR3000Atables.cpp">
+    <ClCompile Include="arm64\iop\iR3000Atables-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="IopHw.cpp" />
@@ -562,16 +561,16 @@
     <ClCompile Include="rdebug\deci2_ttyp.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\ix86-32\iCore.cpp">
+    <ClCompile Include="arm64\ee\EERegisterAllocator-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\iCore.cpp">
+    <ClCompile Include="arm64\ee\iCore-arm64.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Achievements.h" />
-    <ClInclude Include="arm64\Vif_UnpackNEON.h">
+    <ClInclude Include="arm64\vu\Vif_UnpackNEON-arm64.h">
       <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="CDVD\BlockdumpFileReader.h" />
@@ -879,11 +878,11 @@
     <ClInclude Include="MTVU.h" />
     <ClInclude Include="VU.h" />
     <ClInclude Include="VUmicro.h" />
-    <ClInclude Include="x86\iR5900Analysis.h" />
-    <ClInclude Include="x86\microVU.h" />
-    <ClInclude Include="x86\microVU_IR.h" />
-    <ClInclude Include="x86\microVU_Misc.h" />
-    <ClInclude Include="x86\R5900_Profiler.h" />
+    <ClInclude Include="arm64\ee\iR5900Analysis-arm64.h" />
+    <ClInclude Include="arm64\vu\microVU-arm64.h" />
+    <ClInclude Include="arm64\vu\microVU_IR-arm64.h" />
+    <ClInclude Include="arm64\vu\microVU_Misc-arm64.h" />
+    <ClInclude Include="arm64\ee\R5900_Profiler-arm64.h" />
     <ClInclude Include="VUflags.h" />
     <ClInclude Include="VUops.h" />
     <ClInclude Include="Sif.h" />
@@ -891,31 +890,31 @@
     <ClInclude Include="Vif.h" />
     <ClInclude Include="Vif_Dma.h" />
     <ClInclude Include="Vif_Unpack.h" />
-    <ClInclude Include="x86\newVif.h" />
-    <ClInclude Include="x86\Vif_UnpackSSE.h" />
+    <ClInclude Include="x86\legacy_vif\LegacyNewVif.h" />
+    <ClInclude Include="x86\legacy_vif\LegacyVif_UnpackSSE.h" />
     <ClInclude Include="SPR.h" />
     <ClInclude Include="Gif.h" />
     <ClInclude Include="R5900.h" />
     <ClInclude Include="R5900OpcodeTables.h" />
     <ClInclude Include="COP0.h" />
-    <ClInclude Include="x86\iCOP0.h" />
-    <ClInclude Include="x86\iFPU.h" />
-    <ClInclude Include="x86\iMMI.h" />
-    <ClInclude Include="x86\iR5900.h" />
-    <ClInclude Include="x86\iR5900Arit.h" />
-    <ClInclude Include="x86\iR5900AritImm.h" />
-    <ClInclude Include="x86\iR5900Branch.h" />
-    <ClInclude Include="x86\iR5900Jump.h" />
-    <ClInclude Include="x86\iR5900LoadStore.h" />
-    <ClInclude Include="x86\iR5900Move.h" />
-    <ClInclude Include="x86\iR5900MultDiv.h" />
-    <ClInclude Include="x86\iR5900Shift.h" />
+    <ClInclude Include="arm64\ee\iCOP0-arm64.h" />
+    <ClInclude Include="arm64\ee\iFPU-arm64.h" />
+    <ClInclude Include="arm64\ee\iMMI-arm64.h" />
+    <ClInclude Include="arm64\ee\iR5900-arm64.h" />
+    <ClInclude Include="arm64\ee\iR5900Arit-arm64.h" />
+    <ClInclude Include="arm64\ee\iR5900AritImm-arm64.h" />
+    <ClInclude Include="arm64\ee\iR5900Branch-arm64.h" />
+    <ClInclude Include="arm64\ee\iR5900Jump-arm64.h" />
+    <ClInclude Include="arm64\ee\iR5900LoadStore-arm64.h" />
+    <ClInclude Include="arm64\ee\iR5900Move-arm64.h" />
+    <ClInclude Include="arm64\ee\iR5900MultDiv-arm64.h" />
+    <ClInclude Include="arm64\ee\iR5900Shift-arm64.h" />
     <ClInclude Include="IopBios.h" />
     <ClInclude Include="IopCounters.h" />
     <ClInclude Include="IopDma.h" />
     <ClInclude Include="IopMem.h" />
     <ClInclude Include="R3000A.h" />
-    <ClInclude Include="x86\iR3000A.h" />
+    <ClInclude Include="arm64\iop\iR3000A-arm64.h" />
     <ClInclude Include="IopHw.h" />
     <ClInclude Include="ps2\Iop\IopHw_Internal.h" />
     <ClInclude Include="CDVD\Ps1CD.h" />
@@ -952,10 +951,10 @@
     <CustomBuildStep Include="rdebug\deci2_ttyp.h">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </CustomBuildStep>
-    <ClInclude Include="x86\BaseblockEx.h" />
+    <ClInclude Include="arm64\ee\BaseblockEx-arm64.h" />
     <ClInclude Include="ps2\BiosTools.h" />
     <ClInclude Include="MemoryTypes.h" />
-    <ClInclude Include="x86\iCore.h" />
+    <ClInclude Include="arm64\ee\iCore-arm64.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="$(SolutionDir)3rdparty\fmt\fmt.vcxproj">

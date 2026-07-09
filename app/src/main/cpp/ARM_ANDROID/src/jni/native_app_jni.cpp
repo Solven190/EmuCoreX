@@ -6,7 +6,7 @@
 #include "common/FileSystem.h"
 #include "common/HostSys.h"
 #include "common/HTTPDownloaderCurl.h"
-#include "arm64/OaknutHelpers.h"
+#include "arm64/OaknutHelpers-arm64.h"
 #include "pcsx2/Achievements.h"
 #include "pcsx2/HangTrace.h"
 #include "pcsx2/JitProfiler.h"

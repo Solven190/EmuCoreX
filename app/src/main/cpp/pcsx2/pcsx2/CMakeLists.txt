@@ -1001,66 +1001,66 @@ set(pcsx2WindowsSources
 	windows/Optimus.cpp
 )
 
-# x86 sources
-set(pcsx2x86Sources
-	x86/BaseblockEx.cpp
-	x86/iCOP0.cpp
-	x86/iCore.cpp
-	x86/iFPU.cpp
-	x86/iFPUd.cpp
-	x86/iMMI.cpp
-	x86/iR3000A.cpp
-	x86/iR3000Atables.cpp
-	x86/iR5900Analysis.cpp
-	x86/iR5900Misc.cpp
-	x86/ix86-32/iCore.cpp
-	x86/ix86-32/iR5900.cpp
-	x86/ix86-32/iR5900Arit.cpp
-	x86/ix86-32/iR5900AritImm.cpp
-	x86/ix86-32/iR5900Branch.cpp
-	x86/ix86-32/iR5900Jump.cpp
-	x86/ix86-32/iR5900LoadStore.cpp
-	x86/ix86-32/iR5900Move.cpp
-	x86/ix86-32/iR5900MultDiv.cpp
-	x86/ix86-32/iR5900Shift.cpp
-	x86/ix86-32/iR5900Templates.cpp
-	x86/ix86-32/recVTLB.cpp
+# JIT recompiler sources
+set(pcsx2JitSources
+	arm64/ee/BaseblockEx-arm64.cpp
+	arm64/ee/iCOP0-arm64.cpp
+	arm64/ee/iCore-arm64.cpp
+	arm64/ee/iFPU-arm64.cpp
+	arm64/ee/iFPUd-arm64.cpp
+	arm64/ee/iMMI-arm64.cpp
+	arm64/iop/iR3000A-arm64.cpp
+	arm64/iop/iR3000Atables-arm64.cpp
+	arm64/ee/iR5900Analysis-arm64.cpp
+	arm64/ee/iR5900Misc-arm64.cpp
+	arm64/ee/EERegisterAllocator-arm64.cpp
+	arm64/ee/iR5900-arm64.cpp
+	arm64/ee/iR5900Arit-arm64.cpp
+	arm64/ee/iR5900AritImm-arm64.cpp
+	arm64/ee/iR5900Branch-arm64.cpp
+	arm64/ee/iR5900Jump-arm64.cpp
+	arm64/ee/iR5900LoadStore-arm64.cpp
+	arm64/ee/iR5900Move-arm64.cpp
+	arm64/ee/iR5900MultDiv-arm64.cpp
+	arm64/ee/iR5900Shift-arm64.cpp
+	arm64/ee/iR5900Templates-arm64.cpp
+	arm64/ee/recVTLB-arm64.cpp
 	)
 
-# x86 headers
-set(pcsx2x86Headers
-	x86/BaseblockEx.h
-	x86/iCOP0.h
-	x86/iCore.h
-	x86/iFPU.h
-	x86/iMMI.h
-	x86/iR3000A.h
-	x86/iR5900Arit.h
-	x86/iR5900AritImm.h
-	x86/iR5900Branch.h
-	x86/iR5900.h
-	x86/iR5900Analysis.h
-	x86/iR5900Jump.h
-	x86/iR5900LoadStore.h
-	x86/iR5900Move.h
-	x86/iR5900MultDiv.h
-	x86/iR5900Shift.h
-	x86/microVU_Alloc.inl
-	x86/microVU_Analyze.inl
-	x86/microVU_Branch.inl
-	x86/microVU_Compile.inl
-	x86/microVU.cpp
-	x86/microVU_Execute.inl
-	x86/microVU_Flags.inl
-	x86/microVU.h
-	x86/microVU_IR.h
-	x86/microVU_Lower.inl
-	x86/microVU_Macro.inl
-	x86/microVU_Misc.h
-	x86/microVU_Misc.inl
-	x86/microVU_Tables.inl
-	x86/microVU_Upper.inl
-	x86/R5900_Profiler.h
+# JIT recompiler headers
+set(pcsx2JitHeaders
+	arm64/ee/BaseblockEx-arm64.h
+	arm64/ee/iCOP0-arm64.h
+	arm64/ee/iCore-arm64.h
+	arm64/ee/iFPU-arm64.h
+	arm64/ee/iMMI-arm64.h
+	arm64/iop/iR3000A-arm64.h
+	arm64/ee/iR5900Arit-arm64.h
+	arm64/ee/iR5900AritImm-arm64.h
+	arm64/ee/iR5900Branch-arm64.h
+	arm64/ee/iR5900-arm64.h
+	arm64/ee/iR5900Analysis-arm64.h
+	arm64/ee/iR5900Jump-arm64.h
+	arm64/ee/iR5900LoadStore-arm64.h
+	arm64/ee/iR5900Move-arm64.h
+	arm64/ee/iR5900MultDiv-arm64.h
+	arm64/ee/iR5900Shift-arm64.h
+	arm64/vu/microVU_Alloc-arm64.inl
+	arm64/vu/microVU_Analyze-arm64.inl
+	arm64/vu/microVU_Branch-arm64.inl
+	arm64/vu/microVU_Compile-arm64.inl
+	arm64/vu/microVU-arm64.cpp
+	arm64/vu/microVU_Execute-arm64.inl
+	arm64/vu/microVU_Flags-arm64.inl
+	arm64/vu/microVU-arm64.h
+	arm64/vu/microVU_IR-arm64.h
+	arm64/vu/microVU_Lower-arm64.inl
+	arm64/vu/microVU_Macro-arm64.inl
+	arm64/vu/microVU_Misc-arm64.h
+	arm64/vu/microVU_Misc-arm64.inl
+	arm64/vu/microVU_Tables-arm64.inl
+	arm64/vu/microVU_Upper-arm64.inl
+	arm64/ee/R5900_Profiler-arm64.h
 	HangTrace.cpp
 	HangTrace.h
 	JitProfiler.cpp
@@ -1069,15 +1069,15 @@ set(pcsx2x86Headers
 
 # ARM64
 set(pcsx2arm64Sources
-	arm64/OaknutHelpers.cpp
-	arm64/Vif_Dynarec.cpp
-	arm64/Vif_UnpackNEON.cpp
+	arm64/OaknutHelpers-arm64.cpp
+	arm64/vu/Vif_Dynarec-arm64.cpp
+	arm64/vu/Vif_UnpackNEON-arm64.cpp
 	)
 
 set(pcsx2arm64Headers
-	arm64/OaknutHelpers.h
-	arm64/cpuRegistersPack.h
-	arm64/ShuffleLanes.h
+	arm64/OaknutHelpers-arm64.h
+	arm64/cpuRegistersPack-arm64.h
+	arm64/vu/ShuffleLanes-arm64.h
 	)
 
 # These ones benefit a lot from LTO
@@ -1093,14 +1093,14 @@ set(pcsx2LTOSources
 )
 
 if(ARCH_X86)
-	list(APPEND pcsx2LTOSources ${pcsx2x86Sources} ${pcsx2x86Headers})
+	list(APPEND pcsx2LTOSources ${pcsx2JitSources} ${pcsx2JitHeaders})
 	target_link_libraries(PCSX2_FLAGS INTERFACE zydis)
 elseif(ARCH_ARM64)
 	list(APPEND pcsx2LTOSources
 		${pcsx2arm64Sources}
 		${pcsx2arm64Headers}
-		${pcsx2x86Sources}
-		${pcsx2x86Headers}
+		${pcsx2JitSources}
+		${pcsx2JitHeaders}
 	)
 endif()
 

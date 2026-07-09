@@ -7,17 +7,17 @@
 #include "R5900.h"
 
 // TODO(Stenzek): Move headers to common code.
-#include "x86/iR5900AritImm.h"
-#include "x86/iR5900Arit.h"
-#include "x86/iR5900MultDiv.h"
-#include "x86/iR5900Shift.h"
-#include "x86/iR5900Branch.h"
-#include "x86/iR5900Jump.h"
-#include "x86/iR5900LoadStore.h"
-#include "x86/iR5900Move.h"
-#include "x86/iMMI.h"
-#include "x86/iCOP0.h"
-#include "x86/iFPU.h"
+#include "arm64/ee/iR5900AritImm-arm64.h"
+#include "arm64/ee/iR5900Arit-arm64.h"
+#include "arm64/ee/iR5900MultDiv-arm64.h"
+#include "arm64/ee/iR5900Shift-arm64.h"
+#include "arm64/ee/iR5900Branch-arm64.h"
+#include "arm64/ee/iR5900Jump-arm64.h"
+#include "arm64/ee/iR5900LoadStore-arm64.h"
+#include "arm64/ee/iR5900Move-arm64.h"
+#include "arm64/ee/iMMI-arm64.h"
+#include "arm64/ee/iCOP0-arm64.h"
+#include "arm64/ee/iFPU-arm64.h"
 
 namespace R5900
 {

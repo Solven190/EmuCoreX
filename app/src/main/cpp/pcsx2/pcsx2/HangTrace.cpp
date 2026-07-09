@@ -1,6 +1,6 @@
 #include "HangTrace.h"
 
-#include "arm64/OaknutHelpers.h"
+#include "arm64/OaknutHelpers-arm64.h"
 #include "Config.h"
 #include "CDVD/CDVDcommon.h"
 #include "DebugTools/Debug.h"

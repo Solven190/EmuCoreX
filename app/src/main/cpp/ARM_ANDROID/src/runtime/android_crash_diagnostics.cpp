@@ -12,7 +12,7 @@
 #include "pcsx2/VifDef.h"
 #include "pcsx2/VUmicro.h"
 #include "pcsx2/PerformanceMetrics.h"
-#include "pcsx2/arm64/cpuRegistersPack.h"
+#include "pcsx2/arm64/cpuRegistersPack-arm64.h"
 
 #include <android/log.h>
 #include <dlfcn.h>
