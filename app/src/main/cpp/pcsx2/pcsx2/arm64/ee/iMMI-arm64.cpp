@@ -618,20 +618,26 @@ void recPPACB()
 static void recPEXT5_emit_oaknut(int dstreg, int treg)
 {
 	recBeginOaknutEmit();
-	for (int lane = 0; lane < 4; lane++)
-	{
-		oakAsm->MOV(OAK_WSCRATCH, oakQRegister(treg).Selem()[lane]);
-		oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH, 0x1f);
-		oakAsm->LSL(OAK_WSCRATCH2, OAK_WSCRATCH2, 3);
-		oakAsm->AND(oak::util::W4, OAK_WSCRATCH, 0x3e0);
-		oakAsm->ORR(OAK_WSCRATCH2, OAK_WSCRATCH2, oak::util::W4, oak::LogShift::LSL, 6);
-		oakAsm->AND(oak::util::W4, OAK_WSCRATCH, 0x7c00);
-		oakAsm->ORR(OAK_WSCRATCH2, OAK_WSCRATCH2, oak::util::W4, oak::LogShift::LSL, 9);
-		oakAsm->AND(oak::util::W4, OAK_WSCRATCH, 0x8000);
-		oakAsm->ORR(OAK_WSCRATCH2, OAK_WSCRATCH2, oak::util::W4, oak::LogShift::LSL, 16);
-		oakAsm->MOV(OAK_QSCRATCH.Selem()[lane], OAK_WSCRATCH2);
-	}
-	mmi0StoreQ_emit_oaknut(dstreg, OAK_QSCRATCH);
+	oakAsm->MOV(OAK_QSCRATCH3.B16(), oakQRegister(treg).B16());
+
+	oakAsm->SHL(oakQRegister(dstreg).S4(), OAK_QSCRATCH3.S4(), 3);
+	oakAsm->MOVI(OAK_QSCRATCH.S4(), 0xf8);
+	oakAsm->AND(oakQRegister(dstreg).B16(), oakQRegister(dstreg).B16(), OAK_QSCRATCH.B16());
+
+	oakAsm->SHL(OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4(), 6);
+	oakAsm->MOVI(OAK_QSCRATCH.S4(), 0xf8, oak::LslSymbol::LSL, 8);
+	oakAsm->AND(OAK_QSCRATCH2.B16(), OAK_QSCRATCH2.B16(), OAK_QSCRATCH.B16());
+	oakAsm->ORR(oakQRegister(dstreg).B16(), oakQRegister(dstreg).B16(), OAK_QSCRATCH2.B16());
+
+	oakAsm->SHL(OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4(), 9);
+	oakAsm->MOVI(OAK_QSCRATCH.S4(), 0xf8, oak::LslSymbol::LSL, 16);
+	oakAsm->AND(OAK_QSCRATCH2.B16(), OAK_QSCRATCH2.B16(), OAK_QSCRATCH.B16());
+	oakAsm->ORR(oakQRegister(dstreg).B16(), oakQRegister(dstreg).B16(), OAK_QSCRATCH2.B16());
+
+	oakAsm->SHL(OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4(), 16);
+	oakAsm->MOVI(OAK_QSCRATCH.S4(), 0x80, oak::LslSymbol::LSL, 24);
+	oakAsm->AND(OAK_QSCRATCH2.B16(), OAK_QSCRATCH2.B16(), OAK_QSCRATCH.B16());
+	oakAsm->ORR(oakQRegister(dstreg).B16(), oakQRegister(dstreg).B16(), OAK_QSCRATCH2.B16());
 	recEndOaknutEmit();
 }
 
@@ -651,19 +657,25 @@ void recPEXT5()
 static void recPPAC5_emit_oaknut(int dstreg, int treg)
 {
 	recBeginOaknutEmit();
-	for (int lane = 0; lane < 4; lane++)
-	{
-		oakAsm->MOV(OAK_WSCRATCH, oakQRegister(treg).Selem()[lane]);
-		oakAsm->UBFX(OAK_WSCRATCH2, OAK_WSCRATCH, 3, 5);
-		oakAsm->UBFX(oak::util::W4, OAK_WSCRATCH, 11, 5);
-		oakAsm->ORR(OAK_WSCRATCH2, OAK_WSCRATCH2, oak::util::W4, oak::LogShift::LSL, 5);
-		oakAsm->UBFX(oak::util::W4, OAK_WSCRATCH, 19, 5);
-		oakAsm->ORR(OAK_WSCRATCH2, OAK_WSCRATCH2, oak::util::W4, oak::LogShift::LSL, 10);
-		oakAsm->UBFX(oak::util::W4, OAK_WSCRATCH, 31, 1);
-		oakAsm->ORR(OAK_WSCRATCH2, OAK_WSCRATCH2, oak::util::W4, oak::LogShift::LSL, 15);
-		oakAsm->MOV(OAK_QSCRATCH.Selem()[lane], OAK_WSCRATCH2);
-	}
-	mmi0StoreQ_emit_oaknut(dstreg, OAK_QSCRATCH);
+	oakAsm->MOV(OAK_QSCRATCH3.B16(), oakQRegister(treg).B16());
+
+	oakAsm->USHR(oakQRegister(dstreg).S4(), OAK_QSCRATCH3.S4(), 3);
+	oakAsm->MOVI(OAK_QSCRATCH.S4(), 0x1f);
+	oakAsm->AND(oakQRegister(dstreg).B16(), oakQRegister(dstreg).B16(), OAK_QSCRATCH.B16());
+
+	oakAsm->USHR(OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4(), 11);
+	oakAsm->AND(OAK_QSCRATCH2.B16(), OAK_QSCRATCH2.B16(), OAK_QSCRATCH.B16());
+	oakAsm->SHL(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), 5);
+	oakAsm->ORR(oakQRegister(dstreg).B16(), oakQRegister(dstreg).B16(), OAK_QSCRATCH2.B16());
+
+	oakAsm->USHR(OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4(), 19);
+	oakAsm->AND(OAK_QSCRATCH2.B16(), OAK_QSCRATCH2.B16(), OAK_QSCRATCH.B16());
+	oakAsm->SHL(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), 10);
+	oakAsm->ORR(oakQRegister(dstreg).B16(), oakQRegister(dstreg).B16(), OAK_QSCRATCH2.B16());
+
+	oakAsm->USHR(OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4(), 31);
+	oakAsm->SHL(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), 15);
+	oakAsm->ORR(oakQRegister(dstreg).B16(), oakQRegister(dstreg).B16(), OAK_QSCRATCH2.B16());
 	recEndOaknutEmit();
 }
 
