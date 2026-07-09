@@ -191,22 +191,14 @@ static void mmiLogicalQ_emit_oaknut(MMILogicOp op, int dstreg, int sreg, int tre
 static void recPMFHL_LW_emit_oaknut(int dstreg, int loreg, int hireg)
 {
 	recBeginOaknutEmit();
-	oakAsm->MOV(OAK_QSCRATCH.Selem()[0], oakQRegister(loreg).Selem()[0]);
-	oakAsm->MOV(OAK_QSCRATCH.Selem()[1], oakQRegister(hireg).Selem()[0]);
-	oakAsm->MOV(OAK_QSCRATCH.Selem()[2], oakQRegister(loreg).Selem()[2]);
-	oakAsm->MOV(OAK_QSCRATCH.Selem()[3], oakQRegister(hireg).Selem()[2]);
-	oakAsm->MOV(oakQRegister(dstreg).B16(), OAK_QSCRATCH.B16());
+	oakAsm->TRN1(oakQRegister(dstreg).S4(), oakQRegister(loreg).S4(), oakQRegister(hireg).S4());
 	recEndOaknutEmit();
 }
 
 static void recPMFHL_UW_emit_oaknut(int dstreg, int loreg, int hireg)
 {
 	recBeginOaknutEmit();
-	oakAsm->MOV(OAK_QSCRATCH.Selem()[0], oakQRegister(loreg).Selem()[1]);
-	oakAsm->MOV(OAK_QSCRATCH.Selem()[1], oakQRegister(hireg).Selem()[1]);
-	oakAsm->MOV(OAK_QSCRATCH.Selem()[2], oakQRegister(loreg).Selem()[3]);
-	oakAsm->MOV(OAK_QSCRATCH.Selem()[3], oakQRegister(hireg).Selem()[3]);
-	oakAsm->MOV(oakQRegister(dstreg).B16(), OAK_QSCRATCH.B16());
+	oakAsm->TRN2(oakQRegister(dstreg).S4(), oakQRegister(loreg).S4(), oakQRegister(hireg).S4());
 	recEndOaknutEmit();
 }
 
@@ -253,15 +245,9 @@ static void recPMFHL_SLW_emit_oaknut(int dstreg, int loreg, int hireg)
 static void recPMFHL_LH_emit_oaknut(int dstreg, int loreg, int hireg)
 {
 	recBeginOaknutEmit();
-	oakAsm->MOV(OAK_QSCRATCH.Helem()[0], oakQRegister(loreg).Helem()[0]);
-	oakAsm->MOV(OAK_QSCRATCH.Helem()[1], oakQRegister(loreg).Helem()[2]);
-	oakAsm->MOV(OAK_QSCRATCH.Helem()[2], oakQRegister(hireg).Helem()[0]);
-	oakAsm->MOV(OAK_QSCRATCH.Helem()[3], oakQRegister(hireg).Helem()[2]);
-	oakAsm->MOV(OAK_QSCRATCH.Helem()[4], oakQRegister(loreg).Helem()[4]);
-	oakAsm->MOV(OAK_QSCRATCH.Helem()[5], oakQRegister(loreg).Helem()[6]);
-	oakAsm->MOV(OAK_QSCRATCH.Helem()[6], oakQRegister(hireg).Helem()[4]);
-	oakAsm->MOV(OAK_QSCRATCH.Helem()[7], oakQRegister(hireg).Helem()[6]);
-	oakAsm->MOV(oakQRegister(dstreg).B16(), OAK_QSCRATCH.B16());
+	oakAsm->UZP1(OAK_QSCRATCH.H8(), oakQRegister(loreg).H8(), oakQRegister(hireg).H8());
+	oakAsm->REV64(OAK_QSCRATCH2.S4(), OAK_QSCRATCH.S4());
+	oakAsm->UZP1(oakQRegister(dstreg).S4(), OAK_QSCRATCH.S4(), OAK_QSCRATCH2.S4());
 	recEndOaknutEmit();
 }
 
@@ -270,15 +256,8 @@ static void recPMFHL_SH_emit_oaknut(int dstreg, int loreg, int hireg)
 	recBeginOaknutEmit();
 	oakAsm->SQXTN(OAK_DSCRATCH.H4(), oakQRegister(loreg).S4());
 	oakAsm->SQXTN2(OAK_QSCRATCH.H8(), oakQRegister(hireg).S4());
-	oakAsm->MOV(OAK_QSCRATCH2.Helem()[0], OAK_QSCRATCH.Helem()[0]);
-	oakAsm->MOV(OAK_QSCRATCH2.Helem()[1], OAK_QSCRATCH.Helem()[1]);
-	oakAsm->MOV(OAK_QSCRATCH2.Helem()[2], OAK_QSCRATCH.Helem()[4]);
-	oakAsm->MOV(OAK_QSCRATCH2.Helem()[3], OAK_QSCRATCH.Helem()[5]);
-	oakAsm->MOV(OAK_QSCRATCH2.Helem()[4], OAK_QSCRATCH.Helem()[2]);
-	oakAsm->MOV(OAK_QSCRATCH2.Helem()[5], OAK_QSCRATCH.Helem()[3]);
-	oakAsm->MOV(OAK_QSCRATCH2.Helem()[6], OAK_QSCRATCH.Helem()[6]);
-	oakAsm->MOV(OAK_QSCRATCH2.Helem()[7], OAK_QSCRATCH.Helem()[7]);
-	oakAsm->MOV(oakQRegister(dstreg).B16(), OAK_QSCRATCH2.B16());
+	oakAsm->REV64(OAK_QSCRATCH2.S4(), OAK_QSCRATCH.S4());
+	oakAsm->UZP1(oakQRegister(dstreg).S4(), OAK_QSCRATCH.S4(), OAK_QSCRATCH2.S4());
 	recEndOaknutEmit();
 }
 
