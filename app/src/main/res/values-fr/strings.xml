@@ -1347,4 +1347,9 @@
     <string name="settings_about_app_source_link">Ouvrir EmuCoreX sur GitHub</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
     <string name="settings_about_privacy_policy_link">Ouvrir la politique de confidentialité</string>
+    <string name="settings_touch_haptics_strength">Intensité du retour haptique</string>
+    <string name="settings_touch_haptics_test">Tester le retour haptique</string>
+    <string name="settings_touch_haptics_test_desc">Émet une brève vibration en utilisant l\'intensité du retour haptique actuelle.</string>
+    <string name="settings_help_touch_haptics_strength">Contrôle l\'intensité des vibrations de l\'appareil utilisée pour le retour haptique tactile. Augmentez-la si la vibration est trop subtile, ou baissez-la pour jouer plus silencieusement en mode portable.</string>
+    <string name="settings_help_touch_haptics_test">Émet la même impulsion haptique de l\'appareil utilisée par les commandes à l\'écran, afin que vous puissiez régler l\'intensité avant de lancer un jeu.</string>
 </resources>

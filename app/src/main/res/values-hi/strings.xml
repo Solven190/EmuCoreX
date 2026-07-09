@@ -1345,4 +1345,9 @@
     <string name="settings_about_app_source_link">GitHub पर EmuCoreX खोलें</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
     <string name="settings_about_privacy_policy_link">गोपनीयता नीति खोलें</string>
+    <string name="settings_touch_haptics_strength">टच हैप्टिक की शक्ति</string>
+    <string name="settings_touch_haptics_test">टच हैप्टिक्स का परीक्षण करें</string>
+    <string name="settings_touch_haptics_test_desc">वर्तमान टच हैप्टिक शक्ति का उपयोग करके एक छोटा टिक प्ले करता है।</string>
+    <string name="settings_help_touch_haptics_strength">टच कंट्रोल हैप्टिक्स के लिए उपयोग की जाने वाली डिवाइस कंपन शक्ति को नियंत्रित करता है। यदि टिक बहुत हल्का है तो इसे बढ़ाएं, या शांत हैंडहेल्ड खेलने के लिए इसे कम करें।</string>
+    <string name="settings_help_touch_haptics_test">ऑन-स्क्रीन नियंत्रणों द्वारा उपयोग किए जाने वाले समान डिवाइस हैप्टिक पल्स को प्ले करता है, जिससे आप गेम लॉन्च करने से पहले शक्ति को ट्यून कर सकते हैं。</string>
 </resources>

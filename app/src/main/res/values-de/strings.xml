@@ -1347,4 +1347,9 @@
     <string name="settings_about_app_source_link">EmuCoreX auf GitHub öffnen</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
     <string name="settings_about_privacy_policy_link">Datenschutzrichtlinie öffnen</string>
+    <string name="settings_touch_haptics_strength">Stärke des haptischen Feedbacks</string>
+    <string name="settings_touch_haptics_test">Haptisches Feedback testen</string>
+    <string name="settings_touch_haptics_test_desc">Führt ein kurzes Ticken mit der aktuellen Stärke des haptischen Feedbacks aus.</string>
+    <string name="settings_help_touch_haptics_strength">Steuert die Vibrationsstärke des Geräts für das haptische Feedback der Touch-Steuerung. Erhöhe sie, wenn das Ticken zu schwach ist, oder verringere sie für leiseres Spielen im Handheld-Modus.</string>
+    <string name="settings_help_touch_haptics_test">Spielt denselben haptischen Impuls des Geräts ab, der von On-Screen-Bedienelementen verwendet wird, damit du die Stärke vor dem Starten eines Spiels anpassen kannst.</string>
 </resources>

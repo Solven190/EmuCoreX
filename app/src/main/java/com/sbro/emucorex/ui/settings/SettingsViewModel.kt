@@ -5,6 +5,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.sbro.emucorex.core.AndroidTouchHaptics
 import com.sbro.emucorex.core.AppUpdateRelease
 import com.sbro.emucorex.core.AppUpdateRepository
 import com.sbro.emucorex.core.DocumentPathResolver
@@ -151,6 +152,7 @@ data class SettingsUiState(
     val overlayShow: Boolean = true,
     val racingMode: Boolean = false,
     val touchHaptics: Boolean = false,
+    val touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
     val leftStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val invertLeftStick: Boolean = false,
@@ -336,6 +338,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             overlayShow = snapshot.overlayShow,
             racingMode = snapshot.racingMode,
             touchHaptics = snapshot.touchHaptics,
+            touchHapticsStrength = snapshot.touchHapticsStrength,
             leftStickSensitivity = snapshot.leftStickSensitivity,
             rightStickSensitivity = snapshot.rightStickSensitivity,
             invertLeftStick = snapshot.invertLeftStick,
@@ -521,6 +524,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setKeepScreenOn(enabled: Boolean) { viewModelScope.launch { preferences.setKeepScreenOn(enabled) } }
     fun setRacingMode(enabled: Boolean) { viewModelScope.launch { preferences.setRacingMode(enabled) } }
     fun setTouchHaptics(enabled: Boolean) { viewModelScope.launch { preferences.setTouchHaptics(enabled) } }
+    fun setTouchHapticsStrength(value: Int) { viewModelScope.launch { preferences.setTouchHapticsStrength(value) } }
+    fun testTouchHaptics(
+        strengthPercent: Int = _uiState.value.touchHapticsStrength,
+        durationMs: Long = 160L
+    ) {
+        AndroidTouchHaptics.play(
+            context = getApplication(),
+            strengthPercent = strengthPercent,
+            durationMs = durationMs
+        )
+    }
     fun setShowRecentGames(enabled: Boolean) { viewModelScope.launch { preferences.setShowRecentGames(enabled) } }
     fun setShowHomeSearch(enabled: Boolean) { viewModelScope.launch { preferences.setShowHomeSearch(enabled) } }
     fun setShowDebugOptions(enabled: Boolean) { viewModelScope.launch { preferences.setShowDebugOptions(enabled) } }

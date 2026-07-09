@@ -1345,4 +1345,9 @@
     <string name="settings_about_app_source_link">افتح EmuCoreX على GitHub</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
     <string name="settings_about_privacy_policy_link">افتح سياسة الخصوصية</string>
+    <string name="settings_touch_haptics_strength">قوة استجابة اللمس</string>
+    <string name="settings_touch_haptics_test">اختبار استجابة اللمس</string>
+    <string name="settings_touch_haptics_test_desc">يشغل نبضة قصيرة باستخدام قوة استجابة اللمس الحالية.</string>
+    <string name="settings_help_touch_haptics_strength">يتحكم في قوة اهتزاز الجهاز المستخدمة لاستجابة اللمس لعناصر التحكم. قم بزيادتها إذا كانت النبضة خفيفة للغاية، أو قم بخفضها للعب محمول أكثر هدوءًا.</string>
+    <string name="settings_help_touch_haptics_test">يشغل نفس نبضة اللمس للجهاز التي تستخدمها عناصر التحكم على الشاشة، حتى تتمكن من ضبط القوة قبل بدء اللعبة.</string>
 </resources>

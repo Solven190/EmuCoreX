@@ -1347,4 +1347,9 @@
     <string name="settings_about_app_source_link">Відкрити EmuCoreX на GitHub</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
     <string name="settings_about_privacy_policy_link">Відкрити Політику конфіденційності</string>
+    <string name="settings_touch_haptics_strength">Сила тактильної віддачі</string>
+    <string name="settings_touch_haptics_test">Перевірка тактильної віддачі</string>
+    <string name="settings_touch_haptics_test_desc">Запускає коротку вібрацію з поточною силою тактильної віддачі.</string>
+    <string name="settings_help_touch_haptics_strength">Керує силою вібрації пристрою для тактильної віддачі сенсорного керування. Збільште її, якщо віддача надто слабка, або зменште для тихішої гри в портативному режимі.</string>
+    <string name="settings_help_touch_haptics_test">Відтворює той самий тактильний імпульс пристрою, що й екранні елементи керування, щоб ви могли налаштувати силу віддачі перед запуском гри.</string>
 </resources>

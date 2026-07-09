@@ -1217,6 +1217,29 @@ private fun SettingsContent(
                             onResetToDefault = { viewModel.setTouchHaptics(defaults.touchHaptics) }
                         )
                         SliderItem(
+                            icon = Icons.Rounded.Vibration,
+                            title = stringResource(R.string.settings_touch_haptics_strength),
+                            subtitle = "${uiState.touchHapticsStrength}%",
+                            valueLabel = { "${it.roundToInt()}%" },
+                            value = uiState.touchHapticsStrength.toFloat(),
+                            range = 10f..100f,
+                            steps = 8,
+                            onValueChange = { viewModel.setTouchHapticsStrength(it.roundToInt()) },
+                            onValueChangeLive = { viewModel.testTouchHaptics(it.roundToInt(), 80L) },
+                            onValueChangeFinished = { viewModel.testTouchHaptics(it.roundToInt(), 160L) },
+                            helpText = stringResource(R.string.settings_help_touch_haptics_strength),
+                            onResetToDefault = { viewModel.setTouchHapticsStrength(defaults.touchHapticsStrength) }
+                        )
+                        ActionItem(
+                            icon = Icons.Rounded.Vibration,
+                            title = stringResource(R.string.settings_touch_haptics_test),
+                            subtitle = stringResource(R.string.settings_touch_haptics_test_desc),
+                            actionIcon = Icons.Rounded.PlayArrow,
+                            actionLabel = stringResource(R.string.settings_pad_vibration_test_action),
+                            onClick = { viewModel.testTouchHaptics(uiState.touchHapticsStrength, 160L) },
+                            helpText = stringResource(R.string.settings_help_touch_haptics_test)
+                        )
+                        SliderItem(
                             icon = Icons.Rounded.Gamepad,
                             title = stringResource(R.string.settings_left_stick_sensitivity),
                             subtitle = "${uiState.leftStickSensitivity}%",
@@ -2916,6 +2939,9 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Controls, R.string.settings_gamepad_mode),
         entry(SettingsTab.Controls, R.string.settings_gamepad_hide_overlay),
         entry(SettingsTab.Controls, R.string.settings_auto_progressive_scan),
+        entry(SettingsTab.Controls, R.string.settings_touch_haptics),
+        entry(SettingsTab.Controls, R.string.settings_touch_haptics_strength),
+        entry(SettingsTab.Controls, R.string.settings_touch_haptics_test),
         entry(SettingsTab.Controls, R.string.settings_gamepad_stick_deadzone),
         entry(SettingsTab.Controls, R.string.settings_gamepad_left_stick_sensitivity),
         entry(SettingsTab.Controls, R.string.settings_gamepad_right_stick_sensitivity),

@@ -3,7 +3,6 @@ package com.sbro.emucorex.ui.emulation
 import android.annotation.SuppressLint
 import android.content.pm.ActivityInfo
 import android.graphics.PixelFormat
-import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -144,6 +143,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
+import com.sbro.emucorex.core.AndroidTouchHaptics
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.buildUpscaleOptions
@@ -1073,6 +1073,7 @@ fun EmulationScreen(
                 rightStickUpToR2 = uiState.gamepadRightStickUpToR2,
                 rightStickDownToL2 = uiState.gamepadRightStickDownToL2,
                 touchHaptics = uiState.touchHaptics,
+                touchHapticsStrength = uiState.touchHapticsStrength,
                 dpadOffset = uiState.dpadOffset,
                 lstickOffset = uiState.lstickOffset,
                 rstickOffset = uiState.rstickOffset,
@@ -1621,6 +1622,7 @@ private fun OnScreenControls(
     rightStickUpToR2: Boolean = false,
     rightStickDownToL2: Boolean = false,
     touchHaptics: Boolean = false,
+    touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
     dpadOffset: Pair<Float, Float>,
     lstickOffset: Pair<Float, Float>,
     rstickOffset: Pair<Float, Float>,
@@ -1642,6 +1644,7 @@ private fun OnScreenControls(
     val safeTop = maxOf(cutoutPadding.calculateTopPadding(), navBarPadding.calculateTopPadding())
     val safeBottom = maxOf(cutoutPadding.calculateBottomPadding(), navBarPadding.calculateBottomPadding())
     val safeHorizontalInset = maxOf(safeLeft, safeRight)
+    val context = LocalContext.current
     val hapticView = LocalView.current
     val currentOnPadInput by rememberUpdatedState(onPadInput)
     var touchL2Pressed by remember { mutableStateOf(false) }
@@ -1649,7 +1652,12 @@ private fun OnScreenControls(
 
     fun performTouchHaptic() {
         if (touchHaptics) {
-            hapticView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            AndroidTouchHaptics.play(
+                context = context,
+                view = hapticView,
+                strengthPercent = touchHapticsStrength,
+                durationMs = 95L
+            )
         }
     }
 

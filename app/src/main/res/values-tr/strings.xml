@@ -1345,4 +1345,9 @@
     <string name="settings_about_app_source_link">GitHub\'da EmuCoreX\'i açın</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
     <string name="settings_about_privacy_policy_link">Gizlilik Politikasını Aç</string>
+    <string name="settings_touch_haptics_strength">Dokunmatik titreşim gücü</string>
+    <string name="settings_touch_haptics_test">Dokunmatik titreşimi test et</string>
+    <string name="settings_touch_haptics_test_desc">Geçerli dokunmatik titreşim gücünü kullanarak kısa bir titreşim oynatır.</string>
+    <string name="settings_help_touch_haptics_strength">Dokunmatik kontrol titreşimi için kullanılan cihaz titreşim gücünü kontrol eder. Titreşim çok hafifse artırın veya daha sessiz bir el cihazı deneyimi için azaltın.</string>
+    <string name="settings_help_touch_haptics_test">Ekrandaki kontrollerin kullandığı aynı cihaz titreşim darbesini oynatır, böylece bir oyunu başlatmadan önce gücü ayarlayabilirsiniz.</string>
 </resources>

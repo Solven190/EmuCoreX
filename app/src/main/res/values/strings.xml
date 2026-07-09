@@ -1360,4 +1360,9 @@
     <string name="hang_trace_title">Hang Trace</string>
     <string name="hang_trace_desc">Records recent EE, IOP, VU0, and VU1 opcodes to data/hang_trace.txt while reproducing loading hangs.</string>
     <string name="error_otg_read_only">This folder is read-only due to Android restrictions. Please select a folder on internal storage or a supported SD card.</string>
+    <string name="settings_touch_haptics_strength">Touch haptic strength</string>
+    <string name="settings_touch_haptics_test">Test touch haptics</string>
+    <string name="settings_touch_haptics_test_desc">Runs a short tick using the current touch haptic strength.</string>
+    <string name="settings_help_touch_haptics_strength">Controls the device vibration strength used for touch control haptics. Raise it if the tick is too subtle, or lower it for quieter handheld play.</string>
+    <string name="settings_help_touch_haptics_test">Plays the same device haptic pulse used by on-screen controls, so you can tune the strength before launching a game.</string>
 </resources>

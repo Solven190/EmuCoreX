@@ -139,6 +139,7 @@ data class SettingsSnapshot(
     val overlayShow: Boolean = true,
     val racingMode: Boolean = false,
     val touchHaptics: Boolean = false,
+    val touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
     val leftStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val invertLeftStick: Boolean = false,
@@ -248,6 +249,7 @@ class AppPreferences(private val context: Context) {
         const val DEFAULT_GAMEPAD_STICK_DEADZONE = 15
         const val DEFAULT_GAMEPAD_STICK_SENSITIVITY = 100
         const val DEFAULT_PAD_VIBRATION_STRENGTH = 100
+        const val DEFAULT_TOUCH_HAPTICS_STRENGTH = 60
         const val COVER_ART_STYLE_DISABLED = -1
         const val COVER_ART_STYLE_DEFAULT = 0
         const val COVER_ART_STYLE_3D = 1
@@ -411,6 +413,7 @@ class AppPreferences(private val context: Context) {
         private val ENABLE_AUTO_GAMEPAD = booleanPreferencesKey("enable_auto_gamepad")
         private val HIDE_OVERLAY_ON_GAMEPAD = booleanPreferencesKey("hide_overlay_on_gamepad")
         private val TOUCH_HAPTICS = booleanPreferencesKey("touch_haptics")
+        private val TOUCH_HAPTICS_STRENGTH = intPreferencesKey("touch_haptics_strength")
         private val GAMEPAD_BUTTON_HAPTICS = booleanPreferencesKey("gamepad_button_haptics")
         private val GAMEPAD_STICK_DEADZONE = intPreferencesKey("gamepad_stick_deadzone")
         private val GAMEPAD_LEFT_STICK_SENSITIVITY = intPreferencesKey("gamepad_left_stick_sensitivity")
@@ -969,6 +972,7 @@ class AppPreferences(private val context: Context) {
                 overlayShow = prefs[OVERLAY_SHOW] ?: true,
                 racingMode = prefs[RACING_MODE] ?: false,
                 touchHaptics = prefs[TOUCH_HAPTICS] ?: false,
+                touchHapticsStrength = (prefs[TOUCH_HAPTICS_STRENGTH] ?: DEFAULT_TOUCH_HAPTICS_STRENGTH).coerceIn(10, 100),
                 leftStickSensitivity = prefs[LEFT_STICK_SENSITIVITY] ?: DEFAULT_STICK_SENSITIVITY,
                 rightStickSensitivity = prefs[RIGHT_STICK_SENSITIVITY] ?: DEFAULT_STICK_SENSITIVITY,
                 invertLeftStick = prefs[INVERT_LEFT_STICK] ?: false,
@@ -1103,6 +1107,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setTouchHaptics(enabled: Boolean) {
         context.dataStore.edit { it[TOUCH_HAPTICS] = enabled }
+    }
+
+    val touchHapticsStrength: Flow<Int> = context.dataStore.data.map { prefs ->
+        (prefs[TOUCH_HAPTICS_STRENGTH] ?: DEFAULT_TOUCH_HAPTICS_STRENGTH).coerceIn(10, 100)
+    }
+
+    suspend fun setTouchHapticsStrength(value: Int) {
+        context.dataStore.edit { it[TOUCH_HAPTICS_STRENGTH] = value.coerceIn(10, 100) }
     }
 
     val gamepadButtonHaptics: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -2425,6 +2437,7 @@ class AppPreferences(private val context: Context) {
             put("overlayShow", prefs[OVERLAY_SHOW] ?: true)
             put("racingMode", prefs[RACING_MODE] ?: false)
             put("touchHaptics", prefs[TOUCH_HAPTICS] ?: false)
+            put("touchHapticsStrength", (prefs[TOUCH_HAPTICS_STRENGTH] ?: DEFAULT_TOUCH_HAPTICS_STRENGTH).coerceIn(10, 100))
             put("gamepadStickDeadzone", prefs[GAMEPAD_STICK_DEADZONE] ?: DEFAULT_GAMEPAD_STICK_DEADZONE)
             put("gamepadLeftStickSensitivity", prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
             put("gamepadRightStickSensitivity", prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
@@ -2603,6 +2616,7 @@ class AppPreferences(private val context: Context) {
             prefs[OVERLAY_SHOW] = json.optBoolean("overlayShow", true)
             prefs[RACING_MODE] = json.optBoolean("racingMode", false)
             prefs[TOUCH_HAPTICS] = json.optBoolean("touchHaptics", false)
+            prefs[TOUCH_HAPTICS_STRENGTH] = json.optInt("touchHapticsStrength", DEFAULT_TOUCH_HAPTICS_STRENGTH).coerceIn(10, 100)
             prefs[GAMEPAD_STICK_DEADZONE] = json.optInt("gamepadStickDeadzone", DEFAULT_GAMEPAD_STICK_DEADZONE).coerceIn(0, 35)
             prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] = json.optInt("gamepadLeftStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)
             prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] = json.optInt("gamepadRightStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)

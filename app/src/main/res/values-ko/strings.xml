@@ -1345,4 +1345,9 @@
     <string name="settings_about_app_source_link">GitHub에서 EmuCoreX 열기</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
     <string name="settings_about_privacy_policy_link">개인정보처리방침 열기</string>
+    <string name="settings_touch_haptics_strength">터치 햅틱 강도</string>
+    <string name="settings_touch_haptics_test">터치 햅틱 테스트</string>
+    <string name="settings_touch_haptics_test_desc">현재 터치 햅틱 강도를 사용하여 짧은 진동을 재생합니다.</string>
+    <string name="settings_help_touch_haptics_strength">터치 컨트롤 햅틱에 사용되는 기기 진동 강도를 제어합니다. 진동이 너무 약하면 높이고, 조용하게 휴대용으로 플레이하려면 낮추세요.</string>
+    <string name="settings_help_touch_haptics_test">화면의 컨트롤에서 사용하는 것과 동일 기기 햅틱 진동을 재생하므로 게임을 실행하기 전에 강도를 조정할 수 있습니다.</string>
 </resources>

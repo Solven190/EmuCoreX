@@ -1345,4 +1345,9 @@
     <string name="settings_about_app_source_link">Apri EmuCoreX su GitHub</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreX</string>
     <string name="settings_about_privacy_policy_link">Apri l\'informativa sulla privacy</string>
+    <string name="settings_touch_haptics_strength">Intensità feedback aptico</string>
+    <string name="settings_touch_haptics_test">Testa feedback aptico</string>
+    <string name="settings_touch_haptics_test_desc">Riproduce una breve vibrazione utilizzando l\'attuale intensità del feedback aptico.</string>
+    <string name="settings_help_touch_haptics_strength">Controlla l\'intensità della vibrazione del dispositivo utilizzata per il feedback aptico dei controlli touch. Aumentala se la vibrazione è troppo leggera, oppure diminuiscila per un gioco portatile più silenzioso.</string>
+    <string name="settings_help_touch_haptics_test">Riproduce lo stesso impulso aptico del dispositivo utilizzato dai controlli sullo schermo, in modo da poter regolare l\'intensità prima di avviare un gioco.</string>
 </resources>

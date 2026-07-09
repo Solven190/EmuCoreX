@@ -85,8 +85,7 @@ object GamepadManager {
     private const val RUMBLE_UPDATE_INTERVAL_MS = 40L
     private const val RUMBLE_PULSE_DURATION_MS = 80L
     private const val TEST_RUMBLE_DURATION_MS = 260L
-    private const val BUTTON_HAPTIC_DURATION_MS = 24L
-    private const val BUTTON_HAPTIC_STRENGTH = 0.16f
+    private const val BUTTON_HAPTIC_DURATION_MS = 95L
     private const val MISSING_VIBRATOR_LOG_INTERVAL_MS = 1500L
     const val ACTION_QUICK_SAVE = "quick_save"
     const val ACTION_QUICK_LOAD = "quick_load"
@@ -166,6 +165,8 @@ object GamepadManager {
     private var vibrationFallbackEnabled = true
     @Volatile
     private var buttonHapticsEnabled = false
+    @Volatile
+    private var buttonHapticsStrength = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH
     @Volatile
     private var customBindingsByPad: Map<Int, Map<String, Int>> = emptyMap()
     @Volatile
@@ -299,6 +300,11 @@ object GamepadManager {
         scope.launch {
             preferences.gamepadButtonHaptics.collectLatest { enabled ->
                 buttonHapticsEnabled = enabled
+            }
+        }
+        scope.launch {
+            preferences.touchHapticsStrength.collectLatest { value ->
+                buttonHapticsStrength = value.coerceIn(10, 100)
             }
         }
         scope.launch {
@@ -478,7 +484,7 @@ object GamepadManager {
         val padIndex = resolvePadIndexForDevice(event.deviceId) ?: return false
         mapKeyCodeToShortcutActionId(padIndex, event.keyCode)?.let { actionId ->
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                playGamepadButtonHaptic(padIndex)
+                playGamepadButtonHaptic()
                 _gamepadShortcutActions.tryEmit(GamepadShortcutAction(padIndex, actionId))
             }
             return true
@@ -492,7 +498,7 @@ object GamepadManager {
         val range = if (pressed && padKey in ANALOG_STICK_DIRECTION_KEYS) 255 else 0
 
         if (pressed && event.repeatCount == 0) {
-            playGamepadButtonHaptic(padIndex)
+            playGamepadButtonHaptic()
         }
         EmulatorBridge.setPadButton(padIndex, padKey, range, pressed)
         return true
@@ -608,15 +614,13 @@ object GamepadManager {
         )
     }
 
-    private fun playGamepadButtonHaptic(padIndex: Int) {
+    private fun playGamepadButtonHaptic() {
         if (!buttonHapticsEnabled) return
-        playPadVibration(
-            padIndex = padIndex,
-            largeMotor = BUTTON_HAPTIC_STRENGTH,
-            smallMotor = BUTTON_HAPTIC_STRENGTH,
-            strengthOverride = 1f,
-            durationMs = BUTTON_HAPTIC_DURATION_MS,
-            respectEnabledSetting = false
+        val context = appContext ?: return
+        AndroidTouchHaptics.play(
+            context = context,
+            strengthPercent = buttonHapticsStrength,
+            durationMs = BUTTON_HAPTIC_DURATION_MS
         )
     }
 
