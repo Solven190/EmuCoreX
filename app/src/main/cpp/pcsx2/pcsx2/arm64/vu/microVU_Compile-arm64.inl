@@ -969,7 +969,12 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 	mVUregs.vi15v = (doConstProp && mVUconstReg[15].isValid) ? 1 : 0;
 	mVUsetFlags(mVU, mFC);           // Sets Up Flag instances
 	mVUoptimizePipeState(mVU);       // Optimize the End Pipeline State for nicer Block Linking
-	mVUtestCycles(mVU, mFC);         // Update VU Cycles and Exit Early if Necessary
+	{
+		JitProfiler::OpcodeRangeScope control_scope;
+		if (JitProfiler::IsActive())
+			control_scope.Begin(isVU1 ? 5 : 4, mVUstartPC, 23);
+		mVUtestCycles(mVU, mFC); // Update VU Cycles and Exit Early if Necessary
+	}
 	microBlock* const compiledBlock = mVUpBlock;
 	const u32 compiledGuestSize = mVUcount;
 	if (compiledBlock)
@@ -980,15 +985,22 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 	setCode();
 	mVUbranch = 0;
 	u32 x = 0;
+	u32 profiler_last_pc = mVUstartPC;
 
-	mvuPreloadRegisters(mVU, compiledGuestSize);
+	{
+		JitProfiler::OpcodeRangeScope control_scope;
+		if (JitProfiler::IsActive())
+			control_scope.Begin(isVU1 ? 5 : 4, mVUstartPC, 24);
+		mvuPreloadRegisters(mVU, compiledGuestSize);
+	}
 
 	for (; x < endCount; ++x)
 	{
+		const u32 profiler_pc = xPC;
+		profiler_last_pc = profiler_pc;
 		JitProfiler::OpcodeRangeScope profiler_scope;
 		if (JitProfiler::IsActive())
 		{
-			const u32 profiler_pc = xPC;
 			u32 profiler_lower = 0;
 			u32 profiler_upper = 0;
 			std::memcpy(&profiler_lower, &mVU.regs().Micro[profiler_pc], sizeof(profiler_lower));
@@ -1012,18 +1024,30 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 		}
 
 		mVUexecuteInstruction(mVU);
+		profiler_scope.End();
+
 		if (!mVUinfo.isBdelay && !mVUlow.branch) //T/D Bit on branch is handled after the branch, branch delay slots are executed.
 		{
 			if (mVUup.tBit)
 			{
+				JitProfiler::OpcodeRangeScope control_scope;
+				if (JitProfiler::IsActive())
+					control_scope.Begin(isVU1 ? 5 : 4, profiler_pc, 16);
 				mVUDoTBit(mVU, &mFC);
 			}
 			else if (mVUup.dBit && doDBitHandling)
 			{
+				JitProfiler::OpcodeRangeScope control_scope;
+				if (JitProfiler::IsActive())
+					control_scope.Begin(isVU1 ? 5 : 4, profiler_pc, 17);
 				mVUDoDBit(mVU, &mFC);
 			}
 			else if (mVUup.mBit && !mVUup.eBit && !mVUinfo.isEOB)
 			{
+				JitProfiler::OpcodeRangeScope control_scope;
+				if (JitProfiler::IsActive())
+					control_scope.Begin(isVU1 ? 5 : 4, profiler_pc, 18);
+
 				// Need to make sure the flags are exact, Gungrave does FCAND with Mbit, then directly after FMAND with M-bit
 				// Also call setupBranch to sort flag instances
 
@@ -1046,11 +1070,17 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 
 		if (mVUinfo.doXGKICK)
 		{
+			JitProfiler::OpcodeRangeScope control_scope;
+			if (JitProfiler::IsActive())
+				control_scope.Begin(isVU1 ? 5 : 4, profiler_pc, 19);
 			mVU_XGKICK_DELAY_oaknut(mVU);
 		}
 
 		if (isEvilBlock)
 		{
+			JitProfiler::OpcodeRangeScope control_scope;
+			if (JitProfiler::IsActive())
+				control_scope.Begin(isVU1 ? 5 : 4, profiler_pc, 20);
 			mVUsetupRange(mVU, xPC + 8, false);
 			normJumpCompile(mVU, mFC, true);
 			goto perf_and_return;
@@ -1060,6 +1090,9 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 			// Handle range wrapping
 			if ((xPC + 8) == mVU.microMemSize)
 			{
+				JitProfiler::OpcodeRangeScope control_scope;
+				if (JitProfiler::IsActive())
+					control_scope.Begin(isVU1 ? 5 : 4, profiler_pc, 21);
 				mVUsetupRange(mVU, xPC + 8, false);
 				mVUsetupRange(mVU, 0, 1);
 			}
@@ -1070,6 +1103,9 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 			incPC(1);
 			mVUsetupRange(mVU, xPC, false);
 			incPC(-4); // Go back to branch opcode
+			JitProfiler::OpcodeRangeScope control_scope;
+			if (JitProfiler::IsActive())
+				control_scope.Begin(isVU1 ? 5 : 4, profiler_pc, mVUlow.branch);
 
 			switch (mVUlow.branch)
 			{
@@ -1114,8 +1150,13 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 	}
 
 	// E-bit End
-	mVUsetupRange(mVU, xPC, false);
-	mVUendProgram(mVU, &mFC, 1);
+	{
+		JitProfiler::OpcodeRangeScope control_scope;
+		if (JitProfiler::IsActive())
+			control_scope.Begin(isVU1 ? 5 : 4, profiler_last_pc, 22);
+		mVUsetupRange(mVU, xPC, false);
+		mVUendProgram(mVU, &mFC, 1);
+	}
 
 perf_and_return:
 

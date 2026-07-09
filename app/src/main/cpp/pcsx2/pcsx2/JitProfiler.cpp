@@ -17,6 +17,7 @@
 #include "arm64/cpuRegistersPack-arm64.h"
 #include "common/FileSystem.h"
 #include "common/Path.h"
+#include "common/Threading.h"
 #include "common/Timer.h"
 #include "vtlb.h"
 
@@ -92,6 +93,8 @@ namespace
 	static struct sigaction s_previous_sampling_signal = {};
 	static pthread_t s_cpu_sample_target = {};
 	static pthread_t s_vu_sample_target = {};
+	static Threading::ThreadHandle s_cpu_sample_handle;
+	static Threading::ThreadHandle s_vu_sample_handle;
 	static std::thread s_sampler_thread;
 	static bool s_sampler_installed = false;
 #endif
@@ -222,13 +225,34 @@ namespace
 
 	void SamplingThreadMain()
 	{
+		const u64 sample_interval_ticks =
+			std::max<u64>((static_cast<u64>(SAMPLE_INTERVAL_US) * Threading::GetThreadTicksPerSecond()) / 1000000u, 1u);
+		u64 cpu_last_time = s_cpu_sample_handle ? s_cpu_sample_handle.GetCPUTime() : 0;
+		u64 vu_last_time = s_vu_sample_handle ? s_vu_sample_handle.GetCPUTime() : 0;
+		u64 cpu_credit = 0;
+		u64 vu_credit = 0;
+
 		while (s_sampling_active.load(std::memory_order_acquire))
 		{
-			if (s_cpu_sample_target)
-				pthread_kill(s_cpu_sample_target, SIGUSR2);
-			if (s_vu_sample_target)
-				pthread_kill(s_vu_sample_target, SIGUSR2);
-			std::this_thread::sleep_for(std::chrono::microseconds(SAMPLE_INTERVAL_US));
+			std::this_thread::sleep_for(std::chrono::microseconds(SAMPLE_INTERVAL_US / 4));
+
+			const auto sample_active_thread = [sample_interval_ticks](const Threading::ThreadHandle& handle,
+				pthread_t target, u64& last_time, u64& credit) {
+				if (!handle || !target)
+					return;
+
+				const u64 current_time = handle.GetCPUTime();
+				if (current_time <= last_time)
+					return;
+
+				credit = std::min(credit + (current_time - last_time), sample_interval_ticks);
+				last_time = current_time;
+				if (credit >= sample_interval_ticks && pthread_kill(target, SIGUSR2) == 0)
+					credit -= sample_interval_ticks;
+			};
+
+			sample_active_thread(s_cpu_sample_handle, s_cpu_sample_target, cpu_last_time, cpu_credit);
+			sample_active_thread(s_vu_sample_handle, s_vu_sample_target, vu_last_time, vu_credit);
 		}
 	}
 #endif
@@ -303,6 +327,10 @@ namespace
 			case 2:
 				return "VU0";
 			case 3:
+				return "VU1";
+			case 4:
+				return "VU0";
+			case 5:
 				return "VU1";
 			default:
 				return "UNK";
@@ -839,6 +867,53 @@ namespace
 		return best;
 	}
 
+	const char* VuControlName(u32 kind)
+	{
+		switch (kind)
+		{
+			case 1:
+				return "branch delay: B";
+			case 2:
+				return "branch delay: BAL";
+			case 3:
+				return "branch delay: IBEQ";
+			case 4:
+				return "branch delay: IBGEZ";
+			case 5:
+				return "branch delay: IBGTZ";
+			case 6:
+				return "branch delay: IBLEZ";
+			case 7:
+				return "branch delay: IBLTZ";
+			case 8:
+				return "branch delay: IBNE";
+			case 9:
+				return "branch delay: JR";
+			case 10:
+				return "branch delay: JALR";
+			case 16:
+				return "T-bit control";
+			case 17:
+				return "D-bit control";
+			case 18:
+				return "M-bit control";
+			case 19:
+				return "XGKICK delay control";
+			case 20:
+				return "evil-block exit";
+			case 21:
+				return "micro-memory range wrap";
+			case 22:
+				return "E-bit program exit";
+			case 23:
+				return "block entry cycle guard";
+			case 24:
+				return "block entry register preload";
+			default:
+				return "other block control";
+		}
+	}
+
 	void DescribeSampleRange(const OpcodeRangeEvent& range, std::string& cpu, std::string& category, std::string& name)
 	{
 		cpu = CpuName(range.type);
@@ -862,6 +937,11 @@ namespace
 				name = TrimMnemonic(upper) + " | " + TrimMnemonic(lower);
 				break;
 			}
+			case 4:
+			case 5:
+				category = (range.type == 4) ? "VU0_CONTROL" : "VU1_CONTROL";
+				name = VuControlName(range.opcode);
+				break;
 			default:
 				category = "UNKNOWN";
 				name = "<unknown>";
@@ -880,7 +960,14 @@ namespace
 			if (info.dli_fname && *info.dli_fname)
 			{
 				const char* slash = std::strrchr(info.dli_fname, '/');
-				return slash ? slash + 1 : info.dli_fname;
+				std::ostringstream out;
+				out << (slash ? slash + 1 : info.dli_fname);
+				if (info.dli_fbase)
+				{
+					const uptr module_offset = pc - reinterpret_cast<uptr>(info.dli_fbase);
+					out << "+0x" << std::hex << (module_offset & ~static_cast<uptr>(0x3f));
+				}
+				return out.str();
 			}
 		}
 #else
@@ -994,7 +1081,7 @@ namespace
 
 		out << "Statistical CPU Time Samples\n";
 		out << "----------------------------\n";
-		out << "Sampling interval: " << SAMPLE_INTERVAL_US << " us per target thread\n";
+		out << "Sampling interval: " << SAMPLE_INTERVAL_US << " us of consumed CPU time per target thread\n";
 		out << "Captured samples: " << captured_samples << "\n";
 		out << "EE/IOP thread samples: " << cpu_thread_samples << "\n";
 		out << "VU1 thread samples: " << vu_thread_samples << "\n";
@@ -1052,7 +1139,7 @@ namespace
 		out << "        EmuCoreX JIT Profiler Report     \n";
 		out << "=========================================\n\n";
 		out << "Purpose: identify JIT opcodes and native helpers consuming real CPU time in a captured gameplay scene.\n";
-		out << "Method: periodic process-CPU PC sampling mapped back to guest opcodes through recorded ARM64 host ranges.\n";
+		out << "Method: periodic per-thread CPU-time PC sampling mapped back to guest opcodes through recorded ARM64 host ranges.\n";
 		out << "Note: sampling adds no instructions to generated JIT blocks; results are statistical and improve with longer captures.\n\n";
 
 		out << "Game\n";
@@ -1747,9 +1834,15 @@ void OpcodeRangeScope::Begin(int type, u32 guest_pc, u32 opcode, u32 paired_opco
 
 OpcodeRangeScope::~OpcodeRangeScope()
 {
+	End();
+}
+
+void OpcodeRangeScope::End()
+{
 	if (!m_active || !oakAsm)
 		return;
 
+	m_active = false;
 	RecordOpcodeRange(
 		m_type,
 		m_guest_pc,
@@ -1800,8 +1893,10 @@ void Start()
 		if (THREAD_VU1)
 			vu1Thread.WaitVU();
 #if defined(__ANDROID__) && defined(__aarch64__)
-		s_cpu_sample_target = pthread_self();
-		const void* const vu_handle = (THREAD_VU1 && vu1Thread.IsOpen()) ? static_cast<void*>(vu1Thread.GetThreadHandle()) : nullptr;
+		s_cpu_sample_handle = Threading::ThreadHandle::GetForCallingThread();
+		s_vu_sample_handle = (THREAD_VU1 && vu1Thread.IsOpen()) ? vu1Thread.GetThreadHandle() : Threading::ThreadHandle();
+		s_cpu_sample_target = static_cast<pthread_t>(reinterpret_cast<uintptr_t>(static_cast<void*>(s_cpu_sample_handle)));
+		const void* const vu_handle = static_cast<void*>(s_vu_sample_handle);
 		s_vu_sample_target = vu_handle ? static_cast<pthread_t>(reinterpret_cast<uintptr_t>(vu_handle)) : pthread_t{};
 #endif
 		recCpu.Reset();

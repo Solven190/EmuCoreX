@@ -24,6 +24,7 @@ namespace JitProfiler
 		~OpcodeRangeScope();
 
 		void Begin(int type, u32 guest_pc, u32 opcode, u32 paired_opcode = 0);
+		void End();
 
 	private:
 		bool m_active = false;
