@@ -8,6 +8,7 @@
 
 #include <bit>
 #include <cstring>
+#include <new>
 
 static bool oakIsSigned9(s64 value)
 {
@@ -104,6 +105,7 @@ bool oakIsCallerSavedXmm(int id)
 thread_local oak::CodeGenerator* oakAsm;
 thread_local u8* oakAsmPtr;
 thread_local size_t oakAsmCapacity;
+alignas(oak::CodeGenerator) static thread_local unsigned char oakAsmStorage[sizeof(oak::CodeGenerator)];
 
 void oakSetAsmPtr(void* ptr, size_t capacity)
 {
@@ -128,7 +130,7 @@ u8* oakStartBlock()
 	HostSys::BeginCodeWrite();
 
 	pxAssert(!oakAsm);
-	oakAsm = new oak::CodeGenerator(reinterpret_cast<u32*>(oakAsmPtr));
+	oakAsm = new (static_cast<void*>(oakAsmStorage)) oak::CodeGenerator(reinterpret_cast<u32*>(oakAsmPtr));
 	return oakAsmPtr;
 }
 
@@ -139,7 +141,7 @@ u8* oakEndBlock()
 	const u32 size = static_cast<u32>(oakAsm->offset());
 	pxAssert(size < oakAsmCapacity);
 
-	delete oakAsm;
+	oakAsm->~CodeGenerator();
 	oakAsm = nullptr;
 
 	HostSys::EndCodeWrite();
