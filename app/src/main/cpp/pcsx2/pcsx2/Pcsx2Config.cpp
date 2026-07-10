@@ -1208,6 +1208,30 @@ bool Pcsx2Config::GSOptions::ShouldDump(u64 draw, int frame) const
 		   (frameOffset >= 0) && ((SaveFrameCount < 0) || (frameOffset < SaveFrameCount)) && (frameOffset % SaveFrameBy == 0);
 }
 
+static constexpr const std::array s_spu2_interpolation_mode_names = {
+	"Nearest",
+	"Linear",
+	"Gaussian",
+	"Cubic",
+};
+
+const char* Pcsx2Config::SPU2Options::GetInterpolationModeName(SPU2InterpolationMode mode)
+{
+	return (static_cast<size_t>(mode) < s_spu2_interpolation_mode_names.size()) ?
+		       s_spu2_interpolation_mode_names[static_cast<size_t>(mode)] : "";
+}
+
+std::optional<Pcsx2Config::SPU2Options::SPU2InterpolationMode> Pcsx2Config::SPU2Options::ParseInterpolationMode(const char* name)
+{
+	for (u8 i = 0; i < static_cast<u8>(SPU2InterpolationMode::Count); i++)
+	{
+		if (std::strcmp(name, s_spu2_interpolation_mode_names[i]) == 0)
+			return static_cast<SPU2InterpolationMode>(i);
+	}
+
+	return std::nullopt;
+}
+
 static constexpr const std::array s_spu2_sync_mode_names = {
 	"Disabled",
 	"TimeStretch",
@@ -1291,6 +1315,7 @@ void Pcsx2Config::SPU2Options::LoadSave(SettingsWrapper& wrap)
 		SettingsWrapEntry(FastForwardVolume);
 		SettingsWrapEntry(OutputMuted);
 		SettingsWrapParsedEnum(Backend, "Backend", &AudioStream::ParseBackendName, &AudioStream::GetBackendName);
+		SettingsWrapParsedEnum(InterpolationMode, "InterpolationMode", &ParseInterpolationMode, &GetInterpolationModeName);
 		SettingsWrapParsedEnum(SyncMode, "SyncMode", &ParseSyncMode, &GetSyncModeName);
 		SettingsWrapEntry(DriverName);
 		SettingsWrapEntry(DeviceName);
@@ -1310,6 +1335,8 @@ bool Pcsx2Config::SPU2Options::operator==(const SPU2Options& right) const
 		   OpEqu(FastForwardVolume) &&
 		   OpEqu(OutputMuted) &&
 		   OpEqu(Backend) &&
+		   OpEqu(InterpolationMode) &&
+		   OpEqu(SyncMode) &&
 		   OpEqu(StreamParameters) &&
 		   OpEqu(DriverName) &&
 		   OpEqu(DeviceName);

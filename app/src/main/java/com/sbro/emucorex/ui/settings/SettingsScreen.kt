@@ -42,8 +42,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.Gamepad
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Info
@@ -115,6 +118,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.DocumentPathResolver
+import com.sbro.emucorex.core.AudioDefaults
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.GpuHardwareProfiles
@@ -149,7 +153,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private enum class SettingsTab {
-    General, Graphics, Controls, Emulation, Fixes, Library, About, Pro, Updates
+    General, Graphics, Audio, Controls, Emulation, Fixes, Library, About, Pro, Updates
 }
 
 @SuppressLint("ConfigurationScreenWidthHeight")
@@ -1171,6 +1175,106 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_shadeboost_gamma),
                             onResetToDefault = { viewModel.setShadeBoostGamma(defaults.shadeBoostGamma) }
                         )
+                    }
+                }
+
+                SettingsTab.Audio -> {
+                    SettingsSection(title = stringResource(R.string.settings_audio_control)) {
+                        ToggleItem(
+                            icon = Icons.AutoMirrored.Rounded.VolumeOff,
+                            title = stringResource(R.string.settings_audio_mute),
+                            subtitle = stringResource(R.string.settings_audio_mute_desc),
+                            checked = uiState.audioMuted,
+                            onCheckedChange = viewModel::setAudioMuted,
+                            helpText = stringResource(R.string.settings_help_audio_mute),
+                            onResetToDefault = { viewModel.setAudioMuted(defaults.audioMuted) }
+                        )
+                        SliderItem(
+                            icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                            title = stringResource(R.string.settings_audio_volume),
+                            subtitle = "${uiState.audioVolume}%",
+                            value = uiState.audioVolume.toFloat(),
+                            range = AudioDefaults.VOLUME_MIN.toFloat()..AudioDefaults.VOLUME_MAX.toFloat(),
+                            steps = 0,
+                            onValueChange = { viewModel.setAudioVolume(it.roundToInt()) },
+                            valueLabel = { "${it.roundToInt()}%" },
+                            helpText = stringResource(R.string.settings_help_audio_volume),
+                            onResetToDefault = { viewModel.setAudioVolume(defaults.audioVolume) }
+                        )
+                        SliderItem(
+                            icon = Icons.Rounded.FastForward,
+                            title = stringResource(R.string.settings_audio_fast_forward_volume),
+                            subtitle = "${uiState.audioFastForwardVolume}%",
+                            value = uiState.audioFastForwardVolume.toFloat(),
+                            range = AudioDefaults.VOLUME_MIN.toFloat()..AudioDefaults.VOLUME_MAX.toFloat(),
+                            steps = 0,
+                            onValueChange = { viewModel.setAudioFastForwardVolume(it.roundToInt()) },
+                            valueLabel = { "${it.roundToInt()}%" },
+                            helpText = stringResource(R.string.settings_help_audio_fast_forward_volume),
+                            onResetToDefault = { viewModel.setAudioFastForwardVolume(defaults.audioFastForwardVolume) }
+                        )
+                    }
+
+                    SettingsSection(title = stringResource(R.string.settings_audio_processing)) {
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_audio_interpolation),
+                            options = audioInterpolationOptions(),
+                            selectedValue = uiState.audioInterpolation,
+                            onSelect = viewModel::setAudioInterpolation,
+                            helpText = stringResource(R.string.settings_help_audio_interpolation),
+                            onResetToDefault = { viewModel.setAudioInterpolation(defaults.audioInterpolation) }
+                        )
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_audio_sync_mode),
+                            options = audioSyncModeOptions(),
+                            selectedValue = uiState.audioSyncMode,
+                            onSelect = viewModel::setAudioSyncMode,
+                            helpText = stringResource(R.string.settings_help_audio_sync_mode),
+                            onResetToDefault = { viewModel.setAudioSyncMode(defaults.audioSyncMode) }
+                        )
+                        SliderItem(
+                            icon = Icons.Rounded.GraphicEq,
+                            title = stringResource(R.string.settings_audio_buffer_size),
+                            subtitle = "${uiState.audioBufferMs} ms",
+                            value = uiState.audioBufferMs.toFloat(),
+                            range = AudioDefaults.BUFFER_MS_MIN.toFloat()..AudioDefaults.BUFFER_MS_MAX.toFloat(),
+                            steps = 0,
+                            onValueChange = {
+                                val rounded = ((it / 10f).roundToInt() * 10)
+                                viewModel.setAudioBufferMs(rounded)
+                            },
+                            valueLabel = { "${((it / 10f).roundToInt() * 10)} ms" },
+                            helpText = stringResource(R.string.settings_help_audio_buffer_size),
+                            onResetToDefault = { viewModel.setAudioBufferMs(defaults.audioBufferMs) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_audio_minimal_latency),
+                            subtitle = stringResource(R.string.settings_audio_minimal_latency_desc),
+                            checked = uiState.audioMinimalOutputLatency,
+                            onCheckedChange = viewModel::setAudioMinimalOutputLatency,
+                            helpText = stringResource(R.string.settings_help_audio_minimal_latency),
+                            onResetToDefault = {
+                                viewModel.setAudioMinimalOutputLatency(defaults.audioMinimalOutputLatency)
+                            }
+                        )
+                        if (!uiState.audioMinimalOutputLatency) {
+                            SliderItem(
+                                icon = Icons.Rounded.Speed,
+                                title = stringResource(R.string.settings_audio_output_latency),
+                                subtitle = "${uiState.audioOutputLatencyMs} ms",
+                                value = uiState.audioOutputLatencyMs.toFloat(),
+                                range = AudioDefaults.OUTPUT_LATENCY_MS_MIN.toFloat()..
+                                    AudioDefaults.OUTPUT_LATENCY_MS_MAX.toFloat(),
+                                steps = 0,
+                                onValueChange = { viewModel.setAudioOutputLatencyMs(it.roundToInt()) },
+                                valueLabel = { "${it.roundToInt()} ms" },
+                                helpText = stringResource(R.string.settings_help_audio_output_latency),
+                                onResetToDefault = {
+                                    viewModel.setAudioOutputLatencyMs(defaults.audioOutputLatencyMs)
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -2924,6 +3028,14 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Graphics, R.string.settings_tv_shader),
         entry(SettingsTab.Graphics, R.string.settings_hw_mipmapping),
         entry(SettingsTab.Graphics, R.string.settings_shadeboost),
+        entry(SettingsTab.Audio, R.string.settings_audio_volume),
+        entry(SettingsTab.Audio, R.string.settings_audio_fast_forward_volume),
+        entry(SettingsTab.Audio, R.string.settings_audio_mute),
+        entry(SettingsTab.Audio, R.string.settings_audio_interpolation),
+        entry(SettingsTab.Audio, R.string.settings_audio_sync_mode),
+        entry(SettingsTab.Audio, R.string.settings_audio_buffer_size),
+        entry(SettingsTab.Audio, R.string.settings_audio_minimal_latency),
+        entry(SettingsTab.Audio, R.string.settings_audio_output_latency),
         entry(SettingsTab.Fixes, R.string.settings_widescreen_patches),
         entry(SettingsTab.Fixes, R.string.settings_no_interlacing_patches),
         entry(SettingsTab.Fixes, R.string.settings_anti_blur),
@@ -3143,9 +3255,10 @@ private fun ToggleItem(
                         Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
                     }
                 }
-            ),
+        ),
         shape = shape,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
     ) {
         Row(
             modifier = Modifier
@@ -3315,10 +3428,10 @@ private fun SliderItem(
         sliderValue = value
     }
 
-    Column(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp)
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -3329,65 +3442,72 @@ private fun SliderItem(
                         Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
                     }
                 }
-            )
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    helpText?.let {
-                        SettingHelpButton(title = title, description = it)
-                    }
-                }
-                Text(
-                    text = valueLabel?.invoke(sliderValue) ?: subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-        Slider(
-            value = sliderValue,
-            onValueChange = {
-                sliderValue = it
-                onValueChangeLive?.invoke(it)
-            },
-            onValueChangeFinished = {
-                onValueChange(sliderValue)
-                onValueChangeFinished?.invoke(sliderValue)
-            },
-            valueRange = range,
-            steps = steps,
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary
             ),
-            modifier = Modifier.padding(top = 4.dp)
-        )
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        helpText?.let {
+                            SettingHelpButton(title = title, description = it)
+                        }
+                    }
+                    Text(
+                        text = valueLabel?.invoke(sliderValue) ?: subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            Slider(
+                value = sliderValue,
+                onValueChange = {
+                    sliderValue = it
+                    onValueChangeLive?.invoke(it)
+                },
+                onValueChangeFinished = {
+                    onValueChange(sliderValue)
+                    onValueChangeFinished?.invoke(sliderValue)
+                },
+                valueRange = range,
+                steps = steps,
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
     }
 }
 
@@ -3432,8 +3552,7 @@ private fun ChoiceSection(
             }
         }
         LazyRow(
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -3525,6 +3644,20 @@ private fun hwDownloadModeOptions(): List<Pair<Int, String>> = listOf(
     2 to stringResource(R.string.settings_hw_download_mode_no_readbacks),
     3 to stringResource(R.string.settings_hw_download_mode_unsynchronized),
     4 to stringResource(R.string.settings_hw_download_mode_disabled)
+)
+
+@Composable
+private fun audioInterpolationOptions(): List<Pair<Int, String>> = listOf(
+    AudioDefaults.INTERPOLATION_NEAREST to stringResource(R.string.settings_audio_interpolation_nearest),
+    AudioDefaults.INTERPOLATION_LINEAR to stringResource(R.string.settings_audio_interpolation_linear),
+    AudioDefaults.INTERPOLATION_GAUSSIAN to stringResource(R.string.settings_audio_interpolation_gaussian),
+    AudioDefaults.INTERPOLATION_CUBIC to stringResource(R.string.settings_audio_interpolation_cubic)
+)
+
+@Composable
+private fun audioSyncModeOptions(): List<Pair<Int, String>> = listOf(
+    AudioDefaults.SYNC_TIME_STRETCH to stringResource(R.string.settings_audio_sync_time_stretch),
+    AudioDefaults.SYNC_DISABLED to stringResource(R.string.settings_audio_sync_disabled)
 )
 
 @Composable
@@ -3987,6 +4120,7 @@ private fun SettingsTab.label(): String {
     return when (this) {
         SettingsTab.General -> stringResource(R.string.settings_general_tab)
         SettingsTab.Graphics -> stringResource(R.string.settings_graphics_tab)
+        SettingsTab.Audio -> stringResource(R.string.settings_audio_tab)
         SettingsTab.Controls -> stringResource(R.string.settings_controls_tab)
         SettingsTab.Emulation -> stringResource(R.string.settings_emulation_tab)
         SettingsTab.Fixes -> stringResource(R.string.settings_fixes_tab)
@@ -4002,6 +4136,7 @@ private fun SettingsTab.icon(): ImageVector {
     return when (this) {
         SettingsTab.General -> Icons.Rounded.Tune
         SettingsTab.Graphics -> Icons.Rounded.GraphicEq
+        SettingsTab.Audio -> Icons.AutoMirrored.Rounded.VolumeUp
         SettingsTab.Controls -> Icons.Rounded.Gamepad
         SettingsTab.Emulation -> Icons.Rounded.Speed
         SettingsTab.Fixes -> Icons.Rounded.SettingsSuggest
@@ -4015,6 +4150,7 @@ private fun SettingsTab.icon(): ImageVector {
 private fun String.toSettingsTab(): SettingsTab {
     return when (lowercase()) {
         "graphics" -> SettingsTab.Graphics
+        "audio", "sound" -> SettingsTab.Audio
         "controls" -> SettingsTab.Controls
         "paths", "files", "memorycards", "memory_cards", "memory-cards", "memcards", "covers",
         "cover-art", "cover_art", "data_transfer", "transfer", "backup", "data-transfer", "library" -> SettingsTab.Library

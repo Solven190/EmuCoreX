@@ -964,6 +964,15 @@ struct Pcsx2Config
 
 	struct SPU2Options
 	{
+		enum class SPU2InterpolationMode : u8
+		{
+			Nearest,
+			Linear,
+			Gaussian,
+			Cubic,
+			Count
+		};
+
 		enum class SPU2SyncMode : u8
 		{
 			Disabled,
@@ -973,8 +982,11 @@ struct Pcsx2Config
 
 		static constexpr s32 MAX_VOLUME = 200;
 		static constexpr AudioBackend DEFAULT_BACKEND = AudioBackend::Cubeb;
+		static constexpr SPU2InterpolationMode DEFAULT_INTERPOLATION_MODE = SPU2InterpolationMode::Gaussian;
 		static constexpr SPU2SyncMode DEFAULT_SYNC_MODE = SPU2SyncMode::TimeStretch;
 
+		static std::optional<SPU2InterpolationMode> ParseInterpolationMode(const char* str);
+		static const char* GetInterpolationModeName(SPU2InterpolationMode mode);
 		static std::optional<SPU2SyncMode> ParseSyncMode(const char* str);
 		static const char* GetSyncModeName(SPU2SyncMode backend);
 		static const char* GetSyncModeDisplayName(SPU2SyncMode backend);
@@ -1002,6 +1014,7 @@ struct Pcsx2Config
 		bool OutputMuted = false;
 
 		AudioBackend Backend = DEFAULT_BACKEND;
+		SPU2InterpolationMode InterpolationMode = DEFAULT_INTERPOLATION_MODE;
 		SPU2SyncMode SyncMode = DEFAULT_SYNC_MODE;
 		AudioStreamParameters StreamParameters;
 

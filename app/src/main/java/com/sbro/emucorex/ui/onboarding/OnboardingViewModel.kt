@@ -18,6 +18,7 @@ import com.sbro.emucorex.data.AppPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class OnboardingUiState(
@@ -102,11 +103,20 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
 
         viewModelScope.launch {
             preferences.setBiosPath(uri.toString())
+            val audioSettings = preferences.settingsSnapshot.first()
             EmulatorBridge.applyRuntimeConfig(
                 biosPath = uri.toString(),
                 emulatorDataPath = _uiState.value.emulatorDataPath,
                 renderer = EmulatorBridge.getSetting("EmuCoreX", "Renderer", "int")?.toIntOrNull() ?: 0,
                 gpuHardwareProfile = GpuHardwareProfiles.detectHardwareProfile(),
+                audioVolume = audioSettings.audioVolume,
+                audioFastForwardVolume = audioSettings.audioFastForwardVolume,
+                audioMuted = audioSettings.audioMuted,
+                audioInterpolation = audioSettings.audioInterpolation,
+                audioSyncMode = audioSettings.audioSyncMode,
+                audioBufferMs = audioSettings.audioBufferMs,
+                audioOutputLatencyMs = audioSettings.audioOutputLatencyMs,
+                audioMinimalOutputLatency = audioSettings.audioMinimalOutputLatency,
                 upscaleMultiplier = EmulatorBridge.getSetting("EmuCoreX", "UpscaleMultiplier", "float")?.toFloatOrNull()
                     ?: EmulatorBridge.getSetting("EmuCoreX", "UpscaleMultiplier", "int")?.toIntOrNull()?.toFloat()
                     ?: 1f

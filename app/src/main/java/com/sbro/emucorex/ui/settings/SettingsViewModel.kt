@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sbro.emucorex.core.AndroidTouchHaptics
+import com.sbro.emucorex.core.AudioDefaults
 import com.sbro.emucorex.core.AppUpdateRelease
 import com.sbro.emucorex.core.AppUpdateRepository
 import com.sbro.emucorex.core.DocumentPathResolver
@@ -51,6 +52,14 @@ data class SettingsUiState(
     val renderer: Int = EmulatorBridge.DEFAULT_RENDERER,
     val upscaleMultiplier: Float = 1f,
     val aspectRatio: Int = 1,
+    val audioVolume: Int = AudioDefaults.VOLUME_DEFAULT,
+    val audioFastForwardVolume: Int = AudioDefaults.VOLUME_DEFAULT,
+    val audioMuted: Boolean = false,
+    val audioInterpolation: Int = AudioDefaults.INTERPOLATION_DEFAULT,
+    val audioSyncMode: Int = AudioDefaults.SYNC_DEFAULT,
+    val audioBufferMs: Int = AudioDefaults.BUFFER_MS_DEFAULT,
+    val audioOutputLatencyMs: Int = AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT,
+    val audioMinimalOutputLatency: Boolean = AudioDefaults.MINIMAL_OUTPUT_LATENCY_DEFAULT,
     val autoProgressiveScan: Boolean = false,
     val padVibration: Boolean = true,
     val padVibrationStrength: Int = AppPreferences.DEFAULT_PAD_VIBRATION_STRENGTH,
@@ -240,6 +249,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             renderer = snapshot.renderer,
             upscaleMultiplier = snapshot.upscaleMultiplier,
             aspectRatio = snapshot.aspectRatio,
+            audioVolume = snapshot.audioVolume,
+            audioFastForwardVolume = snapshot.audioFastForwardVolume,
+            audioMuted = snapshot.audioMuted,
+            audioInterpolation = snapshot.audioInterpolation,
+            audioSyncMode = snapshot.audioSyncMode,
+            audioBufferMs = snapshot.audioBufferMs,
+            audioOutputLatencyMs = snapshot.audioOutputLatencyMs,
+            audioMinimalOutputLatency = snapshot.audioMinimalOutputLatency,
             autoProgressiveScan = snapshot.autoProgressiveScan,
             padVibration = snapshot.padVibration,
             padVibrationStrength = snapshot.padVibrationStrength,
@@ -518,6 +535,78 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setShowFps(enabled: Boolean) { viewModelScope.launch { preferences.setShowFps(enabled) } }
+    fun setAudioVolume(value: Int) {
+        viewModelScope.launch {
+            val normalized = AudioDefaults.coerceVolume(value)
+            preferences.setAudioVolume(normalized)
+            EmulatorBridge.setSetting("SPU2/Output", "StandardVolume", "int", normalized.toString())
+        }
+    }
+
+    fun setAudioFastForwardVolume(value: Int) {
+        viewModelScope.launch {
+            val normalized = AudioDefaults.coerceVolume(value)
+            preferences.setAudioFastForwardVolume(normalized)
+            EmulatorBridge.setSetting("SPU2/Output", "FastForwardVolume", "int", normalized.toString())
+        }
+    }
+
+    fun setAudioMuted(muted: Boolean) {
+        viewModelScope.launch {
+            preferences.setAudioMuted(muted)
+            EmulatorBridge.setSetting("SPU2/Output", "OutputMuted", "bool", muted.toString())
+        }
+    }
+
+    fun setAudioInterpolation(value: Int) {
+        viewModelScope.launch {
+            val normalized = AudioDefaults.coerceInterpolation(value)
+            preferences.setAudioInterpolation(normalized)
+            EmulatorBridge.setSetting(
+                "SPU2/Output",
+                "InterpolationMode",
+                "string",
+                AudioDefaults.interpolationCoreName(normalized)
+            )
+        }
+    }
+
+    fun setAudioSyncMode(value: Int) {
+        viewModelScope.launch {
+            val normalized = AudioDefaults.coerceSyncMode(value)
+            preferences.setAudioSyncMode(normalized)
+            EmulatorBridge.setSetting(
+                "SPU2/Output",
+                "SyncMode",
+                "string",
+                AudioDefaults.syncModeCoreName(normalized)
+            )
+        }
+    }
+
+    fun setAudioBufferMs(value: Int) {
+        viewModelScope.launch {
+            val normalized = AudioDefaults.coerceBufferMs(value)
+            preferences.setAudioBufferMs(normalized)
+            EmulatorBridge.setSetting("SPU2/Output", "BufferMS", "int", normalized.toString())
+        }
+    }
+
+    fun setAudioOutputLatencyMs(value: Int) {
+        viewModelScope.launch {
+            val normalized = AudioDefaults.coerceOutputLatencyMs(value)
+            preferences.setAudioOutputLatencyMs(normalized)
+            EmulatorBridge.setSetting("SPU2/Output", "OutputLatencyMS", "int", normalized.toString())
+        }
+    }
+
+    fun setAudioMinimalOutputLatency(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setAudioMinimalOutputLatency(enabled)
+            EmulatorBridge.setSetting("SPU2/Output", "OutputLatencyMinimal", "bool", enabled.toString())
+        }
+    }
+
     fun setFpsOverlayMode(mode: Int) { viewModelScope.launch { preferences.setFpsOverlayMode(mode) } }
     fun setFpsOverlayCorner(corner: Int) { viewModelScope.launch { preferences.setFpsOverlayCorner(corner) } }
     fun setConfirmSaveLoadActions(enabled: Boolean) { viewModelScope.launch { preferences.setConfirmSaveLoadActions(enabled) } }
@@ -1314,6 +1403,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 customDriverPath = _uiState.value.customDriverPath,
                 gpuHardwareProfile = GpuHardwareProfiles.detectHardwareProfile(),
                 mediatekAngleOpenGl = _uiState.value.mediatekAngleOpenGl,
+                aspectRatio = _uiState.value.aspectRatio,
+                audioVolume = _uiState.value.audioVolume,
+                audioFastForwardVolume = _uiState.value.audioFastForwardVolume,
+                audioMuted = _uiState.value.audioMuted,
+                audioInterpolation = _uiState.value.audioInterpolation,
+                audioSyncMode = _uiState.value.audioSyncMode,
+                audioBufferMs = _uiState.value.audioBufferMs,
+                audioOutputLatencyMs = _uiState.value.audioOutputLatencyMs,
+                audioMinimalOutputLatency = _uiState.value.audioMinimalOutputLatency,
                 enableEeRecompiler = _uiState.value.enableEeRecompiler,
                 enableIopRecompiler = _uiState.value.enableIopRecompiler,
                 enableVu0Recompiler = _uiState.value.enableVu0Recompiler,

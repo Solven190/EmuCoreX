@@ -51,7 +51,7 @@ struct AudioStreamParameters
 	u8 expand_high_cutoff = DEFAULT_EXPAND_HIGH_CUTOFF;
 
 	static constexpr AudioExpansionMode DEFAULT_EXPANSION_MODE = AudioExpansionMode::Disabled;
-	static constexpr u16 DEFAULT_BUFFER_MS = 150;
+	static constexpr u16 DEFAULT_BUFFER_MS = 100;
 	static constexpr u16 DEFAULT_OUTPUT_LATENCY_MS = 20;
 	static constexpr bool DEFAULT_OUTPUT_LATENCY_MINIMAL = false;
 

@@ -311,6 +311,14 @@ object EmulatorBridge {
         gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO,
         mediatekAngleOpenGl: Boolean = false,
         aspectRatio: Int = 1,
+        audioVolume: Int = AudioDefaults.VOLUME_DEFAULT,
+        audioFastForwardVolume: Int = AudioDefaults.VOLUME_DEFAULT,
+        audioMuted: Boolean = false,
+        audioInterpolation: Int = AudioDefaults.INTERPOLATION_DEFAULT,
+        audioSyncMode: Int = AudioDefaults.SYNC_DEFAULT,
+        audioBufferMs: Int = AudioDefaults.BUFFER_MS_DEFAULT,
+        audioOutputLatencyMs: Int = AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT,
+        audioMinimalOutputLatency: Boolean = AudioDefaults.MINIMAL_OUTPUT_LATENCY_DEFAULT,
         enableEeRecompiler: Boolean = true,
         enableIopRecompiler: Boolean = true,
         enableVu0Recompiler: Boolean = true,
@@ -490,6 +498,14 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/GS", "Renderer", "int", resolvedRenderer.toString()))
                 add(upscaleOp(upscaleMultiplier))
                 add(aspectOp(aspectRatio))
+                add(settingOp("SPU2/Output", "StandardVolume", "int", AudioDefaults.coerceVolume(audioVolume).toString()))
+                add(settingOp("SPU2/Output", "FastForwardVolume", "int", AudioDefaults.coerceVolume(audioFastForwardVolume).toString()))
+                add(settingOp("SPU2/Output", "OutputMuted", "bool", audioMuted.toString()))
+                add(settingOp("SPU2/Output", "InterpolationMode", "string", AudioDefaults.interpolationCoreName(audioInterpolation)))
+                add(settingOp("SPU2/Output", "SyncMode", "string", AudioDefaults.syncModeCoreName(audioSyncMode)))
+                add(settingOp("SPU2/Output", "BufferMS", "int", AudioDefaults.coerceBufferMs(audioBufferMs).toString()))
+                add(settingOp("SPU2/Output", "OutputLatencyMS", "int", AudioDefaults.coerceOutputLatencyMs(audioOutputLatencyMs).toString()))
+                add(settingOp("SPU2/Output", "OutputLatencyMinimal", "bool", audioMinimalOutputLatency.toString()))
                 add(settingOp("Folders", "Bios", "string", resolvedBiosPath.orEmpty()))
                 add(settingOp("Folders", "Savestates", "string", savestatesDir.absolutePath))
                 add(settingOp("Folders", "MemoryCards", "string", memcardsDir.absolutePath))

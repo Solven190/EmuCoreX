@@ -8,6 +8,8 @@
 #include <aaudio/AAudio.h>
 #include <android/log.h>
 
+#include <algorithm>
+
 namespace
 {
 constexpr const char* LOG_TAG = "EmuCoreX";
@@ -68,9 +70,10 @@ public:
 		AAudioStreamBuilder_setSampleRate(builder, static_cast<int32_t>(m_sample_rate));
 		AAudioStreamBuilder_setChannelCount(builder, static_cast<int32_t>(m_output_channels));
 		AAudioStreamBuilder_setFormat(builder, AAUDIO_FORMAT_PCM_FLOAT);
-		const int32_t requested_buffer_frames =
-			static_cast<int32_t>(AudioStream::GetBufferSizeForMS(m_sample_rate, m_parameters.buffer_ms));
-		AAudioStreamBuilder_setBufferCapacityInFrames(builder, requested_buffer_frames);
+		const int32_t requested_output_frames = static_cast<int32_t>(AudioStream::GetBufferSizeForMS(
+			m_sample_rate, m_parameters.output_latency_ms));
+		if (!m_parameters.minimal_output_latency)
+			AAudioStreamBuilder_setBufferCapacityInFrames(builder, requested_output_frames);
 		AAudioStreamBuilder_setDataCallback(builder, &AndroidAAudioStream::DataCallback, this);
 		AAudioStreamBuilder_setErrorCallback(builder, &AndroidAAudioStream::ErrorCallback, this);
 
@@ -85,11 +88,13 @@ public:
 
 		BaseInitialize(sample_readers[static_cast<size_t>(m_parameters.expansion_mode)], stretch_enabled);
 
-		const aaudio_result_t buffer_size_result = AAudioStream_setBufferSizeInFrames(m_stream, requested_buffer_frames);
+		const int32_t target_output_frames = m_parameters.minimal_output_latency ?
+			std::max(AAudioStream_getFramesPerBurst(m_stream) * 2, 1) : requested_output_frames;
+		const aaudio_result_t buffer_size_result = AAudioStream_setBufferSizeInFrames(m_stream, target_output_frames);
 		if (buffer_size_result < 0)
 		{
 			__android_log_print(ANDROID_LOG_WARN, LOG_TAG, "AAudio buffer resize to %d frames failed: %s",
-				requested_buffer_frames, AAudio_convertResultToText(buffer_size_result));
+				target_output_frames, AAudio_convertResultToText(buffer_size_result));
 		}
 
 		result = AAudioStream_requestStart(m_stream);
@@ -101,9 +106,10 @@ public:
 		}
 
 		__android_log_print(ANDROID_LOG_INFO, LOG_TAG,
-			"AAudio stream started rate=%u channels=%u buffer=%d/%d frames",
+			"AAudio stream started rate=%u channels=%u output_buffer=%d/%d frames internal_buffer=%u ms minimal=%d",
 			m_sample_rate, static_cast<unsigned>(m_output_channels), AAudioStream_getBufferSizeInFrames(m_stream),
-			AAudioStream_getBufferCapacityInFrames(m_stream));
+			AAudioStream_getBufferCapacityInFrames(m_stream), static_cast<unsigned>(m_parameters.buffer_ms),
+			m_parameters.minimal_output_latency ? 1 : 0);
 		return true;
 	}
 

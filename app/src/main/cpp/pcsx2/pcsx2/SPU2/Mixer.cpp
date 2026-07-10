@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "Host/AudioStream.h"
+#include "Config.h"
 #include "SPU2/Debug.h"
 #include "SPU2/defs.h"
 #include "SPU2/spu2.h"
@@ -288,14 +289,45 @@ static __forceinline s32 GetVoiceValues(V_Core& thiscore, uint voiceidx)
 {
 	V_Voice& vc(thiscore.Voices[voiceidx]);
 
-	int phase = (vc.SP & 0x0ff0) >> 4;
-	s32 out = 0;
-	out += (interpTable[phase][0] * vc.DecodeFifo[(vc.DecPosRead + 0) % 32]) >> 15;
-	out += (interpTable[phase][1] * vc.DecodeFifo[(vc.DecPosRead + 1) % 32]) >> 15;
-	out += (interpTable[phase][2] * vc.DecodeFifo[(vc.DecPosRead + 2) % 32]) >> 15;
-	out += (interpTable[phase][3] * vc.DecodeFifo[(vc.DecPosRead + 3) % 32]) >> 15;
+	const s32 p0 = vc.DecodeFifo[(vc.DecPosRead + 0) % 32];
+	const s32 p1 = vc.DecodeFifo[(vc.DecPosRead + 1) % 32];
+	const s32 p2 = vc.DecodeFifo[(vc.DecPosRead + 2) % 32];
+	const s32 p3 = vc.DecodeFifo[(vc.DecPosRead + 3) % 32];
+	const s32 fraction = vc.SP & 0x0fff;
 
-	return out;
+	switch (EmuConfig.SPU2.InterpolationMode)
+	{
+		case Pcsx2Config::SPU2Options::SPU2InterpolationMode::Nearest:
+			return (fraction < 0x800) ? p1 : p2;
+
+		case Pcsx2Config::SPU2Options::SPU2InterpolationMode::Linear:
+			return p1 + static_cast<s32>((static_cast<s64>(p2 - p1) * fraction) >> 12);
+
+		case Pcsx2Config::SPU2Options::SPU2InterpolationMode::Cubic:
+		{
+			const s64 t = fraction;
+			const s64 t2 = (t * t) >> 12;
+			const s64 t3 = (t2 * t) >> 12;
+			const s64 value =
+				(2LL * p1) +
+				((static_cast<s64>(-p0 + p2) * t) >> 12) +
+				((static_cast<s64>(2 * p0 - 5 * p1 + 4 * p2 - p3) * t2) >> 12) +
+				((static_cast<s64>(-p0 + 3 * p1 - 3 * p2 + p3) * t3) >> 12);
+			return std::clamp<s32>(static_cast<s32>(value / 2), -0x8000, 0x7fff);
+		}
+
+		case Pcsx2Config::SPU2Options::SPU2InterpolationMode::Gaussian:
+		default:
+		{
+			const int phase = (vc.SP & 0x0ff0) >> 4;
+			s32 out = 0;
+			out += (interpTable[phase][0] * p0) >> 15;
+			out += (interpTable[phase][1] * p1) >> 15;
+			out += (interpTable[phase][2] * p2) >> 15;
+			out += (interpTable[phase][3] * p3) >> 15;
+			return out;
+		}
+	}
 }
 
 // This is Dr. Hell's noise algorithm as implemented in pcsxr

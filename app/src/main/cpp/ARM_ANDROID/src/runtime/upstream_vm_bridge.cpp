@@ -202,7 +202,8 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 	si.SetStringValue("SPU2/Output", "Backend", "SDL");
 	si.SetStringValue("SPU2/Output", "DriverName", "");
 	si.SetStringValue("SPU2/Output", "DeviceName", "");
-	si.SetIntValue("SPU2/Output", "BufferMS", 150);
+	si.SetIntValue("SPU2/Output", "BufferMS",
+		GetIntSetting(config.settings, "SPU2/Output", "BufferMS", AudioStreamParameters::DEFAULT_BUFFER_MS));
 	si.SetBoolValue("InputSources", "SDL", true);
 	si.SetBoolValue("InputSources", "PadVibration", GetBoolSetting(config.settings, "InputSources", "PadVibration", true));
 	si.SetStringValue("Pad1", "Type", "DualShock2");

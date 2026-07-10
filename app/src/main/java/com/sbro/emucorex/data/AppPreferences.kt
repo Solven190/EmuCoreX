@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sbro.emucorex.core.BiosValidator
+import com.sbro.emucorex.core.AudioDefaults
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GpuHardwareProfiles
 import com.sbro.emucorex.core.GsHackDefaults
@@ -43,6 +44,14 @@ data class SettingsSnapshot(
     val renderer: Int = EmulatorBridge.DEFAULT_RENDERER,
     val upscaleMultiplier: Float = 1f,
     val aspectRatio: Int = 1,
+    val audioVolume: Int = AudioDefaults.VOLUME_DEFAULT,
+    val audioFastForwardVolume: Int = AudioDefaults.VOLUME_DEFAULT,
+    val audioMuted: Boolean = false,
+    val audioInterpolation: Int = AudioDefaults.INTERPOLATION_DEFAULT,
+    val audioSyncMode: Int = AudioDefaults.SYNC_DEFAULT,
+    val audioBufferMs: Int = AudioDefaults.BUFFER_MS_DEFAULT,
+    val audioOutputLatencyMs: Int = AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT,
+    val audioMinimalOutputLatency: Boolean = AudioDefaults.MINIMAL_OUTPUT_LATENCY_DEFAULT,
     val autoProgressiveScan: Boolean = false,
     val padVibration: Boolean = true,
     val padVibrationStrength: Int = AppPreferences.DEFAULT_PAD_VIBRATION_STRENGTH,
@@ -313,6 +322,14 @@ class AppPreferences(private val context: Context) {
         private val GPU_HARDWARE_PROFILE = intPreferencesKey("gpu_hardware_profile")
         private val LANGUAGE_TAG = stringPreferencesKey("language_tag")
         private val ASPECT_RATIO = intPreferencesKey("aspect_ratio")
+        private val AUDIO_VOLUME = intPreferencesKey("audio_volume")
+        private val AUDIO_FAST_FORWARD_VOLUME = intPreferencesKey("audio_fast_forward_volume")
+        private val AUDIO_MUTED = booleanPreferencesKey("audio_muted")
+        private val AUDIO_INTERPOLATION = intPreferencesKey("audio_interpolation")
+        private val AUDIO_SYNC_MODE = intPreferencesKey("audio_sync_mode")
+        private val AUDIO_BUFFER_MS = intPreferencesKey("audio_buffer_ms")
+        private val AUDIO_OUTPUT_LATENCY_MS = intPreferencesKey("audio_output_latency_ms")
+        private val AUDIO_MINIMAL_OUTPUT_LATENCY = booleanPreferencesKey("audio_minimal_output_latency")
         private val AUTO_PROGRESSIVE_SCAN = booleanPreferencesKey("auto_progressive_scan")
         private val PAD_VIBRATION = booleanPreferencesKey("pad_vibration")
         private val PAD_VIBRATION_STRENGTH = intPreferencesKey("pad_vibration_strength")
@@ -609,6 +626,70 @@ class AppPreferences(private val context: Context) {
         if (prefs[ACHIEVEMENTS_HARDCORE] == true) true else prefs[FRAME_LIMIT_ENABLED] ?: true
     }
 
+    val audioVolume: Flow<Int> = context.dataStore.data.map { prefs ->
+        AudioDefaults.coerceVolume(prefs[AUDIO_VOLUME] ?: AudioDefaults.VOLUME_DEFAULT)
+    }
+
+    suspend fun setAudioVolume(value: Int) {
+        context.dataStore.edit { it[AUDIO_VOLUME] = AudioDefaults.coerceVolume(value) }
+    }
+
+    val audioFastForwardVolume: Flow<Int> = context.dataStore.data.map { prefs ->
+        AudioDefaults.coerceVolume(prefs[AUDIO_FAST_FORWARD_VOLUME] ?: AudioDefaults.VOLUME_DEFAULT)
+    }
+
+    suspend fun setAudioFastForwardVolume(value: Int) {
+        context.dataStore.edit { it[AUDIO_FAST_FORWARD_VOLUME] = AudioDefaults.coerceVolume(value) }
+    }
+
+    val audioMuted: Flow<Boolean> = context.dataStore.data.map { prefs -> prefs[AUDIO_MUTED] ?: false }
+
+    suspend fun setAudioMuted(muted: Boolean) {
+        context.dataStore.edit { it[AUDIO_MUTED] = muted }
+    }
+
+    val audioInterpolation: Flow<Int> = context.dataStore.data.map { prefs ->
+        AudioDefaults.coerceInterpolation(prefs[AUDIO_INTERPOLATION] ?: AudioDefaults.INTERPOLATION_DEFAULT)
+    }
+
+    suspend fun setAudioInterpolation(value: Int) {
+        context.dataStore.edit { it[AUDIO_INTERPOLATION] = AudioDefaults.coerceInterpolation(value) }
+    }
+
+    val audioSyncMode: Flow<Int> = context.dataStore.data.map { prefs ->
+        AudioDefaults.coerceSyncMode(prefs[AUDIO_SYNC_MODE] ?: AudioDefaults.SYNC_DEFAULT)
+    }
+
+    suspend fun setAudioSyncMode(value: Int) {
+        context.dataStore.edit { it[AUDIO_SYNC_MODE] = AudioDefaults.coerceSyncMode(value) }
+    }
+
+    val audioBufferMs: Flow<Int> = context.dataStore.data.map { prefs ->
+        AudioDefaults.coerceBufferMs(prefs[AUDIO_BUFFER_MS] ?: AudioDefaults.BUFFER_MS_DEFAULT)
+    }
+
+    suspend fun setAudioBufferMs(value: Int) {
+        context.dataStore.edit { it[AUDIO_BUFFER_MS] = AudioDefaults.coerceBufferMs(value) }
+    }
+
+    val audioOutputLatencyMs: Flow<Int> = context.dataStore.data.map { prefs ->
+        AudioDefaults.coerceOutputLatencyMs(
+            prefs[AUDIO_OUTPUT_LATENCY_MS] ?: AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT
+        )
+    }
+
+    suspend fun setAudioOutputLatencyMs(value: Int) {
+        context.dataStore.edit { it[AUDIO_OUTPUT_LATENCY_MS] = AudioDefaults.coerceOutputLatencyMs(value) }
+    }
+
+    val audioMinimalOutputLatency: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[AUDIO_MINIMAL_OUTPUT_LATENCY] ?: AudioDefaults.MINIMAL_OUTPUT_LATENCY_DEFAULT
+    }
+
+    suspend fun setAudioMinimalOutputLatency(enabled: Boolean) {
+        context.dataStore.edit { it[AUDIO_MINIMAL_OUTPUT_LATENCY] = enabled }
+    }
+
     suspend fun setFrameLimitEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[FRAME_LIMIT_ENABLED] = if (prefs[ACHIEVEMENTS_HARDCORE] == true) true else enabled
@@ -836,6 +917,27 @@ class AppPreferences(private val context: Context) {
                 renderer = normalizeRendererPreference(prefs[RENDERER]),
                 upscaleMultiplier = readUpscale(prefs),
                 aspectRatio = normalizeAspectRatioPreference(prefs[ASPECT_RATIO]),
+                audioVolume = AudioDefaults.coerceVolume(
+                    prefs[AUDIO_VOLUME] ?: AudioDefaults.VOLUME_DEFAULT
+                ),
+                audioFastForwardVolume = AudioDefaults.coerceVolume(
+                    prefs[AUDIO_FAST_FORWARD_VOLUME] ?: AudioDefaults.VOLUME_DEFAULT
+                ),
+                audioMuted = prefs[AUDIO_MUTED] ?: false,
+                audioInterpolation = AudioDefaults.coerceInterpolation(
+                    prefs[AUDIO_INTERPOLATION] ?: AudioDefaults.INTERPOLATION_DEFAULT
+                ),
+                audioSyncMode = AudioDefaults.coerceSyncMode(
+                    prefs[AUDIO_SYNC_MODE] ?: AudioDefaults.SYNC_DEFAULT
+                ),
+                audioBufferMs = AudioDefaults.coerceBufferMs(
+                    prefs[AUDIO_BUFFER_MS] ?: AudioDefaults.BUFFER_MS_DEFAULT
+                ),
+                audioOutputLatencyMs = AudioDefaults.coerceOutputLatencyMs(
+                    prefs[AUDIO_OUTPUT_LATENCY_MS] ?: AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT
+                ),
+                audioMinimalOutputLatency = prefs[AUDIO_MINIMAL_OUTPUT_LATENCY]
+                    ?: AudioDefaults.MINIMAL_OUTPUT_LATENCY_DEFAULT,
                 autoProgressiveScan = prefs[AUTO_PROGRESSIVE_SCAN] ?: false,
                 padVibration = prefs[PAD_VIBRATION] ?: true,
                 padVibrationStrength = (prefs[PAD_VIBRATION_STRENGTH] ?: DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150),
@@ -2418,6 +2520,14 @@ class AppPreferences(private val context: Context) {
             put("onboardingCompleted", prefs[ONBOARDING_COMPLETED] ?: false)
             put("languageTag", prefs[LANGUAGE_TAG])
             put("aspectRatio", normalizeAspectRatioPreference(prefs[ASPECT_RATIO]))
+            put("audioVolume", AudioDefaults.coerceVolume(prefs[AUDIO_VOLUME] ?: AudioDefaults.VOLUME_DEFAULT))
+            put("audioFastForwardVolume", AudioDefaults.coerceVolume(prefs[AUDIO_FAST_FORWARD_VOLUME] ?: AudioDefaults.VOLUME_DEFAULT))
+            put("audioMuted", prefs[AUDIO_MUTED] ?: false)
+            put("audioInterpolation", AudioDefaults.coerceInterpolation(prefs[AUDIO_INTERPOLATION] ?: AudioDefaults.INTERPOLATION_DEFAULT))
+            put("audioSyncMode", AudioDefaults.coerceSyncMode(prefs[AUDIO_SYNC_MODE] ?: AudioDefaults.SYNC_DEFAULT))
+            put("audioBufferMs", AudioDefaults.coerceBufferMs(prefs[AUDIO_BUFFER_MS] ?: AudioDefaults.BUFFER_MS_DEFAULT))
+            put("audioOutputLatencyMs", AudioDefaults.coerceOutputLatencyMs(prefs[AUDIO_OUTPUT_LATENCY_MS] ?: AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT))
+            put("audioMinimalOutputLatency", prefs[AUDIO_MINIMAL_OUTPUT_LATENCY] ?: AudioDefaults.MINIMAL_OUTPUT_LATENCY_DEFAULT)
             put("autoProgressiveScan", prefs[AUTO_PROGRESSIVE_SCAN] ?: false)
             put("padVibration", prefs[PAD_VIBRATION] ?: true)
             put("padVibrationStrength", (prefs[PAD_VIBRATION_STRENGTH] ?: DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150))
@@ -2607,6 +2717,27 @@ class AppPreferences(private val context: Context) {
             prefs[ONBOARDING_COMPLETED] = json.optBoolean("onboardingCompleted", false)
             languageTag?.let { prefs[LANGUAGE_TAG] = it } ?: prefs.remove(LANGUAGE_TAG)
             prefs[ASPECT_RATIO] = normalizeAspectRatioPreference(json.optInt("aspectRatio", 1))
+            prefs[AUDIO_VOLUME] = AudioDefaults.coerceVolume(json.optInt("audioVolume", AudioDefaults.VOLUME_DEFAULT))
+            prefs[AUDIO_FAST_FORWARD_VOLUME] = AudioDefaults.coerceVolume(
+                json.optInt("audioFastForwardVolume", AudioDefaults.VOLUME_DEFAULT)
+            )
+            prefs[AUDIO_MUTED] = json.optBoolean("audioMuted", false)
+            prefs[AUDIO_INTERPOLATION] = AudioDefaults.coerceInterpolation(
+                json.optInt("audioInterpolation", AudioDefaults.INTERPOLATION_DEFAULT)
+            )
+            prefs[AUDIO_SYNC_MODE] = AudioDefaults.coerceSyncMode(
+                json.optInt("audioSyncMode", AudioDefaults.SYNC_DEFAULT)
+            )
+            prefs[AUDIO_BUFFER_MS] = AudioDefaults.coerceBufferMs(
+                json.optInt("audioBufferMs", AudioDefaults.BUFFER_MS_DEFAULT)
+            )
+            prefs[AUDIO_OUTPUT_LATENCY_MS] = AudioDefaults.coerceOutputLatencyMs(
+                json.optInt("audioOutputLatencyMs", AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT)
+            )
+            prefs[AUDIO_MINIMAL_OUTPUT_LATENCY] = json.optBoolean(
+                "audioMinimalOutputLatency",
+                AudioDefaults.MINIMAL_OUTPUT_LATENCY_DEFAULT
+            )
             prefs[AUTO_PROGRESSIVE_SCAN] = json.optBoolean("autoProgressiveScan", false)
             prefs[PAD_VIBRATION] = json.optBoolean("padVibration", true)
             prefs[PAD_VIBRATION_STRENGTH] = json.optInt("padVibrationStrength", DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150)
