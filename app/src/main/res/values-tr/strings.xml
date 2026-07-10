@@ -1350,4 +1350,7 @@
     <string name="settings_touch_haptics_test_desc">Geçerli dokunmatik titreşim gücünü kullanarak kısa bir titreşim oynatır.</string>
     <string name="settings_help_touch_haptics_strength">Dokunmatik kontrol titreşimi için kullanılan cihaz titreşim gücünü kontrol eder. Titreşim çok hafifse artırın veya daha sessiz bir el cihazı deneyimi için azaltın.</string>
     <string name="settings_help_touch_haptics_test">Ekrandaki kontrollerin kullandığı aynı cihaz titreşim darbesini oynatır, böylece bir oyunu başlatmadan önce gücü ayarlayabilirsiniz.</string>
+    <string name="settings_native_scaling_normal_maintain_upscale">Normal (Yükseltmeyi Koru)</string>
+    <string name="settings_native_scaling_aggressive_maintain_upscale">Agresif (Yükseltmeyi Koru)</string>
+    <string name="settings_hw_download_mode_force_full">Doğru (Tam Geri Okumayı Zorla)</string>
 </resources>

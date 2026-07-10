@@ -1352,4 +1352,7 @@
     <string name="settings_touch_haptics_test_desc">Запускает короткую вибрацию с текущей силой тактильной отдачи.</string>
     <string name="settings_help_touch_haptics_strength">Управляет силой вибрации устройства для тактильной отдачи сенсорного управления. Увеличьте её, если отдача слишком слабая, или уменьшите для более тихой игры в портативном режиме.</string>
     <string name="settings_help_touch_haptics_test">Воспроизводит тот же тактильный импульс устройства, что и наэкранные элементы управления, чтобы вы могли настроить силу отдачи перед запуском игры.</string>
+    <string name="settings_native_scaling_normal_maintain_upscale">Обычный (Сохранять масштабирование)</string>
+    <string name="settings_native_scaling_aggressive_maintain_upscale">Агрессивный (Сохранять масштабирование)</string>
+    <string name="settings_hw_download_mode_force_full">Точно (Принудительное полное обратное чтение)</string>
 </resources>

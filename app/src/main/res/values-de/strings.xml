@@ -1352,4 +1352,7 @@
     <string name="settings_touch_haptics_test_desc">Führt ein kurzes Ticken mit der aktuellen Stärke des haptischen Feedbacks aus.</string>
     <string name="settings_help_touch_haptics_strength">Steuert die Vibrationsstärke des Geräts für das haptische Feedback der Touch-Steuerung. Erhöhe sie, wenn das Ticken zu schwach ist, oder verringere sie für leiseres Spielen im Handheld-Modus.</string>
     <string name="settings_help_touch_haptics_test">Spielt denselben haptischen Impuls des Geräts ab, der von On-Screen-Bedienelementen verwendet wird, damit du die Stärke vor dem Starten eines Spiels anpassen kannst.</string>
+    <string name="settings_native_scaling_normal_maintain_upscale">Normal (Hochskalierung beibehalten)</string>
+    <string name="settings_native_scaling_aggressive_maintain_upscale">Aggressiv (Hochskalierung beibehalten)</string>
+    <string name="settings_hw_download_mode_force_full">Akkurat (Vollständiges Rücklesen erzwingen)</string>
 </resources>

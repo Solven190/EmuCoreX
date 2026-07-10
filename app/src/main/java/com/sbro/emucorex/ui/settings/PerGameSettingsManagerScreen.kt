@@ -2961,9 +2961,10 @@ private fun trilinearFilteringOptions(): List<Pair<Int, String>> = listOf(
 @Composable
 private fun hwDownloadModeOptions(): List<Pair<Int, String>> = listOf(
     0 to stringResource(R.string.settings_hw_download_mode_accurate),
-    1 to stringResource(R.string.settings_hw_download_mode_no_readbacks),
-    2 to stringResource(R.string.settings_hw_download_mode_unsynchronized),
-    3 to stringResource(R.string.settings_hw_download_mode_disabled)
+    1 to stringResource(R.string.settings_hw_download_mode_force_full),
+    2 to stringResource(R.string.settings_hw_download_mode_no_readbacks),
+    3 to stringResource(R.string.settings_hw_download_mode_unsynchronized),
+    4 to stringResource(R.string.settings_hw_download_mode_disabled)
 )
 
 @Composable
@@ -3039,7 +3040,9 @@ private fun halfPixelOffsetOptions(): List<Pair<Int, String>> = listOf(
 private fun nativeScalingOptions(): List<Pair<Int, String>> = listOf(
     0 to stringResource(R.string.settings_native_scaling_off),
     1 to stringResource(R.string.settings_native_scaling_normal),
-    2 to stringResource(R.string.settings_native_scaling_aggressive)
+    2 to stringResource(R.string.settings_native_scaling_aggressive),
+    3 to stringResource(R.string.settings_native_scaling_normal_maintain_upscale),
+    4 to stringResource(R.string.settings_native_scaling_aggressive_maintain_upscale)
 )
 
 @Composable

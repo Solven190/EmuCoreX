@@ -6,7 +6,6 @@ data class PerformanceProfileConfig(
     val eeCycleRate: Int,
     val eeCycleSkip: Int,
     val hwDownloadMode: Int,
-    val disableHardwareReadbacks: Boolean,
     val fpuCorrectAddSub: Boolean
 )
 
@@ -19,7 +18,6 @@ object PerformanceProfiles {
         eeCycleRate = 0,
         eeCycleSkip = 0,
         hwDownloadMode = 0,
-        disableHardwareReadbacks = false,
         fpuCorrectAddSub = true
     )
 
@@ -28,7 +26,6 @@ object PerformanceProfiles {
         eeCycleRate = -1,
         eeCycleSkip = 2,
         hwDownloadMode = 2,
-        disableHardwareReadbacks = true,
         fpuCorrectAddSub = false
     )
 

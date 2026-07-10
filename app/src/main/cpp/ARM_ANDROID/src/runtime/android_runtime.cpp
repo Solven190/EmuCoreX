@@ -302,9 +302,11 @@ void AndroidRuntime::EndSettingsBatch()
 
 	if (apply_settings)
 	{
+		// Settings batches which recreate GS must finish before the UI is allowed to enqueue the
+		// next renderer/surface operation. MTGS::ApplySettings performs the matching GS-thread wait.
 		Host::RunOnCPUThread([config = std::move(config)]() {
 			ApplyRuntimeSettingsToUpstream(config);
-		}, false);
+		}, true);
 	}
 }
 

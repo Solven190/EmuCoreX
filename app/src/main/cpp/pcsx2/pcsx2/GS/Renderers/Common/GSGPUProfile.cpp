@@ -39,49 +39,23 @@ bool ContainsAny(std::string_view haystack, std::initializer_list<const char*> n
 	return false;
 }
 
-MobileGsTuning MakeMobileGsTuning(MobileGpuTier tier)
+MobileGsTuning MakeMobileGsTuning(u32 pooled_targets, u32 target_age, u32 pooled_textures, u32 texture_age,
+	bool prefer_new_textures)
 {
 	MobileGsTuning tuning;
-	tuning.tier = tier;
-
-	switch (tier)
-	{
-		case MobileGpuTier::Low:
-			tuning.constrained = true;
-			tuning.prefer_new_textures = false;
-			tuning.force_partial_texture_preloading = true;
-			tuning.prefer_mobile_light_gs = false;
-			tuning.prefer_mobile_sw_blend = false;
-			tuning.pooled_targets = 72;
-			tuning.target_age = 6;
-			tuning.pooled_textures = 72;
-			tuning.texture_age = 5;
-			break;
-
-		case MobileGpuTier::Mid:
-			tuning.constrained = true;
-			tuning.prefer_new_textures = false;
-			tuning.force_partial_texture_preloading = true;
-			tuning.prefer_mobile_light_gs = false;
-			tuning.pooled_targets = 96;
-			tuning.target_age = 8;
-			tuning.pooled_textures = 96;
-			tuning.texture_age = 6;
-			break;
-
-		case MobileGpuTier::High:
-		default:
-			tuning.constrained = false;
-			tuning.prefer_new_textures = true;
-			tuning.force_partial_texture_preloading = false;
-			tuning.pooled_targets = 160;
-			tuning.target_age = 12;
-			tuning.pooled_textures = 160;
-			tuning.texture_age = 8;
-			break;
-	}
-
+	tuning.pooled_targets = pooled_targets;
+	tuning.target_age = target_age;
+	tuning.pooled_textures = pooled_textures;
+	tuning.texture_age = texture_age;
+	tuning.constrained = (pooled_targets < 128 || pooled_textures < 128);
+	tuning.prefer_new_textures = prefer_new_textures;
+	tuning.force_partial_texture_preloading = tuning.constrained;
 	return tuning;
+}
+
+MobileGsTuning MakeConservativeMobileGsTuning()
+{
+	return MakeMobileGsTuning(96, 8, 96, 6, false);
 }
 } // namespace GpuProfileDetail
 
@@ -201,23 +175,46 @@ const char* GpuProfileDetector::RuntimeProfileToString(RuntimeGpuProfile value)
 		case RuntimeGpuProfile::PowerVR:
 			return "PowerVR";
 		case RuntimeGpuProfile::Adreno:
-		default:
 			return "Adreno";
+		case RuntimeGpuProfile::Unknown:
+		default:
+			return "Unknown";
 	}
 }
 
-const char* GpuProfileDetector::MobileTierToString(MobileGpuTier value)
+const char* GpuProfileDetector::ArchitectureToString(MobileGpuArchitecture value)
 {
 	switch (value)
 	{
-		case MobileGpuTier::Low:
-			return "Low";
-		case MobileGpuTier::Mid:
-			return "Mid";
-		case MobileGpuTier::High:
+		case MobileGpuArchitecture::Adreno2xx: return "Adreno 2xx";
+		case MobileGpuArchitecture::Adreno3xx: return "Adreno 3xx";
+		case MobileGpuArchitecture::Adreno4xx: return "Adreno 4xx";
+		case MobileGpuArchitecture::Adreno5xx: return "Adreno 5xx";
+		case MobileGpuArchitecture::Adreno6xx: return "Adreno 6xx";
+		case MobileGpuArchitecture::Adreno7xx: return "Adreno 7xx";
+		case MobileGpuArchitecture::Adreno8xx: return "Adreno 8xx";
+		case MobileGpuArchitecture::AdrenoX: return "Adreno X";
+		case MobileGpuArchitecture::MaliUtgard: return "Mali Utgard";
+		case MobileGpuArchitecture::MaliMidgard: return "Mali Midgard";
+		case MobileGpuArchitecture::MaliBifrost: return "Mali Bifrost";
+		case MobileGpuArchitecture::MaliValhall1: return "Mali Valhall (1st Gen)";
+		case MobileGpuArchitecture::MaliValhall2: return "Mali Valhall (2nd Gen)";
+		case MobileGpuArchitecture::MaliValhall3: return "Mali Valhall (3rd Gen)";
+		case MobileGpuArchitecture::MaliFifthGen: return "Arm 5th Gen";
+		case MobileGpuArchitecture::MaliG1: return "Arm Mali G1";
+		case MobileGpuArchitecture::PowerVR: return "PowerVR";
+		case MobileGpuArchitecture::Unknown:
 		default:
-			return "High";
+			return "Unknown";
 	}
+}
+
+static void ApplyResolvedProfile(GpuProfileSelection& selection, RuntimeGpuProfile runtime_profile,
+	GpuProfileDetail::ResolvedGpuProfile&& resolved)
+{
+	selection.runtime_profile = runtime_profile;
+	selection.gpu = std::move(resolved.gpu);
+	selection.gs_tuning = resolved.tuning;
 }
 
 GpuProfileSelection GpuProfileDetector::Resolve(std::string_view override_value, std::string_view gpu_vendor,
@@ -227,53 +224,38 @@ GpuProfileSelection GpuProfileDetector::Resolve(std::string_view override_value,
 	selection.override_mode = ParseOverride(override_value);
 	selection.hints = BuildHints(gpu_vendor, gpu_renderer_or_name);
 	const std::string lowered_hints = GpuProfileDetail::ToLowerASCII(selection.hints);
+	selection.gs_tuning = GpuProfileDetail::MakeConservativeMobileGsTuning();
 
 	if (selection.override_mode == GpuProfileOverride::Mali)
 	{
-		selection.runtime_profile = RuntimeGpuProfile::Mali;
-		selection.gs_tuning = GpuProfileDetail::GetMaliTuning(GpuProfileDetail::ResolveMaliTier(lowered_hints));
+		ApplyResolvedProfile(selection, RuntimeGpuProfile::Mali, GpuProfileDetail::ResolveMaliProfile(lowered_hints));
 		return selection;
 	}
 
 	if (selection.override_mode == GpuProfileOverride::Adreno)
 	{
-		selection.runtime_profile = RuntimeGpuProfile::Adreno;
-		selection.gs_tuning = GpuProfileDetail::GetAdrenoTuning(GpuProfileDetail::ResolveAdrenoTier(lowered_hints));
+		ApplyResolvedProfile(selection, RuntimeGpuProfile::Adreno, GpuProfileDetail::ResolveAdrenoProfile(lowered_hints));
 		return selection;
 	}
 
 	if (selection.override_mode == GpuProfileOverride::PowerVR)
 	{
-		selection.runtime_profile = RuntimeGpuProfile::PowerVR;
-		selection.gs_tuning = GpuProfileDetail::GetPowerVRTuning(GpuProfileDetail::ResolvePowerVRTier(lowered_hints));
+		ApplyResolvedProfile(selection, RuntimeGpuProfile::PowerVR, GpuProfileDetail::ResolvePowerVRProfile(lowered_hints));
 		return selection;
 	}
 
-#if defined(__ANDROID__)
 	if (GpuProfileDetail::LooksLikeAdreno(lowered_hints))
 	{
-		selection.runtime_profile = RuntimeGpuProfile::Adreno;
-		selection.gs_tuning = GpuProfileDetail::GetAdrenoTuning(GpuProfileDetail::ResolveAdrenoTier(lowered_hints));
+		ApplyResolvedProfile(selection, RuntimeGpuProfile::Adreno, GpuProfileDetail::ResolveAdrenoProfile(lowered_hints));
 	}
 	else if (GpuProfileDetail::LooksLikePowerVR(lowered_hints))
 	{
-		selection.runtime_profile = RuntimeGpuProfile::PowerVR;
-		selection.gs_tuning = GpuProfileDetail::GetPowerVRTuning(GpuProfileDetail::ResolvePowerVRTier(lowered_hints));
+		ApplyResolvedProfile(selection, RuntimeGpuProfile::PowerVR, GpuProfileDetail::ResolvePowerVRProfile(lowered_hints));
 	}
 	else if (GpuProfileDetail::LooksLikeMali(lowered_hints))
 	{
-		selection.runtime_profile = RuntimeGpuProfile::Mali;
-		selection.gs_tuning = GpuProfileDetail::GetMaliTuning(GpuProfileDetail::ResolveMaliTier(lowered_hints));
+		ApplyResolvedProfile(selection, RuntimeGpuProfile::Mali, GpuProfileDetail::ResolveMaliProfile(lowered_hints));
 	}
-	else
-	{
-		selection.runtime_profile = RuntimeGpuProfile::Adreno;
-		selection.gs_tuning = GpuProfileDetail::GetAdrenoTuning(MobileGpuTier::High);
-	}
-#else
-	selection.runtime_profile = RuntimeGpuProfile::Adreno;
-	selection.gs_tuning = GpuProfileDetail::GetAdrenoTuning(MobileGpuTier::High);
-#endif
 
 	return selection;
 }

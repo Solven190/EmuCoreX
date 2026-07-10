@@ -272,8 +272,10 @@ bool GSreopen(bool recreate_device, bool recreate_renderer, GSRendererType new_r
 		g_gs_device->ClearCurrent();
 		g_gs_device->PurgePool();
 	}
-	else if (GSConfig.UserHacks_ReadTCOnClose)
+	else if (recreate_renderer || GSConfig.UserHacks_ReadTCOnClose)
 	{
+		// The freeze blob contains GS local memory, not live GPU render targets. Always download dirty
+		// targets before destroying the renderer so an API switch cannot restore stale/missing textures.
 		g_gs_renderer->ReadbackTextureCache();
 	}
 
@@ -310,6 +312,7 @@ bool GSreopen(bool recreate_device, bool recreate_renderer, GSRendererType new_r
 		CloseGSRenderer();
 	}
 
+	GSRendererType active_renderer = new_renderer;
 	if (recreate_device)
 	{
 		// We need a new render window when changing APIs.
@@ -328,8 +331,9 @@ bool GSreopen(bool recreate_device, bool recreate_renderer, GSRendererType new_r
 
 			if (old_config.has_value())
 				GSConfig = *old_config.value();
+			active_renderer = GSConfig.Renderer;
 
-			if (!OpenGSDevice(GSConfig.Renderer, false, recreate_window, vsync_mode, allow_present_throttle))
+			if (!OpenGSDevice(active_renderer, false, recreate_window, vsync_mode, allow_present_throttle))
 			{
 				pxFailRel("Failed to reopen GS on old config");
 				Host::ReleaseRenderWindow();
@@ -340,7 +344,7 @@ bool GSreopen(bool recreate_device, bool recreate_renderer, GSRendererType new_r
 
 	if (recreate_renderer)
 	{
-		if (!OpenGSRenderer(new_renderer, basemem))
+		if (!OpenGSRenderer(active_renderer, basemem))
 		{
 			Console.Error("(GSreopen) Failed to create new renderer");
 			return false;
@@ -805,6 +809,11 @@ void GSgetTitleStats(std::string& info)
 
 void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 {
+	// Finish the buffered primitive with the settings it was created under. Otherwise a live
+	// accuracy/backend change can submit old vertices through the new blend/feedback policy.
+	if (g_gs_renderer)
+		g_gs_renderer->Flush(GSState::GSFlushReason::GSREOPEN);
+
 	Pcsx2Config::GSOptions old_config(std::move(GSConfig));
 	GSConfig = new_config;
 
@@ -857,6 +866,8 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 	// settings can change how cached sources/targets are sampled or resolved.
 	if (
 		(GSIsHardwareRenderer() && GSConfig.HWMipmap != old_config.HWMipmap) ||
+		GSConfig.AccurateBlendingUnit != old_config.AccurateBlendingUnit ||
+		GSConfig.TextureFiltering != old_config.TextureFiltering ||
 		GSConfig.TexturePreloading != old_config.TexturePreloading ||
 		GSConfig.TriFilter != old_config.TriFilter ||
 		GSConfig.GPUPaletteConversion != old_config.GPUPaletteConversion ||
@@ -869,8 +880,9 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 		GSConfig.UserHacks_CPUCLUTRender != old_config.UserHacks_CPUCLUTRender ||
 		GSConfig.UserHacks_GPUTargetCLUTMode != old_config.UserHacks_GPUTargetCLUTMode)
 	{
-		if (GSConfig.UserHacks_ReadTCOnClose)
-			g_gs_renderer->ReadbackTextureCache();
+		// Purging targets without a readback loses GPU-only contents. This is intentionally paid only
+		// for live settings changes, where correctness is more important than a one-off transition cost.
+		g_gs_renderer->ReadbackTextureCache();
 		g_gs_renderer->PurgeTextureCache(true, true, true);
 		g_gs_device->ClearCurrent();
 		g_gs_device->PurgePool();

@@ -3,41 +3,258 @@
 
 #include "GS/Renderers/Common/GSGPUProfilePrivate.h"
 
+#include <algorithm>
+#include <array>
+#include <cctype>
+
 namespace GpuProfileDetail
 {
-static bool LooksLikeMediaTek(std::string_view lowered_hints)
+namespace
 {
-	return ContainsAny(lowered_hints, {
-		"mediatek", "mtk", "dimensity", "helio",
-		"mt67", "mt68", "mt69",
-	});
+struct MaliSpec
+{
+	char series;
+	u16 model;
+	MobileGpuArchitecture architecture;
+	MobileGsTuning tuning;
+};
+
+constexpr MobileGsTuning T(u32 pool, u32 target_age, u32 texture_age, bool prefer_new = false)
+{
+	return MobileGsTuning{pool < 128, prefer_new, pool < 128, pool, target_age, pool, texture_age};
 }
+
+// Arm's public product families. Performance still depends heavily on MC/MP core count, which is applied below.
+static constexpr std::array<MaliSpec, 40> s_mali_specs = {{
+	{'U', 200, MobileGpuArchitecture::MaliUtgard, T(40, 4, 4)},
+	{'U', 300, MobileGpuArchitecture::MaliUtgard, T(40, 4, 4)},
+	{'U', 400, MobileGpuArchitecture::MaliUtgard, T(44, 4, 4)},
+	{'U', 450, MobileGpuArchitecture::MaliUtgard, T(48, 4, 4)},
+	{'U', 470, MobileGpuArchitecture::MaliUtgard, T(48, 4, 4)},
+	{'T', 600, MobileGpuArchitecture::MaliMidgard, T(48, 4, 4)},
+	{'T', 604, MobileGpuArchitecture::MaliMidgard, T(52, 4, 4)},
+	{'T', 620, MobileGpuArchitecture::MaliMidgard, T(52, 4, 4)},
+	{'T', 624, MobileGpuArchitecture::MaliMidgard, T(56, 5, 4)},
+	{'T', 628, MobileGpuArchitecture::MaliMidgard, T(60, 5, 4)},
+	{'T', 658, MobileGpuArchitecture::MaliMidgard, T(64, 5, 5)},
+	{'T', 678, MobileGpuArchitecture::MaliMidgard, T(68, 5, 5)},
+	{'T', 720, MobileGpuArchitecture::MaliMidgard, T(52, 4, 4)},
+	{'T', 760, MobileGpuArchitecture::MaliMidgard, T(64, 5, 5)},
+	{'T', 820, MobileGpuArchitecture::MaliMidgard, T(52, 4, 4)},
+	{'T', 830, MobileGpuArchitecture::MaliMidgard, T(56, 5, 4)},
+	{'T', 860, MobileGpuArchitecture::MaliMidgard, T(64, 5, 5)},
+	{'T', 880, MobileGpuArchitecture::MaliMidgard, T(72, 6, 5)},
+	{'G', 31, MobileGpuArchitecture::MaliBifrost, T(56, 5, 4)},
+	{'G', 51, MobileGpuArchitecture::MaliBifrost, T(60, 5, 5)},
+	{'G', 52, MobileGpuArchitecture::MaliBifrost, T(68, 5, 5)},
+	{'G', 71, MobileGpuArchitecture::MaliBifrost, T(72, 6, 5)},
+	{'G', 72, MobileGpuArchitecture::MaliBifrost, T(76, 6, 5)},
+	{'G', 76, MobileGpuArchitecture::MaliBifrost, T(84, 7, 6)},
+	{'G', 57, MobileGpuArchitecture::MaliValhall1, T(72, 6, 5)},
+	{'G', 68, MobileGpuArchitecture::MaliValhall1, T(84, 7, 6)},
+	{'G', 77, MobileGpuArchitecture::MaliValhall1, T(92, 7, 6)},
+	{'G', 78, MobileGpuArchitecture::MaliValhall1, T(104, 8, 7)}, // G78AE shares the GS policy.
+	{'G', 310, MobileGpuArchitecture::MaliValhall2, T(64, 5, 5)},
+	{'G', 510, MobileGpuArchitecture::MaliValhall2, T(80, 6, 5)},
+	{'G', 610, MobileGpuArchitecture::MaliValhall2, T(104, 8, 7)},
+	{'G', 710, MobileGpuArchitecture::MaliValhall2, T(136, 10, 8, true)},
+	{'G', 615, MobileGpuArchitecture::MaliValhall3, T(112, 8, 7)},
+	{'G', 715, MobileGpuArchitecture::MaliValhall3, T(144, 10, 8, true)},
+	{'G', 620, MobileGpuArchitecture::MaliFifthGen, T(104, 8, 7)},
+	{'G', 720, MobileGpuArchitecture::MaliFifthGen, T(140, 10, 8, true)},
+	{'G', 625, MobileGpuArchitecture::MaliFifthGen, T(112, 8, 7)},
+	{'G', 725, MobileGpuArchitecture::MaliFifthGen, T(144, 10, 8, true)},
+	{'G', 925, MobileGpuArchitecture::MaliFifthGen, T(160, 12, 8, true)},
+	{'G', 1, MobileGpuArchitecture::MaliG1, T(144, 10, 8, true)},
+}};
+
+static bool ParseUnsigned(std::string_view text, size_t pos, u16* value, size_t* end)
+{
+	if (pos >= text.size() || !std::isdigit(static_cast<unsigned char>(text[pos])))
+		return false;
+
+	u32 parsed = 0;
+	while (pos < text.size() && std::isdigit(static_cast<unsigned char>(text[pos])))
+	{
+		parsed = parsed * 10 + static_cast<u32>(text[pos++] - '0');
+		if (parsed > 9999)
+			return false;
+	}
+	*value = static_cast<u16>(parsed);
+	*end = pos;
+	return true;
+}
+
+static bool ParseMaliModel(std::string_view hints, char* series, u16* model, bool* immortalis)
+{
+	const size_t mali = hints.find("mali");
+	const size_t imm = hints.find("immortalis");
+	const size_t start = (mali != std::string_view::npos) ? mali : imm;
+	if (start == std::string_view::npos)
+		return false;
+
+	*immortalis = (imm != std::string_view::npos);
+	size_t pos = start + ((start == mali) ? 4 : 10);
+	while (pos < hints.size() && hints[pos] != 'g' && hints[pos] != 't' &&
+		!std::isdigit(static_cast<unsigned char>(hints[pos])))
+	{
+		pos++;
+	}
+	if (pos == hints.size())
+		return false;
+
+	if (hints[pos] == 'g' || hints[pos] == 't')
+		*series = static_cast<char>(std::toupper(static_cast<unsigned char>(hints[pos++])));
+	else
+		*series = 'U';
+
+	size_t end = pos;
+	return ParseUnsigned(hints, pos, model, &end);
+}
+
+static u8 ParseCoreCount(std::string_view hints)
+{
+	for (size_t pos = 0; pos + 2 < hints.size(); pos++)
+	{
+		if ((hints[pos] != 'm' || (hints[pos + 1] != 'c' && hints[pos + 1] != 'p')) ||
+			(pos > 0 && std::isalnum(static_cast<unsigned char>(hints[pos - 1]))))
+		{
+			continue;
+		}
+
+		u16 value = 0;
+		size_t end = pos + 2;
+		if (ParseUnsigned(hints, pos + 2, &value, &end) && value <= 255)
+			return static_cast<u8>(value);
+	}
+	return 0;
+}
+
+static const MaliSpec* FindMaliSpec(char series, u16 model)
+{
+	for (const MaliSpec& spec : s_mali_specs)
+	{
+		if (spec.series == series && spec.model == model)
+			return &spec;
+	}
+	return nullptr;
+}
+
+static MobileGpuArchitecture ArchitectureForUnknownMali(char series, u16 model)
+{
+	if (series == 'U')
+		return MobileGpuArchitecture::MaliUtgard;
+	if (series == 'T')
+		return MobileGpuArchitecture::MaliMidgard;
+	if (series != 'G')
+		return MobileGpuArchitecture::Unknown;
+	if (model < 100)
+		return (model == 57 || model == 68 || model == 77 || model == 78) ?
+			MobileGpuArchitecture::MaliValhall1 : MobileGpuArchitecture::MaliBifrost;
+	if (model < 600)
+		return MobileGpuArchitecture::MaliValhall2;
+	if (model == 615 || model == 715)
+		return MobileGpuArchitecture::MaliValhall3;
+	if (model >= 620)
+		return MobileGpuArchitecture::MaliFifthGen;
+	return MobileGpuArchitecture::Unknown;
+}
+
+static MobileGsTuning FallbackTuningForMali(MobileGpuArchitecture architecture)
+{
+	switch (architecture)
+	{
+		case MobileGpuArchitecture::MaliUtgard: return T(44, 4, 4);
+		case MobileGpuArchitecture::MaliMidgard: return T(60, 5, 5);
+		case MobileGpuArchitecture::MaliBifrost: return T(72, 6, 5);
+		case MobileGpuArchitecture::MaliValhall1: return T(88, 7, 6);
+		case MobileGpuArchitecture::MaliValhall2: return T(104, 8, 7);
+		case MobileGpuArchitecture::MaliValhall3: return T(128, 9, 7, true);
+		case MobileGpuArchitecture::MaliFifthGen: return T(136, 10, 8, true);
+		case MobileGpuArchitecture::MaliG1: return T(144, 10, 8, true);
+		default: return MakeConservativeMobileGsTuning();
+	}
+}
+
+static void ApplyCoreCountLimits(MobileGsTuning* tuning, u8 core_count)
+{
+	if (core_count == 0)
+		return;
+
+	u32 pool_cap = 160;
+	u32 target_age_cap = 12;
+	u32 texture_age_cap = 8;
+	if (core_count <= 2)
+	{
+		pool_cap = 64;
+		target_age_cap = 5;
+		texture_age_cap = 5;
+	}
+	else if (core_count <= 4)
+	{
+		pool_cap = 88;
+		target_age_cap = 7;
+		texture_age_cap = 6;
+	}
+	else if (core_count <= 6)
+	{
+		pool_cap = 112;
+		target_age_cap = 8;
+		texture_age_cap = 7;
+	}
+	else if (core_count <= 8)
+	{
+		pool_cap = 136;
+		target_age_cap = 10;
+		texture_age_cap = 8;
+	}
+
+	tuning->pooled_targets = std::min(tuning->pooled_targets, pool_cap);
+	tuning->pooled_textures = std::min(tuning->pooled_textures, pool_cap);
+	tuning->target_age = std::min(tuning->target_age, target_age_cap);
+	tuning->texture_age = std::min(tuning->texture_age, texture_age_cap);
+	tuning->constrained = (tuning->pooled_targets < 128 || tuning->pooled_textures < 128);
+	tuning->prefer_new_textures &= !tuning->constrained;
+	tuning->force_partial_texture_preloading = tuning->constrained;
+}
+} // namespace
 
 bool LooksLikeMali(std::string_view lowered_hints)
 {
-	return ContainsAny(lowered_hints, {"mali", "valhall", "bifrost", "midgard"}) ||
-		LooksLikeMediaTek(lowered_hints);
+	// Do not equate MediaTek with Mali: older MediaTek parts shipped PowerVR, and the GL/Vulkan renderer
+	// string is a more authoritative signal than the SoC vendor.
+	return ContainsAny(lowered_hints, {"mali", "immortalis", "arm mali"});
 }
 
-MobileGpuTier ResolveMaliTier(std::string_view lowered_hints)
+ResolvedGpuProfile ResolveMaliProfile(std::string_view lowered_hints)
 {
-	if (ContainsAny(lowered_hints,
-			{"immortalis", "mali-g925", "mali-g720", "mali-g715", "mali-g710", "mt6989", "mt6985", "mt6983"}))
-	{
-		return MobileGpuTier::High;
-	}
+	ResolvedGpuProfile resolved;
+	resolved.gpu.name = "Unknown Mali";
+	resolved.tuning = MakeConservativeMobileGsTuning();
 
-	if (ContainsAny(lowered_hints,
-			{"mali-g610", "mali-g615", "mali-g78", "mali-g77", "mt6897", "mt6896", "mt6895", "mt6893", "mt6879"}))
-	{
-		return MobileGpuTier::Mid;
-	}
+	char series = 0;
+	u16 model = 0;
+	bool immortalis = false;
+	if (!ParseMaliModel(lowered_hints, &series, &model, &immortalis))
+		return resolved;
 
-	return MobileGpuTier::Low;
-}
+	const MaliSpec* spec = FindMaliSpec(series, model);
+	resolved.gpu.architecture = spec ? spec->architecture : ArchitectureForUnknownMali(series, model);
+	resolved.gpu.model_number = model;
+	resolved.gpu.core_count = ParseCoreCount(lowered_hints);
+	resolved.gpu.recognized = (spec != nullptr);
 
-MobileGsTuning GetMaliTuning(MobileGpuTier tier)
-{
-	return MakeMobileGsTuning(tier);
+	if (immortalis)
+		resolved.gpu.name = "Immortalis-G" + std::to_string(model);
+	else if (series == 'U')
+		resolved.gpu.name = "Mali-" + std::to_string(model);
+	else
+		resolved.gpu.name = "Mali-" + std::string(1, series) + std::to_string(model);
+	if (resolved.gpu.core_count != 0)
+		resolved.gpu.name += " MC" + std::to_string(resolved.gpu.core_count);
+
+	resolved.tuning = spec ? spec->tuning : FallbackTuningForMali(resolved.gpu.architecture);
+	ApplyCoreCountLimits(&resolved.tuning, resolved.gpu.core_count);
+	return resolved;
 }
 } // namespace GpuProfileDetail

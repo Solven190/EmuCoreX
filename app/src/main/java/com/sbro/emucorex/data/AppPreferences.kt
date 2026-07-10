@@ -16,6 +16,7 @@ import com.sbro.emucorex.core.GpuHardwareProfiles
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.PerformancePresets
+import com.sbro.emucorex.core.RendererDefaults
 import com.sbro.emucorex.core.normalizeUpscale
 import com.sbro.emucorex.data.pcsx2.Pcsx2CompatibilityRepository
 import com.sbro.emucorex.ui.theme.ThemeMode
@@ -530,7 +531,7 @@ class AppPreferences(private val context: Context) {
     }
 
     val renderer: Flow<Int> = context.dataStore.data.map { prefs ->
-        normalizeRendererPreference(prefs[RENDERER], resolveGpuHardwareProfile(prefs))
+        normalizeRendererPreference(prefs[RENDERER])
     }
 
     val performanceProfile: Flow<Int> = context.dataStore.data.map { prefs ->
@@ -552,7 +553,7 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setRenderer(value: Int) {
         context.dataStore.edit { prefs ->
-            prefs[RENDERER] = normalizeRendererPreference(value, resolveGpuHardwareProfile(prefs))
+            prefs[RENDERER] = normalizeRendererPreference(value)
         }
     }
 
@@ -570,31 +571,8 @@ class AppPreferences(private val context: Context) {
         }
     }
 
-    private fun defaultRendererForGpuProfile(gpuHardwareProfile: Int): Int {
-        return if (GpuHardwareProfiles.isMediatekProfile(gpuHardwareProfile))
-            EmulatorBridge.OPENGL_RENDERER
-        else
-            EmulatorBridge.DEFAULT_RENDERER
-    }
-
-    private fun defaultBlendingAccuracyForGpuProfile(gpuHardwareProfile: Int, renderer: Int = EmulatorBridge.DEFAULT_RENDERER): Int {
-        if (!GpuHardwareProfiles.isMediatekProfile(gpuHardwareProfile))
-            return GsHackDefaults.BLENDING_ACCURACY_DEFAULT
-        val isVulkan = (renderer == EmulatorBridge.VULKAN_RENDERER)
-        return if (isVulkan)
-            GsHackDefaults.BLENDING_ACCURACY_DEFAULT
-        else
-            GsHackDefaults.BLENDING_ACCURACY_MAXIMUM
-    }
-
-    private fun normalizeRendererPreference(
-        value: Int?,
-        gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO
-    ): Int {
-        return when (value) {
-            null, 0, EmulatorBridge.AUTO_RENDERER -> defaultRendererForGpuProfile(gpuHardwareProfile)
-            else -> value
-        }
+    private fun normalizeRendererPreference(value: Int?): Int {
+        return RendererDefaults.normalizeAndroidRenderer(value ?: RendererDefaults.AUTO)
     }
 
     private fun resolvePerformanceProfile(prefs: Preferences): Int {
@@ -855,7 +833,7 @@ class AppPreferences(private val context: Context) {
                 languageTag = prefs[LANGUAGE_TAG],
                 performanceProfile = performanceProfile,
                 gpuHardwareProfile = gpuHardwareProfile,
-                renderer = normalizeRendererPreference(prefs[RENDERER], gpuHardwareProfile),
+                renderer = normalizeRendererPreference(prefs[RENDERER]),
                 upscaleMultiplier = readUpscale(prefs),
                 aspectRatio = normalizeAspectRatioPreference(prefs[ASPECT_RATIO]),
                 autoProgressiveScan = prefs[AUTO_PROGRESSIVE_SCAN] ?: false,
@@ -911,14 +889,24 @@ class AppPreferences(private val context: Context) {
                 enableThreadPinning = prefs[ENABLE_THREAD_PINNING] ?: false,
                 enableFastCdvd = prefs[ENABLE_FAST_CDVD] ?: false,
                 enableCheats = prefs[ENABLE_CHEATS] ?: false,
-                hwDownloadMode = prefs[HW_DOWNLOAD_MODE] ?: profileConfig.hwDownloadMode,
-                frameSkip = prefs[FRAME_SKIP] ?: 0,
+                hwDownloadMode = GsHackDefaults.coerceHardwareDownloadMode(
+                    prefs[HW_DOWNLOAD_MODE] ?: profileConfig.hwDownloadMode
+                ),
+                frameSkip = GsHackDefaults.coerceFrameSkip(
+                    prefs[FRAME_SKIP] ?: GsHackDefaults.FRAME_SKIP_DEFAULT
+                ),
                 skipDuplicateFrames = prefs[SKIP_DUPLICATE_FRAMES] ?: true,
-                textureFiltering = prefs[TEXTURE_FILTERING] ?: GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
+                textureFiltering = GsHackDefaults.coerceBilinearFiltering(
+                    prefs[TEXTURE_FILTERING] ?: GsHackDefaults.BILINEAR_FILTERING_DEFAULT
+                ),
                 trilinearFiltering = prefs[TRILINEAR_FILTERING]?.let(GsHackDefaults::coerceTrilinearFiltering)
                     ?: GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
-                blendingAccuracy = prefs[BLENDING_ACCURACY] ?: defaultBlendingAccuracyForGpuProfile(gpuHardwareProfile, normalizeRendererPreference(prefs[RENDERER], gpuHardwareProfile)),
-                texturePreloading = prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
+                blendingAccuracy = GsHackDefaults.coerceBlendingAccuracy(
+                    prefs[BLENDING_ACCURACY] ?: GsHackDefaults.BLENDING_ACCURACY_DEFAULT
+                ),
+                texturePreloading = GsHackDefaults.coerceTexturePreloading(
+                    prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT
+                ),
                 enableFxaa = prefs[ENABLE_FXAA] ?: false,
                 casMode = prefs[CAS_MODE] ?: 0,
                 casSharpness = prefs[CAS_SHARPNESS] ?: 50,
@@ -937,7 +925,9 @@ class AppPreferences(private val context: Context) {
                 enableWidescreenPatches = prefs[ENABLE_WIDESCREEN_PATCHES] ?: false,
                 enableNoInterlacingPatches = prefs[ENABLE_NO_INTERLACING_PATCHES] ?: false,
                 antiBlur = prefs[ANTI_BLUR] ?: GsHackDefaults.ANTI_BLUR_DEFAULT,
-                anisotropicFiltering = prefs[ANISOTROPIC_FILTERING] ?: 0,
+                anisotropicFiltering = GsHackDefaults.coerceAnisotropicFiltering(
+                    prefs[ANISOTROPIC_FILTERING] ?: GsHackDefaults.ANISOTROPIC_FILTERING_DEFAULT
+                ),
                 enableHwMipmapping = prefs[ENABLE_HW_MIPMAPPING] ?: GsHackDefaults.HW_MIPMAPPING_DEFAULT,
                 cpuSpriteRenderSize = prefs[CPU_SPRITE_RENDER_SIZE] ?: GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
                 cpuSpriteRenderLevel = prefs[CPU_SPRITE_RENDER_LEVEL] ?: GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT,
@@ -957,7 +947,9 @@ class AppPreferences(private val context: Context) {
                 estimateTextureRegion = prefs[ESTIMATE_TEXTURE_REGION] ?: false,
                 gpuPaletteConversion = prefs[GPU_PALETTE_CONVERSION] ?: false,
                 halfPixelOffset = prefs[HALF_PIXEL_OFFSET] ?: GsHackDefaults.HALF_PIXEL_OFFSET_DEFAULT,
-                nativeScaling = prefs[NATIVE_SCALING] ?: GsHackDefaults.NATIVE_SCALING_DEFAULT,
+                nativeScaling = GsHackDefaults.coerceNativeScaling(
+                    prefs[NATIVE_SCALING] ?: GsHackDefaults.NATIVE_SCALING_DEFAULT
+                ),
                 roundSprite = prefs[ROUND_SPRITE] ?: GsHackDefaults.ROUND_SPRITE_DEFAULT,
                 bilinearUpscale = prefs[BILINEAR_UPSCALE] ?: GsHackDefaults.BILINEAR_UPSCALE_DEFAULT,
                 textureOffsetX = prefs[TEXTURE_OFFSET_X] ?: 0,
@@ -1633,29 +1625,33 @@ class AppPreferences(private val context: Context) {
 
     // Hardware Download Mode
     val hwDownloadMode: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[HW_DOWNLOAD_MODE] ?: resolvePerformanceProfileConfig(prefs).hwDownloadMode
+        GsHackDefaults.coerceHardwareDownloadMode(
+            prefs[HW_DOWNLOAD_MODE] ?: resolvePerformanceProfileConfig(prefs).hwDownloadMode
+        )
     }
 
     suspend fun setHwDownloadMode(value: Int) {
-        context.dataStore.edit { it[HW_DOWNLOAD_MODE] = value.coerceIn(0, 3) }
+        context.dataStore.edit { it[HW_DOWNLOAD_MODE] = GsHackDefaults.coerceHardwareDownloadMode(value) }
     }
 
     // Frame Skip: 0 = off, 1-4
     val frameSkip: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[FRAME_SKIP] ?: 0
+        GsHackDefaults.coerceFrameSkip(prefs[FRAME_SKIP] ?: GsHackDefaults.FRAME_SKIP_DEFAULT)
     }
 
     suspend fun setFrameSkip(value: Int) {
-        context.dataStore.edit { it[FRAME_SKIP] = value.coerceIn(0, 4) }
+        context.dataStore.edit { it[FRAME_SKIP] = GsHackDefaults.coerceFrameSkip(value) }
     }
 
     // Texture Filtering: 0 = Nearest, 1 = Bilinear, 2 = Trilinear
     val textureFiltering: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[TEXTURE_FILTERING] ?: GsHackDefaults.BILINEAR_FILTERING_DEFAULT
+        GsHackDefaults.coerceBilinearFiltering(
+            prefs[TEXTURE_FILTERING] ?: GsHackDefaults.BILINEAR_FILTERING_DEFAULT
+        )
     }
 
     suspend fun setTextureFiltering(value: Int) {
-        context.dataStore.edit { it[TEXTURE_FILTERING] = value.coerceIn(0, 3) }
+        context.dataStore.edit { it[TEXTURE_FILTERING] = GsHackDefaults.coerceBilinearFiltering(value) }
     }
 
     val trilinearFiltering: Flow<Int> = context.dataStore.data.map { prefs ->
@@ -1668,12 +1664,13 @@ class AppPreferences(private val context: Context) {
     }
 
     val blendingAccuracy: Flow<Int> = context.dataStore.data.map { prefs ->
-        val gpuHp = resolveGpuHardwareProfile(prefs)
-        prefs[BLENDING_ACCURACY] ?: defaultBlendingAccuracyForGpuProfile(gpuHp, normalizeRendererPreference(prefs[RENDERER], gpuHp))
+        GsHackDefaults.coerceBlendingAccuracy(
+            prefs[BLENDING_ACCURACY] ?: GsHackDefaults.BLENDING_ACCURACY_DEFAULT
+        )
     }
 
     suspend fun setBlendingAccuracy(value: Int) {
-        context.dataStore.edit { it[BLENDING_ACCURACY] = value.coerceIn(0, 5) }
+        context.dataStore.edit { it[BLENDING_ACCURACY] = GsHackDefaults.coerceBlendingAccuracy(value) }
     }
 
     val mediatekAngleOpenGl: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -1685,11 +1682,13 @@ class AppPreferences(private val context: Context) {
     }
 
     val texturePreloading: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT
+        GsHackDefaults.coerceTexturePreloading(
+            prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT
+        )
     }
 
     suspend fun setTexturePreloading(value: Int) {
-        context.dataStore.edit { it[TEXTURE_PRELOADING] = value.coerceIn(0, 2) }
+        context.dataStore.edit { it[TEXTURE_PRELOADING] = GsHackDefaults.coerceTexturePreloading(value) }
     }
 
     val textureReplacementsEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -1829,11 +1828,13 @@ class AppPreferences(private val context: Context) {
 
     // Anisotropic Filtering: 0 = off, 2, 4, 8, 16
     val anisotropicFiltering: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[ANISOTROPIC_FILTERING] ?: 0
+        GsHackDefaults.coerceAnisotropicFiltering(
+            prefs[ANISOTROPIC_FILTERING] ?: GsHackDefaults.ANISOTROPIC_FILTERING_DEFAULT
+        )
     }
 
     suspend fun setAnisotropicFiltering(value: Int) {
-        context.dataStore.edit { it[ANISOTROPIC_FILTERING] = value }
+        context.dataStore.edit { it[ANISOTROPIC_FILTERING] = GsHackDefaults.coerceAnisotropicFiltering(value) }
     }
 
     val enableHwMipmapping: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -1989,11 +1990,13 @@ class AppPreferences(private val context: Context) {
     }
 
     val nativeScaling: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[NATIVE_SCALING] ?: GsHackDefaults.NATIVE_SCALING_DEFAULT
+        GsHackDefaults.coerceNativeScaling(
+            prefs[NATIVE_SCALING] ?: GsHackDefaults.NATIVE_SCALING_DEFAULT
+        )
     }
 
     suspend fun setNativeScaling(value: Int) {
-        context.dataStore.edit { it[NATIVE_SCALING] = value.coerceIn(0, 2) }
+        context.dataStore.edit { it[NATIVE_SCALING] = GsHackDefaults.coerceNativeScaling(value) }
     }
 
     val roundSprite: Flow<Int> = context.dataStore.data.map { prefs ->
@@ -2400,12 +2403,11 @@ class AppPreferences(private val context: Context) {
     suspend fun exportJson(): JSONObject {
         val prefs = context.dataStore.data.first()
         val gpuHardwareProfile = resolveGpuHardwareProfile(prefs)
-        val renderer = normalizeRendererPreference(prefs[RENDERER], gpuHardwareProfile)
         return JSONObject().apply {
             put("themeMode", prefs[THEME_MODE] ?: 0)
             put("performanceProfile", resolvePerformanceProfile(prefs))
             put("gpuHardwareProfile", gpuHardwareProfile)
-            put("renderer", normalizeRendererPreference(prefs[RENDERER], gpuHardwareProfile))
+            put("renderer", normalizeRendererPreference(prefs[RENDERER]))
             put("mediatekAngleOpenGl", prefs[MEDIATEK_ANGLE_OPENGL] ?: false)
             put("upscaleMultiplier", readUpscale(prefs).toDouble())
             put("biosPath", prefs[BIOS_PATH])
@@ -2465,17 +2467,27 @@ class AppPreferences(private val context: Context) {
             put("enableMtvu", prefs[ENABLE_MTVU] ?: true)
             put("enableThreadPinning", prefs[ENABLE_THREAD_PINNING] ?: false)
             put("enableFastCdvd", prefs[ENABLE_FAST_CDVD] ?: false)
-            put("hwDownloadMode", prefs[HW_DOWNLOAD_MODE] ?: 0)
-            put("frameSkip", prefs[FRAME_SKIP] ?: 0)
+            put("hwDownloadMode", GsHackDefaults.coerceHardwareDownloadMode(
+                prefs[HW_DOWNLOAD_MODE] ?: GsHackDefaults.HW_DOWNLOAD_MODE_DEFAULT
+            ))
+            put("frameSkip", GsHackDefaults.coerceFrameSkip(
+                prefs[FRAME_SKIP] ?: GsHackDefaults.FRAME_SKIP_DEFAULT
+            ))
             put("skipDuplicateFrames", prefs[SKIP_DUPLICATE_FRAMES] ?: true)
-            put("textureFiltering", prefs[TEXTURE_FILTERING] ?: GsHackDefaults.BILINEAR_FILTERING_DEFAULT)
+            put("textureFiltering", GsHackDefaults.coerceBilinearFiltering(
+                prefs[TEXTURE_FILTERING] ?: GsHackDefaults.BILINEAR_FILTERING_DEFAULT
+            ))
             put(
                 "trilinearFiltering",
                 prefs[TRILINEAR_FILTERING]?.let(GsHackDefaults::coerceTrilinearFiltering)
                     ?: GsHackDefaults.TRILINEAR_FILTERING_DEFAULT
             )
-            put("blendingAccuracy", prefs[BLENDING_ACCURACY] ?: defaultBlendingAccuracyForGpuProfile(gpuHardwareProfile, renderer))
-            put("texturePreloading", prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT)
+            put("blendingAccuracy", GsHackDefaults.coerceBlendingAccuracy(
+                prefs[BLENDING_ACCURACY] ?: GsHackDefaults.BLENDING_ACCURACY_DEFAULT
+            ))
+            put("texturePreloading", GsHackDefaults.coerceTexturePreloading(
+                prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT
+            ))
             put("textureReplacementsEnabled", prefs[TEXTURE_REPLACEMENTS_ENABLED] ?: false)
             put("textureReplacementsAsync", prefs[TEXTURE_REPLACEMENTS_ASYNC] ?: true)
             put("textureReplacementsPrecache", prefs[TEXTURE_REPLACEMENTS_PRECACHE] ?: false)
@@ -2487,7 +2499,9 @@ class AppPreferences(private val context: Context) {
             put("enableWidescreenPatches", prefs[ENABLE_WIDESCREEN_PATCHES] ?: false)
             put("enableNoInterlacingPatches", prefs[ENABLE_NO_INTERLACING_PATCHES] ?: false)
             put("antiBlur", prefs[ANTI_BLUR] ?: GsHackDefaults.ANTI_BLUR_DEFAULT)
-            put("anisotropicFiltering", prefs[ANISOTROPIC_FILTERING] ?: 0)
+            put("anisotropicFiltering", GsHackDefaults.coerceAnisotropicFiltering(
+                prefs[ANISOTROPIC_FILTERING] ?: GsHackDefaults.ANISOTROPIC_FILTERING_DEFAULT
+            ))
             put("enableHwMipmapping", prefs[ENABLE_HW_MIPMAPPING] ?: GsHackDefaults.HW_MIPMAPPING_DEFAULT)
             put("cpuSpriteRenderSize", prefs[CPU_SPRITE_RENDER_SIZE] ?: GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT)
             put("cpuSpriteRenderLevel", prefs[CPU_SPRITE_RENDER_LEVEL] ?: GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT)
@@ -2507,7 +2521,9 @@ class AppPreferences(private val context: Context) {
             put("estimateTextureRegion", prefs[ESTIMATE_TEXTURE_REGION] ?: false)
             put("gpuPaletteConversion", prefs[GPU_PALETTE_CONVERSION] ?: false)
             put("halfPixelOffset", prefs[HALF_PIXEL_OFFSET] ?: GsHackDefaults.HALF_PIXEL_OFFSET_DEFAULT)
-            put("nativeScaling", prefs[NATIVE_SCALING] ?: GsHackDefaults.NATIVE_SCALING_DEFAULT)
+            put("nativeScaling", GsHackDefaults.coerceNativeScaling(
+                prefs[NATIVE_SCALING] ?: GsHackDefaults.NATIVE_SCALING_DEFAULT
+            ))
             put("roundSprite", prefs[ROUND_SPRITE] ?: GsHackDefaults.ROUND_SPRITE_DEFAULT)
             put("bilinearUpscale", prefs[BILINEAR_UPSCALE] ?: GsHackDefaults.BILINEAR_UPSCALE_DEFAULT)
             put("textureOffsetX", prefs[TEXTURE_OFFSET_X] ?: 0)
@@ -2569,8 +2585,7 @@ class AppPreferences(private val context: Context) {
             )
             prefs[GPU_HARDWARE_PROFILE] = gpuHardwareProfile
             val importedRenderer = normalizeRendererPreference(
-                if (json.has("renderer")) json.optInt("renderer") else null,
-                gpuHardwareProfile
+                if (json.has("renderer")) json.optInt("renderer") else null
             )
             prefs[RENDERER] = importedRenderer
             prefs[MEDIATEK_ANGLE_OPENGL] = json.optBoolean("mediatekAngleOpenGl", false) &&
@@ -2645,20 +2660,28 @@ class AppPreferences(private val context: Context) {
             prefs[ENABLE_MTVU] = json.optBoolean("enableMtvu", true)
             prefs[ENABLE_THREAD_PINNING] = json.optBoolean("enableThreadPinning", false)
             prefs[ENABLE_FAST_CDVD] = json.optBoolean("enableFastCdvd", false)
-            prefs[HW_DOWNLOAD_MODE] = json.optInt("hwDownloadMode", 0).coerceIn(0, 3)
-            prefs[FRAME_SKIP] = json.optInt("frameSkip", 0)
+            prefs[HW_DOWNLOAD_MODE] = GsHackDefaults.coerceHardwareDownloadMode(
+                json.optInt("hwDownloadMode", GsHackDefaults.HW_DOWNLOAD_MODE_DEFAULT)
+            )
+            prefs[FRAME_SKIP] = GsHackDefaults.coerceFrameSkip(
+                json.optInt("frameSkip", GsHackDefaults.FRAME_SKIP_DEFAULT)
+            )
             prefs[SKIP_DUPLICATE_FRAMES] = json.optBoolean("skipDuplicateFrames", true)
-            prefs[TEXTURE_FILTERING] = json.optInt("textureFiltering", GsHackDefaults.BILINEAR_FILTERING_DEFAULT).coerceIn(0, 3)
+            prefs[TEXTURE_FILTERING] = GsHackDefaults.coerceBilinearFiltering(
+                json.optInt("textureFiltering", GsHackDefaults.BILINEAR_FILTERING_DEFAULT)
+            )
             prefs[TRILINEAR_FILTERING] = GsHackDefaults.coerceTrilinearFiltering(
                 json.optInt("trilinearFiltering", GsHackDefaults.TRILINEAR_FILTERING_DEFAULT)
             )
             val importedBlendingAccuracy = if (json.has("blendingAccuracy")) {
                 json.optInt("blendingAccuracy")
             } else {
-                defaultBlendingAccuracyForGpuProfile(gpuHardwareProfile, importedRenderer)
+                GsHackDefaults.BLENDING_ACCURACY_DEFAULT
             }
-            prefs[BLENDING_ACCURACY] = importedBlendingAccuracy.coerceIn(0, 5)
-            prefs[TEXTURE_PRELOADING] = json.optInt("texturePreloading", GsHackDefaults.TEXTURE_PRELOADING_DEFAULT).coerceIn(0, 2)
+            prefs[BLENDING_ACCURACY] = GsHackDefaults.coerceBlendingAccuracy(importedBlendingAccuracy)
+            prefs[TEXTURE_PRELOADING] = GsHackDefaults.coerceTexturePreloading(
+                json.optInt("texturePreloading", GsHackDefaults.TEXTURE_PRELOADING_DEFAULT)
+            )
             prefs[TEXTURE_REPLACEMENTS_ENABLED] = json.optBoolean("textureReplacementsEnabled", false)
             prefs[TEXTURE_REPLACEMENTS_ASYNC] = json.optBoolean("textureReplacementsAsync", true)
             prefs[TEXTURE_REPLACEMENTS_PRECACHE] = json.optBoolean("textureReplacementsPrecache", false)
@@ -2672,7 +2695,9 @@ class AppPreferences(private val context: Context) {
             prefs[ENABLE_WIDESCREEN_PATCHES] = json.optBoolean("enableWidescreenPatches", false)
             prefs[ENABLE_NO_INTERLACING_PATCHES] = json.optBoolean("enableNoInterlacingPatches", false)
             prefs[ANTI_BLUR] = json.optBoolean("antiBlur", GsHackDefaults.ANTI_BLUR_DEFAULT)
-            prefs[ANISOTROPIC_FILTERING] = json.optInt("anisotropicFiltering", 0)
+            prefs[ANISOTROPIC_FILTERING] = GsHackDefaults.coerceAnisotropicFiltering(
+                json.optInt("anisotropicFiltering", GsHackDefaults.ANISOTROPIC_FILTERING_DEFAULT)
+            )
             prefs[ENABLE_HW_MIPMAPPING] = json.optBoolean("enableHwMipmapping", GsHackDefaults.HW_MIPMAPPING_DEFAULT)
             prefs[CPU_SPRITE_RENDER_SIZE] = json.optInt("cpuSpriteRenderSize", GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT).coerceIn(0, 10)
             prefs[CPU_SPRITE_RENDER_LEVEL] = json.optInt("cpuSpriteRenderLevel", GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT).coerceIn(0, 2)
@@ -2692,7 +2717,9 @@ class AppPreferences(private val context: Context) {
             prefs[ESTIMATE_TEXTURE_REGION] = json.optBoolean("estimateTextureRegion", false)
             prefs[GPU_PALETTE_CONVERSION] = json.optBoolean("gpuPaletteConversion", false)
             prefs[HALF_PIXEL_OFFSET] = json.optInt("halfPixelOffset", GsHackDefaults.HALF_PIXEL_OFFSET_DEFAULT).coerceIn(0, 5)
-            prefs[NATIVE_SCALING] = json.optInt("nativeScaling", GsHackDefaults.NATIVE_SCALING_DEFAULT).coerceIn(0, 2)
+            prefs[NATIVE_SCALING] = GsHackDefaults.coerceNativeScaling(
+                json.optInt("nativeScaling", GsHackDefaults.NATIVE_SCALING_DEFAULT)
+            )
             prefs[ROUND_SPRITE] = json.optInt("roundSprite", GsHackDefaults.ROUND_SPRITE_DEFAULT).coerceIn(0, 2)
             prefs[BILINEAR_UPSCALE] = json.optInt("bilinearUpscale", GsHackDefaults.BILINEAR_UPSCALE_DEFAULT).coerceIn(0, 2)
             prefs[TEXTURE_OFFSET_X] = json.optInt("textureOffsetX", 0).coerceIn(-4096, 4096)

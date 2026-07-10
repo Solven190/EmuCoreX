@@ -750,7 +750,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             markPerformancePresetCustom()
             preferences.setFrameSkip(value)
-            EmulatorBridge.setSetting("EmuCore/GS", "FrameSkip", "int", value.toString())
+            EmulatorBridge.setFrameSkip(value)
         }
     }
 

@@ -1350,4 +1350,7 @@
     <string name="settings_touch_haptics_test_desc">Riproduce una breve vibrazione utilizzando l\'attuale intensità del feedback aptico.</string>
     <string name="settings_help_touch_haptics_strength">Controlla l\'intensità della vibrazione del dispositivo utilizzata per il feedback aptico dei controlli touch. Aumentala se la vibrazione è troppo leggera, oppure diminuiscila per un gioco portatile più silenzioso.</string>
     <string name="settings_help_touch_haptics_test">Riproduce lo stesso impulso aptico del dispositivo utilizzato dai controlli sullo schermo, in modo da poter regolare l\'intensità prima di avviare un gioco.</string>
+    <string name="settings_native_scaling_normal_maintain_upscale">Normale (Mantieni upscaling)</string>
+    <string name="settings_native_scaling_aggressive_maintain_upscale">Aggressivo (Mantieni upscaling)</string>
+    <string name="settings_hw_download_mode_force_full">Accurato (Forza riletture complete)</string>
 </resources>

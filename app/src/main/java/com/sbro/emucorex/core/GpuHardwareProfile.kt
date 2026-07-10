@@ -19,11 +19,10 @@ object GpuHardwareProfiles {
         return normalize(profile) != ADRENO
     }
 
-    fun coreOverrideFor(profile: Int): String = when (normalize(profile)) {
-        MALI -> "mali"
-        POWERVR -> "powervr"
-        else -> "adreno"
-    }
+    // Build properties can identify the SoC vendor, but not the actual GPU reliably (some MediaTek
+    // generations use Mali and others use PowerVR). Let the native renderer use GL_RENDERER or
+    // VkPhysicalDeviceProperties::deviceName, which is the authoritative signal.
+    fun coreOverrideFor(@Suppress("UNUSED_PARAMETER") profile: Int): String = "auto"
 
     fun isMediaTekHardware(): Boolean {
         return detectHardwareProfile() == MALI
@@ -47,12 +46,19 @@ object GpuHardwareProfiles {
             .joinToString(" ")
             .lowercase()
 
-        val profile = when {
-            listOf("mediatek", "mtk", "mt").any(hints::contains) -> MALI
-            listOf("qualcomm", "qcom", "snapdragon", "adreno").any(hints::contains) -> ADRENO
-            else -> ADRENO
-        }
+        val profile = classifyHardwareProfile(hints)
         cachedDetectedProfile = profile
         return profile
+    }
+
+    internal fun classifyHardwareProfile(rawHints: String): Int {
+        val hints = rawHints.lowercase()
+        return when {
+            listOf("powervr", "imgtec", "imagination technologies").any(hints::contains) -> POWERVR
+            listOf("qualcomm", "qcom", "snapdragon", "adreno").any(hints::contains) -> ADRENO
+            listOf("mediatek", "mtk", "dimensity", "helio").any(hints::contains) ||
+                Regex("""\bmt\d{4}\b""").containsMatchIn(hints) -> MALI
+            else -> ADRENO
+        }
     }
 }

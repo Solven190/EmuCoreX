@@ -939,8 +939,6 @@ public:
 		bool dxt_textures         : 1; ///< Supports DXTn texture compression, i.e. S3TC and BC1-3.
 		bool bptc_textures        : 1; ///< Supports BC6/7 texture compression.
 		bool framebuffer_fetch    : 1; ///< Can sample from the framebuffer without texture barriers.
-		bool prefer_mobile_light_gs : 1; ///< Prefer lower-cost GS paths for constrained mobile GPUs.
-		bool prefer_mobile_sw_blend : 1; ///< Prefers shader blend fallback for problematic mobile alpha paths.
 		bool stencil_buffer       : 1; ///< Supports stencil buffer, and can use for DATE.
 		bool cas_sharpening       : 1; ///< Supports sufficient functionality for contrast adaptive sharpening.
 		bool test_and_sample_depth: 1; ///< Supports concurrently binding the depth-stencil buffer for sampling and depth testing.
@@ -986,8 +984,8 @@ protected:
 	std::string m_name = "Unknown";
 	FeatureSupport m_features;
 	u32 m_max_texture_size = 0;
-	RuntimeGpuProfile m_runtime_gpu_profile = RuntimeGpuProfile::Adreno;
-	bool m_is_mali_hardware = false;
+	RuntimeGpuProfile m_runtime_gpu_profile = RuntimeGpuProfile::Unknown;
+	MobileGpuIdentity m_mobile_gpu_identity;
 	MobileGsTuning m_mobile_gs_tuning;
 
 	struct
@@ -1095,14 +1093,15 @@ public:
 	__fi FeatureSupport Features() const { return m_features; }
 	__fi u32 GetMaxTextureSize() const { return m_max_texture_size; }
 	__fi void SetRuntimeGPUProfile(RuntimeGpuProfile profile) { m_runtime_gpu_profile = profile; }
+	__fi void SetMobileGPUIdentity(const MobileGpuIdentity& identity) { m_mobile_gpu_identity = identity; }
 	__fi void SetMobileGSTuning(const MobileGsTuning& tuning) { m_mobile_gs_tuning = tuning; }
 	__fi RuntimeGpuProfile GetRuntimeGPUProfile() const { return m_runtime_gpu_profile; }
+	__fi const MobileGpuIdentity& GetMobileGPUIdentity() const { return m_mobile_gpu_identity; }
 	__fi const MobileGsTuning& GetMobileGSTuning() const { return m_mobile_gs_tuning; }
 	__fi bool IsConstrainedMobileGPUProfile() const { return m_mobile_gs_tuning.constrained; }
 	__fi bool IsMaliGPUProfile() const { return m_runtime_gpu_profile == RuntimeGpuProfile::Mali; }
 	__fi bool IsAdrenoGPUProfile() const { return m_runtime_gpu_profile == RuntimeGpuProfile::Adreno; }
 	__fi bool IsPowerVRGPUProfile() const { return m_runtime_gpu_profile == RuntimeGpuProfile::PowerVR; }
-	__fi bool IsMaliHardware() const { return m_is_mali_hardware; }
 
 	__fi const WindowInfo& GetWindowInfo() const { return m_window_info; }
 	__fi s32 GetWindowWidth() const { return static_cast<s32>(m_window_info.surface_width); }

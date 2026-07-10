@@ -2,6 +2,8 @@ package com.sbro.emucorex.core
 
 object GsHackDefaults {
     const val BILINEAR_FILTERING_DEFAULT = 2
+    const val BILINEAR_FILTERING_MIN = 0
+    const val BILINEAR_FILTERING_MAX = 3
     const val TRILINEAR_FILTERING_DEFAULT = -1
     const val TRILINEAR_FILTERING_MIN = -1
     const val TRILINEAR_FILTERING_MAX = 2
@@ -14,12 +16,21 @@ object GsHackDefaults {
     const val BLENDING_ACCURACY_FULL = 4
     const val BLENDING_ACCURACY_MAXIMUM = 5
     const val TEXTURE_PRELOADING_DEFAULT = 2
+    const val TEXTURE_PRELOADING_MIN = 0
+    const val TEXTURE_PRELOADING_MAX = 2
     const val ANISOTROPIC_FILTERING_DEFAULT = 0
     const val HW_MIPMAPPING_DEFAULT = true
     const val ANTI_BLUR_DEFAULT = true
     const val HW_DOWNLOAD_MODE_DEFAULT = 0
+    const val HW_DOWNLOAD_MODE_MIN = 0
+    const val HW_DOWNLOAD_MODE_MAX = 4
+    const val FRAME_SKIP_DEFAULT = 0
+    const val FRAME_SKIP_MIN = 0
+    const val FRAME_SKIP_MAX = 4
     const val HALF_PIXEL_OFFSET_DEFAULT = 0
     const val NATIVE_SCALING_DEFAULT = 0
+    const val NATIVE_SCALING_MIN = 0
+    const val NATIVE_SCALING_MAX = 4
     const val ROUND_SPRITE_DEFAULT = 0
     const val BILINEAR_UPSCALE_DEFAULT = 0
     const val AUTO_FLUSH_DEFAULT = 0
@@ -29,8 +40,39 @@ object GsHackDefaults {
     const val CPU_SPRITE_RENDER_LEVEL_DEFAULT = 0
     const val SOFTWARE_CLUT_RENDER_DEFAULT = 0
 
+    fun coerceBilinearFiltering(value: Int): Int {
+        return value.coerceIn(BILINEAR_FILTERING_MIN, BILINEAR_FILTERING_MAX)
+    }
+
     fun coerceTrilinearFiltering(value: Int): Int {
         return value.coerceIn(TRILINEAR_FILTERING_MIN, TRILINEAR_FILTERING_MAX)
+    }
+
+    fun coerceBlendingAccuracy(value: Int): Int {
+        return value.coerceIn(BLENDING_ACCURACY_MINIMUM, BLENDING_ACCURACY_MAXIMUM)
+    }
+
+    fun coerceTexturePreloading(value: Int): Int {
+        return value.coerceIn(TEXTURE_PRELOADING_MIN, TEXTURE_PRELOADING_MAX)
+    }
+
+    fun coerceHardwareDownloadMode(value: Int): Int {
+        return value.coerceIn(HW_DOWNLOAD_MODE_MIN, HW_DOWNLOAD_MODE_MAX)
+    }
+
+    fun coerceFrameSkip(value: Int): Int {
+        return value.coerceIn(FRAME_SKIP_MIN, FRAME_SKIP_MAX)
+    }
+
+    fun coerceAnisotropicFiltering(value: Int): Int {
+        return if (value == 0 || value == 2 || value == 4 || value == 8 || value == 16)
+            value
+        else
+            ANISOTROPIC_FILTERING_DEFAULT
+    }
+
+    fun coerceNativeScaling(value: Int): Int {
+        return value.coerceIn(NATIVE_SCALING_MIN, NATIVE_SCALING_MAX)
     }
 
     fun coerceTvShader(value: Int): Int {

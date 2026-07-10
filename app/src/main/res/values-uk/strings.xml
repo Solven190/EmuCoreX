@@ -363,6 +363,7 @@
     <string name="settings_instant_vu1_desc">Виконує роботу VU1 із менш строгими таймінгами</string>
     <string name="settings_hw_download_mode_desc">Змінює поведінку синхронізації для апаратних GS-завантажень. Accurate — найбезпечніший варіант.</string>
     <string name="settings_hw_download_mode_accurate">Accurate</string>
+    <string name="settings_hw_download_mode_force_full">Точний (повні readback)</string>
     <string name="settings_hw_download_mode_no_readbacks">Без readback</string>
     <string name="settings_hw_download_mode_unsynchronized">Без синхронізації</string>
     <string name="settings_hw_download_mode_disabled">Вимкнено</string>
@@ -418,6 +419,8 @@
     <string name="settings_native_scaling_off">Вимк.</string>
     <string name="settings_native_scaling_normal">Normal</string>
     <string name="settings_native_scaling_aggressive">Aggressive</string>
+    <string name="settings_native_scaling_normal_maintain_upscale">Normal (зі збереженням upscale)</string>
+    <string name="settings_native_scaling_aggressive_maintain_upscale">Aggressive (зі збереженням upscale)</string>
     <string name="settings_round_sprite">Round Sprite</string>
     <string name="settings_round_sprite_half">Half</string>
     <string name="settings_round_sprite_full">Full</string>

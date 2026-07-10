@@ -1352,4 +1352,7 @@
     <string name="settings_touch_haptics_test_desc">Émet une brève vibration en utilisant l\'intensité du retour haptique actuelle.</string>
     <string name="settings_help_touch_haptics_strength">Contrôle l\'intensité des vibrations de l\'appareil utilisée pour le retour haptique tactile. Augmentez-la si la vibration est trop subtile, ou baissez-la pour jouer plus silencieusement en mode portable.</string>
     <string name="settings_help_touch_haptics_test">Émet la même impulsion haptique de l\'appareil utilisée par les commandes à l\'écran, afin que vous puissiez régler l\'intensité avant de lancer un jeu.</string>
+    <string name="settings_native_scaling_normal_maintain_upscale">Normal (Maintenir la mise à l\'échelle)</string>
+    <string name="settings_native_scaling_aggressive_maintain_upscale">Agressif (Maintenir la mise à l\'échelle)</string>
+    <string name="settings_hw_download_mode_force_full">Précis (Forcer les relectures complètes)</string>
 </resources>

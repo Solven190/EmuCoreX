@@ -67,6 +67,7 @@ object NativeApp {
     @JvmStatic external fun endSettingsBatch()
     @JvmStatic external fun setSetting(section: String, key: String, type: String, value: String)
     @JvmStatic external fun getSetting(section: String, key: String, type: String): String?
+    @JvmStatic external fun setFrameSkip(frames: Int)
     @JvmStatic external fun setFrameLimitEnabled(enabled: Boolean)
     @JvmStatic external fun setTurboModeEnabled(enabled: Boolean)
     @JvmStatic external fun reloadPatches()

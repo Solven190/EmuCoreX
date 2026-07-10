@@ -979,11 +979,17 @@ void MTGS::ApplySettings()
 		GSUpdateConfig(opts);
 	});
 
+	// Android changes these settings from the in-game UI and may immediately perform another
+	// surface/settings operation. Do not report the batch as applied while GS is still reopening.
+#ifdef __ANDROID__
+	WaitGS(false, false, false);
+#else
 	// We need to synchronize the thread when changing any settings when the download mode
 	// is unsynchronized, because otherwise we might potentially read in the middle of
 	// the GS renderer being reopened.
 	if (EmuConfig.GS.HWDownloadMode == GSHardwareDownloadMode::Unsynchronized)
 		WaitGS(false, false, false);
+#endif
 }
 
 void MTGS::ResizeDisplayWindow(u32 width, u32 height, float scale)

@@ -270,7 +270,6 @@ private data class EmulationLaunchConfig(
     val mergeSprite: Boolean,
     val forceEvenSpritePosition: Boolean,
     val nativePaletteDraw: Boolean,
-    val disableHardwareReadbacks: Boolean,
     val fpuCorrectAddSub: Boolean
 )
 
@@ -1302,7 +1301,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     forceEvenSpritePosition = config.forceEvenSpritePosition,
                     nativePaletteDraw = config.nativePaletteDraw,
                     autotestMode = autotestMode || bootSmokeProbe,
-                    disableHardwareReadbacks = config.disableHardwareReadbacks,
                     fpuCorrectAddSub = config.fpuCorrectAddSub
                 )
 
@@ -2187,7 +2185,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setPerformancePreset(PerformancePresets.CUSTOM)
                 preferences.setFrameSkip(value)
             }
-            EmulatorBridge.setSetting("EmuCore/GS", "FrameSkip", "int", value.toString())
+            EmulatorBridge.setFrameSkip(value)
             updateCrashContext()
         }
     }
@@ -3237,7 +3235,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             mergeSprite = settings.mergeSprite,
             forceEvenSpritePosition = settings.forceEvenSpritePosition,
             nativePaletteDraw = settings.nativePaletteDraw,
-            disableHardwareReadbacks = profileConfig.disableHardwareReadbacks,
             fpuCorrectAddSub = profileConfig.fpuCorrectAddSub
         ).applyProfile(profile)
     }

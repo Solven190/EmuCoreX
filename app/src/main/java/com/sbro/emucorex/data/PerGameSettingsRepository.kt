@@ -223,10 +223,14 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         eeFpuClampingMode = sanitizeClampingMode(optInt("eeFpuClampingMode", AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE), AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE),
         vu0ClampingMode = sanitizeClampingMode(optInt("vu0ClampingMode", AppPreferences.DEFAULT_VU0_CLAMPING_MODE), AppPreferences.DEFAULT_VU0_CLAMPING_MODE),
         vu1ClampingMode = sanitizeClampingMode(optInt("vu1ClampingMode", AppPreferences.DEFAULT_VU1_CLAMPING_MODE), AppPreferences.DEFAULT_VU1_CLAMPING_MODE),
-        hwDownloadMode = optInt("hwDownloadMode", 0),
+        hwDownloadMode = GsHackDefaults.coerceHardwareDownloadMode(
+            optInt("hwDownloadMode", GsHackDefaults.HW_DOWNLOAD_MODE_DEFAULT)
+        ),
         eeCycleRate = optInt("eeCycleRate", 0),
         eeCycleSkip = optInt("eeCycleSkip", 0),
-        frameSkip = optInt("frameSkip", 0),
+        frameSkip = GsHackDefaults.coerceFrameSkip(
+            optInt("frameSkip", GsHackDefaults.FRAME_SKIP_DEFAULT)
+        ),
         skipDuplicateFrames = optBoolean("skipDuplicateFrames", true),
         frameLimitEnabled = optBoolean("frameLimitEnabled", true),
         targetFps = optInt("targetFps", 0).let { if (it <= 0) 0 else it.coerceIn(20, 120) },
@@ -236,10 +240,16 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         palFramerate = optDouble("palFramerate", AppPreferences.DEFAULT_PAL_FRAMERATE.toDouble()).toFloat().let {
             sanitizeRegionFramerate(it, AppPreferences.DEFAULT_PAL_FRAMERATE)
         },
-        textureFiltering = optInt("textureFiltering", GsHackDefaults.BILINEAR_FILTERING_DEFAULT),
+        textureFiltering = GsHackDefaults.coerceBilinearFiltering(
+            optInt("textureFiltering", GsHackDefaults.BILINEAR_FILTERING_DEFAULT)
+        ),
         trilinearFiltering = readTrilinearFiltering(),
-        blendingAccuracy = optInt("blendingAccuracy", GsHackDefaults.BLENDING_ACCURACY_DEFAULT),
-        texturePreloading = optInt("texturePreloading", GsHackDefaults.TEXTURE_PRELOADING_DEFAULT),
+        blendingAccuracy = GsHackDefaults.coerceBlendingAccuracy(
+            optInt("blendingAccuracy", GsHackDefaults.BLENDING_ACCURACY_DEFAULT)
+        ),
+        texturePreloading = GsHackDefaults.coerceTexturePreloading(
+            optInt("texturePreloading", GsHackDefaults.TEXTURE_PRELOADING_DEFAULT)
+        ),
         enableFxaa = optBoolean("enableFxaa", false),
         casMode = optInt("casMode", 0),
         casSharpness = optInt("casSharpness", 50),
@@ -254,7 +264,9 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         shadeBoostContrast = optInt("shadeBoostContrast", 50).coerceIn(1, 100),
         shadeBoostSaturation = optInt("shadeBoostSaturation", 50).coerceIn(1, 100),
         shadeBoostGamma = optInt("shadeBoostGamma", 50).coerceIn(1, 100),
-        anisotropicFiltering = optInt("anisotropicFiltering", 0),
+        anisotropicFiltering = GsHackDefaults.coerceAnisotropicFiltering(
+            optInt("anisotropicFiltering", GsHackDefaults.ANISOTROPIC_FILTERING_DEFAULT)
+        ),
         enableHwMipmapping = optBoolean("enableHwMipmapping", GsHackDefaults.HW_MIPMAPPING_DEFAULT),
         antiBlur = optBoolean("antiBlur", GsHackDefaults.ANTI_BLUR_DEFAULT),
         enableWidescreenPatches = optBoolean("enableWidescreenPatches", false),
@@ -277,7 +289,9 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         estimateTextureRegion = optBoolean("estimateTextureRegion", false),
         gpuPaletteConversion = optBoolean("gpuPaletteConversion", false),
         halfPixelOffset = optInt("halfPixelOffset", GsHackDefaults.HALF_PIXEL_OFFSET_DEFAULT),
-        nativeScaling = optInt("nativeScaling", GsHackDefaults.NATIVE_SCALING_DEFAULT),
+        nativeScaling = GsHackDefaults.coerceNativeScaling(
+            optInt("nativeScaling", GsHackDefaults.NATIVE_SCALING_DEFAULT)
+        ),
         roundSprite = optInt("roundSprite", GsHackDefaults.ROUND_SPRITE_DEFAULT),
         bilinearUpscale = optInt("bilinearUpscale", GsHackDefaults.BILINEAR_UPSCALE_DEFAULT),
         textureOffsetX = optInt("textureOffsetX", 0),
@@ -323,19 +337,19 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("eeFpuClampingMode")) put("eeFpuClampingMode", sanitizeClampingMode(eeFpuClampingMode, AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE))
         if (shouldWrite("vu0ClampingMode")) put("vu0ClampingMode", sanitizeClampingMode(vu0ClampingMode, AppPreferences.DEFAULT_VU0_CLAMPING_MODE))
         if (shouldWrite("vu1ClampingMode")) put("vu1ClampingMode", sanitizeClampingMode(vu1ClampingMode, AppPreferences.DEFAULT_VU1_CLAMPING_MODE))
-        if (shouldWrite("hwDownloadMode")) put("hwDownloadMode", hwDownloadMode)
+        if (shouldWrite("hwDownloadMode")) put("hwDownloadMode", GsHackDefaults.coerceHardwareDownloadMode(hwDownloadMode))
         if (shouldWrite("eeCycleRate")) put("eeCycleRate", eeCycleRate)
         if (shouldWrite("eeCycleSkip")) put("eeCycleSkip", eeCycleSkip)
-        if (shouldWrite("frameSkip")) put("frameSkip", frameSkip)
+        if (shouldWrite("frameSkip")) put("frameSkip", GsHackDefaults.coerceFrameSkip(frameSkip))
         if (shouldWrite("skipDuplicateFrames")) put("skipDuplicateFrames", skipDuplicateFrames)
         if (shouldWrite("frameLimitEnabled")) put("frameLimitEnabled", frameLimitEnabled)
         if (shouldWrite("targetFps")) put("targetFps", targetFps)
         if (shouldWrite("ntscFramerate")) put("ntscFramerate", ntscFramerate.toDouble())
         if (shouldWrite("palFramerate")) put("palFramerate", palFramerate.toDouble())
-        if (shouldWrite("textureFiltering")) put("textureFiltering", textureFiltering)
+        if (shouldWrite("textureFiltering")) put("textureFiltering", GsHackDefaults.coerceBilinearFiltering(textureFiltering))
         if (shouldWrite("trilinearFiltering")) put("trilinearFiltering", GsHackDefaults.coerceTrilinearFiltering(trilinearFiltering))
-        if (shouldWrite("blendingAccuracy")) put("blendingAccuracy", blendingAccuracy)
-        if (shouldWrite("texturePreloading")) put("texturePreloading", texturePreloading)
+        if (shouldWrite("blendingAccuracy")) put("blendingAccuracy", GsHackDefaults.coerceBlendingAccuracy(blendingAccuracy))
+        if (shouldWrite("texturePreloading")) put("texturePreloading", GsHackDefaults.coerceTexturePreloading(texturePreloading))
         if (shouldWrite("enableFxaa")) put("enableFxaa", enableFxaa)
         if (shouldWrite("casMode")) put("casMode", casMode)
         if (shouldWrite("casSharpness")) put("casSharpness", casSharpness)
@@ -345,7 +359,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("shadeBoostContrast")) put("shadeBoostContrast", shadeBoostContrast)
         if (shouldWrite("shadeBoostSaturation")) put("shadeBoostSaturation", shadeBoostSaturation)
         if (shouldWrite("shadeBoostGamma")) put("shadeBoostGamma", shadeBoostGamma)
-        if (shouldWrite("anisotropicFiltering")) put("anisotropicFiltering", anisotropicFiltering)
+        if (shouldWrite("anisotropicFiltering")) put("anisotropicFiltering", GsHackDefaults.coerceAnisotropicFiltering(anisotropicFiltering))
         if (shouldWrite("enableHwMipmapping")) put("enableHwMipmapping", enableHwMipmapping)
         if (shouldWrite("antiBlur")) put("antiBlur", antiBlur)
         if (shouldWrite("enableWidescreenPatches")) put("enableWidescreenPatches", enableWidescreenPatches)
@@ -368,7 +382,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("estimateTextureRegion")) put("estimateTextureRegion", estimateTextureRegion)
         if (shouldWrite("gpuPaletteConversion")) put("gpuPaletteConversion", gpuPaletteConversion)
         if (shouldWrite("halfPixelOffset")) put("halfPixelOffset", halfPixelOffset)
-        if (shouldWrite("nativeScaling")) put("nativeScaling", nativeScaling)
+        if (shouldWrite("nativeScaling")) put("nativeScaling", GsHackDefaults.coerceNativeScaling(nativeScaling))
         if (shouldWrite("roundSprite")) put("roundSprite", roundSprite)
         if (shouldWrite("bilinearUpscale")) put("bilinearUpscale", bilinearUpscale)
         if (shouldWrite("textureOffsetX")) put("textureOffsetX", textureOffsetX)

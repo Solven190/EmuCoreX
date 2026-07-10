@@ -79,15 +79,6 @@ bool GetBoolSetting(const RuntimeSettings& settings, const char* section, const 
 	return fallback;
 }
 
-bool IsMediatekGpuProfileOverride(const RuntimeSettings& settings)
-{
-	const auto it = settings.find("EmuCore/GS\nAndroidGpuProfileOverride");
-	if (it == settings.end())
-		return false;
-
-	return it->second == "mali" || it->second == "powervr";
-}
-
 bool FileExists(const std::string& path)
 {
 	return !path.empty() && FileSystem::FileExists(path.c_str());
@@ -97,8 +88,7 @@ void ApplyAngleOpenGLLibraryHints(const VmLaunchConfig& config)
 {
 	const bool requested = GetBoolSetting(config.settings, "EmuCore/GS", "AndroidUseAngleOpenGL", false);
 	const int renderer = GetIntSetting(config.settings, "EmuCore/GS", "Renderer", static_cast<s32>(GSRendererType::VK));
-	const bool mediatek_profile = IsMediatekGpuProfileOverride(config.settings);
-	const bool eligible = requested && mediatek_profile && renderer == static_cast<s32>(GSRendererType::OGL);
+	const bool eligible = requested && renderer == static_cast<s32>(GSRendererType::OGL);
 
 	const std::string egl_path = Path::Combine(config.paths.native_library_dir, "libEGL_angle.so");
 	const std::string gles_path = Path::Combine(config.paths.native_library_dir, "libGLESv2_angle.so");

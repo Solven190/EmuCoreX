@@ -1350,4 +1350,7 @@
     <string name="settings_touch_haptics_test_desc">現在のタッチハプティクスの強度を使用して短い振動を再生します。</string>
     <string name="settings_help_touch_haptics_strength">タッチ操作のハプティクスに使用されるデバイスの振動強度を制御します。振動が弱すぎる場合は上げ、携帯モードでより静かにプレイしたい場合は下げます。</string>
     <string name="settings_help_touch_haptics_test">画面上のコントロールで使用されるのと同じデバイスのハプティクス振動を再生するため、ゲームを起動する前に強度を調整できます。</string>
+    <string name="settings_native_scaling_normal_maintain_upscale">標準 (アップスケールを維持)</string>
+    <string name="settings_native_scaling_aggressive_maintain_upscale">アグレッシブ (アップスケールを維持)</string>
+    <string name="settings_hw_download_mode_force_full">正確 (完全なリードバックを強制)</string>
 </resources>

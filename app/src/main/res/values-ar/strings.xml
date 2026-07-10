@@ -1350,4 +1350,7 @@
     <string name="settings_touch_haptics_test_desc">يشغل نبضة قصيرة باستخدام قوة استجابة اللمس الحالية.</string>
     <string name="settings_help_touch_haptics_strength">يتحكم في قوة اهتزاز الجهاز المستخدمة لاستجابة اللمس لعناصر التحكم. قم بزيادتها إذا كانت النبضة خفيفة للغاية، أو قم بخفضها للعب محمول أكثر هدوءًا.</string>
     <string name="settings_help_touch_haptics_test">يشغل نفس نبضة اللمس للجهاز التي تستخدمها عناصر التحكم على الشاشة، حتى تتمكن من ضبط القوة قبل بدء اللعبة.</string>
+    <string name="settings_native_scaling_normal_maintain_upscale">عادي (الحفاظ على الترقية)</string>
+    <string name="settings_native_scaling_aggressive_maintain_upscale">صارم (الحفاظ على الترقية)</string>
+    <string name="settings_hw_download_mode_force_full">دقيق (فرض القراءة الكاملة)</string>
 </resources>

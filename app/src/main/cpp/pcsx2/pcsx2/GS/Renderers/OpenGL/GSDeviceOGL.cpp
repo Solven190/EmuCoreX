@@ -841,11 +841,13 @@ bool GSDeviceOGL::CheckFeatures()
 	const GpuProfileSelection gpu_profile_selection =
 		GpuProfileDetector::Resolve(GSConfig.AndroidGpuProfileOverride, vendor_str, renderer_str);
 	SetRuntimeGPUProfile(gpu_profile_selection.runtime_profile);
+	SetMobileGPUIdentity(gpu_profile_selection.gpu);
 	SetMobileGSTuning(gpu_profile_selection.gs_tuning);
-	Console.WriteLn("GL: Android GPU profile override='%s' resolved='%s' tier='%s'%s.",
+	Console.WriteLn("GL: Android GPU profile override='%s' resolved='%s' model='%s' architecture='%s'%s.",
 		GpuProfileDetector::OverrideToConfigString(gpu_profile_selection.override_mode),
 		GpuProfileDetector::RuntimeProfileToString(gpu_profile_selection.runtime_profile),
-		GpuProfileDetector::MobileTierToString(gpu_profile_selection.gs_tuning.tier),
+		gpu_profile_selection.gpu.name.c_str(),
+		GpuProfileDetector::ArchitectureToString(gpu_profile_selection.gpu.architecture),
 		gpu_profile_selection.gs_tuning.constrained ? " constrained" : "");
 	DevCon.WriteLn("GL: Android GPU profile hints: %s", gpu_profile_selection.hints.c_str());
 	bool gpu_profile_mali = IsMaliGPUProfile();
@@ -855,7 +857,8 @@ bool GSDeviceOGL::CheckFeatures()
 	bool gpu_profile_mali = vendor_id_mali;
 	bool gpu_profile_adreno = vendor_id_adreno;
 	bool gpu_profile_powervr = false;
-	SetRuntimeGPUProfile(gpu_profile_mali ? RuntimeGpuProfile::Mali : RuntimeGpuProfile::Adreno);
+	SetRuntimeGPUProfile(gpu_profile_mali ? RuntimeGpuProfile::Mali :
+		(gpu_profile_adreno ? RuntimeGpuProfile::Adreno : RuntimeGpuProfile::Unknown));
 #endif
 
 	GLint major_gl = 0;
@@ -978,7 +981,7 @@ bool GSDeviceOGL::CheckFeatures()
 		GSConfig.TexturePreloading = TexturePreloadingLevel::Partial;
 		Console.Warning("GL: Mobile GS %s/%s profile lowered texture preloading to partial.",
 			GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
-			GpuProfileDetector::MobileTierToString(mobile_gs_tuning.tier));
+			gpu_profile_selection.gpu.name.c_str());
 	}
 #endif
 	m_features.stencil_buffer = true;
@@ -991,43 +994,24 @@ bool GSDeviceOGL::CheckFeatures()
 		m_features.texture_barrier = framebuffer_fetch || has_texture_barrier_extension;
 
 	m_features.framebuffer_fetch = framebuffer_fetch;
-	if (gpu_profile_mali)
-	{
-		if (has_arm_framebuffer_fetch)
-		{
-			framebuffer_fetch = true;
-			m_features.framebuffer_fetch = true;
-			DevCon.WriteLn("GL: Mali GPU profile enabled ARM framebuffer fetch path.");
-		}
-		else
-		{
-			Console.Warning("GL: Mali GPU profile requested but ARM framebuffer fetch is unavailable; using PowerVR-style fallback.");
-			SetRuntimeGPUProfile(RuntimeGpuProfile::PowerVR);
-			gpu_profile_mali = false;
-			gpu_profile_adreno = false;
-			gpu_profile_powervr = true;
-		}
-	}
+	if (gpu_profile_mali && has_arm_framebuffer_fetch)
+		DevCon.WriteLn("GL: Mali GPU profile prefers the advertised ARM framebuffer-fetch path.");
 	if (gpu_profile_powervr)
 		DevCon.WriteLn("GL: PowerVR GPU profile active.");
 	else if (gpu_profile_adreno)
 		DevCon.WriteLn("GL: Adreno GPU profile active.");
-#if defined(__ANDROID__)
-	m_features.prefer_mobile_light_gs = mobile_gs_tuning.prefer_mobile_light_gs;
-	m_features.prefer_mobile_sw_blend = mobile_gs_tuning.prefer_mobile_sw_blend;
-#else
-	const bool gpu_profile_mediatek = gpu_profile_mali || gpu_profile_powervr;
-	m_features.prefer_mobile_light_gs = gpu_profile_mediatek;
-	m_features.prefer_mobile_sw_blend = gpu_profile_mediatek;
-#endif
-	DevCon.WriteLn("GL: Mobile GPU caps: profile=%s tier=%s framebuffer_fetch=%s texture_barrier=%s arm_fetch=%s ext_fetch=%s light_gs=%s constrained=%s prefer_new=%s pool=%u/%u age=%u/%u.",
+	DevCon.WriteLn("GL: Mobile GPU caps: profile=%s model=%s architecture=%s framebuffer_fetch=%s texture_barrier=%s arm_fetch=%s ext_fetch=%s constrained=%s prefer_new=%s pool=%u/%u age=%u/%u.",
 		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
-		GpuProfileDetector::MobileTierToString(GetMobileGSTuning().tier),
+#if defined(__ANDROID__)
+		gpu_profile_selection.gpu.name.c_str(),
+		GpuProfileDetector::ArchitectureToString(gpu_profile_selection.gpu.architecture),
+#else
+		"Unknown", "Unknown",
+#endif
 		m_features.framebuffer_fetch ? "yes" : "no",
 		m_features.texture_barrier ? "yes" : "no",
 		has_arm_framebuffer_fetch ? "yes" : "no",
 		has_ext_framebuffer_fetch ? "yes" : "no",
-		m_features.prefer_mobile_light_gs ? "yes" : "no",
 		IsConstrainedMobileGPUProfile() ? "yes" : "no",
 		m_features.prefer_new_textures ? "yes" : "no",
 		GetMobileGSTuning().pooled_textures,
@@ -1058,11 +1042,6 @@ bool GSDeviceOGL::CheckFeatures()
 	// Depth-as-RT feedback works from a copied R32 target, so it doesn't need texture barriers.
 	// Direct depth feedback still requires texture barriers.
 	m_features.depth_feedback = GetOGLDepthFeedbackSupport(m_features.texture_barrier, GSConfig.DepthFeedbackMode);
-	if (m_features.prefer_mobile_light_gs && GSConfig.DepthFeedbackMode == GSDepthFeedbackMode::Auto)
-	{
-		m_features.depth_feedback = GSDevice::DepthFeedbackSupport::None;
-		DevCon.WriteLn("GL: MediaTek mobile-light GS path disabled automatic depth feedback.");
-	}
 
 	if (GLAD_GL_ARB_shader_storage_buffer_object)
 	{

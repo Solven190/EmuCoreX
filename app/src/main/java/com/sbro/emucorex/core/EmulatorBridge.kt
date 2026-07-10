@@ -22,10 +22,10 @@ import java.util.Locale
 
 object EmulatorBridge {
     private const val TAG = "EmulatorBridge"
-    const val AUTO_RENDERER = -1
-    const val OPENGL_RENDERER = 12
-    const val VULKAN_RENDERER = 14
-    const val DEFAULT_RENDERER = VULKAN_RENDERER
+    const val AUTO_RENDERER = RendererDefaults.AUTO
+    const val OPENGL_RENDERER = RendererDefaults.OPENGL
+    const val VULKAN_RENDERER = RendererDefaults.VULKAN
+    const val DEFAULT_RENDERER = RendererDefaults.DEFAULT
     private const val ANGLE_EGL_LIBRARY_NAME = "libEGL_angle.so"
     private const val ANGLE_GLES_LIBRARY_NAME = "libGLESv2_angle.so"
     private const val BOOT_SMOKE_PROBE_STEPS = 67_108_864
@@ -95,9 +95,9 @@ object EmulatorBridge {
     private fun settingOp(section: String, key: String, type: String, value: String) =
         RuntimeOp("setting", listOf(section, key, type, value))
 
-    private fun rendererOp(renderer: Int) = RuntimeOp("renderer", listOf(renderer.toString()))
-
     private fun upscaleOp(value: Float) = RuntimeOp("upscale", listOf(value.toString()))
+
+    private fun frameSkipOp(value: Int) = RuntimeOp("frame_skip", listOf(value.coerceIn(0, 4).toString()))
 
     private fun normalizeAspectRatio(type: Int): Int {
         return if (type in aspectRatioSettingValues.keys) type else 1
@@ -202,16 +202,16 @@ object EmulatorBridge {
                             val section = op.fields.getOrNull(0) ?: return@forEach
                             val key = op.fields.getOrNull(1) ?: return@forEach
                             val type = op.fields.getOrNull(2) ?: return@forEach
-                            val value = toCoreSettingValue(section, key, op.fields.getOrNull(3) ?: return@forEach)
+                            val value = op.fields.getOrNull(3) ?: return@forEach
                             NativeApp.setSetting(section, key, type, value)
-                        }
-                        "renderer" -> {
-                            val renderer = op.fields.firstOrNull()?.toIntOrNull() ?: return@forEach
-                            NativeApp.renderGpu(if (renderer == AUTO_RENDERER) 0 else renderer)
                         }
                         "upscale" -> {
                             val value = op.fields.firstOrNull()?.toFloatOrNull() ?: return@forEach
                             NativeApp.renderUpscalemultiplier(normalizeUpscale(value))
+                        }
+                        "frame_skip" -> {
+                            val value = op.fields.firstOrNull()?.toIntOrNull() ?: return@forEach
+                            NativeApp.setFrameSkip(value.coerceIn(0, 4))
                         }
                         "aspect" -> {
                             val type = op.fields.firstOrNull()?.toIntOrNull() ?: return@forEach
@@ -263,8 +263,8 @@ object EmulatorBridge {
         }.getOrNull()?.takeIf { it.isNotBlank() } ?: "0.0.0"
     }
 
-    private fun normalizeRenderer(renderer: Int): Int {
-        return if (renderer <= 0) DEFAULT_RENDERER else renderer
+    internal fun normalizeRenderer(renderer: Int): Int {
+        return RendererDefaults.normalizeAndroidRenderer(renderer)
     }
 
     fun getMaxUpscaleMultiplier(renderer: Int): Int {
@@ -273,27 +273,6 @@ object EmulatorBridge {
         return runCatching { NativeApp.getMaxUpscaleMultiplier(resolvedRenderer) }
             .getOrDefault(UPSCALE_MAX.toInt())
             .coerceAtLeast(UPSCALE_MIN.toInt())
-    }
-
-    private fun toCoreSettingValue(section: String, key: String, value: String): String {
-        if (section == "EmuCore/GS" && key == "TriFilter") {
-            return when (value.toIntOrNull()) {
-                0 -> "-1"
-                else -> value
-            }
-        }
-        return value
-    }
-
-    private fun fromCoreSettingValue(section: String, key: String, value: String?): String? {
-        if (value == null) return null
-        if (section == "EmuCore/GS" && key == "TriFilter") {
-            return when (value.toIntOrNull()) {
-                -1 -> "0"
-                else -> value
-            }
-        }
-        return value
     }
 
     fun initializeOnce(context: Context) {
@@ -412,7 +391,6 @@ object EmulatorBridge {
         memoryCardSlot1: String? = null,
         memoryCardSlot2: String? = null,
         autotestMode: Boolean = false,
-        disableHardwareReadbacks: Boolean = false,
         fpuCorrectAddSub: Boolean = true
     ) {
         if (!isNativeLoaded) return
@@ -509,7 +487,7 @@ object EmulatorBridge {
 
         performRuntimeOps(
             buildList {
-                add(rendererOp(resolvedRenderer))
+                add(settingOp("EmuCore/GS", "Renderer", "int", resolvedRenderer.toString()))
                 add(upscaleOp(upscaleMultiplier))
                 add(aspectOp(aspectRatio))
                 add(settingOp("Folders", "Bios", "string", resolvedBiosPath.orEmpty()))
@@ -573,9 +551,8 @@ object EmulatorBridge {
                 addAll(targetFpsOps(targetFps, ntscFramerate, palFramerate))
                 add(settingOp("Framerate", "NominalScalar", "float", "1.0"))
                 add(settingOp("Framerate", "TurboScalar", "float", sanitizeFastForwardSpeed(fastForwardSpeed).toString()))
-                add(settingOp("EmuCore/GS", "disable_hw_readbacks", "bool", disableHardwareReadbacks.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "fpuCorrectAddSub", "bool", fpuCorrectAddSub.toString()))
-                add(settingOp("EmuCore/GS", "FrameSkip", "int", frameSkip.toString()))
+                add(frameSkipOp(frameSkip))
                 add(settingOp("EmuCore/GS", "SkipDuplicateFrames", "bool", skipDuplicateFrames.toString()))
                 add(settingOp("EmuCore/GS", "filter", "int", textureFiltering.toString()))
                 add(settingOp("EmuCore/GS", "TriFilter", "int", trilinearFiltering.toString()))
@@ -1088,7 +1065,7 @@ object EmulatorBridge {
             "renderer change requested renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) vmActive=$isVmActive"
         )
         Log.i(TAG, "Renderer change requested: ${rendererName(resolvedRenderer)}($resolvedRenderer) vmActive=$isVmActive")
-        performRuntimeOps(listOf(rendererOp(resolvedRenderer), settingOp("EmuCore/GS", "Renderer", "int", resolvedRenderer.toString())))
+        performRuntimeOps(listOf(settingOp("EmuCore/GS", "Renderer", "int", resolvedRenderer.toString())))
     }
 
     suspend fun setUpscaleMultiplier(multiplier: Float) {
@@ -1155,6 +1132,10 @@ object EmulatorBridge {
 
     suspend fun setSkipDuplicateFrames(enabled: Boolean) {
         setSetting("EmuCore/GS", "SkipDuplicateFrames", "bool", enabled.toString())
+    }
+
+    suspend fun setFrameSkip(value: Int) {
+        performRuntimeOps(listOf(frameSkipOp(value)))
     }
 
     suspend fun setTargetFps(
@@ -1281,7 +1262,7 @@ object EmulatorBridge {
     fun getSetting(section: String, key: String, type: String): String? {
         if (!isNativeLoaded) return null
         return try {
-            fromCoreSettingValue(section, key, NativeApp.getSetting(section, key, type))
+            NativeApp.getSetting(section, key, type)
         } catch (_: Exception) {
             null
         }

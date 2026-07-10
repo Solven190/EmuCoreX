@@ -11,20 +11,25 @@
 
 namespace GpuProfileDetail
 {
+struct ResolvedGpuProfile
+{
+	MobileGpuIdentity gpu;
+	MobileGsTuning tuning;
+};
+
 std::string ToLowerASCII(std::string_view value);
 bool ContainsAny(std::string_view haystack, std::initializer_list<const char*> needles);
 
-MobileGsTuning MakeMobileGsTuning(MobileGpuTier tier);
+MobileGsTuning MakeMobileGsTuning(u32 pooled_targets, u32 target_age, u32 pooled_textures, u32 texture_age,
+	bool prefer_new_textures = false);
+MobileGsTuning MakeConservativeMobileGsTuning();
 
 bool LooksLikeAdreno(std::string_view lowered_hints);
-MobileGpuTier ResolveAdrenoTier(std::string_view lowered_hints);
-MobileGsTuning GetAdrenoTuning(MobileGpuTier tier);
+ResolvedGpuProfile ResolveAdrenoProfile(std::string_view lowered_hints);
 
 bool LooksLikeMali(std::string_view lowered_hints);
-MobileGpuTier ResolveMaliTier(std::string_view lowered_hints);
-MobileGsTuning GetMaliTuning(MobileGpuTier tier);
+ResolvedGpuProfile ResolveMaliProfile(std::string_view lowered_hints);
 
 bool LooksLikePowerVR(std::string_view lowered_hints);
-MobileGpuTier ResolvePowerVRTier(std::string_view lowered_hints);
-MobileGsTuning GetPowerVRTuning(MobileGpuTier tier);
+ResolvedGpuProfile ResolvePowerVRProfile(std::string_view lowered_hints);
 } // namespace GpuProfileDetail

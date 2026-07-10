@@ -7,19 +7,24 @@ namespace GpuProfileDetail
 {
 bool LooksLikePowerVR(std::string_view lowered_hints)
 {
-	return ContainsAny(lowered_hints, {"imagination", "powervr", "img"});
+	// "img" is far too broad for a substring search (it appears in unrelated model/property values).
+	return ContainsAny(lowered_hints, {"imagination technologies", "imgtec", "powervr"});
 }
 
-MobileGpuTier ResolvePowerVRTier(std::string_view lowered_hints)
+ResolvedGpuProfile ResolvePowerVRProfile(std::string_view lowered_hints)
 {
-	if (ContainsAny(lowered_hints, {"b-series", "bxs", "bxt", "mt6877", "mt6878"}))
-		return MobileGpuTier::Mid;
+	ResolvedGpuProfile resolved;
+	resolved.gpu.architecture = MobileGpuArchitecture::PowerVR;
+	resolved.gpu.name = "PowerVR";
+	resolved.tuning = MakeMobileGsTuning(72, 6, 72, 5);
 
-	return MobileGpuTier::Low;
-}
-
-MobileGsTuning GetPowerVRTuning(MobileGpuTier tier)
-{
-	return MakeMobileGsTuning(tier);
+	if (ContainsAny(lowered_hints, {"b-series", "bxs", "bxt", "d-series", "dxt", "dmtp"}))
+	{
+		resolved.gpu.recognized = true;
+		resolved.gpu.name = ContainsAny(lowered_hints, {"d-series", "dxt", "dmtp"}) ?
+			"PowerVR D-Series" : "PowerVR B-Series";
+		resolved.tuning = MakeMobileGsTuning(112, 8, 112, 7);
+	}
+	return resolved;
 }
 } // namespace GpuProfileDetail

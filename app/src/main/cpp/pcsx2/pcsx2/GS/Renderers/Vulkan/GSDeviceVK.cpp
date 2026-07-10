@@ -534,22 +534,18 @@ bool GSDeviceVK::CreateDevice(VkSurfaceKHR surface, bool enable_validation_layer
 	const GpuProfileSelection gpu_profile_selection =
 		GpuProfileDetector::Resolve(GSConfig.AndroidGpuProfileOverride,
 			GetVulkanVendorHint(m_device_properties.vendorID), m_name);
-	m_is_mali_hardware = (gpu_profile_selection.runtime_profile == RuntimeGpuProfile::Mali);
 	SetRuntimeGPUProfile(gpu_profile_selection.runtime_profile);
+	SetMobileGPUIdentity(gpu_profile_selection.gpu);
 	SetMobileGSTuning(gpu_profile_selection.gs_tuning);
-	if (IsMaliGPUProfile())
-	{
-		Console.WriteLn("VK: Mali hardware detected, overriding to Adreno profile for Vulkan.");
-		SetRuntimeGPUProfile(RuntimeGpuProfile::Adreno);
-	}
-	Console.WriteLn("VK: Android GPU profile override='%s' resolved='%s' tier='%s'%s.",
+	Console.WriteLn("VK: Android GPU profile override='%s' resolved='%s' model='%s' architecture='%s'%s.",
 		GpuProfileDetector::OverrideToConfigString(gpu_profile_selection.override_mode),
 		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
-		GpuProfileDetector::MobileTierToString(gpu_profile_selection.gs_tuning.tier),
+		gpu_profile_selection.gpu.name.c_str(),
+		GpuProfileDetector::ArchitectureToString(gpu_profile_selection.gpu.architecture),
 		gpu_profile_selection.gs_tuning.constrained ? " constrained" : "");
 	DevCon.WriteLn("VK: Android GPU profile hints: %s", gpu_profile_selection.hints.c_str());
 #else
-	SetRuntimeGPUProfile(RuntimeGpuProfile::Adreno);
+	SetRuntimeGPUProfile(RuntimeGpuProfile::Unknown);
 #endif
 
 	u32 queue_family_count;
@@ -1043,14 +1039,15 @@ bool GSDeviceVK::CreateCommandBuffers()
 		if (!m_use_push_descriptors)
 		{
 			static constexpr u32 MAX_FRAME_TEXTURE_SETS = 8192;
+			static constexpr u32 MAX_FRAME_DESCRIPTOR_SETS = MAX_FRAME_TEXTURE_SETS * 2;
 			const VkDescriptorPoolSize frame_pool_sizes[] = {
 				{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAME_TEXTURE_SETS * 2},
-				{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_FRAME_TEXTURE_SETS * 3},
-				{VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, MAX_FRAME_TEXTURE_SETS * 2},
-				{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAME_TEXTURE_SETS * 2},
+				{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_FRAME_TEXTURE_SETS * 4},
+				{VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, MAX_FRAME_TEXTURE_SETS},
+				{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 64},
 			};
 			const VkDescriptorPoolCreateInfo frame_pool_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-				nullptr, 0, MAX_FRAME_TEXTURE_SETS, static_cast<u32>(std::size(frame_pool_sizes)), frame_pool_sizes};
+				nullptr, 0, MAX_FRAME_DESCRIPTOR_SETS, static_cast<u32>(std::size(frame_pool_sizes)), frame_pool_sizes};
 			res = vkCreateDescriptorPool(m_device, &frame_pool_info, nullptr, &resources.descriptor_pool);
 			if (res != VK_SUCCESS)
 			{
@@ -1071,28 +1068,24 @@ bool GSDeviceVK::CreateGlobalDescriptorPool()
 {
 #ifdef __ANDROID__
 	static constexpr const VkDescriptorPoolSize pool_sizes[] = {
-		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 16},
-		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 16},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 18},
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 18},
 		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8192},
 		{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4096},
 		{VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 2048},
 		{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 128},
-		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 2},
-		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2},
 	};
-	uint32_t max_sets = 16384;
+	u32 max_sets = 16384;
 #else
 	static constexpr const VkDescriptorPoolSize pool_sizes[] = {
-		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 128},
-		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 128},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 130},
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 130},
 		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 65536},
 		{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32768},
 		{VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 16384},
 		{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1024},
-		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 2},
-		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2},
 	};
-	uint32_t max_sets = 131072;
+	u32 max_sets = 131072;
 #endif
 
 	VkDescriptorPoolCreateInfo pool_create_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, nullptr,
@@ -2843,9 +2836,8 @@ bool GSDeviceVK::CheckFeatures()
 	//const bool isNVIDIA = (vendorID == 0x10DE);
 
 	const bool has_framebuffer_fetch_extension = m_optional_extensions.vk_ext_rasterization_order_attachment_access;
-	// Mali (0x13B5): ENABLED by default when ROAA is present. The Mali profile forces SW
-	// blend, so fbfetch reads Cd in-shader and never touches Mali's broken HW dual-source
-	// unit; without fbfetch the per-PRIMITIVE texture-barrier path tanks blend-heavy games
+	// Mali (0x13B5): enable when ROAA is present. Fbfetch lets the shader read Cd without
+	// routing blend-heavy draws through a per-primitive texture-barrier path
 	// (GT4 = 10-20fps slideshow). No-op on any Mali lacking the extension.
 	//
 	// ADRENO / other non-Mali: OPT-IN only (EnableAdrenoFramebufferFetch, default off).
@@ -2864,8 +2856,6 @@ bool GSDeviceVK::CheckFeatures()
 	m_features.texture_barrier = texture_barrier;
 #if defined(__ANDROID__)
 	const MobileGsTuning& mobile_gs_tuning = GetMobileGSTuning();
-	m_features.prefer_mobile_light_gs = mobile_gs_tuning.prefer_mobile_light_gs;
-	m_features.prefer_mobile_sw_blend = mobile_gs_tuning.prefer_mobile_sw_blend;
 #endif
 
 	// geometryShader is needed because gl_PrimitiveID is part of the Geometry SPIR-V Execution Model.
@@ -2879,7 +2869,7 @@ bool GSDeviceVK::CheckFeatures()
 		GSConfig.TexturePreloading = TexturePreloadingLevel::Partial;
 		Console.Warning("VK: Mobile GS %s/%s profile lowered texture preloading to partial.",
 			GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
-			GpuProfileDetector::MobileTierToString(mobile_gs_tuning.tier));
+			GetMobileGPUIdentity().name.c_str());
 	}
 #endif
 	m_features.provoking_vertex_last = m_optional_extensions.vk_ext_provoking_vertex;
@@ -2899,8 +2889,8 @@ bool GSDeviceVK::CheckFeatures()
 	// Fbfetch is useless if we don't have barriers enabled.
 	m_features.framebuffer_fetch &= m_features.texture_barrier;
 
-	// Buggy drivers with broken barriers probably have no chance using GENERAL layout for depth either...
-	m_features.test_and_sample_depth = true;
+	// Concurrent depth testing/sampling relies on the same feedback synchronization path.
+	m_features.test_and_sample_depth = m_features.texture_barrier;
 
 	// Use D32F depth instead of D32S8 when we have framebuffer fetch.
 	m_features.stencil_buffer &= !m_features.framebuffer_fetch;
@@ -2938,10 +2928,14 @@ bool GSDeviceVK::CheckFeatures()
 	DevCon.WriteLn("Optional features:%s%s%s%s%s", m_features.primitive_id ? " primitive_id" : "",
 		m_features.texture_barrier ? " texture_barrier" : "", m_features.framebuffer_fetch ? " framebuffer_fetch" : "",
 		m_features.provoking_vertex_last ? " provoking_vertex_last" : "", m_features.vs_expand ? " vs_expand" : "");
-	DevCon.WriteLn("VK: Mobile GPU profile: %s tier=%s light_gs=%s constrained=%s prefer_new=%s pool=%u/%u age=%u/%u.",
+	DevCon.WriteLn("VK: Mobile GPU profile: %s model=%s architecture=%s constrained=%s prefer_new=%s pool=%u/%u age=%u/%u.",
 		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
-		GpuProfileDetector::MobileTierToString(GetMobileGSTuning().tier),
-		m_features.prefer_mobile_light_gs ? "yes" : "no",
+#if defined(__ANDROID__)
+		GetMobileGPUIdentity().name.c_str(),
+		GpuProfileDetector::ArchitectureToString(GetMobileGPUIdentity().architecture),
+#else
+		"Unknown", "Unknown",
+#endif
 		IsConstrainedMobileGPUProfile() ? "yes" : "no",
 		m_features.prefer_new_textures ? "yes" : "no",
 		GetMobileGSTuning().pooled_textures,
@@ -4052,7 +4046,7 @@ bool GSDeviceVK::CreatePipelineLayouts()
 	// Convert Pipeline Layout
 	//////////////////////////////////////////////////////////////////////////
 
-	if (m_optional_extensions.vk_khr_push_descriptor)
+	if (m_use_push_descriptors)
 		dslb.SetPushFlag();
 	dslb.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, NUM_UTILITY_SAMPLERS, VK_SHADER_STAGE_FRAGMENT_BIT);
 	if ((m_utility_ds_layout = dslb.Create(dev)) == VK_NULL_HANDLE)
@@ -4077,7 +4071,7 @@ bool GSDeviceVK::CreatePipelineLayouts()
 		return false;
 	Vulkan::SetObjectName(dev, m_tfx_ubo_ds_layout, "TFX UBO descriptor layout");
 
-	if (m_optional_extensions.vk_khr_push_descriptor)
+	if (m_use_push_descriptors)
 		dslb.SetPushFlag();
 	dslb.AddBinding(TFX_TEXTURE_TEXTURE, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	dslb.AddBinding(TFX_TEXTURE_PALETTE, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -4638,7 +4632,7 @@ bool GSDeviceVK::CompileCASPipelines()
 	Vulkan::DescriptorSetLayoutBuilder dslb;
 	Vulkan::PipelineLayoutBuilder plb;
 
-	if (m_optional_extensions.vk_khr_push_descriptor)
+	if (m_use_push_descriptors)
 		dslb.SetPushFlag();
 	dslb.AddBinding(0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT);
 	dslb.AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -4854,16 +4848,12 @@ bool GSDeviceVK::DoCAS(
 	else
 	{
 		const VkDescriptorSet ds = AllocateFrameDescriptorSet(m_cas_ds_layout);
-		if (ds != VK_NULL_HANDLE)
-		{
-			dsub.UpdateToDescriptorSet(m_device, ds, true);
-			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, m_cas_pipeline_layout, 0, 1, &ds, 0,
-				nullptr);
-		}
-		else
-		{
-			dsub.Clear();
-		}
+		if (ds == VK_NULL_HANDLE)
+			return false;
+
+		dsub.UpdateToDescriptorSet(m_device, ds, true);
+		vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, m_cas_pipeline_layout, 0, 1, &ds, 0,
+			nullptr);
 	}
 
 	// the actual meat and potatoes! only four commands.
@@ -5783,6 +5773,8 @@ bool GSDeviceVK::ApplyTFXState(bool already_execed)
 
 	if (flags & DIRTY_FLAG_TFX_TEXTURES)
 	{
+		// Push descriptors can update only changed bindings. A freshly allocated descriptor set cannot:
+		// every binding must be initialized before the draw which consumes the set.
 		if (!m_use_push_descriptors)
 			flags |= DIRTY_FLAG_TFX_TEXTURES;
 
@@ -5820,16 +5812,12 @@ bool GSDeviceVK::ApplyTFXState(bool already_execed)
 		else
 		{
 			const VkDescriptorSet ds = AllocateFrameDescriptorSet(m_tfx_texture_ds_layout);
-			if (ds != VK_NULL_HANDLE)
-			{
-				dsub.UpdateToDescriptorSet(m_device, ds, true);
-				vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tfx_pipeline_layout,
-					TFX_DESCRIPTOR_SET_TEXTURES, 1, &ds, 0, nullptr);
-			}
-			else
-			{
-				dsub.Clear();
-			}
+			if (ds == VK_NULL_HANDLE)
+				return false;
+
+			dsub.UpdateToDescriptorSet(m_device, ds, true);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tfx_pipeline_layout,
+				TFX_DESCRIPTOR_SET_TEXTURES, 1, &ds, 0, nullptr);
 		}
 	}
 
@@ -5860,16 +5848,12 @@ bool GSDeviceVK::ApplyUtilityState(bool already_execed)
 		else
 		{
 			const VkDescriptorSet ds = AllocateFrameDescriptorSet(m_utility_ds_layout);
-			if (ds != VK_NULL_HANDLE)
-			{
-				dsub.UpdateToDescriptorSet(m_device, ds, true);
-				vkCmdBindDescriptorSets(
-					cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_utility_pipeline_layout, 0, 1, &ds, 0, nullptr);
-			}
-			else
-			{
-				dsub.Clear();
-			}
+			if (ds == VK_NULL_HANDLE)
+				return false;
+
+			dsub.UpdateToDescriptorSet(m_device, ds, true);
+			vkCmdBindDescriptorSets(
+				cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_utility_pipeline_layout, 0, 1, &ds, 0, nullptr);
 		}
 	}
 
@@ -6082,12 +6066,14 @@ void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 	PipelineSelector& pipe = m_pipeline_selector;
 	UpdateHWPipelineSelector(config, pipe);
 
-	// If we don't have a barrier but the texture was drawn to last draw, insert a barrier.
+	// If the current pass was not created as a feedback loop, end it before sampling an attachment.
+	// Setting require_one_barrier here is too late: UpdateHWPipelineSelector() has already selected
+	// the render pass and pipeline feedback flags.
 	if (InRenderPass())
 	{
 		if ((!pipe.IsRTFeedbackLoop() && config.tex == m_current_render_target) ||
 			(!pipe.IsDepthFeedbackLoop() && config.tex == m_current_depth_target))
-			config.require_one_barrier = true;
+			EndRenderPass();
 	}
 
 	// now blit the colclip texture back to the original target

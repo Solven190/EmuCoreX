@@ -1352,4 +1352,7 @@
     <string name="settings_touch_haptics_test_desc">使用当前的触摸震动强度播放短促的震动。</string>
     <string name="settings_help_touch_haptics_strength">控制用于触摸控件震动反馈的设备震动强度。如果震动太微弱，请将其调高；如果想在掌机模式下安静游玩，请将其调低。</string>
     <string name="settings_help_touch_haptics_test">播放与屏幕控件使用的相同设备震动反馈，以便在启动游戏前调整强度。</string>
+    <string name="settings_native_scaling_normal_maintain_upscale">正常（保持放大）</string>
+    <string name="settings_native_scaling_aggressive_maintain_upscale">激进（保持放大）</string>
+    <string name="settings_hw_download_mode_force_full">准确（强制完全回读）</string>
 </resources>

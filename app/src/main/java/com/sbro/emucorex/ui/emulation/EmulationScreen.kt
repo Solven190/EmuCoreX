@@ -3309,9 +3309,10 @@ private fun EmulationSidebarMenu(
                             title = stringResource(R.string.settings_hw_download_mode),
                             options = listOf(
                                 LiveSelectionOption(0, stringResource(R.string.settings_hw_download_mode_accurate)),
-                                LiveSelectionOption(1, stringResource(R.string.settings_hw_download_mode_no_readbacks)),
-                                LiveSelectionOption(2, stringResource(R.string.settings_hw_download_mode_unsynchronized)),
-                                LiveSelectionOption(3, stringResource(R.string.settings_hw_download_mode_disabled))
+                                LiveSelectionOption(1, stringResource(R.string.settings_hw_download_mode_force_full)),
+                                LiveSelectionOption(2, stringResource(R.string.settings_hw_download_mode_no_readbacks)),
+                                LiveSelectionOption(3, stringResource(R.string.settings_hw_download_mode_unsynchronized)),
+                                LiveSelectionOption(4, stringResource(R.string.settings_hw_download_mode_disabled))
                             ),
                             currentValue = uiState.hwDownloadMode,
                             onValueChange = onSetHwDownloadMode,
@@ -3748,7 +3749,9 @@ private fun EmulationSidebarMenu(
                     options = listOf(
                         0 to stringResource(R.string.settings_native_scaling_off),
                         1 to stringResource(R.string.settings_native_scaling_normal),
-                        2 to stringResource(R.string.settings_native_scaling_aggressive)
+                        2 to stringResource(R.string.settings_native_scaling_aggressive),
+                        3 to stringResource(R.string.settings_native_scaling_normal_maintain_upscale),
+                        4 to stringResource(R.string.settings_native_scaling_aggressive_maintain_upscale)
                     ),
                     currentValue = uiState.nativeScaling,
                     onValueChange = onSetNativeScaling,

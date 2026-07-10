@@ -1350,4 +1350,7 @@
     <string name="settings_touch_haptics_test_desc">वर्तमान टच हैप्टिक शक्ति का उपयोग करके एक छोटा टिक प्ले करता है।</string>
     <string name="settings_help_touch_haptics_strength">टच कंट्रोल हैप्टिक्स के लिए उपयोग की जाने वाली डिवाइस कंपन शक्ति को नियंत्रित करता है। यदि टिक बहुत हल्का है तो इसे बढ़ाएं, या शांत हैंडहेल्ड खेलने के लिए इसे कम करें।</string>
     <string name="settings_help_touch_haptics_test">ऑन-स्क्रीन नियंत्रणों द्वारा उपयोग किए जाने वाले समान डिवाइस हैप्टिक पल्स को प्ले करता है, जिससे आप गेम लॉन्च करने से पहले शक्ति को ट्यून कर सकते हैं。</string>
+    <string name="settings_native_scaling_normal_maintain_upscale">सामान्य (अपस्केल बनाए रखें)</string>
+    <string name="settings_native_scaling_aggressive_maintain_upscale">आक्रामक (अपस्केल बनाए रखें)</string>
+    <string name="settings_hw_download_mode_force_full">सटीक (पूर्ण रीडबैक बाध्य करें)</string>
 </resources>

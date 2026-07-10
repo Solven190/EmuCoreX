@@ -1,0 +1,31 @@
+package com.sbro.emucorex.core
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class GpuHardwareProfileTest {
+    @Test
+    fun classifiesKnownSocVendorsWithoutBroadSubstringMatches() {
+        assertEquals(GpuHardwareProfiles.MALI, GpuHardwareProfiles.classifyHardwareProfile("MediaTek MT6989"))
+        assertEquals(GpuHardwareProfiles.MALI, GpuHardwareProfiles.classifyHardwareProfile("board mt6897"))
+        assertEquals(GpuHardwareProfiles.ADRENO, GpuHardwareProfiles.classifyHardwareProfile("Qualcomm SM8650"))
+        assertEquals(GpuHardwareProfiles.POWERVR, GpuHardwareProfiles.classifyHardwareProfile("IMGTEC PowerVR"))
+        assertEquals(GpuHardwareProfiles.ADRENO, GpuHardwareProfiles.classifyHardwareProfile("Comtech generic board"))
+    }
+
+    @Test
+    fun nativeProfileAlwaysUsesRendererAutoDetection() {
+        assertEquals("auto", GpuHardwareProfiles.coreOverrideFor(GpuHardwareProfiles.ADRENO))
+        assertEquals("auto", GpuHardwareProfiles.coreOverrideFor(GpuHardwareProfiles.MALI))
+        assertEquals("auto", GpuHardwareProfiles.coreOverrideFor(GpuHardwareProfiles.POWERVR))
+    }
+
+    @Test
+    fun rendererNormalizationRejectsUnsupportedPersistedValues() {
+        assertEquals(RendererDefaults.OPENGL, RendererDefaults.normalizeAndroidRenderer(RendererDefaults.OPENGL))
+        assertEquals(RendererDefaults.SOFTWARE, RendererDefaults.normalizeAndroidRenderer(RendererDefaults.SOFTWARE))
+        assertEquals(RendererDefaults.VULKAN, RendererDefaults.normalizeAndroidRenderer(RendererDefaults.VULKAN))
+        assertEquals(RendererDefaults.DEFAULT, RendererDefaults.normalizeAndroidRenderer(999))
+        assertEquals(RendererDefaults.DEFAULT, RendererDefaults.normalizeAndroidRenderer(RendererDefaults.AUTO))
+    }
+}
