@@ -2,7 +2,7 @@ package com.sbro.emucorex.core
 
 data class PerformanceProfileConfig(
     val id: Int,
-    val renderer: Int = EmulatorBridge.DEFAULT_RENDERER,
+    val renderer: Int = RendererDefaults.defaultForHardware(),
     val eeCycleRate: Int,
     val eeCycleSkip: Int,
     val hwDownloadMode: Int,

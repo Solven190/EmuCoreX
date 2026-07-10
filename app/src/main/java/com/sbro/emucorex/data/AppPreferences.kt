@@ -41,7 +41,7 @@ data class SettingsSnapshot(
     val languageTag: String? = null,
     val performanceProfile: Int = PerformanceProfiles.SAFE,
     val gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO,
-    val renderer: Int = EmulatorBridge.DEFAULT_RENDERER,
+    val renderer: Int = RendererDefaults.defaultForHardware(),
     val upscaleMultiplier: Float = 1f,
     val aspectRatio: Int = 1,
     val audioVolume: Int = AudioDefaults.VOLUME_DEFAULT,

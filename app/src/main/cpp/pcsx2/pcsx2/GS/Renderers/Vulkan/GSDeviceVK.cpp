@@ -541,9 +541,11 @@ bool GSDeviceVK::CreateDevice(VkSurfaceKHR surface, bool enable_validation_layer
 	SetRuntimeGPUProfile(gpu_profile_selection.runtime_profile);
 	SetMobileGPUIdentity(gpu_profile_selection.gpu);
 	SetMobileGSTuning(gpu_profile_selection.gs_tuning);
-	Console.WriteLn("VK: Android GPU profile override='%s' resolved='%s' model='%s' architecture='%s'%s.",
+	m_is_mediatek_soc = gpu_profile_selection.is_mediatek_soc;
+	Console.WriteLn("VK: Android GPU profile override='%s' resolved='%s' soc='%s' model='%s' architecture='%s'%s.",
 		GpuProfileDetector::OverrideToConfigString(gpu_profile_selection.override_mode),
 		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
+		m_is_mediatek_soc ? "MediaTek" : "other/unknown",
 		gpu_profile_selection.gpu.name.c_str(),
 		GpuProfileDetector::ArchitectureToString(gpu_profile_selection.gpu.architecture),
 		gpu_profile_selection.gs_tuning.constrained ? " constrained" : "");
@@ -2844,19 +2846,25 @@ bool GSDeviceVK::CheckFeatures()
 	// capability-gated, and handle missing dual-source blending independently in GSRendererHW.
 	// Adreno/other mobile implementations remain opt-in because support varies by driver stack.
 	const bool is_mali_vk = (m_device_properties.vendorID == 0x13B5u);
-	// Mali-G57 r13p0-class drivers expose ROAA but have been observed returning zero/stale
-	// destination color in NFS Most Wanted. Keep the denylist model-specific: newer Mali GPUs
-	// retain the tile-local fast path, while G57 uses the correct texture-barrier path.
+	// MediaTek's Mali Vulkan stacks across multiple GPU generations have been observed returning
+	// zero/stale destination color through ROAA (black or intermittently missing textures). Keep
+	// other Mali vendors on the tile-local fast path. G57 remains a model fallback for firmware
+	// which hides the SoC properties used by the MediaTek detector.
 	const bool is_mali_g57 = is_mali_vk &&
 		((GetMobileGPUIdentity().architecture == MobileGpuArchitecture::MaliValhall1 &&
 			 GetMobileGPUIdentity().model_number == 57) ||
 			 std::strstr(m_device_properties.deviceName, "Mali-G57") != nullptr);
+	const bool is_mediatek_mali_vk = is_mali_vk && m_is_mediatek_soc;
+	const bool unreliable_mali_fbfetch = is_mediatek_mali_vk || is_mali_g57;
 	const bool vendor_allows_fbfetch =
-		!is_mali_g57 && (is_mali_vk || GSConfig.EnableAdrenoFramebufferFetch);
+		!unreliable_mali_fbfetch && (is_mali_vk || GSConfig.EnableAdrenoFramebufferFetch);
 	bool framebuffer_fetch = vendor_allows_fbfetch &&
 		has_framebuffer_fetch_extension && !GSConfig.DisableFramebufferFetch;
-	if (is_mali_g57 && has_framebuffer_fetch_extension)
-		Console.Warning("VK: Disabled unreliable Mali-G57 framebuffer fetch; using texture-barrier feedback.");
+	if (unreliable_mali_fbfetch && has_framebuffer_fetch_extension)
+	{
+		Console.Warning("VK: Disabled unreliable %s Mali framebuffer fetch; using texture-barrier feedback.",
+			is_mediatek_mali_vk ? "MediaTek" : "G57");
+	}
 
 	bool texture_barrier = (GSConfig.OverrideTextureBarriers != 0);
 	m_features.multidraw_fb_copy = false;
@@ -2946,14 +2954,15 @@ bool GSDeviceVK::CheckFeatures()
 		m_features.provoking_vertex_last ? " provoking_vertex_last" : "", m_features.vs_expand ? " vs_expand" : "");
 #if defined(__ANDROID__)
 	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
-		"Vulkan GS device=%s vendor=0x%04x driver=0x%08x profile=%s model=%s arch=%s "
+		"Vulkan GS device=%s vendor=0x%04x driver=0x%08x profile=%s soc=%s model=%s arch=%s "
 		"roaa=%d fbfetch=%d fbfetchDenylisted=%d textureBarrier=%d inputAttachmentFeedback=%d "
 		"dualSrcBlend=%d fastMAD=%d madFallback=%s",
 		m_device_properties.deviceName, m_device_properties.vendorID, m_device_properties.driverVersion,
-		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()), GetMobileGPUIdentity().name.c_str(),
+		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
+		m_is_mediatek_soc ? "MediaTek" : "other/unknown", GetMobileGPUIdentity().name.c_str(),
 		GpuProfileDetector::ArchitectureToString(GetMobileGPUIdentity().architecture),
 		has_framebuffer_fetch_extension ? 1 : 0, m_features.framebuffer_fetch ? 1 : 0,
-		is_mali_g57 ? 1 : 0, m_features.texture_barrier ? 1 : 0,
+		unreliable_mali_fbfetch ? 1 : 0, m_features.texture_barrier ? 1 : 0,
 		(m_features.texture_barrier && !UseFeedbackLoopLayout()) ? 1 : 0,
 		m_device_features.dualSrcBlend ? 1 : 0,
 		m_features.broken_mad_deinterlace ? 0 : 1,
@@ -4118,7 +4127,7 @@ bool GSDeviceVK::CreatePipelineLayouts()
 	dslb.AddBinding(TFX_TEXTURE_PALETTE, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	// The non-feedback-layout shader declares these bindings as subpassInput. The
 	// descriptor layout must match the SPIR-V resource type; using SAMPLED_IMAGE
-	// here is undefined and produces intermittent stale tile reads on Mali-G57.
+	// here is undefined and produces intermittent stale tile reads on Mali Vulkan drivers.
 	const VkDescriptorType feedback_descriptor_type =
 		(m_features.texture_barrier && !UseFeedbackLoopLayout()) ? VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT :
 			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;

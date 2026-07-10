@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
+import com.sbro.emucorex.core.RendererDefaults
 import com.sbro.emucorex.core.EmulatorStorage
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.GpuDriverManager
@@ -100,7 +101,7 @@ data class EmulationUiState(
     val toastMessage: String? = null,
     val statusMessage: String? = null,
     val currentSlot: Int = 1,
-    val renderer: Int = EmulatorBridge.DEFAULT_RENDERER,
+    val renderer: Int = RendererDefaults.defaultForHardware(),
     val upscale: Float = 1f,
     val aspectRatio: Int = 1,
     val performancePreset: Int = PerformancePresets.CUSTOM,

@@ -48,6 +48,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Save
 import com.sbro.emucorex.core.EmulatorBridge
+import com.sbro.emucorex.core.RendererDefaults
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -3120,10 +3121,7 @@ private fun rendererLabel(renderer: Int): Int = when (normalizeManagerRenderer(r
 }
 
 private fun normalizeManagerRenderer(renderer: Int): Int {
-    return when (renderer) {
-        12, 13, 14 -> renderer
-        else -> EmulatorBridge.DEFAULT_RENDERER
-    }
+    return RendererDefaults.normalizeAndroidRenderer(renderer)
 }
 
 private fun isShadeBoostActive(

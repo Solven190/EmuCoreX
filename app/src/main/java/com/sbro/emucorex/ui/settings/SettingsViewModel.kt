@@ -13,6 +13,7 @@ import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.EmulatorStorage
 import com.sbro.emucorex.core.GpuHardwareProfiles
+import com.sbro.emucorex.core.RendererDefaults
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.PerformanceProfiles
@@ -49,7 +50,7 @@ data class SettingsUiState(
     val isProPurchaseInProgress: Boolean = false,
     val proPurchaseMessageResId: Int? = null,
     val languageTag: String? = null,
-    val renderer: Int = EmulatorBridge.DEFAULT_RENDERER,
+    val renderer: Int = RendererDefaults.defaultForHardware(),
     val upscaleMultiplier: Float = 1f,
     val aspectRatio: Int = 1,
     val audioVolume: Int = AudioDefaults.VOLUME_DEFAULT,

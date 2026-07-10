@@ -4,6 +4,7 @@ import android.content.Context
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.EmulatorStorage
 import com.sbro.emucorex.core.GsHackDefaults
+import com.sbro.emucorex.core.RendererDefaults
 import com.sbro.emucorex.core.normalizeUpscale
 import org.json.JSONArray
 import org.json.JSONObject
@@ -199,7 +200,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         gameKey = optString("gameKey"),
         gameTitle = optString("gameTitle"),
         gameSerial = optString("gameSerial").takeIf { it.isNotBlank() },
-        renderer = optInt("renderer", EmulatorBridge.DEFAULT_RENDERER).let(::sanitizeRendererValue),
+        renderer = optInt("renderer", RendererDefaults.AUTO).let(::sanitizeRendererValue),
         upscaleMultiplier = readUpscaleMultiplier(),
         aspectRatio = optInt("aspectRatio", 1).let(::sanitizeAspectRatioValue),
         showFps = optBoolean("showFps", false),
@@ -483,7 +484,7 @@ private fun JSONObject.toOverlayControlLayout(): OverlayControlLayout {
 }
 
 private fun sanitizeRendererValue(value: Int): Int {
-    return if (value <= 0) EmulatorBridge.DEFAULT_RENDERER else value
+    return RendererDefaults.normalizeAndroidRenderer(value)
 }
 
 private fun sanitizeAspectRatioValue(value: Int): Int {

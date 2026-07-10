@@ -70,6 +70,7 @@ struct GpuProfileSelection
 {
 	GpuProfileOverride override_mode = GpuProfileOverride::Auto;
 	RuntimeGpuProfile runtime_profile = RuntimeGpuProfile::Unknown;
+	bool is_mediatek_soc = false;
 	MobileGpuIdentity gpu;
 	MobileGsTuning gs_tuning;
 	std::string hints;
