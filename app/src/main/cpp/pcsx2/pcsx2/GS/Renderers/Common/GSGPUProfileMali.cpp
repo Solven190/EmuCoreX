@@ -87,29 +87,46 @@ static bool ParseUnsigned(std::string_view text, size_t pos, u16* value, size_t*
 
 static bool ParseMaliModel(std::string_view hints, char* series, u16* model, bool* immortalis)
 {
-	const size_t mali = hints.find("mali");
-	const size_t imm = hints.find("immortalis");
-	const size_t start = (mali != std::string_view::npos) ? mali : imm;
-	if (start == std::string_view::npos)
-		return false;
+	const size_t immortalis_pos = hints.find("immortalis");
+	*immortalis = (immortalis_pos != std::string_view::npos);
 
-	*immortalis = (imm != std::string_view::npos);
-	size_t pos = start + ((start == mali) ? 4 : 10);
-	while (pos < hints.size() && hints[pos] != 'g' && hints[pos] != 't' &&
-		!std::isdigit(static_cast<unsigned char>(hints[pos])))
+	const auto try_token = [&](size_t name_pos, size_t name_length) {
+		size_t pos = name_pos + name_length;
+		const size_t token_end = hints.find('|', pos);
+		const size_t end_limit = (token_end == std::string_view::npos) ? hints.size() : token_end;
+
+		while (pos < end_limit && hints[pos] != 'g' && hints[pos] != 't' &&
+			!std::isdigit(static_cast<unsigned char>(hints[pos])))
+		{
+			pos++;
+		}
+		if (pos == end_limit)
+			return false;
+
+		char parsed_series = 'U';
+		if (hints[pos] == 'g' || hints[pos] == 't')
+			parsed_series = static_cast<char>(std::toupper(static_cast<unsigned char>(hints[pos++])));
+
+		u16 parsed_model = 0;
+		size_t parsed_end = pos;
+		if (!ParseUnsigned(hints.substr(0, end_limit), pos, &parsed_model, &parsed_end))
+			return false;
+
+		*series = parsed_series;
+		*model = parsed_model;
+		return true;
+	};
+
+	// A vendor hint such as "ARM Mali" can appear before the actual renderer token. Do not
+	// scan across the " | " separator, otherwise the 'g' in the next "gpu=" key is mistaken
+	// for the model series and Mali-G57 becomes Unknown Mali.
+	for (size_t pos = hints.find("mali"); pos != std::string_view::npos; pos = hints.find("mali", pos + 4))
 	{
-		pos++;
+		if (try_token(pos, 4))
+			return true;
 	}
-	if (pos == hints.size())
-		return false;
 
-	if (hints[pos] == 'g' || hints[pos] == 't')
-		*series = static_cast<char>(std::toupper(static_cast<unsigned char>(hints[pos++])));
-	else
-		*series = 'U';
-
-	size_t end = pos;
-	return ParseUnsigned(hints, pos, model, &end);
+	return immortalis_pos != std::string_view::npos && try_token(immortalis_pos, 10);
 }
 
 static u8 ParseCoreCount(std::string_view hints)

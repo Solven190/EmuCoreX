@@ -415,28 +415,54 @@ void AndroidRuntime::ReloadPatches()
 void AndroidRuntime::SetNativeSurface(void* window, int width, int height)
 {
 	bool update_display_window = false;
+	ANativeWindow* old_window = nullptr;
 	{
 		std::lock_guard lock(mutex_);
-		if (native_window_)
-			ANativeWindow_release(static_cast<ANativeWindow*>(native_window_));
+		old_window = static_cast<ANativeWindow*>(native_window_);
 		native_window_ = window;
 		surface_width_ = width;
 		surface_height_ = height;
-		update_display_window = (native_window_ && surface_width_ > 0 && surface_height_ > 0 && MTGS::IsOpen());
+		// Also update when a valid old surface is replaced by an invalid/zero-sized
+		// one, so GS is detached instead of continuing to present to old_window.
+		update_display_window = MTGS::IsOpen() &&
+			(old_window || (native_window_ && surface_width_ > 0 && surface_height_ > 0));
 	}
 
 	if (update_display_window)
+	{
 		MTGS::UpdateDisplayWindow();
+		// UpdateDisplayWindow is queued. Keep the previous ANativeWindow alive until
+		// the GS thread has destroyed its EGLSurface/VkSurfaceKHR.
+		MTGS::WaitGS(false, false, false);
+	}
+
+	if (old_window)
+		ANativeWindow_release(old_window);
 }
 
 void AndroidRuntime::ClearSurface()
 {
-	std::lock_guard lock(mutex_);
-	if (native_window_)
-		ANativeWindow_release(static_cast<ANativeWindow*>(native_window_));
-	native_window_ = nullptr;
-	surface_width_ = 0;
-	surface_height_ = 0;
+	ANativeWindow* old_window = nullptr;
+	bool update_display_window = false;
+	{
+		std::lock_guard lock(mutex_);
+		old_window = static_cast<ANativeWindow*>(native_window_);
+		native_window_ = nullptr;
+		surface_width_ = 0;
+		surface_height_ = 0;
+		update_display_window = (old_window && MTGS::IsOpen());
+	}
+
+	if (update_display_window)
+	{
+		// Switch the renderer to its surfaceless target before Android abandons the
+		// BufferQueue. Waiting also guarantees no later frame can target old_window.
+		MTGS::UpdateDisplayWindow();
+		MTGS::WaitGS(false, false, false);
+	}
+
+	if (old_window)
+		ANativeWindow_release(old_window);
 }
 
 bool AndroidRuntime::GetNativeSurface(void** window, int* width, int* height) const

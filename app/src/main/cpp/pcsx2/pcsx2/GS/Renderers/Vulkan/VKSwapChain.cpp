@@ -14,6 +14,10 @@
 #include <array>
 #include <cmath>
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
+
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 #include <X11/Xlib.h>
 #endif
@@ -278,10 +282,43 @@ bool VKSwapChain::SelectPresentMode(VkSurfaceKHR surface, GSVSyncMode* vsync_mod
 		return it != present_modes.end();
 	};
 
+#if defined(__ANDROID__)
+	// r54p1 on Mali-G57 can run the producer ahead of Android's BufferQueue in
+	// MAILBOX/IMMEDIATE modes, eventually returning NO_BUFFER_AVAILABLE. FIFO is
+	// guaranteed on Android and provides the required producer-side backpressure.
+	const GSDeviceVK* const device = GSDeviceVK::GetInstance();
+	const MobileGpuIdentity& gpu = device->GetMobileGPUIdentity();
+	const bool force_fifo = device->IsMaliGPUProfile() &&
+		(gpu.model_number == 57 || gpu.name.find("Mali-G57") != std::string::npos);
+	if (force_fifo)
+	{
+		if (*vsync_mode != GSVSyncMode::FIFO)
+			WARNING_LOG("Mali-G57: forcing FIFO presentation to keep Android BufferQueue bounded.");
+		*present_mode = VK_PRESENT_MODE_FIFO_KHR;
+		*vsync_mode = GSVSyncMode::FIFO;
+		return true;
+	}
+#endif
+
 	switch (*vsync_mode)
 	{
 		case GSVSyncMode::Disabled:
 		{
+#if defined(__ANDROID__)
+			// Android presentation is compositor-driven. Some vendor stacks advertise IMMEDIATE,
+			// but repeatedly exhaust the Surface BufferQueue when it is used. MAILBOX preserves
+			// low-latency uncapped submission without tearing; FIFO is the guaranteed fallback.
+			if (CheckForMode(VK_PRESENT_MODE_MAILBOX_KHR))
+			{
+				*present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+				*vsync_mode = GSVSyncMode::Mailbox;
+			}
+			else
+			{
+				*present_mode = VK_PRESENT_MODE_FIFO_KHR;
+				*vsync_mode = GSVSyncMode::FIFO;
+			}
+#else
 			// Prefer immediate > mailbox > fifo.
 			if (CheckForMode(VK_PRESENT_MODE_IMMEDIATE_KHR))
 			{
@@ -299,6 +336,7 @@ bool VKSwapChain::SelectPresentMode(VkSurfaceKHR surface, GSVSyncMode* vsync_mod
 				*present_mode = VK_PRESENT_MODE_FIFO_KHR;
 				*vsync_mode = GSVSyncMode::FIFO;
 			}
+#endif
 		}
 		break;
 
@@ -350,9 +388,16 @@ bool VKSwapChain::CreateSwapChain()
 
 	// Select number of images in swap chain, we prefer one buffer in the background to work on in triple-buffered mode.
 	// maxImageCount can be zero, in which case there isn't an upper limit on the number of buffers.
+	const u32 preferred_image_count =
+#if defined(__ANDROID__)
+		3;
+#else
+		(m_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) ? 3 : 2;
+#endif
 	u32 image_count = std::clamp<u32>(
-		(m_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) ? 3 : 2, surface_capabilities.minImageCount,
+		preferred_image_count, surface_capabilities.minImageCount,
 		(surface_capabilities.maxImageCount == 0) ? std::numeric_limits<u32>::max() : surface_capabilities.maxImageCount);
+	const u32 requested_image_count = image_count;
 	DEV_LOG("Creating a swap chain with {} images in present mode {}", image_count, PresentModeToString(m_present_mode));
 
 	// Determine the dimensions of the swap chain. Values of -1 indicate the size we specify here
@@ -482,6 +527,13 @@ bool VKSwapChain::CreateSwapChain()
 	std::vector<VkImage> images(image_count);
 	res = vkGetSwapchainImagesKHR(GSDeviceVK::GetInstance()->GetDevice(), m_swap_chain, &image_count, images.data());
 	pxAssert(res == VK_SUCCESS);
+
+#if defined(__ANDROID__)
+	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
+		"Vulkan swapchain presentMode=%s requestedImages=%u actualImages=%u surfaceMin=%u surfaceMax=%u",
+		PresentModeToString(m_present_mode), requested_image_count, image_count,
+		surface_capabilities.minImageCount, surface_capabilities.maxImageCount);
+#endif
 
 	m_images.reserve(image_count);
 	m_current_image = 0;

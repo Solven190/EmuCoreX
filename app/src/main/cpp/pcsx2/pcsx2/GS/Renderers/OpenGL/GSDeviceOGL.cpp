@@ -24,6 +24,10 @@
 #include <sstream>
 #include <type_traits>
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
+
 static constexpr u32 g_vs_cb_index        = 1;
 static constexpr u32 g_ps_cb_index        = 0;
 
@@ -960,7 +964,11 @@ bool GSDeviceOGL::CheckFeatures()
 	const bool has_arm_framebuffer_fetch = GLAD_GL_ARM_shader_framebuffer_fetch;
 	const bool has_ext_framebuffer_fetch = GLAD_GL_EXT_shader_framebuffer_fetch;
 	const bool has_texture_barrier_extension = GLAD_GL_ARB_texture_barrier;
-	bool framebuffer_fetch = (has_arm_framebuffer_fetch || has_ext_framebuffer_fetch);
+	// ARM fetch only exposes gl_LastFragColorARM for color attachment zero. It cannot satisfy
+	// the generic inout/MRT feedback contract used by GS, and treating it as EXT fetch caused
+	// missing target-backed textures and incorrect colors on Mali. Keep the standardized EXT
+	// fast path when present; otherwise use the copy fallback below.
+	bool framebuffer_fetch = has_ext_framebuffer_fetch;
 	if (framebuffer_fetch && GSConfig.DisableFramebufferFetch)
 	{
 		Host::AddOSDMessage(
@@ -994,8 +1002,10 @@ bool GSDeviceOGL::CheckFeatures()
 		m_features.texture_barrier = framebuffer_fetch || has_texture_barrier_extension;
 
 	m_features.framebuffer_fetch = framebuffer_fetch;
-	if (gpu_profile_mali && has_arm_framebuffer_fetch)
-		DevCon.WriteLn("GL: Mali GPU profile prefers the advertised ARM framebuffer-fetch path.");
+	m_features.dual_source_blend =
+		!m_is_gles || GLAD_GL_EXT_blend_func_extended || GLAD_GL_ARB_blend_func_extended;
+	if (gpu_profile_mali && has_arm_framebuffer_fetch && !has_ext_framebuffer_fetch)
+		DevCon.WriteLn("GL: Mali ARM-only framebuffer fetch cannot implement generic GS feedback; using copy fallback.");
 	if (gpu_profile_powervr)
 		DevCon.WriteLn("GL: PowerVR GPU profile active.");
 	else if (gpu_profile_adreno)
@@ -1037,6 +1047,19 @@ bool GSDeviceOGL::CheckFeatures()
 	// texture_barrier is unavailable. Expose this so GSRendererHW doesn't disable full-barrier
 	// paths before the OpenGL fallback in SendHWDraw() gets a chance to handle them.
 	m_features.multidraw_fb_copy = !m_features.texture_barrier;
+
+#if defined(__ANDROID__)
+	const char* version_str = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
+		"OpenGL GS vendor=%s renderer=%s version=%s profile=%s model=%s arch=%s "
+		"armFetch=%d extFetch=%d fbfetch=%d textureBarrier=%d copyFallback=%d dualSrcBlend=%d",
+		vendor_str, renderer_str, version_str ? version_str : "Unknown",
+		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()), GetMobileGPUIdentity().name.c_str(),
+		GpuProfileDetector::ArchitectureToString(GetMobileGPUIdentity().architecture),
+		has_arm_framebuffer_fetch ? 1 : 0, has_ext_framebuffer_fetch ? 1 : 0,
+		m_features.framebuffer_fetch ? 1 : 0, m_features.texture_barrier ? 1 : 0,
+		m_features.multidraw_fb_copy ? 1 : 0, m_features.dual_source_blend ? 1 : 0);
+#endif
 
 	m_features.test_and_sample_depth = m_features.texture_barrier;
 	// Depth-as-RT feedback works from a copied R32 target, so it doesn't need texture barriers.
@@ -1112,14 +1135,34 @@ void GSDeviceOGL::SetSwapInterval()
 	// Fall back to manual throttling in this case.
 	m_vsync_mode = (m_vsync_mode == GSVSyncMode::Mailbox) ? GSVSyncMode::FIFO : m_vsync_mode;
 
+	// Mali-G57 r54p1 can exhaust Android's BufferQueue when swap interval zero is
+	// used. Keep this workaround model-specific so newer Mali and Adreno retain
+	// the user's low-latency setting.
+	const bool force_android_fifo =
+#if defined(__ANDROID__)
+		IsMaliGPUProfile() &&
+		(GetMobileGPUIdentity().model_number == 57 ||
+			GetMobileGPUIdentity().name.find("Mali-G57") != std::string::npos);
+#else
+		false;
+#endif
+
 	// Window framebuffer has to be bound to call SetSwapInterval.
-	const s32 interval = static_cast<s32>(m_vsync_mode == GSVSyncMode::FIFO);
+	const s32 interval = static_cast<s32>(force_android_fifo || m_vsync_mode == GSVSyncMode::FIFO);
 	GLint current_fbo = 0;
 	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &current_fbo);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
 	if (!m_gl_context->SetSwapInterval(interval))
 		WARNING_LOG("GL: Failed to set swap interval to {}", interval);
+
+#if defined(__ANDROID__)
+	if (force_android_fifo)
+	{
+		__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
+			"OpenGL swapInterval=1 forcedForMaliG57=1");
+	}
+#endif
 
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, current_fbo);
 }
@@ -1623,12 +1666,8 @@ std::string GSDeviceOGL::GenGlslHeader(const std::string_view entry, GLenum type
 			header += "#extension GL_ARB_blend_func_extended : require\n";
 		if (m_features.framebuffer_fetch)
 		{
-			if (GLAD_GL_ARM_shader_framebuffer_fetch)
-				header += "#extension GL_ARM_shader_framebuffer_fetch : require\n";
-			else if (GLAD_GL_EXT_shader_framebuffer_fetch)
+			if (GLAD_GL_EXT_shader_framebuffer_fetch)
 				header += "#extension GL_EXT_shader_framebuffer_fetch : require\n";
-			else if (GLAD_GL_EXT_shader_pixel_local_storage)
-				header += "#extension GL_EXT_shader_pixel_local_storage : require\n";
 		}
 
 #ifdef __ANDROID__

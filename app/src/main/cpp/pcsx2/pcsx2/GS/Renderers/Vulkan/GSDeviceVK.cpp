@@ -29,6 +29,10 @@
 #include <mutex>
 #include <sstream>
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
+
 // Tweakables
 enum : u32
 {
@@ -2836,16 +2840,23 @@ bool GSDeviceVK::CheckFeatures()
 	//const bool isNVIDIA = (vendorID == 0x10DE);
 
 	const bool has_framebuffer_fetch_extension = m_optional_extensions.vk_ext_rasterization_order_attachment_access;
-	// Mali (0x13B5): enable when ROAA is present. Fbfetch lets the shader read Cd without
-	// routing blend-heavy draws through a per-primitive texture-barrier path
-	// (GT4 = 10-20fps slideshow). No-op on any Mali lacking the extension.
-	//
-	// ADRENO / other non-Mali: OPT-IN only (EnableAdrenoFramebufferFetch, default off).
-	// Gated on ROAA presence, so it is a no-op on any device that does not expose the extension.
+	// Mali benefits substantially from tile-local framebuffer fetch when ROAA is exposed. Keep it
+	// capability-gated, and handle missing dual-source blending independently in GSRendererHW.
+	// Adreno/other mobile implementations remain opt-in because support varies by driver stack.
 	const bool is_mali_vk = (m_device_properties.vendorID == 0x13B5u);
-	const bool vendor_allows_fbfetch = is_mali_vk || GSConfig.EnableAdrenoFramebufferFetch;
+	// Mali-G57 r13p0-class drivers expose ROAA but have been observed returning zero/stale
+	// destination color in NFS Most Wanted. Keep the denylist model-specific: newer Mali GPUs
+	// retain the tile-local fast path, while G57 uses the correct texture-barrier path.
+	const bool is_mali_g57 = is_mali_vk &&
+		((GetMobileGPUIdentity().architecture == MobileGpuArchitecture::MaliValhall1 &&
+			 GetMobileGPUIdentity().model_number == 57) ||
+			 std::strstr(m_device_properties.deviceName, "Mali-G57") != nullptr);
+	const bool vendor_allows_fbfetch =
+		!is_mali_g57 && (is_mali_vk || GSConfig.EnableAdrenoFramebufferFetch);
 	bool framebuffer_fetch = vendor_allows_fbfetch &&
 		has_framebuffer_fetch_extension && !GSConfig.DisableFramebufferFetch;
+	if (is_mali_g57 && has_framebuffer_fetch_extension)
+		Console.Warning("VK: Disabled unreliable Mali-G57 framebuffer fetch; using texture-barrier feedback.");
 
 	bool texture_barrier = (GSConfig.OverrideTextureBarriers != 0);
 	m_features.multidraw_fb_copy = false;
@@ -2854,6 +2865,11 @@ bool GSDeviceVK::CheckFeatures()
 
 	m_features.framebuffer_fetch = framebuffer_fetch;
 	m_features.texture_barrier = texture_barrier;
+	m_features.dual_source_blend = m_device_features.dualSrcBlend;
+	// The r13p0-class Mali-G57 driver can expose alternating top/bottom FastMAD banks
+	// instead of the reconstructed frame. Keep the workaround model-specific and leave
+	// the normal motion-adaptive path enabled for newer Mali devices and other backends.
+	m_features.broken_mad_deinterlace = is_mali_g57;
 #if defined(__ANDROID__)
 	const MobileGsTuning& mobile_gs_tuning = GetMobileGSTuning();
 #endif
@@ -2928,6 +2944,21 @@ bool GSDeviceVK::CheckFeatures()
 	DevCon.WriteLn("Optional features:%s%s%s%s%s", m_features.primitive_id ? " primitive_id" : "",
 		m_features.texture_barrier ? " texture_barrier" : "", m_features.framebuffer_fetch ? " framebuffer_fetch" : "",
 		m_features.provoking_vertex_last ? " provoking_vertex_last" : "", m_features.vs_expand ? " vs_expand" : "");
+#if defined(__ANDROID__)
+	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
+		"Vulkan GS device=%s vendor=0x%04x driver=0x%08x profile=%s model=%s arch=%s "
+		"roaa=%d fbfetch=%d fbfetchDenylisted=%d textureBarrier=%d inputAttachmentFeedback=%d "
+		"dualSrcBlend=%d fastMAD=%d madFallback=%s",
+		m_device_properties.deviceName, m_device_properties.vendorID, m_device_properties.driverVersion,
+		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()), GetMobileGPUIdentity().name.c_str(),
+		GpuProfileDetector::ArchitectureToString(GetMobileGPUIdentity().architecture),
+		has_framebuffer_fetch_extension ? 1 : 0, m_features.framebuffer_fetch ? 1 : 0,
+		is_mali_g57 ? 1 : 0, m_features.texture_barrier ? 1 : 0,
+		(m_features.texture_barrier && !UseFeedbackLoopLayout()) ? 1 : 0,
+		m_device_features.dualSrcBlend ? 1 : 0,
+		m_features.broken_mad_deinterlace ? 0 : 1,
+		m_features.broken_mad_deinterlace ? "blend" : "none");
+#endif
 	DevCon.WriteLn("VK: Mobile GPU profile: %s model=%s architecture=%s constrained=%s prefer_new=%s pool=%u/%u age=%u/%u.",
 		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
 #if defined(__ANDROID__)
@@ -3646,7 +3677,14 @@ void GSDeviceVK::IASetVertexBuffer(const void* vertex, size_t stride, size_t cou
 	const u32 size = static_cast<u32>(stride) * static_cast<u32>(count);
 	if (!m_vertex_stream_buffer.ReserveMemory(size, static_cast<u32>(stride) * align_multiplier))
 	{
-		ExecuteCommandBufferAndRestartRenderPass(false, "Uploading bytes to vertex buffer");
+		// The swap-chain render pass is intentionally not tracked by m_current_render_pass.
+		// Submitting it through the ordinary render-pass restart path would therefore end the
+		// command buffer with an open present pass. Some desktop drivers tolerate that, while
+		// Mali can present a frame with undefined viewport/push-constant state.
+		if (m_is_presenting)
+			ExecuteCommandBufferAndRestartPresent(false, "Uploading bytes to vertex buffer");
+		else
+			ExecuteCommandBufferAndRestartRenderPass(false, "Uploading bytes to vertex buffer");
 		if (!m_vertex_stream_buffer.ReserveMemory(size, static_cast<u32>(stride) * align_multiplier))
 			pxFailRel("Failed to reserve space for vertices");
 	}
@@ -3663,7 +3701,10 @@ void GSDeviceVK::IASetIndexBuffer(const void* index, size_t count)
 	const u32 size = sizeof(u16) * static_cast<u32>(count);
 	if (!m_index_stream_buffer.ReserveMemory(size, sizeof(u16)))
 	{
-		ExecuteCommandBufferAndRestartRenderPass(false, "Uploading bytes to index buffer");
+		if (m_is_presenting)
+			ExecuteCommandBufferAndRestartPresent(false, "Uploading bytes to index buffer");
+		else
+			ExecuteCommandBufferAndRestartRenderPass(false, "Uploading bytes to index buffer");
 		if (!m_index_stream_buffer.ReserveMemory(size, sizeof(u16)))
 			pxFailRel("Failed to reserve space for vertices");
 	}
@@ -4075,9 +4116,15 @@ bool GSDeviceVK::CreatePipelineLayouts()
 		dslb.SetPushFlag();
 	dslb.AddBinding(TFX_TEXTURE_TEXTURE, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	dslb.AddBinding(TFX_TEXTURE_PALETTE, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
-	dslb.AddBinding(TFX_TEXTURE_RT, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	// The non-feedback-layout shader declares these bindings as subpassInput. The
+	// descriptor layout must match the SPIR-V resource type; using SAMPLED_IMAGE
+	// here is undefined and produces intermittent stale tile reads on Mali-G57.
+	const VkDescriptorType feedback_descriptor_type =
+		(m_features.texture_barrier && !UseFeedbackLoopLayout()) ? VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT :
+			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	dslb.AddBinding(TFX_TEXTURE_RT, feedback_descriptor_type, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	dslb.AddBinding(TFX_TEXTURE_PRIMID, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
-	dslb.AddBinding(TFX_TEXTURE_DEPTH, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	dslb.AddBinding(TFX_TEXTURE_DEPTH, feedback_descriptor_type, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	if ((m_tfx_texture_ds_layout = dslb.Create(dev)) == VK_NULL_HANDLE)
 		return false;
 	Vulkan::SetObjectName(dev, m_tfx_texture_ds_layout, "TFX texture descriptor layout");
@@ -5381,6 +5428,17 @@ void GSDeviceVK::ExecuteCommandBufferAndRestartRenderPass(bool wait_for_completi
 		// restart render pass
 		BeginRenderPass(GetRenderPassForRestarting(render_pass), render_pass_area);
 	}
+
+	// Push constants are command-buffer state. Utility draws commonly upload them before
+	// reserving their vertices, so a stream-buffer rollover can happen after the upload.
+	// Restore the cached block in the new command buffer to avoid stale post-process and
+	// interlace coordinates on strict mobile Vulkan drivers.
+	if (m_utility_push_constants_size > 0)
+	{
+		vkCmdPushConstants(GetCurrentCommandBuffer(), m_utility_pipeline_layout,
+			VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+			m_utility_push_constants_size, m_utility_push_constants.data());
+	}
 }
 
 void GSDeviceVK::ExecuteCommandBufferAndRestartPresent(bool wait_for_completion, const char* reason, ...)
@@ -5389,6 +5447,10 @@ void GSDeviceVK::ExecuteCommandBufferAndRestartPresent(bool wait_for_completion,
 	va_start(ap, reason);
 	const std::string reason_str(StringUtil::StdStringFromFormatV(reason, ap));
 	va_end(ap);
+
+#if defined(__ANDROID__)
+	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX", "Vulkan present pass restart: %s", reason_str.c_str());
+#endif
 
 	pxAssert(m_is_presenting);
 	vkCmdEndRenderPass(GetCurrentCommandBuffer());
@@ -5406,6 +5468,22 @@ void GSDeviceVK::ExecuteCommandBufferAndRestartPresent(bool wait_for_completion,
 		{{0, 0}, {static_cast<u32>(swap_chain_texture->GetWidth()), static_cast<u32>(swap_chain_texture->GetHeight())}},
 		0u, nullptr};
 	vkCmdBeginRenderPass(GetCurrentCommandBuffer(), &rp, VK_SUBPASS_CONTENTS_INLINE);
+
+	// Dynamic viewport/scissor state does not survive a command-buffer submission.
+	// BeginPresent() normally emits it, but this rare restart path must do the same.
+	const VkViewport vp{0.0f, 0.0f, static_cast<float>(swap_chain_texture->GetWidth()),
+		static_cast<float>(swap_chain_texture->GetHeight()), 0.0f, 1.0f};
+	const VkRect2D scissor{
+		{0, 0}, {static_cast<u32>(swap_chain_texture->GetWidth()), static_cast<u32>(swap_chain_texture->GetHeight())}};
+	vkCmdSetViewport(GetCurrentCommandBuffer(), 0, 1, &vp);
+	vkCmdSetScissor(GetCurrentCommandBuffer(), 0, 1, &scissor);
+
+	if (m_utility_push_constants_size > 0)
+	{
+		vkCmdPushConstants(GetCurrentCommandBuffer(), m_utility_pipeline_layout,
+			VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+			m_utility_push_constants_size, m_utility_push_constants.data());
+	}
 }
 
 void GSDeviceVK::ExecuteCommandBufferForReadback()
@@ -5535,6 +5613,9 @@ void GSDeviceVK::SetUtilityTexture(GSTexture* tex, VkSampler sampler)
 
 void GSDeviceVK::SetUtilityPushConstants(const void* data, u32 size)
 {
+	pxAssert(size <= m_utility_push_constants.size());
+	std::memcpy(m_utility_push_constants.data(), data, size);
+	m_utility_push_constants_size = size;
 	vkCmdPushConstants(GetCurrentCommandBuffer(), m_utility_pipeline_layout,
 		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, size, data);
 }
@@ -5791,8 +5872,16 @@ bool GSDeviceVK::ApplyTFXState(bool already_execed)
 		}
 		if (flags & DIRTY_FLAG_TFX_TEXTURE_RT)
 		{
-			dsub.AddImageDescriptorWrite(VK_NULL_HANDLE, TFX_TEXTURE_RT, m_tfx_textures[TFX_TEXTURE_RT]->GetView(),
-				m_tfx_textures[TFX_TEXTURE_RT]->GetVkLayout());
+			if (m_features.texture_barrier && !UseFeedbackLoopLayout())
+			{
+				dsub.AddInputAttachmentDescriptorWrite(
+					VK_NULL_HANDLE, TFX_TEXTURE_RT, m_tfx_textures[TFX_TEXTURE_RT]->GetView(), VK_IMAGE_LAYOUT_GENERAL);
+			}
+			else
+			{
+				dsub.AddImageDescriptorWrite(VK_NULL_HANDLE, TFX_TEXTURE_RT, m_tfx_textures[TFX_TEXTURE_RT]->GetView(),
+					m_tfx_textures[TFX_TEXTURE_RT]->GetVkLayout());
+			}
 		}
 		if (flags & DIRTY_FLAG_TFX_TEXTURE_PRIMID)
 		{
@@ -5801,8 +5890,16 @@ bool GSDeviceVK::ApplyTFXState(bool already_execed)
 		}
 		if (flags & DIRTY_FLAG_TFX_TEXTURE_DEPTH)
 		{
-			dsub.AddImageDescriptorWrite(VK_NULL_HANDLE, TFX_TEXTURE_DEPTH, m_tfx_textures[TFX_TEXTURE_DEPTH]->GetView(),
-				m_tfx_textures[TFX_TEXTURE_DEPTH]->GetVkLayout());
+			if (m_features.texture_barrier && !UseFeedbackLoopLayout())
+			{
+				dsub.AddInputAttachmentDescriptorWrite(
+					VK_NULL_HANDLE, TFX_TEXTURE_DEPTH, m_tfx_textures[TFX_TEXTURE_DEPTH]->GetView(), VK_IMAGE_LAYOUT_GENERAL);
+			}
+			else
+			{
+				dsub.AddImageDescriptorWrite(VK_NULL_HANDLE, TFX_TEXTURE_DEPTH, m_tfx_textures[TFX_TEXTURE_DEPTH]->GetView(),
+					m_tfx_textures[TFX_TEXTURE_DEPTH]->GetVkLayout());
+			}
 		}
 
 		if (m_use_push_descriptors)

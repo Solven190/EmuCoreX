@@ -400,6 +400,8 @@ private:
 
 	VkDescriptorSetLayout m_utility_ds_layout = VK_NULL_HANDLE;
 	VkPipelineLayout m_utility_pipeline_layout = VK_NULL_HANDLE;
+	std::array<u8, CONVERT_PUSH_CONSTANTS_SIZE> m_utility_push_constants{};
+	u32 m_utility_push_constants_size = 0;
 
 	VkDescriptorSetLayout m_tfx_ubo_ds_layout = VK_NULL_HANDLE;
 	VkDescriptorSetLayout m_tfx_texture_ds_layout = VK_NULL_HANDLE;

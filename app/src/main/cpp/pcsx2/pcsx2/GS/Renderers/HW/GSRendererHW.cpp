@@ -6043,6 +6043,22 @@ void GSRendererHW::EmulateBlending(int rt_alpha_min, int rt_alpha_max, DATEOptio
 			break;
 	}
 
+	// GLES and Vulkan do not guarantee dual-source blending. If this equation would actually use
+	// SRC1 (or PABE/mixed blending, which can introduce SRC1 later), emulate the complete equation
+	// in the fragment shader. Ordinary one-source hardware blends retain their fast path.
+	const bool blend_path_requires_dual_source =
+		GSDevice::IsDualSourceBlendFactor(blend.src) || GSDevice::IsDualSourceBlendFactor(blend.dst) ||
+		blend_mix || PABE;
+	if (!features.dual_source_blend && blend_path_requires_dual_source)
+	{
+		sw_blending = true;
+		color_dest_blend = false;
+		accumulation_blend = false;
+		blend_mix = false;
+		color_dest_blend2 = false;
+		blend_zero_to_one_range = false;
+	}
+
 	if (features.framebuffer_fetch)
 	{
 		// If we have fbfetch, use software blending when we need the fb value for anything else.
@@ -7540,7 +7556,8 @@ void GSRendererHW::EmulateAlphaTest(DATEOptions& date_options)
 
 	// Flags to determine if we can achieve full accuracy with less passes.
 	const bool simple_fb_only = (afail == AFAIL_FB_ONLY) && independent_z;
-	const bool simple_rgb_only = (afail == AFAIL_RGB_ONLY) && independent_z && independent_rgb;
+	const bool simple_rgb_only =
+		(afail == AFAIL_RGB_ONLY) && independent_z && independent_rgb && features.dual_source_blend;
 	const bool simple_zb_only = (afail == AFAIL_ZB_ONLY) && independent_z;
 
 	// Determine where RT and/or depth are needed for the feedback methods.

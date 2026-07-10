@@ -1219,20 +1219,18 @@ object EmulatorBridge {
 
     fun onSurfaceDestroyed() {
         if (!isNativeLoaded) return
-        val eventVersion = ++surfaceEventVersion
+        ++surfaceEventVersion
+        lastSurface = null
+        lastSurfaceWidth = 0
+        lastSurfaceHeight = 0
         NativeApp.setCrashContextString("emu_surface_state", "destroyed")
         NativeApp.logCrashBreadcrumb("surfaceDestroyed")
         runCatching { NativeApp.pause() }
-        launchSerial {
-            delay(250)
-            if (surfaceEventVersion != eventVersion) return@launchSerial
-            lastSurface = null
-            lastSurfaceWidth = 0
-            lastSurfaceHeight = 0
-            try {
-                NativeApp.onNativeSurfaceDestroyed()
-            } catch (_: Exception) { }
-        }
+        // Android invalidates the BufferQueue as soon as this callback returns.
+        // Detach GS synchronously so it cannot keep presenting to an abandoned Surface.
+        try {
+            NativeApp.onNativeSurfaceDestroyed()
+        } catch (_: Exception) { }
     }
 
     private fun rebindSurface() {

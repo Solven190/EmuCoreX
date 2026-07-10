@@ -943,10 +943,15 @@ public:
 		bool cas_sharpening       : 1; ///< Supports sufficient functionality for contrast adaptive sharpening.
 		bool test_and_sample_depth: 1; ///< Supports concurrently binding the depth-stencil buffer for sampling and depth testing.
 		bool aa1                 : 1; ///< Supports AA1 (anti-aliasing for lines/triangles).
+		bool dual_source_blend   : 1; ///< Supports a second fragment output as a hardware blend factor.
+		bool broken_mad_deinterlace : 1; ///< Driver cannot reliably preserve/read the two-bank FastMAD history target.
 		DepthFeedbackSupport depth_feedback : 2; ///< Support for depth feedback loops.
 		FeatureSupport()
 		{
 			memset(this, 0, sizeof(*this));
+			// Desktop renderers have always required this. GLES and Vulkan override it after
+			// querying the device, because mobile GPUs are allowed to omit the feature.
+			dual_source_blend = true;
 		}
 	};
 
