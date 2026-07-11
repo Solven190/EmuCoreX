@@ -115,8 +115,12 @@ void VU_Thread::Reset()
 	vuCycleIdx = 0;
 	m_ato_write_pos = 0;
 	m_write_pos = 0;
-	m_ato_read_pos = 0;
 	m_read_pos = 0;
+	m_ato_read_sequence = 0;
+	m_read_sequence = 0;
+	m_write_sequence = 0;
+	m_cached_read_sequence = 0;
+	m_committed_write_pos = 0;
 	std::memset(&vif, 0, sizeof(vif));
 	std::memset(&vifRegs, 0, sizeof(vifRegs));
 	for (size_t i = 0; i < 4; ++i)
@@ -144,8 +148,11 @@ void VU_Thread::ExecuteRingBuffer()
 		// have Posted any prior pending counts BEFORE entering Execute, or
 		// MTGS is stuck waiting and MTVU is stuck spinning.
 		int pending_xgkick_posts = 0;
-		while (m_ato_read_pos.load(std::memory_order_relaxed) != GetWritePos())
+		constexpr s32 READ_POS_PUBLISH_BATCH_WORDS = _16kb / sizeof(u32);
+		u64 published_read_sequence = m_ato_read_sequence.load(std::memory_order_relaxed);
+		while (m_read_pos != GetWritePos())
 		{
+			const s32 packet_read_pos = m_read_pos;
 			u32 tag = Read();
 			switch (tag)
 			{
@@ -220,8 +227,20 @@ void VU_Thread::ExecuteRingBuffer()
 					jNO_DEFAULT;
 			}
 
-			CommitReadPos();
+			const u64 packet_words = (m_read_pos >= packet_read_pos) ?
+				static_cast<u64>(m_read_pos - packet_read_pos) :
+				static_cast<u64>(buffer_size - packet_read_pos + m_read_pos);
+			m_read_sequence += packet_words;
+			if ((m_read_sequence - published_read_sequence) >= READ_POS_PUBLISH_BATCH_WORDS)
+			{
+				CommitReadPos();
+				published_read_sequence = m_read_sequence;
+			}
 		}
+
+		// Make IsDone()/WaitVU and the producer observe the exact final position.
+		if (published_read_sequence != m_read_sequence)
+			CommitReadPos();
 
 		// Drain any batched VU_EXECUTE Posts.
 		if (pending_xgkick_posts)
@@ -238,18 +257,20 @@ void VU_Thread::ExecuteRingBuffer()
 // Should only be called by ReserveSpace()
 __ri void VU_Thread::WaitOnSize(s32 size)
 {
+	constexpr u64 SAFETY_WORDS = _4kb / sizeof(u32);
 	for (;;)
 	{
-		s32 readPos = GetReadPos();
-		if (readPos <= m_write_pos)
-			break; // MTVU is reading in back of write_pos
-		// FIXME greg: there is a bug somewhere in the queue pointer
-		// management. It creates a deadlock/corruption in SotC intro (before
-		// the first menu). I added a 4KB safety net which seem to avoid to
-		// trigger the bug.
-		// Note: a wait lock instead of a yield also helps to avoid the bug.
-		if (readPos > m_write_pos + size + _4kb)
-			break; // Enough free front space
+		const u64 cached_used_words = m_write_sequence - m_cached_read_sequence;
+		pxAssert(cached_used_words <= static_cast<u64>(buffer_size));
+		if ((cached_used_words + static_cast<u64>(size) + SAFETY_WORDS) < static_cast<u64>(buffer_size))
+			break;
+
+		m_cached_read_sequence = m_ato_read_sequence.load(std::memory_order_acquire);
+		const u64 used_words = m_write_sequence - m_cached_read_sequence;
+		pxAssert(used_words <= static_cast<u64>(buffer_size));
+		if ((used_words + static_cast<u64>(size) + SAFETY_WORDS) < static_cast<u64>(buffer_size))
+			break;
+
 		{          // Let MTVU run to free up buffer space
 			KickStart();
 			// Locking might trigger a full flush of the ring buffer. Yield
@@ -271,7 +292,9 @@ void VU_Thread::ReserveSpace(s32 size)
 
 	if (m_write_pos + size > (buffer_size - 1))
 	{
-		WaitOnSize(1); // Size of MTVU_NULL_PACKET
+		// The sequence advances over the whole unused tail, not only the null
+		// packet. Reserve that tail before wrapping so occupancy stays exact.
+		WaitOnSize(buffer_size - m_write_pos);
 		Write(MTVU_NULL_PACKET);
 		// Reset local write pointer/position
 		m_write_pos = 0;
@@ -279,12 +302,6 @@ void VU_Thread::ReserveSpace(s32 size)
 	}
 
 	WaitOnSize(size);
-}
-
-// Use this when reading read_pos from ee thread
-__fi s32 VU_Thread::GetReadPos()
-{
-	return m_ato_read_pos.load(std::memory_order_acquire);
 }
 
 // Use this when reading write_pos from vu thread
@@ -302,6 +319,11 @@ __fi u32* VU_Thread::GetWritePtr()
 
 __fi void VU_Thread::CommitWritePos()
 {
+	const u64 committed_words = (m_write_pos >= m_committed_write_pos) ?
+		static_cast<u64>(m_write_pos - m_committed_write_pos) :
+		static_cast<u64>(buffer_size - m_committed_write_pos + m_write_pos);
+	m_write_sequence += committed_words;
+	m_committed_write_pos = m_write_pos;
 	m_ato_write_pos.store(m_write_pos, std::memory_order_release);
 
 	if (MTVU_ALWAYS_KICK)
@@ -312,7 +334,7 @@ __fi void VU_Thread::CommitWritePos()
 
 __fi void VU_Thread::CommitReadPos()
 {
-	m_ato_read_pos.store(m_read_pos, std::memory_order_release);
+	m_ato_read_sequence.store(m_read_sequence, std::memory_order_release);
 }
 
 __fi u32 VU_Thread::Read()
@@ -456,7 +478,7 @@ void VU_Thread::KickStart()
 
 bool VU_Thread::IsDone()
 {
-	return GetReadPos() == GetWritePos();
+	return m_ato_read_sequence.load(std::memory_order_acquire) == m_write_sequence;
 }
 
 void VU_Thread::WaitVU()

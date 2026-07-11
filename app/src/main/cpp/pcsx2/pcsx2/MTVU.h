@@ -22,10 +22,14 @@ class VU_Thread final {
 
 	u32 buffer[buffer_size];
 	// Note: keep atomic on separate cache line to avoid CPU conflict
-	alignas(__cachelinesize) std::atomic<int> m_ato_read_pos; // Only modified by VU thread
 	alignas(__cachelinesize) std::atomic<int> m_ato_write_pos;    // Only modified by EE thread
+	alignas(__cachelinesize) std::atomic<u64> m_ato_read_sequence; // Monotonic consumer progress
 	alignas(__cachelinesize) int  m_read_pos; // temporary read pos (local to the VU thread)
 	int  m_write_pos; // temporary write pos (local to the EE thread)
+	u64 m_read_sequence; // local to the VU thread
+	u64 m_write_sequence; // local to the EE thread
+	u64 m_cached_read_sequence; // conservative consumer progress cached by EE
+	int m_committed_write_pos;
 	Threading::WorkSema semaEvent;
 	std::atomic_bool m_shutdown_flag{false};
 
@@ -109,7 +113,6 @@ private:
 	void WaitOnSize(s32 size);
 	void ReserveSpace(s32 size);
 
-	s32 GetReadPos();
 	s32 GetWritePos();
 
 	u32* GetWritePtr();
