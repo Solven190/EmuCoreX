@@ -25,6 +25,7 @@ data class OnboardingUiState(
     val performanceProfile: Int = PerformanceProfiles.SAFE,
     val biosPath: String? = null,
     val gamePath: String? = null,
+    val gamePaths: List<String> = emptyList(),
     val emulatorDataPath: String? = null,
     val biosValid: Boolean = false,
     val gamePathValid: Boolean = false,
@@ -74,10 +75,11 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                 }
             }
             launch {
-                preferences.gamePath.collect { path ->
+                preferences.gamePaths.collect { paths ->
                     updateState(
-                        gamePath = path,
-                        gamePathValid = SetupValidator.hasCoreReadableGameFile(getApplication(), path)
+                        gamePath = paths.firstOrNull(),
+                        gamePaths = paths,
+                        gamePathValid = SetupValidator.hasCoreReadableGameFile(getApplication(), paths)
                     )
                 }
             }
@@ -132,8 +134,12 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         if (!SetupValidator.hasCoreReadableGameFile(application, rawPath)) return
 
         viewModelScope.launch {
-            preferences.setGamePath(rawPath)
+            preferences.addGamePath(rawPath)
         }
+    }
+
+    fun removeGamePath(path: String) {
+        viewModelScope.launch { preferences.removeGamePath(path) }
     }
 
     fun setEmulatorDataPath(uri: Uri) {
@@ -173,6 +179,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         performanceProfile: Int = _uiState.value.performanceProfile,
         biosPath: String? = _uiState.value.biosPath,
         gamePath: String? = _uiState.value.gamePath,
+        gamePaths: List<String> = _uiState.value.gamePaths,
         emulatorDataPath: String? = _uiState.value.emulatorDataPath,
         biosValid: Boolean = _uiState.value.biosValid,
         gamePathValid: Boolean = _uiState.value.gamePathValid,
@@ -188,6 +195,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             performanceProfile = performanceProfile,
             biosPath = biosPath,
             gamePath = gamePath,
+            gamePaths = gamePaths,
             emulatorDataPath = emulatorDataPath,
             biosValid = biosValid,
             gamePathValid = gamePathValid,

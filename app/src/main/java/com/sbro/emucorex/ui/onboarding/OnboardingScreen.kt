@@ -50,6 +50,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Gamepad
 import androidx.compose.material.icons.rounded.Info
@@ -63,6 +64,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -447,12 +449,14 @@ fun OnboardingScreen(
                                         OnboardingSetupContent(
                                             biosPath = uiState.biosPath,
                                             gamePath = uiState.gamePath,
+                                            gamePaths = uiState.gamePaths,
                                             emulatorDataPath = uiState.emulatorDataPath,
                                             biosValid = uiState.biosValid,
                                             gamePathValid = uiState.gamePathValid,
                                             context = context,
                                             launchBiosPicker = launchBiosPicker,
                                             launchGamePicker = launchGamePicker,
+                                            onRemoveGamePath = viewModel::removeGamePath,
                                             launchEmulatorDataPicker = launchEmulatorDataPicker,
                                             endInset = 0.dp,
                                             bottomInset = 0.dp,
@@ -569,12 +573,14 @@ fun OnboardingScreen(
                                 OnboardingSetupContent(
                                     biosPath = uiState.biosPath,
                                     gamePath = uiState.gamePath,
+                                    gamePaths = uiState.gamePaths,
                                     emulatorDataPath = uiState.emulatorDataPath,
                                     biosValid = uiState.biosValid,
                                     gamePathValid = uiState.gamePathValid,
                                     context = context,
                                     launchBiosPicker = launchBiosPicker,
                                     launchGamePicker = launchGamePicker,
+                                    onRemoveGamePath = viewModel::removeGamePath,
                                     launchEmulatorDataPicker = launchEmulatorDataPicker,
                                     endInset = 0.dp,
                                     bottomInset = 0.dp
@@ -1025,12 +1031,14 @@ private fun OnboardingNavigation(
 private fun OnboardingSetupContent(
     biosPath: String?,
     gamePath: String?,
+    gamePaths: List<String>,
     emulatorDataPath: String?,
     biosValid: Boolean,
     gamePathValid: Boolean,
     context: android.content.Context,
     launchBiosPicker: () -> Unit,
     launchGamePicker: () -> Unit,
+    onRemoveGamePath: (String) -> Unit,
     launchEmulatorDataPicker: () -> Unit,
     endInset: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
@@ -1076,8 +1084,11 @@ private fun OnboardingSetupContent(
             SetupCard(
                 icon = Icons.Rounded.FolderOpen,
                 title = stringResource(R.string.onboarding_games_title),
-                description = gamePath?.let { DocumentPathResolver.getDisplayName(context, it) }
-                    ?: stringResource(R.string.onboarding_games_desc),
+                description = if (gamePaths.isEmpty()) {
+                    stringResource(R.string.onboarding_games_desc)
+                } else {
+                    stringResource(R.string.onboarding_games_selected_count, gamePaths.size)
+                },
                 status = when {
                     gamePath == null -> stringResource(R.string.onboarding_status_required)
                     gamePathValid -> stringResource(R.string.onboarding_status_ready)
@@ -1090,6 +1101,32 @@ private fun OnboardingSetupContent(
                 },
                 onClick = launchGamePicker
             )
+
+            gamePaths.forEach { path ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 3.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = DocumentPathResolver.getDisplayName(context, path),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        IconButton(onClick = { onRemoveGamePath(path) }) {
+                            Icon(
+                                imageVector = Icons.Rounded.DeleteOutline,
+                                contentDescription = stringResource(R.string.game_folders_remove)
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 

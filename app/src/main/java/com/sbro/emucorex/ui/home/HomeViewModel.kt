@@ -77,7 +77,7 @@ data class HomeUiState(
 )
 
 private data class DeferredLibraryScan(
-    val rootPath: String,
+    val rootPaths: List<String>,
     val isInitialLoad: Boolean,
     val showRefreshIndicator: Boolean
 )
@@ -100,6 +100,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private var biosInitialized = false
     private var libraryInitialized = false
     private var currentLibraryRoot: String? = null
+    private var currentLibraryPaths: List<String> = emptyList()
     private var preferEnglishGameTitles = false
     private var titlesPreferenceInitialized = false
     private var coverArtStyleInitialized = false
@@ -134,17 +135,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             preferences.cleanupLegacyClampingPreferencesIfNeeded()
-            preferences.gamePath.distinctUntilChanged().collect { path ->
+            preferences.gamePaths.distinctUntilChanged().collect { paths ->
                 val context = getApplication<Application>()
-                val effectivePath = path
-                currentLibraryRoot = effectivePath
-                val isAccessible = SetupValidator.hasCoreReadableGameFile(context, effectivePath)
-                if (isAccessible && effectivePath != null) {
-                    val cacheSnapshot = resolveCacheSnapshot(effectivePath)
+                val effectivePaths = paths.filter { SetupValidator.hasCoreReadableGameFile(context, it) }
+                val libraryKey = libraryKey(effectivePaths)
+                if (currentLibraryRoot != libraryKey) {
+                    allGames = emptyList()
+                }
+                currentLibraryPaths = effectivePaths
+                currentLibraryRoot = libraryKey
+                if (effectivePaths.isNotEmpty()) {
+                    val cacheSnapshot = resolveCacheSnapshot(libraryKey)
                     val hasCachedGames = cacheSnapshot.games.isNotEmpty()
                     if (hasCachedGames) {
                         allGames = cacheSnapshot.games
-                        currentLibraryRoot = effectivePath
+                        currentLibraryRoot = libraryKey
                         libraryInitialized = true
                         _uiState.value = _uiState.value.copy(
                             gameFolderSet = true,
@@ -162,10 +167,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                             isRefreshing = false
                         )
                     }
-                    requestLibraryScan(effectivePath, isInitialLoad = true)
+                    requestLibraryScan(effectivePaths, isInitialLoad = true)
                 } else {
                     allGames = emptyList()
                     currentLibraryRoot = null
+                    currentLibraryPaths = emptyList()
                     libraryInitialized = true
                     _uiState.value = _uiState.value.copy(
                         gameFolderSet = false,
@@ -198,9 +204,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 preferEnglishGameTitles = enabled
                 titlesPreferenceInitialized = true
                 if (!shouldRefreshLibrary) return@collect
-                val rootPath = currentLibraryRoot ?: return@collect
+                if (currentLibraryPaths.isEmpty()) return@collect
                 allGames = emptyList()
-                requestLibraryScan(rootPath)
+                requestLibraryScan(currentLibraryPaths)
             }
         }
         viewModelScope.launch {
@@ -270,7 +276,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         if (!SetupValidator.hasCoreReadableGameFile(context, rawPath)) return
 
         viewModelScope.launch {
-            preferences.setGamePath(rawPath)
+            preferences.addGamePath(rawPath)
         }
     }
 
@@ -286,8 +292,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshGames() {
         viewModelScope.launch {
             if (_uiState.value.isLoading || _uiState.value.isRefreshing) return@launch
-            val path = preferences.gamePath.first() ?: return@launch
-            requestLibraryScan(path, showRefreshIndicator = true)
+            val paths = preferences.gamePaths.first()
+            if (paths.isEmpty()) return@launch
+            requestLibraryScan(paths, showRefreshIndicator = true)
         }
     }
 
@@ -353,78 +360,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun scanGames(
-        path: String,
+        paths: List<String>,
         isInitialLoad: Boolean = false,
         showRefreshIndicator: Boolean = false
     ) {
+        val rootPath = libraryKey(paths)
         viewModelScope.launch(Dispatchers.IO) {
             scanMutex.withLock {
                 try {
-                    if (shouldDeferLibraryWork(path, isInitialLoad, showRefreshIndicator)) return@withLock
-                    val cacheSnapshot = resolveCacheSnapshot(path)
-                    val cachedGames = cacheSnapshot.games
-                    val showFullScreenLoader = false
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = showFullScreenLoader,
-                        isRefreshing = showRefreshIndicator && !showFullScreenLoader
-                    )
-                    publishCachedGamesIfAvailable(path, cachedGames)
-                    if (shouldSkipAutoRescan(isInitialLoad, cacheSnapshot)) {
-                        libraryInitialized = true
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            isRefreshing = false
-                        )
-                        updateBootstrapState()
-                        syncMissingCovers()
-                        return@withLock
-                    }
-                    val scannedGames = repository.scanDirectory(
-                        path,
-                        getApplication(),
-                        cachedGames.associateBy { it.path },
-                        shouldAbort = { EmulatorBridge.isVmActive() }
-                    )
-                    if (EmulatorBridge.isVmActive()) {
-                        queueDeferredLibraryWork(
-                            rootPath = path,
-                            isInitialLoad = false,
-                            showRefreshIndicator = showRefreshIndicator
-                        )
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            isRefreshing = false
-                        )
-                        return@withLock
-                    }
-                    allGames = scannedGames
-                    currentLibraryRoot = path
-                    libraryInitialized = true
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        isRefreshing = false
-                    )
-                    publishVisibleGames()
-                    updateBootstrapState()
-                    libraryCacheRepository.save(path, allGames, preferEnglishGameTitles)
-                    syncMissingCovers()
-                } catch (_: Exception) {
-                    completeLibraryScanWithFallback(path)
-                }
-            }
-        }
-    }
-
-    private fun scanGamesFromUri(
-        uri: Uri,
-        isInitialLoad: Boolean = false,
-        showRefreshIndicator: Boolean = false
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            scanMutex.withLock {
-                val rootPath = uri.toString()
-                try {
-                    if (shouldDeferLibraryWork(rootPath, isInitialLoad, showRefreshIndicator)) return@withLock
+                    if (shouldDeferLibraryWork(paths, isInitialLoad, showRefreshIndicator)) return@withLock
                     val cacheSnapshot = resolveCacheSnapshot(rootPath)
                     val cachedGames = cacheSnapshot.games
                     val showFullScreenLoader = false
@@ -444,15 +388,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         return@withLock
                     }
                     val context = getApplication<Application>()
-                    val scannedGames = repository.scanDirectoryFromUri(
-                        uri,
-                        context,
-                        cachedGames.associateBy { it.path },
-                        shouldAbort = { EmulatorBridge.isVmActive() }
-                    )
+                    val cachedByPath = cachedGames.associateBy { it.path }
+                    val scannedGames = paths.flatMap { path ->
+                        if (path.startsWith("content://")) {
+                            repository.scanDirectoryFromUri(
+                                path.toUri(), context, cachedByPath,
+                                shouldAbort = { EmulatorBridge.isVmActive() }
+                            )
+                        } else {
+                            repository.scanDirectory(
+                                path, context, cachedByPath,
+                                shouldAbort = { EmulatorBridge.isVmActive() }
+                            )
+                        }
+                    }.distinctBy { it.path }.sortedBy { it.title.lowercase() }
                     if (EmulatorBridge.isVmActive()) {
                         queueDeferredLibraryWork(
-                            rootPath = rootPath,
+                            rootPaths = paths,
                             isInitialLoad = false,
                             showRefreshIndicator = showRefreshIndicator
                         )
@@ -464,6 +416,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     allGames = scannedGames
                     currentLibraryRoot = rootPath
+                    currentLibraryPaths = paths
                     libraryInitialized = true
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -492,27 +445,26 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun requestLibraryScan(
-        rootPath: String,
+        rootPaths: List<String>,
         isInitialLoad: Boolean = false,
         showRefreshIndicator: Boolean = false
     ) {
-        if (shouldDeferLibraryWork(rootPath, isInitialLoad, showRefreshIndicator)) return
-        if (rootPath.startsWith("content://")) {
-            scanGamesFromUri(rootPath.toUri(), isInitialLoad, showRefreshIndicator)
-        } else {
-            scanGames(rootPath, isInitialLoad, showRefreshIndicator)
-        }
+        val normalized = rootPaths.map(String::trim).filter(String::isNotBlank).distinct()
+        if (normalized.isEmpty()) return
+        if (shouldDeferLibraryWork(normalized, isInitialLoad, showRefreshIndicator)) return
+        scanGames(normalized, isInitialLoad, showRefreshIndicator)
     }
 
     private fun shouldDeferLibraryWork(
-        rootPath: String,
+        rootPaths: List<String>,
         isInitialLoad: Boolean,
         showRefreshIndicator: Boolean
     ): Boolean {
         if (!EmulatorBridge.isVmActive()) return false
+        val rootPath = libraryKey(rootPaths)
         val cacheSnapshot = resolveCacheSnapshot(rootPath)
         publishCachedGamesIfAvailable(rootPath, cacheSnapshot.games)
-        queueDeferredLibraryWork(rootPath, isInitialLoad, showRefreshIndicator)
+        queueDeferredLibraryWork(rootPaths, isInitialLoad, showRefreshIndicator)
         _uiState.value = _uiState.value.copy(
             isLoading = false,
             isRefreshing = false
@@ -522,13 +474,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun queueDeferredLibraryWork(
-        rootPath: String,
+        rootPaths: List<String>,
         isInitialLoad: Boolean,
         showRefreshIndicator: Boolean
     ) {
         val existing = deferredLibraryScan
         deferredLibraryScan = DeferredLibraryScan(
-            rootPath = rootPath,
+            rootPaths = rootPaths,
             isInitialLoad = isInitialLoad || existing?.isInitialLoad == true,
             showRefreshIndicator = showRefreshIndicator || existing?.showRefreshIndicator == true
         )
@@ -549,7 +501,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     if (pendingScan != null) {
                         deferredLibraryScan = null
                         requestLibraryScan(
-                            rootPath = pendingScan.rootPath,
+                            rootPaths = pendingScan.rootPaths,
                             isInitialLoad = pendingScan.isInitialLoad,
                             showRefreshIndicator = pendingScan.showRefreshIndicator
                         )
@@ -581,6 +533,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             libraryCacheRepository.loadSnapshot(rootPath, preferEnglishGameTitles)
         }
     }
+
+    private fun libraryKey(paths: List<String>): String =
+        GameLibraryCacheRepository.libraryKey(paths)
 
     private fun shouldSkipAutoRescan(isInitialLoad: Boolean, cacheSnapshot: GameLibraryCacheSnapshot): Boolean {
         if (!isInitialLoad) return false
@@ -747,7 +702,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         publishVisibleGames()
         libraryCacheRepository.save(rootPath, allGames, preferEnglishGameTitles)
 
-        requestLibraryScan(rootPath)
+        requestLibraryScan(currentLibraryPaths)
     }
 
     private fun normalizeSearchToken(value: String?): String {

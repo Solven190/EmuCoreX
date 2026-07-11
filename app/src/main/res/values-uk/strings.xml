@@ -1464,4 +1464,21 @@
     <string name="settings_touch_haptics_preset_strong">Сильний</string>
     <string name="settings_touch_haptics_preset_desc">«М\'який» — ніжний, «Збалансований» — природний за замовчуванням, «Чіткий» — короткий і точний, а «Сильний» — глибший для слабких вібромоторів.</string>
     <string name="settings_help_touch_haptics_preset">«М\'який» використовує ніжне натискання та дуже легке відпускання. «Збалансований» дає чітке натискання з легшим відпусканням і є стандартним. «Чіткий» використовує найкоротшу та найрізкішу пару для точних дотиків. «Сильний» використовує глибші та довші імпульси для телефонів зі слабкішими вібромоторами. Повзунок сили налаштовує вибране відчуття.</string>
+    <string name="settings_gyro_mode">Керування гіроскопом</string>
+    <string name="settings_gyro_off">Вимк.</string>
+    <string name="settings_gyro_aim">Прицілювання — правий стік</string>
+    <string name="settings_gyro_steering">Кермо — лівий стік</string>
+    <string name="settings_gyro_sensitivity">Чутливість гіроскопа</string>
+    <string name="settings_gyro_smoothing">Згладжування гіроскопа</string>
+    <string name="settings_gyro_invert_x">Інвертувати гіроскоп по горизонталі</string>
+    <string name="settings_gyro_invert_x_desc">Міняє місцями рухи вліво та вправо.</string>
+    <string name="settings_gyro_invert_y">Інвертувати гіроскоп по вертикалі</string>
+    <string name="settings_gyro_invert_y_desc">Міняє місцями рух прицілювання вгору та вниз.</string>
+    <string name="settings_help_gyro_mode">«Прицілювання» перетворює швидкість обертання телефону на рух правого аналогового стіка для керування камерою в шутерах і автоматично повертається в центр, коли телефон перестає рухатися. «Кермо» перетворює нахил телефону на рух лівого аналогового стіка для гоночних ігор і калібрує поточний кут як центральний на початку гри. Вибраний режим використовується лише під час роботи гри і вимагає наявності відповідного датчика руху.</string>
+    <string name="settings_help_gyro_sensitivity">Керує тим, наскільки сильно рух телефону відхиляє емульований аналоговий стік. Рекомендується налаштовувати цей параметр для кожної гри окремо, оскільки ігри використовують різні криві відгуку для камери та кермування.</string>
+    <string name="settings_help_gyro_smoothing">Фільтрує шум датчика та тремтіння рук. Менші значення реагують швидше; більші значення здаються стабільнішими, але додають невелику затримку.</string>
+    <string name="settings_gyro_unavailable">Цей пристрій не має датчика руху, необхідного для вибраного режиму.</string>
+    <string name="onboarding_games_selected_count">Вибрано папок: %1$d. Натисніть, щоб додати ще одну.</string>
+    <string name="settings_game_folders_count">Вибрано папок: %1$d</string>
+    <string name="game_folders_remove">Видалити папку</string>
 </resources>

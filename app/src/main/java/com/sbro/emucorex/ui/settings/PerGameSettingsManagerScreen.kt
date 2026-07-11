@@ -140,7 +140,7 @@ fun PerGameSettingsManagerScreen(
     val preferences = remember(context) { AppPreferences(context) }
     val libraryCacheRepository = remember(context) { GameLibraryCacheRepository(context) }
     val settingsSnapshot by preferences.settingsSnapshot.collectAsState(initial = SettingsSnapshot())
-    val rootPath by preferences.gamePath.collectAsState(initial = null)
+    val rootPaths by preferences.gamePaths.collectAsState(initial = emptyList())
     val preferEnglishTitles by preferences.preferEnglishGameTitles.collectAsState(initial = false)
     val scope = rememberCoroutineScope()
     var profiles by remember { mutableStateOf(emptyList<PerGameSettings>()) }
@@ -176,10 +176,10 @@ fun PerGameSettingsManagerScreen(
         }
     }
 
-    LaunchedEffect(rootPath, preferEnglishTitles) {
+    LaunchedEffect(rootPaths, preferEnglishTitles) {
         libraryGames = withContext(Dispatchers.IO) {
-            rootPath
-                ?.let { libraryCacheRepository.loadSnapshot(it, preferEnglishTitles).games }
+            rootPaths.takeIf { it.isNotEmpty() }
+                ?.let { libraryCacheRepository.loadSnapshot(GameLibraryCacheRepository.libraryKey(it), preferEnglishTitles).games }
                 .orEmpty()
         }
     }
@@ -1118,6 +1118,22 @@ private fun GameSettingsTabContent(
                         helpText = stringResource(R.string.settings_help_touch_haptics_preset),
                         onResetToDefault = { onDraftChange(draft.copy(touchHapticsPreset = defaultProfile.touchHapticsPreset)) }
                     )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_gyro_mode),
+                        options = gyroModeOptions(),
+                        selectedValue = draft.gyroMode,
+                        onSelected = { onDraftChange(draft.copy(gyroMode = it)) },
+                        helpText = stringResource(R.string.settings_help_gyro_mode),
+                        onResetToDefault = { onDraftChange(draft.copy(gyroMode = defaultProfile.gyroMode)) }
+                    )
+                    if (draft.gyroMode != AppPreferences.GYRO_MODE_OFF) {
+                        SliderRow(stringResource(R.string.settings_gyro_sensitivity), draft.gyroSensitivity.toFloat(), "${draft.gyroSensitivity}%", 25f..300f, 10, { onDraftChange(draft.copy(gyroSensitivity = it.roundToInt())) }, helpText = stringResource(R.string.settings_help_gyro_sensitivity), onResetToDefault = { onDraftChange(draft.copy(gyroSensitivity = defaultProfile.gyroSensitivity)) })
+                        SliderRow(stringResource(R.string.settings_gyro_smoothing), draft.gyroSmoothing.toFloat(), "${draft.gyroSmoothing}%", 0f..90f, 8, { onDraftChange(draft.copy(gyroSmoothing = it.roundToInt())) }, helpText = stringResource(R.string.settings_help_gyro_smoothing), onResetToDefault = { onDraftChange(draft.copy(gyroSmoothing = defaultProfile.gyroSmoothing)) })
+                        ToggleRow(stringResource(R.string.settings_gyro_invert_x), draft.gyroInvertX, { onDraftChange(draft.copy(gyroInvertX = it)) }, onResetToDefault = { onDraftChange(draft.copy(gyroInvertX = defaultProfile.gyroInvertX)) })
+                        if (draft.gyroMode == AppPreferences.GYRO_MODE_AIM) {
+                            ToggleRow(stringResource(R.string.settings_gyro_invert_y), draft.gyroInvertY, { onDraftChange(draft.copy(gyroInvertY = it)) }, onResetToDefault = { onDraftChange(draft.copy(gyroInvertY = defaultProfile.gyroInvertY)) })
+                        }
+                    }
                     ToggleRow(
                         title = stringResource(R.string.settings_gamepad_right_stick_up_to_r2),
                         checked = draft.gamepadRightStickUpToR2,
@@ -1492,6 +1508,22 @@ private fun GameSettingsEditorDialog(
                                 helpText = stringResource(R.string.settings_help_touch_haptics_preset),
                                 onResetToDefault = { draft = draft.copy(touchHapticsPreset = defaultProfile.touchHapticsPreset) }
                             )
+                            SelectionRow(
+                                title = stringResource(R.string.settings_gyro_mode),
+                                options = gyroModeOptions(),
+                                selectedValue = draft.gyroMode,
+                                onSelected = { draft = draft.copy(gyroMode = it) },
+                                helpText = stringResource(R.string.settings_help_gyro_mode),
+                                onResetToDefault = { draft = draft.copy(gyroMode = defaultProfile.gyroMode) }
+                            )
+                            if (draft.gyroMode != AppPreferences.GYRO_MODE_OFF) {
+                                SliderRow(stringResource(R.string.settings_gyro_sensitivity), draft.gyroSensitivity.toFloat(), "${draft.gyroSensitivity}%", 25f..300f, 10, { draft = draft.copy(gyroSensitivity = it.roundToInt()) }, helpText = stringResource(R.string.settings_help_gyro_sensitivity), onResetToDefault = { draft = draft.copy(gyroSensitivity = defaultProfile.gyroSensitivity) })
+                                SliderRow(stringResource(R.string.settings_gyro_smoothing), draft.gyroSmoothing.toFloat(), "${draft.gyroSmoothing}%", 0f..90f, 8, { draft = draft.copy(gyroSmoothing = it.roundToInt()) }, helpText = stringResource(R.string.settings_help_gyro_smoothing), onResetToDefault = { draft = draft.copy(gyroSmoothing = defaultProfile.gyroSmoothing) })
+                                ToggleRow(stringResource(R.string.settings_gyro_invert_x), draft.gyroInvertX, { draft = draft.copy(gyroInvertX = it) }, onResetToDefault = { draft = draft.copy(gyroInvertX = defaultProfile.gyroInvertX) })
+                                if (draft.gyroMode == AppPreferences.GYRO_MODE_AIM) {
+                                    ToggleRow(stringResource(R.string.settings_gyro_invert_y), draft.gyroInvertY, { draft = draft.copy(gyroInvertY = it) }, onResetToDefault = { draft = draft.copy(gyroInvertY = defaultProfile.gyroInvertY) })
+                                }
+                            }
                             ToggleRow(
                                 title = stringResource(R.string.settings_gamepad_right_stick_up_to_r2),
                                 checked = draft.gamepadRightStickUpToR2,
@@ -3009,6 +3041,13 @@ private fun touchHapticsPresetOptions(): List<Pair<Int, String>> = listOf(
 )
 
 @Composable
+private fun gyroModeOptions(): List<Pair<Int, String>> = listOf(
+    AppPreferences.GYRO_MODE_OFF to stringResource(R.string.settings_gyro_off),
+    AppPreferences.GYRO_MODE_AIM to stringResource(R.string.settings_gyro_aim),
+    AppPreferences.GYRO_MODE_STEERING to stringResource(R.string.settings_gyro_steering)
+)
+
+@Composable
 private fun casModeOptions(): List<Pair<Int, String>> = listOf(
     0 to stringResource(R.string.settings_cas_mode_off),
     1 to stringResource(R.string.settings_cas_mode_sharpen_only),
@@ -3212,6 +3251,11 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         racingMode = racingMode,
         touchHaptics = touchHaptics,
         touchHapticsPreset = touchHapticsPreset,
+        gyroMode = gyroMode,
+        gyroSensitivity = gyroSensitivity,
+        gyroSmoothing = gyroSmoothing,
+        gyroInvertX = gyroInvertX,
+        gyroInvertY = gyroInvertY,
         gamepadRightStickUpToR2 = gamepadRightStickUpToR2,
         gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
         gamepadButtonHaptics = gamepadButtonHaptics,
@@ -3301,6 +3345,11 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         racingMode = pick("racingMode", racingMode, defaultProfile.racingMode),
         touchHaptics = pick("touchHaptics", touchHaptics, defaultProfile.touchHaptics),
         touchHapticsPreset = pick("touchHapticsPreset", touchHapticsPreset, defaultProfile.touchHapticsPreset),
+        gyroMode = pick("gyroMode", gyroMode, defaultProfile.gyroMode),
+        gyroSensitivity = pick("gyroSensitivity", gyroSensitivity, defaultProfile.gyroSensitivity),
+        gyroSmoothing = pick("gyroSmoothing", gyroSmoothing, defaultProfile.gyroSmoothing),
+        gyroInvertX = pick("gyroInvertX", gyroInvertX, defaultProfile.gyroInvertX),
+        gyroInvertY = pick("gyroInvertY", gyroInvertY, defaultProfile.gyroInvertY),
         gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2, defaultProfile.gamepadRightStickUpToR2),
         gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2, defaultProfile.gamepadRightStickDownToL2),
         gamepadButtonHaptics = pick("gamepadButtonHaptics", gamepadButtonHaptics, defaultProfile.gamepadButtonHaptics),

@@ -1477,4 +1477,21 @@
     <string name="settings_touch_haptics_preset_strong">Kuat</string>
     <string name="settings_touch_haptics_preset_desc">Lembut terasa halus, Seimbang adalah bawaan alami, Tegas terasa singkat dan presisi, serta Kuat terasa lebih dalam untuk motor getaran yang lebih lemah.</string>
     <string name="settings_help_touch_haptics_preset">Lembut menggunakan tekanan halus dan pelepasan yang sangat ringan. Seimbang memberikan tekanan yang jelas dengan pelepasan yang lebih ringan dan merupakan bawaan. Tegas menggunakan pasangan terpendek dan paling tajam untuk ketukan yang presisi. Kuat menggunakan denyut yang lebih dalam dan lebih panjang untuk ponsel dengan motor getaran yang lebih lemah. Penggeser kekuatan mengukur sensasi yang dipilih.</string>
+    <string name="settings_gyro_mode">Kontrol giroskop</string>
+    <string name="settings_gyro_off">Mati</string>
+    <string name="settings_gyro_aim">Bidik — stik kanan</string>
+    <string name="settings_gyro_steering">Kemudi — stik kiri</string>
+    <string name="settings_gyro_sensitivity">Sensitivitas giroskop</string>
+    <string name="settings_gyro_smoothing">Penghalusan giroskop</string>
+    <string name="settings_gyro_invert_x">Balikkan giroskop horizontal</string>
+    <string name="settings_gyro_invert_x_desc">Membalikkan gerakan kiri dan kanan.</string>
+    <string name="settings_gyro_invert_y">Balikkan giroskop vertikal</string>
+    <string name="settings_gyro_invert_y_desc">Membalikkan gerakan membidik ke atas dan ke bawah.</string>
+    <string name="settings_help_gyro_mode">"Bidik" mengubah kecepatan rotasi ponsel ke stik analog kanan untuk kontrol kamera dalam game penembak dan otomatis kembali ke tengah saat ponsel berhenti bergerak. "Kemudi" mengubah kemiringan ponsel ke stik analog kiri untuk game balap dan mengkalibrasi sudut saat ini sebagai titik tengah saat permainan dimulai. Mode yang dipilih hanya digunakan saat game berjalan dan memerlukan sensor gerak yang sesuai.</string>
+    <string name="settings_help_gyro_sensitivity">Mengontrol seberapa kuat pergerakan ponsel menyimpangkan stik analog yang diemulasi. Pengaturan khusus per game disarankan karena game menggunakan kurva respons kamera dan kemudi yang berbeda.</string>
+    <string name="settings_help_gyro_smoothing">Memfilter gangguan sensor dan getaran tangan. Nilai yang lebih rendah bereaksi lebih cepat; nilai yang lebih tinggi terasa lebih stabil tetapi menambah sedikit penundaan (latensi).</string>
+    <string name="settings_gyro_unavailable">Perangkat ini tidak memiliki sensor gerak yang diperlukan oleh mode yang dipilih.</string>
+    <string name="onboarding_games_selected_count">%1$d folder dipilih. Ketuk untuk menambahkan lagi.</string>
+    <string name="settings_game_folders_count">%1$d folder dipilih</string>
+    <string name="game_folders_remove">Hapus folder</string>
 </resources>

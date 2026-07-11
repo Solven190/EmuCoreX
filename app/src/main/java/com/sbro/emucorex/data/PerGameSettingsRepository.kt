@@ -22,6 +22,11 @@ data class PerGameSettings(
     val racingMode: Boolean = false,
     val touchHaptics: Boolean = false,
     val touchHapticsPreset: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET,
+    val gyroMode: Int = AppPreferences.GYRO_MODE_OFF,
+    val gyroSensitivity: Int = AppPreferences.DEFAULT_GYRO_SENSITIVITY,
+    val gyroSmoothing: Int = AppPreferences.DEFAULT_GYRO_SMOOTHING,
+    val gyroInvertX: Boolean = false,
+    val gyroInvertY: Boolean = false,
     val gamepadRightStickUpToR2: Boolean = false,
     val gamepadRightStickDownToL2: Boolean = false,
     val gamepadButtonHaptics: Boolean = false,
@@ -211,6 +216,11 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         touchHaptics = optBoolean("touchHaptics", false),
         touchHapticsPreset = optInt("touchHapticsPreset", AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET)
             .coerceIn(AppPreferences.TOUCH_HAPTICS_PRESET_SOFT, AppPreferences.TOUCH_HAPTICS_PRESET_STRONG),
+        gyroMode = optInt("gyroMode", AppPreferences.GYRO_MODE_OFF).coerceIn(AppPreferences.GYRO_MODE_OFF, AppPreferences.GYRO_MODE_STEERING),
+        gyroSensitivity = optInt("gyroSensitivity", AppPreferences.DEFAULT_GYRO_SENSITIVITY).coerceIn(25, 300),
+        gyroSmoothing = optInt("gyroSmoothing", AppPreferences.DEFAULT_GYRO_SMOOTHING).coerceIn(0, 90),
+        gyroInvertX = optBoolean("gyroInvertX", false),
+        gyroInvertY = optBoolean("gyroInvertY", false),
         gamepadRightStickUpToR2 = optBoolean("gamepadRightStickUpToR2", false),
         gamepadRightStickDownToL2 = optBoolean("gamepadRightStickDownToL2", false),
         gamepadButtonHaptics = optBoolean("gamepadButtonHaptics", false),
@@ -327,6 +337,11 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("racingMode")) put("racingMode", racingMode)
         if (shouldWrite("touchHaptics")) put("touchHaptics", touchHaptics)
         if (shouldWrite("touchHapticsPreset")) put("touchHapticsPreset", touchHapticsPreset)
+        if (shouldWrite("gyroMode")) put("gyroMode", gyroMode)
+        if (shouldWrite("gyroSensitivity")) put("gyroSensitivity", gyroSensitivity)
+        if (shouldWrite("gyroSmoothing")) put("gyroSmoothing", gyroSmoothing)
+        if (shouldWrite("gyroInvertX")) put("gyroInvertX", gyroInvertX)
+        if (shouldWrite("gyroInvertY")) put("gyroInvertY", gyroInvertY)
         if (shouldWrite("gamepadRightStickUpToR2")) put("gamepadRightStickUpToR2", gamepadRightStickUpToR2)
         if (shouldWrite("gamepadRightStickDownToL2")) put("gamepadRightStickDownToL2", gamepadRightStickDownToL2)
         if (shouldWrite("gamepadButtonHaptics")) put("gamepadButtonHaptics", gamepadButtonHaptics)

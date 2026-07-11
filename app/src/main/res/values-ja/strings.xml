@@ -1462,4 +1462,21 @@
     <string name="settings_touch_haptics_preset_strong">強</string>
     <string name="settings_touch_haptics_preset_desc">「ソフト」は優しく、「バランス」は自然なデフォルト、「クリスプ」は短く正確、「強」は振動モーターが弱いデバイス向けの深い振動です。</string>
     <string name="settings_help_touch_haptics_preset">「ソフト」は優しい押し込みと非常に軽いリリースを使用します。「バランス」は明確な押し込みと軽いリリースを提供し、デフォルトの設定です。「クリスプ」は正確なタップのために最も短く鋭い組み合わせを使用します。「強」は振動モーターが弱いスマートフォン向けにより深く長いパルスを使用します。強度のスライダーで選択した感触のスケールを調整します。</string>
+    <string name="settings_gyro_mode">ジャイロスコープ操作</string>
+    <string name="settings_gyro_off">オフ</string>
+    <string name="settings_gyro_aim">エイム — 右スティック</string>
+    <string name="settings_gyro_steering">ステアリング — 左スティック</string>
+    <string name="settings_gyro_sensitivity">ジャイロスコープ感度</string>
+    <string name="settings_gyro_smoothing">ジャイロスコープの平滑化</string>
+    <string name="settings_gyro_invert_x">ジャイロの左右反転</string>
+    <string name="settings_gyro_invert_x_desc">左右の動きを反転させます。</string>
+    <string name="settings_gyro_invert_y">ジャイロの上下反転</string>
+    <string name="settings_gyro_invert_y_desc">上下のエイムの動きを反転させます。</string>
+    <string name="settings_help_gyro_mode">「エイム」は、シューティングゲームの視点操作においてスマートフォンの回転速度を右アナログスティックに変換し、スマートフォンの動きが止まると自動的に中央に戻ります。「ステアリング」は、レースゲームにおいてスマートフォンの傾きを左アナログスティックに変換し、ゲーム開始時の現在の角度を中央としてキャリブレーションします。選択したモードはゲーム実行中のみ使用され、対応するモーションセンサーが必要です。</string>
+    <string name="settings_help_gyro_sensitivity">スマートフォンの動きがエミュレートされたアナログスティックをどれだけ強く傾けるかを制御します。ゲームによって視点操作やステアリングの応答曲線が異なるため、ゲームごとの個別設定をおすすめします。</string>
+    <string name="settings_help_gyro_smoothing">センサーのノイズや手ブレをフィルタリングします。値を小さくすると反応が速くなり、値を大きくすると安定感が増しますが、わずかな遅延が生じます。</string>
+    <string name="settings_gyro_unavailable">このデバイスには、選択したモードに必要なモーションセンサーがありません。</string>
+    <string name="onboarding_games_selected_count">%1$d個のフォルダを選択しました。タップして追加します。</string>
+    <string name="settings_game_folders_count">%1$d個のフォルダを選択しました</string>
+    <string name="game_folders_remove">フォルダを削除</string>
 </resources>

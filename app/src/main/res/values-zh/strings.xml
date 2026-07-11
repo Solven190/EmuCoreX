@@ -1464,4 +1464,21 @@
     <string name="settings_touch_haptics_preset_strong">强烈</string>
     <string name="settings_touch_haptics_preset_desc">“柔和”表示轻柔，“均衡”是自然的默认设置，“清脆”表示短促而精确，而“强烈”的振动更深，适用于较弱的振动马达。</string>
     <string name="settings_help_touch_haptics_preset">“柔和”使用轻柔的按下和非常轻的释放感觉。“均衡”提供清晰的按下和较轻的释放感觉，是默认设置。“清脆”使用最短、最干脆的组合来实现精确的点按。“强烈”针对振动马达较弱的手机使用更深、更长的脉冲。强度滑块可调节所选触感的强度。</string>
+    <string name="settings_gyro_mode">陀螺仪控制</string>
+    <string name="settings_gyro_off">关闭</string>
+    <string name="settings_gyro_aim">瞄准 — 右摇杆</string>
+    <string name="settings_gyro_steering">转向 — 左摇杆</string>
+    <string name="settings_gyro_sensitivity">陀螺仪灵敏度</string>
+    <string name="settings_gyro_smoothing">陀螺仪平滑度</string>
+    <string name="settings_gyro_invert_x">反转水平陀螺仪</string>
+    <string name="settings_gyro_invert_x_desc">反转左右移动方向。</string>
+    <string name="settings_gyro_invert_y">反转垂直陀螺仪</string>
+    <string name="settings_gyro_invert_y_desc">反转上下瞄准移动方向。</string>
+    <string name="settings_help_gyro_mode">“瞄准”将手机的旋转速度转换为射击游戏中的右摇杆来控制视角，并在手机停止移动时自动回中。“转向”将手机的倾斜角度转换为赛车游戏中的左摇杆，并在游戏开始时将当前角度校准为中心点。所选模式仅在游戏运行时生效，并且需要相应的运动传感器。</string>
+    <string name="settings_help_gyro_sensitivity">控制手机移动对模拟摇杆产生的偏移强度。由于不同游戏具有不同的视角和转向响应曲线，建议为每个游戏单独设置。</string>
+    <string name="settings_help_gyro_smoothing">过滤传感器噪声和手部抖动。数值越低反应越快；数值越高感觉越稳定，但会增加少许延迟。</string>
+    <string name="settings_gyro_unavailable">此设备未提供所选模式所需的运动传感器。</string>
+    <string name="onboarding_games_selected_count">已选择 %1$d 个文件夹。点击以添加其他文件夹。</string>
+    <string name="settings_game_folders_count">已选择 %1$d 个文件夹</string>
+    <string name="game_folders_remove">移除文件夹</string>
 </resources>

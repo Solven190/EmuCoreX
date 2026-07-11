@@ -168,19 +168,16 @@ class RetroAchievementsRepository(private val context: Context) {
     suspend fun loadUnlockedAchievementsFromLibrary(
         onProgress: (processed: Int, total: Int) -> Unit = { _, _ -> }
     ): List<LibraryUnlockedAchievement> {
-        val libraryPath = preferences.gamePath.first().orEmpty()
-        if (libraryPath.isBlank()) return emptyList()
+        val libraryPaths = preferences.gamePaths.first()
+        if (libraryPaths.isEmpty()) return emptyList()
+        val libraryPath = GameLibraryCacheRepository.libraryKey(libraryPaths)
         val cacheKey = buildUnlockedCacheKey(libraryPath = libraryPath)
         unlockedAchievementsCache[cacheKey]?.let { cached ->
             onProgress(cached.size, cached.size)
             return cached
         }
 
-        val games = if (libraryPath.startsWith("content://")) {
-            gameRepository.scanDirectoryFromUri(libraryPath.toUri(), context)
-        } else {
-            gameRepository.scanDirectory(libraryPath, context)
-        }
+        val games = scanLibraryGames(libraryPaths)
 
         val result = mutableListOf<LibraryUnlockedAchievement>()
         games.forEachIndexed { index, game ->
@@ -216,8 +213,9 @@ class RetroAchievementsRepository(private val context: Context) {
         activeGameTitle: String?,
         activeGameId: Int?
     ): List<LibraryAchievementGame> {
-        val libraryPath = preferences.gamePath.first().orEmpty()
-        if (libraryPath.isBlank()) return emptyList()
+        val libraryPaths = preferences.gamePaths.first()
+        if (libraryPaths.isEmpty()) return emptyList()
+        val libraryPath = GameLibraryCacheRepository.libraryKey(libraryPaths)
 
         val accountProgress = loadAccountProgressGames()
         val cachedActiveData = lastActiveGameData?.takeIf { it.totalCount > 0 }
@@ -245,7 +243,7 @@ class RetroAchievementsRepository(private val context: Context) {
         )
         achievementGamesCache[cacheKey]?.let { return it }
 
-        val libraryGames = scanLibraryGames(libraryPath)
+        val libraryGames = scanLibraryGames(libraryPaths)
 
         val resultByKey = linkedMapOf<String, LibraryAchievementGame>()
         accountProgress
@@ -298,8 +296,9 @@ class RetroAchievementsRepository(private val context: Context) {
         activeGameTitle: String?,
         activeGameId: Int?
     ): List<LibraryAchievementGame>? {
-        val libraryPath = preferences.gamePath.first().orEmpty()
-        if (libraryPath.isBlank()) return null
+        val libraryPaths = preferences.gamePaths.first()
+        if (libraryPaths.isEmpty()) return null
+        val libraryPath = GameLibraryCacheRepository.libraryKey(libraryPaths)
 
         val activeData = lastActiveGameData?.takeIf { it.totalCount > 0 }
         val resolvedActiveTitle = activeData?.title?.ifBlank { activeGameTitle.orEmpty() }
@@ -318,17 +317,20 @@ class RetroAchievementsRepository(private val context: Context) {
     }
 
     suspend fun peekCachedUnlockedAchievementsFromLibrary(): List<LibraryUnlockedAchievement>? {
-        val libraryPath = preferences.gamePath.first().orEmpty()
-        if (libraryPath.isBlank()) return null
+        val libraryPaths = preferences.gamePaths.first()
+        if (libraryPaths.isEmpty()) return null
+        val libraryPath = GameLibraryCacheRepository.libraryKey(libraryPaths)
         return unlockedAchievementsCache[buildUnlockedCacheKey(libraryPath)]
     }
 
-    private fun scanLibraryGames(libraryPath: String): List<GameItem> {
-        return if (libraryPath.startsWith("content://")) {
-            gameRepository.scanDirectoryFromUri(libraryPath.toUri(), context)
-        } else {
-            gameRepository.scanDirectory(libraryPath, context)
-        }
+    private fun scanLibraryGames(libraryPaths: List<String>): List<GameItem> {
+        return libraryPaths.flatMap { libraryPath ->
+            if (libraryPath.startsWith("content://")) {
+                gameRepository.scanDirectoryFromUri(libraryPath.toUri(), context)
+            } else {
+                gameRepository.scanDirectory(libraryPath, context)
+            }
+        }.distinctBy { it.path }.sortedBy { it.title.lowercase() }
     }
 
     private fun findCachedGameData(gamePath: String): RetroAchievementGameData? {

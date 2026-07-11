@@ -197,10 +197,10 @@ fun AppNavigation(
         value = combine(
             preferences.onboardingCompleted,
             preferences.biosPath,
-            preferences.gamePath
-        ) { onboardingCompleted, biosPath, gamePath ->
+            preferences.gamePaths
+        ) { onboardingCompleted, biosPath, gamePaths ->
             val hasUsableBios = BiosValidator.hasUsableBiosFiles(context, biosPath)
-            val hasGameFolder = SetupValidator.isGameFolderPresentForStartup(context, gamePath)
+            val hasGameFolder = SetupValidator.isAnyGameFolderPresentForStartup(context, gamePaths)
             val shouldOpenHome = onboardingCompleted && hasUsableBios && hasGameFolder
             Log.i(
                 TAG,

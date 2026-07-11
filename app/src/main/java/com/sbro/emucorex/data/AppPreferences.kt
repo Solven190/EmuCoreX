@@ -69,6 +69,7 @@ data class SettingsSnapshot(
     val biosPath: String? = null,
     val biosValid: Boolean = false,
     val gamePath: String? = null,
+    val gamePaths: List<String> = emptyList(),
     val emulatorDataPath: String? = null,
     val coverDownloadBaseUrl: String? = null,
     val coverArtStyle: Int = AppPreferences.COVER_ART_STYLE_DEFAULT,
@@ -152,6 +153,11 @@ data class SettingsSnapshot(
     val touchHaptics: Boolean = false,
     val touchHapticsPreset: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET,
     val touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
+    val gyroMode: Int = AppPreferences.GYRO_MODE_OFF,
+    val gyroSensitivity: Int = AppPreferences.DEFAULT_GYRO_SENSITIVITY,
+    val gyroSmoothing: Int = AppPreferences.DEFAULT_GYRO_SMOOTHING,
+    val gyroInvertX: Boolean = false,
+    val gyroInvertY: Boolean = false,
     val leftStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val invertLeftStick: Boolean = false,
@@ -267,6 +273,11 @@ class AppPreferences(private val context: Context) {
         const val TOUCH_HAPTICS_PRESET_CRISP = 2
         const val TOUCH_HAPTICS_PRESET_STRONG = 3
         const val DEFAULT_TOUCH_HAPTICS_PRESET = TOUCH_HAPTICS_PRESET_BALANCED
+        const val GYRO_MODE_OFF = 0
+        const val GYRO_MODE_AIM = 1
+        const val GYRO_MODE_STEERING = 2
+        const val DEFAULT_GYRO_SENSITIVITY = 100
+        const val DEFAULT_GYRO_SMOOTHING = 45
         const val COVER_ART_STYLE_DISABLED = -1
         const val COVER_ART_STYLE_DEFAULT = 0
         const val COVER_ART_STYLE_3D = 1
@@ -321,6 +332,7 @@ class AppPreferences(private val context: Context) {
         private val UPSCALE_LEGACY = intPreferencesKey("upscale_multiplier")
         private val BIOS_PATH = stringPreferencesKey("bios_path")
         private val GAME_PATH = stringPreferencesKey("game_path")
+        private val GAME_PATHS = stringPreferencesKey("game_paths")
         private val EMULATOR_DATA_PATH = stringPreferencesKey("emulator_data_path")
         private val COVER_DOWNLOAD_BASE_URL = stringPreferencesKey("cover_download_base_url")
         private val COVER_ART_STYLE = intPreferencesKey("cover_art_style")
@@ -441,6 +453,11 @@ class AppPreferences(private val context: Context) {
         private val TOUCH_HAPTICS = booleanPreferencesKey("touch_haptics")
         private val TOUCH_HAPTICS_PRESET = intPreferencesKey("touch_haptics_preset")
         private val TOUCH_HAPTICS_STRENGTH = intPreferencesKey("touch_haptics_strength")
+        private val GYRO_MODE = intPreferencesKey("gyro_mode")
+        private val GYRO_SENSITIVITY = intPreferencesKey("gyro_sensitivity")
+        private val GYRO_SMOOTHING = intPreferencesKey("gyro_smoothing")
+        private val GYRO_INVERT_X = booleanPreferencesKey("gyro_invert_x")
+        private val GYRO_INVERT_Y = booleanPreferencesKey("gyro_invert_y")
         private val GAMEPAD_BUTTON_HAPTICS = booleanPreferencesKey("gamepad_button_haptics")
         private val GAMEPAD_STICK_DEADZONE = intPreferencesKey("gamepad_stick_deadzone")
         private val GAMEPAD_LEFT_STICK_SENSITIVITY = intPreferencesKey("gamepad_left_stick_sensitivity")
@@ -808,12 +825,63 @@ class AppPreferences(private val context: Context) {
     }
 
     // Game Path
-    val gamePath: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[GAME_PATH]
-    }
+    val gamePaths: Flow<List<String>> = context.dataStore.data.map(::readGamePaths)
+
+    val gamePath: Flow<String?> = gamePaths.map { it.firstOrNull() }
 
     suspend fun setGamePath(path: String) {
-        context.dataStore.edit { it[GAME_PATH] = path }
+        setGamePaths(listOf(path))
+    }
+
+    suspend fun setGamePaths(paths: List<String>) {
+        val normalized = paths.map(String::trim).filter(String::isNotBlank).distinct()
+        context.dataStore.edit { prefs ->
+            if (normalized.isEmpty()) {
+                prefs.remove(GAME_PATHS)
+                prefs.remove(GAME_PATH)
+            } else {
+                prefs[GAME_PATHS] = JSONArray(normalized).toString()
+                prefs[GAME_PATH] = normalized.first()
+            }
+        }
+    }
+
+    suspend fun addGamePath(path: String) {
+        val normalized = path.trim()
+        if (normalized.isBlank()) return
+        context.dataStore.edit { prefs ->
+            val paths = (readGamePaths(prefs) + normalized).distinct()
+            prefs[GAME_PATHS] = JSONArray(paths).toString()
+            prefs[GAME_PATH] = paths.first()
+        }
+    }
+
+    suspend fun removeGamePath(path: String) {
+        context.dataStore.edit { prefs ->
+            val paths = readGamePaths(prefs).filterNot { it == path }
+            if (paths.isEmpty()) {
+                prefs.remove(GAME_PATHS)
+                prefs.remove(GAME_PATH)
+            } else {
+                prefs[GAME_PATHS] = JSONArray(paths).toString()
+                prefs[GAME_PATH] = paths.first()
+            }
+        }
+    }
+
+    private fun readGamePaths(prefs: Preferences): List<String> {
+        val stored = prefs[GAME_PATHS]
+        val paths = stored?.let { encoded ->
+            runCatching {
+                val array = JSONArray(encoded)
+                buildList {
+                    for (index in 0 until array.length()) {
+                        array.optString(index).trim().takeIf(String::isNotBlank)?.let(::add)
+                    }
+                }
+            }.getOrNull()
+        }.orEmpty()
+        return (paths.ifEmpty { listOfNotNull(prefs[GAME_PATH]?.trim()?.takeIf(String::isNotBlank)) }).distinct()
     }
 
     val emulatorDataPath: Flow<String?> = context.dataStore.data.map { prefs ->
@@ -969,7 +1037,8 @@ class AppPreferences(private val context: Context) {
                 preferEnglishGameTitles = prefs[PREFER_ENGLISH_GAME_TITLES] ?: false,
                 biosPath = biosPath,
                 biosValid = BiosValidator.hasUsableBiosFiles(context, biosPath),
-                gamePath = prefs[GAME_PATH],
+                gamePath = readGamePaths(prefs).firstOrNull(),
+                gamePaths = readGamePaths(prefs),
                 emulatorDataPath = prefs[EMULATOR_DATA_PATH],
                 coverDownloadBaseUrl = prefs[COVER_DOWNLOAD_BASE_URL],
                 coverArtStyle = when (prefs[COVER_ART_STYLE]) {
@@ -1078,6 +1147,11 @@ class AppPreferences(private val context: Context) {
                 touchHaptics = prefs[TOUCH_HAPTICS] ?: false,
                 touchHapticsPreset = (prefs[TOUCH_HAPTICS_PRESET] ?: DEFAULT_TOUCH_HAPTICS_PRESET).coerceIn(TOUCH_HAPTICS_PRESET_SOFT, TOUCH_HAPTICS_PRESET_STRONG),
                 touchHapticsStrength = (prefs[TOUCH_HAPTICS_STRENGTH] ?: DEFAULT_TOUCH_HAPTICS_STRENGTH).coerceIn(10, 100),
+                gyroMode = (prefs[GYRO_MODE] ?: GYRO_MODE_OFF).coerceIn(GYRO_MODE_OFF, GYRO_MODE_STEERING),
+                gyroSensitivity = (prefs[GYRO_SENSITIVITY] ?: DEFAULT_GYRO_SENSITIVITY).coerceIn(25, 300),
+                gyroSmoothing = (prefs[GYRO_SMOOTHING] ?: DEFAULT_GYRO_SMOOTHING).coerceIn(0, 90),
+                gyroInvertX = prefs[GYRO_INVERT_X] ?: false,
+                gyroInvertY = prefs[GYRO_INVERT_Y] ?: false,
                 leftStickSensitivity = prefs[LEFT_STICK_SENSITIVITY] ?: DEFAULT_STICK_SENSITIVITY,
                 rightStickSensitivity = prefs[RIGHT_STICK_SENSITIVITY] ?: DEFAULT_STICK_SENSITIVITY,
                 invertLeftStick = prefs[INVERT_LEFT_STICK] ?: false,
@@ -1232,6 +1306,17 @@ class AppPreferences(private val context: Context) {
     suspend fun setTouchHapticsStrength(value: Int) {
         context.dataStore.edit { it[TOUCH_HAPTICS_STRENGTH] = value.coerceIn(10, 100) }
     }
+
+    val gyroMode: Flow<Int> = context.dataStore.data.map { (it[GYRO_MODE] ?: GYRO_MODE_OFF).coerceIn(GYRO_MODE_OFF, GYRO_MODE_STEERING) }
+    suspend fun setGyroMode(value: Int) { context.dataStore.edit { it[GYRO_MODE] = value.coerceIn(GYRO_MODE_OFF, GYRO_MODE_STEERING) } }
+    val gyroSensitivity: Flow<Int> = context.dataStore.data.map { (it[GYRO_SENSITIVITY] ?: DEFAULT_GYRO_SENSITIVITY).coerceIn(25, 300) }
+    suspend fun setGyroSensitivity(value: Int) { context.dataStore.edit { it[GYRO_SENSITIVITY] = value.coerceIn(25, 300) } }
+    val gyroSmoothing: Flow<Int> = context.dataStore.data.map { (it[GYRO_SMOOTHING] ?: DEFAULT_GYRO_SMOOTHING).coerceIn(0, 90) }
+    suspend fun setGyroSmoothing(value: Int) { context.dataStore.edit { it[GYRO_SMOOTHING] = value.coerceIn(0, 90) } }
+    val gyroInvertX: Flow<Boolean> = context.dataStore.data.map { it[GYRO_INVERT_X] ?: false }
+    suspend fun setGyroInvertX(value: Boolean) { context.dataStore.edit { it[GYRO_INVERT_X] = value } }
+    val gyroInvertY: Flow<Boolean> = context.dataStore.data.map { it[GYRO_INVERT_Y] ?: false }
+    suspend fun setGyroInvertY(value: Boolean) { context.dataStore.edit { it[GYRO_INVERT_Y] = value } }
 
     val gamepadButtonHaptics: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[GAMEPAD_BUTTON_HAPTICS] ?: false
@@ -2544,6 +2629,7 @@ class AppPreferences(private val context: Context) {
             put("upscaleMultiplier", readUpscale(prefs).toDouble())
             put("biosPath", prefs[BIOS_PATH])
             put("gamePath", prefs[GAME_PATH])
+            put("gamePaths", JSONArray(readGamePaths(prefs)))
             put("emulatorDataPath", prefs[EMULATOR_DATA_PATH])
             put("coverDownloadBaseUrl", prefs[COVER_DOWNLOAD_BASE_URL])
             put("coverArtStyle", prefs[COVER_ART_STYLE] ?: COVER_ART_STYLE_DEFAULT)
@@ -2581,6 +2667,11 @@ class AppPreferences(private val context: Context) {
             put("touchHaptics", prefs[TOUCH_HAPTICS] ?: false)
             put("touchHapticsPreset", (prefs[TOUCH_HAPTICS_PRESET] ?: DEFAULT_TOUCH_HAPTICS_PRESET).coerceIn(TOUCH_HAPTICS_PRESET_SOFT, TOUCH_HAPTICS_PRESET_STRONG))
             put("touchHapticsStrength", (prefs[TOUCH_HAPTICS_STRENGTH] ?: DEFAULT_TOUCH_HAPTICS_STRENGTH).coerceIn(10, 100))
+            put("gyroMode", (prefs[GYRO_MODE] ?: GYRO_MODE_OFF).coerceIn(GYRO_MODE_OFF, GYRO_MODE_STEERING))
+            put("gyroSensitivity", (prefs[GYRO_SENSITIVITY] ?: DEFAULT_GYRO_SENSITIVITY).coerceIn(25, 300))
+            put("gyroSmoothing", (prefs[GYRO_SMOOTHING] ?: DEFAULT_GYRO_SMOOTHING).coerceIn(0, 90))
+            put("gyroInvertX", prefs[GYRO_INVERT_X] ?: false)
+            put("gyroInvertY", prefs[GYRO_INVERT_Y] ?: false)
             put("gamepadStickDeadzone", prefs[GAMEPAD_STICK_DEADZONE] ?: DEFAULT_GAMEPAD_STICK_DEADZONE)
             put("gamepadLeftStickSensitivity", prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
             put("gamepadRightStickSensitivity", prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] ?: DEFAULT_GAMEPAD_STICK_SENSITIVITY)
@@ -2734,7 +2825,22 @@ class AppPreferences(private val context: Context) {
                 GpuHardwareProfiles.isMediatekProfile(gpuHardwareProfile)
             prefs[UPSCALE] = json.readUpscaleMultiplier()
             json.optString("biosPath").takeIf { it.isNotBlank() }?.let { prefs[BIOS_PATH] = it } ?: prefs.remove(BIOS_PATH)
-            json.optString("gamePath").takeIf { it.isNotBlank() }?.let { prefs[GAME_PATH] = it } ?: prefs.remove(GAME_PATH)
+            val importedGamePaths = json.optJSONArray("gamePaths")?.let { array ->
+                buildList {
+                    for (index in 0 until array.length()) {
+                        array.optString(index).trim().takeIf(String::isNotBlank)?.let(::add)
+                    }
+                }
+            }.orEmpty().ifEmpty {
+                listOfNotNull(json.optString("gamePath").trim().takeIf(String::isNotBlank))
+            }.distinct()
+            if (importedGamePaths.isEmpty()) {
+                prefs.remove(GAME_PATHS)
+                prefs.remove(GAME_PATH)
+            } else {
+                prefs[GAME_PATHS] = JSONArray(importedGamePaths).toString()
+                prefs[GAME_PATH] = importedGamePaths.first()
+            }
             json.optString("emulatorDataPath").takeIf { it.isNotBlank() }?.let {
                 prefs[EMULATOR_DATA_PATH] = it
             } ?: prefs.remove(EMULATOR_DATA_PATH)
@@ -2796,6 +2902,11 @@ class AppPreferences(private val context: Context) {
             prefs[TOUCH_HAPTICS] = json.optBoolean("touchHaptics", false)
             prefs[TOUCH_HAPTICS_PRESET] = json.optInt("touchHapticsPreset", DEFAULT_TOUCH_HAPTICS_PRESET).coerceIn(TOUCH_HAPTICS_PRESET_SOFT, TOUCH_HAPTICS_PRESET_STRONG)
             prefs[TOUCH_HAPTICS_STRENGTH] = json.optInt("touchHapticsStrength", DEFAULT_TOUCH_HAPTICS_STRENGTH).coerceIn(10, 100)
+            prefs[GYRO_MODE] = json.optInt("gyroMode", GYRO_MODE_OFF).coerceIn(GYRO_MODE_OFF, GYRO_MODE_STEERING)
+            prefs[GYRO_SENSITIVITY] = json.optInt("gyroSensitivity", DEFAULT_GYRO_SENSITIVITY).coerceIn(25, 300)
+            prefs[GYRO_SMOOTHING] = json.optInt("gyroSmoothing", DEFAULT_GYRO_SMOOTHING).coerceIn(0, 90)
+            prefs[GYRO_INVERT_X] = json.optBoolean("gyroInvertX", false)
+            prefs[GYRO_INVERT_Y] = json.optBoolean("gyroInvertY", false)
             prefs[GAMEPAD_STICK_DEADZONE] = json.optInt("gamepadStickDeadzone", DEFAULT_GAMEPAD_STICK_DEADZONE).coerceIn(0, 35)
             prefs[GAMEPAD_LEFT_STICK_SENSITIVITY] = json.optInt("gamepadLeftStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)
             prefs[GAMEPAD_RIGHT_STICK_SENSITIVITY] = json.optInt("gamepadRightStickSensitivity", DEFAULT_GAMEPAD_STICK_SENSITIVITY).coerceIn(50, 200)

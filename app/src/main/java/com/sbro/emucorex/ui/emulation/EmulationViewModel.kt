@@ -86,6 +86,11 @@ data class EmulationUiState(
     val touchHaptics: Boolean = false,
     val touchHapticsPreset: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET,
     val touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
+    val gyroMode: Int = AppPreferences.GYRO_MODE_OFF,
+    val gyroSensitivity: Int = AppPreferences.DEFAULT_GYRO_SENSITIVITY,
+    val gyroSmoothing: Int = AppPreferences.DEFAULT_GYRO_SMOOTHING,
+    val gyroInvertX: Boolean = false,
+    val gyroInvertY: Boolean = false,
     val gamepadStickDeadzone: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE,
     val gamepadLeftStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
     val gamepadRightStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
@@ -309,6 +314,11 @@ private data class LiveRuntimeSnapshot(
     val touchHaptics: Boolean,
     val touchHapticsPreset: Int,
     val touchHapticsStrength: Int,
+    val gyroMode: Int,
+    val gyroSensitivity: Int,
+    val gyroSmoothing: Int,
+    val gyroInvertX: Boolean,
+    val gyroInvertY: Boolean,
     val gamepadRightStickUpToR2: Boolean,
     val gamepadRightStickDownToL2: Boolean,
     val gamepadButtonHaptics: Boolean,
@@ -363,6 +373,14 @@ private data class LiveRuntimeSnapshot(
     val mergeSprite: Boolean,
     val forceEvenSpritePosition: Boolean,
     val nativePaletteDraw: Boolean
+)
+
+private data class GyroRuntimeSettings(
+    val mode: Int,
+    val sensitivity: Int,
+    val smoothing: Int,
+    val invertX: Boolean,
+    val invertY: Boolean
 )
 
 class EmulationViewModel(application: Application) : AndroidViewModel(application) {
@@ -943,6 +961,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 applyGlobalRuntimePreferenceUpdate { it.copy(touchHapticsStrength = value) }
             }
         }
+        viewModelScope.launch { preferences.gyroMode.collect { value -> applyGlobalRuntimePreferenceUpdate { it.copy(gyroMode = value) } } }
+        viewModelScope.launch { preferences.gyroSensitivity.collect { value -> applyGlobalRuntimePreferenceUpdate { it.copy(gyroSensitivity = value) } } }
+        viewModelScope.launch { preferences.gyroSmoothing.collect { value -> applyGlobalRuntimePreferenceUpdate { it.copy(gyroSmoothing = value) } } }
+        viewModelScope.launch { preferences.gyroInvertX.collect { value -> applyGlobalRuntimePreferenceUpdate { it.copy(gyroInvertX = value) } } }
+        viewModelScope.launch { preferences.gyroInvertY.collect { value -> applyGlobalRuntimePreferenceUpdate { it.copy(gyroInvertY = value) } } }
         viewModelScope.launch {
             preferences.ntscFramerate.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(ntscFramerate = value) }
@@ -1517,6 +1540,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     touchHaptics = liveRuntime.touchHaptics,
                     touchHapticsPreset = liveRuntime.touchHapticsPreset,
                     touchHapticsStrength = liveRuntime.touchHapticsStrength,
+                    gyroMode = liveRuntime.gyroMode,
+                    gyroSensitivity = liveRuntime.gyroSensitivity,
+                    gyroSmoothing = liveRuntime.gyroSmoothing,
+                    gyroInvertX = liveRuntime.gyroInvertX,
+                    gyroInvertY = liveRuntime.gyroInvertY,
                     gamepadRightStickUpToR2 = liveRuntime.gamepadRightStickUpToR2,
                     gamepadRightStickDownToL2 = liveRuntime.gamepadRightStickDownToL2,
                     gamepadButtonHaptics = liveRuntime.gamepadButtonHaptics,
@@ -3298,6 +3326,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     private suspend fun loadLiveRuntimeSnapshot(): LiveRuntimeSnapshot {
         val profile = activePerGameKey()?.let(perGameSettingsRepository::get)
+        val gyro = loadGyroRuntimeSettings()
         return LiveRuntimeSnapshot(
             showFps = preferences.showFps.first(),
             fpsOverlayMode = preferences.fpsOverlayMode.first(),
@@ -3322,6 +3351,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             touchHaptics = preferences.touchHaptics.first(),
             touchHapticsPreset = preferences.touchHapticsPreset.first(),
             touchHapticsStrength = preferences.touchHapticsStrength.first(),
+            gyroMode = gyro.mode,
+            gyroSensitivity = gyro.sensitivity,
+            gyroSmoothing = gyro.smoothing,
+            gyroInvertX = gyro.invertX,
+            gyroInvertY = gyro.invertY,
             gamepadRightStickUpToR2 = preferences.gamepadRightStickUpToR2.first(),
             gamepadRightStickDownToL2 = preferences.gamepadRightStickDownToL2.first(),
             gamepadButtonHaptics = preferences.gamepadButtonHaptics.first(),
@@ -3378,6 +3412,14 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             nativePaletteDraw = preferences.nativePaletteDraw.first()
         ).applyProfile(profile)
     }
+
+    private suspend fun loadGyroRuntimeSettings() = GyroRuntimeSettings(
+        mode = preferences.gyroMode.first(),
+        sensitivity = preferences.gyroSensitivity.first(),
+        smoothing = preferences.gyroSmoothing.first(),
+        invertX = preferences.gyroInvertX.first(),
+        invertY = preferences.gyroInvertY.first()
+    )
 
     private fun EmulationLaunchConfig.applyProfile(profile: PerGameSettings?): EmulationLaunchConfig {
         if (profile == null) return this
@@ -3472,6 +3514,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             touchHaptics = pick("touchHaptics", touchHaptics) { touchHaptics },
             touchHapticsPreset = pick("touchHapticsPreset", touchHapticsPreset) { touchHapticsPreset },
             touchHapticsStrength = touchHapticsStrength,
+            gyroMode = pick("gyroMode", gyroMode) { gyroMode },
+            gyroSensitivity = pick("gyroSensitivity", gyroSensitivity) { gyroSensitivity },
+            gyroSmoothing = pick("gyroSmoothing", gyroSmoothing) { gyroSmoothing },
+            gyroInvertX = pick("gyroInvertX", gyroInvertX) { gyroInvertX },
+            gyroInvertY = pick("gyroInvertY", gyroInvertY) { gyroInvertY },
             gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2) { gamepadRightStickUpToR2 },
             gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2) { gamepadRightStickDownToL2 },
             gamepadButtonHaptics = pick("gamepadButtonHaptics", gamepadButtonHaptics) { gamepadButtonHaptics },
@@ -3563,6 +3610,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalRacingMode = preferences.racingMode.first()
         val globalTouchHaptics = preferences.touchHaptics.first()
         val globalTouchHapticsPreset = preferences.touchHapticsPreset.first()
+        val globalGyroMode = preferences.gyroMode.first()
+        val globalGyroSensitivity = preferences.gyroSensitivity.first()
+        val globalGyroSmoothing = preferences.gyroSmoothing.first()
+        val globalGyroInvertX = preferences.gyroInvertX.first()
+        val globalGyroInvertY = preferences.gyroInvertY.first()
         val globalGamepadRightStickUpToR2 = preferences.gamepadRightStickUpToR2.first()
         val globalGamepadRightStickDownToL2 = preferences.gamepadRightStickDownToL2.first()
         val globalGamepadButtonHaptics = preferences.gamepadButtonHaptics.first()
@@ -3596,6 +3648,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             racingMode = racingMode,
             touchHaptics = touchHaptics,
             touchHapticsPreset = touchHapticsPreset,
+            gyroMode = gyroMode,
+            gyroSensitivity = gyroSensitivity,
+            gyroSmoothing = gyroSmoothing,
+            gyroInvertX = gyroInvertX,
+            gyroInvertY = gyroInvertY,
             gamepadRightStickUpToR2 = gamepadRightStickUpToR2,
             gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
             gamepadButtonHaptics = gamepadButtonHaptics,
@@ -3672,6 +3729,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (racingMode != globalRacingMode) add("racingMode")
             if (touchHaptics != globalTouchHaptics) add("touchHaptics")
             if (touchHapticsPreset != globalTouchHapticsPreset) add("touchHapticsPreset")
+            if (gyroMode != globalGyroMode) add("gyroMode")
+            if (gyroSensitivity != globalGyroSensitivity) add("gyroSensitivity")
+            if (gyroSmoothing != globalGyroSmoothing) add("gyroSmoothing")
+            if (gyroInvertX != globalGyroInvertX) add("gyroInvertX")
+            if (gyroInvertY != globalGyroInvertY) add("gyroInvertY")
             if (gamepadRightStickUpToR2 != globalGamepadRightStickUpToR2) add("gamepadRightStickUpToR2")
             if (gamepadRightStickDownToL2 != globalGamepadRightStickDownToL2) add("gamepadRightStickDownToL2")
             if (gamepadButtonHaptics != globalGamepadButtonHaptics) add("gamepadButtonHaptics")

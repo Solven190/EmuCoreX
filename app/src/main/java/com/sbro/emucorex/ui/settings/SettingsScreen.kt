@@ -45,6 +45,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.Gamepad
@@ -58,10 +59,13 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.SaveAs
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.SettingsSuggest
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StayPrimaryPortrait
+import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.SystemUpdateAlt
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Tune
@@ -118,6 +122,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.DocumentPathResolver
+import com.sbro.emucorex.core.AndroidGyroscopeInput
 import com.sbro.emucorex.core.AudioDefaults
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GamepadManager
@@ -1366,6 +1371,63 @@ private fun SettingsContent(
                             },
                             helpText = stringResource(R.string.settings_help_touch_haptics_test)
                         )
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_gyro_mode),
+                            options = gyroModeOptions(),
+                            selectedValue = uiState.gyroMode,
+                            onSelect = viewModel::setGyroMode,
+                            helpText = stringResource(R.string.settings_help_gyro_mode),
+                            onResetToDefault = { viewModel.setGyroMode(defaults.gyroMode) }
+                        )
+                        if (uiState.gyroMode != AppPreferences.GYRO_MODE_OFF &&
+                            !AndroidGyroscopeInput.isModeAvailable(context, uiState.gyroMode)
+                        ) {
+                            SettingsInlineNote(text = stringResource(R.string.settings_gyro_unavailable))
+                        }
+                        if (uiState.gyroMode != AppPreferences.GYRO_MODE_OFF) {
+                            SliderItem(
+                                icon = Icons.Rounded.ScreenRotation,
+                                title = stringResource(R.string.settings_gyro_sensitivity),
+                                subtitle = "${uiState.gyroSensitivity}%",
+                                valueLabel = { "${it.roundToInt()}%" },
+                                value = uiState.gyroSensitivity.toFloat(),
+                                range = 25f..300f,
+                                steps = 10,
+                                onValueChange = { viewModel.setGyroSensitivity(it.roundToInt()) },
+                                helpText = stringResource(R.string.settings_help_gyro_sensitivity),
+                                onResetToDefault = { viewModel.setGyroSensitivity(defaults.gyroSensitivity) }
+                            )
+                            SliderItem(
+                                icon = Icons.Rounded.Tune,
+                                title = stringResource(R.string.settings_gyro_smoothing),
+                                subtitle = "${uiState.gyroSmoothing}%",
+                                valueLabel = { "${it.roundToInt()}%" },
+                                value = uiState.gyroSmoothing.toFloat(),
+                                range = 0f..90f,
+                                steps = 8,
+                                onValueChange = { viewModel.setGyroSmoothing(it.roundToInt()) },
+                                helpText = stringResource(R.string.settings_help_gyro_smoothing),
+                                onResetToDefault = { viewModel.setGyroSmoothing(defaults.gyroSmoothing) }
+                            )
+                            ToggleItem(
+                                icon = Icons.Rounded.SwapHoriz,
+                                title = stringResource(R.string.settings_gyro_invert_x),
+                                subtitle = stringResource(R.string.settings_gyro_invert_x_desc),
+                                checked = uiState.gyroInvertX,
+                                onCheckedChange = viewModel::setGyroInvertX,
+                                onResetToDefault = { viewModel.setGyroInvertX(defaults.gyroInvertX) }
+                            )
+                            if (uiState.gyroMode == AppPreferences.GYRO_MODE_AIM) {
+                                ToggleItem(
+                                    icon = Icons.Rounded.SwapVert,
+                                    title = stringResource(R.string.settings_gyro_invert_y),
+                                    subtitle = stringResource(R.string.settings_gyro_invert_y_desc),
+                                    checked = uiState.gyroInvertY,
+                                    onCheckedChange = viewModel::setGyroInvertY,
+                                    onResetToDefault = { viewModel.setGyroInvertY(defaults.gyroInvertY) }
+                                )
+                            }
+                        }
                         SliderItem(
                             icon = Icons.Rounded.Gamepad,
                             title = stringResource(R.string.settings_left_stick_sensitivity),
@@ -1621,9 +1683,10 @@ private fun SettingsContent(
                         uiState.biosPath?.let { DocumentPathResolver.getDisplayName(context, it) }
                             ?: notSetLabel
                     }
-                    val gameDisplayName = remember(uiState.gamePath, context, notSetLabel) {
-                        uiState.gamePath?.let { DocumentPathResolver.getDisplayName(context, it) }
-                            ?: notSetLabel
+                    val gameDisplayName = if (uiState.gamePaths.isEmpty()) {
+                        notSetLabel
+                    } else {
+                        stringResource(R.string.settings_game_folders_count, uiState.gamePaths.size)
                     }
                     val emulatorDataDisplayName = remember(uiState.emulatorDataPath, context) {
                         uiState.emulatorDataPath?.let { DocumentPathResolver.getDisplayName(context, it) }
@@ -1668,6 +1731,14 @@ private fun SettingsContent(
                             onClick = launchGamePicker,
                             helpText = stringResource(R.string.settings_help_game_path)
                         )
+                        uiState.gamePaths.forEach { path ->
+                            SettingsItem(
+                                icon = Icons.Rounded.DeleteOutline,
+                                label = DocumentPathResolver.getDisplayName(context, path),
+                                value = stringResource(R.string.game_folders_remove),
+                                onClick = { viewModel.removeGamePath(path) }
+                            )
+                        }
                         SettingsItem(
                             icon = Icons.Rounded.SaveAs,
                             label = stringResource(R.string.settings_emulator_data_path),
@@ -3086,6 +3157,9 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Controls, R.string.settings_touch_haptics_preset),
         entry(SettingsTab.Controls, R.string.settings_touch_haptics_strength),
         entry(SettingsTab.Controls, R.string.settings_touch_haptics_test),
+        entry(SettingsTab.Controls, R.string.settings_gyro_mode),
+        entry(SettingsTab.Controls, R.string.settings_gyro_sensitivity),
+        entry(SettingsTab.Controls, R.string.settings_gyro_smoothing),
         entry(SettingsTab.Controls, R.string.settings_gamepad_stick_deadzone),
         entry(SettingsTab.Controls, R.string.settings_gamepad_left_stick_sensitivity),
         entry(SettingsTab.Controls, R.string.settings_gamepad_right_stick_sensitivity),
@@ -3684,6 +3758,13 @@ private fun touchHapticsPresetOptions(): List<Pair<Int, String>> = listOf(
     AppPreferences.TOUCH_HAPTICS_PRESET_BALANCED to stringResource(R.string.settings_touch_haptics_preset_balanced),
     AppPreferences.TOUCH_HAPTICS_PRESET_CRISP to stringResource(R.string.settings_touch_haptics_preset_crisp),
     AppPreferences.TOUCH_HAPTICS_PRESET_STRONG to stringResource(R.string.settings_touch_haptics_preset_strong)
+)
+
+@Composable
+private fun gyroModeOptions(): List<Pair<Int, String>> = listOf(
+    AppPreferences.GYRO_MODE_OFF to stringResource(R.string.settings_gyro_off),
+    AppPreferences.GYRO_MODE_AIM to stringResource(R.string.settings_gyro_aim),
+    AppPreferences.GYRO_MODE_STEERING to stringResource(R.string.settings_gyro_steering)
 )
 
 @Composable

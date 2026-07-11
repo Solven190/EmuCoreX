@@ -1464,4 +1464,21 @@
     <string name="settings_touch_haptics_preset_strong">Stark</string>
     <string name="settings_touch_haptics_preset_desc">"Sanft" ist leicht, "Ausgeglichen" ist der natürliche Standard, "Knackig" ist kurz und präzise, und "Stark" ist tiefer für schwächere Vibrationsmotoren.</string>
     <string name="settings_help_touch_haptics_preset">"Sanft" verwendet ein leichtes Drücken und ein sehr leichtes Loslassen. "Ausgeglichen" bietet ein klares Drücken mit einem leichteren Loslassen und ist der Standard. "Knackig" verwendet das kürzeste, schärfste Paar für präzises Tippen. "Stark" verwendet tiefere, längere Impulse für Telefone mit schwächeren Vibrationsmotoren. Der Schieberegler für die Stärke skaliert das ausgewählte Gefühl.</string>
+    <string name="settings_gyro_mode">Gyroskop-Steuerung</string>
+    <string name="settings_gyro_off">Aus</string>
+    <string name="settings_gyro_aim">Zielen — rechter Stick</string>
+    <string name="settings_gyro_steering">Lenken — linker Stick</string>
+    <string name="settings_gyro_sensitivity">Gyroskop-Empfindlichkeit</string>
+    <string name="settings_gyro_smoothing">Gyroskop-Glättung</string>
+    <string name="settings_gyro_invert_x">Horizontales Gyroskop umkehren</string>
+    <string name="settings_gyro_invert_x_desc">Kehrt die linke und rechte Bewegung um.</string>
+    <string name="settings_gyro_invert_y">Vertikales Gyroskop umkehren</string>
+    <string name="settings_gyro_invert_y_desc">Kehrt die Auf- und Abwärtsbewegung beim Zielen um.</string>
+    <string name="settings_help_gyro_mode">„Zielen“ wandelt die Rotationsgeschwindigkeit des Telefons in den rechten Analogstick für die Kamerasteuerung in Shootern um und kehrt automatisch in die Mitte zurück, wenn das Telefon aufhört sich zu bewegen. „Lenken“ wandelt die Neigung des Telefons in den linken Analogstick für Rennspiele um und kalibriert den aktuellen Winkel beim Spielstart als Mitte. Der ausgewählte Modus wird nur verwendet, während ein Spiel läuft, und erfordert den entsprechenden Bewegungssensor.</string>
+    <string name="settings_help_gyro_sensitivity">Steuert, wie stark die Telefonbewegung den emulierten Analogstick ausschlägt. Spielspezifische Einstellungen werden empfohlen, da Spiele unterschiedliche Reaktionskurven für Kamera und Lenkung verwenden.</string>
+    <string name="settings_help_gyro_smoothing">Filtert Sensorrauschen und Handzittern. Niedrigere Werte reagieren schneller; höhere Werte fühlen sich ruhiger an, fügen jedoch eine geringe Verzögerung hinzu.</string>
+    <string name="settings_gyro_unavailable">Dieses Gerät verfügt nicht über den für den ausgewählten Modus erforderlichen Bewegungssensor.</string>
+    <string name="onboarding_games_selected_count">%1$d Ordner ausgewählt. Tippen, um einen weiteren hinzuzufügen.</string>
+    <string name="settings_game_folders_count">%1$d Ordner ausgewählt</string>
+    <string name="game_folders_remove">Ordner entfernen</string>
 </resources>

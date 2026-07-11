@@ -227,10 +227,10 @@ class SaveStateRepository(private val context: Context) {
     }
 
     private suspend fun loadLibraryIndex(): LibraryIndex {
-        val libraryPath = preferences.gamePath.first()
+        val libraryPaths = preferences.gamePaths.first()
         val cachedLibraryGames = when {
-            libraryPath.isNullOrBlank() -> emptyList()
-            else -> gameLibraryCacheRepository.loadSnapshot(libraryPath).games
+            libraryPaths.isEmpty() -> emptyList()
+            else -> gameLibraryCacheRepository.loadSnapshot(GameLibraryCacheRepository.libraryKey(libraryPaths)).games
         }
         val recentGames = preferences.recentGames.first().map { recent ->
             GameItem(

@@ -1464,4 +1464,21 @@
     <string name="settings_touch_haptics_preset_strong">Forte</string>
     <string name="settings_touch_haptics_preset_desc">Suave é delicado, Equilibrado é o padrão natural, Nítido é curto e preciso e Forte é mais profundo para motores de vibração mais fracos.</string>
     <string name="settings_help_touch_haptics_preset">Suave usa um toque delicado e uma liberação muito leve. Equilibrado dá um toque claro com uma liberação mais leve e é o padrão. Nítido usa o par mais curto e agudo para toques precisos. Forte usa pulsos mais profundos e longos para telefones com motores de vibração mais fracos. O controle deslizante de intensidade ajusta a sensação selecionada.</string>
+    <string name="settings_gyro_mode">Controle de giroscópio</string>
+    <string name="settings_gyro_off">Desativado</string>
+    <string name="settings_gyro_aim">Mira — analógico direito</string>
+    <string name="settings_gyro_steering">Direção — analógico esquerdo</string>
+    <string name="settings_gyro_sensitivity">Sensibilidade do giroscópio</string>
+    <string name="settings_gyro_smoothing">Suavização do giroscópio</string>
+    <string name="settings_gyro_invert_x">Inverter giroscópio horizontal</string>
+    <string name="settings_gyro_invert_x_desc">Inverte o movimento para a esquerda e para a direita.</string>
+    <string name="settings_gyro_invert_y">Inverter giroscópio vertical</string>
+    <string name="settings_gyro_invert_y_desc">Inverte o movimento de mira para cima e para baixo.</string>
+    <string name="settings_help_gyro_mode">"Mira" converte a velocidade de rotação do telefone no analógico direito para o controle da câmera em jogos de tiro e retorna automaticamente ao centro quando o telefone para de se mover. "Direção" converte a inclinação do telefone no analógico esquerdo para jogos de corrida e calibra o ângulo atual como o centro quando o jogo começa. O modo selecionado é usado apenas enquanto um jogo está em execução e requer o sensor de movimento correspondente.</string>
+    <string name="settings_help_gyro_sensitivity">Controla a força com que o movimento do telefone desvia o analógico emulado. Ajustes específicos por jogo são recomendados, pois os jogos usam diferentes curvas de resposta para câmera e direção.</string>
+    <string name="settings_help_gyro_smoothing">Filtra o ruído do sensor e o tremor da mão. Valores mais baixos reagem mais rápido; valores mais altos parecem mais estáveis, mas adicionam um pouco de latência.</string>
+    <string name="settings_gyro_unavailable">Este dispositivo não possui o sensor de movimento exigido pelo modo selecionado.</string>
+    <string name="onboarding_games_selected_count">%1$d pastas selecionadas. Toque para adicionar outra.</string>
+    <string name="settings_game_folders_count">%1$d pastas selecionadas</string>
+    <string name="game_folders_remove">Remover pasta</string>
 </resources>

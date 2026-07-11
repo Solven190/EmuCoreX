@@ -78,6 +78,7 @@ data class SettingsUiState(
     val preferEnglishGameTitles: Boolean = false,
     val biosPath: String? = null,
     val gamePath: String? = null,
+    val gamePaths: List<String> = emptyList(),
     val emulatorDataPath: String? = null,
     val coverDownloadBaseUrl: String? = null,
     val coverArtStyle: Int = AppPreferences.COVER_ART_STYLE_DEFAULT,
@@ -166,6 +167,11 @@ data class SettingsUiState(
     val touchHaptics: Boolean = false,
     val touchHapticsPreset: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET,
     val touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
+    val gyroMode: Int = AppPreferences.GYRO_MODE_OFF,
+    val gyroSensitivity: Int = AppPreferences.DEFAULT_GYRO_SENSITIVITY,
+    val gyroSmoothing: Int = AppPreferences.DEFAULT_GYRO_SMOOTHING,
+    val gyroInvertX: Boolean = false,
+    val gyroInvertY: Boolean = false,
     val leftStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val invertLeftStick: Boolean = false,
@@ -277,6 +283,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             preferEnglishGameTitles = snapshot.preferEnglishGameTitles,
             biosPath = snapshot.biosPath,
             gamePath = snapshot.gamePath,
+            gamePaths = snapshot.gamePaths,
             emulatorDataPath = snapshot.emulatorDataPath,
             coverDownloadBaseUrl = snapshot.coverDownloadBaseUrl,
             coverArtStyle = snapshot.coverArtStyle,
@@ -362,6 +369,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             touchHaptics = snapshot.touchHaptics,
             touchHapticsPreset = snapshot.touchHapticsPreset,
             touchHapticsStrength = snapshot.touchHapticsStrength,
+            gyroMode = snapshot.gyroMode,
+            gyroSensitivity = snapshot.gyroSensitivity,
+            gyroSmoothing = snapshot.gyroSmoothing,
+            gyroInvertX = snapshot.gyroInvertX,
+            gyroInvertY = snapshot.gyroInvertY,
             leftStickSensitivity = snapshot.leftStickSensitivity,
             rightStickSensitivity = snapshot.rightStickSensitivity,
             invertLeftStick = snapshot.invertLeftStick,
@@ -621,6 +633,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setTouchHaptics(enabled: Boolean) { viewModelScope.launch { preferences.setTouchHaptics(enabled) } }
     fun setTouchHapticsPreset(value: Int) { viewModelScope.launch { preferences.setTouchHapticsPreset(value) } }
     fun setTouchHapticsStrength(value: Int) { viewModelScope.launch { preferences.setTouchHapticsStrength(value) } }
+    fun setGyroMode(value: Int) { viewModelScope.launch { preferences.setGyroMode(value) } }
+    fun setGyroSensitivity(value: Int) { viewModelScope.launch { preferences.setGyroSensitivity(value) } }
+    fun setGyroSmoothing(value: Int) { viewModelScope.launch { preferences.setGyroSmoothing(value) } }
+    fun setGyroInvertX(value: Boolean) { viewModelScope.launch { preferences.setGyroInvertX(value) } }
+    fun setGyroInvertY(value: Boolean) { viewModelScope.launch { preferences.setGyroInvertY(value) } }
     fun testTouchHaptics(
         strengthPercent: Int = _uiState.value.touchHapticsStrength,
         preset: Int = _uiState.value.touchHapticsPreset
@@ -1510,7 +1527,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         if (!StorageAccess.takePersistableReadPermission(application, uri)) return
         val rawPath = uri.toString()
         if (!SetupValidator.hasCoreReadableGameFile(application, rawPath)) return
-        viewModelScope.launch { preferences.setGamePath(rawPath) }
+        viewModelScope.launch { preferences.addGamePath(rawPath) }
+    }
+
+    fun removeGamePath(path: String) {
+        viewModelScope.launch { preferences.removeGamePath(path) }
     }
 
     fun setEmulatorDataPath(uri: Uri) {

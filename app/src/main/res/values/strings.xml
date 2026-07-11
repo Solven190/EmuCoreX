@@ -11,7 +11,7 @@
     <!-- Home Screen -->
     <string name="home_title">Library</string>
     <string name="home_empty_title">No games found</string>
-    <string name="home_empty_subtitle">Select your games folder to build your library.</string>
+    <string name="home_empty_subtitle">Add game folders to build your library.</string>
     <string name="home_add_folder">Choose Games Folder</string>
     <string name="home_refresh">Refresh</string>
     <string name="home_view_list">Show as list</string>
@@ -29,7 +29,7 @@
     <string name="home_shelf_enable_3d_desc">3D covers replace blank shelf cards.</string>
     <string name="home_shelf_enable_3d_action">Enable</string>
     <string name="home_setup_title">Finish setup</string>
-    <string name="home_setup_subtitle">Choose a BIOS file and your games folder to get started.</string>
+    <string name="home_setup_subtitle">Choose a BIOS file and add your game folders to get started.</string>
     <string name="home_finish_setup">Open Setup</string>
     <string name="home_choose_bios">Choose BIOS</string>
     <string name="home_sort_title_asc">Title A-Z</string>
@@ -45,7 +45,7 @@
     <string name="home_stat_bios">BIOS File</string>
     <string name="home_stat_bios_desc">Shows whether the BIOS file is ready.</string>
     <string name="home_stat_library">Games Folder</string>
-    <string name="home_stat_library_desc">Shows whether a games folder is selected.</string>
+    <string name="home_stat_library_desc">Shows whether at least one game folder is selected.</string>
     <string name="home_status_ready">Ready</string>
     <string name="home_status_missing">Missing</string>
 
@@ -525,8 +525,10 @@
     <string name="settings_bios_picker_desc">Pick your PlayStation 2 BIOS image file. This file will be used for normal game boot and BIOS boot.</string>
     <string name="settings_bios_picker_current">Current BIOS file</string>
     <string name="settings_bios_picker_action">Select File</string>
-    <string name="settings_game_path">Games Folder</string>
-    <string name="settings_game_path_desc">Select the folder that contains your games.</string>
+    <string name="settings_game_path">Game folders</string>
+    <string name="settings_game_path_desc">Add one or more folders that contain your games.</string>
+    <string name="settings_game_folders_count">%1$d folders selected</string>
+    <string name="game_folders_remove">Remove folder</string>
     <string name="settings_emulator_data_path">Emulator Folder</string>
     <string name="settings_emulator_data_path_desc">Select where emulator files are stored.</string>
     <string name="settings_emulator_data_path_default">Default folder</string>
@@ -632,7 +634,7 @@
     <string name="settings_help_debug_options">Shows extra diagnostic controls in the in-game menu, including the JIT profiler and hang trace recorder. Keep this off for normal play.</string>
     <string name="settings_help_prefer_english_game_titles">Uses English titles from PCSX2\'s GameIndex database for games that ship with Japanese or other regional names. This mainly helps imported releases read more clearly in the library, while games without an English database title keep their normal name.</string>
     <string name="settings_help_bios_path">Points EmuCoreX to your PS2 BIOS image file. A clean dump from your own console is the best choice. The app expects the main BIOS image, usually a .bin or .rom file, and keeps any generated NVRAM/MEC files beside the imported copy.</string>
-    <string name="settings_help_game_path">Selects the library folder that EmuCoreX scans for games. The scan is recursive, so subfolders are fine. Supported images include .iso, .bin, .img, .mdf, .gz, .cso, .zso, .chd, and .elf. ISO is the safest baseline, while CHD is usually the best long-term format because it saves space without giving up normal usage.</string>
+    <string name="settings_help_game_path">Adds folders to the game library. EmuCoreX scans every selected folder recursively and merges the results without duplicate file paths. Tap a listed folder to remove it. Supported images include .iso, .bin, .img, .mdf, .gz, .cso, .zso, .chd, and .elf.</string>
     <string name="settings_help_emulator_data_path">Selects where EmuCoreX stores emulator runtime files such as memory cards, save states, cheats, patches, and logs. Leave it on the default folder unless you want to keep emulator data in a shared or manually managed location.</string>
     <string name="settings_help_cover_art_style">Chooses the default cover type used when downloading artwork. Flat covers match the classic front-box look, while 3D Box uses angled box renders when the source provides them. 3D covers can look more dramatic, but availability may be slightly worse than flat art.</string>
     <string name="settings_help_cover_download_url">Overrides the built-in cover source used for automatic downloads. The URL should point directly to a folder that contains JPG covers named by game serial, for example SLUS-20312.jpg. Change this only if you host your own mirror or want to use a different compatible cover library.</string>
@@ -1086,7 +1088,7 @@
     <string name="onboarding_page_3_title">Your Games Library</string>
     <string name="onboarding_page_3_subtitle">Build your personal game library with beautiful covers, detailed information, and quick access to your favorites.</string>
     <string name="onboarding_page_4_title">Ready to Play</string>
-    <string name="onboarding_page_4_subtitle">Add a BIOS file and choose your games folder to get started.</string>
+    <string name="onboarding_page_4_subtitle">Add a BIOS file and choose one or more game folders to get started.</string>
     <string name="onboarding_profile_title">Choose your startup profile</string>
     <string name="onboarding_profile_subtitle">Safe is recommended for most devices and games. Fast can improve speed on weaker phones, but it may reduce compatibility and stability.</string>
     <string name="onboarding_profile_safe_title">Optimal / Safe</string>
@@ -1118,11 +1120,12 @@
     <string name="settings_mediatek_angle_opengl">ANGLE for OpenGL</string>
     <string name="settings_mediatek_angle_opengl_desc">Use bundled ANGLE libraries for the MediaTek OpenGL path.</string>
     <string name="onboarding_title">Get ready to play</string>
-    <string name="onboarding_subtitle">Add a BIOS file, choose your games folder, and grant full file access.</string>
+    <string name="onboarding_subtitle">Add a BIOS file, choose your game folders, and grant file access.</string>
     <string name="onboarding_bios_title">Choose BIOS File</string>
     <string name="onboarding_bios_desc">Select the PS2 BIOS image file needed to start games.</string>
-    <string name="onboarding_games_title">Choose games folder</string>
-    <string name="onboarding_games_desc">Select the folder that contains your games.</string>
+    <string name="onboarding_games_title">Add game folders</string>
+    <string name="onboarding_games_desc">Add one or more folders that contain your games.</string>
+    <string name="onboarding_games_selected_count">%1$d folders selected. Tap to add another.</string>
     <string name="onboarding_emulator_folder_title">Choose emulator folder</string>
     <string name="onboarding_emulator_folder_desc">Select where memory cards, save states, cheats, patches, and logs are stored.</string>
     <string name="onboarding_status_required">Required</string>
@@ -1443,6 +1446,20 @@
     <string name="settings_touch_haptics_test_desc">Previews the selected press-and-release feel at the current strength.</string>
     <string name="settings_help_touch_haptics_strength">Controls the device vibration strength used for touch control haptics. Raise it if the tick is too subtle, or lower it for quieter handheld play.</string>
     <string name="settings_help_touch_haptics_test">Plays the same press-and-release haptic pair used by on-screen controls, so you can compare presets and tune strength before launching a game.</string>
+    <string name="settings_gyro_mode">Gyroscope control</string>
+    <string name="settings_gyro_off">Off</string>
+    <string name="settings_gyro_aim">Aim — right stick</string>
+    <string name="settings_gyro_steering">Steering — left stick</string>
+    <string name="settings_gyro_sensitivity">Gyroscope sensitivity</string>
+    <string name="settings_gyro_smoothing">Gyroscope smoothing</string>
+    <string name="settings_gyro_invert_x">Invert horizontal gyro</string>
+    <string name="settings_gyro_invert_x_desc">Reverses left and right motion.</string>
+    <string name="settings_gyro_invert_y">Invert vertical gyro</string>
+    <string name="settings_gyro_invert_y_desc">Reverses up and down aiming motion.</string>
+    <string name="settings_help_gyro_mode">Aim converts phone rotation speed into the right analog stick for camera control in shooters and automatically returns to center when the phone stops moving. Steering converts the phone’s held tilt into the left analog stick for racing games and calibrates the current angle as center when gameplay starts. The selected mode is used only while a game is running and requires the corresponding motion sensor.</string>
+    <string name="settings_help_gyro_sensitivity">Controls how strongly phone movement deflects the emulated analog stick. Per-game overrides are recommended because games use different camera and steering response curves.</string>
+    <string name="settings_help_gyro_smoothing">Filters sensor noise and hand shake. Lower values react faster; higher values feel steadier but add a small amount of latency.</string>
+    <string name="settings_gyro_unavailable">This device does not expose the motion sensor required by the selected mode.</string>
     <string name="settings_audio_tab">Audio</string>
     <string name="settings_audio_control">Audio control</string>
     <string name="settings_audio_processing">Audio processing</string>

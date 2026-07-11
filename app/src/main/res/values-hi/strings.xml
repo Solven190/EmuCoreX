@@ -1462,4 +1462,21 @@
     <string name="settings_touch_haptics_preset_strong">मजबूत</string>
     <string name="settings_touch_haptics_preset_desc">कोमल हल्का है, संतुलित प्राकृतिक डिफ़ॉल्ट है, स्पष्ट छोटा और सटीक है, और मजबूत कमज़ोर कंपन मोटर के लिए अधिक गहरा है।</string>
     <string name="settings_help_touch_haptics_preset">कोमल एक हल्के दबाव और बहुत हल्के रिलीज़ का उपयोग करता है। संतुलित हल्के रिलीज़ के साथ स्पष्ट दबाव देता है और डिफ़ॉल्ट है। स्पष्ट सटीक टैप के लिए सबसे छोटे, सबसे तेज़ जोड़े का उपयोग करता है। मजबूत कमज़ोर कंपन मोटर वाले फ़ोन के लिए गहरे, लंबे पल्स का उपयोग करता है। तीव्रता स्लाइडर चुने गए अहसास को मापता है。</string>
+    <string name="settings_gyro_mode">जाइरोस्कोप नियंत्रण</string>
+    <string name="settings_gyro_off">बंद</string>
+    <string name="settings_gyro_aim">निशाना — राइट स्टिक</string>
+    <string name="settings_gyro_steering">स्टीयरिंग — लेफ्ट स्टिक</string>
+    <string name="settings_gyro_sensitivity">जाइरोस्कोप संवेदनशीलता</string>
+    <string name="settings_gyro_smoothing">जाइरोस्कोप स्मूथिंग</string>
+    <string name="settings_gyro_invert_x">क्षैतिज जाइरो को उल्टा करें</string>
+    <string name="settings_gyro_invert_x_desc">बाएँ और दाएँ गति को उलट देता है।</string>
+    <string name="settings_gyro_invert_y">लंबवत जाइरो को उल्टा करें</string>
+    <string name="settings_gyro_invert_y_desc">ऊपर और नीचे निशाना लगाने की गति को उलट देता है。</string>
+    <string name="settings_help_gyro_mode">"निशाना" शूटर गेम में कैमरा नियंत्रण के लिए फ़ोन के घूमने की गति को दाएँ एनालॉग स्टिक में बदल देता है और फ़ोन के रुकने पर स्वचालित रूप से केंद्र में वापस आ जाता है। "स्टीयरिंग" रेसिंग गेम के लिए फ़ोन के झुकाव को बाएँ एनालॉग स्टिक में बदल देता है और गेमप्ले शुरू होने पर वर्तमान कोण को केंद्र के रूप में कैलिब्रेट करता है। चुना गया मोड केवल गेम चलने के दौरान उपयोग किया जाता है और इसके लिए संबंधित मोशन सेंसर की आवश्यकता होती है。</string>
+    <string name="settings_help_gyro_sensitivity">यह नियंत्रित करता है कि फ़ोन की गति एम्यूलेटेड एनालॉग स्टिक को कितनी मजबूती से विक्षेपित करती है। प्रति-गेम सेटिंग की अनुशंसा की जाती है क्योंकि गेम अलग-अलग कैमरा और स्टीयरिंग रिस्पॉन्स कर्व्स का उपयोग करते हैं。</string>
+    <string name="settings_help_gyro_smoothing">सेंसर शोर और हाथ के कांपने को फ़िल्टर करता है। कम मान तेज़ी से प्रतिक्रिया करते हैं; उच्च मान अधिक स्थिर महसूस होते हैं लेकिन थोड़ी सी देरी (लेटेंसी) जोड़ते हैं。</string>
+    <string name="settings_gyro_unavailable">यह डिवाइस चुने गए मोड के लिए आवश्यक मोशन सेंसर प्रदान नहीं करता है。</string>
+    <string name="onboarding_games_selected_count">%1$d फ़ोल्डर चुने गए। एक और जोड़ने के लिए टैप करें。</string>
+    <string name="settings_game_folders_count">%1$d फ़ोल्डर चुने गए</string>
+    <string name="game_folders_remove">फ़ोल्डर हटाएं</string>
 </resources>

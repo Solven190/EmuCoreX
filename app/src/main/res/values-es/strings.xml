@@ -1464,4 +1464,21 @@
     <string name="settings_touch_haptics_preset_strong">Fuerte</string>
     <string name="settings_touch_haptics_preset_desc">Suave es delicado, Equilibrado es el valor predeterminado natural, Nítido es corto y preciso, y Fuerte es más profundo para motores de vibración más débiles.</string>
     <string name="settings_help_touch_haptics_preset">Suave usa una presión delicada y una liberación muy ligera. Equilibrado da una presión clara con una liberación más ligera y es el predeterminado. Nítido usa el par más corto y agudo para toques precisos. Fuerte usa pulsos más profundos y largos para teléfonos con motores de vibración más débiles. El control deslizante de intensidad ajusta la sensación seleccionada.</string>
+    <string name="settings_gyro_mode">Control de giroscopio</string>
+    <string name="settings_gyro_off">Desactivado</string>
+    <string name="settings_gyro_aim">Apuntar — joystick derecho</string>
+    <string name="settings_gyro_steering">Conducción — joystick izquierdo</string>
+    <string name="settings_gyro_sensitivity">Sensibilidad del giroscopio</string>
+    <string name="settings_gyro_smoothing">Suavizado del giroscopio</string>
+    <string name="settings_gyro_invert_x">Invertir giroscopio horizontal</string>
+    <string name="settings_gyro_invert_x_desc">Invierte el movimiento de izquierda y derecha.</string>
+    <string name="settings_gyro_invert_y">Invertir giroscopio vertical</string>
+    <string name="settings_gyro_invert_y_desc">Invierte el movimiento de apuntado hacia arriba y hacia abajo.</string>
+    <string name="settings_help_gyro_mode">"Apuntar" convierte la velocidad de rotación del teléfono en el joystick analógico derecho para el control de la cámara en los juegos de disparos y vuelve automáticamente al centro cuando el teléfono deja de moverse. "Conducción" convierte la inclinación mantenida del teléfono en el joystick analógico izquierdo para los juegos de carreras y calibra el ángulo actual como centro cuando comienza el juego. El modo seleccionado se usa solo mientras se ejecuta un juego y requiere el sensor de movimiento correspondiente.</string>
+    <string name="settings_help_gyro_sensitivity">Controla la fuerza con la que el movimiento del teléfono desvía el joystick analógico emulado. Se recomiendan ajustes específicos por juego porque usan diferentes curvas de respuesta de cámara y dirección.</string>
+    <string name="settings_help_gyro_smoothing">Filtra el ruido del sensor y el temblor de las manos. Los valores más bajos reaccionan más rápido; los valores más altos se sienten más estables pero añaden un poco de latencia.</string>
+    <string name="settings_gyro_unavailable">Este dispositivo no dispone del sensor de movimiento requerido por el modo seleccionado.</string>
+    <string name="onboarding_games_selected_count">%1$d carpetas seleccionadas. Toca para añadir otra.</string>
+    <string name="settings_game_folders_count">%1$d carpetas seleccionadas</string>
+    <string name="game_folders_remove">Eliminar carpeta</string>
 </resources>

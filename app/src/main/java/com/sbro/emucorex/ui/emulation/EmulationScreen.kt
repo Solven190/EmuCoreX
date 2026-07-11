@@ -144,6 +144,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.AndroidTouchHaptics
+import com.sbro.emucorex.core.AndroidGyroscopeInput
 import com.sbro.emucorex.core.AndroidTouchHaptics.ButtonPhase
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GamepadManager
@@ -386,6 +387,55 @@ fun EmulationScreen(
     val gamepadConnected = connectedGamepadCount > 0
     val touchPadIndex = GamepadManager.resolveTouchPadIndex()
     val overlayPadIndex = touchPadIndex ?: 0
+    val currentOverlayPadIndex by rememberUpdatedState(overlayPadIndex)
+    val gyroController = remember(context) {
+        AndroidGyroscopeInput(context) { emittedMode, x, y ->
+            val targetRightStick = emittedMode == AppPreferences.GYRO_MODE_AIM
+            updateAnalogStick(
+                x = x,
+                y = y,
+                upKey = if (targetRightStick) PadKey.RIGHT_STICK_UP else PadKey.LEFT_STICK_UP,
+                rightKey = if (targetRightStick) PadKey.RIGHT_STICK_RIGHT else PadKey.LEFT_STICK_RIGHT,
+                downKey = if (targetRightStick) PadKey.RIGHT_STICK_DOWN else PadKey.LEFT_STICK_DOWN,
+                leftKey = if (targetRightStick) PadKey.RIGHT_STICK_LEFT else PadKey.LEFT_STICK_LEFT,
+                onPadInput = { key, range, pressed -> viewModel.onPadInput(currentOverlayPadIndex, key, range, pressed) }
+            )
+        }
+    }
+    DisposableEffect(
+        lifecycleOwner,
+        uiState.isRunning,
+        uiState.gyroMode,
+        uiState.gyroSensitivity,
+        uiState.gyroSmoothing,
+        uiState.gyroInvertX,
+        uiState.gyroInvertY
+    ) {
+        fun startGyro() {
+            if (uiState.isRunning && uiState.gyroMode != AppPreferences.GYRO_MODE_OFF) {
+                gyroController.start(
+                    mode = uiState.gyroMode,
+                    sensitivityPercent = uiState.gyroSensitivity,
+                    smoothingPercent = uiState.gyroSmoothing,
+                    invertX = uiState.gyroInvertX,
+                    invertY = uiState.gyroInvertY
+                )
+            }
+        }
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> startGyro()
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> gyroController.stop()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) startGyro()
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            gyroController.stop()
+        }
+    }
     var showGamepadIndicator by remember { mutableStateOf(gamepadConnected) }
 
     val shouldShowOverlay = uiState.controlsVisible && (

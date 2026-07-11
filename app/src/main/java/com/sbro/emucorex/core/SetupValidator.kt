@@ -25,6 +25,12 @@ object SetupValidator {
         }
     }
 
+    fun isAnyGameFolderPresentForStartup(context: Context, rawPaths: List<String>): Boolean =
+        rawPaths.any { isGameFolderPresentForStartup(context, it) }
+
+    fun hasCoreReadableGameFile(context: Context, rawPaths: List<String>): Boolean =
+        rawPaths.any { hasCoreReadableGameFile(context, it) }
+
     fun isGameFolderAccessible(context: Context, rawPath: String?): Boolean {
         if (rawPath.isNullOrBlank()) return false
 

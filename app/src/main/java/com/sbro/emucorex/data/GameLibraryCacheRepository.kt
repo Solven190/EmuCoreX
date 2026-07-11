@@ -17,6 +17,11 @@ data class GameLibraryCacheSnapshot(
 
 class GameLibraryCacheRepository(context: Context) {
 
+    companion object {
+        fun libraryKey(paths: List<String>): String =
+            paths.map(String::trim).filter(String::isNotBlank).distinct().joinToString("\u001F")
+    }
+
     private val appContext = context.applicationContext
     private val compatibilityRepository = Pcsx2CompatibilityRepository(appContext)
     private val cacheFile = File(appContext.filesDir, "library/game_library_cache.json")
