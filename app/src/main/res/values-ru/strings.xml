@@ -1382,4 +1382,10 @@
     <string name="settings_help_audio_buffer_size">Управляет объемом буферизации генерируемого звука. Большие значения уменьшают треск, но увеличивают задержку. Значение по умолчанию — 100 мс.</string>
     <string name="settings_help_audio_minimal_latency">Позволяет Android выбрать небольшой буфер вывода с выравниванием по пакетам. Отключите эту опцию, чтобы установить задержку вывода вручную.</string>
     <string name="settings_help_audio_output_latency">Управляет буфером аудиоустройства отдельно от буфера эмулятора. Меньшие значения уменьшают задержку, но могут вызывать потрескивания на медленных устройствах.</string>
+    <string name="settings_sgsr">Game Super Resolution</string>
+    <string name="settings_sgsr_off">Выкл.</string>
+    <string name="settings_sgsr_quality">Качество</string>
+    <string name="settings_sgsr_balanced">Баланс</string>
+    <string name="settings_sgsr_performance">Производительность</string>
+    <string name="settings_help_sgsr">Snapdragon Game Super Resolution реконструирует изображение за один проход, оптимизированный для мобильных устройств, без изменения выбранного внутреннего разрешения. «Качество» обрабатывает тонкие края, «Баланс» использует официальные настройки по умолчанию, а «Производительность» ограничивает реконструкцию более четкими краями. Если эта функция включена, она заменяет шейдеры представления CAS и TV.</string>
 </resources>

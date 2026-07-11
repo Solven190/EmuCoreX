@@ -1382,4 +1382,10 @@
     <string name="settings_help_audio_buffer_size">Controla la cantidad de audio generado que se almacena en el búfer. Los valores más altos reducen los chasquidos pero aumentan la latencia. El valor predeterminado es 100 ms.</string>
     <string name="settings_help_audio_minimal_latency">Permite que Android seleccione un búfer de salida pequeño alineado a ráfagas. Desactiva esta opción para configurar la latencia de salida manualmente.</string>
     <string name="settings_help_audio_output_latency">Controla el búfer del dispositivo de audio por separado del búfer del emulador. Los valores más bajos reducen el retraso pero pueden causar chasquidos en dispositivos más lentos.</string>
+    <string name="settings_sgsr">Game Super Resolution</string>
+    <string name="settings_sgsr_off">Desactivado</string>
+    <string name="settings_sgsr_quality">Calidad</string>
+    <string name="settings_sgsr_balanced">Equilibrado</string>
+    <string name="settings_sgsr_performance">Rendimiento</string>
+    <string name="settings_help_sgsr">Snapdragon Game Super Resolution reconstruye la imagen en una pasada optimizada para móviles sin cambiar la resolución interna seleccionada. "Calidad" procesa los bordes sutiles, "Equilibrado" usa la configuración predeterminada oficial y "Rendimiento" limita la reconstrucción a los bordes más marcados. Mientras está activado, reemplaza los shaders de presentación CAS y TV.</string>
 </resources>

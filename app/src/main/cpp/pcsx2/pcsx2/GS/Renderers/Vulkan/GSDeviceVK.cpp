@@ -2920,7 +2920,7 @@ bool GSDeviceVK::CheckFeatures()
 	m_features.stencil_buffer &= !m_features.framebuffer_fetch;
 
 	// whether we can do point/line expand depends on the range of the device
-	const float f_upscale = static_cast<float>(GSConfig.UpscaleMultiplier);
+	const float f_upscale = GSConfig.UpscaleMultiplier;
 	m_features.point_expand = (m_device_features.largePoints && limits.pointSizeRange[0] <= f_upscale &&
 							   limits.pointSizeRange[1] >= f_upscale);
 	m_features.line_expand =

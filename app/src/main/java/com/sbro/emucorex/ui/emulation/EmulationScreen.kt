@@ -1195,6 +1195,7 @@ fun EmulationScreen(
                     onSetTexturePreloading = { viewModel.setTexturePreloading(it) },
                     onSetEnableFxaa = { viewModel.setEnableFxaa(it) },
                     onSetCasMode = { viewModel.setCasMode(it) },
+                    onSetSgsrMode = { viewModel.setSgsrMode(it) },
                     onSetCasSharpness = { viewModel.setCasSharpness(it) },
                     onSetTvShader = { viewModel.setTvShader(it) },
                     onSetShadeBoostBrightness = { viewModel.setShadeBoostBrightness(it) },
@@ -2337,6 +2338,7 @@ private fun EmulationSidebarMenu(
     onSetTexturePreloading: (Int) -> Unit,
     onSetEnableFxaa: (Boolean) -> Unit,
     onSetCasMode: (Int) -> Unit,
+    onSetSgsrMode: (Int) -> Unit,
     onSetCasSharpness: (Int) -> Unit,
     onSetTvShader: (Int) -> Unit,
     onSetShadeBoostBrightness: (Int) -> Unit,
@@ -3398,6 +3400,20 @@ private fun EmulationSidebarMenu(
                             onCheckedChange = onSetEnableFxaa,
                             helpText = stringResource(R.string.settings_help_fxaa),
                             onResetToDefault = { onSetEnableFxaa(globalDefaults.enableFxaa) }
+                        )
+
+                        LiveChipsSelectionRow(
+                            title = stringResource(R.string.settings_sgsr),
+                            options = listOf(
+                                0 to stringResource(R.string.settings_sgsr_off),
+                                1 to stringResource(R.string.settings_sgsr_quality),
+                                2 to stringResource(R.string.settings_sgsr_balanced),
+                                3 to stringResource(R.string.settings_sgsr_performance)
+                            ),
+                            currentValue = uiState.sgsrMode,
+                            onValueChange = onSetSgsrMode,
+                            helpText = stringResource(R.string.settings_help_sgsr),
+                            onResetToDefault = { onSetSgsrMode(globalDefaults.sgsrMode) }
                         )
 
                         LiveChipsSelectionRow(

@@ -829,6 +829,14 @@ private fun GameSettingsTabContent(
                         onResetToDefault = { onDraftChange(draft.copy(enableFxaa = defaultProfile.enableFxaa)) }
                     )
                     SelectionRow(
+                        title = stringResource(R.string.settings_sgsr),
+                        options = sgsrModeOptions(),
+                        selectedValue = draft.sgsrMode,
+                        onSelected = { onDraftChange(draft.copy(sgsrMode = it)) },
+                        helpText = stringResource(R.string.settings_help_sgsr),
+                        onResetToDefault = { onDraftChange(draft.copy(sgsrMode = defaultProfile.sgsrMode)) }
+                    )
+                    SelectionRow(
                         title = stringResource(R.string.settings_cas),
                         options = casModeOptions(),
                         selectedValue = draft.casMode,
@@ -1677,6 +1685,14 @@ private fun GameSettingsEditorDialog(
                                 onCheckedChange = { draft = draft.copy(enableFxaa = it) },
                                 helpText = stringResource(R.string.settings_help_fxaa),
                                 onResetToDefault = { draft = draft.copy(enableFxaa = defaultProfile.enableFxaa) }
+                            )
+                            SelectionRow(
+                                title = stringResource(R.string.settings_sgsr),
+                                options = sgsrModeOptions(),
+                                selectedValue = draft.sgsrMode,
+                                onSelected = { draft = draft.copy(sgsrMode = it) },
+                                helpText = stringResource(R.string.settings_help_sgsr),
+                                onResetToDefault = { draft = draft.copy(sgsrMode = defaultProfile.sgsrMode) }
                             )
                             SelectionRow(
                                 title = stringResource(R.string.settings_cas),
@@ -2976,6 +2992,14 @@ private fun casModeOptions(): List<Pair<Int, String>> = listOf(
 )
 
 @Composable
+private fun sgsrModeOptions(): List<Pair<Int, String>> = listOf(
+    0 to stringResource(R.string.settings_sgsr_off),
+    1 to stringResource(R.string.settings_sgsr_quality),
+    2 to stringResource(R.string.settings_sgsr_balanced),
+    3 to stringResource(R.string.settings_sgsr_performance)
+)
+
+@Composable
 private fun tvShaderOptions(): List<Pair<Int, String>> = listOf(
     0 to stringResource(R.string.settings_tv_shader_none),
     1 to stringResource(R.string.settings_tv_shader_scanline),
@@ -3194,6 +3218,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         texturePreloading = texturePreloading,
         enableFxaa = enableFxaa,
         casMode = casMode,
+        sgsrMode = sgsrMode,
         casSharpness = casSharpness,
         tvShader = tvShader,
         shadeBoostEnabled = shadeBoostEnabled,
@@ -3281,6 +3306,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         texturePreloading = pick("texturePreloading", texturePreloading, defaultProfile.texturePreloading),
         enableFxaa = pick("enableFxaa", enableFxaa, defaultProfile.enableFxaa),
         casMode = pick("casMode", casMode, defaultProfile.casMode),
+        sgsrMode = pick("sgsrMode", sgsrMode, defaultProfile.sgsrMode),
         casSharpness = pick("casSharpness", casSharpness, defaultProfile.casSharpness),
         tvShader = pick("tvShader", tvShader, defaultProfile.tvShader),
         shadeBoostEnabled = pick("shadeBoostEnabled", shadeBoostEnabled, defaultProfile.shadeBoostEnabled),

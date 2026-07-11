@@ -55,6 +55,11 @@ static Common::Timer::Value s_last_gpu_reset_time;
 // Screen alignment
 static GSDisplayAlignment s_display_alignment = GSDisplayAlignment::Center;
 
+static bool IsSGSRPresentActive()
+{
+	return GSConfig.SGSRMode != GSSGSRMode::Disabled;
+}
+
 GSRenderer::GSRenderer()
 	: m_shader_time_start(Common::Timer::GetCurrentValue())
 {
@@ -779,7 +784,7 @@ void GSRenderer::VSync(u32 field, bool registers_written, bool idle_frame)
 				GetVideoMode() == GSVideoMode::SDTV_480P);
 			s_last_draw_rect = draw_rect;
 
-			if (GSConfig.CASMode != GSCASMode::Disabled)
+			if (GSConfig.CASMode != GSCASMode::Disabled && !IsSGSRPresentActive())
 			{
 				static bool cas_log_once = false;
 				if (g_gs_device->Features().cas_sharpening)
@@ -807,8 +812,11 @@ void GSRenderer::VSync(u32 field, bool registers_written, bool idle_frame)
 				const u64 current_time = Common::Timer::GetCurrentValue();
 				const float shader_time = static_cast<float>(Common::Timer::ConvertValueToSeconds(current_time - m_shader_time_start));
 
+				const bool use_sgsr = IsSGSRPresentActive();
+				const float present_shader_parameter = use_sgsr ? static_cast<float>(GSConfig.SGSRMode) : shader_time;
 				g_gs_device->PresentRect(current, src_uv, nullptr, draw_rect,
-					s_tv_shader_indices[GSConfig.TVShader], shader_time, GSConfig.LinearPresent != GSPostBilinearMode::Off);
+					use_sgsr ? PresentShader::SGSR : s_tv_shader_indices[GSConfig.TVShader], present_shader_parameter,
+					use_sgsr ? false : (GSConfig.LinearPresent != GSPostBilinearMode::Off));
 			}
 
 			EndPresentFrame();
@@ -1065,8 +1073,11 @@ void GSRenderer::PresentCurrentFrame()
 			const u64 current_time = Common::Timer::GetCurrentValue();
 			const float shader_time = static_cast<float>(Common::Timer::ConvertValueToSeconds(current_time - m_shader_time_start));
 
+			const bool use_sgsr = IsSGSRPresentActive();
+			const float present_shader_parameter = use_sgsr ? static_cast<float>(GSConfig.SGSRMode) : shader_time;
 			g_gs_device->PresentRect(current, src_uv, nullptr, draw_rect,
-				s_tv_shader_indices[GSConfig.TVShader], shader_time, GSConfig.LinearPresent != GSPostBilinearMode::Off);
+				use_sgsr ? PresentShader::SGSR : s_tv_shader_indices[GSConfig.TVShader], present_shader_parameter,
+				use_sgsr ? false : (GSConfig.LinearPresent != GSPostBilinearMode::Off));
 		}
 
 		EndPresentFrame();

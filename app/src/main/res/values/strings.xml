@@ -574,6 +574,7 @@
     <string name="settings_help_anisotropic_filtering">Sharpens textures viewed at steep angles, especially roads, floors, fields, and long walls. It usually has a smaller cost than raising resolution, so it is a good quality upgrade if the game already runs well.</string>
     <string name="settings_help_fxaa">Applies a lightweight post-process anti-aliasing pass after rendering. It can smooth jagged edges in games that shimmer, but it also softens UI text and fine detail, so use it only if the cleaner image is worth the blur.</string>
     <string name="settings_help_cas">Applies Contrast Adaptive Sharpening after rendering. It is useful if upscaling, FXAA, or bilinear filtering makes the image too soft, but strong sharpening can create halos or noisy edges in some games.</string>
+    <string name="settings_help_sgsr">Snapdragon Game Super Resolution reconstructs the image in one mobile-optimized pass without changing the selected internal resolution. Quality processes subtle edges, Balanced uses the official default tuning, and Performance limits reconstruction to stronger edges. While enabled, it replaces CAS and TV presentation shaders.</string>
     <string name="settings_help_cas_sharpness">Sets how aggressive the CAS pass looks. Lower values give a subtle recovery of detail, while higher values make edges pop more but can also introduce ringing and harsh outlines.</string>
     <string name="settings_help_tv_shader">Applies a TV-style presentation shader after rendering. Triangular Filter gives a softer CRT-like blend that can look especially good at 2x resolution, but some modes may blur fine UI text.</string>
     <string name="settings_help_widescreen_patches">Loads widescreen patches when the current game has one available. This is usually better than stretching the image because it changes the game’s camera and HUD logic instead of just distorting the final picture.</string>
@@ -1247,6 +1248,11 @@
     <string name="settings_cas_sharpness">CAS Sharpness</string>
     <string name="settings_cas_sharpness_value">%d%%</string>
     <string name="settings_cas_mode_off">Off</string>
+    <string name="settings_sgsr">Game Super Resolution</string>
+    <string name="settings_sgsr_off">Off</string>
+    <string name="settings_sgsr_quality">Quality</string>
+    <string name="settings_sgsr_balanced">Balanced</string>
+    <string name="settings_sgsr_performance">Performance</string>
     <string name="settings_cas_mode_sharpen_only">Sharpen Only</string>
     <string name="settings_cas_mode_sharpen_resize">Sharpen + Resize</string>
     <string name="settings_tv_shader">TV Shader</string>

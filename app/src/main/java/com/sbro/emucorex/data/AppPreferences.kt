@@ -103,6 +103,7 @@ data class SettingsSnapshot(
     val blendingAccuracy: Int = GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
     val texturePreloading: Int = GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
     val enableFxaa: Boolean = false,
+    val sgsrMode: Int = 0,
     val casMode: Int = 0,
     val casSharpness: Int = 50,
     val tvShader: Int = GsHackDefaults.TV_SHADER_DEFAULT,
@@ -387,6 +388,7 @@ class AppPreferences(private val context: Context) {
         private val TEXTURE_REPLACEMENTS_PRECACHE = booleanPreferencesKey("texture_replacements_precache")
         private val TEXTURE_DUMPING_ENABLED = booleanPreferencesKey("texture_dumping_enabled")
         private val ENABLE_FXAA = booleanPreferencesKey("enable_fxaa")
+        private val SGSR_MODE = intPreferencesKey("sgsr_mode")
         private val CAS_MODE = intPreferencesKey("cas_mode")
         private val CAS_SHARPNESS = intPreferencesKey("cas_sharpness")
         private val TV_SHADER = intPreferencesKey("tv_shader")
@@ -1010,6 +1012,7 @@ class AppPreferences(private val context: Context) {
                     prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT
                 ),
                 enableFxaa = prefs[ENABLE_FXAA] ?: false,
+                sgsrMode = (prefs[SGSR_MODE] ?: 0).coerceIn(0, 3),
                 casMode = prefs[CAS_MODE] ?: 0,
                 casSharpness = prefs[CAS_SHARPNESS] ?: 50,
                 tvShader = prefs[TV_SHADER]?.let(GsHackDefaults::coerceTvShader) ?: GsHackDefaults.TV_SHADER_DEFAULT,
@@ -1833,6 +1836,14 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[ENABLE_FXAA] = enabled }
     }
 
+    val sgsrMode: Flow<Int> = context.dataStore.data.map { prefs ->
+        (prefs[SGSR_MODE] ?: 0).coerceIn(0, 3)
+    }
+
+    suspend fun setSgsrMode(value: Int) {
+        context.dataStore.edit { it[SGSR_MODE] = value.coerceIn(0, 3) }
+    }
+
     val casMode: Flow<Int> = context.dataStore.data.map { prefs ->
         prefs[CAS_MODE] ?: 0
     }
@@ -2603,6 +2614,7 @@ class AppPreferences(private val context: Context) {
             put("textureReplacementsPrecache", prefs[TEXTURE_REPLACEMENTS_PRECACHE] ?: false)
             put("textureDumpingEnabled", prefs[TEXTURE_DUMPING_ENABLED] ?: false)
             put("enableFxaa", prefs[ENABLE_FXAA] ?: false)
+            put("sgsrMode", (prefs[SGSR_MODE] ?: 0).coerceIn(0, 3))
             put("casMode", prefs[CAS_MODE] ?: 0)
             put("casSharpness", prefs[CAS_SHARPNESS] ?: 50)
             put("tvShader", prefs[TV_SHADER]?.let(GsHackDefaults::coerceTvShader) ?: GsHackDefaults.TV_SHADER_DEFAULT)
@@ -2818,6 +2830,7 @@ class AppPreferences(private val context: Context) {
             prefs[TEXTURE_REPLACEMENTS_PRECACHE] = json.optBoolean("textureReplacementsPrecache", false)
             prefs[TEXTURE_DUMPING_ENABLED] = json.optBoolean("textureDumpingEnabled", false)
             prefs[ENABLE_FXAA] = json.optBoolean("enableFxaa", false)
+            prefs[SGSR_MODE] = json.optInt("sgsrMode", 0).coerceIn(0, 3)
             prefs[CAS_MODE] = json.optInt("casMode", 0).coerceIn(0, 2)
             prefs[CAS_SHARPNESS] = json.optInt("casSharpness", 50).coerceIn(0, 100)
             prefs[TV_SHADER] = GsHackDefaults.coerceTvShader(

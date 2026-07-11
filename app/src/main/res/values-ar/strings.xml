@@ -1380,4 +1380,10 @@
     <string name="settings_help_audio_buffer_size">يتحكم في مقدار الصوت المولد الذي يتم تخزينه مؤقتًا. القيم الأكبر تقلل الطقطقة ولكنها تزيد من زمن الانتقال. الافتراضي هو 100 مللي ثانية.</string>
     <string name="settings_help_audio_minimal_latency">يتيح لـ Android تحديد مخزن إخراج مؤقت صغير ومحاذٍ للتدفقات. قم بتعطيل هذا الخيار لتعيين زمن انتقال الإخراج يدويًا.</string>
     <string name="settings_help_audio_output_latency">يتحكم في المخزن المؤقت لجهاز الصوت بشكل منفصل عن المخزن المؤقت للمحاكي. القيم الأقل تقلل التأخير ولكنها قد تسبب طقطقة على الأجهزة الأبطأ.</string>
+    <string name="settings_sgsr">الدقة الفائقة للألعاب</string>
+    <string name="settings_sgsr_off">إيقاف</string>
+    <string name="settings_sgsr_quality">جودة</string>
+    <string name="settings_sgsr_balanced">متوازن</string>
+    <string name="settings_sgsr_performance">أداء</string>
+    <string name="settings_help_sgsr">تقوم تقنية Snapdragon Game Super Resolution بإعادة بناء الصورة في تمريرة واحدة محسنة للأجهزة المحمولة دون تغيير الدقة الداخلية المحددة. يعالج وضع "الجودة" الحواف الدقيقة، ويستخدم وضع "المتوازن" الضبط الافتراضي الرسمي، بينما يقتصر وضع "الأداء" على إعادة بناء الحواف الأقوى. أثناء تمكينها، فإنها تحل محل مظللات العرض CAS والتلفزيون (TV).</string>
 </resources>

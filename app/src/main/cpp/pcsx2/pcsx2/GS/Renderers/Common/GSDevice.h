@@ -176,6 +176,7 @@ enum class PresentShader
 	LOTTES_FILTER,
 	SUPERSAMPLE_4xRGSS,
 	SUPERSAMPLE_AUTO,
+	SGSR,
 	Count
 };
 

@@ -1380,4 +1380,10 @@
     <string name="settings_help_audio_buffer_size">생성된 오디오가 버퍼링되는 양을 제어합니다. 값이 클수록 잡음이 줄어들지만 지연 시간이 증가합니다. 기본값은 100ms입니다.</string>
     <string name="settings_help_audio_minimal_latency">Android가 버스트 정렬된 작은 출력 버퍼를 선택하도록 허용합니다. 출력 지연 시간을 수동으로 설정하려면 이 옵션을 비활성화하세요.</string>
     <string name="settings_help_audio_output_latency">에뮬레이터 버퍼와 별도로 오디오 장치 버퍼를 제어합니다. 값이 낮으면 지연이 줄어들지만 느린 장치에서는 잡음이 발생할 수 있습니다.</string>
+    <string name="settings_sgsr">게임 슈퍼 해상도</string>
+    <string name="settings_sgsr_off">끄기</string>
+    <string name="settings_sgsr_quality">품질</string>
+    <string name="settings_sgsr_balanced">균형</string>
+    <string name="settings_sgsr_performance">성능</string>
+    <string name="settings_help_sgsr">Snapdragon Game Super Resolution은 선택한 내부 해상도를 변경하지 않고 모바일에 최적화된 단일 패스로 이미지를 재구성합니다. \'품질\'은 미세한 가장자리를 처리하고, \'균형\'은 공식 기본 튜닝을 사용하며, \'성능\'은 더 강한 가장자리로만 재구성을 제한합니다. 이 기능이 활성화되면 CAS 및 TV 프레젠테이션 셰이더를 대체합니다.</string>
 </resources>

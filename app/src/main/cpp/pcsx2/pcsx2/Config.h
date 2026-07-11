@@ -413,6 +413,14 @@ enum class GSCASMode : u8
 	SharpenAndResize,
 };
 
+enum class GSSGSRMode : u8
+{
+	Disabled,
+	Quality,
+	Balanced,
+	Performance,
+};
+
 enum class GSHWAutoFlushLevel : u8
 {
 	Disabled,
@@ -722,6 +730,7 @@ struct Pcsx2Config
 		static constexpr GSPostBilinearMode DEFAULT_BILINEAR_FILTERING_MODE = GSPostBilinearMode::BilinearSmooth;
 		static constexpr FMVAspectRatioSwitchType DEFAULT_FMV_ASPECT_RATIO = FMVAspectRatioSwitchType::Off;
 		static constexpr GSCASMode DEFAULT_CAS_MODE = GSCASMode::Disabled;
+		static constexpr GSSGSRMode DEFAULT_SGSR_MODE = GSSGSRMode::Disabled;
 
 		static constexpr float DEFAULT_UPSCALE_MULTIPLIER = 1.0f;
 		static constexpr AccBlendLevel DEFAULT_BLENDING_ACCURACY = AccBlendLevel::Basic;
@@ -871,6 +880,7 @@ struct Pcsx2Config
 		GSDumpCompressionMethod GSDumpCompression = GSDumpCompressionMethod::Zstandard;
 		GSHardwareDownloadMode HWDownloadMode = GSHardwareDownloadMode::Enabled;
 		GSCASMode CASMode = DEFAULT_CAS_MODE;
+		GSSGSRMode SGSRMode = DEFAULT_SGSR_MODE;
 		u8 Dithering = 2;
 		u8 MaxAnisotropy = 0;
 		u8 TVShader = 0;

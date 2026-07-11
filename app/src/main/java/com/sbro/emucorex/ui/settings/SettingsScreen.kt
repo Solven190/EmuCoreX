@@ -1038,6 +1038,14 @@ private fun SettingsContent(
                             onResetToDefault = { viewModel.setEnableFxaa(defaults.enableFxaa) }
                         )
                         ChoiceSection(
+                            title = stringResource(R.string.settings_sgsr),
+                            options = sgsrModeOptions(),
+                            selectedValue = uiState.sgsrMode,
+                            onSelect = viewModel::setSgsrMode,
+                            helpText = stringResource(R.string.settings_help_sgsr),
+                            onResetToDefault = { viewModel.setSgsrMode(defaults.sgsrMode) }
+                        )
+                        ChoiceSection(
                             title = stringResource(R.string.settings_cas),
                             options = casModeOptions(),
                             selectedValue = uiState.casMode,
@@ -3744,6 +3752,14 @@ private fun casModeOptions(): List<Pair<Int, String>> = listOf(
     0 to stringResource(R.string.settings_cas_mode_off),
     1 to stringResource(R.string.settings_cas_mode_sharpen_only),
     2 to stringResource(R.string.settings_cas_mode_sharpen_resize)
+)
+
+@Composable
+private fun sgsrModeOptions(): List<Pair<Int, String>> = listOf(
+    0 to stringResource(R.string.settings_sgsr_off),
+    1 to stringResource(R.string.settings_sgsr_quality),
+    2 to stringResource(R.string.settings_sgsr_balanced),
+    3 to stringResource(R.string.settings_sgsr_performance)
 )
 
 @Composable

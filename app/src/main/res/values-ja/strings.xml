@@ -1380,4 +1380,10 @@
     <string name="settings_help_audio_buffer_size">生成された音声のバッファ量を制御します。値を大きくすると音割れは減りますが、遅延（レイテンシ）が増加します。デフォルトは100ミリ秒です。</string>
     <string name="settings_help_audio_minimal_latency">Androidにバースト整列された小さな出力バッファを選択させます。出力レイテンシを手動で設定する場合は、このオプションを無効にしてください。</string>
     <string name="settings_help_audio_output_latency">エミュレーターのバッファとは別に、オーディオデバイスのバッファを制御します。値を小さくすると遅延は減りますが、低スペックな端末では音割れが発生する可能性があります。</string>
+    <string name="settings_sgsr">ゲームスーパーレゾリューション</string>
+    <string name="settings_sgsr_off">オフ</string>
+    <string name="settings_sgsr_quality">品質</string>
+    <string name="settings_sgsr_balanced">バランス</string>
+    <string name="settings_sgsr_performance">パフォーマンス</string>
+    <string name="settings_help_sgsr">Snapdragon Game Super Resolutionは、選択された内部解像度を変更することなく、モバイル向けに最適化された1回のパスで画像を再構築します。「品質」は微細なエッジを処理し、「バランス」は公式のデフォルト設定を使用し、「パフォーマンス」は再構築をより強いエッジに制限します。有効にすると、CASおよびTVプレゼンテーションシェーダーが置き換えられます。</string>
 </resources>

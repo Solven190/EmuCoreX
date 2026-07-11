@@ -836,6 +836,7 @@ bool Pcsx2Config::GSOptions::OptionsAreEqual(const GSOptions& right) const
 		OpEqu(GSDumpCompression) &&
 		OpEqu(HWDownloadMode) &&
 		OpEqu(CASMode) &&
+		OpEqu(SGSRMode) &&
 		OpEqu(Dithering) &&
 		OpEqu(MaxAnisotropy) &&
 		OpEqu(SWExtraThreads) &&
@@ -1061,6 +1062,7 @@ void Pcsx2Config::GSOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapIntEnumEx(GSDumpCompression, "GSDumpCompression");
 	SettingsWrapIntEnumEx(HWDownloadMode, "HWDownloadMode");
 	SettingsWrapIntEnumEx(CASMode, "CASMode");
+	SettingsWrapIntEnumEx(SGSRMode, "SGSRMode");
 	SettingsWrapBitfieldEx(CAS_Sharpness, "CASSharpness");
 	SettingsWrapBitfieldEx(Dithering, "dithering_ps2");
 	SettingsWrapBitfieldEx(MaxAnisotropy, "MaxAnisotropy");

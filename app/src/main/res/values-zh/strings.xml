@@ -1382,4 +1382,10 @@
     <string name="settings_help_audio_buffer_size">控制生成的音频有多少被缓冲。较大的值可减少爆音，但会增加延迟。默认值为 100 毫秒。</string>
     <string name="settings_help_audio_minimal_latency">让 Android 选择一个小的突发对齐输出缓冲区。如果想要手动设置输出延迟，请禁用此选项。</string>
     <string name="settings_help_audio_output_latency">将音频设备缓冲区与模拟器缓冲区分开控制。较低的值可减少延迟，但在较慢的设备上可能会产生爆音。</string>
+    <string name="settings_sgsr">游戏超分辨率</string>
+    <string name="settings_sgsr_off">关闭</string>
+    <string name="settings_sgsr_quality">质量</string>
+    <string name="settings_sgsr_balanced">平衡</string>
+    <string name="settings_sgsr_performance">性能</string>
+    <string name="settings_help_sgsr">骁龙游戏超分辨率 (Snapdragon Game Super Resolution) 在不改变所选内部分辨率的情况下，通过一次针对移动端优化的通道来重构图像。“质量”模式处理细微的边缘，“平衡”模式使用官方默认调整，而“性能”模式将重构限制在更明显的边缘上。启用后，它将替换 CAS 和电视 (TV) 演示着色器。</string>
 </resources>

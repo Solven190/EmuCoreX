@@ -818,10 +818,11 @@ __ri void ImGuiManager::DrawSettingsOverlay(float scale, float margin, float spa
 
 	if (GSIsHardwareRenderer())
 	{
-		if ((GSConfig.UpscaleMultiplier - std::floor(GSConfig.UpscaleMultiplier)) > 0.01)
-			APPEND("IR={:.2f} ", static_cast<float>(GSConfig.UpscaleMultiplier));
+		const float effective_upscale = GSConfig.UpscaleMultiplier;
+		if ((effective_upscale - std::floor(effective_upscale)) > 0.01)
+			APPEND("IR={:.2f} ", effective_upscale);
 		else
-			APPEND("IR={} ", static_cast<unsigned>(GSConfig.UpscaleMultiplier));
+			APPEND("IR={} ", static_cast<unsigned>(effective_upscale));
 
 		APPEND("BL={} TPL={} ", static_cast<unsigned>(GSConfig.AccurateBlendingUnit), static_cast<unsigned>(GSConfig.TexturePreloading));
 		if (GSConfig.GPUPaletteConversion)

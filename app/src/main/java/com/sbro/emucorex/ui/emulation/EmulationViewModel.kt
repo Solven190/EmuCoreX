@@ -121,6 +121,7 @@ data class EmulationUiState(
     val texturePreloading: Int = GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
     val enableFxaa: Boolean = false,
     val casMode: Int = 0,
+    val sgsrMode: Int = 0,
     val casSharpness: Int = 50,
     val tvShader: Int = GsHackDefaults.TV_SHADER_DEFAULT,
     val shadeBoostEnabled: Boolean = false,
@@ -240,6 +241,7 @@ private data class EmulationLaunchConfig(
     val texturePreloading: Int,
     val enableFxaa: Boolean,
     val casMode: Int,
+    val sgsrMode: Int,
     val casSharpness: Int,
     val tvShader: Int,
     val shadeBoostEnabled: Boolean,
@@ -319,6 +321,7 @@ private data class LiveRuntimeSnapshot(
     val texturePreloading: Int,
     val enableFxaa: Boolean,
     val casMode: Int,
+    val sgsrMode: Int,
     val casSharpness: Int,
     val tvShader: Int,
     val shadeBoostEnabled: Boolean,
@@ -701,6 +704,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.casMode.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(casMode = value) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.sgsrMode.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(sgsrMode = value) }
             }
         }
         viewModelScope.launch {
@@ -1278,6 +1286,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     texturePreloading = config.texturePreloading,
                     enableFxaa = config.enableFxaa,
                     casMode = config.casMode,
+                    sgsrMode = config.sgsrMode,
                     casSharpness = config.casSharpness,
                     tvShader = config.tvShader,
                     shadeBoostEnabled = config.shadeBoostEnabled,
@@ -1455,6 +1464,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     texturePreloading = liveRuntime.texturePreloading,
                     enableFxaa = liveRuntime.enableFxaa,
                     casMode = liveRuntime.casMode,
+                    sgsrMode = liveRuntime.sgsrMode,
                     casSharpness = liveRuntime.casSharpness,
                     tvShader = liveRuntime.tvShader,
                     shadeBoostEnabled = liveRuntime.shadeBoostEnabled,
@@ -2361,6 +2371,19 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun setSgsrMode(value: Int) {
+        viewModelScope.launch {
+            val clamped = value.coerceIn(0, 3)
+            val newState = markPerformancePresetCustom(_uiState.value).copy(sgsrMode = clamped)
+            persistRuntimeState(newState) {
+                preferences.setPerformancePreset(PerformancePresets.CUSTOM)
+                preferences.setSgsrMode(clamped)
+            }
+            EmulatorBridge.setSetting("EmuCore/GS", "SGSRMode", "int", clamped.toString())
+            updateCrashContext()
+        }
+    }
+
     fun setTvShader(value: Int) {
         viewModelScope.launch {
             val clamped = GsHackDefaults.coerceTvShader(value)
@@ -3221,6 +3244,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             texturePreloading = settings.texturePreloading,
             enableFxaa = settings.enableFxaa,
             casMode = settings.casMode,
+            sgsrMode = settings.sgsrMode,
             casSharpness = settings.casSharpness,
             tvShader = settings.tvShader,
             shadeBoostEnabled = settings.shadeBoostEnabled,
@@ -3303,6 +3327,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             texturePreloading = preferences.texturePreloading.first(),
             enableFxaa = preferences.enableFxaa.first(),
             casMode = preferences.casMode.first(),
+            sgsrMode = preferences.sgsrMode.first(),
             casSharpness = preferences.casSharpness.first(),
             tvShader = preferences.tvShader.first(),
             shadeBoostEnabled = preferences.shadeBoostEnabled.first(),
@@ -3382,6 +3407,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             texturePreloading = pick("texturePreloading", texturePreloading) { texturePreloading },
             enableFxaa = pick("enableFxaa", enableFxaa) { enableFxaa },
             casMode = pick("casMode", casMode) { casMode },
+            sgsrMode = pick("sgsrMode", sgsrMode) { sgsrMode },
             casSharpness = pick("casSharpness", casSharpness) { casSharpness },
             tvShader = pick("tvShader", tvShader) { tvShader },
             shadeBoostEnabled = pick("shadeBoostEnabled", shadeBoostEnabled) { shadeBoostEnabled },
@@ -3464,6 +3490,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             texturePreloading = pick("texturePreloading", texturePreloading) { texturePreloading },
             enableFxaa = pick("enableFxaa", enableFxaa) { enableFxaa },
             casMode = pick("casMode", casMode) { casMode },
+            sgsrMode = pick("sgsrMode", sgsrMode) { sgsrMode },
             casSharpness = pick("casSharpness", casSharpness) { casSharpness },
             tvShader = pick("tvShader", tvShader) { tvShader },
             shadeBoostEnabled = pick("shadeBoostEnabled", shadeBoostEnabled) { shadeBoostEnabled },
@@ -3571,6 +3598,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             texturePreloading = texturePreloading,
             enableFxaa = enableFxaa,
             casMode = casMode,
+            sgsrMode = sgsrMode,
             casSharpness = casSharpness,
             tvShader = tvShader,
             shadeBoostEnabled = shadeBoostEnabled,
@@ -3645,6 +3673,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (texturePreloading != preferences.texturePreloading.first()) add("texturePreloading")
             if (enableFxaa != preferences.enableFxaa.first()) add("enableFxaa")
             if (casMode != preferences.casMode.first()) add("casMode")
+            if (sgsrMode != preferences.sgsrMode.first()) add("sgsrMode")
             if (casSharpness != preferences.casSharpness.first()) add("casSharpness")
             if (tvShader != preferences.tvShader.first()) add("tvShader")
             if (shadeBoostEnabled != preferences.shadeBoostEnabled.first()) add("shadeBoostEnabled")

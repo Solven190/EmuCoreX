@@ -115,6 +115,7 @@ data class SettingsUiState(
     val blendingAccuracy: Int = GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
     val texturePreloading: Int = GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
     val enableFxaa: Boolean = false,
+    val sgsrMode: Int = 0,
     val casMode: Int = 0,
     val casSharpness: Int = 50,
     val tvShader: Int = GsHackDefaults.TV_SHADER_DEFAULT,
@@ -310,6 +311,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             blendingAccuracy = snapshot.blendingAccuracy,
             texturePreloading = snapshot.texturePreloading,
             enableFxaa = snapshot.enableFxaa,
+            sgsrMode = snapshot.sgsrMode,
             casMode = snapshot.casMode,
             casSharpness = snapshot.casSharpness,
             tvShader = snapshot.tvShader,
@@ -944,6 +946,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setSgsrMode(value: Int) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            val clamped = value.coerceIn(0, 3)
+            preferences.setSgsrMode(clamped)
+            EmulatorBridge.setSetting("EmuCore/GS", "SGSRMode", "int", clamped.toString())
+        }
+    }
+
     fun setCasMode(value: Int) {
         viewModelScope.launch {
             markPerformancePresetCustom()
@@ -1442,6 +1453,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 blendingAccuracy = _uiState.value.blendingAccuracy,
                 texturePreloading = _uiState.value.texturePreloading,
                 enableFxaa = _uiState.value.enableFxaa,
+                sgsrMode = _uiState.value.sgsrMode,
                 casMode = _uiState.value.casMode,
                 casSharpness = _uiState.value.casSharpness,
                 tvShader = _uiState.value.tvShader,

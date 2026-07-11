@@ -1380,4 +1380,10 @@
     <string name="settings_help_audio_buffer_size">Controlla la quantità di audio generato che viene memorizzata nel buffer. Valori più alti riducono gli scoppiettii ma aumentano la latenza. Il valore predefinito è 100 ms.</string>
     <string name="settings_help_audio_minimal_latency">Permette ad Android di selezionare un piccolo buffer di output allineato ai burst. Disabilita questa opzione per impostare manualmente la latenza di output.</string>
     <string name="settings_help_audio_output_latency">Controlla il buffer del dispositivo audio separatamente dal buffer dell\'emulatore. Valori più bassi riducono il ritardo ma possono causare scoppiettii sui dispositivi più lenti.</string>
+    <string name="settings_sgsr">Game Super Resolution</string>
+    <string name="settings_sgsr_off">Disattivato</string>
+    <string name="settings_sgsr_quality">Qualità</string>
+    <string name="settings_sgsr_balanced">Bilanciato</string>
+    <string name="settings_sgsr_performance">Prestazioni</string>
+    <string name="settings_help_sgsr">Snapdragon Game Super Resolution ricostruisce l\'immagine in un singolo passaggio ottimizzato per dispositivi mobili senza modificare la risoluzione interna selezionata. "Qualità" elabora i bordi sottili, "Bilanciato" utilizza l\'impostazione predefinita ufficiale e "Prestazioni" limita la ricostruzione ai bordi più marcati. Se abilitato, sostituisce gli shader di presentazione CAS e TV.</string>
 </resources>

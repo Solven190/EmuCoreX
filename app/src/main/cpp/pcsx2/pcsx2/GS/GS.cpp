@@ -852,6 +852,7 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 
 	if (GSConfig.UserHacks_DisableRenderFixes != old_config.UserHacks_DisableRenderFixes ||
 		GSConfig.UpscaleMultiplier != old_config.UpscaleMultiplier ||
+		GSConfig.SGSRMode != old_config.SGSRMode ||
 		GSConfig.GetSkipCountFunctionId != old_config.GetSkipCountFunctionId ||
 		GSConfig.BeforeDrawFunctionId != old_config.BeforeDrawFunctionId ||
 		GSConfig.MoveHandlerFunctionId != old_config.MoveHandlerFunctionId)

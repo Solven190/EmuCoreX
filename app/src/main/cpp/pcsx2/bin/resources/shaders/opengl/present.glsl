@@ -78,6 +78,83 @@ void ps_copy()
 	SV_Target0 = sample_c();
 }
 #endif
+#ifdef ps_sgsr
+// Snapdragon Game Super Resolution 1.
+// Copyright (c) 2025, Qualcomm Innovation Center, Inc.
+// SPDX-License-Identifier: BSD-3-Clause
+float sgsr_fast_lanczos2(float x)
+{
+	float wa = x - 4.0;
+	float wb = x * wa - wa;
+	wa *= wa;
+	return wb * wa;
+}
+
+vec2 sgsr_weight_y(float dx, float dy, float c, float stddev)
+{
+	float x = ((dx * dx) + (dy * dy)) * 0.55 + clamp(abs(c) * stddev, 0.0, 1.0);
+	float w = sgsr_fast_lanczos2(x);
+	return vec2(w, w * c);
+}
+
+void ps_sgsr()
+{
+	// u_time carries the selected SGSR mode for this presentation shader.
+	// Quality covers subtle edges, Balanced is Qualcomm's reference tuning,
+	// and Performance evaluates only stronger edges.
+	float mode = clamp(floor(u_time + 0.5), 1.0, 3.0);
+	float edge_threshold = (mode < 1.5) ? (4.0 / 255.0) : ((mode < 2.5) ? (8.0 / 255.0) : (16.0 / 255.0));
+	float edge_sharpness = (mode < 1.5) ? 2.2 : ((mode < 2.5) ? 2.0 : 1.6);
+	vec4 color = vec4(textureLod(TextureSampler, PSin_t, 0.0).rgb, 1.0);
+
+	vec2 img_coord = PSin_t * u_source_resolution + vec2(-0.5, 0.5);
+	vec2 img_coord_pixel = floor(img_coord);
+	vec2 coord = img_coord_pixel * u_rcp_source_resolution;
+	vec2 pl = img_coord - img_coord_pixel;
+	vec4 left = textureGather(TextureSampler, coord, 1);
+
+	float edge_vote = abs(left.z - left.y) + abs(color.g - left.y) + abs(color.g - left.z);
+	if (edge_vote > edge_threshold)
+	{
+		coord.x += u_rcp_source_resolution.x;
+		vec4 right = textureGather(TextureSampler, coord + vec2(u_rcp_source_resolution.x, 0.0), 1);
+		vec4 up_down;
+		up_down.xy = textureGather(TextureSampler, coord + vec2(0.0, -u_rcp_source_resolution.y), 1).wz;
+		up_down.zw = textureGather(TextureSampler, coord + vec2(0.0, u_rcp_source_resolution.y), 1).yx;
+
+		float mean = (left.y + left.z + right.x + right.w) * 0.25;
+		left -= vec4(mean);
+		right -= vec4(mean);
+		up_down -= vec4(mean);
+		float center = color.g - mean;
+
+		float sum = dot(abs(left), vec4(1.0)) + dot(abs(right), vec4(1.0)) + dot(abs(up_down), vec4(1.0));
+		float stddev = 2.181818 / max(sum, 1.0e-6);
+		vec2 wy = sgsr_weight_y(pl.x, pl.y + 1.0, up_down.x, stddev);
+		wy += sgsr_weight_y(pl.x - 1.0, pl.y + 1.0, up_down.y, stddev);
+		wy += sgsr_weight_y(pl.x - 1.0, pl.y - 2.0, up_down.z, stddev);
+		wy += sgsr_weight_y(pl.x, pl.y - 2.0, up_down.w, stddev);
+		wy += sgsr_weight_y(pl.x + 1.0, pl.y - 1.0, left.x, stddev);
+		wy += sgsr_weight_y(pl.x, pl.y - 1.0, left.y, stddev);
+		wy += sgsr_weight_y(pl.x, pl.y, left.z, stddev);
+		wy += sgsr_weight_y(pl.x + 1.0, pl.y, left.w, stddev);
+		wy += sgsr_weight_y(pl.x - 1.0, pl.y - 1.0, right.x, stddev);
+		wy += sgsr_weight_y(pl.x - 2.0, pl.y - 1.0, right.y, stddev);
+		wy += sgsr_weight_y(pl.x - 2.0, pl.y, right.z, stddev);
+		wy += sgsr_weight_y(pl.x - 1.0, pl.y, right.w, stddev);
+
+		float final_y = wy.y / max(wy.x, 1.0e-6);
+		float max_y = max(max(left.y, left.z), max(right.x, right.w));
+		float min_y = min(min(left.y, left.z), min(right.x, right.w));
+		float delta_y = clamp(edge_sharpness * final_y, min_y, max_y) - center;
+		delta_y = clamp(delta_y, -23.0 / 255.0, 23.0 / 255.0);
+		color.rgb = clamp(color.rgb + vec3(delta_y), vec3(0.0), vec3(1.0));
+	}
+
+	SV_Target0 = color;
+}
+#endif
+
 
 #ifdef ps_filter_scanlines
 vec4 ps_scanlines(uint i)

@@ -357,6 +357,7 @@ object EmulatorBridge {
         texturePreloading: Int = GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
         enableFxaa: Boolean = false,
         casMode: Int = 0,
+        sgsrMode: Int = 0,
         casSharpness: Int = 50,
         tvShader: Int = GsHackDefaults.TV_SHADER_DEFAULT,
         shadeBoostEnabled: Boolean = false,
@@ -582,6 +583,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/GS", "DisableShaderCache", "bool", "false"))
                 add(settingOp("EmuCore/GS", "fxaa", "bool", enableFxaa.toString()))
                 add(settingOp("EmuCore/GS", "CASMode", "int", casMode.toString()))
+                add(settingOp("EmuCore/GS", "SGSRMode", "int", sgsrMode.coerceIn(0, 3).toString()))
                 add(settingOp("EmuCore/GS", "CASSharpness", "int", casSharpness.toString()))
                 add(settingOp("EmuCore/GS", "TVShader", "int", GsHackDefaults.coerceTvShader(tvShader).toString()))
                 add(settingOp("EmuCore/GS", "ShadeBoost", "bool", shadeBoostEnabled.toString()))

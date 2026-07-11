@@ -1380,4 +1380,10 @@
     <string name="settings_help_audio_buffer_size">Üretilen sesin ne kadarının arabelleğe alınacağını kontrol eder. Daha büyük değerler cızırtıyı azaltır ancak gecikmeyi artırır. Varsayılan değer 100 ms\'dir.</string>
     <string name="settings_help_audio_minimal_latency">Android\'in küçük, veri paketi hizalamalı bir çıkış arabelleği seçmesine izin verir. Çıkış gecikmesini manuel olarak ayarlamak için bu seçeneği devre dışı bırakın.</string>
     <string name="settings_help_audio_output_latency">Ses cihazı arabelleğini emülatör arabelleğinden ayrı olarak kontrol eder. Daha düşük değerler gecikmeyi azaltır ancak daha yavaş cihazlarda cızırtı yapabilir.</string>
+    <string name="settings_sgsr">Game Super Resolution</string>
+    <string name="settings_sgsr_off">Kapalı</string>
+    <string name="settings_sgsr_quality">Kalite</string>
+    <string name="settings_sgsr_balanced">Dengeli</string>
+    <string name="settings_sgsr_performance">Performans</string>
+    <string name="settings_help_sgsr">Snapdragon Game Super Resolution, seçilen dahili çözünürlüğü değiştirmeden görüntüyü mobil cihazlar için optimize edilmiş tek bir geçişte (pass) yeniden oluşturur. "Kalite" ince kenarları işler, "Dengeli" resmi varsayılan ayarı kullanır ve "Performans" yeniden oluşturmayı daha belirgin kenarlarla sınırlar. Etkinleştirildiğinde, CAS ve TV sunum gölgelendiricilerinin (shader) yerini alır.</string>
 </resources>

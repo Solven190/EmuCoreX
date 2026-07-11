@@ -1382,4 +1382,10 @@
     <string name="settings_help_audio_buffer_size">Steuert, wie viel des generierten Tons gepuffert wird. Größere Werte reduzieren das Knistern, erhöhen aber die Latenz. Der Standardwert ist 100 ms.</string>
     <string name="settings_help_audio_minimal_latency">Lässt Android einen kleinen, burst-ausgerichteten Ausgabepuffer auswählen. Deaktiviere diese Option, um die Ausgabelatenz manuell einzustellen.</string>
     <string name="settings_help_audio_output_latency">Steuert den Audiogerätepuffer getrennt vom Emulatorpuffer. Niedrigere Werte reduzieren die Verzögerung, können aber auf langsameren Geräten zu Knistern führen.</string>
+    <string name="settings_sgsr">Game Super Resolution</string>
+    <string name="settings_sgsr_off">Aus</string>
+    <string name="settings_sgsr_quality">Qualität</string>
+    <string name="settings_sgsr_balanced">Ausgeglichen</string>
+    <string name="settings_sgsr_performance">Leistung</string>
+    <string name="settings_help_sgsr">Snapdragon Game Super Resolution rekonstruiert das Bild in einem für Mobilgeräte optimierten Durchgang, ohne die ausgewählte interne Auflösung zu ändern. "Qualität" verarbeitet feine Kanten, "Ausgeglichen" verwendet die offizielle Standardeinstellung und "Leistung" beschränkt die Rekonstruktion auf stärkere Kanten. Wenn aktiviert, ersetzt es CAS und TV-Präsentations-Shader.</string>
 </resources>

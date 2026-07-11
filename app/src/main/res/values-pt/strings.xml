@@ -1382,4 +1382,10 @@
     <string name="settings_help_audio_buffer_size">Controla quanto do áudio gerado é armazenado em buffer. Valores maiores reduzem estalos, mas aumentam a latência. O padrão é 100 ms.</string>
     <string name="settings_help_audio_minimal_latency">Permite que o Android selecione um pequeno buffer de saída alinhado a rajadas. Desative esta opção para definir a latência de saída manualmente.</string>
     <string name="settings_help_audio_output_latency">Controla o buffer do dispositivo de áudio separadamente do buffer do emulador. Valores mais baixos reduzem o atraso, mas podem causar estalos em dispositivos mais lentos.</string>
+    <string name="settings_sgsr">Game Super Resolution</string>
+    <string name="settings_sgsr_off">Desativado</string>
+    <string name="settings_sgsr_quality">Qualidade</string>
+    <string name="settings_sgsr_balanced">Equilibrado</string>
+    <string name="settings_sgsr_performance">Desempenho</string>
+    <string name="settings_help_sgsr">O Snapdragon Game Super Resolution reconstrói a imagem em uma passagem otimizada para dispositivos móveis sem alterar a resolução interna selecionada. "Qualidade" processa bordas sutis, "Equilibrado" usa o ajuste padrão oficial e "Desempenho" limita a reconstrução a bordas mais fortes. Quando ativado, ele substitui os shaders de apresentação CAS e TV.</string>
 </resources>

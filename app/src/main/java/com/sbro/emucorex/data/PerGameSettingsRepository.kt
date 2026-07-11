@@ -53,6 +53,7 @@ data class PerGameSettings(
     val texturePreloading: Int = GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
     val enableFxaa: Boolean = false,
     val casMode: Int = 0,
+    val sgsrMode: Int = 0,
     val casSharpness: Int = 50,
     val tvShader: Int = GsHackDefaults.TV_SHADER_DEFAULT,
     val shadeBoostEnabled: Boolean = false,
@@ -253,6 +254,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         ),
         enableFxaa = optBoolean("enableFxaa", false),
         casMode = optInt("casMode", 0),
+        sgsrMode = optInt("sgsrMode", 0).coerceIn(0, 3),
         casSharpness = optInt("casSharpness", 50),
         tvShader = optInt("tvShader", GsHackDefaults.TV_SHADER_DEFAULT).let(GsHackDefaults::coerceTvShader),
         shadeBoostEnabled = optBoolean("shadeBoostEnabled", false) || isShadeBoostActive(
@@ -353,6 +355,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("texturePreloading")) put("texturePreloading", GsHackDefaults.coerceTexturePreloading(texturePreloading))
         if (shouldWrite("enableFxaa")) put("enableFxaa", enableFxaa)
         if (shouldWrite("casMode")) put("casMode", casMode)
+        if (shouldWrite("sgsrMode")) put("sgsrMode", sgsrMode.coerceIn(0, 3))
         if (shouldWrite("casSharpness")) put("casSharpness", casSharpness)
         if (shouldWrite("tvShader")) put("tvShader", GsHackDefaults.coerceTvShader(tvShader))
         if (shouldWrite("shadeBoostEnabled")) put("shadeBoostEnabled", shadeBoostEnabled)

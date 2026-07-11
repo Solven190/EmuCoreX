@@ -1382,4 +1382,10 @@
     <string name="settings_help_audio_buffer_size">Contrôle la quantité de son généré qui est mise en mémoire tampon. Des valeurs plus élevées réduisent les grésillements mais augmentent la latence. La valeur par défaut est de 100 ms.</string>
     <string name="settings_help_audio_minimal_latency">Laisse Android sélectionner un petit tampon de sortie aligné sur les rafales. Désactivez cette option pour définir manuellement la latence de sortie.</string>
     <string name="settings_help_audio_output_latency">Contrôle le tampon du périphérique audio indépendamment du tampon de l\'émulateur. Des valeurs plus faibles réduisent le délai mais peuvent provoquer des grésillements sur les appareils plus lents.</string>
+    <string name="settings_sgsr">Game Super Resolution</string>
+    <string name="settings_sgsr_off">Désactivé</string>
+    <string name="settings_sgsr_quality">Qualité</string>
+    <string name="settings_sgsr_balanced">Équilibré</string>
+    <string name="settings_sgsr_performance">Performances</string>
+    <string name="settings_help_sgsr">Snapdragon Game Super Resolution reconstruit l\'image en une seule passe optimisée pour les mobiles sans modifier la résolution interne sélectionnée. "Qualité" traite les contours subtils, "Équilibré" utilise le réglage par défaut officiel, et "Performances" limite la reconstruction aux contours plus marqués. Lorsqu\'elle est activée, cette option remplace les shaders de présentation CAS et TV.</string>
 </resources>

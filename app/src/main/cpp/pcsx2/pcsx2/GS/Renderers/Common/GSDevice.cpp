@@ -97,6 +97,7 @@ const char* shaderName(PresentShader value)
 		case PresentShader::LOTTES_FILTER:      return "ps_filter_lottes";
 		case PresentShader::SUPERSAMPLE_4xRGSS: return "ps_4x_rgss";
 		case PresentShader::SUPERSAMPLE_AUTO:   return "ps_automagical_supersampling";
+		case PresentShader::SGSR:               return "ps_sgsr";
 			// clang-format on
 		default:
 			pxAssert(0);
