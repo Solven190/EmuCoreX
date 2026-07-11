@@ -91,6 +91,7 @@ internal fun HomeShelfMode(
     onLongClickLoadSave: (GameItem) -> Unit,
     onLongClickManage: (GameItem) -> Unit,
     onLongClickCreateShortcut: (GameItem) -> Unit,
+    onLongClickOpenGameDb: (GameItem) -> Unit,
     onLongClickCustomCover: (GameItem) -> Unit
 ) {
     if (games.isEmpty()) {
@@ -251,6 +252,7 @@ internal fun HomeShelfMode(
                                 onLongClickLoadSave = { onLongClickLoadSave(game) },
                                 onLongClickManage = { onLongClickManage(game) },
                                 onLongClickCreateShortcut = { onLongClickCreateShortcut(game) },
+                                onLongClickOpenGameDb = { onLongClickOpenGameDb(game) },
                                 onLongClickCustomCover = { onLongClickCustomCover(game) },
                                 onNavigateLeft = {
                                     if (page > 0 && !pagerState.isScrollInProgress) {
@@ -461,6 +463,7 @@ private fun ShelfCoverCard(
     onLongClickLoadSave: () -> Unit,
     onLongClickManage: () -> Unit,
     onLongClickCreateShortcut: () -> Unit,
+    onLongClickOpenGameDb: () -> Unit,
     onLongClickCustomCover: () -> Unit,
     onNavigateLeft: () -> Unit,
     onNavigateRight: () -> Unit
@@ -558,6 +561,7 @@ private fun ShelfCoverCard(
         onLoadSave = { dismissMenu(onLongClickLoadSave) },
         onManage = { dismissMenu(onLongClickManage) },
         onCreateShortcut = { dismissMenu(onLongClickCreateShortcut) },
+        onOpenGameDb = { dismissMenu(onLongClickOpenGameDb) },
         onCustomCover = { dismissMenu(onLongClickCustomCover) }
     )
 }

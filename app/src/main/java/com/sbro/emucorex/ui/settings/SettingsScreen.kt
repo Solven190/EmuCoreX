@@ -165,6 +165,7 @@ fun SettingsScreen(
     onOpenLanguageScreen: (() -> Unit)? = null,
     onOpenMemoryCardManager: (() -> Unit)? = null,
     onOpenGpuDriverManager: (() -> Unit)? = null,
+    onOpenGameDbBrowser: (() -> Unit)? = null,
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -422,6 +423,7 @@ fun SettingsScreen(
                 },
                 onOpenMemoryCardManager = onOpenMemoryCardManager,
                 onOpenGpuDriverManager = onOpenGpuDriverManager,
+                onOpenGameDbBrowser = onOpenGameDbBrowser,
                 viewModel = viewModel,
                 topInset = 0.dp,
                 modifier = Modifier
@@ -864,7 +866,8 @@ private fun SettingsContent(
     topInset: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
     onOpenMemoryCardManager: (() -> Unit)? = null,
-    onOpenGpuDriverManager: (() -> Unit)? = null
+    onOpenGpuDriverManager: (() -> Unit)? = null,
+    onOpenGameDbBrowser: (() -> Unit)? = null
 ) {
     val gamepadActions = remember { GamepadManager.mappableButtonActions() }
     val defaults = remember { SettingsSnapshot() }
@@ -1862,6 +1865,16 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_game_fixes),
                             onResetToDefault = { viewModel.setEnableGameFixes(defaults.enableGameFixes) }
                         )
+                        if (onOpenGameDbBrowser != null) {
+                            ActionItem(
+                                icon = Icons.Rounded.Visibility,
+                                title = stringResource(R.string.gamedb_browser_settings_card_title),
+                                subtitle = stringResource(R.string.gamedb_browser_settings_card_desc),
+                                actionIcon = Icons.Rounded.Search,
+                                actionLabel = stringResource(R.string.gamedb_browser_browse),
+                                onClick = onOpenGameDbBrowser
+                            )
+                        }
                         SettingsInlineNote(
                             text = stringResource(R.string.settings_cpu_float_modes_note)
                         )

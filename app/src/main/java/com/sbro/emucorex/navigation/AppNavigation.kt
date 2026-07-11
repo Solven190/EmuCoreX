@@ -54,6 +54,7 @@ import com.sbro.emucorex.ui.catalog.CatalogSearchScreen
 import com.sbro.emucorex.ui.detail.GameDetailScreen
 import com.sbro.emucorex.ui.emulation.EmulationScreen
 import com.sbro.emucorex.ui.formats.SupportedFormatsScreen
+import com.sbro.emucorex.ui.gamedb.GameDbBrowserScreen
 import com.sbro.emucorex.ui.home.HomeScreen
 import com.sbro.emucorex.ui.memorycards.MemoryCardManagerScreen
 import com.sbro.emucorex.ui.onboarding.OnboardingScreen
@@ -126,6 +127,9 @@ object ControlsEditorRoute
 
 @Serializable
 object GpuDriverSettingsRoute
+
+@Serializable
+data class GameDbBrowserRoute(val query: String? = null)
 
 @Serializable
 object TextureManagerRoute
@@ -413,6 +417,13 @@ fun AppNavigation(
                         onCreateShortcutClick = { game ->
                             GameLaunchShortcut.requestPinnedShortcut(context, game)
                         },
+                        onOpenGameDbClick = { game ->
+                            navController.navigate(
+                                GameDbBrowserRoute(query = game.serial?.takeIf { it.isNotBlank() } ?: game.title)
+                            ) {
+                                launchSingleTop = true
+                            }
+                        },
                         onMenuClick = openDrawer,
                         onShelfModeChanged = { isShelfMode ->
                             homeDrawerEnabled = !isShelfMode
@@ -611,6 +622,11 @@ fun AppNavigation(
                                 launchSingleTop = true
                             }
                         },
+                        onOpenGameDbBrowser = {
+                            navController.navigate(GameDbBrowserRoute()) {
+                                launchSingleTop = true
+                            }
+                        },
                         viewModel = settingsViewModel
                     )
                 }
@@ -626,6 +642,14 @@ fun AppNavigation(
                 com.sbro.emucorex.ui.settings.GpuDriverScreen(
                     onBackClick = { navController.popBackStack() },
                     viewModel = settingsViewModel
+                )
+            }
+
+            composable<GameDbBrowserRoute> { backStackEntry ->
+                val route = backStackEntry.toRoute<GameDbBrowserRoute>()
+                GameDbBrowserScreen(
+                    initialQuery = route.query,
+                    onBackClick = { navController.popBackStack() }
                 )
             }
 

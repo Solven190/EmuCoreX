@@ -36,6 +36,7 @@ import java.io.File
 import java.security.MessageDigest
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
@@ -45,17 +46,25 @@ fun GameCoverArt(
     coverPath: String?,
     fallbackTitle: String,
     modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Fit
+    contentScale: ContentScale = ContentScale.Fit,
+    loadEnabled: Boolean = true
 ) {
     val context = LocalContext.current
-    var bitmap by remember { mutableStateOf(coverPath?.let(::getCachedBitmap)) }
-    var loadedPath by remember { mutableStateOf(coverPath?.takeIf { getCachedBitmap(it) != null }) }
+    var bitmap by remember(coverPath) { mutableStateOf(coverPath?.let(::getCachedBitmap)) }
+    var loadedPath by remember(coverPath) { mutableStateOf(coverPath?.takeIf { getCachedBitmap(it) != null }) }
     var isLoading by remember { mutableStateOf(false) }
 
-    LaunchedEffect(coverPath) {
+    LaunchedEffect(coverPath, loadEnabled) {
         if (coverPath.isNullOrBlank()) {
             bitmap = null
             loadedPath = null
+            isLoading = false
+            return@LaunchedEffect
+        }
+
+        if (!loadEnabled) {
+            bitmap = getCachedBitmap(coverPath)
+            loadedPath = coverPath.takeIf { bitmap != null }
             isLoading = false
             return@LaunchedEffect
         }
@@ -196,6 +205,13 @@ private fun loadBitmap(context: android.content.Context, coverPath: String?): Bi
 
 private fun getOrCreateRemoteImageCacheFile(context: android.content.Context, url: String): File? {
     val cacheDir = File(context.cacheDir, "remote-image-cache").apply { mkdirs() }
+    pruneRemoteImageCacheOnce(cacheDir)
+    val missFile = File(cacheDir, "${url.sha1()}.miss")
+    if (missFile.exists()) {
+        if (System.currentTimeMillis() - missFile.lastModified() < REMOTE_MISS_TTL_MS) return null
+        missFile.delete()
+    }
+    var receivedNotFound = false
     for (candidateUrl in remoteImageCandidates(url)) {
         val extension = candidateUrl.substringAfterLast('.', "").substringBefore('?').lowercase()
             .takeIf { it in setOf("jpg", "jpeg", "png", "webp") }
@@ -212,6 +228,7 @@ private fun getOrCreateRemoteImageCacheFile(context: android.content.Context, ur
             connection.readTimeout = 12_000
             connection.instanceFollowRedirects = true
             if (connection.responseCode !in 200..299) {
+                if (connection.responseCode == HttpURLConnection.HTTP_NOT_FOUND) receivedNotFound = true
                 connection.disconnect()
                 return@runCatching null
             }
@@ -229,11 +246,37 @@ private fun getOrCreateRemoteImageCacheFile(context: android.content.Context, ur
         }.getOrNull()
 
         if (downloaded != null) {
+            missFile.delete()
             return downloaded
         }
         tempFile.delete()
     }
+    if (receivedNotFound) {
+        runCatching { missFile.writeText(System.currentTimeMillis().toString()) }
+    }
     return null
+}
+
+private const val REMOTE_MISS_TTL_MS = 7L * 24L * 60L * 60L * 1000L
+private const val REMOTE_CACHE_MAX_BYTES = 256L * 1024L * 1024L
+private val remoteCachePruned = AtomicBoolean(false)
+
+private fun pruneRemoteImageCacheOnce(cacheDir: File) {
+    if (!remoteCachePruned.compareAndSet(false, true)) return
+    val cachedImages = cacheDir.listFiles()
+        .orEmpty()
+        .filter { it.isFile && !it.name.endsWith(".tmp") && !it.name.endsWith(".miss") }
+        .sortedBy { it.lastModified() }
+    var totalBytes = cachedImages.sumOf { it.length() }
+    for (file in cachedImages) {
+        if (totalBytes <= REMOTE_CACHE_MAX_BYTES) break
+        val size = file.length()
+        if (file.delete()) totalBytes -= size
+    }
+    cacheDir.listFiles()
+        .orEmpty()
+        .filter { it.name.endsWith(".tmp") && System.currentTimeMillis() - it.lastModified() > 60L * 60L * 1000L }
+        .forEach { it.delete() }
 }
 
 private fun remoteImageCandidates(url: String): List<String> {

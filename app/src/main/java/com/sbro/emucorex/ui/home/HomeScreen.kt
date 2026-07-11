@@ -57,13 +57,19 @@ import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.ViewCarousel
 import androidx.compose.material.icons.rounded.ViewModule
@@ -99,6 +105,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -144,6 +151,7 @@ fun HomeScreen(
     onLoadSaveClick: (GameItem) -> Unit,
     onManageGameClick: (GameItem) -> Unit,
     onCreateShortcutClick: (GameItem) -> Unit,
+    onOpenGameDbClick: (GameItem) -> Unit,
     onMenuClick: (() -> Unit)? = null,
     onShelfModeChanged: (Boolean) -> Unit = {},
     viewModel: HomeViewModel = viewModel()
@@ -350,6 +358,7 @@ fun HomeScreen(
                         onLongClickLoadSave = onLoadSaveClick,
                         onLongClickManage = onManageGameClick,
                         onLongClickCreateShortcut = onCreateShortcutClick,
+                        onLongClickOpenGameDb = onOpenGameDbClick,
                         onLongClickCustomCover = { game ->
                             gameAwaitingPickerLaunch = game
                         }
@@ -460,6 +469,7 @@ fun HomeScreen(
                                                         onLongClickLoadSave = { onLoadSaveClick(game) },
                                                         onLongClickManage = { onManageGameClick(game) },
                                                         onLongClickCreateShortcut = { onCreateShortcutClick(game) },
+                                                        onLongClickOpenGameDb = { onOpenGameDbClick(game) },
                                                         onLongClickCustomCover = {
                                                             gameAwaitingPickerLaunch = game
                                                         },
@@ -508,6 +518,7 @@ fun HomeScreen(
                                                                 onLongClickLoadSave = { onLoadSaveClick(game) },
                                                                 onLongClickManage = { onManageGameClick(game) },
                                                                 onLongClickCreateShortcut = { onCreateShortcutClick(game) },
+                                                                onLongClickOpenGameDb = { onOpenGameDbClick(game) },
                                                                 onLongClickCustomCover = {
                                                                     gameAwaitingPickerLaunch = game
                                                                 }
@@ -523,6 +534,7 @@ fun HomeScreen(
                                                                 onLongClickLoadSave = { onLoadSaveClick(game) },
                                                                 onLongClickManage = { onManageGameClick(game) },
                                                                 onLongClickCreateShortcut = { onCreateShortcutClick(game) },
+                                                                onLongClickOpenGameDb = { onOpenGameDbClick(game) },
                                                                 onLongClickCustomCover = {
                                                                     gameAwaitingPickerLaunch = game
                                                                 }
@@ -1197,6 +1209,7 @@ private fun RecentGameCard(
     onLongClickLoadSave: () -> Unit,
     onLongClickManage: () -> Unit,
     onLongClickCreateShortcut: () -> Unit,
+    onLongClickOpenGameDb: () -> Unit,
     onLongClickCustomCover: () -> Unit,
     compact: Boolean
 ) {
@@ -1282,6 +1295,10 @@ private fun RecentGameCard(
                     showMenu = false
                     onLongClickCreateShortcut()
                 },
+                onOpenGameDb = {
+                    showMenu = false
+                    onLongClickOpenGameDb()
+                },
                 onCustomCover = {
                     showMenu = false
                     onLongClickCustomCover()
@@ -1303,6 +1320,7 @@ private fun GameCard(
     onLongClickLoadSave: () -> Unit,
     onLongClickManage: () -> Unit,
     onLongClickCreateShortcut: () -> Unit,
+    onLongClickOpenGameDb: () -> Unit,
     onLongClickCustomCover: () -> Unit
 ) {
     val debouncedClick = rememberDebouncedClick(onClick = onClick)
@@ -1392,6 +1410,10 @@ private fun GameCard(
                     showMenu = false
                     onLongClickCreateShortcut()
                 },
+                onOpenGameDb = {
+                    showMenu = false
+                    onLongClickOpenGameDb()
+                },
                 onCustomCover = {
                     showMenu = false
                     onLongClickCustomCover()
@@ -1413,6 +1435,7 @@ private fun GameListCard(
     onLongClickLoadSave: () -> Unit,
     onLongClickManage: () -> Unit,
     onLongClickCreateShortcut: () -> Unit,
+    onLongClickOpenGameDb: () -> Unit,
     onLongClickCustomCover: () -> Unit
 ) {
     val debouncedClick = rememberDebouncedClick(onClick = onClick)
@@ -1527,6 +1550,10 @@ private fun GameListCard(
                     showMenu = false
                     onLongClickCreateShortcut()
                 },
+                onOpenGameDb = {
+                    showMenu = false
+                    onLongClickOpenGameDb()
+                },
                 onCustomCover = {
                     showMenu = false
                     onLongClickCustomCover()
@@ -1589,38 +1616,117 @@ internal fun GameCardContextMenu(
     onLoadSave: () -> Unit,
     onManage: () -> Unit,
     onCreateShortcut: () -> Unit,
+    onOpenGameDb: () -> Unit,
     onCustomCover: () -> Unit
 ) {
     DropdownMenu(
         expanded = expanded,
         offset = offset,
-        onDismissRequest = onDismiss
+        onDismissRequest = onDismiss,
+        modifier = Modifier.widthIn(min = 248.dp, max = 310.dp),
+        shape = RoundedCornerShape(20.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 12.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
     ) {
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.home_game_menu_start)) },
+        GameContextMenuItem(
+            text = stringResource(R.string.home_game_menu_start),
+            icon = Icons.Rounded.PlayArrow,
+            emphasized = true,
             onClick = onStart
         )
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.home_game_menu_continue)) },
+        GameContextMenuItem(
+            text = stringResource(R.string.home_game_menu_continue),
+            icon = Icons.Rounded.Restore,
             onClick = onContinue
         )
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.home_game_menu_load_save)) },
+        GameContextMenuItem(
+            text = stringResource(R.string.home_game_menu_load_save),
+            icon = Icons.Rounded.Save,
             onClick = onLoadSave
         )
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.home_game_menu_manager)) },
+        GameContextMenuDivider()
+        GameContextMenuItem(
+            text = stringResource(R.string.home_game_menu_manager),
+            icon = Icons.Rounded.Tune,
             onClick = onManage
         )
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.home_game_menu_shortcut)) },
+        GameContextMenuItem(
+            text = stringResource(R.string.home_game_menu_gamedb),
+            icon = Icons.Rounded.Search,
+            onClick = onOpenGameDb
+        )
+        GameContextMenuDivider()
+        GameContextMenuItem(
+            text = stringResource(R.string.home_game_menu_shortcut),
+            icon = Icons.Rounded.Link,
             onClick = onCreateShortcut
         )
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.home_game_menu_custom_cover)) },
+        GameContextMenuItem(
+            text = stringResource(R.string.home_game_menu_custom_cover),
+            icon = Icons.Rounded.Image,
             onClick = onCustomCover
         )
     }
+}
+
+@Composable
+private fun GameContextMenuItem(
+    text: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    emphasized: Boolean = false
+) {
+    DropdownMenuItem(
+        text = {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = if (emphasized) FontWeight.SemiBold else FontWeight.Medium
+                ),
+                color = if (emphasized) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        onClick = onClick,
+        leadingIcon = {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(
+                        if (emphasized) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.68f)
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(19.dp),
+                    tint = if (emphasized) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+        },
+        contentPadding = PaddingValues(horizontal = 12.dp)
+    )
+}
+
+@Composable
+private fun GameContextMenuDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f)
+    )
 }
 
 @Composable
