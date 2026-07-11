@@ -23,7 +23,9 @@ object AppLocaleManager {
     private fun normalizeLanguageTag(tag: String?): String? {
         return when (tag?.trim()) {
             "zh-TW", "zh_HK", "zh-HK", "zh-Hant", "zh-Hant-TW" -> "zh"
-            "in", "in-ID", "id-ID" -> "id"
+            // Android versions before V keep Indonesian under the legacy ISO code "in".
+            // Android V+ canonicalizes it back to "id", so this works on both paths.
+            "id", "id-ID", "in", "in-ID" -> "in"
             "fa-IR" -> "fa"
             else -> tag
         }

@@ -1455,4 +1455,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">ペルシア語</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">ハプティクスの感触</string>
+    <string name="settings_touch_haptics_preset_soft">ソフト</string>
+    <string name="settings_touch_haptics_preset_balanced">バランス</string>
+    <string name="settings_touch_haptics_preset_crisp">クリスプ</string>
+    <string name="settings_touch_haptics_preset_strong">強</string>
+    <string name="settings_touch_haptics_preset_desc">「ソフト」は優しく、「バランス」は自然なデフォルト、「クリスプ」は短く正確、「強」は振動モーターが弱いデバイス向けの深い振動です。</string>
+    <string name="settings_help_touch_haptics_preset">「ソフト」は優しい押し込みと非常に軽いリリースを使用します。「バランス」は明確な押し込みと軽いリリースを提供し、デフォルトの設定です。「クリスプ」は正確なタップのために最も短く鋭い組み合わせを使用します。「強」は振動モーターが弱いスマートフォン向けにより深く長いパルスを使用します。強度のスライダーで選択した感触のスケールを調整します。</string>
 </resources>

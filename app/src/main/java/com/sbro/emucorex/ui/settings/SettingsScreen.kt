@@ -1331,6 +1331,15 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_touch_haptics),
                             onResetToDefault = { viewModel.setTouchHaptics(defaults.touchHaptics) }
                         )
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_touch_haptics_preset),
+                            options = touchHapticsPresetOptions(),
+                            selectedValue = uiState.touchHapticsPreset,
+                            onSelect = viewModel::setTouchHapticsPreset,
+                            helpText = stringResource(R.string.settings_help_touch_haptics_preset),
+                            onResetToDefault = { viewModel.setTouchHapticsPreset(defaults.touchHapticsPreset) }
+                        )
+                        SettingsInlineNote(text = stringResource(R.string.settings_touch_haptics_preset_desc))
                         SliderItem(
                             icon = Icons.Rounded.Vibration,
                             title = stringResource(R.string.settings_touch_haptics_strength),
@@ -1340,8 +1349,6 @@ private fun SettingsContent(
                             range = 10f..100f,
                             steps = 8,
                             onValueChange = { viewModel.setTouchHapticsStrength(it.roundToInt()) },
-                            onValueChangeLive = { viewModel.testTouchHaptics(it.roundToInt(), 80L) },
-                            onValueChangeFinished = { viewModel.testTouchHaptics(it.roundToInt(), 160L) },
                             helpText = stringResource(R.string.settings_help_touch_haptics_strength),
                             onResetToDefault = { viewModel.setTouchHapticsStrength(defaults.touchHapticsStrength) }
                         )
@@ -1351,7 +1358,12 @@ private fun SettingsContent(
                             subtitle = stringResource(R.string.settings_touch_haptics_test_desc),
                             actionIcon = Icons.Rounded.PlayArrow,
                             actionLabel = stringResource(R.string.settings_pad_vibration_test_action),
-                            onClick = { viewModel.testTouchHaptics(uiState.touchHapticsStrength, 160L) },
+                            onClick = {
+                                viewModel.testTouchHaptics(
+                                    strengthPercent = uiState.touchHapticsStrength,
+                                    preset = uiState.touchHapticsPreset
+                                )
+                            },
                             helpText = stringResource(R.string.settings_help_touch_haptics_test)
                         )
                         SliderItem(
@@ -1471,8 +1483,6 @@ private fun SettingsContent(
                             range = 0f..150f,
                             steps = 0,
                             onValueChange = { viewModel.setPadVibrationStrength(it.toInt()) },
-                            onValueChangeLive = { viewModel.testPadVibration(it.roundToInt(), 70L) },
-                            onValueChangeFinished = { viewModel.testPadVibration(it.roundToInt(), 260L) },
                             helpText = stringResource(R.string.settings_help_pad_vibration_strength),
                             onResetToDefault = { viewModel.setPadVibrationStrength(defaults.padVibrationStrength) }
                         )
@@ -3073,6 +3083,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Controls, R.string.settings_gamepad_hide_overlay),
         entry(SettingsTab.Controls, R.string.settings_auto_progressive_scan),
         entry(SettingsTab.Controls, R.string.settings_touch_haptics),
+        entry(SettingsTab.Controls, R.string.settings_touch_haptics_preset),
         entry(SettingsTab.Controls, R.string.settings_touch_haptics_strength),
         entry(SettingsTab.Controls, R.string.settings_touch_haptics_test),
         entry(SettingsTab.Controls, R.string.settings_gamepad_stick_deadzone),
@@ -3665,6 +3676,14 @@ private fun hwDownloadModeOptions(): List<Pair<Int, String>> = listOf(
     2 to stringResource(R.string.settings_hw_download_mode_no_readbacks),
     3 to stringResource(R.string.settings_hw_download_mode_unsynchronized),
     4 to stringResource(R.string.settings_hw_download_mode_disabled)
+)
+
+@Composable
+private fun touchHapticsPresetOptions(): List<Pair<Int, String>> = listOf(
+    AppPreferences.TOUCH_HAPTICS_PRESET_SOFT to stringResource(R.string.settings_touch_haptics_preset_soft),
+    AppPreferences.TOUCH_HAPTICS_PRESET_BALANCED to stringResource(R.string.settings_touch_haptics_preset_balanced),
+    AppPreferences.TOUCH_HAPTICS_PRESET_CRISP to stringResource(R.string.settings_touch_haptics_preset_crisp),
+    AppPreferences.TOUCH_HAPTICS_PRESET_STRONG to stringResource(R.string.settings_touch_haptics_preset_strong)
 )
 
 @Composable

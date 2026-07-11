@@ -1455,4 +1455,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">फ़ारसी</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">हैप्टिक अहसास</string>
+    <string name="settings_touch_haptics_preset_soft">कोमल</string>
+    <string name="settings_touch_haptics_preset_balanced">संतुलित</string>
+    <string name="settings_touch_haptics_preset_crisp">स्पष्ट</string>
+    <string name="settings_touch_haptics_preset_strong">मजबूत</string>
+    <string name="settings_touch_haptics_preset_desc">कोमल हल्का है, संतुलित प्राकृतिक डिफ़ॉल्ट है, स्पष्ट छोटा और सटीक है, और मजबूत कमज़ोर कंपन मोटर के लिए अधिक गहरा है।</string>
+    <string name="settings_help_touch_haptics_preset">कोमल एक हल्के दबाव और बहुत हल्के रिलीज़ का उपयोग करता है। संतुलित हल्के रिलीज़ के साथ स्पष्ट दबाव देता है और डिफ़ॉल्ट है। स्पष्ट सटीक टैप के लिए सबसे छोटे, सबसे तेज़ जोड़े का उपयोग करता है। मजबूत कमज़ोर कंपन मोटर वाले फ़ोन के लिए गहरे, लंबे पल्स का उपयोग करता है। तीव्रता स्लाइडर चुने गए अहसास को मापता है。</string>
 </resources>

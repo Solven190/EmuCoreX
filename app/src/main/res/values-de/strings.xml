@@ -1457,4 +1457,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">Persisch</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">Haptisches Feedback</string>
+    <string name="settings_touch_haptics_preset_soft">Sanft</string>
+    <string name="settings_touch_haptics_preset_balanced">Ausgeglichen</string>
+    <string name="settings_touch_haptics_preset_crisp">Knackig</string>
+    <string name="settings_touch_haptics_preset_strong">Stark</string>
+    <string name="settings_touch_haptics_preset_desc">"Sanft" ist leicht, "Ausgeglichen" ist der natürliche Standard, "Knackig" ist kurz und präzise, und "Stark" ist tiefer für schwächere Vibrationsmotoren.</string>
+    <string name="settings_help_touch_haptics_preset">"Sanft" verwendet ein leichtes Drücken und ein sehr leichtes Loslassen. "Ausgeglichen" bietet ein klares Drücken mit einem leichteren Loslassen und ist der Standard. "Knackig" verwendet das kürzeste, schärfste Paar für präzises Tippen. "Stark" verwendet tiefere, längere Impulse für Telefone mit schwächeren Vibrationsmotoren. Der Schieberegler für die Stärke skaliert das ausgewählte Gefühl.</string>
 </resources>

@@ -1457,4 +1457,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">Перська</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">Тактильний відгук</string>
+    <string name="settings_touch_haptics_preset_soft">М\'який</string>
+    <string name="settings_touch_haptics_preset_balanced">Збалансований</string>
+    <string name="settings_touch_haptics_preset_crisp">Чіткий</string>
+    <string name="settings_touch_haptics_preset_strong">Сильний</string>
+    <string name="settings_touch_haptics_preset_desc">«М\'який» — ніжний, «Збалансований» — природний за замовчуванням, «Чіткий» — короткий і точний, а «Сильний» — глибший для слабких вібромоторів.</string>
+    <string name="settings_help_touch_haptics_preset">«М\'який» використовує ніжне натискання та дуже легке відпускання. «Збалансований» дає чітке натискання з легшим відпусканням і є стандартним. «Чіткий» використовує найкоротшу та найрізкішу пару для точних дотиків. «Сильний» використовує глибші та довші імпульси для телефонів зі слабкішими вібромоторами. Повзунок сили налаштовує вибране відчуття.</string>
 </resources>

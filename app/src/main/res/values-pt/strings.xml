@@ -1457,4 +1457,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">Persa</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">Sensação tátil</string>
+    <string name="settings_touch_haptics_preset_soft">Suave</string>
+    <string name="settings_touch_haptics_preset_balanced">Equilibrado</string>
+    <string name="settings_touch_haptics_preset_crisp">Nítido</string>
+    <string name="settings_touch_haptics_preset_strong">Forte</string>
+    <string name="settings_touch_haptics_preset_desc">Suave é delicado, Equilibrado é o padrão natural, Nítido é curto e preciso e Forte é mais profundo para motores de vibração mais fracos.</string>
+    <string name="settings_help_touch_haptics_preset">Suave usa um toque delicado e uma liberação muito leve. Equilibrado dá um toque claro com uma liberação mais leve e é o padrão. Nítido usa o par mais curto e agudo para toques precisos. Forte usa pulsos mais profundos e longos para telefones com motores de vibração mais fracos. O controle deslizante de intensidade ajusta a sensação selecionada.</string>
 </resources>

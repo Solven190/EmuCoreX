@@ -1455,4 +1455,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">Farsça</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">Dokunma hissi</string>
+    <string name="settings_touch_haptics_preset_soft">Yumuşak</string>
+    <string name="settings_touch_haptics_preset_balanced">Dengeli</string>
+    <string name="settings_touch_haptics_preset_crisp">Keskin</string>
+    <string name="settings_touch_haptics_preset_strong">Güçlü</string>
+    <string name="settings_touch_haptics_preset_desc">Yumuşak hafiftir, Dengeli doğal varsayılandır, Keskin kısa ve isabetlidir, Güçlü ise zayıf titreşim motorları için daha derindir.</string>
+    <string name="settings_help_touch_haptics_preset">Yumuşak, hafif bir basma ve çok hafif bir bırakma kullanır. Dengeli, daha hafif bir bırakma ile net bir basma sağlar ve varsayılandır. Keskin, hassas dokunuşlar için en kısa ve en keskin çifti kullanır. Güçlü, daha zayıf titreşim motorlarına sahip telefonlar için daha derin, daha uzun vuruşlar kullanır. Güç kaydırıcısı seçilen hissi ölçeklendirir.</string>
 </resources>

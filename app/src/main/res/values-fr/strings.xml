@@ -1457,4 +1457,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">Persan</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">Sensation haptique</string>
+    <string name="settings_touch_haptics_preset_soft">Doux</string>
+    <string name="settings_touch_haptics_preset_balanced">Équilibré</string>
+    <string name="settings_touch_haptics_preset_crisp">Net</string>
+    <string name="settings_touch_haptics_preset_strong">Fort</string>
+    <string name="settings_touch_haptics_preset_desc">Doux est léger, Équilibré est le paramètre par défaut naturel, Net est court et précis, et Fort est plus profond pour les moteurs de vibration plus faibles.</string>
+    <string name="settings_help_touch_haptics_preset">Doux utilise une pression légère et un relâchement très fin. Équilibré donne une pression claire avec un relâchement plus léger et est le paramètre par défaut. Net utilise la paire la plus courte et la plus vive pour des frappes précises. Fort utilise des impulsions plus profondes et plus longues pour les téléphones dotés de moteurs de vibration plus faibles. Le curseur d\'intensité ajuste la sensation sélectionnée.</string>
 </resources>

@@ -1455,4 +1455,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">페르시아어</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">햅틱 느낌</string>
+    <string name="settings_touch_haptics_preset_soft">부드러움</string>
+    <string name="settings_touch_haptics_preset_balanced">균형</string>
+    <string name="settings_touch_haptics_preset_crisp">선명함</string>
+    <string name="settings_touch_haptics_preset_strong">강함</string>
+    <string name="settings_touch_haptics_preset_desc">부드러움은 가볍고, 균형은 자연스러운 기본값이며, 선명함은 짧고 정확하고, 강함은 진동 모터가 약한 기기를 위한 더 깊은 진동입니다.</string>
+    <string name="settings_help_touch_haptics_preset">부드러움은 가벼운 누름과 매우 가벼운 뗌을 사용합니다. 균형은 가벼운 뗌과 함께 선명한 누름을 제공하며 기본값입니다. 선명함은 정확한 탭을 위해 가장 짧고 날카로운 쌍을 사용합니다. 강함은 진동 모터가 약한 휴대전화를 위해 더 깊고 긴 펄스를 사용합니다. 강도 슬라이더는 선택한 느낌의 크기를 조정합니다.</string>
 </resources>

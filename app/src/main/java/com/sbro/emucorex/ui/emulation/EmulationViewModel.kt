@@ -84,6 +84,7 @@ data class EmulationUiState(
     val invertRightStickHorizontal: Boolean = false,
     val racingMode: Boolean = false,
     val touchHaptics: Boolean = false,
+    val touchHapticsPreset: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET,
     val touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
     val gamepadStickDeadzone: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE,
     val gamepadLeftStickSensitivity: Int = AppPreferences.DEFAULT_GAMEPAD_STICK_SENSITIVITY,
@@ -306,6 +307,7 @@ private data class LiveRuntimeSnapshot(
     val fastForwardSpeed: Float,
     val racingMode: Boolean,
     val touchHaptics: Boolean,
+    val touchHapticsPreset: Int,
     val touchHapticsStrength: Int,
     val gamepadRightStickUpToR2: Boolean,
     val gamepadRightStickDownToL2: Boolean,
@@ -932,6 +934,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         viewModelScope.launch {
+            preferences.touchHapticsPreset.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(touchHapticsPreset = value) }
+            }
+        }
+        viewModelScope.launch {
             preferences.touchHapticsStrength.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(touchHapticsStrength = value) }
             }
@@ -1508,6 +1515,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     fastForwardSpeed = liveRuntime.fastForwardSpeed,
                     racingMode = liveRuntime.racingMode,
                     touchHaptics = liveRuntime.touchHaptics,
+                    touchHapticsPreset = liveRuntime.touchHapticsPreset,
                     touchHapticsStrength = liveRuntime.touchHapticsStrength,
                     gamepadRightStickUpToR2 = liveRuntime.gamepadRightStickUpToR2,
                     gamepadRightStickDownToL2 = liveRuntime.gamepadRightStickDownToL2,
@@ -3312,6 +3320,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             fastForwardSpeed = preferences.fastForwardSpeed.first(),
             racingMode = preferences.racingMode.first(),
             touchHaptics = preferences.touchHaptics.first(),
+            touchHapticsPreset = preferences.touchHapticsPreset.first(),
             touchHapticsStrength = preferences.touchHapticsStrength.first(),
             gamepadRightStickUpToR2 = preferences.gamepadRightStickUpToR2.first(),
             gamepadRightStickDownToL2 = preferences.gamepadRightStickDownToL2.first(),
@@ -3461,6 +3470,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             fpsOverlayMode = pick("fpsOverlayMode", fpsOverlayMode) { fpsOverlayMode },
             racingMode = pick("racingMode", racingMode) { racingMode },
             touchHaptics = pick("touchHaptics", touchHaptics) { touchHaptics },
+            touchHapticsPreset = pick("touchHapticsPreset", touchHapticsPreset) { touchHapticsPreset },
             touchHapticsStrength = touchHapticsStrength,
             gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2) { gamepadRightStickUpToR2 },
             gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2) { gamepadRightStickDownToL2 },
@@ -3552,6 +3562,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalFrameLimitEnabled = preferences.frameLimitEnabled.first()
         val globalRacingMode = preferences.racingMode.first()
         val globalTouchHaptics = preferences.touchHaptics.first()
+        val globalTouchHapticsPreset = preferences.touchHapticsPreset.first()
         val globalGamepadRightStickUpToR2 = preferences.gamepadRightStickUpToR2.first()
         val globalGamepadRightStickDownToL2 = preferences.gamepadRightStickDownToL2.first()
         val globalGamepadButtonHaptics = preferences.gamepadButtonHaptics.first()
@@ -3584,6 +3595,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             frameLimitEnabled = frameLimitEnabled,
             racingMode = racingMode,
             touchHaptics = touchHaptics,
+            touchHapticsPreset = touchHapticsPreset,
             gamepadRightStickUpToR2 = gamepadRightStickUpToR2,
             gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
             gamepadButtonHaptics = gamepadButtonHaptics,
@@ -3659,6 +3671,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (frameLimitEnabled != globalFrameLimitEnabled) add("frameLimitEnabled")
             if (racingMode != globalRacingMode) add("racingMode")
             if (touchHaptics != globalTouchHaptics) add("touchHaptics")
+            if (touchHapticsPreset != globalTouchHapticsPreset) add("touchHapticsPreset")
             if (gamepadRightStickUpToR2 != globalGamepadRightStickUpToR2) add("gamepadRightStickUpToR2")
             if (gamepadRightStickDownToL2 != globalGamepadRightStickDownToL2) add("gamepadRightStickDownToL2")
             if (gamepadButtonHaptics != globalGamepadButtonHaptics) add("gamepadButtonHaptics")

@@ -144,6 +144,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.AndroidTouchHaptics
+import com.sbro.emucorex.core.AndroidTouchHaptics.ButtonPhase
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.buildUpscaleOptions
@@ -1073,6 +1074,7 @@ fun EmulationScreen(
                 rightStickUpToR2 = uiState.gamepadRightStickUpToR2,
                 rightStickDownToL2 = uiState.gamepadRightStickDownToL2,
                 touchHaptics = uiState.touchHaptics,
+                touchHapticsPreset = uiState.touchHapticsPreset,
                 touchHapticsStrength = uiState.touchHapticsStrength,
                 dpadOffset = uiState.dpadOffset,
                 lstickOffset = uiState.lstickOffset,
@@ -1623,6 +1625,7 @@ private fun OnScreenControls(
     rightStickUpToR2: Boolean = false,
     rightStickDownToL2: Boolean = false,
     touchHaptics: Boolean = false,
+    touchHapticsPreset: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET,
     touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
     dpadOffset: Pair<Float, Float>,
     lstickOffset: Pair<Float, Float>,
@@ -1651,13 +1654,14 @@ private fun OnScreenControls(
     var touchL2Pressed by remember { mutableStateOf(false) }
     var touchR2Pressed by remember { mutableStateOf(false) }
 
-    fun performTouchHaptic() {
+    fun performTouchHaptic(phase: ButtonPhase) {
         if (touchHaptics) {
-            AndroidTouchHaptics.play(
+            AndroidTouchHaptics.playButton(
                 context = context,
                 view = hapticView,
                 strengthPercent = touchHapticsStrength,
-                durationMs = 95L
+                preset = touchHapticsPreset,
+                phase = phase
             )
         }
     }
@@ -1764,7 +1768,9 @@ private fun OnScreenControls(
             val pressed = next - extraDpadDirections
             released.forEach { direction -> currentOnPadInput(dpadKeyFor(direction), 0, false) }
             if (pressed.isNotEmpty()) {
-                performTouchHaptic()
+                performTouchHaptic(ButtonPhase.PRESS)
+            } else if (released.isNotEmpty()) {
+                performTouchHaptic(ButtonPhase.RELEASE)
             }
             pressed.forEach { direction -> currentOnPadInput(dpadKeyFor(direction), 0, true) }
             extraDpadDirections = next
@@ -1976,7 +1982,7 @@ private fun RetroAchievementsNotificationToast(
 @Composable
 private fun TouchButtonGroup(
     specs: List<TouchButtonSpec>,
-    onTouchHaptic: () -> Unit,
+    onTouchHaptic: (ButtonPhase) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -2074,7 +2080,7 @@ private fun TouchButtonGroup(
         }
     }
 
-    fun updatePointerTarget(pointerId: Int, newTarget: String?) {
+    fun updatePointerTarget(pointerId: Int, newTarget: String?, emitReleaseHaptic: Boolean = true) {
         val oldTarget = activeTargets[pointerId]
         if (oldTarget == newTarget) return
 
@@ -2088,6 +2094,9 @@ private fun TouchButtonGroup(
             } else if (!activeTargets.containsValue(oldTarget)) {
                 oldSpec?.onPressChange?.invoke(false)
             }
+            if (newTarget == null && emitReleaseHaptic && !activeTargets.containsValue(oldTarget)) {
+                onTouchHaptic(ButtonPhase.RELEASE)
+            }
         }
 
         if (newTarget != null) {
@@ -2095,7 +2104,7 @@ private fun TouchButtonGroup(
             activeTargets[pointerId] = newTarget
             val newSpec = specById[newTarget]
             if (!alreadyActive) {
-                onTouchHaptic()
+                onTouchHaptic(ButtonPhase.PRESS)
             }
             if (newSpec?.hasLongPressAction() == true) {
                 startLongPress(pointerId, newTarget)
@@ -2192,7 +2201,7 @@ private fun TouchButtonGroup(
 
                     MotionEvent.ACTION_CANCEL -> {
                         val activePointerIds = activeTargets.keys.toList()
-                        activePointerIds.forEach { updatePointerTarget(it, null) }
+                        activePointerIds.forEach { updatePointerTarget(it, null, emitReleaseHaptic = false) }
                         downTargets.clear()
                         true
                     }

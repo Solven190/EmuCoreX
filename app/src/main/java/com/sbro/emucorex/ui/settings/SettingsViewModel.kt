@@ -28,6 +28,7 @@ import com.sbro.emucorex.data.CoverArtRepository
 import com.sbro.emucorex.data.SettingsSnapshot
 import com.sbro.emucorex.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -163,6 +164,7 @@ data class SettingsUiState(
     val overlayShow: Boolean = true,
     val racingMode: Boolean = false,
     val touchHaptics: Boolean = false,
+    val touchHapticsPreset: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET,
     val touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
     val leftStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
     val rightStickSensitivity: Int = AppPreferences.DEFAULT_STICK_SENSITIVITY,
@@ -358,6 +360,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             overlayShow = snapshot.overlayShow,
             racingMode = snapshot.racingMode,
             touchHaptics = snapshot.touchHaptics,
+            touchHapticsPreset = snapshot.touchHapticsPreset,
             touchHapticsStrength = snapshot.touchHapticsStrength,
             leftStickSensitivity = snapshot.leftStickSensitivity,
             rightStickSensitivity = snapshot.rightStickSensitivity,
@@ -616,16 +619,27 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setKeepScreenOn(enabled: Boolean) { viewModelScope.launch { preferences.setKeepScreenOn(enabled) } }
     fun setRacingMode(enabled: Boolean) { viewModelScope.launch { preferences.setRacingMode(enabled) } }
     fun setTouchHaptics(enabled: Boolean) { viewModelScope.launch { preferences.setTouchHaptics(enabled) } }
+    fun setTouchHapticsPreset(value: Int) { viewModelScope.launch { preferences.setTouchHapticsPreset(value) } }
     fun setTouchHapticsStrength(value: Int) { viewModelScope.launch { preferences.setTouchHapticsStrength(value) } }
     fun testTouchHaptics(
         strengthPercent: Int = _uiState.value.touchHapticsStrength,
-        durationMs: Long = 160L
+        preset: Int = _uiState.value.touchHapticsPreset
     ) {
-        AndroidTouchHaptics.play(
-            context = getApplication(),
-            strengthPercent = strengthPercent,
-            durationMs = durationMs
-        )
+        viewModelScope.launch {
+            AndroidTouchHaptics.playButton(
+                context = getApplication(),
+                strengthPercent = strengthPercent,
+                preset = preset,
+                phase = AndroidTouchHaptics.ButtonPhase.PRESS
+            )
+            delay(85L)
+            AndroidTouchHaptics.playButton(
+                context = getApplication(),
+                strengthPercent = strengthPercent,
+                preset = preset,
+                phase = AndroidTouchHaptics.ButtonPhase.RELEASE
+            )
+        }
     }
     fun setShowRecentGames(enabled: Boolean) { viewModelScope.launch { preferences.setShowRecentGames(enabled) } }
     fun setShowHomeSearch(enabled: Boolean) { viewModelScope.launch { preferences.setShowHomeSearch(enabled) } }

@@ -1457,4 +1457,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">波斯语</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">触感</string>
+    <string name="settings_touch_haptics_preset_soft">柔和</string>
+    <string name="settings_touch_haptics_preset_balanced">均衡</string>
+    <string name="settings_touch_haptics_preset_crisp">清脆</string>
+    <string name="settings_touch_haptics_preset_strong">强烈</string>
+    <string name="settings_touch_haptics_preset_desc">“柔和”表示轻柔，“均衡”是自然的默认设置，“清脆”表示短促而精确，而“强烈”的振动更深，适用于较弱的振动马达。</string>
+    <string name="settings_help_touch_haptics_preset">“柔和”使用轻柔的按下和非常轻的释放感觉。“均衡”提供清晰的按下和较轻的释放感觉，是默认设置。“清脆”使用最短、最干脆的组合来实现精确的点按。“强烈”针对振动马达较弱的手机使用更深、更长的脉冲。强度滑块可调节所选触感的强度。</string>
 </resources>

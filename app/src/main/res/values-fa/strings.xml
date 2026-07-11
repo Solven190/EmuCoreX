@@ -1470,4 +1470,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">فارسی</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">حس لمسی</string>
+    <string name="settings_touch_haptics_preset_soft">نرم</string>
+    <string name="settings_touch_haptics_preset_balanced">متعادل</string>
+    <string name="settings_touch_haptics_preset_crisp">واضح</string>
+    <string name="settings_touch_haptics_preset_strong">قوی</string>
+    <string name="settings_touch_haptics_preset_desc">«نرم» ملایم است، «متعادل» حالت پیش‌فرض طبیعی است، «واضح» کوتاه و دقیق است و «قوی» برای موتورهای لرزشی ضعیف‌تر عمیق‌تر است.</string>
+    <string name="settings_help_touch_haptics_preset">«نرم» از فشار ملایم و رهاسازی بسیار سبک استفاده می‌کند. «متعادل» فشار واضحی با رهاسازی سبک‌تر می‌دهد و حالت پیش‌فرض است. «واضح» از کوتاه‌ترین و تیزترین حالت برای ضربه‌های دقیق استفاده می‌کند. «قوی» از پالس‌های عمیق‌تر و طولانی‌تر برای گوشی‌هایی با موتورهای لرزشی ضعیف‌تر استفاده می‌کند. نوار لغزنده شدت، حس انتخاب‌شده را مقیاس‌بندی می‌کند.</string>
 </resources>

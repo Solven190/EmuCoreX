@@ -1110,6 +1110,14 @@ private fun GameSettingsTabContent(
                         helpText = stringResource(R.string.settings_help_touch_haptics),
                         onResetToDefault = { onDraftChange(draft.copy(touchHaptics = defaultProfile.touchHaptics)) }
                     )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_touch_haptics_preset),
+                        options = touchHapticsPresetOptions(),
+                        selectedValue = draft.touchHapticsPreset,
+                        onSelected = { onDraftChange(draft.copy(touchHapticsPreset = it)) },
+                        helpText = stringResource(R.string.settings_help_touch_haptics_preset),
+                        onResetToDefault = { onDraftChange(draft.copy(touchHapticsPreset = defaultProfile.touchHapticsPreset)) }
+                    )
                     ToggleRow(
                         title = stringResource(R.string.settings_gamepad_right_stick_up_to_r2),
                         checked = draft.gamepadRightStickUpToR2,
@@ -1475,6 +1483,14 @@ private fun GameSettingsEditorDialog(
                                 onCheckedChange = { draft = draft.copy(touchHaptics = it) },
                                 helpText = stringResource(R.string.settings_help_touch_haptics),
                                 onResetToDefault = { draft = draft.copy(touchHaptics = defaultProfile.touchHaptics) }
+                            )
+                            SelectionRow(
+                                title = stringResource(R.string.settings_touch_haptics_preset),
+                                options = touchHapticsPresetOptions(),
+                                selectedValue = draft.touchHapticsPreset,
+                                onSelected = { draft = draft.copy(touchHapticsPreset = it) },
+                                helpText = stringResource(R.string.settings_help_touch_haptics_preset),
+                                onResetToDefault = { draft = draft.copy(touchHapticsPreset = defaultProfile.touchHapticsPreset) }
                             )
                             ToggleRow(
                                 title = stringResource(R.string.settings_gamepad_right_stick_up_to_r2),
@@ -2985,6 +3001,14 @@ private fun hwDownloadModeOptions(): List<Pair<Int, String>> = listOf(
 )
 
 @Composable
+private fun touchHapticsPresetOptions(): List<Pair<Int, String>> = listOf(
+    AppPreferences.TOUCH_HAPTICS_PRESET_SOFT to stringResource(R.string.settings_touch_haptics_preset_soft),
+    AppPreferences.TOUCH_HAPTICS_PRESET_BALANCED to stringResource(R.string.settings_touch_haptics_preset_balanced),
+    AppPreferences.TOUCH_HAPTICS_PRESET_CRISP to stringResource(R.string.settings_touch_haptics_preset_crisp),
+    AppPreferences.TOUCH_HAPTICS_PRESET_STRONG to stringResource(R.string.settings_touch_haptics_preset_strong)
+)
+
+@Composable
 private fun casModeOptions(): List<Pair<Int, String>> = listOf(
     0 to stringResource(R.string.settings_cas_mode_off),
     1 to stringResource(R.string.settings_cas_mode_sharpen_only),
@@ -3187,6 +3211,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         fpsOverlayMode = fpsOverlayMode,
         racingMode = racingMode,
         touchHaptics = touchHaptics,
+        touchHapticsPreset = touchHapticsPreset,
         gamepadRightStickUpToR2 = gamepadRightStickUpToR2,
         gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
         gamepadButtonHaptics = gamepadButtonHaptics,
@@ -3275,6 +3300,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         fpsOverlayMode = pick("fpsOverlayMode", fpsOverlayMode, defaultProfile.fpsOverlayMode),
         racingMode = pick("racingMode", racingMode, defaultProfile.racingMode),
         touchHaptics = pick("touchHaptics", touchHaptics, defaultProfile.touchHaptics),
+        touchHapticsPreset = pick("touchHapticsPreset", touchHapticsPreset, defaultProfile.touchHapticsPreset),
         gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2, defaultProfile.gamepadRightStickUpToR2),
         gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2, defaultProfile.gamepadRightStickDownToL2),
         gamepadButtonHaptics = pick("gamepadButtonHaptics", gamepadButtonHaptics, defaultProfile.gamepadButtonHaptics),

@@ -1455,4 +1455,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">Persiano</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">Feedback aptico</string>
+    <string name="settings_touch_haptics_preset_soft">Morbido</string>
+    <string name="settings_touch_haptics_preset_balanced">Bilanciato</string>
+    <string name="settings_touch_haptics_preset_crisp">Netto</string>
+    <string name="settings_touch_haptics_preset_strong">Forte</string>
+    <string name="settings_touch_haptics_preset_desc">Morbido è delicato, Bilanciato è l\'impostazione predefinita, Netto è breve e preciso e Forte è più profondo per motorini di vibrazione più deboli.</string>
+    <string name="settings_help_touch_haptics_preset">Morbido usa una pressione delicata e un rilascio molto leggero. Bilanciato fornisce una pressione chiara con un rilascio più leggero ed è l\'impostazione predefinita. Netto usa la combinazione più breve e definita per tocchi precisi. Forte usa impulsi più profondi e lunghi per telefoni con motorini di vibrazione più deboli. Il cursore dell\'intensità regola la sensazione selezionata.</string>
 </resources>

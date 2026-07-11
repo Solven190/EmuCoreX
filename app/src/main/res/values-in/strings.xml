@@ -1470,4 +1470,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">Bahasa Persia</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">Sensasi haptik</string>
+    <string name="settings_touch_haptics_preset_soft">Lembut</string>
+    <string name="settings_touch_haptics_preset_balanced">Seimbang</string>
+    <string name="settings_touch_haptics_preset_crisp">Tegas</string>
+    <string name="settings_touch_haptics_preset_strong">Kuat</string>
+    <string name="settings_touch_haptics_preset_desc">Lembut terasa halus, Seimbang adalah bawaan alami, Tegas terasa singkat dan presisi, serta Kuat terasa lebih dalam untuk motor getaran yang lebih lemah.</string>
+    <string name="settings_help_touch_haptics_preset">Lembut menggunakan tekanan halus dan pelepasan yang sangat ringan. Seimbang memberikan tekanan yang jelas dengan pelepasan yang lebih ringan dan merupakan bawaan. Tegas menggunakan pasangan terpendek dan paling tajam untuk ketukan yang presisi. Kuat menggunakan denyut yang lebih dalam dan lebih panjang untuk ponsel dengan motor getaran yang lebih lemah. Penggeser kekuatan mengukur sensasi yang dipilih.</string>
 </resources>

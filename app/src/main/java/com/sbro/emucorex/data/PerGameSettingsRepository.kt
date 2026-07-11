@@ -21,6 +21,7 @@ data class PerGameSettings(
     val fpsOverlayMode: Int = AppPreferences.FPS_OVERLAY_MODE_DETAILED,
     val racingMode: Boolean = false,
     val touchHaptics: Boolean = false,
+    val touchHapticsPreset: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET,
     val gamepadRightStickUpToR2: Boolean = false,
     val gamepadRightStickDownToL2: Boolean = false,
     val gamepadButtonHaptics: Boolean = false,
@@ -208,6 +209,8 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         fpsOverlayMode = optInt("fpsOverlayMode", AppPreferences.FPS_OVERLAY_MODE_DETAILED),
         racingMode = optBoolean("racingMode", false),
         touchHaptics = optBoolean("touchHaptics", false),
+        touchHapticsPreset = optInt("touchHapticsPreset", AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET)
+            .coerceIn(AppPreferences.TOUCH_HAPTICS_PRESET_SOFT, AppPreferences.TOUCH_HAPTICS_PRESET_STRONG),
         gamepadRightStickUpToR2 = optBoolean("gamepadRightStickUpToR2", false),
         gamepadRightStickDownToL2 = optBoolean("gamepadRightStickDownToL2", false),
         gamepadButtonHaptics = optBoolean("gamepadButtonHaptics", false),
@@ -323,6 +326,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("fpsOverlayMode")) put("fpsOverlayMode", fpsOverlayMode)
         if (shouldWrite("racingMode")) put("racingMode", racingMode)
         if (shouldWrite("touchHaptics")) put("touchHaptics", touchHaptics)
+        if (shouldWrite("touchHapticsPreset")) put("touchHapticsPreset", touchHapticsPreset)
         if (shouldWrite("gamepadRightStickUpToR2")) put("gamepadRightStickUpToR2", gamepadRightStickUpToR2)
         if (shouldWrite("gamepadRightStickDownToL2")) put("gamepadRightStickDownToL2", gamepadRightStickDownToL2)
         if (shouldWrite("gamepadButtonHaptics")) put("gamepadButtonHaptics", gamepadButtonHaptics)

@@ -1455,4 +1455,11 @@
     <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_persian">الفارسية</string>
     <string name="settings_language_native_persian">فارسی</string>
+    <string name="settings_touch_haptics_preset">الشعور اللمسي</string>
+    <string name="settings_touch_haptics_preset_soft">ناعم</string>
+    <string name="settings_touch_haptics_preset_balanced">متوازن</string>
+    <string name="settings_touch_haptics_preset_crisp">واضح</string>
+    <string name="settings_touch_haptics_preset_strong">قوي</string>
+    <string name="settings_touch_haptics_preset_desc">"ناعم" يكون رقيقاً، و"متوازن" هو الافتراضي الطبيعي، و"واضح" يكون قصيراً ودقيقاً، و"قوي" يكون أعمق لمحركات الاهتزاز الضعيفة.</string>
+    <string name="settings_help_touch_haptics_preset">يستخدم "ناعم" ضغطة رقيقة وإفلاتاً خفيفاً جداً. يعطي "متوازن" ضغطة واضحة مع إفلات أخف وهو الإعداد الافتراضي. يستخدم "واضح" الزوج الأقصر والأكثر حدة للنقرات الدقيقة. يستخدم "قوي" نبضات أعمق وأطول للهواتف ذات محركات الاهتزاز الأضعف. يقوم شريط التمرير الخاص بالقوة بضبط الشعور المحدد.</string>
 </resources>
