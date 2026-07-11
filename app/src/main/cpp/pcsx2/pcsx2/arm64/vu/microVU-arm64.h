@@ -72,11 +72,13 @@ struct microProgManager
 	u32                curFrame;           // Frame Counter
 	u8*                x86ptr;             // Pointer to program's recompilation code
 	u8*                x86start;           // Start of program's rec-cache
-	u8*                x86end;             // Limit of program's rec-cache
+	u8*                x86end;             // Cleanup threshold; safe zone continues to the physical rec-cache end
 	microRegInfo       lpState;            // Pipeline state from where program left off (useful for continuing execution)
 };
 
-static const uint mVUcacheSafeZone =  3; // Safe-Zone for program recompilation (in megabytes)
+// Space past x86end which an in-flight compile may use before dispatcher-exit
+// cleanup can reset the cache. It is not part of the normal allocation budget.
+static const uint mVUcacheSafeZone = 3; // Megabytes
 
 struct microVU
 {

@@ -787,7 +787,13 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 	}
 	else
 	{
-		oakSetAsmPtr(mVU.prog.x86ptr, mVU.prog.x86end - mVU.prog.x86ptr);
+		// x86end is the cleanup/reset threshold, not the physical end of the
+		// recompiler region. Let an in-flight compile use the reserved safe zone;
+		// cleanup runs only after the dispatcher exits, so stopping capacity at
+		// x86end makes the reserve unreachable and can trip Oaknut's bounds check
+		// before the reset path gets a chance to run.
+		u8* const physical_end = mVU.prog.x86end + (mVUcacheSafeZone * _1mb);
+		oakSetAsmPtr(mVU.prog.x86ptr, physical_end - mVU.prog.x86ptr);
 		thisPtr = oakStartBlock();
 		startedOakBlock = true;
 	}

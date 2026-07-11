@@ -115,15 +115,60 @@ void mVUclose(microVU& mVU)
 	}
 }
 
+static __fi bool mVUProgRangesOverlap(const microProgram* prog, u32 addr, u32 size)
+{
+	// Unknown coverage must be invalidated conservatively. A quick-cached
+	// program should always have at least one range, but stale code is much
+	// worse than an unnecessary cache miss if that invariant is ever broken.
+	if (!prog || !prog->ranges || prog->ranges->empty())
+		return true;
+
+	const u64 write_start = addr;
+	const u64 write_end = write_start + size;
+	for (const microRange& range : *prog->ranges)
+	{
+		if (range.start < 0 || range.end <= range.start)
+			return true;
+		const u64 range_start = static_cast<u32>(range.start);
+		const u64 range_end = static_cast<u32>(range.end);
+		if (range_start < write_end && write_start < range_end)
+			return true;
+	}
+	return false;
+}
+
 // Clears Block Data in specified range
 __fi void mVUclear(mV, u32 addr, u32 size)
 {
-	if (!mVU.prog.cleared)
+	if (doWholeProgCompare)
 	{
-		mVU.prog.cleared = 1; // Next execution searches/creates a new microprogram
-		std::memset(&mVU.prog.lpState, 0, sizeof(mVU.prog.lpState)); // Clear pipeline state
-		std::memset(mVU.prog.quick, 0, (mVU.progSize >> 1) * sizeof(microProgramQuick)); // mVU.progSize / 2
+		if (!mVU.prog.cleared)
+		{
+			mVU.prog.cleared = 1;
+			std::memset(&mVU.prog.lpState, 0, sizeof(mVU.prog.lpState));
+			std::memset(mVU.prog.quick, 0, (mVU.progSize >> 1) * sizeof(microProgramQuick));
+		}
+		return;
 	}
+
+	// Partial-program mode only invalidates entries whose compiled code can
+	// observe the write. Unrelated boot/menu/gameplay programs remain on the
+	// quick path instead of forcing another walk through an ever-growing list.
+	for (u32 i = 0; i < (mVU.progSize >> 1); i++)
+	{
+		microProgramQuick& quick = mVU.prog.quick[i];
+		if (quick.prog && mVUProgRangesOverlap(quick.prog, addr, size))
+		{
+			quick.block = nullptr;
+			quick.prog = nullptr;
+		}
+	}
+
+	// lpState is a carried entry-search key and becomes invalid after every
+	// micro-memory write, including writes disjoint from cached code. Do not set
+	// cleared here: surviving quick entries do not pass through mVUsearchProg(),
+	// so the full-invalidation latch would remain stale on that path.
+	std::memset(&mVU.prog.lpState, 0, sizeof(mVU.prog.lpState));
 }
 
 //------------------------------------------------------------------
