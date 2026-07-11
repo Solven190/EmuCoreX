@@ -258,6 +258,7 @@
     <string name="settings_language_german">German</string>
     <string name="settings_language_portuguese">Portuguese</string>
     <string name="settings_language_italian">Italian</string>
+    <string name="settings_language_indonesian">Indonesian</string>
     <string name="settings_language_hindi">Hindi</string>
     <string name="settings_language_traditional_chinese">Traditional Chinese</string>
     <string name="settings_language_native_english">English</string>
@@ -268,13 +269,16 @@
     <string name="settings_language_native_german">Deutsch</string>
     <string name="settings_language_native_portuguese">Português</string>
     <string name="settings_language_native_italian">Italiano</string>
+    <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
     <string name="settings_language_native_hindi">हिन्दी</string>
     <string name="settings_language_native_traditional_chinese">繁體中文</string>
     <string name="settings_language_arabic">Arabic</string>
+    <string name="settings_language_persian">Persian</string>
     <string name="settings_language_japanese">Japanese</string>
     <string name="settings_language_korean">Korean</string>
     <string name="settings_language_turkish">Turkish</string>
     <string name="settings_language_native_arabic">العربية</string>
+    <string name="settings_language_native_persian">فارسی</string>
     <string name="settings_language_native_japanese">日本語</string>
     <string name="settings_language_native_korean">한국어</string>
     <string name="settings_language_native_turkish">Türkçe</string>

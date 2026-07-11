@@ -4113,9 +4113,11 @@ private fun rememberLanguageOptions(): List<LanguageUiOption> {
             LanguageUiOption("de", "DE", R.string.settings_language_german, R.string.settings_language_native_german),
             LanguageUiOption("pt", "PT", R.string.settings_language_portuguese, R.string.settings_language_native_portuguese),
             LanguageUiOption("it", "IT", R.string.settings_language_italian, R.string.settings_language_native_italian),
+            LanguageUiOption("id", "ID", R.string.settings_language_indonesian, R.string.settings_language_native_indonesian),
             LanguageUiOption("hi", "HI", R.string.settings_language_hindi, R.string.settings_language_native_hindi),
             LanguageUiOption("zh", "繁", R.string.settings_language_traditional_chinese, R.string.settings_language_native_traditional_chinese),
             LanguageUiOption("ar", "AR", R.string.settings_language_arabic, R.string.settings_language_native_arabic),
+            LanguageUiOption("fa", "FA", R.string.settings_language_persian, R.string.settings_language_native_persian),
             LanguageUiOption("ja", "JA", R.string.settings_language_japanese, R.string.settings_language_native_japanese),
             LanguageUiOption("ko", "KO", R.string.settings_language_korean, R.string.settings_language_native_korean),
             LanguageUiOption("tr", "TR", R.string.settings_language_turkish, R.string.settings_language_native_turkish)
@@ -4134,9 +4136,11 @@ private fun languageLabel(tag: String?): String {
         "de" -> stringResource(R.string.settings_language_german)
         "pt" -> stringResource(R.string.settings_language_portuguese)
         "it" -> stringResource(R.string.settings_language_italian)
+        "id", "id-ID", "in", "in-ID" -> stringResource(R.string.settings_language_indonesian)
         "hi" -> stringResource(R.string.settings_language_hindi)
         "zh", "zh-TW", "zh-Hant", "zh-Hant-TW" -> stringResource(R.string.settings_language_traditional_chinese)
         "ar" -> stringResource(R.string.settings_language_arabic)
+        "fa", "fa-IR" -> stringResource(R.string.settings_language_persian)
         "ja" -> stringResource(R.string.settings_language_japanese)
         "ko" -> stringResource(R.string.settings_language_korean)
         "tr" -> stringResource(R.string.settings_language_turkish)

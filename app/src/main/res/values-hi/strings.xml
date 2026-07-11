@@ -1451,4 +1451,8 @@
     <string name="gamedb_fix_vu_sync">VU सिंक्रनाइज़ेशन फिक्स</string>
     <string name="gamedb_fix_xgkick">XGKICK टाइमिंग फिक्स</string>
     <string name="home_game_menu_gamedb">GameDB में देखें</string>
+    <string name="settings_language_indonesian">इन्डोनेशियाई</string>
+    <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
+    <string name="settings_language_persian">फ़ारसी</string>
+    <string name="settings_language_native_persian">فارسی</string>
 </resources>

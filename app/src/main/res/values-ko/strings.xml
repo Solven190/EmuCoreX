@@ -1451,4 +1451,8 @@
     <string name="gamedb_fix_vu_sync">VU 동기화 픽스</string>
     <string name="gamedb_fix_xgkick">XGKICK 타이밍 픽스</string>
     <string name="home_game_menu_gamedb">GameDB에서 보기</string>
+    <string name="settings_language_indonesian">인도네시아어</string>
+    <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
+    <string name="settings_language_persian">페르시아어</string>
+    <string name="settings_language_native_persian">فارسی</string>
 </resources>

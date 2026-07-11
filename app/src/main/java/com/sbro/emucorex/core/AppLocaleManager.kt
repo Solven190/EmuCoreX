@@ -23,6 +23,8 @@ object AppLocaleManager {
     private fun normalizeLanguageTag(tag: String?): String? {
         return when (tag?.trim()) {
             "zh-TW", "zh_HK", "zh-HK", "zh-Hant", "zh-Hant-TW" -> "zh"
+            "in", "in-ID", "id-ID" -> "id"
+            "fa-IR" -> "fa"
             else -> tag
         }
     }

@@ -1451,4 +1451,8 @@
     <string name="gamedb_fix_vu_sync">Fix sincronizzazione VU</string>
     <string name="gamedb_fix_xgkick">Fix tempismo XGKICK</string>
     <string name="home_game_menu_gamedb">Visualizza in GameDB</string>
+    <string name="settings_language_indonesian">Indonesiano</string>
+    <string name="settings_language_native_indonesian">Bahasa Indonesia</string>
+    <string name="settings_language_persian">Persiano</string>
+    <string name="settings_language_native_persian">فارسی</string>
 </resources>
