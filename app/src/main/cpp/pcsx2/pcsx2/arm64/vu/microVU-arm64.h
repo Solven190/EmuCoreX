@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <vector>
 #include "Common.h"
 #include "VU.h"
 #include "MTVU.h"
@@ -43,6 +45,28 @@ struct microRange
 
 #define mProgSize (0x4000 >> 2)         // (0x4000 / 4)
 #define mProgSizeHalf (mProgSize >> 1)  // mProgSize / 2
+
+struct MvuContentKey
+{
+	u64 low64;
+	u64 high64;
+
+	bool operator==(const MvuContentKey& rhs) const noexcept
+	{
+		return low64 == rhs.low64 && high64 == rhs.high64;
+	}
+};
+
+struct MvuContentKeyHash
+{
+	size_t operator()(const MvuContentKey& key) const noexcept
+	{
+		const u64 mixed = key.low64 ^ (key.high64 + 0x9e3779b97f4a7c15ULL +
+			(key.low64 << 6) + (key.low64 >> 2));
+		return static_cast<size_t>(mixed);
+	}
+};
+
 struct microProgram
 {
 	u32                data [mProgSize];     // Holds a copy of the VU microProgram
@@ -50,6 +74,9 @@ struct microProgram
 	std::deque<microRange>* ranges;          // The ranges of the microProgram that have already been recompiled
 	u32 startPC; // Start PC of this program
 	int idx;     // Program index
+	MvuContentKey contentKey;
+	u64 contentWriteGeneration;
+	bool contentKeyValid;
 };
 
 typedef std::deque<microProgram*> microProgramList;
@@ -119,6 +146,13 @@ struct microVU
 	u32 q;            // Holds current Q instance index
 	u32 totalCycles;  // Total Cycles that mVU is expected to run for
 	s32 cycles;       // Cycles Counter
+
+	// The content map owns live programs. Per-start-PC lists and quick slots
+	// only reference them. Programs whose compiled ranges drift from their
+	// original full-memory image are parked separately until the next reset.
+	std::unordered_map<MvuContentKey, microProgram*, MvuContentKeyHash> contentPrograms;
+	std::vector<microProgram*> orphanedPrograms;
+	u64 microMemWriteGeneration = 0;
 
 //	VURegs& regs() const { return ::vuRegs[index]; }
     VURegs& regs() const { return ::g_cpuRegistersPack.vuRegs[index]; }

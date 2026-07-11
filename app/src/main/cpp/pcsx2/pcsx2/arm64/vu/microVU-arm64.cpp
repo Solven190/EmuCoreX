@@ -13,6 +13,7 @@
 #include "common/Perf.h"
 #include "common/StringUtil.h"
 #include "arm64/OaknutHelpers-arm64.h"
+#include "GS/GSXXH.h"
 
 alignas(64) vuRegistersPack g_vuRegistersPack;
 VU_Thread& vu1Thread = g_vuRegistersPack.vu1Thread;
@@ -78,6 +79,16 @@ void mVUreset(microVU& mVU, bool resetReserve)
 //	mVU.prog.x86start = xGetAlignedCallTarget();
 	mVU.prog.x86ptr   = mVU.prog.x86start;
 
+	// Program objects have one owner regardless of how many start-PC lists
+	// reference them. Drifted programs are no longer hash-addressable, but stay
+	// alive until reset because quick/list entries may still use their ranges.
+	for (auto& entry : mVU.contentPrograms)
+		mVUdeleteProg(mVU, entry.second);
+	mVU.contentPrograms.clear();
+	for (microProgram*& prog : mVU.orphanedPrograms)
+		mVUdeleteProg(mVU, prog);
+	mVU.orphanedPrograms.clear();
+
     u32 i, e = (mVU.progSize >> 1); // mVU.progSize / 2
 	for ( i = 0; i < e; ++i)
 	{
@@ -85,11 +96,6 @@ void mVUreset(microVU& mVU, bool resetReserve)
 		{
 			mVU.prog.prog[i] = new std::deque<microProgram*>();
 			continue;
-		}
-		auto it(mVU.prog.prog[i]->begin());
-		for (; it != mVU.prog.prog[i]->end(); ++it)
-		{
-			mVUdeleteProg(mVU, it[0]);
 		}
 		mVU.prog.prog[i]->clear();
 		mVU.prog.quick[i].block = nullptr;
@@ -100,17 +106,19 @@ void mVUreset(microVU& mVU, bool resetReserve)
 // Free Allocated Resources
 void mVUclose(microVU& mVU)
 {
-	// Delete Programs and Block Managers
+	for (auto& entry : mVU.contentPrograms)
+		mVUdeleteProg(mVU, entry.second);
+	mVU.contentPrograms.clear();
+	for (microProgram*& prog : mVU.orphanedPrograms)
+		mVUdeleteProg(mVU, prog);
+	mVU.orphanedPrograms.clear();
+
+	// Per-PC lists are non-owning shells.
     u32 i, e = (mVU.progSize >> 1); // mVU.progSize / 2
 	for (i = 0; i < e; ++i)
 	{
 		if (!mVU.prog.prog[i])
 			continue;
-		auto it(mVU.prog.prog[i]->begin());
-		for (; it != mVU.prog.prog[i]->end(); ++it)
-		{
-			mVUdeleteProg(mVU, it[0]);
-		}
 		safe_delete(mVU.prog.prog[i]);
 	}
 }
@@ -140,6 +148,8 @@ static __fi bool mVUProgRangesOverlap(const microProgram* prog, u32 addr, u32 si
 // Clears Block Data in specified range
 __fi void mVUclear(mV, u32 addr, u32 size)
 {
+	++mVU.microMemWriteGeneration;
+
 	if (doWholeProgCompare)
 	{
 		if (!mVU.prog.cleared)
@@ -157,7 +167,9 @@ __fi void mVUclear(mV, u32 addr, u32 size)
 	for (u32 i = 0; i < (mVU.progSize >> 1); i++)
 	{
 		microProgramQuick& quick = mVU.prog.quick[i];
-		if (quick.prog && mVUProgRangesOverlap(quick.prog, addr, size))
+		if (!quick.prog)
+			continue;
+		if (mVUProgRangesOverlap(quick.prog, addr, size))
 		{
 			quick.block = nullptr;
 			quick.prog = nullptr;
@@ -187,8 +199,30 @@ __ri void mVUdeleteProg(microVU& mVU, microProgram*& prog)
 	safe_aligned_free(prog);
 }
 
+static __fi MvuContentKey mVUcomputeContentKey(const microVU& mVU)
+{
+	const XXH128_hash_t hash = XXH3_128bits(mVU.regs().Micro, mVU.microMemSize);
+	return {hash.low64, hash.high64};
+}
+
+static __fi void mVUcontentMapInsert(microVU& mVU, microProgram* prog)
+{
+	[[maybe_unused]] const bool inserted = mVU.contentPrograms.emplace(prog->contentKey, prog).second;
+	pxAssert(inserted);
+}
+
+static __fi void mVUlistPushUnique(microProgramList* list, microProgram* prog)
+{
+	for (microProgram* existing : *list)
+	{
+		if (existing == prog)
+			return;
+	}
+	list->push_front(prog);
+}
+
 // Creates a new Micro Program
-__ri microProgram* mVUcreateProg(microVU& mVU, int startPC)
+__ri microProgram* mVUcreateProg(microVU& mVU, int startPC, const MvuContentKey& contentKey)
 {
 	auto* prog = (microProgram*)_aligned_malloc(sizeof(microProgram), 64);
 	memset(prog, 0, sizeof(microProgram));
@@ -197,7 +231,26 @@ __ri microProgram* mVUcreateProg(microVU& mVU, int startPC)
 	prog->startPC = startPC;
 	if(doWholeProgCompare)
 		mVUcacheProg(mVU, *prog); // Cache Micro Program
+	prog->contentKey = contentKey;
+	prog->contentWriteGeneration = mVU.microMemWriteGeneration;
+	prog->contentKeyValid = true;
+	mVUcontentMapInsert(mVU, prog);
 	return prog;
+}
+
+static __fi void mVUcontentMapEvict(microVU& mVU, microProgram& prog)
+{
+	auto it = mVU.contentPrograms.find(prog.contentKey);
+	if (it != mVU.contentPrograms.end() && it->second == &prog)
+	{
+		mVU.contentPrograms.erase(it);
+		mVU.orphanedPrograms.push_back(&prog);
+	}
+	else
+	{
+		pxAssert(false);
+	}
+	prog.contentKeyValid = false;
 }
 
 // Caches Micro Program
@@ -214,6 +267,19 @@ __ri void mVUcacheProg(microVU& mVU, microProgram& prog)
 			memcpy(prog.data, mVU.regs().Micro, 0x1000);
 		else
 			memcpy(prog.data, mVU.regs().Micro, 0x4000);
+	}
+
+	// A program can survive a write outside its compiled ranges. If it later
+	// expands into the modified area, its cached ranges no longer represent the
+	// full-memory image under which it was indexed. Remove that mixed instance
+	// from hash lookup while keeping existing range/list references alive.
+	if (prog.contentKeyValid && prog.contentWriteGeneration != mVU.microMemWriteGeneration)
+	{
+		const MvuContentKey liveKey = mVUcomputeContentKey(mVU);
+		if (!(liveKey == prog.contentKey))
+			mVUcontentMapEvict(mVU, prog);
+		else
+			prog.contentWriteGeneration = mVU.microMemWriteGeneration;
 	}
 }
 
@@ -331,10 +397,29 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 			}
 		}
 
+		// Hash only after the per-PC MRU list misses completely. Identical full
+		// micro-memory images reached through another start PC can share the same
+		// program and compile only the missing entry block.
+		const MvuContentKey liveKey = mVUcomputeContentKey(mVU);
+		auto contentIt = mVU.contentPrograms.find(liveKey);
+		if (contentIt != mVU.contentPrograms.end())
+		{
+			microProgram* shared = contentIt->second;
+			mVUlistPushUnique(list, shared);
+			mVU.prog.cleared = 0;
+			mVU.prog.isSame = 1;
+			mVU.prog.cur = shared;
+			quick.prog = shared;
+			quick.block = shared->block[start_pc_8];
+			if (quick.block == nullptr)
+				return mVUblockFetch(mVU, startPC, pState);
+			return mVUentryGet(mVU, quick.block, startPC, pState);
+		}
+
 		// If cleared and program not found, make a new program instance
 		mVU.prog.cleared = 0;
 		mVU.prog.isSame  = 1;
-		mVU.prog.cur     = mVUcreateProg(mVU, regs_start_pc_8);
+		mVU.prog.cur     = mVUcreateProg(mVU, regs_start_pc_8, liveKey);
 		void* entryPoint = mVUblockFetch(mVU,  startPC, pState);
 		quick.block      = mVU.prog.cur->block[start_pc_8];
 		quick.prog       = mVU.prog.cur;
