@@ -19,9 +19,9 @@ Official website: https://emucorex.web.app/
 >
 > If you are using a MediaTek device, try the OpenGL renderer first. If that is still unstable or too slow for a specific game, try Software rendering as a fallback.
 >
-> Current rough minimum chipset recommendations as of April 2026:
-> - Snapdragon: Snapdragon 8 Gen 2 or Snapdragon 7+ Gen 3 class devices
-> - MediaTek: Dimensity 9300 or Dimensity 8400 class devices
+> Minimum recommended specifications as of July 2026:
+> - Chipset: Snapdragon 855 or a similarly powerful MediaTek chipset, such as Dimensity 900 or Dimensity 1080
+> - Memory: at least 4 GB of RAM, with 6 GB recommended for more stable emulation
 >
 > These are practical starting points, not guarantees. Cooling, GPU drivers, RAM bandwidth, renderer choice, and the game itself still matter a lot.
 >
@@ -58,7 +58,7 @@ EmuCoreX currently targets Android with:
 - `minSdk 29`
 - `targetSdk 36`
 - package id `com.sbro.emucorex`
-- version `0.2.2`
+- version `0.2.4`
 
 ## Building Locally
 
