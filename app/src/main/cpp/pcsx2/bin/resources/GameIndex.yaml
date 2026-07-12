@@ -29966,12 +29966,16 @@ SLES-55366:
 SLES-55367:
   name: "Call of Duty - World at War - Final Fronts"
   region: "PAL-M4"
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Fixes bloom misalignment.
     halfPixelOffset: 2 # Fixes lighting misalignment and depth lines.
 SLES-55369:
   name: "Call of Duty - World at War - Final Fronts"
   region: "PAL-G"
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Fixes bloom misalignment.
     halfPixelOffset: 2 # Fixes lighting misalignment and depth lines.
@@ -33591,6 +33595,8 @@ SLKA-25449:
   name: "콜 오브 듀티 - 월드 앳 워　파이널 프론트"
   name-en: "Call of Duty - World at War - Final Fronts"
   region: "NTSC-K"
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Fixes bloom misalignment.
     halfPixelOffset: 2 # Fixes lighting misalignment and depth lines.
@@ -74089,6 +74095,8 @@ SLUS-21746:
   name: "Call of Duty - World at War - Final Fronts"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1
   gsHWFixes:
     autoFlush: 2 # Fixes bloom misalignment.
     halfPixelOffset: 2 # Fixes lighting misalignment and depth lines.

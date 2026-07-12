@@ -58,6 +58,8 @@ object GamepadManager {
         var prevRightY: Float = 0f,
         var prevLT: Float = 0f,
         var prevRT: Float = 0f,
+        var prevLTPadKey: Int? = PadKey.L2,
+        var prevRTPadKey: Int? = PadKey.R2,
         var prevRightStickYFromTriggers: Float = 0f,
         var prevHatX: Float = 0f,
         var prevHatY: Float = 0f
@@ -66,8 +68,8 @@ object GamepadManager {
     private data class RightStickTriggerReset(
         val padIndex: Int,
         val releaseRightStickY: Boolean,
-        val releaseL2: Boolean,
-        val releaseR2: Boolean
+        val releaseL2PadKey: Int?,
+        val releaseR2PadKey: Int?
     )
 
     private data class RumbleState(
@@ -170,8 +172,6 @@ object GamepadManager {
     @Volatile
     private var customBindingsByPad: Map<Int, Map<String, Int>> = emptyMap()
     @Volatile
-    private var customBindingsByPadAndKeyCode: Map<Int, Map<Int, Int>> = emptyMap()
-    @Volatile
     private var customShortcutBindingsByPadAndKeyCode: Map<Int, Map<Int, String>> = emptyMap()
     @Volatile
     private var analogDeadzone = AppPreferences.DEFAULT_GAMEPAD_STICK_DEADZONE / 100f
@@ -265,17 +265,14 @@ object GamepadManager {
         val preferences = AppPreferences(context.applicationContext)
         scope.launch {
             preferences.gamepadBindingsByPad.collectLatest { bindingsByPad ->
+                val previousBindingsByPad = customBindingsByPad
                 customBindingsByPad = bindingsByPad
-                customBindingsByPadAndKeyCode = bindingsByPad.mapValues { (_, bindings) ->
-                    bindings.entries.mapNotNull { (actionId, keyCode) ->
-                        actionsById[actionId]?.padKey?.let { padKey -> keyCode to padKey }
-                    }.toMap()
-                }
                 customShortcutBindingsByPadAndKeyCode = bindingsByPad.mapValues { (_, bindings) ->
                     bindings.entries.mapNotNull { (actionId, keyCode) ->
                         actionId.takeIf { it in shortcutActionIds }?.let { keyCode to it }
                     }.toMap()
                 }
+                resetChangedBindingStates(previousBindingsByPad, bindingsByPad)
             }
         }
         scope.launch {
@@ -532,9 +529,15 @@ object GamepadManager {
         val rightY = physicalRightY.let { if (invertRightStick) -it else it }
         val physicalLT = getAxisValueWithFallback(event, MotionEvent.AXIS_LTRIGGER, MotionEvent.AXIS_BRAKE)
         val physicalRT = getAxisValueWithFallback(event, MotionEvent.AXIS_RTRIGGER, MotionEvent.AXIS_GAS)
+        val mappedLTPadKey = mapTriggerAxisToRawPadKey(padIndex, "l2")
+            ?.let(::remapTriggerPadKeyForRightStick)
+        val mappedRTPadKey = mapTriggerAxisToRawPadKey(padIndex, "r2")
+            ?.let(::remapTriggerPadKeyForRightStick)
+        val ltControlsRightStick = mappedLTPadKey == PadKey.RightStickDown
+        val rtControlsRightStick = mappedRTPadKey == PadKey.RightStickUp
         val rightStickYFromTriggers = (
-            (if (rightStickDownToL2) physicalLT else 0f) -
-                (if (rightStickUpToR2) physicalRT else 0f)
+            (if (ltControlsRightStick) physicalLT else 0f) -
+                (if (rtControlsRightStick) physicalRT else 0f)
             ).coerceIn(-1f, 1f)
         val rightStickY = (rightY + rightStickYFromTriggers).coerceIn(-1f, 1f)
         if (rightX != state.prevRightX || rightStickY != state.prevRightY) {
@@ -551,14 +554,24 @@ object GamepadManager {
             state.prevRightY = rightStickY
         }
 
-        val lt = if (rightStickDownToL2) 0f else physicalLT
-        val rt = if (rightStickUpToR2) 0f else physicalRT
+        val lt = if (ltControlsRightStick) 0f else physicalLT
+        val rt = if (rtControlsRightStick) 0f else physicalRT
+        if (mappedLTPadKey != state.prevLTPadKey) {
+            state.prevLTPadKey?.let { dispatchAnalogButton(padIndex, it, 0f) }
+            state.prevLTPadKey = mappedLTPadKey
+            state.prevLT = 0f
+        }
+        if (mappedRTPadKey != state.prevRTPadKey) {
+            state.prevRTPadKey?.let { dispatchAnalogButton(padIndex, it, 0f) }
+            state.prevRTPadKey = mappedRTPadKey
+            state.prevRT = 0f
+        }
         if (lt != state.prevLT) {
-            dispatchAnalogButton(padIndex, PadKey.L2, lt)
+            mappedLTPadKey?.let { dispatchAnalogButton(padIndex, it, lt) }
             state.prevLT = lt
         }
         if (rt != state.prevRT) {
-            dispatchAnalogButton(padIndex, PadKey.R2, rt)
+            mappedRTPadKey?.let { dispatchAnalogButton(padIndex, it, rt) }
             state.prevRT = rt
         }
         state.prevRightStickYFromTriggers = rightStickYFromTriggers
@@ -680,6 +693,28 @@ object GamepadManager {
         EmulatorBridge.setPadButton(padIndex, key, range, range > 0)
     }
 
+    private fun resetChangedBindingStates(
+        previousBindingsByPad: Map<Int, Map<String, Int>>,
+        bindingsByPad: Map<Int, Map<String, Int>>
+    ) {
+        if (previousBindingsByPad == bindingsByPad) return
+        val changedPadIndices = (previousBindingsByPad.keys + bindingsByPad.keys)
+            .filterTo(mutableSetOf()) { padIndex ->
+                previousBindingsByPad[padIndex] != bindingsByPad[padIndex]
+            }
+        if (changedPadIndices.isEmpty()) return
+
+        synchronized(connectionLock) {
+            val changedDeviceIds = deviceToPadIndex
+                .filterValues { it in changedPadIndices }
+                .keys
+            changedDeviceIds.forEach(analogStatesByDeviceId::remove)
+        }
+        if (emulationInputEnabled) {
+            changedPadIndices.forEach(EmulatorBridge::resetPadState)
+        }
+    }
+
     private fun resetRightStickTriggerState() {
         val resets = synchronized(connectionLock) {
             analogStatesByDeviceId.mapNotNull { (deviceId, state) ->
@@ -687,8 +722,8 @@ object GamepadManager {
                 val reset = RightStickTriggerReset(
                     padIndex = padIndex,
                     releaseRightStickY = state.prevRightStickYFromTriggers != 0f,
-                    releaseL2 = state.prevLT != 0f,
-                    releaseR2 = state.prevRT != 0f
+                    releaseL2PadKey = state.prevLTPadKey.takeIf { state.prevLT != 0f },
+                    releaseR2PadKey = state.prevRTPadKey.takeIf { state.prevRT != 0f }
                 )
                 state.prevRightY = 0f
                 state.prevLT = 0f
@@ -704,11 +739,11 @@ object GamepadManager {
                 EmulatorBridge.setPadButton(reset.padIndex, PadKey.RightStickUp, 0, false)
                 EmulatorBridge.setPadButton(reset.padIndex, PadKey.RightStickDown, 0, false)
             }
-            if (reset.releaseL2) {
-                EmulatorBridge.setPadButton(reset.padIndex, PadKey.L2, 0, false)
+            reset.releaseL2PadKey?.let { padKey ->
+                EmulatorBridge.setPadButton(reset.padIndex, padKey, 0, false)
             }
-            if (reset.releaseR2) {
-                EmulatorBridge.setPadButton(reset.padIndex, PadKey.R2, 0, false)
+            reset.releaseR2PadKey?.let { padKey ->
+                EmulatorBridge.setPadButton(reset.padIndex, padKey, 0, false)
             }
         }
     }
@@ -734,28 +769,41 @@ object GamepadManager {
     }
 
     private fun mapKeyCodeToRawPadKey(padIndex: Int, keyCode: Int): Int? {
-        customBindingsByPadAndKeyCode[normalizePadIndex(padIndex)]?.get(keyCode)?.let {
-            return it
-        }
-        return when (keyCode) {
-            KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_1 -> PadKey.Cross
-            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BUTTON_2 -> PadKey.Circle
-            KeyEvent.KEYCODE_BUTTON_X, KeyEvent.KEYCODE_BUTTON_3 -> PadKey.Square
-            KeyEvent.KEYCODE_BUTTON_Y, KeyEvent.KEYCODE_BUTTON_4 -> PadKey.Triangle
-            KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_5 -> PadKey.L1
-            KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_BUTTON_6 -> PadKey.R1
-            KeyEvent.KEYCODE_BUTTON_L2, KeyEvent.KEYCODE_BUTTON_7 -> PadKey.L2
-            KeyEvent.KEYCODE_BUTTON_R2, KeyEvent.KEYCODE_BUTTON_8 -> PadKey.R2
-            KeyEvent.KEYCODE_BUTTON_THUMBL -> PadKey.L3
-            KeyEvent.KEYCODE_BUTTON_THUMBR -> PadKey.R3
-            KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_9 -> PadKey.Select
-            KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_BUTTON_10 -> PadKey.Start
-            KeyEvent.KEYCODE_DPAD_UP -> PadKey.Up
-            KeyEvent.KEYCODE_DPAD_DOWN -> PadKey.Down
-            KeyEvent.KEYCODE_DPAD_LEFT -> PadKey.Left
-            KeyEvent.KEYCODE_DPAD_RIGHT -> PadKey.Right
-            else -> null
-        }
+        val normalizedPadIndex = normalizePadIndex(padIndex)
+        val actionId = resolveMappedActionIdForKeyCode(
+            keyCode = keyCode,
+            customBindings = customBindingsByPad[normalizedPadIndex].orEmpty()
+        ) ?: return null
+        return actionsById[actionId]?.padKey
+    }
+
+    private fun mapTriggerAxisToRawPadKey(padIndex: Int, triggerActionId: String): Int? {
+        val normalizedPadIndex = normalizePadIndex(padIndex)
+        val actionId = resolveMappedActionIdForTriggerAxis(
+            triggerActionId = triggerActionId,
+            customBindings = customBindingsByPad[normalizedPadIndex].orEmpty()
+        ) ?: return null
+        return actionsById[actionId]?.padKey
+    }
+
+    internal fun resolveMappedActionIdForKeyCode(
+        keyCode: Int,
+        customBindings: Map<String, Int>
+    ): String? {
+        customBindings.entries.firstOrNull { (_, mappedKeyCode) -> mappedKeyCode == keyCode }
+            ?.let { return it.key }
+        val defaultAction = mappableActions.firstOrNull { keyCode in it.defaultKeyCodes } ?: return null
+        return defaultAction.id.takeUnless { it in customBindings }
+    }
+
+    internal fun resolveMappedActionIdForTriggerAxis(
+        triggerActionId: String,
+        customBindings: Map<String, Int>
+    ): String? {
+        val triggerAction = actionsById[triggerActionId] ?: return null
+        customBindings.entries.firstOrNull { (_, keyCode) -> keyCode in triggerAction.defaultKeyCodes }
+            ?.let { return it.key }
+        return triggerActionId.takeUnless { it in customBindings }
     }
 
     private fun remapTriggerPadKeyForRightStick(padKey: Int): Int {

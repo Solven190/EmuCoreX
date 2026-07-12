@@ -58,6 +58,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.SaveAs
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.SettingsSuggest
@@ -1959,6 +1960,15 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_game_fixes),
                             onResetToDefault = { viewModel.setEnableGameFixes(defaults.enableGameFixes) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.Schedule,
+                            title = stringResource(R.string.settings_ee_timing_hack),
+                            subtitle = stringResource(R.string.settings_ee_timing_hack_desc),
+                            checked = uiState.enableEeTimingHack,
+                            onCheckedChange = viewModel::setEnableEeTimingHack,
+                            helpText = stringResource(R.string.settings_help_ee_timing_hack),
+                            onResetToDefault = { viewModel.setEnableEeTimingHack(defaults.enableEeTimingHack) }
+                        )
                         if (onOpenGameDbBrowser != null) {
                             ActionItem(
                                 icon = Icons.Rounded.Visibility,
@@ -3379,6 +3389,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Emulation, R.string.settings_enable_vu0_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_enable_vu1_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_game_fixes),
+        entry(SettingsTab.Emulation, R.string.settings_ee_timing_hack),
         entry(SettingsTab.Emulation, R.string.settings_ee_fpu_round_mode),
         entry(SettingsTab.Emulation, R.string.settings_vu0_round_mode),
         entry(SettingsTab.Emulation, R.string.settings_vu1_round_mode),

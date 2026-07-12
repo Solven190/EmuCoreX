@@ -1527,4 +1527,7 @@
     <string name="settings_network_log_dhcp_desc">Tulis diagnostik DHCP mendetail ke dalam log emulator.</string>
     <string name="settings_network_log_dns">Catat lalu lintas DNS</string>
     <string name="settings_network_log_dns_desc">Tulis permintaan dan respons DNS ke dalam log emulator.</string>
+    <string name="settings_ee_timing_hack">Hack Waktu EE</string>
+    <string name="settings_ee_timing_hack_desc">Memaksa sebagian besar peristiwa perangkat keras EE untuk berjalan setelah 8 siklus.</string>
+    <string name="settings_help_ee_timing_hack">Mengubah waktu sebagian besar peristiwa perangkat keras EE untuk meningkatkan kompatibilitas dalam game tertentu. Ini dapat memperbaiki masalah sinkronisasi DMA, pembekuan pemuatan, tekstur berkedip atau rusak, kerusakan (crash), dan pemutaran FMV yang rusak. Ini bukan peningkatan FPS dan dapat menyebabkan masalah waktu pada game lain, jadi aktifkan hanya jika diperlukan.</string>
 </resources>

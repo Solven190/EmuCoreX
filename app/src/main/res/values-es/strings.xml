@@ -1514,4 +1514,7 @@
     <string name="settings_network_log_dhcp_desc">Escribe diagnósticos detallados de DHCP en el registro del emulador.</string>
     <string name="settings_network_log_dns">Registrar tráfico DNS</string>
     <string name="settings_network_log_dns_desc">Escribe las solicitudes y respuestas de DNS en el registro del emulador.</string>
+    <string name="settings_ee_timing_hack">Hack de sincronización de EE</string>
+    <string name="settings_ee_timing_hack_desc">Fuerza a la mayoría de los eventos de hardware de EE a ejecutarse después de 8 ciclos.</string>
+    <string name="settings_help_ee_timing_hack">Cambia la sincronización de la mayoría de los eventos de hardware de EE para mejorar la compatibilidad en juegos específicos. Puede solucionar problemas de sincronización de DMA, bloqueos de carga, texturas parpadeantes o corruptas, cuelgues y reproducción defectuosa de FMV. Esto no es un aumento de FPS y puede causar problemas de sincronización en otros juegos, así que actívalo solo cuando sea necesario.</string>
 </resources>

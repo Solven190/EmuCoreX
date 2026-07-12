@@ -39,6 +39,7 @@ data class PerGameSettings(
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
     val enableGameFixes: Boolean = true,
+    val enableEeTimingHack: Boolean = false,
     val eeFpuRoundMode: Int = AppPreferences.DEFAULT_EE_FPU_ROUND_MODE,
     val vu0RoundMode: Int = AppPreferences.DEFAULT_VU_ROUND_MODE,
     val vu1RoundMode: Int = AppPreferences.DEFAULT_VU_ROUND_MODE,
@@ -234,6 +235,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         enableFastCdvd = optBoolean("enableFastCdvd", false),
         enableCheats = optBoolean("enableCheats", false),
         enableGameFixes = optBoolean("enableGameFixes", true),
+        enableEeTimingHack = optBoolean("enableEeTimingHack", false),
         eeFpuRoundMode = sanitizeFloatRoundMode(optInt("eeFpuRoundMode", AppPreferences.DEFAULT_EE_FPU_ROUND_MODE), AppPreferences.DEFAULT_EE_FPU_ROUND_MODE),
         vu0RoundMode = sanitizeFloatRoundMode(optInt("vu0RoundMode", AppPreferences.DEFAULT_VU_ROUND_MODE), AppPreferences.DEFAULT_VU_ROUND_MODE),
         vu1RoundMode = sanitizeFloatRoundMode(optInt("vu1RoundMode", AppPreferences.DEFAULT_VU_ROUND_MODE), AppPreferences.DEFAULT_VU_ROUND_MODE),
@@ -356,6 +358,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("enableFastCdvd")) put("enableFastCdvd", enableFastCdvd)
         if (shouldWrite("enableCheats")) put("enableCheats", enableCheats)
         if (shouldWrite("enableGameFixes")) put("enableGameFixes", enableGameFixes)
+        if (shouldWrite("enableEeTimingHack")) put("enableEeTimingHack", enableEeTimingHack)
         if (shouldWrite("eeFpuRoundMode")) put("eeFpuRoundMode", sanitizeFloatRoundMode(eeFpuRoundMode, AppPreferences.DEFAULT_EE_FPU_ROUND_MODE))
         if (shouldWrite("vu0RoundMode")) put("vu0RoundMode", sanitizeFloatRoundMode(vu0RoundMode, AppPreferences.DEFAULT_VU_ROUND_MODE))
         if (shouldWrite("vu1RoundMode")) put("vu1RoundMode", sanitizeFloatRoundMode(vu1RoundMode, AppPreferences.DEFAULT_VU_ROUND_MODE))

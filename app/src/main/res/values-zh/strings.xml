@@ -1514,4 +1514,7 @@
     <string name="settings_network_log_dhcp_desc">将详细的 DHCP 诊断信息写入模拟器日志。</string>
     <string name="settings_network_log_dns">记录 DNS 流量</string>
     <string name="settings_network_log_dns_desc">将 DNS 请求与响应写入模拟器日志。</string>
+    <string name="settings_ee_timing_hack">EE 计时 Hack</string>
+    <string name="settings_ee_timing_hack_desc">强制大部分 EE 硬件事件在 8 个周期后运行。</string>
+    <string name="settings_help_ee_timing_hack">更改大多数 EE 硬件事件的计时，以提高在特定游戏中的兼容性。它可以修复 DMA 同步问题、加载卡死、纹理闪烁或损坏、崩溃以及 FMV 播放损坏的问题。这不是 FPS 提升功能，可能会在其他游戏中导致计时问题，因此仅在需要时才启用它。</string>
 </resources>

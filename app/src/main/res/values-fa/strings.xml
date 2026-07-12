@@ -1527,4 +1527,7 @@
     <string name="settings_network_log_dhcp_desc">نوشتن عیب‌یابی دقیق DHCP در لاگ شبیه‌ساز.</string>
     <string name="settings_network_log_dns">ثبت ترافیک DNS</string>
     <string name="settings_network_log_dns_desc">نوشتن درخواست‌ها و پاسخ‌های DNS در لاگ شبیه‌ساز.</string>
+    <string name="settings_ee_timing_hack">هک زمان‌بندی EE</string>
+    <string name="settings_ee_timing_hack_desc">اجرای اکثر رویدادهای سخت‌افزاری EE را پس از ۸ چرخه اجباری می‌کند.</string>
+    <string name="settings_help_ee_timing_hack">زمان‌بندی اکثر رویدادهای سخت‌افزاری EE را برای بهبود سازگاری در بازی‌های خاص تغییر می‌دهد. این گزینه می‌تواند مشکلات همگام‌سازی DMA، فریز شدن در حال بارگذاری، بافت‌های چشمک‌زن یا خراب، کرش‌ها و پخش نامناسب FMV را برطرف کند. این یک تقویت‌کننده فریم‌ریت (FPS) نیست و ممکن است باعث مشکلات زمان‌بندی در بازی‌های دیگر شود، بنابراین فقط در صورت نیاز آن را فعال کنید.</string>
 </resources>

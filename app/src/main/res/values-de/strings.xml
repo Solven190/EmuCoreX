@@ -1514,4 +1514,7 @@
     <string name="settings_network_log_dhcp_desc">Detaillierte DHCP-Diagnosen in das Emulatorprotokoll schreiben.</string>
     <string name="settings_network_log_dns">DNS-Verkehr protokollieren</string>
     <string name="settings_network_log_dns_desc">DNS-Anfragen und -Antworten in das Emulatorprotokoll schreiben.</string>
+    <string name="settings_ee_timing_hack">EE-Timing-Hack</string>
+    <string name="settings_ee_timing_hack_desc">Erzwingt, dass die meisten EE-Hardware-Ereignisse nach 8 Zyklen ausgeführt werden.</string>
+    <string name="settings_help_ee_timing_hack">Ändert das Timing der meisten EE-Hardware-Ereignisse, um die Kompatibilität in bestimmten Spielen zu verbessern. Es kann DMA-Synchronisationsprobleme, Einfrieren beim Laden, flackernde oder beschädigte Texturen, Abstürze und fehlerhafte FMV-Wiedergabe beheben. Dies ist kein FPS-Boost und kann in anderen Spielen zu Timing-Problemen führen, aktiviere es daher nur bei Bedarf.</string>
 </resources>

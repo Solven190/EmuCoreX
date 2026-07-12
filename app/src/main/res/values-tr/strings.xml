@@ -1512,4 +1512,7 @@
     <string name="settings_network_log_dhcp_desc">Ayrıntılı DHCP tanılamalarını emülatör günlüğüne (log) yazın.</string>
     <string name="settings_network_log_dns">DNS trafiğini kaydet (Log)</string>
     <string name="settings_network_log_dns_desc">DNS isteklerini ve yanıtlarını emülatör günlüğüne (log) yazın.</string>
+    <string name="settings_ee_timing_hack">EE Zamanlama Hack\'i</string>
+    <string name="settings_ee_timing_hack_desc">Çoğu EE donanım olayını 8 döngüden sonra çalışmaya zorlar.</string>
+    <string name="settings_help_ee_timing_hack">Belirli oyunlarda uyumluluğu artırmak için çoğu EE donanım olayının zamanlamasını değiştirir. DMA senkronizasyon sorunlarını, yükleme donmalarını, titreyen veya bozulan dokuları, çökmeleri ve bozuk FMV oynatımını düzeltebilir. Bu bir FPS artışı değildir ve diğer oyunlarda zamanlama sorunlarına neden olabilir, bu nedenle yalnızca gerektiğinde etkinleştirin.</string>
 </resources>

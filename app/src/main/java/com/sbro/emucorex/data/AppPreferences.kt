@@ -88,6 +88,7 @@ data class SettingsSnapshot(
     val vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
     val vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
     val enableGameFixes: Boolean = true,
+    val enableEeTimingHack: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
     val enableVuFlagHack: Boolean = true,
@@ -401,6 +402,7 @@ class AppPreferences(private val context: Context) {
         private val VU0_CLAMPING_MODE = intPreferencesKey("vu0_clamping_mode")
         private val VU1_CLAMPING_MODE = intPreferencesKey("vu1_clamping_mode")
         private val ENABLE_GAME_FIXES = booleanPreferencesKey("enable_game_fixes")
+        private val ENABLE_EE_TIMING_HACK = booleanPreferencesKey("enable_ee_timing_hack")
         private val ENABLE_WAIT_LOOP_SPEEDHACK = booleanPreferencesKey("enable_wait_loop_speedhack")
         private val ENABLE_INTC_STAT_SPEEDHACK = booleanPreferencesKey("enable_intc_stat_speedhack")
         private val ENABLE_VU_FLAG_HACK = booleanPreferencesKey("enable_vu_flag_hack")
@@ -1086,6 +1088,7 @@ class AppPreferences(private val context: Context) {
                 vu0ClampingMode = sanitizeClampingMode(prefs[VU0_CLAMPING_MODE], DEFAULT_VU0_CLAMPING_MODE),
                 vu1ClampingMode = sanitizeClampingMode(prefs[VU1_CLAMPING_MODE], DEFAULT_VU1_CLAMPING_MODE),
                 enableGameFixes = prefs[ENABLE_GAME_FIXES] ?: true,
+                enableEeTimingHack = prefs[ENABLE_EE_TIMING_HACK] ?: false,
                 enableWaitLoopSpeedhack = prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true,
                 enableIntcStatSpeedhack = prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true,
                 enableVuFlagHack = prefs[ENABLE_VU_FLAG_HACK] ?: true,
@@ -1828,6 +1831,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setEnableGameFixes(enabled: Boolean) {
         context.dataStore.edit { it[ENABLE_GAME_FIXES] = enabled }
+    }
+
+    val enableEeTimingHack: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ENABLE_EE_TIMING_HACK] ?: false
+    }
+
+    suspend fun setEnableEeTimingHack(enabled: Boolean) {
+        context.dataStore.edit { it[ENABLE_EE_TIMING_HACK] = enabled }
     }
 
     val enableWaitLoopSpeedhack: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -2759,6 +2770,7 @@ class AppPreferences(private val context: Context) {
             put("vu0ClampingMode", sanitizeClampingMode(prefs[VU0_CLAMPING_MODE], DEFAULT_VU0_CLAMPING_MODE))
             put("vu1ClampingMode", sanitizeClampingMode(prefs[VU1_CLAMPING_MODE], DEFAULT_VU1_CLAMPING_MODE))
             put("enableGameFixes", prefs[ENABLE_GAME_FIXES] ?: true)
+            put("enableEeTimingHack", prefs[ENABLE_EE_TIMING_HACK] ?: false)
             put("enableWaitLoopSpeedhack", prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true)
             put("enableIntcStatSpeedhack", prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true)
             put("enableVuFlagHack", prefs[ENABLE_VU_FLAG_HACK] ?: true)
@@ -3005,6 +3017,7 @@ class AppPreferences(private val context: Context) {
             prefs[VU0_CLAMPING_MODE] = sanitizeClampingMode(json.optInt("vu0ClampingMode", legacyVuClampingMode), DEFAULT_VU0_CLAMPING_MODE)
             prefs[VU1_CLAMPING_MODE] = sanitizeClampingMode(json.optInt("vu1ClampingMode", DEFAULT_VU1_CLAMPING_MODE), DEFAULT_VU1_CLAMPING_MODE)
             prefs[ENABLE_GAME_FIXES] = json.optBoolean("enableGameFixes", true)
+            prefs[ENABLE_EE_TIMING_HACK] = json.optBoolean("enableEeTimingHack", false)
             prefs[ENABLE_WAIT_LOOP_SPEEDHACK] = json.optBoolean("enableWaitLoopSpeedhack", true)
             prefs[ENABLE_INTC_STAT_SPEEDHACK] = json.optBoolean("enableIntcStatSpeedhack", true)
             prefs[ENABLE_VU_FLAG_HACK] = json.optBoolean("enableVuFlagHack", true)

@@ -303,6 +303,9 @@
     <string name="settings_game_fixes">GameDB Fixes</string>
     <string name="settings_game_fixes_desc">Apply compatibility fixes from the GameDB.</string>
     <string name="settings_help_game_fixes">Uses GameDB compatibility fixes for known games, including automatic clamp and round mode overrides. Disable this only when a specific game needs your manual clamping settings instead of the GameDB values; restart the game to apply.</string>
+    <string name="settings_ee_timing_hack">EE Timing Hack</string>
+    <string name="settings_ee_timing_hack_desc">Force most EE hardware events to run after 8 cycles.</string>
+    <string name="settings_help_ee_timing_hack">Changes the timing of most EE hardware events to improve compatibility in specific games. It can fix DMA synchronization problems, loading freezes, flickering or corrupted textures, crashes, and broken FMV playback. This is not an FPS boost and may cause timing issues in other games, so enable it only when needed.</string>
     <string name="gamedb_browser_settings_card_title">GameDB settings catalog</string>
     <string name="gamedb_browser_settings_card_desc">See which automatic fixes and overrides are defined for each game.</string>
     <string name="gamedb_browser_browse">Browse</string>

@@ -999,6 +999,15 @@ private fun GameSettingsTabContent(
                         helpText = stringResource(R.string.settings_help_game_fixes),
                         onResetToDefault = { onDraftChange(draft.copy(enableGameFixes = defaultProfile.enableGameFixes)) }
                     )
+                    ToggleRow(
+                        title = stringResource(R.string.settings_ee_timing_hack),
+                        checked = draft.enableEeTimingHack,
+                        onCheckedChange = { onDraftChange(draft.copy(enableEeTimingHack = it)) },
+                        helpText = stringResource(R.string.settings_help_ee_timing_hack),
+                        onResetToDefault = {
+                            onDraftChange(draft.copy(enableEeTimingHack = defaultProfile.enableEeTimingHack))
+                        }
+                    )
                     SelectionRow(
                         title = stringResource(R.string.settings_target_fps_mode),
                         options = listOf(
@@ -1696,6 +1705,15 @@ private fun GameSettingsEditorDialog(
                                 onCheckedChange = { draft = draft.copy(enableGameFixes = it) },
                                 helpText = stringResource(R.string.settings_help_game_fixes),
                                 onResetToDefault = { draft = draft.copy(enableGameFixes = defaultProfile.enableGameFixes) }
+                            )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_ee_timing_hack),
+                                checked = draft.enableEeTimingHack,
+                                onCheckedChange = { draft = draft.copy(enableEeTimingHack = it) },
+                                helpText = stringResource(R.string.settings_help_ee_timing_hack),
+                                onResetToDefault = {
+                                    draft = draft.copy(enableEeTimingHack = defaultProfile.enableEeTimingHack)
+                                }
                             )
                         }
                         EditorSection(title = stringResource(R.string.game_settings_manager_section_graphics)) {
@@ -3287,6 +3305,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         enableFastCdvd = enableFastCdvd,
         enableCheats = enableCheats,
         enableGameFixes = enableGameFixes,
+        enableEeTimingHack = enableEeTimingHack,
         eeFpuRoundMode = eeFpuRoundMode,
         vu0RoundMode = vu0RoundMode,
         vu1RoundMode = vu1RoundMode,
@@ -3382,6 +3401,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         enableFastCdvd = pick("enableFastCdvd", enableFastCdvd, defaultProfile.enableFastCdvd),
         enableCheats = pick("enableCheats", enableCheats, defaultProfile.enableCheats),
         enableGameFixes = pick("enableGameFixes", enableGameFixes, defaultProfile.enableGameFixes),
+        enableEeTimingHack = pick("enableEeTimingHack", enableEeTimingHack, defaultProfile.enableEeTimingHack),
         eeFpuRoundMode = pick("eeFpuRoundMode", eeFpuRoundMode, defaultProfile.eeFpuRoundMode),
         vu0RoundMode = pick("vu0RoundMode", vu0RoundMode, defaultProfile.vu0RoundMode),
         vu1RoundMode = pick("vu1RoundMode", vu1RoundMode, defaultProfile.vu1RoundMode),

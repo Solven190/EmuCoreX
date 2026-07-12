@@ -1512,4 +1512,7 @@
     <string name="settings_network_log_dhcp_desc">Scrivi diagnostiche DHCP dettagliate nel log dell\'emulatore.</string>
     <string name="settings_network_log_dns">Registra traffico DNS</string>
     <string name="settings_network_log_dns_desc">Scrivi richieste e risposte DNS nel log dell\'emulatore.</string>
+    <string name="settings_ee_timing_hack">Hack del tempismo EE</string>
+    <string name="settings_ee_timing_hack_desc">Forza l\'esecuzione della maggior parte degli eventi hardware EE dopo 8 cicli.</string>
+    <string name="settings_help_ee_timing_hack">Cambia il tempismo della maggior parte degli eventi hardware EE per migliorare la compatibilità in giochi specifici. Può risolvere problemi di sincronizzazione DMA, blocchi di caricamento, texture tremolanti o danneggiate, arresti anomali e riproduzione FMV interrotta. Questo non è un aumento degli FPS e potrebbe causare problemi di tempismo in altri giochi, quindi abilitalo solo quando necessario.</string>
 </resources>

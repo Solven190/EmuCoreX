@@ -1514,4 +1514,7 @@
     <string name="settings_network_log_dhcp_desc">Записывать подробную диагностику DHCP в журнал эмулятора.</string>
     <string name="settings_network_log_dns">Журнал трафика DNS</string>
     <string name="settings_network_log_dns_desc">Записывать запросы и ответы DNS в журнал эмулятора.</string>
+    <string name="settings_ee_timing_hack">Хак таймингов EE</string>
+    <string name="settings_ee_timing_hack_desc">Принудительное выполнение большинства аппаратных событий EE через 8 циклов.</string>
+    <string name="settings_help_ee_timing_hack">Изменяет тайминги большинства аппаратных событий EE для улучшения совместимости в определенных играх. Может исправить проблемы с синхронизацией DMA, зависания при загрузке, мерцающие или поврежденные текстуры, вылеты и сломанное воспроизведение FMV. Это не увеличивает FPS и может вызвать проблемы с таймингами в других играх, поэтому включайте только при необходимости.</string>
 </resources>

@@ -1512,4 +1512,7 @@
     <string name="settings_network_log_dhcp_desc">एम्युलेटर लॉग में विस्तृत DHCP डायग्नोस्टिक्स लिखें।</string>
     <string name="settings_network_log_dns">DNS ट्रैफ़िक लॉग करें</string>
     <string name="settings_network_log_dns_desc">एम्युलेटर लॉग में DNS अनुरोध और प्रतिक्रियाएं लिखें।</string>
+    <string name="settings_ee_timing_hack">EE टाइमिंग हैक</string>
+    <string name="settings_ee_timing_hack_desc">अधिकांश EE हार्डवेयर इवेंट्स को 8 साइकल के बाद चलाने के लिए बाध्य करें।</string>
+    <string name="settings_help_ee_timing_hack">विशिष्ट खेलों में संगतता में सुधार करने के लिए अधिकांश EE हार्डवेयर इवेंट्स की टाइमिंग को बदलता है। यह DMA सिंक्रोनाइज़ेशन समस्याओं, लोडिंग फ़्रीज़, टिमटिमाते या दूषित बनावट, क्रैश और टूटे हुए FMV प्लेबैक को ठीक कर सकता है। यह कोई FPS बूस्ट नहीं है और अन्य खेलों में टाइमिंग की समस्या पैदा कर सकता है, इसलिए इसे केवल आवश्यकता पड़ने पर ही सक्षम करें।</string>
 </resources>

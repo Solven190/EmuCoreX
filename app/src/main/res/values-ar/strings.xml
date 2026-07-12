@@ -1512,4 +1512,7 @@
     <string name="settings_network_log_dhcp_desc">كتابة تشخيصات DHCP مفصلة في سجل المحاكي.</string>
     <string name="settings_network_log_dns">تسجيل حركة مرور DNS</string>
     <string name="settings_network_log_dns_desc">كتابة طلبات واستجابات DNS في سجل المحاكي.</string>
+    <string name="settings_ee_timing_hack">هاك توقيت EE</string>
+    <string name="settings_ee_timing_hack_desc">إجبار معظم أحداث أجهزة EE على العمل بعد 8 دورات.</string>
+    <string name="settings_help_ee_timing_hack">يغير توقيت معظم أحداث أجهزة EE لتحسين التوافق في ألعاب معينة. يمكنه إصلاح مشاكل مزامنة DMA، وتجمد التحميل، والأنسجة الوامضة أو التالفة، والانهيارات، وتشغيل FMV المكسور. هذا ليس تعزيزًا للإطارات في الثانية (FPS) وقد يسبب مشاكل في التوقيت في ألعاب أخرى، لذا قم بتمكينه فقط عند الحاجة.</string>
 </resources>

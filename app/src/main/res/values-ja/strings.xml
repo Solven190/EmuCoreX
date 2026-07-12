@@ -1512,4 +1512,7 @@
     <string name="settings_network_log_dhcp_desc">詳細なDHCP診断をエミュレーターのログに書き込みます。</string>
     <string name="settings_network_log_dns">DNSトラフィックをログに記録</string>
     <string name="settings_network_log_dns_desc">DNSリクエストとレスポンスをエミュレーターのログに書き込みます。</string>
+    <string name="settings_ee_timing_hack">EE タイミングハック</string>
+    <string name="settings_ee_timing_hack_desc">ほとんどの EE ハードウェアイベントを 8 サイクル後に強制的に実行します。</string>
+    <string name="settings_help_ee_timing_hack">特定のゲームでの互換性を向上させるために、ほとんどの EE ハードウェアイベントのタイミングを変更します。DMA 同期の問題、ロード中のフリーズ、テクスチャのちらつきや破損、クラッシュ、および壊れた FMV 再生を修正できる場合があります。これは FPS の向上を目的としたものではなく、他のゲームでタイミングの問題を引き起こす可能性があるため、必要な場合のみ有効にしてください。</string>
 </resources>
