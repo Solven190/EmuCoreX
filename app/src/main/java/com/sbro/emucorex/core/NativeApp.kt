@@ -51,6 +51,7 @@ object NativeApp {
     @JvmStatic external fun getPerformanceMetricsSnapshot(): String?
     @JvmStatic external fun queueGsDump(frames: Int)
     @JvmStatic external fun setPadButton(padIndex: Int, index: Int, range: Int, pressed: Boolean)
+    @JvmStatic external fun setPadPressureModifierAmount(amountPercent: Int)
     @JvmStatic external fun onHostKeyEvent(keyCode: Int, pressed: Boolean)
     @JvmStatic external fun onHostMousePosition(x: Float, y: Float)
     @JvmStatic external fun onHostMouseButton(button: Int, pressed: Boolean)

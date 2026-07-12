@@ -1479,4 +1479,7 @@
     <string name="onboarding_games_selected_count">تم تحديد %1$d مجلد/مجلدات. انقر لإضافة مجلد آخر.</string>
     <string name="settings_game_folders_count">تم تحديد %1$d مجلد/مجلدات</string>
     <string name="game_folders_remove">إزالة المجلد</string>
+    <string name="settings_gamepad_action_pressure">مُعدِّل الضغط</string>
+    <string name="settings_pressure_modifier_amount">مقدار مُعدِّل الضغط</string>
+    <string name="settings_help_pressure_modifier_amount">يضبط الضغط المرسل بواسطة أزرار DualShock 2 الحساسة للضغط أثناء الضغط على مُعدِّل الضغط. لا تزال ضغطات الأزرار العادية تستخدم 100%.</string>
 </resources>

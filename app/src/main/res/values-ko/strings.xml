@@ -1479,4 +1479,7 @@
     <string name="onboarding_games_selected_count">%1$d개의 폴더가 선택되었습니다. 탭하여 다른 폴더를 추가하세요.</string>
     <string name="settings_game_folders_count">%1$d개의 폴더가 선택되었습니다</string>
     <string name="game_folders_remove">폴더 삭제</string>
+    <string name="settings_gamepad_action_pressure">압력 조절기</string>
+    <string name="settings_pressure_modifier_amount">압력 조절기 수치</string>
+    <string name="settings_help_pressure_modifier_amount">압력 조절기를 누르고 있는 동안 압력 감지 DualShock 2 버튼이 보내는 압력을 설정합니다. 일반 버튼 누르기는 여전히 100%를 사용합니다.</string>
 </resources>

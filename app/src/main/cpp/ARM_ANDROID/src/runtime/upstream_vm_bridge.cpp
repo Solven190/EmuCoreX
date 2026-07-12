@@ -65,6 +65,22 @@ int GetIntSetting(const RuntimeSettings& settings, const char* section, const ch
 	}
 }
 
+float GetFloatSetting(const RuntimeSettings& settings, const char* section, const char* key, float fallback)
+{
+	const auto it = settings.find(std::string(section) + '\n' + key);
+	if (it == settings.end())
+		return fallback;
+
+	try
+	{
+		return std::stof(it->second);
+	}
+	catch (...)
+	{
+		return fallback;
+	}
+}
+
 bool GetBoolSetting(const RuntimeSettings& settings, const char* section, const char* key, bool fallback)
 {
 	const auto it = settings.find(std::string(section) + '\n' + key);
@@ -207,9 +223,11 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 	si.SetBoolValue("InputSources", "SDL", true);
 	si.SetBoolValue("InputSources", "PadVibration", GetBoolSetting(config.settings, "InputSources", "PadVibration", true));
 	si.SetStringValue("Pad1", "Type", "DualShock2");
+	si.SetFloatValue("Pad1", "PressureModifier", GetFloatSetting(config.settings, "Pad1", "PressureModifier", 0.5f));
 	si.SetStringValue("Pad1", "LargeMotor", "SDL-0/Motor0");
 	si.SetStringValue("Pad1", "SmallMotor", "SDL-0/Motor1");
 	si.SetStringValue("Pad2", "Type", "DualShock2");
+	si.SetFloatValue("Pad2", "PressureModifier", GetFloatSetting(config.settings, "Pad2", "PressureModifier", 0.5f));
 	si.SetStringValue("Pad2", "LargeMotor", "SDL-1/Motor0");
 	si.SetStringValue("Pad2", "SmallMotor", "SDL-1/Motor1");
 

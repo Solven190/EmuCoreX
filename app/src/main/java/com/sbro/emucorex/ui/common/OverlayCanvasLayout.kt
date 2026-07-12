@@ -326,16 +326,19 @@ fun buildOverlayCanvasLayout(
     val l3Layout = layoutFor("l3")
     val selectLayout = layoutFor("select")
     val toggleLayout = layoutFor("left_input_toggle")
+    val pressureLayout = layoutFor("pressure")
     val startLayout = layoutFor("start")
     val r3Layout = layoutFor("r3")
     val l3Width = centerW * (l3Layout.scale / 100f)
     val r3Width = centerW * (r3Layout.scale / 100f)
     val selectWidth = wideCenterW * (selectLayout.scale / 100f)
     val toggleSize = centerH * (toggleLayout.scale / 100f)
+    val pressureSize = centerH * (pressureLayout.scale / 100f)
     val startWidth = wideCenterW * (startLayout.scale / 100f)
     val coreCenterItems = buildList {
         if (selectLayout.visible) add("select" to selectWidth)
         if (toggleLayout.visible) add("left_input_toggle" to toggleSize)
+        if (pressureLayout.visible) add("pressure" to pressureSize)
         if (startLayout.visible) add("start" to startWidth)
     }
     val coreCenterWidths = coreCenterItems.map { it.second }
@@ -346,7 +349,7 @@ fun buildOverlayCanvasLayout(
         else -> 0.dp
     }
 
-    fun centerNudgeY(id: String): Dp = if (id == "left_input_toggle") {
+    fun centerNudgeY(id: String): Dp = if (id == "left_input_toggle" || id == "pressure") {
         OverlayCenterToggleOpticalNudgeY
     } else {
         0.dp
@@ -366,14 +369,15 @@ fun buildOverlayCanvasLayout(
     }
     val coreCenterLeft = coreCenterBounds.minOfOrNull { it.first } ?: centerAnchorX
     val coreCenterRight = coreCenterBounds.maxOfOrNull { it.second } ?: centerAnchorX
-    val fallbackCoreWidths = listOf(selectWidth, toggleSize, startWidth)
+    val fallbackCoreWidths = listOf(selectWidth, toggleSize, pressureSize, startWidth)
 
     fun fallbackCenterX(id: String): Dp {
         return when (id) {
             "l3" -> coreCenterLeft - centerInlineGap - l3Width
             "select" -> centerAnchorX + overlayInlineGroupOffset(fallbackCoreWidths, centerInlineGap, 0) + OverlayCenterSelectOpticalNudgeX
             "left_input_toggle" -> centerAnchorX + overlayInlineGroupOffset(fallbackCoreWidths, centerInlineGap, 1)
-            "start" -> centerAnchorX + overlayInlineGroupOffset(fallbackCoreWidths, centerInlineGap, 2) + OverlayCenterStartOpticalNudgeX
+            "pressure" -> centerAnchorX + overlayInlineGroupOffset(fallbackCoreWidths, centerInlineGap, 2)
+            "start" -> centerAnchorX + overlayInlineGroupOffset(fallbackCoreWidths, centerInlineGap, 3) + OverlayCenterStartOpticalNudgeX
             "r3" -> coreCenterRight + centerInlineGap
             else -> centerAnchorX
         }
@@ -416,6 +420,13 @@ fun buildOverlayCanvasLayout(
             width = toggleSize,
             height = toggleSize,
             visible = previewMode || toggleLayout.visible,
+            shape = CircleShape
+        ),
+        centerButtonSpec(
+            id = "pressure",
+            width = pressureSize,
+            height = pressureSize,
+            visible = previewMode || pressureLayout.visible,
             shape = CircleShape
         ),
         centerButtonSpec(

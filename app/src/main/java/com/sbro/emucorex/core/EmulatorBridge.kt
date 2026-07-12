@@ -397,6 +397,7 @@ object EmulatorBridge {
         mergeSprite: Boolean = false,
         forceEvenSpritePosition: Boolean = false,
         nativePaletteDraw: Boolean = false,
+        pressureModifierAmount: Int = AppPreferences.DEFAULT_PRESSURE_MODIFIER_AMOUNT,
         memoryCardSlot1: String? = null,
         memoryCardSlot2: String? = null,
         autotestMode: Boolean = false,
@@ -497,6 +498,9 @@ object EmulatorBridge {
         performRuntimeOps(
             buildList {
                 add(settingOp("EmuCore/GS", "Renderer", "int", resolvedRenderer.toString()))
+                val pressureAmount = pressureModifierAmount.coerceIn(1, 100) / 100.0f
+                add(settingOp("Pad1", "PressureModifier", "float", pressureAmount.toString()))
+                add(settingOp("Pad2", "PressureModifier", "float", pressureAmount.toString()))
                 add(upscaleOp(upscaleMultiplier))
                 add(aspectOp(aspectRatio))
                 add(settingOp("SPU2/Output", "StandardVolume", "int", AudioDefaults.coerceVolume(audioVolume).toString()))

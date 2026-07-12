@@ -1062,6 +1062,9 @@
     <string name="settings_gamepad_action_select">Select</string>
     <string name="settings_gamepad_action_start">Start</string>
     <string name="settings_gamepad_action_left_input_toggle">Left Input Toggle</string>
+    <string name="settings_gamepad_action_pressure">Pressure Modifier</string>
+    <string name="settings_pressure_modifier_amount">Pressure Modifier Amount</string>
+    <string name="settings_help_pressure_modifier_amount">Sets the pressure sent by pressure-sensitive DualShock 2 buttons while the Pressure Modifier is held. Normal button presses still use 100%.</string>
     <string name="settings_gamepad_action_dpad_up">D-Pad Up</string>
     <string name="settings_gamepad_action_dpad_down">D-Pad Down</string>
     <string name="settings_gamepad_action_dpad_left">D-Pad Left</string>

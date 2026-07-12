@@ -187,6 +187,7 @@ data class SettingsUiState(
     val gamepadRightStickUpToR2: Boolean = false,
     val gamepadRightStickDownToL2: Boolean = false,
     val gamepadButtonHaptics: Boolean = false,
+    val pressureModifierAmount: Int = AppPreferences.DEFAULT_PRESSURE_MODIFIER_AMOUNT,
     val gamepadBindings: Map<String, Int> = emptyMap(),
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
@@ -388,6 +389,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             gamepadRightStickUpToR2 = snapshot.gamepadRightStickUpToR2,
             gamepadRightStickDownToL2 = snapshot.gamepadRightStickDownToL2,
             gamepadButtonHaptics = snapshot.gamepadButtonHaptics,
+            pressureModifierAmount = snapshot.pressureModifierAmount,
             gamepadBindings = snapshot.gamepadBindings,
             gamepadBindingsByPad = snapshot.gamepadBindingsByPad,
             gpuDriverType = snapshot.gpuDriverType,
@@ -1429,6 +1431,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setGamepadRightStickUpToR2(enabled: Boolean) { viewModelScope.launch { preferences.setGamepadRightStickUpToR2(enabled) } }
     fun setGamepadRightStickDownToL2(enabled: Boolean) { viewModelScope.launch { preferences.setGamepadRightStickDownToL2(enabled) } }
     fun setGamepadButtonHaptics(enabled: Boolean) { viewModelScope.launch { preferences.setGamepadButtonHaptics(enabled) } }
+    fun setPressureModifierAmount(value: Int) { viewModelScope.launch { preferences.setPressureModifierAmount(value) } }
 
     fun setBiosPath(uri: Uri) {
         val application = getApplication<Application>()

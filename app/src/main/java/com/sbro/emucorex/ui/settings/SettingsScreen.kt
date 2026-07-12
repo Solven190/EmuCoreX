@@ -1537,6 +1537,18 @@ private fun SettingsContent(
                             onResetToDefault = { viewModel.setGamepadButtonHaptics(defaults.gamepadButtonHaptics) }
                         )
                         SliderItem(
+                            icon = Icons.Rounded.TouchApp,
+                            title = stringResource(R.string.settings_pressure_modifier_amount),
+                            subtitle = "${uiState.pressureModifierAmount}%",
+                            valueLabel = { "${it.roundToInt()}%" },
+                            value = uiState.pressureModifierAmount.toFloat(),
+                            range = 1f..100f,
+                            steps = 98,
+                            onValueChange = { viewModel.setPressureModifierAmount(it.roundToInt()) },
+                            helpText = stringResource(R.string.settings_help_pressure_modifier_amount),
+                            onResetToDefault = { viewModel.setPressureModifierAmount(defaults.pressureModifierAmount) }
+                        )
+                        SliderItem(
                             icon = Icons.Rounded.Vibration,
                             title = stringResource(R.string.settings_pad_vibration_strength),
                             subtitle = "${uiState.padVibrationStrength}%",
@@ -3982,6 +3994,7 @@ private fun gamepadActionLabelRes(actionId: String): Int = when (actionId) {
     "r3" -> R.string.settings_gamepad_action_r3
     "select" -> R.string.settings_gamepad_action_select
     "start" -> R.string.settings_gamepad_action_start
+    "pressure" -> R.string.settings_gamepad_action_pressure
     GamepadManager.ACTION_QUICK_SAVE -> R.string.emulation_quick_save
     GamepadManager.ACTION_QUICK_LOAD -> R.string.emulation_quick_load
     "dpad_up" -> R.string.settings_gamepad_action_dpad_up
@@ -3997,6 +4010,7 @@ private fun gamepadActionLabel(actionId: String): String = when (actionId) {
     "circle" -> "\u25cb"
     "square" -> "\u25a1"
     "triangle" -> "\u25b3"
+    "pressure" -> stringResource(R.string.settings_gamepad_action_pressure)
     else -> stringResource(gamepadActionLabelRes(actionId))
 }
 

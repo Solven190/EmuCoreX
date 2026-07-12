@@ -210,6 +210,7 @@ private object PadKey {
     const val RIGHT_STICK_RIGHT = 121
     const val RIGHT_STICK_DOWN = 122
     const val RIGHT_STICK_LEFT = 123
+    const val PRESSURE = 124
 }
 
 private const val TRANSPORT_HOLD_DELAY_MS = 360L
@@ -1774,6 +1775,7 @@ private fun OnScreenControls(
         "circle" -> { pressed -> onPadInput(PadKey.CIRCLE, 0, pressed) }
         "select" -> { pressed -> onPadInput(PadKey.SELECT, 0, pressed) }
         "start" -> { pressed -> onPadInput(PadKey.START, 0, pressed) }
+        "pressure" -> { pressed -> onPadInput(PadKey.PRESSURE, 0, pressed) }
         "l3" -> { pressed -> onPadInput(PadKey.L3, 0, pressed) }
         "r3" -> { pressed -> onPadInput(PadKey.R3, 0, pressed) }
         else -> null

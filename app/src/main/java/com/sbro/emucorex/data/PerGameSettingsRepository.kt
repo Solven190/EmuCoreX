@@ -30,6 +30,7 @@ data class PerGameSettings(
     val gamepadRightStickUpToR2: Boolean = false,
     val gamepadRightStickDownToL2: Boolean = false,
     val gamepadButtonHaptics: Boolean = false,
+    val pressureModifierAmount: Int = AppPreferences.DEFAULT_PRESSURE_MODIFIER_AMOUNT,
     val autoSaveOnExit: Boolean = false,
     val autoLoadOnStart: Boolean = false,
     val enableFastBoot: Boolean = true,
@@ -224,6 +225,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         gamepadRightStickUpToR2 = optBoolean("gamepadRightStickUpToR2", false),
         gamepadRightStickDownToL2 = optBoolean("gamepadRightStickDownToL2", false),
         gamepadButtonHaptics = optBoolean("gamepadButtonHaptics", false),
+        pressureModifierAmount = optInt("pressureModifierAmount", AppPreferences.DEFAULT_PRESSURE_MODIFIER_AMOUNT).coerceIn(1, 100),
         autoSaveOnExit = optBoolean("autoSaveOnExit", false),
         autoLoadOnStart = optBoolean("autoLoadOnStart", false),
         enableFastBoot = optBoolean("enableFastBoot", true),
@@ -345,6 +347,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("gamepadRightStickUpToR2")) put("gamepadRightStickUpToR2", gamepadRightStickUpToR2)
         if (shouldWrite("gamepadRightStickDownToL2")) put("gamepadRightStickDownToL2", gamepadRightStickDownToL2)
         if (shouldWrite("gamepadButtonHaptics")) put("gamepadButtonHaptics", gamepadButtonHaptics)
+        if (shouldWrite("pressureModifierAmount")) put("pressureModifierAmount", pressureModifierAmount.coerceIn(1, 100))
         if (shouldWrite("autoSaveOnExit")) put("autoSaveOnExit", autoSaveOnExit)
         if (shouldWrite("autoLoadOnStart")) put("autoLoadOnStart", autoLoadOnStart)
         if (shouldWrite("enableFastBoot")) put("enableFastBoot", enableFastBoot)

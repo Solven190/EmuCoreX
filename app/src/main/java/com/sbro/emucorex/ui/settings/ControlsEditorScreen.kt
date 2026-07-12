@@ -467,6 +467,7 @@ private fun controlTitle(controlId: String): String = when (controlId) {
     "right_stick" -> "Right Stick"
     "select" -> stringResource(R.string.settings_gamepad_action_select)
     "left_input_toggle" -> stringResource(R.string.settings_gamepad_action_left_input_toggle)
+    "pressure" -> stringResource(R.string.settings_gamepad_action_pressure)
     "start" -> stringResource(R.string.settings_gamepad_action_start)
     "l3" -> stringResource(R.string.settings_gamepad_action_l3)
     "r3" -> stringResource(R.string.settings_gamepad_action_r3)
@@ -690,7 +691,7 @@ private fun PreviewLayout(
 
         visibleButtonSpecs.forEach { spec ->
             val baseZIndex = when (spec.id) {
-                "select", "left_input_toggle", "start", "l3", "r3" -> 3f
+                "select", "left_input_toggle", "pressure", "start", "l3", "r3" -> 3f
                 else -> 1f
             }
             PreviewCanvasButton(

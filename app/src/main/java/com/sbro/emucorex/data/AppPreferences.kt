@@ -172,6 +172,7 @@ data class SettingsSnapshot(
     val gamepadRightStickUpToR2: Boolean = false,
     val gamepadRightStickDownToL2: Boolean = false,
     val gamepadButtonHaptics: Boolean = false,
+    val pressureModifierAmount: Int = AppPreferences.DEFAULT_PRESSURE_MODIFIER_AMOUNT,
     val gamepadBindings: Map<String, Int> = emptyMap(),
     val gamepadBindingsByPad: Map<Int, Map<String, Int>> = emptyMap(),
     val gpuDriverType: Int = 0,
@@ -266,6 +267,7 @@ class AppPreferences(private val context: Context) {
         const val OVERLAY_CONTROL_SCALE_DEFAULT = 100
         const val DEFAULT_GAMEPAD_STICK_DEADZONE = 15
         const val DEFAULT_GAMEPAD_STICK_SENSITIVITY = 100
+        const val DEFAULT_PRESSURE_MODIFIER_AMOUNT = 50
         const val DEFAULT_PAD_VIBRATION_STRENGTH = 100
         const val DEFAULT_TOUCH_HAPTICS_STRENGTH = 60
         const val TOUCH_HAPTICS_PRESET_SOFT = 0
@@ -319,6 +321,7 @@ class AppPreferences(private val context: Context) {
             "right_stick" to OverlayControlLayout(scale = stickScale, widthScale = 160, visible = false),
             "select" to OverlayControlLayout(scale = 80),
             "left_input_toggle" to OverlayControlLayout(scale = 80, visible = true),
+            "pressure" to OverlayControlLayout(scale = 80, visible = false),
             "start" to OverlayControlLayout(scale = 80),
             "l3" to OverlayControlLayout(visible = false),
             "r3" to OverlayControlLayout(visible = false)
@@ -459,6 +462,7 @@ class AppPreferences(private val context: Context) {
         private val GYRO_INVERT_X = booleanPreferencesKey("gyro_invert_x")
         private val GYRO_INVERT_Y = booleanPreferencesKey("gyro_invert_y")
         private val GAMEPAD_BUTTON_HAPTICS = booleanPreferencesKey("gamepad_button_haptics")
+        private val PRESSURE_MODIFIER_AMOUNT = intPreferencesKey("pressure_modifier_amount")
         private val GAMEPAD_STICK_DEADZONE = intPreferencesKey("gamepad_stick_deadzone")
         private val GAMEPAD_LEFT_STICK_SENSITIVITY = intPreferencesKey("gamepad_left_stick_sensitivity")
         private val GAMEPAD_RIGHT_STICK_SENSITIVITY = intPreferencesKey("gamepad_right_stick_sensitivity")
@@ -1166,6 +1170,7 @@ class AppPreferences(private val context: Context) {
                 gamepadRightStickUpToR2 = prefs[GAMEPAD_RIGHT_STICK_UP_TO_R2] ?: false,
                 gamepadRightStickDownToL2 = prefs[GAMEPAD_RIGHT_STICK_DOWN_TO_L2] ?: false,
                 gamepadButtonHaptics = prefs[GAMEPAD_BUTTON_HAPTICS] ?: false,
+                pressureModifierAmount = (prefs[PRESSURE_MODIFIER_AMOUNT] ?: DEFAULT_PRESSURE_MODIFIER_AMOUNT).coerceIn(1, 100),
                 gamepadBindings = decodeGamepadBindings(prefs[GAMEPAD_BINDINGS]),
                 gamepadBindingsByPad = decodeGamepadBindingsByPad(prefs[GAMEPAD_BINDINGS]),
                 gpuDriverType = prefs[GPU_DRIVER_TYPE] ?: 0,
@@ -1324,6 +1329,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setGamepadButtonHaptics(enabled: Boolean) {
         context.dataStore.edit { it[GAMEPAD_BUTTON_HAPTICS] = enabled }
+    }
+
+    val pressureModifierAmount: Flow<Int> = context.dataStore.data.map { prefs ->
+        (prefs[PRESSURE_MODIFIER_AMOUNT] ?: DEFAULT_PRESSURE_MODIFIER_AMOUNT).coerceIn(1, 100)
+    }
+
+    suspend fun setPressureModifierAmount(value: Int) {
+        context.dataStore.edit { it[PRESSURE_MODIFIER_AMOUNT] = value.coerceIn(1, 100) }
     }
 
     val showFps: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -2678,6 +2691,7 @@ class AppPreferences(private val context: Context) {
             put("gamepadRightStickUpToR2", prefs[GAMEPAD_RIGHT_STICK_UP_TO_R2] ?: false)
             put("gamepadRightStickDownToL2", prefs[GAMEPAD_RIGHT_STICK_DOWN_TO_L2] ?: false)
             put("gamepadButtonHaptics", prefs[GAMEPAD_BUTTON_HAPTICS] ?: false)
+            put("pressureModifierAmount", (prefs[PRESSURE_MODIFIER_AMOUNT] ?: DEFAULT_PRESSURE_MODIFIER_AMOUNT).coerceIn(1, 100))
             put("enableFastBoot", prefs[ENABLE_FAST_BOOT] ?: true)
             put("eeCycleRate", prefs[EE_CYCLE_RATE] ?: 0)
             put("eeCycleSkip", prefs[EE_CYCLE_SKIP] ?: 0)
@@ -2913,6 +2927,7 @@ class AppPreferences(private val context: Context) {
             prefs[GAMEPAD_RIGHT_STICK_UP_TO_R2] = json.optBoolean("gamepadRightStickUpToR2", false)
             prefs[GAMEPAD_RIGHT_STICK_DOWN_TO_L2] = json.optBoolean("gamepadRightStickDownToL2", false)
             prefs[GAMEPAD_BUTTON_HAPTICS] = json.optBoolean("gamepadButtonHaptics", false)
+            prefs[PRESSURE_MODIFIER_AMOUNT] = json.optInt("pressureModifierAmount", DEFAULT_PRESSURE_MODIFIER_AMOUNT).coerceIn(1, 100)
             prefs[ENABLE_FAST_BOOT] = json.optBoolean("enableFastBoot", true)
             prefs[EE_CYCLE_RATE] = json.optInt("eeCycleRate", 0)
             prefs[EE_CYCLE_SKIP] = json.optInt("eeCycleSkip", 0)

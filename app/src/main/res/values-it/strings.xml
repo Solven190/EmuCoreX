@@ -1479,4 +1479,7 @@
     <string name="onboarding_games_selected_count">%1$d cartelle selezionate. Tocca per aggiungerne un\'altra.</string>
     <string name="settings_game_folders_count">%1$d cartelle selezionate</string>
     <string name="game_folders_remove">Rimuovi cartella</string>
+    <string name="settings_gamepad_action_pressure">Modificatore di pressione</string>
+    <string name="settings_pressure_modifier_amount">Quantità del modificatore di pressione</string>
+    <string name="settings_help_pressure_modifier_amount">Imposta la pressione inviata dai tasti sensibili alla pressione del DualShock 2 mentre viene tenuto premuto il modificatore di pressione. Le normali pressioni dei tasti continuano a usare il 100%.</string>
 </resources>

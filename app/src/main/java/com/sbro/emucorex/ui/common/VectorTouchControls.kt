@@ -72,6 +72,7 @@ fun overlayDrawableForControl(controlId: String): Int? = when (controlId) {
     "l3" -> R.drawable.ic_controller_l3_button
     "r3" -> R.drawable.ic_controller_r3_button
     "left_input_toggle" -> R.drawable.ic_controller_analog_button
+    "pressure" -> R.drawable.ic_controller_pressure_modifier
     else -> null
 }
 

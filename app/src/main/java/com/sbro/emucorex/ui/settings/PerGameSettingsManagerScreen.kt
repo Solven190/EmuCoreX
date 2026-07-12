@@ -1155,6 +1155,16 @@ private fun GameSettingsTabContent(
                         helpText = stringResource(R.string.settings_help_gamepad_button_haptics),
                         onResetToDefault = { onDraftChange(draft.copy(gamepadButtonHaptics = defaultProfile.gamepadButtonHaptics)) }
                     )
+                    SliderRow(
+                        title = stringResource(R.string.settings_pressure_modifier_amount),
+                        value = draft.pressureModifierAmount.toFloat(),
+                        valueLabel = "${draft.pressureModifierAmount}%",
+                        range = 1f..100f,
+                        steps = 98,
+                        onValueChange = { onDraftChange(draft.copy(pressureModifierAmount = it.roundToInt())) },
+                        helpText = stringResource(R.string.settings_help_pressure_modifier_amount),
+                        onResetToDefault = { onDraftChange(draft.copy(pressureModifierAmount = defaultProfile.pressureModifierAmount)) }
+                    )
                 }
             }
             GameSettingsManagerTab.Fixes -> {
@@ -1544,6 +1554,16 @@ private fun GameSettingsEditorDialog(
                                 onCheckedChange = { draft = draft.copy(gamepadButtonHaptics = it) },
                                 helpText = stringResource(R.string.settings_help_gamepad_button_haptics),
                                 onResetToDefault = { draft = draft.copy(gamepadButtonHaptics = defaultProfile.gamepadButtonHaptics) }
+                            )
+                            SliderRow(
+                                title = stringResource(R.string.settings_pressure_modifier_amount),
+                                value = draft.pressureModifierAmount.toFloat(),
+                                valueLabel = "${draft.pressureModifierAmount}%",
+                                range = 1f..100f,
+                                steps = 98,
+                                onValueChange = { draft = draft.copy(pressureModifierAmount = it.roundToInt()) },
+                                helpText = stringResource(R.string.settings_help_pressure_modifier_amount),
+                                onResetToDefault = { draft = draft.copy(pressureModifierAmount = defaultProfile.pressureModifierAmount) }
                             )
                             SelectionRow(
                                 title = stringResource(R.string.settings_fps_overlay_mode),
@@ -3259,6 +3279,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         gamepadRightStickUpToR2 = gamepadRightStickUpToR2,
         gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
         gamepadButtonHaptics = gamepadButtonHaptics,
+        pressureModifierAmount = pressureModifierAmount,
         autoSaveOnExit = false,
         autoLoadOnStart = false,
         enableFastBoot = enableFastBoot,
@@ -3353,6 +3374,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2, defaultProfile.gamepadRightStickUpToR2),
         gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2, defaultProfile.gamepadRightStickDownToL2),
         gamepadButtonHaptics = pick("gamepadButtonHaptics", gamepadButtonHaptics, defaultProfile.gamepadButtonHaptics),
+        pressureModifierAmount = pick("pressureModifierAmount", pressureModifierAmount, defaultProfile.pressureModifierAmount),
         autoSaveOnExit = pick("autoSaveOnExit", autoSaveOnExit, defaultProfile.autoSaveOnExit),
         autoLoadOnStart = pick("autoLoadOnStart", autoLoadOnStart, defaultProfile.autoLoadOnStart),
         enableFastBoot = pick("enableFastBoot", enableFastBoot, defaultProfile.enableFastBoot),

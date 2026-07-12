@@ -1479,4 +1479,7 @@
     <string name="onboarding_games_selected_count">%1$d फ़ोल्डर चुने गए। एक और जोड़ने के लिए टैप करें。</string>
     <string name="settings_game_folders_count">%1$d फ़ोल्डर चुने गए</string>
     <string name="game_folders_remove">फ़ोल्डर हटाएं</string>
+    <string name="settings_gamepad_action_pressure">दबाव संशोधक</string>
+    <string name="settings_pressure_modifier_amount">दबाव संशोधक की मात्रा</string>
+    <string name="settings_help_pressure_modifier_amount">यह दबाव-संवेदनशील DualShock 2 बटनों द्वारा भेजे गए दबाव को सेट करता है जब दबाव संशोधक दबाया जाता है। सामान्य बटन प्रेस अभी भी 100% का उपयोग करते हैं।</string>
 </resources>

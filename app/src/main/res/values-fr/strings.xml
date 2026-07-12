@@ -1481,4 +1481,7 @@
     <string name="onboarding_games_selected_count">%1$d dossiers sélectionnés. Touchez pour en ajouter un autre.</string>
     <string name="settings_game_folders_count">%1$d dossiers sélectionnés</string>
     <string name="game_folders_remove">Supprimer le dossier</string>
+    <string name="settings_gamepad_action_pressure">Modificateur de pression</string>
+    <string name="settings_pressure_modifier_amount">Quantité du modificateur de pression</string>
+    <string name="settings_help_pressure_modifier_amount">Définit la pression envoyée par les touches sensibles à la pression de la DualShock 2 lorsque le modificateur de pression est maintenu. Les pressions normales sur les touches utilisent toujours 100%.</string>
 </resources>

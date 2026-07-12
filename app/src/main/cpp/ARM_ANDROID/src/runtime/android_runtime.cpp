@@ -217,6 +217,8 @@ std::optional<u32> MapAndroidPadKeyToDualShock2Input(int index)
 			return PadDualshock2::PAD_R_DOWN;
 		case 123:
 			return PadDualshock2::PAD_R_LEFT;
+		case 124:
+			return PadDualshock2::PAD_PRESSURE;
 		default:
 			return std::nullopt;
 	}
@@ -797,6 +799,19 @@ void AndroidRuntime::SetPadButton(int pad_index, int index, int range, bool pres
 	const u32 controller = static_cast<u32>(std::clamp(pad_index, 0, static_cast<int>(Pad::NUM_CONTROLLER_PORTS - 1)));
 	const float value = PadValueFromAndroidRange(range, pressed);
 	Pad::SetControllerState(controller, bind.value(), value);
+}
+
+void AndroidRuntime::SetPadPressureModifierAmount(int amount_percent)
+{
+	if (!VMManager::HasValidVM())
+		return;
+
+	const float amount = static_cast<float>(std::clamp(amount_percent, 1, 100)) / 100.0f;
+	for (u32 controller = 0; controller < Pad::NUM_CONTROLLER_PORTS; controller++)
+	{
+		if (PadBase* pad = Pad::GetPad(static_cast<u8>(controller)))
+			pad->SetPressureModifier(amount);
+	}
 }
 
 void AndroidRuntime::ResetPadState(int pad_index)

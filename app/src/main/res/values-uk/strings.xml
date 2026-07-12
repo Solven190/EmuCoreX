@@ -1481,4 +1481,7 @@
     <string name="onboarding_games_selected_count">Вибрано папок: %1$d. Натисніть, щоб додати ще одну.</string>
     <string name="settings_game_folders_count">Вибрано папок: %1$d</string>
     <string name="game_folders_remove">Видалити папку</string>
+    <string name="settings_gamepad_action_pressure">Модифікатор натискання</string>
+    <string name="settings_pressure_modifier_amount">Сила модифікатора натискання</string>
+    <string name="settings_help_pressure_modifier_amount">Встановлює силу натискання, що передається чутливими до сили натискання кнопками DualShock 2, поки утримується модифікатор натискання. Звичайні натискання кнопок і далі використовують 100%.</string>
 </resources>

@@ -97,6 +97,7 @@ data class EmulationUiState(
     val gamepadRightStickUpToR2: Boolean = false,
     val gamepadRightStickDownToL2: Boolean = false,
     val gamepadButtonHaptics: Boolean = false,
+    val pressureModifierAmount: Int = AppPreferences.DEFAULT_PRESSURE_MODIFIER_AMOUNT,
     val stickSurfaceMode: Boolean = false,
     val controlLayouts: Map<String, OverlayControlLayout> = AppPreferences.defaultOverlayControlLayouts(),
     val fps: String = "0.0",
@@ -287,6 +288,7 @@ private data class EmulationLaunchConfig(
     val mergeSprite: Boolean,
     val forceEvenSpritePosition: Boolean,
     val nativePaletteDraw: Boolean,
+    val pressureModifierAmount: Int,
     val fpuCorrectAddSub: Boolean
 )
 
@@ -322,6 +324,7 @@ private data class LiveRuntimeSnapshot(
     val gamepadRightStickUpToR2: Boolean,
     val gamepadRightStickDownToL2: Boolean,
     val gamepadButtonHaptics: Boolean,
+    val pressureModifierAmount: Int,
     val autoSaveOnExit: Boolean,
     val autoLoadOnStart: Boolean,
     val targetFps: Int,
@@ -465,6 +468,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private fun syncGamepadRuntimeSettings(state: EmulationUiState) {
         syncGamepadRightStickTriggerMapping(state)
         GamepadManager.setButtonHapticsEnabled(state.gamepadButtonHaptics)
+        NativeApp.setPadPressureModifierAmount(state.pressureModifierAmount.coerceIn(1, 100))
     }
 
     private fun isRetroAchievementsHardcoreRestricted(): Boolean {
@@ -607,6 +611,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.gamepadButtonHaptics.collect { enabled ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(gamepadButtonHaptics = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.pressureModifierAmount.collect { amount ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(pressureModifierAmount = amount.coerceIn(1, 100)) }
             }
         }
         viewModelScope.launch {
@@ -1356,6 +1365,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     mergeSprite = config.mergeSprite,
                     forceEvenSpritePosition = config.forceEvenSpritePosition,
                     nativePaletteDraw = config.nativePaletteDraw,
+                    pressureModifierAmount = config.pressureModifierAmount,
                     autotestMode = autotestMode || bootSmokeProbe,
                     fpuCorrectAddSub = config.fpuCorrectAddSub
                 )
@@ -1548,6 +1558,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     gamepadRightStickUpToR2 = liveRuntime.gamepadRightStickUpToR2,
                     gamepadRightStickDownToL2 = liveRuntime.gamepadRightStickDownToL2,
                     gamepadButtonHaptics = liveRuntime.gamepadButtonHaptics,
+                    pressureModifierAmount = liveRuntime.pressureModifierAmount,
                     autoSaveOnExit = liveRuntime.autoSaveOnExit,
                     autoLoadOnStart = liveRuntime.autoLoadOnStart,
                     targetFps = liveRuntime.targetFps,
@@ -3320,96 +3331,98 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             mergeSprite = settings.mergeSprite,
             forceEvenSpritePosition = settings.forceEvenSpritePosition,
             nativePaletteDraw = settings.nativePaletteDraw,
+            pressureModifierAmount = settings.pressureModifierAmount,
             fpuCorrectAddSub = profileConfig.fpuCorrectAddSub
         ).applyProfile(profile)
     }
 
     private suspend fun loadLiveRuntimeSnapshot(): LiveRuntimeSnapshot {
         val profile = activePerGameKey()?.let(perGameSettingsRepository::get)
-        val gyro = loadGyroRuntimeSettings()
+        val settings = preferences.settingsSnapshot.first()
         return LiveRuntimeSnapshot(
-            showFps = preferences.showFps.first(),
-            fpsOverlayMode = preferences.fpsOverlayMode.first(),
-            confirmSaveLoadActions = preferences.confirmSaveLoadActions.first(),
-            renderer = preferences.renderer.first(),
-            upscale = preferences.upscaleMultiplier.first(),
-            aspectRatio = preferences.aspectRatio.first(),
-            performancePreset = preferences.performancePreset.first(),
-            enableMtvu = preferences.enableMtvu.first(),
-            enableThreadPinning = preferences.enableThreadPinning.first(),
-            enableFastCdvd = preferences.enableFastCdvd.first(),
-            enableFastBoot = preferences.enableFastBoot.first(),
-            enableCheats = preferences.enableCheats.first(),
-            hwDownloadMode = preferences.hwDownloadMode.first(),
-            eeCycleRate = preferences.eeCycleRate.first(),
-            eeCycleSkip = preferences.eeCycleSkip.first(),
-            frameSkip = preferences.frameSkip.first(),
-            skipDuplicateFrames = preferences.skipDuplicateFrames.first(),
-            frameLimitEnabled = preferences.frameLimitEnabled.first(),
-            fastForwardSpeed = preferences.fastForwardSpeed.first(),
-            racingMode = preferences.racingMode.first(),
-            touchHaptics = preferences.touchHaptics.first(),
-            touchHapticsPreset = preferences.touchHapticsPreset.first(),
-            touchHapticsStrength = preferences.touchHapticsStrength.first(),
-            gyroMode = gyro.mode,
-            gyroSensitivity = gyro.sensitivity,
-            gyroSmoothing = gyro.smoothing,
-            gyroInvertX = gyro.invertX,
-            gyroInvertY = gyro.invertY,
-            gamepadRightStickUpToR2 = preferences.gamepadRightStickUpToR2.first(),
-            gamepadRightStickDownToL2 = preferences.gamepadRightStickDownToL2.first(),
-            gamepadButtonHaptics = preferences.gamepadButtonHaptics.first(),
+            showFps = settings.showFps,
+            fpsOverlayMode = settings.fpsOverlayMode,
+            confirmSaveLoadActions = settings.confirmSaveLoadActions,
+            renderer = settings.renderer,
+            upscale = settings.upscaleMultiplier,
+            aspectRatio = settings.aspectRatio,
+            performancePreset = settings.performancePreset,
+            enableMtvu = settings.enableMtvu,
+            enableThreadPinning = settings.enableThreadPinning,
+            enableFastCdvd = settings.enableFastCdvd,
+            enableFastBoot = settings.enableFastBoot,
+            enableCheats = settings.enableCheats,
+            hwDownloadMode = settings.hwDownloadMode,
+            eeCycleRate = settings.eeCycleRate,
+            eeCycleSkip = settings.eeCycleSkip,
+            frameSkip = settings.frameSkip,
+            skipDuplicateFrames = settings.skipDuplicateFrames,
+            frameLimitEnabled = settings.frameLimitEnabled,
+            fastForwardSpeed = settings.fastForwardSpeed,
+            racingMode = settings.racingMode,
+            touchHaptics = settings.touchHaptics,
+            touchHapticsPreset = settings.touchHapticsPreset,
+            touchHapticsStrength = settings.touchHapticsStrength,
+            gyroMode = settings.gyroMode,
+            gyroSensitivity = settings.gyroSensitivity,
+            gyroSmoothing = settings.gyroSmoothing,
+            gyroInvertX = settings.gyroInvertX,
+            gyroInvertY = settings.gyroInvertY,
+            gamepadRightStickUpToR2 = settings.gamepadRightStickUpToR2,
+            gamepadRightStickDownToL2 = settings.gamepadRightStickDownToL2,
+            gamepadButtonHaptics = settings.gamepadButtonHaptics,
+            pressureModifierAmount = settings.pressureModifierAmount,
             autoSaveOnExit = false,
             autoLoadOnStart = false,
-            targetFps = preferences.targetFps.first(),
-            ntscFramerate = preferences.ntscFramerate.first(),
-            palFramerate = preferences.palFramerate.first(),
-            textureFiltering = preferences.textureFiltering.first(),
-            trilinearFiltering = preferences.trilinearFiltering.first(),
-            blendingAccuracy = preferences.blendingAccuracy.first(),
-            texturePreloading = preferences.texturePreloading.first(),
-            enableFxaa = preferences.enableFxaa.first(),
-            casMode = preferences.casMode.first(),
-            sgsrMode = preferences.sgsrMode.first(),
-            casSharpness = preferences.casSharpness.first(),
-            tvShader = preferences.tvShader.first(),
-            shadeBoostEnabled = preferences.shadeBoostEnabled.first(),
-            shadeBoostBrightness = preferences.shadeBoostBrightness.first(),
-            shadeBoostContrast = preferences.shadeBoostContrast.first(),
-            shadeBoostSaturation = preferences.shadeBoostSaturation.first(),
-            shadeBoostGamma = preferences.shadeBoostGamma.first(),
-            anisotropicFiltering = preferences.anisotropicFiltering.first(),
-            enableHwMipmapping = preferences.enableHwMipmapping.first(),
-            antiBlur = preferences.antiBlur.first(),
-            widescreenPatches = preferences.enableWidescreenPatches.first(),
-            noInterlacingPatches = preferences.enableNoInterlacingPatches.first(),
-            cpuSpriteRenderSize = preferences.cpuSpriteRenderSize.first(),
-            cpuSpriteRenderLevel = preferences.cpuSpriteRenderLevel.first(),
-            softwareClutRender = preferences.softwareClutRender.first(),
-            gpuTargetClutMode = preferences.gpuTargetClutMode.first(),
-            skipDrawStart = preferences.skipDrawStart.first(),
-            skipDrawEnd = preferences.skipDrawEnd.first(),
-            autoFlushHardware = preferences.autoFlushHardware.first(),
-            cpuFramebufferConversion = preferences.cpuFramebufferConversion.first(),
-            disableDepthConversion = preferences.disableDepthConversion.first(),
-            disableSafeFeatures = preferences.disableSafeFeatures.first(),
-            disableRenderFixes = preferences.disableRenderFixes.first(),
-            preloadFrameData = preferences.preloadFrameData.first(),
-            disablePartialInvalidation = preferences.disablePartialInvalidation.first(),
-            textureInsideRt = preferences.textureInsideRt.first(),
-            readTargetsOnClose = preferences.readTargetsOnClose.first(),
-            estimateTextureRegion = preferences.estimateTextureRegion.first(),
-            gpuPaletteConversion = preferences.gpuPaletteConversion.first(),
-            halfPixelOffset = preferences.halfPixelOffset.first(),
-            nativeScaling = preferences.nativeScaling.first(),
-            roundSprite = preferences.roundSprite.first(),
-            bilinearUpscale = preferences.bilinearUpscale.first(),
-            textureOffsetX = preferences.textureOffsetX.first(),
-            textureOffsetY = preferences.textureOffsetY.first(),
-            alignSprite = preferences.alignSprite.first(),
-            mergeSprite = preferences.mergeSprite.first(),
-            forceEvenSpritePosition = preferences.forceEvenSpritePosition.first(),
-            nativePaletteDraw = preferences.nativePaletteDraw.first()
+            targetFps = settings.targetFps,
+            ntscFramerate = settings.ntscFramerate,
+            palFramerate = settings.palFramerate,
+            textureFiltering = settings.textureFiltering,
+            trilinearFiltering = settings.trilinearFiltering,
+            blendingAccuracy = settings.blendingAccuracy,
+            texturePreloading = settings.texturePreloading,
+            enableFxaa = settings.enableFxaa,
+            casMode = settings.casMode,
+            sgsrMode = settings.sgsrMode,
+            casSharpness = settings.casSharpness,
+            tvShader = settings.tvShader,
+            shadeBoostEnabled = settings.shadeBoostEnabled,
+            shadeBoostBrightness = settings.shadeBoostBrightness,
+            shadeBoostContrast = settings.shadeBoostContrast,
+            shadeBoostSaturation = settings.shadeBoostSaturation,
+            shadeBoostGamma = settings.shadeBoostGamma,
+            anisotropicFiltering = settings.anisotropicFiltering,
+            enableHwMipmapping = settings.enableHwMipmapping,
+            antiBlur = settings.antiBlur,
+            widescreenPatches = settings.enableWidescreenPatches,
+            noInterlacingPatches = settings.enableNoInterlacingPatches,
+            cpuSpriteRenderSize = settings.cpuSpriteRenderSize,
+            cpuSpriteRenderLevel = settings.cpuSpriteRenderLevel,
+            softwareClutRender = settings.softwareClutRender,
+            gpuTargetClutMode = settings.gpuTargetClutMode,
+            skipDrawStart = settings.skipDrawStart,
+            skipDrawEnd = settings.skipDrawEnd,
+            autoFlushHardware = settings.autoFlushHardware,
+            cpuFramebufferConversion = settings.cpuFramebufferConversion,
+            disableDepthConversion = settings.disableDepthConversion,
+            disableSafeFeatures = settings.disableSafeFeatures,
+            disableRenderFixes = settings.disableRenderFixes,
+            preloadFrameData = settings.preloadFrameData,
+            disablePartialInvalidation = settings.disablePartialInvalidation,
+            textureInsideRt = settings.textureInsideRt,
+            readTargetsOnClose = settings.readTargetsOnClose,
+            estimateTextureRegion = settings.estimateTextureRegion,
+            gpuPaletteConversion = settings.gpuPaletteConversion,
+            halfPixelOffset = settings.halfPixelOffset,
+            nativeScaling = settings.nativeScaling,
+            roundSprite = settings.roundSprite,
+            bilinearUpscale = settings.bilinearUpscale,
+            textureOffsetX = settings.textureOffsetX,
+            textureOffsetY = settings.textureOffsetY,
+            alignSprite = settings.alignSprite,
+            mergeSprite = settings.mergeSprite,
+            forceEvenSpritePosition = settings.forceEvenSpritePosition,
+            nativePaletteDraw = settings.nativePaletteDraw
         ).applyProfile(profile)
     }
 
@@ -3497,7 +3510,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             alignSprite = pick("alignSprite", alignSprite) { alignSprite },
             mergeSprite = pick("mergeSprite", mergeSprite) { mergeSprite },
             forceEvenSpritePosition = pick("forceEvenSpritePosition", forceEvenSpritePosition) { forceEvenSpritePosition },
-            nativePaletteDraw = pick("nativePaletteDraw", nativePaletteDraw) { nativePaletteDraw }
+            nativePaletteDraw = pick("nativePaletteDraw", nativePaletteDraw) { nativePaletteDraw },
+            pressureModifierAmount = pick("pressureModifierAmount", pressureModifierAmount) { pressureModifierAmount }
         )
     }
 
@@ -3522,6 +3536,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2) { gamepadRightStickUpToR2 },
             gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2) { gamepadRightStickDownToL2 },
             gamepadButtonHaptics = pick("gamepadButtonHaptics", gamepadButtonHaptics) { gamepadButtonHaptics },
+            pressureModifierAmount = pick("pressureModifierAmount", pressureModifierAmount) { pressureModifierAmount },
             autoSaveOnExit = pick("autoSaveOnExit", autoSaveOnExit) { autoSaveOnExit },
             autoLoadOnStart = pick("autoLoadOnStart", autoLoadOnStart) { autoLoadOnStart },
             renderer = pick("renderer", renderer) { renderer },
@@ -3618,6 +3633,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalGamepadRightStickUpToR2 = preferences.gamepadRightStickUpToR2.first()
         val globalGamepadRightStickDownToL2 = preferences.gamepadRightStickDownToL2.first()
         val globalGamepadButtonHaptics = preferences.gamepadButtonHaptics.first()
+        val globalPressureModifierAmount = preferences.pressureModifierAmount.first()
         val globalTargetFps = preferences.targetFps.first()
         val globalNtscFramerate = preferences.ntscFramerate.first()
         val globalPalFramerate = preferences.palFramerate.first()
@@ -3656,6 +3672,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             gamepadRightStickUpToR2 = gamepadRightStickUpToR2,
             gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
             gamepadButtonHaptics = gamepadButtonHaptics,
+            pressureModifierAmount = pressureModifierAmount,
             autoSaveOnExit = autoSaveOnExit,
             autoLoadOnStart = autoLoadOnStart,
             targetFps = targetFps,
@@ -3737,6 +3754,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (gamepadRightStickUpToR2 != globalGamepadRightStickUpToR2) add("gamepadRightStickUpToR2")
             if (gamepadRightStickDownToL2 != globalGamepadRightStickDownToL2) add("gamepadRightStickDownToL2")
             if (gamepadButtonHaptics != globalGamepadButtonHaptics) add("gamepadButtonHaptics")
+            if (pressureModifierAmount != globalPressureModifierAmount) add("pressureModifierAmount")
             if (autoSaveOnExit) add("autoSaveOnExit")
             if (autoLoadOnStart) add("autoLoadOnStart")
             if (targetFps != globalTargetFps) add("targetFps")
