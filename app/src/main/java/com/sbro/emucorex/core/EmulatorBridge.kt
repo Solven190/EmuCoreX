@@ -7,6 +7,7 @@ import android.view.Surface
 import androidx.core.net.toUri
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.core.CrashLogger
+import com.sbro.emucorex.core.utils.NetworkAdapterCollector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -292,6 +293,7 @@ object EmulatorBridge {
                 AppPreferences(context.applicationContext).preferEnglishGameTitles.first()
             }
             NativeApp.setSetting("UI", "PreferEnglishGameTitles", "bool", preferEnglishTitles.toString())
+            NetworkAdapterCollector.collectAdapters(context.applicationContext)
             Log.i(TAG, "initializeOnce completed")
         } catch (error: Exception) {
             Log.e(TAG, "initializeOnce failed", error)
@@ -401,11 +403,21 @@ object EmulatorBridge {
         memoryCardSlot1: String? = null,
         memoryCardSlot2: String? = null,
         autotestMode: Boolean = false,
-        fpuCorrectAddSub: Boolean = true
+        fpuCorrectAddSub: Boolean = true,
+        dev9EthernetEnabled: Boolean = false,
+        dev9EthernetDevice: String = "Auto",
+        dev9InterceptDhcp: Boolean = false,
+        dev9Dns1Mode: String = "Auto",
+        dev9Dns1: String = "0.0.0.0",
+        dev9Dns2Mode: String = "Auto",
+        dev9Dns2: String = "0.0.0.0",
+        dev9LogDhcp: Boolean = false,
+        dev9LogDns: Boolean = false
     ) {
         if (!isNativeLoaded) return
 
         val context = getContext() ?: return
+        NetworkAdapterCollector.collectAdapters(context)
         val resolvedRenderer = normalizeRenderer(renderer)
         val preparedBios = DocumentPathResolver.prepareBiosSelection(context, biosPath)
         val resolvedBiosPath = preparedBios?.directoryPath
@@ -498,6 +510,16 @@ object EmulatorBridge {
         performRuntimeOps(
             buildList {
                 add(settingOp("EmuCore/GS", "Renderer", "int", resolvedRenderer.toString()))
+                add(settingOp("DEV9/Eth", "EthEnable", "bool", dev9EthernetEnabled.toString()))
+                add(settingOp("DEV9/Eth", "EthApi", "string", "Sockets"))
+                add(settingOp("DEV9/Eth", "EthDevice", "string", dev9EthernetDevice.ifBlank { "Auto" }))
+                add(settingOp("DEV9/Eth", "InterceptDHCP", "bool", dev9InterceptDhcp.toString()))
+                add(settingOp("DEV9/Eth", "ModeDNS1", "string", dev9Dns1Mode))
+                add(settingOp("DEV9/Eth", "DNS1", "string", dev9Dns1))
+                add(settingOp("DEV9/Eth", "ModeDNS2", "string", dev9Dns2Mode))
+                add(settingOp("DEV9/Eth", "DNS2", "string", dev9Dns2))
+                add(settingOp("DEV9/Eth", "EthLogDHCP", "bool", dev9LogDhcp.toString()))
+                add(settingOp("DEV9/Eth", "EthLogDNS", "bool", dev9LogDns.toString()))
                 val pressureAmount = pressureModifierAmount.coerceIn(1, 100) / 100.0f
                 add(settingOp("Pad1", "PressureModifier", "float", pressureAmount.toString()))
                 add(settingOp("Pad2", "PressureModifier", "float", pressureAmount.toString()))

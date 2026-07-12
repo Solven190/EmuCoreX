@@ -178,6 +178,15 @@ data class SettingsSnapshot(
     val gpuDriverType: Int = 0,
     val mediatekAngleOpenGl: Boolean = false,
     val customDriverPath: String? = null,
+    val dev9EthernetEnabled: Boolean = false,
+    val dev9EthernetDevice: String = "Auto",
+    val dev9InterceptDhcp: Boolean = false,
+    val dev9Dns1Mode: String = AppPreferences.DEV9_DNS_MODE_AUTO,
+    val dev9Dns1: String = "0.0.0.0",
+    val dev9Dns2Mode: String = AppPreferences.DEV9_DNS_MODE_AUTO,
+    val dev9Dns2: String = "0.0.0.0",
+    val dev9LogDhcp: Boolean = false,
+    val dev9LogDns: Boolean = false,
     val frameLimitEnabled: Boolean = true,
     val vSyncEnabled: Boolean = false,
     val fastForwardSpeed: Float = AppPreferences.DEFAULT_FAST_FORWARD_SPEED,
@@ -234,6 +243,9 @@ class AppPreferences(private val context: Context) {
     private val appUpdatePrefs = context.getSharedPreferences("app_update", Context.MODE_PRIVATE)
 
     companion object {
+        const val DEV9_DNS_MODE_MANUAL = "Manual"
+        const val DEV9_DNS_MODE_AUTO = "Auto"
+        const val DEV9_DNS_MODE_INTERNAL = "Internal"
         private const val CURRENT_OVERLAY_LAYOUT_VERSION = 16
         const val DEFAULT_NTSC_FRAMERATE = 59.94f
         const val DEFAULT_PAL_FRAMERATE = 50f
@@ -472,6 +484,15 @@ class AppPreferences(private val context: Context) {
         private val GPU_DRIVER_TYPE = intPreferencesKey("gpu_driver_type")
         private val MEDIATEK_ANGLE_OPENGL = booleanPreferencesKey("mediatek_angle_opengl")
         private val CUSTOM_DRIVER_PATH = stringPreferencesKey("custom_driver_path")
+        private val DEV9_ETHERNET_ENABLED = booleanPreferencesKey("dev9_ethernet_enabled")
+        private val DEV9_ETHERNET_DEVICE = stringPreferencesKey("dev9_ethernet_device")
+        private val DEV9_INTERCEPT_DHCP = booleanPreferencesKey("dev9_intercept_dhcp")
+        private val DEV9_DNS1_MODE = stringPreferencesKey("dev9_dns1_mode")
+        private val DEV9_DNS1 = stringPreferencesKey("dev9_dns1")
+        private val DEV9_DNS2_MODE = stringPreferencesKey("dev9_dns2_mode")
+        private val DEV9_DNS2 = stringPreferencesKey("dev9_dns2")
+        private val DEV9_LOG_DHCP = booleanPreferencesKey("dev9_log_dhcp")
+        private val DEV9_LOG_DNS = booleanPreferencesKey("dev9_log_dns")
         private val SCREEN_SETTINGS_RESET_HINT_SHOWN = booleanPreferencesKey("screen_settings_reset_hint_shown")
         private val FRAME_LIMIT_ENABLED = booleanPreferencesKey("frame_limit_enabled")
         private val VSYNC_ENABLED = booleanPreferencesKey("vsync_enabled")
@@ -1176,6 +1197,15 @@ class AppPreferences(private val context: Context) {
                 gpuDriverType = prefs[GPU_DRIVER_TYPE] ?: 0,
                 mediatekAngleOpenGl = prefs[MEDIATEK_ANGLE_OPENGL] ?: false,
                 customDriverPath = prefs[CUSTOM_DRIVER_PATH],
+                dev9EthernetEnabled = prefs[DEV9_ETHERNET_ENABLED] ?: false,
+                dev9EthernetDevice = prefs[DEV9_ETHERNET_DEVICE]?.takeIf(String::isNotBlank) ?: "Auto",
+                dev9InterceptDhcp = prefs[DEV9_INTERCEPT_DHCP] ?: false,
+                dev9Dns1Mode = sanitizeDev9DnsMode(prefs[DEV9_DNS1_MODE]),
+                dev9Dns1 = sanitizeIpv4(prefs[DEV9_DNS1]),
+                dev9Dns2Mode = sanitizeDev9DnsMode(prefs[DEV9_DNS2_MODE]),
+                dev9Dns2 = sanitizeIpv4(prefs[DEV9_DNS2]),
+                dev9LogDhcp = prefs[DEV9_LOG_DHCP] ?: false,
+                dev9LogDns = prefs[DEV9_LOG_DNS] ?: false,
                 frameLimitEnabled = prefs[FRAME_LIMIT_ENABLED] ?: true,
                 vSyncEnabled = prefs[VSYNC_ENABLED] ?: false,
                 fastForwardSpeed = sanitizeFastForwardSpeed(prefs[FAST_FORWARD_SPEED]),
@@ -1189,6 +1219,29 @@ class AppPreferences(private val context: Context) {
             )
         }
         .distinctUntilChanged()
+
+    suspend fun setDev9EthernetEnabled(enabled: Boolean) = context.dataStore.edit { it[DEV9_ETHERNET_ENABLED] = enabled }
+    suspend fun setDev9EthernetDevice(device: String) = context.dataStore.edit {
+        it[DEV9_ETHERNET_DEVICE] = device.ifBlank { "Auto" }
+    }
+    suspend fun setDev9InterceptDhcp(enabled: Boolean) = context.dataStore.edit { it[DEV9_INTERCEPT_DHCP] = enabled }
+    suspend fun setDev9Dns1Mode(mode: String) = context.dataStore.edit { it[DEV9_DNS1_MODE] = sanitizeDev9DnsMode(mode) }
+    suspend fun setDev9Dns1(address: String) = context.dataStore.edit { it[DEV9_DNS1] = sanitizeIpv4(address) }
+    suspend fun setDev9Dns2Mode(mode: String) = context.dataStore.edit { it[DEV9_DNS2_MODE] = sanitizeDev9DnsMode(mode) }
+    suspend fun setDev9Dns2(address: String) = context.dataStore.edit { it[DEV9_DNS2] = sanitizeIpv4(address) }
+    suspend fun setDev9LogDhcp(enabled: Boolean) = context.dataStore.edit { it[DEV9_LOG_DHCP] = enabled }
+    suspend fun setDev9LogDns(enabled: Boolean) = context.dataStore.edit { it[DEV9_LOG_DNS] = enabled }
+
+    private fun sanitizeDev9DnsMode(mode: String?): String = when (mode) {
+        DEV9_DNS_MODE_MANUAL, DEV9_DNS_MODE_INTERNAL -> mode
+        else -> DEV9_DNS_MODE_AUTO
+    }
+
+    private fun sanitizeIpv4(address: String?): String {
+        val parts = address.orEmpty().trim().split('.')
+        if (parts.size != 4 || parts.any { it.toIntOrNull() !in 0..255 }) return "0.0.0.0"
+        return parts.joinToString(".") { it.toInt().toString() }
+    }
 
     val overlayLayoutSnapshot: Flow<OverlayLayoutSnapshot> = context.dataStore.data
         .map { prefs ->
@@ -2785,6 +2838,15 @@ class AppPreferences(private val context: Context) {
             put("gamepadBindings", prefs[GAMEPAD_BINDINGS])
             put("gpuDriverType", prefs[GPU_DRIVER_TYPE] ?: 0)
             put("customDriverPath", prefs[CUSTOM_DRIVER_PATH])
+            put("dev9EthernetEnabled", prefs[DEV9_ETHERNET_ENABLED] ?: false)
+            put("dev9EthernetDevice", prefs[DEV9_ETHERNET_DEVICE] ?: "Auto")
+            put("dev9InterceptDhcp", prefs[DEV9_INTERCEPT_DHCP] ?: false)
+            put("dev9Dns1Mode", sanitizeDev9DnsMode(prefs[DEV9_DNS1_MODE]))
+            put("dev9Dns1", sanitizeIpv4(prefs[DEV9_DNS1]))
+            put("dev9Dns2Mode", sanitizeDev9DnsMode(prefs[DEV9_DNS2_MODE]))
+            put("dev9Dns2", sanitizeIpv4(prefs[DEV9_DNS2]))
+            put("dev9LogDhcp", prefs[DEV9_LOG_DHCP] ?: false)
+            put("dev9LogDns", prefs[DEV9_LOG_DNS] ?: false)
             put("frameLimitEnabled", prefs[FRAME_LIMIT_ENABLED] ?: true)
             put("vSyncEnabled", prefs[VSYNC_ENABLED] ?: false)
             put("fastForwardSpeed", sanitizeFastForwardSpeed(prefs[FAST_FORWARD_SPEED]).toDouble())
@@ -3024,6 +3086,15 @@ class AppPreferences(private val context: Context) {
             json.optString("gamepadBindings").takeIf { it.isNotBlank() }?.let { prefs[GAMEPAD_BINDINGS] = it } ?: prefs.remove(GAMEPAD_BINDINGS)
             prefs[GPU_DRIVER_TYPE] = json.optInt("gpuDriverType", 0)
             json.optString("customDriverPath").takeIf { it.isNotBlank() }?.let { prefs[CUSTOM_DRIVER_PATH] = it } ?: prefs.remove(CUSTOM_DRIVER_PATH)
+            prefs[DEV9_ETHERNET_ENABLED] = json.optBoolean("dev9EthernetEnabled", false)
+            prefs[DEV9_ETHERNET_DEVICE] = json.optString("dev9EthernetDevice", "Auto").ifBlank { "Auto" }
+            prefs[DEV9_INTERCEPT_DHCP] = json.optBoolean("dev9InterceptDhcp", false)
+            prefs[DEV9_DNS1_MODE] = sanitizeDev9DnsMode(json.optString("dev9Dns1Mode", DEV9_DNS_MODE_AUTO))
+            prefs[DEV9_DNS1] = sanitizeIpv4(json.optString("dev9Dns1", "0.0.0.0"))
+            prefs[DEV9_DNS2_MODE] = sanitizeDev9DnsMode(json.optString("dev9Dns2Mode", DEV9_DNS_MODE_AUTO))
+            prefs[DEV9_DNS2] = sanitizeIpv4(json.optString("dev9Dns2", "0.0.0.0"))
+            prefs[DEV9_LOG_DHCP] = json.optBoolean("dev9LogDhcp", false)
+            prefs[DEV9_LOG_DNS] = json.optBoolean("dev9LogDns", false)
             prefs[FRAME_LIMIT_ENABLED] = json.optBoolean("frameLimitEnabled", true)
             prefs[VSYNC_ENABLED] = json.optBoolean("vSyncEnabled", false)
             prefs[FAST_FORWARD_SPEED] = sanitizeFastForwardSpeed(json.optDouble("fastForwardSpeed", DEFAULT_FAST_FORWARD_SPEED.toDouble()).toFloat())

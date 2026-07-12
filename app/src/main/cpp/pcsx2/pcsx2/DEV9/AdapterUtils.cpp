@@ -21,6 +21,10 @@
 #include <sys/ioctl.h>
 #include <string.h>
 
+#if defined(__ANDROID__)
+#include "emucorex/android_network_adapters.h"
+#endif
+
 #if defined(__FreeBSD__) || (__APPLE__)
 #include <sys/types.h>
 #include <net/if_dl.h>
@@ -218,6 +222,9 @@ bool AdapterUtils::GetAdapter(const std::string& name, Adapter* adapter, Adapter
 bool AdapterUtils::GetAdapterAuto(Adapter* adapter, AdapterBuffer* buffer)
 {
 	std::unique_ptr<ifaddrs, IfAdaptersDeleter> adapterInfo;
+	#if defined(__ANDROID__)
+	std::optional<Adapter> androidFallback;
+	#endif
 	ifaddrs* pAdapter = GetAllAdapters(&adapterInfo);
 	if (pAdapter == nullptr)
 		return false;
@@ -236,6 +243,10 @@ bool AdapterUtils::GetAdapterAuto(Adapter* adapter, AdapterBuffer* buffer)
 
 			if (GetAdapterIP(pAdapter).has_value())
 				hasIPv4 = true;
+			#if defined(__ANDROID__)
+			if (hasIPv4 && !androidFallback.has_value())
+				androidFallback = *pAdapter;
+			#endif
 
 			if (GetGateways(pAdapter).size() > 0)
 				hasGateway = true;
@@ -250,6 +261,18 @@ bool AdapterUtils::GetAdapterAuto(Adapter* adapter, AdapterBuffer* buffer)
 
 		pAdapter = pAdapter->ifa_next;
 	} while (pAdapter);
+
+	#if defined(__ANDROID__)
+	// Cellular and some VPN routes are valid default routes without a next-hop
+	// gateway. Socket mode only needs their source address, so keep an IPv4
+	// interface as a fallback when Android exposes no conventional gateway.
+	if (androidFallback.has_value())
+	{
+		*adapter = androidFallback.value();
+		buffer->swap(adapterInfo);
+		return true;
+	}
+	#endif
 
 	return false;
 }
@@ -267,6 +290,19 @@ std::optional<MAC_Address> AdapterUtils::GetAdapterMAC(const Adapter* adapter)
 	}
 
 	return std::nullopt;
+}
+#elif defined(__ANDROID__)
+std::optional<MAC_Address> AdapterUtils::GetAdapterMAC(const Adapter* adapter)
+{
+	(void)adapter;
+	MAC_Address address{};
+	const std::string mac = emucorex::android::network::GetStableMacAddress();
+	unsigned int bytes[6]{};
+	if (std::sscanf(mac.c_str(), "%x:%x:%x:%x:%x:%x", &bytes[0], &bytes[1], &bytes[2], &bytes[3], &bytes[4], &bytes[5]) != 6)
+		return std::nullopt;
+	for (size_t i = 0; i < 6; i++)
+		address.bytes[i] = static_cast<u8>(bytes[i]);
+	return address;
 }
 #else
 std::optional<MAC_Address> AdapterUtils::GetAdapterMAC(const Adapter* adapter)
@@ -391,6 +427,20 @@ std::vector<IP_Address> AdapterUtils::GetGateways(const Adapter* adapter)
 	}
 
 	return collection;
+}
+#elif defined(__ANDROID__)
+std::vector<IP_Address> AdapterUtils::GetGateways(const Adapter* adapter)
+{
+	if (!adapter)
+		return {};
+	std::vector<IP_Address> result;
+	for (const std::string& gateway : emucorex::android::network::GetGateways(adapter->ifa_name))
+	{
+		IP_Address address{};
+		if (inet_pton(AF_INET, gateway.c_str(), &address) == 1)
+			result.push_back(address);
+	}
+	return result;
 }
 #elif defined(__POSIX__)
 #ifdef __linux__
@@ -547,6 +597,20 @@ std::vector<IP_Address> AdapterUtils::GetDNS(const Adapter* adapter)
 	}
 
 	return collection;
+}
+#elif defined(__ANDROID__)
+std::vector<IP_Address> AdapterUtils::GetDNS(const Adapter* adapter)
+{
+	if (!adapter)
+		return {};
+	std::vector<IP_Address> result;
+	for (const std::string& server : emucorex::android::network::GetDnsServers(adapter->ifa_name))
+	{
+		IP_Address address{};
+		if (inet_pton(AF_INET, server.c_str(), &address) == 1)
+			result.push_back(address);
+	}
+	return result;
 }
 #elif defined(__POSIX__)
 std::vector<IP_Address> AdapterUtils::GetDNS(const Adapter* adapter)

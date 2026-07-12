@@ -289,7 +289,16 @@ private data class EmulationLaunchConfig(
     val forceEvenSpritePosition: Boolean,
     val nativePaletteDraw: Boolean,
     val pressureModifierAmount: Int,
-    val fpuCorrectAddSub: Boolean
+    val fpuCorrectAddSub: Boolean,
+    val dev9EthernetEnabled: Boolean,
+    val dev9EthernetDevice: String,
+    val dev9InterceptDhcp: Boolean,
+    val dev9Dns1Mode: String,
+    val dev9Dns1: String,
+    val dev9Dns2Mode: String,
+    val dev9Dns2: String,
+    val dev9LogDhcp: Boolean,
+    val dev9LogDns: Boolean
 )
 
 private data class LiveRuntimeSnapshot(
@@ -1367,7 +1376,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     nativePaletteDraw = config.nativePaletteDraw,
                     pressureModifierAmount = config.pressureModifierAmount,
                     autotestMode = autotestMode || bootSmokeProbe,
-                    fpuCorrectAddSub = config.fpuCorrectAddSub
+                    fpuCorrectAddSub = config.fpuCorrectAddSub,
+                    dev9EthernetEnabled = config.dev9EthernetEnabled,
+                    dev9EthernetDevice = config.dev9EthernetDevice,
+                    dev9InterceptDhcp = config.dev9InterceptDhcp,
+                    dev9Dns1Mode = config.dev9Dns1Mode,
+                    dev9Dns1 = config.dev9Dns1,
+                    dev9Dns2Mode = config.dev9Dns2Mode,
+                    dev9Dns2 = config.dev9Dns2,
+                    dev9LogDhcp = config.dev9LogDhcp,
+                    dev9LogDns = config.dev9LogDns
                 )
 
                 _uiState.value = _uiState.value.copy(
@@ -3332,7 +3350,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             forceEvenSpritePosition = settings.forceEvenSpritePosition,
             nativePaletteDraw = settings.nativePaletteDraw,
             pressureModifierAmount = settings.pressureModifierAmount,
-            fpuCorrectAddSub = profileConfig.fpuCorrectAddSub
+            fpuCorrectAddSub = profileConfig.fpuCorrectAddSub,
+            dev9EthernetEnabled = settings.dev9EthernetEnabled,
+            dev9EthernetDevice = settings.dev9EthernetDevice,
+            dev9InterceptDhcp = settings.dev9InterceptDhcp,
+            dev9Dns1Mode = settings.dev9Dns1Mode,
+            dev9Dns1 = settings.dev9Dns1,
+            dev9Dns2Mode = settings.dev9Dns2Mode,
+            dev9Dns2 = settings.dev9Dns2,
+            dev9LogDhcp = settings.dev9LogDhcp,
+            dev9LogDns = settings.dev9LogDns
         ).applyProfile(profile)
     }
 

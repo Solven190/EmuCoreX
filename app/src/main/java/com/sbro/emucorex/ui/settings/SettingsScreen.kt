@@ -132,6 +132,7 @@ import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.buildUpscaleOptions
 import com.sbro.emucorex.core.upscaleKeyToMultiplier
 import com.sbro.emucorex.core.upscaleMultiplierValue
+import com.sbro.emucorex.core.utils.NetworkAdapterCollector
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_SIMPLE
@@ -158,7 +159,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private enum class SettingsTab {
-    General, Graphics, Audio, Controls, Emulation, Fixes, Library, About, Pro, Updates
+    General, Graphics, Audio, Controls, Emulation, Fixes, Network, Library, About, Pro, Updates
 }
 
 @SuppressLint("ConfigurationScreenWidthHeight")
@@ -2545,6 +2546,10 @@ private fun SettingsContent(
                     )
                 }
 
+                SettingsTab.Network -> {
+                    NetworkSettingsTab(uiState, context, defaults, viewModel)
+                }
+
                 SettingsTab.Pro -> {
                     ProSettingsTab(
                         uiState = uiState,
@@ -2616,6 +2621,183 @@ private fun SettingsContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun NetworkSettingsTab(
+    uiState: SettingsUiState,
+    context: android.content.Context,
+    defaults: SettingsSnapshot,
+    viewModel: SettingsViewModel
+) {
+    val adapters = remember(context) {
+        NetworkAdapterCollector.collectAdapters(context)
+            .filter { adapter ->
+                adapter.isUp && !adapter.isLoopback && adapter.ipAddresses.any { !it.contains(':') }
+            }
+    }
+    val devices = remember(adapters, uiState.dev9EthernetDevice) {
+        buildList {
+            add("Auto" to "Auto")
+            adapters.forEach { adapter ->
+                add(adapter.name to "${adapter.displayName} (${adapter.name})")
+            }
+            if (uiState.dev9EthernetDevice != "Auto" && none { it.first == uiState.dev9EthernetDevice }) {
+                add(uiState.dev9EthernetDevice to uiState.dev9EthernetDevice)
+            }
+        }.distinctBy { it.first }
+    }
+    val dnsModes = listOf(
+        AppPreferences.DEV9_DNS_MODE_AUTO to stringResource(R.string.settings_network_dns_mode_auto),
+        AppPreferences.DEV9_DNS_MODE_MANUAL to stringResource(R.string.settings_network_dns_mode_manual),
+        AppPreferences.DEV9_DNS_MODE_INTERNAL to stringResource(R.string.settings_network_dns_mode_internal)
+    )
+
+    SettingsSection(title = stringResource(R.string.settings_network_tab)) {
+        SettingsInlineNote(stringResource(R.string.settings_network_summary))
+        ToggleItem(
+            icon = Icons.Rounded.Link,
+            title = stringResource(R.string.settings_network_enable),
+            subtitle = stringResource(R.string.settings_network_enable_desc),
+            checked = uiState.dev9EthernetEnabled,
+            onCheckedChange = viewModel::setDev9EthernetEnabled,
+            helpText = stringResource(R.string.settings_network_enable_help),
+            onResetToDefault = { viewModel.setDev9EthernetEnabled(defaults.dev9EthernetEnabled) }
+        )
+        SettingsItem(
+            icon = Icons.Rounded.Link,
+            label = stringResource(R.string.settings_network_api),
+            value = stringResource(R.string.settings_network_api_sockets),
+            onClick = {}
+        )
+        ChoiceSection(
+            title = stringResource(R.string.settings_network_adapter),
+            options = devices.mapIndexed { index, (_, label) -> index to label },
+            selectedValue = devices.indexOfFirst { it.first == uiState.dev9EthernetDevice }.coerceAtLeast(0),
+            onSelect = { index -> devices.getOrNull(index)?.first?.let(viewModel::setDev9EthernetDevice) },
+            helpText = stringResource(R.string.settings_network_adapter_help),
+            onResetToDefault = { viewModel.setDev9EthernetDevice(defaults.dev9EthernetDevice) }
+        )
+        ChoiceSection(
+            title = stringResource(R.string.settings_network_dns_preset),
+            options = listOf(
+                0 to stringResource(R.string.settings_network_dns_preset_system),
+                1 to stringResource(R.string.settings_network_dns_preset_ps2online),
+                2 to stringResource(R.string.settings_network_dns_preset_psrewired)
+            ),
+            selectedValue = when {
+                uiState.dev9Dns1Mode == AppPreferences.DEV9_DNS_MODE_MANUAL && uiState.dev9Dns1 == "45.7.228.197" -> 1
+                uiState.dev9Dns1Mode == AppPreferences.DEV9_DNS_MODE_MANUAL && uiState.dev9Dns1 == "67.222.156.250" -> 2
+                else -> 0
+            },
+            onSelect = { preset ->
+                when (preset) {
+                    1 -> {
+                        viewModel.setDev9Dns1Mode(AppPreferences.DEV9_DNS_MODE_MANUAL)
+                        viewModel.setDev9Dns1("45.7.228.197")
+                    }
+                    2 -> {
+                        viewModel.setDev9Dns1Mode(AppPreferences.DEV9_DNS_MODE_MANUAL)
+                        viewModel.setDev9Dns1("67.222.156.250")
+                    }
+                    else -> {
+                        viewModel.setDev9Dns1Mode(AppPreferences.DEV9_DNS_MODE_AUTO)
+                        viewModel.setDev9Dns1("0.0.0.0")
+                    }
+                }
+            },
+            helpText = stringResource(R.string.settings_network_dns_preset_help)
+        )
+        DnsModeSetting(
+            title = stringResource(R.string.settings_network_dns1_mode),
+            addressTitle = stringResource(R.string.settings_network_dns1),
+            mode = uiState.dev9Dns1Mode,
+            address = uiState.dev9Dns1,
+            modes = dnsModes,
+            onModeChange = viewModel::setDev9Dns1Mode,
+            onAddressChange = viewModel::setDev9Dns1
+        )
+        DnsModeSetting(
+            title = stringResource(R.string.settings_network_dns2_mode),
+            addressTitle = stringResource(R.string.settings_network_dns2),
+            mode = uiState.dev9Dns2Mode,
+            address = uiState.dev9Dns2,
+            modes = dnsModes,
+            onModeChange = viewModel::setDev9Dns2Mode,
+            onAddressChange = viewModel::setDev9Dns2
+        )
+        ToggleItem(
+            icon = Icons.Rounded.Link,
+            title = stringResource(R.string.settings_network_intercept_dhcp),
+            subtitle = stringResource(R.string.settings_network_intercept_dhcp_desc),
+            checked = uiState.dev9InterceptDhcp,
+            onCheckedChange = viewModel::setDev9InterceptDhcp,
+            onResetToDefault = { viewModel.setDev9InterceptDhcp(defaults.dev9InterceptDhcp) }
+        )
+        ToggleItem(
+            icon = Icons.Rounded.Info,
+            title = stringResource(R.string.settings_network_log_dhcp),
+            subtitle = stringResource(R.string.settings_network_log_dhcp_desc),
+            checked = uiState.dev9LogDhcp,
+            onCheckedChange = viewModel::setDev9LogDhcp,
+            onResetToDefault = { viewModel.setDev9LogDhcp(defaults.dev9LogDhcp) }
+        )
+        ToggleItem(
+            icon = Icons.Rounded.Info,
+            title = stringResource(R.string.settings_network_log_dns),
+            subtitle = stringResource(R.string.settings_network_log_dns_desc),
+            checked = uiState.dev9LogDns,
+            onCheckedChange = viewModel::setDev9LogDns,
+            onResetToDefault = { viewModel.setDev9LogDns(defaults.dev9LogDns) }
+        )
+    }
+}
+
+@Composable
+private fun DnsModeSetting(
+    title: String,
+    addressTitle: String,
+    mode: String,
+    address: String,
+    modes: List<Pair<String, String>>,
+    onModeChange: (String) -> Unit,
+    onAddressChange: (String) -> Unit
+) {
+    ChoiceSection(
+        title = title,
+        options = modes.mapIndexed { index, (_, label) -> index to label },
+        selectedValue = modes.indexOfFirst { it.first == mode }.coerceAtLeast(0),
+        onSelect = { index -> modes.getOrNull(index)?.first?.let(onModeChange) },
+        helpText = stringResource(R.string.settings_network_dns_mode_help)
+    )
+    if (mode == AppPreferences.DEV9_DNS_MODE_MANUAL) {
+        var draft by remember(address) { mutableStateOf(address) }
+        val valid = remember(draft) { isValidIpv4(draft) }
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { value ->
+                draft = value.filter { it.isDigit() || it == '.' }.take(15)
+                if (isValidIpv4(draft)) onAddressChange(draft)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .skipGamepadTextFieldFocus(),
+            label = { Text(addressTitle) },
+            supportingText = {
+                Text(stringResource(if (valid) R.string.settings_network_dns_address_desc else R.string.settings_network_dns_invalid))
+            },
+            isError = !valid,
+            singleLine = true
+        )
+    }
+}
+
+private fun isValidIpv4(value: String): Boolean {
+    val parts = value.split('.')
+    return parts.size == 4 && parts.all { part ->
+        part.isNotEmpty() && part.length <= 3 && part.toIntOrNull() in 0..255
     }
 }
 
@@ -3221,6 +3403,11 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Fixes, R.string.settings_gpu_target_clut),
         entry(SettingsTab.Fixes, R.string.settings_half_pixel_offset),
         entry(SettingsTab.Fixes, R.string.settings_bilinear_upscale),
+        entry(SettingsTab.Network, R.string.settings_network_enable),
+        entry(SettingsTab.Network, R.string.settings_network_adapter),
+        entry(SettingsTab.Network, R.string.settings_network_dns1_mode),
+        entry(SettingsTab.Network, R.string.settings_network_dns2_mode),
+        entry(SettingsTab.Network, R.string.settings_network_intercept_dhcp),
         entry(SettingsTab.Pro, R.string.settings_theme_pro),
         entry(SettingsTab.Updates, R.string.settings_updates_tab)
     )
@@ -4271,6 +4458,7 @@ private fun SettingsTab.label(): String {
         SettingsTab.Controls -> stringResource(R.string.settings_controls_tab)
         SettingsTab.Emulation -> stringResource(R.string.settings_emulation_tab)
         SettingsTab.Fixes -> stringResource(R.string.settings_fixes_tab)
+        SettingsTab.Network -> stringResource(R.string.settings_network_tab)
         SettingsTab.Library -> stringResource(R.string.settings_library_tab)
         SettingsTab.Pro -> stringResource(R.string.settings_pro_tab)
         SettingsTab.Updates -> stringResource(R.string.settings_updates_tab)
@@ -4287,6 +4475,7 @@ private fun SettingsTab.icon(): ImageVector {
         SettingsTab.Controls -> Icons.Rounded.Gamepad
         SettingsTab.Emulation -> Icons.Rounded.Speed
         SettingsTab.Fixes -> Icons.Rounded.SettingsSuggest
+        SettingsTab.Network -> Icons.Rounded.Link
         SettingsTab.Library -> Icons.Rounded.FolderOpen
         SettingsTab.Pro -> Icons.Rounded.Star
         SettingsTab.Updates -> Icons.Rounded.SystemUpdateAlt
@@ -4303,6 +4492,7 @@ private fun String.toSettingsTab(): SettingsTab {
         "cover-art", "cover_art", "data_transfer", "transfer", "backup", "data-transfer", "library" -> SettingsTab.Library
         "performance", "jit", "speedhacks", "speed_hacks", "speed-hacks", "cheats", "cheat", "emulation" -> SettingsTab.Emulation
         "advanced", "fixes", "hacks" -> SettingsTab.Fixes
+        "network", "networking", "multiplayer", "online", "dev9" -> SettingsTab.Network
         "pro", "premium", "crimson", "support" -> SettingsTab.Pro
         "updates", "update", "app_update", "app-update" -> SettingsTab.Updates
         "about" -> SettingsTab.About

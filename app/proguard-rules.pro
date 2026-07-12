@@ -31,6 +31,12 @@
 -keep,includedescriptorclasses class com.sbro.emucorex.core.utils.SDLControllerManager { *; }
 -keep,includedescriptorclasses class com.sbro.emucorex.core.hid.HIDDeviceManager { *; }
 
+# DEV9 reads AdapterInfo and RouteInfo fields with JNI GetFieldID using their exact
+# source names. Keep the complete bridge model stable in minified release builds.
+-keep,includedescriptorclasses class com.sbro.emucorex.core.utils.NetworkAdapterCollector { *; }
+-keep,includedescriptorclasses class com.sbro.emucorex.core.utils.NetworkAdapterCollector$AdapterInfo { *; }
+-keep,includedescriptorclasses class com.sbro.emucorex.core.utils.NetworkAdapterCollector$AdapterInfo$RouteInfo { *; }
+
 # Shared gamepad UI navigation is reached from Activity input callbacks and Compose
 # registration lambdas. Keep the small common Gamepad* surface explicit so release
 # minification cannot fold away router singletons or top-level Compose helper entry points.

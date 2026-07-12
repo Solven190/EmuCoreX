@@ -193,6 +193,15 @@ data class SettingsUiState(
     val gpuDriverType: Int = 0,
     val mediatekAngleOpenGl: Boolean = false,
     val customDriverPath: String? = null,
+    val dev9EthernetEnabled: Boolean = false,
+    val dev9EthernetDevice: String = "Auto",
+    val dev9InterceptDhcp: Boolean = false,
+    val dev9Dns1Mode: String = AppPreferences.DEV9_DNS_MODE_AUTO,
+    val dev9Dns1: String = "0.0.0.0",
+    val dev9Dns2Mode: String = AppPreferences.DEV9_DNS_MODE_AUTO,
+    val dev9Dns2: String = "0.0.0.0",
+    val dev9LogDhcp: Boolean = false,
+    val dev9LogDns: Boolean = false,
     val installedGpuDrivers: List<InstalledGpuDriver> = emptyList(),
     val remoteGpuDrivers: List<RemoteGpuDriver> = emptyList(),
     val gpuDriverCatalogLoading: Boolean = false,
@@ -395,6 +404,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             gpuDriverType = snapshot.gpuDriverType,
             mediatekAngleOpenGl = snapshot.mediatekAngleOpenGl,
             customDriverPath = snapshot.customDriverPath,
+            dev9EthernetEnabled = snapshot.dev9EthernetEnabled,
+            dev9EthernetDevice = snapshot.dev9EthernetDevice,
+            dev9InterceptDhcp = snapshot.dev9InterceptDhcp,
+            dev9Dns1Mode = snapshot.dev9Dns1Mode,
+            dev9Dns1 = snapshot.dev9Dns1,
+            dev9Dns2Mode = snapshot.dev9Dns2Mode,
+            dev9Dns2 = snapshot.dev9Dns2,
+            dev9LogDhcp = snapshot.dev9LogDhcp,
+            dev9LogDns = snapshot.dev9LogDns,
             frameLimitEnabled = snapshot.frameLimitEnabled,
             vSyncEnabled = snapshot.vSyncEnabled,
             fastForwardSpeed = snapshot.fastForwardSpeed,
@@ -406,6 +424,44 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setThemeMode(mode: ThemeMode) { viewModelScope.launch { preferences.setThemeMode(mode) } }
     fun setLanguage(tag: String?) { viewModelScope.launch { preferences.setLanguageTag(tag) } }
+
+    fun setDev9EthernetEnabled(enabled: Boolean) = viewModelScope.launch {
+        preferences.setDev9EthernetEnabled(enabled)
+        EmulatorBridge.setSetting("DEV9/Eth", "EthEnable", "bool", enabled.toString())
+    }
+    fun setDev9EthernetDevice(device: String) = viewModelScope.launch {
+        val value = device.ifBlank { "Auto" }
+        preferences.setDev9EthernetDevice(value)
+        EmulatorBridge.setSetting("DEV9/Eth", "EthDevice", "string", value)
+    }
+    fun setDev9InterceptDhcp(enabled: Boolean) = viewModelScope.launch {
+        preferences.setDev9InterceptDhcp(enabled)
+        EmulatorBridge.setSetting("DEV9/Eth", "InterceptDHCP", "bool", enabled.toString())
+    }
+    fun setDev9Dns1Mode(mode: String) = viewModelScope.launch {
+        preferences.setDev9Dns1Mode(mode)
+        EmulatorBridge.setSetting("DEV9/Eth", "ModeDNS1", "string", mode)
+    }
+    fun setDev9Dns1(address: String) = viewModelScope.launch {
+        preferences.setDev9Dns1(address)
+        EmulatorBridge.setSetting("DEV9/Eth", "DNS1", "string", address)
+    }
+    fun setDev9Dns2Mode(mode: String) = viewModelScope.launch {
+        preferences.setDev9Dns2Mode(mode)
+        EmulatorBridge.setSetting("DEV9/Eth", "ModeDNS2", "string", mode)
+    }
+    fun setDev9Dns2(address: String) = viewModelScope.launch {
+        preferences.setDev9Dns2(address)
+        EmulatorBridge.setSetting("DEV9/Eth", "DNS2", "string", address)
+    }
+    fun setDev9LogDhcp(enabled: Boolean) = viewModelScope.launch {
+        preferences.setDev9LogDhcp(enabled)
+        EmulatorBridge.setSetting("DEV9/Eth", "EthLogDHCP", "bool", enabled.toString())
+    }
+    fun setDev9LogDns(enabled: Boolean) = viewModelScope.launch {
+        preferences.setDev9LogDns(enabled)
+        EmulatorBridge.setSetting("DEV9/Eth", "EthLogDNS", "bool", enabled.toString())
+    }
 
     fun purchasePro(activity: Activity) { proPurchaseManager.purchase(activity) }
 

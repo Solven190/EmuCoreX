@@ -209,6 +209,7 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 	)
 	target_sources(PCSX2 PRIVATE
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_aaudio_stream.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_network_adapters.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_posix_compat.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_pcap_unavailable.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_sdl_input_source.cpp"
