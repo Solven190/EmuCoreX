@@ -4125,12 +4125,14 @@ bool GSDeviceVK::CreatePipelineLayouts()
 		dslb.SetPushFlag();
 	dslb.AddBinding(TFX_TEXTURE_TEXTURE, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	dslb.AddBinding(TFX_TEXTURE_PALETTE, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
-	// The non-feedback-layout shader declares these bindings as subpassInput. The
-	// descriptor layout must match the SPIR-V resource type; using SAMPLED_IMAGE
-	// here is undefined and produces intermittent stale tile reads on Mali Vulkan drivers.
-	const VkDescriptorType feedback_descriptor_type =
-		(m_features.texture_barrier && !UseFeedbackLoopLayout()) ? VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT :
-			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	// Mali needs real input-attachment descriptors for the subpass feedback path. Keep the
+	// long-standing sampled-image descriptor path on Adreno: switching Qualcomm to input
+	// attachments caused alternating stale destination colour in accurate blending draws.
+	// This is deliberately vendor-scoped so the MediaTek/Mali stale-tile fix remains intact.
+	const bool use_input_attachment_feedback_descriptors =
+		m_features.texture_barrier && !UseFeedbackLoopLayout() && m_device_properties.vendorID == 0x13B5u;
+	const VkDescriptorType feedback_descriptor_type = use_input_attachment_feedback_descriptors ?
+		VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT : VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 	dslb.AddBinding(TFX_TEXTURE_RT, feedback_descriptor_type, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	dslb.AddBinding(TFX_TEXTURE_PRIMID, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	dslb.AddBinding(TFX_TEXTURE_DEPTH, feedback_descriptor_type, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -5881,7 +5883,7 @@ bool GSDeviceVK::ApplyTFXState(bool already_execed)
 		}
 		if (flags & DIRTY_FLAG_TFX_TEXTURE_RT)
 		{
-			if (m_features.texture_barrier && !UseFeedbackLoopLayout())
+			if (m_features.texture_barrier && !UseFeedbackLoopLayout() && m_device_properties.vendorID == 0x13B5u)
 			{
 				dsub.AddInputAttachmentDescriptorWrite(
 					VK_NULL_HANDLE, TFX_TEXTURE_RT, m_tfx_textures[TFX_TEXTURE_RT]->GetView(), VK_IMAGE_LAYOUT_GENERAL);
@@ -5899,7 +5901,7 @@ bool GSDeviceVK::ApplyTFXState(bool already_execed)
 		}
 		if (flags & DIRTY_FLAG_TFX_TEXTURE_DEPTH)
 		{
-			if (m_features.texture_barrier && !UseFeedbackLoopLayout())
+			if (m_features.texture_barrier && !UseFeedbackLoopLayout() && m_device_properties.vendorID == 0x13B5u)
 			{
 				dsub.AddInputAttachmentDescriptorWrite(
 					VK_NULL_HANDLE, TFX_TEXTURE_DEPTH, m_tfx_textures[TFX_TEXTURE_DEPTH]->GetView(), VK_IMAGE_LAYOUT_GENERAL);
