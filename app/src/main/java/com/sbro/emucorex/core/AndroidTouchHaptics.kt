@@ -8,6 +8,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
 import android.view.View
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 object AndroidTouchHaptics {
@@ -35,7 +36,6 @@ object AndroidTouchHaptics {
             .coerceIn(1, 255)
         val duration = durationMs.coerceIn(80L, 260L)
         val effect = createTouchEffect(amplitude, duration)
-
         val vibrator = findVibrator(context)
         val played = vibrator != null && runCatching { vibrate(vibrator, effect) }.isSuccess
         if (!played) {
@@ -87,29 +87,59 @@ object AndroidTouchHaptics {
         preset: Int,
         phase: ButtonPhase
     ): VibrationEffect {
-        data class Pulse(val durationMs: Long, val amplitudeScale: Float, val minimumAmplitude: Int)
+        data class Pulse(
+            val durationMs: Long,
+            val minimumAmplitude: Int,
+            val defaultAmplitude: Int,
+            val maximumAmplitude: Int
+        )
 
         val profile = when (preset.coerceIn(0, 3)) {
-            0 -> if (phase == ButtonPhase.PRESS) Pulse(18L, 0.58f, 42) else Pulse(9L, 0.30f, 22)
-            2 -> if (phase == ButtonPhase.PRESS) Pulse(13L, 1.08f, 82) else Pulse(7L, 0.68f, 46)
-            3 -> if (phase == ButtonPhase.PRESS) Pulse(32L, 1.25f, 100) else Pulse(20L, 0.82f, 58)
-            else -> if (phase == ButtonPhase.PRESS) Pulse(24L, 1f, 72) else Pulse(14L, 0.64f, 42)
+            0 -> if (phase == ButtonPhase.PRESS) Pulse(18L, 20, 89, 148) else Pulse(9L, 10, 46, 77)
+            2 -> if (phase == ButtonPhase.PRESS) Pulse(13L, 38, 165, 255) else Pulse(7L, 18, 104, 173)
+            3 -> if (phase == ButtonPhase.PRESS) Pulse(32L, 55, 191, 255) else Pulse(20L, 28, 125, 209)
+            else -> if (phase == ButtonPhase.PRESS) Pulse(24L, 28, 153, 255) else Pulse(14L, 14, 98, 163)
         }
-        val normalizedStrength = strengthPercent.coerceIn(10, 100) / 100f
+        val normalizedStrength = normalizeStrength(strengthPercent)
         if (!runCatching { vibrator.hasAmplitudeControl() }.getOrDefault(false)) {
-            return VibrationEffect.createPredefined(
-                when {
-                    preset == 0 -> VibrationEffect.EFFECT_TICK
-                    preset == 3 && phase == ButtonPhase.PRESS -> VibrationEffect.EFFECT_HEAVY_CLICK
-                    phase == ButtonPhase.PRESS -> VibrationEffect.EFFECT_CLICK
-                    else -> VibrationEffect.EFFECT_TICK
-                }
+            if (strengthPercent.coerceIn(10, 100) == 60) {
+                return VibrationEffect.createPredefined(
+                    when {
+                        preset == 0 -> VibrationEffect.EFFECT_TICK
+                        preset == 3 && phase == ButtonPhase.PRESS -> VibrationEffect.EFFECT_HEAVY_CLICK
+                        phase == ButtonPhase.PRESS -> VibrationEffect.EFFECT_CLICK
+                        else -> VibrationEffect.EFFECT_TICK
+                    }
+                )
+            }
+            // Fixed-amplitude motors cannot vary force. Duration still gives the full slider
+            // a clearly perceptible weak-to-strong response instead of ignoring the setting.
+            val durationFactor = if (strengthPercent <= 60) {
+                0.55f + ((strengthPercent.coerceIn(10, 60) - 10) / 50f) * 0.45f
+            } else {
+                1f + ((strengthPercent.coerceIn(60, 100) - 60) / 40f) * 0.25f
+            }
+            val duration = (profile.durationMs * durationFactor)
+                .roundToInt()
+                .coerceAtLeast(6)
+                .toLong()
+            return VibrationEffect.createOneShot(
+                duration,
+                VibrationEffect.DEFAULT_AMPLITUDE
             )
         }
 
-        val amplitude = (normalizedStrength * profile.amplitudeScale * 255f)
-            .roundToInt()
-            .coerceIn(profile.minimumAmplitude, 255)
+        val strength = strengthPercent.coerceIn(10, 100)
+        val amplitude = if (strength <= 60) {
+            val lowerProgress = ((strength - 10) / 50f).pow(0.82f)
+            profile.minimumAmplitude +
+                (profile.defaultAmplitude - profile.minimumAmplitude) * lowerProgress
+        } else {
+            val upperProgress = ((strength - 60) / 40f).pow(0.82f)
+            profile.defaultAmplitude +
+                (profile.maximumAmplitude - profile.defaultAmplitude) * upperProgress
+        }.roundToInt()
+            .coerceIn(profile.minimumAmplitude, profile.maximumAmplitude)
         return VibrationEffect.createOneShot(profile.durationMs, amplitude)
     }
 
@@ -140,6 +170,9 @@ object AndroidTouchHaptics {
             -1
         )
     }
+
+    private fun normalizeStrength(strengthPercent: Int): Float =
+        ((strengthPercent.coerceIn(10, 100) - 10) / 90f).coerceIn(0f, 1f)
 
     private fun findVibrator(context: Context): Vibrator? {
         val appContext = context.applicationContext
