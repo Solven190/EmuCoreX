@@ -30,6 +30,10 @@ import com.sbro.emucorex.data.OverlayLayoutSnapshot
 import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.TouchControlsLayoutProfile
+import com.sbro.emucorex.data.TouchControlVisualStyle
+import com.sbro.emucorex.data.GameMenuTabId
+import com.sbro.emucorex.data.GameMenuSessionSection
+import com.sbro.emucorex.data.DefaultGameMenuTabOrder
 import com.sbro.emucorex.data.PlayTimeSyncCacheRepository
 import com.sbro.emucorex.data.PlayerPlayTimeDelta
 import com.sbro.emucorex.data.PlayerProfileRepository
@@ -67,6 +71,10 @@ data class EmulationUiState(
     val fpsOverlayCorner: Int = AppPreferences.FPS_OVERLAY_CORNER_TOP_RIGHT,
     val overlayScale: Int = 100,
     val overlayOpacity: Int = 80,
+    val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
+    val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
+    val hiddenGameMenuSections: Set<GameMenuSessionSection> = emptySet(),
     val hideOverlayOnGamepad: Boolean = true,
     val dpadOffset: Pair<Float, Float> = AppPreferences.DEFAULT_DPAD_OFFSET_X to AppPreferences.DEFAULT_DPAD_OFFSET_Y,
     val lstickOffset: Pair<Float, Float> = AppPreferences.DEFAULT_LSTICK_OFFSET_X to AppPreferences.DEFAULT_LSTICK_OFFSET_Y,
@@ -484,8 +492,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun isRetroAchievementsHardcoreRestricted(): Boolean {
-        return RetroAchievementsLiveStateManager.state.value.hardcoreActive ||
-            preferences.getAchievementsHardcoreSync()
+        // The saved preference may be pending until the next full reset. Only
+        // the native rc_client state restricts actions in the current session.
+        return RetroAchievementsLiveStateManager.state.value.hardcoreActive
     }
 
     private fun showHardcoreBlockedToast() {
@@ -549,6 +558,26 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.overlayLayoutSnapshot.collect { snapshot ->
                 applyOverlayLayoutSnapshot(snapshot)
+            }
+        }
+        viewModelScope.launch {
+            preferences.touchControlVisualStyle.collect { style ->
+                _uiState.value = _uiState.value.copy(touchControlVisualStyle = style)
+            }
+        }
+        viewModelScope.launch {
+            preferences.gameMenuTabOrder.collect { order ->
+                _uiState.value = _uiState.value.copy(gameMenuTabOrder = order)
+            }
+        }
+        viewModelScope.launch {
+            preferences.hiddenGameMenuTabs.collect { hidden ->
+                _uiState.value = _uiState.value.copy(hiddenGameMenuTabs = hidden)
+            }
+        }
+        viewModelScope.launch {
+            preferences.hiddenGameMenuSections.collect { hidden ->
+                _uiState.value = _uiState.value.copy(hiddenGameMenuSections = hidden)
             }
         }
         viewModelScope.launch {
@@ -2585,6 +2614,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setEnableWidescreenPatches(enabled)
             }
             EmulatorBridge.setSetting("EmuCore", "EnableWideScreenPatches", "bool", enabled.toString())
+            NativeApp.reloadPatches()
             updateCrashContext()
         }
     }
@@ -2597,6 +2627,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setEnableNoInterlacingPatches(enabled)
             }
             EmulatorBridge.setSetting("EmuCore", "EnableNoInterlacingPatches", "bool", enabled.toString())
+            NativeApp.reloadPatches()
             updateCrashContext()
         }
     }
@@ -4335,7 +4366,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
         }
-        super.onCleared()
     }
 }
 

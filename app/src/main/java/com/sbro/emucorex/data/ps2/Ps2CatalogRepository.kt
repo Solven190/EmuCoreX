@@ -4,6 +4,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.util.Log
 import com.sbro.emucorex.data.pcsx2.Pcsx2CompatibilityRepository
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.text.Normalizer
@@ -15,6 +16,12 @@ class Ps2CatalogRepository(private val context: Context) {
         private const val TAG = "Ps2CatalogRepository"
         private const val DB_NAME = "games.db"
         private const val ASSET_PATH = "catalog/games.db"
+        private const val IDENTITY_INDEX_ASSET_PATH = "catalog/rom_identity_index.json"
+        private const val IDENTITY_OVERRIDES_ASSET_PATH = "catalog/rom_identity_overrides.json"
+        private val identityIndexLock = Any()
+
+        @Volatile
+        private var cachedIdentityIndex: CatalogIdentityIndex? = null
     }
 
     private val dbFile: File by lazy { File(context.noBackupFilesDir, DB_NAME) }
@@ -137,27 +144,115 @@ class Ps2CatalogRepository(private val context: Context) {
     fun findBestMatchId(serial: String?, title: String?): Long? {
         if (!ensureDatabaseReady()) return null
         val compatibility = compatibilityRepository.findBest(serial, title)
-        val candidateQueries = listOfNotNull(
-            compatibility?.title,
-            title
-        ).distinctBy { normalizeSearchText(it) }
-
-        candidateQueries.forEach { query ->
-            val candidates = search(query = query, limit = 12)
-            if (!serial.isNullOrBlank()) {
-                val normalizedSerial = serial.normalizeSerialForMatch()
-                candidates.firstOrNull {
-                    it.primarySerial?.normalizeSerialForMatch() == normalizedSerial
-                }?.let { return it.igdbId }
-            }
-            val normalizedQuery = normalizeSearchText(query)
-            candidates.firstOrNull {
-                it.normalizedName == normalizedQuery || normalizeSearchText(it.name) == normalizedQuery
-            }?.let { return it.igdbId }
-            candidates.firstOrNull()?.let { return it.igdbId }
+        val identityIndex = loadIdentityIndex()
+        val candidateSerials = listOfNotNull(serial, compatibility?.serial)
+            .map { it.normalizeSerialForMatch() }
+            .filter { it.isNotBlank() }
+            .distinct()
+        candidateSerials.firstNotNullOfOrNull(identityIndex.serialToIgdb::get)?.let { id ->
+            Log.d(TAG, "Catalog match by serial: $serial -> $id")
+            return id
         }
 
+        val db = getDatabase() ?: return null
+        findIdByDatabaseSerial(db, candidateSerials)?.let { id ->
+            Log.d(TAG, "Catalog match by database serial: $serial -> $id")
+            return id
+        }
+
+        val candidateTitles = listOfNotNull(title, compatibility?.title)
+            .map(::normalizeIdentityTitle)
+            .filter { it.isNotBlank() }
+            .distinct()
+        candidateTitles.firstNotNullOfOrNull(identityIndex.titleToIgdb::get)?.let { id ->
+            Log.d(TAG, "Catalog match by identity title: $title -> $id")
+            return id
+        }
+        findExactTitleId(db, candidateTitles)?.let { id ->
+            Log.d(TAG, "Catalog match by exact title: $title -> $id")
+            return id
+        }
+        findFuzzyTitleId(db, candidateTitles)?.let { id ->
+            Log.d(TAG, "Catalog match by fuzzy title: $title -> $id")
+            return id
+        }
+
+        Log.w(TAG, "No catalog match for serial=$serial title=$title")
         return null
+    }
+
+    private fun loadIdentityIndex(): CatalogIdentityIndex {
+        cachedIdentityIndex?.let { return it }
+        synchronized(identityIndexLock) {
+            cachedIdentityIndex?.let { return it }
+            val serials = LinkedHashMap<String, Long>()
+            val titles = LinkedHashMap<String, Long>()
+
+            fun mergeAsset(path: String) {
+                val root = context.assets.open(path).bufferedReader().use { JSONObject(it.readText()) }
+                root.optJSONObject("serial_to_igdb")?.forEachObject { key, value ->
+                    value.extractIgdbId()?.let { serials[key.normalizeSerialForMatch()] = it }
+                }
+                root.optJSONObject("title_to_igdb")?.forEachObject { key, value ->
+                    value.extractIgdbId()?.let { titles[normalizeIdentityTitle(key)] = it }
+                }
+            }
+
+            runCatching { mergeAsset(IDENTITY_INDEX_ASSET_PATH) }
+                .onFailure { Log.w(TAG, "Could not read ROM identity index: ${it.message}") }
+            runCatching { mergeAsset(IDENTITY_OVERRIDES_ASSET_PATH) }
+                .onFailure { Log.w(TAG, "Could not read ROM identity overrides: ${it.message}") }
+
+            return CatalogIdentityIndex(serials, titles).also { cachedIdentityIndex = it }
+        }
+    }
+
+    private fun findIdByDatabaseSerial(db: SQLiteDatabase, serials: List<String>): Long? {
+        if (serials.isEmpty()) return null
+        return runCatching {
+            val placeholders = serials.joinToString(",") { "?" }
+            db.rawQuery(
+                """
+                SELECT igdb_id
+                FROM game_serials
+                WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(serial, '-', ''), '_', ''), '.', ''), ' ', ''))
+                    IN ($placeholders)
+                LIMIT 1
+                """.trimIndent(),
+                serials.toTypedArray()
+            ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else null }
+        }.getOrNull()
+    }
+
+    private fun findExactTitleId(db: SQLiteDatabase, titles: List<String>): Long? {
+        titles.forEach { title ->
+            db.rawQuery(
+                "SELECT igdb_id FROM games WHERE normalized_name = ? LIMIT 1",
+                arrayOf(title)
+            ).use { cursor ->
+                if (cursor.moveToFirst()) return cursor.getLong(0)
+            }
+        }
+        return null
+    }
+
+    private fun findFuzzyTitleId(db: SQLiteDatabase, titles: List<String>): Long? {
+        if (titles.isEmpty()) return null
+        var bestId: Long? = null
+        var bestScore = 0.0
+        db.rawQuery("SELECT igdb_id, normalized_name FROM games", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                val catalogTitle = cursor.getString(1)
+                titles.forEach { candidateTitle ->
+                    val score = catalogTitleSimilarity(candidateTitle, catalogTitle)
+                    if (score > bestScore) {
+                        bestScore = score
+                        bestId = cursor.getLong(0)
+                    }
+                }
+            }
+        }
+        return bestId?.takeIf { bestScore >= MIN_FUZZY_TITLE_SCORE }
     }
 
     fun topRated(
@@ -469,6 +564,75 @@ class Ps2CatalogRepository(private val context: Context) {
     private fun toHighResImageUrl(url: String?): String? {
         if (url.isNullOrBlank()) return url
         return url.replace(Regex("""/t_[^/]+/"""), "/t_1080p/")
+    }
+}
+
+private data class CatalogIdentityIndex(
+    val serialToIgdb: Map<String, Long>,
+    val titleToIgdb: Map<String, Long>
+)
+
+private const val MIN_FUZZY_TITLE_SCORE = 0.68
+
+internal fun normalizeIdentityTitle(value: String): String {
+    return Normalizer.normalize(value.lowercase(Locale.ROOT), Normalizer.Form.NFD)
+        .replace(Regex("\\p{Mn}+"), "")
+        .replace(Regex("""\[[^]]*]|\([^)]*\)"""), " ")
+        .replace(Regex("""[^\p{L}\p{N}]+"""), " ")
+        .replace(Regex("""\s+"""), " ")
+        .trim()
+}
+
+internal fun catalogTitleSimilarity(left: String, right: String): Double {
+    val leftTokens = catalogMatchTokens(left)
+    val rightTokens = catalogMatchTokens(right)
+    if (leftTokens.isEmpty() || rightTokens.isEmpty()) return 0.0
+    if (leftTokens == rightTokens) return 1.0
+    val common = leftTokens.intersect(rightTokens).size
+    if (common == 0 || (common == 1 && minOf(leftTokens.size, rightTokens.size) > 1)) return 0.0
+    val candidateCoverage = common.toDouble() / leftTokens.size
+    val catalogCoverage = common.toDouble() / rightTokens.size
+    return candidateCoverage * 0.75 + catalogCoverage * 0.25
+}
+
+private fun catalogMatchTokens(value: String): Set<String> {
+    return normalizeIdentityTitle(value)
+        .split(' ')
+        .asSequence()
+        .filter { it.isNotBlank() && it !in CATALOG_TITLE_STOP_WORDS }
+        .map { CATALOG_ROMAN_NUMERALS[it] ?: it }
+        .toCollection(LinkedHashSet())
+}
+
+private val CATALOG_TITLE_STOP_WORDS = setOf("a", "an", "and", "of", "the")
+private val CATALOG_ROMAN_NUMERALS = mapOf(
+    "ii" to "2",
+    "iii" to "3",
+    "iv" to "4",
+    "v" to "5",
+    "vi" to "6",
+    "vii" to "7",
+    "viii" to "8",
+    "ix" to "9",
+    "x" to "10",
+    "xi" to "11",
+    "xii" to "12"
+)
+
+private inline fun JSONObject.forEachObject(block: (String, Any?) -> Unit) {
+    val iterator = keys()
+    while (iterator.hasNext()) {
+        val key = iterator.next()
+        block(key, opt(key))
+    }
+}
+
+private fun Any?.extractIgdbId(): Long? {
+    return when (this) {
+        is JSONObject -> optLong("igdb_id").takeIf { it > 0L }
+        is Number -> toLong().takeIf { it > 0L }
+        is String -> toLongOrNull()?.takeIf { it > 0L }
+        else -> null
     }
 }
 

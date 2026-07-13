@@ -127,22 +127,6 @@ namespace Achievements
 	/// Should be called with the lock held.
 	std::string GetLoggedInUserBadgePath();
 
-	/// Returns the current game's achievement metadata as JSON for Android UI.
-	std::string GetActiveGameDataJSON();
-
-	/// Returns the logged-in user's PS2 achievement progress as JSON for Android UI.
-	std::string GetAccountProgressJSON();
-
-	u32 GetLoggedInUserPoints();
-	u32 GetLoggedInUserSoftcorePoints();
-	u32 GetLoggedInUserUnreadMessages();
-	const char* GetLoggedInUserDisplayName();
-
-	u32 GetNumAchievements();
-	u32 GetEarnedAchievements();
-	u32 GetGamePoints();
-	u32 GetEarnedPoints();
-
 	/// Clears all cached state used to render the UI.
 	void ClearUIState();
 

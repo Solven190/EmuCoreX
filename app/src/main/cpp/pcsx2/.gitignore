@@ -97,8 +97,8 @@ oprofile_data/
 # Resources and docs copied from /bin
 /bin-arm64
 
-# Manually added by user.
-/bin/resources/patches.zip
+# EmuCoreX intentionally tracks the official PCSX2 patch archive because Android
+# has no desktop updater which would otherwise download it at runtime.
 
 # Resources that are runtime downloaded.
 /bin/resources/fonts/NotoSansJP-Regular.ttf

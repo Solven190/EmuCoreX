@@ -164,7 +164,6 @@ class GameDetailViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     override fun onCleared() {
-        super.onCleared()
         auth.removeAuthStateListener(authListener)
         commentsRegistration?.remove()
         catalogRepository.close()

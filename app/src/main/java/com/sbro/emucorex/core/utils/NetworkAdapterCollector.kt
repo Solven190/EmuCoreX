@@ -3,6 +3,7 @@ package com.sbro.emucorex.core.utils
 import android.content.Context
 import android.net.ConnectivityManager
 import android.util.Log
+import androidx.core.content.edit
 import java.net.Inet6Address
 import java.net.NetworkInterface
 import java.security.SecureRandom
@@ -85,7 +86,7 @@ object NetworkAdapterCollector {
         val bytes = ByteArray(6).also(SecureRandom()::nextBytes)
         bytes[0] = ((bytes[0].toInt() and 0xFC) or 0x02).toByte()
         return bytes.joinToString(":") { "%02X".format(it.toInt() and 0xFF) }
-            .also { preferences.edit().putString("stable_mac", it).apply() }
+            .also { stableMac -> preferences.edit { putString("stable_mac", stableMac) } }
     }
 
     private fun friendlyName(name: String): String = when {

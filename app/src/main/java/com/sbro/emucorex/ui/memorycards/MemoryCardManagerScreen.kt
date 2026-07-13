@@ -67,7 +67,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -667,12 +668,15 @@ private fun MemoryCardCreateDialog(
     var selectedSize by remember { mutableIntStateOf(8) }
     val sizes = remember { listOf(8, 16, 32, 64) }
     val scrollState = rememberScrollState()
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+    val containerSize = LocalWindowInfo.current.containerSize
+    val density = LocalDensity.current
+    val windowWidth = with(density) { containerSize.width.toDp() }
+    val windowHeight = with(density) { containerSize.height.toDp() }
+    val isLandscape = windowWidth > windowHeight
     val maxDialogHeight = if (isLandscape) {
-        (configuration.screenHeightDp.dp - 36.dp).coerceAtLeast(240.dp)
+        (windowHeight - 36.dp).coerceAtLeast(240.dp)
     } else {
-        (configuration.screenHeightDp.dp - 48.dp)
+        (windowHeight - 48.dp)
             .coerceAtMost(620.dp)
             .coerceAtLeast(300.dp)
     }

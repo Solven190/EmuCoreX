@@ -1,7 +1,6 @@
 package com.sbro.emucorex.ui.settings
 
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.view.Gravity
 import android.view.View
@@ -82,10 +81,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -95,6 +94,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.graphics.drawable.toDrawable
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.buildUpscaleOptions
 import com.sbro.emucorex.core.formatUpscaleLabel
@@ -1395,12 +1395,15 @@ private fun GameSettingsEditorDialog(
     }
     var draft by remember(editableProfile) { mutableStateOf(editableProfile) }
     var hasUserChange by remember(editableProfile) { mutableStateOf(false) }
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+    val containerSize = LocalWindowInfo.current.containerSize
+    val density = LocalDensity.current
+    val windowWidth = with(density) { containerSize.width.toDp() }
+    val windowHeight = with(density) { containerSize.height.toDp() }
+    val isLandscape = windowWidth > windowHeight
     val maxDialogHeight = if (isLandscape) {
-        (configuration.screenHeightDp.dp - 48.dp).coerceAtLeast(300.dp)
+        (windowHeight - 48.dp).coerceAtLeast(300.dp)
     } else {
-        (configuration.screenHeightDp.dp - 72.dp).coerceAtLeast(440.dp)
+        (windowHeight - 72.dp).coerceAtLeast(440.dp)
     }
     val dialogWidthFraction = if (isLandscape) 0.98f else 0.94f
     val dialogMaxWidth = if (isLandscape) 1600.dp else 720.dp
@@ -3207,12 +3210,14 @@ private fun DialogWindowWidth(
 ) {
     val view = LocalView.current
     val density = LocalDensity.current
-    val configuration = LocalConfiguration.current
+    val containerSize = LocalWindowInfo.current.containerSize
+    val windowWidth = with(density) { containerSize.width.toDp() }
+    val isLandscape = containerSize.width > containerSize.height
 
     SideEffect {
         val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
         window.setGravity(Gravity.CENTER)
-        window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        window.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
         window.decorView.setPadding(0, 0, 0, 0)
         if (!enabled) {
             val attributes = window.attributes
@@ -3226,12 +3231,12 @@ private fun DialogWindowWidth(
         }
 
         val requestedWidthPx = with(density) {
-            (configuration.screenWidthDp.dp * widthFraction)
+            (windowWidth * widthFraction)
                 .coerceAtMost(maxWidthDp.dp)
                 .roundToPx()
         }
         val attributes = window.attributes
-        attributes.x = landscapeCenterOffsetPx(view, configuration.screenWidthDp > configuration.screenHeightDp)
+        attributes.x = landscapeCenterOffsetPx(view, isLandscape)
         window.attributes = attributes
         window.setLayout(requestedWidthPx, WindowManager.LayoutParams.WRAP_CONTENT)
     }

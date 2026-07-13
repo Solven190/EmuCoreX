@@ -12,6 +12,7 @@
 #include "pcsx2/R5900.h"
 #include "pcsx2/SIO/Memcard/MemoryCardFile.h"
 #include "pcsx2/SIO/Pad/Pad.h"
+#include "emucorex/retro_achievements_android.h"
 #include "pcsx2/SIO/Pad/PadDualshock2.h"
 #include "pcsx2/Host.h"
 #include "pcsx2/VMManager.h"
@@ -329,18 +330,11 @@ void AndroidRuntime::SetSetting(std::string section, std::string key, std::strin
 	{
 		value = "false";
 	}
-	if (section == "EmuCore/GS" && key == "FrameLimitEnable" &&
-		(value == "false" || value == "0") &&
-		hardcore_requested)
-	{
-		value = "true";
-	}
 	settings_[SettingKey(section, key)] = std::move(value);
 
 	if (hardcore_requested)
 	{
 		settings_[SettingKey("EmuCore", "EnableCheats")] = "false";
-		settings_[SettingKey("EmuCore/GS", "FrameLimitEnable")] = "true";
 	}
 }
 
@@ -356,9 +350,6 @@ void AndroidRuntime::SetFrameLimitEnabled(bool enabled)
 	bool active = false;
 	{
 		std::lock_guard lock(mutex_);
-		const auto hardcore_it = settings_.find(SettingKey("Achievements", "ChallengeMode"));
-		if (!enabled && hardcore_it != settings_.end() && IsTrueSettingValue(hardcore_it->second))
-			enabled = true;
 		settings_[SettingKey("EmuCore/GS", "FrameLimitEnable")] = enabled ? "true" : "false";
 		active = vm_active_;
 	}
@@ -379,9 +370,6 @@ void AndroidRuntime::SetTurboModeEnabled(bool enabled)
 	{
 		std::lock_guard lock(mutex_);
 		active = vm_active_;
-		const auto hardcore_it = settings_.find(SettingKey("Achievements", "ChallengeMode"));
-		if (enabled && hardcore_it != settings_.end() && IsTrueSettingValue(hardcore_it->second))
-			enabled = false;
 		const auto it = settings_.find(SettingKey("EmuCore/GS", "FrameLimitEnable"));
 		if (it != settings_.end())
 			frame_limit_enabled = (it->second != "false");
@@ -410,6 +398,11 @@ void AndroidRuntime::ReloadPatches()
 		return;
 
 	Host::RunOnCPUThread([]() {
+		if (emucorex::android::IsRetroAchievementsFeatureBlocked(
+				emucorex::android::HardcoreRestrictedFeature::Cheats))
+		{
+			EmuConfig.EnableCheats = false;
+		}
 		VMManager::ReloadPatches(true, true, true, true);
 	}, false);
 }
@@ -711,19 +704,13 @@ bool AndroidRuntime::LoadStateFromSlot(int slot)
 	if (!HasValidVm())
 		return false;
 
-	bool hardcore_requested = false;
-	{
-		std::lock_guard lock(mutex_);
-		const auto hardcore_it = settings_.find(SettingKey("Achievements", "ChallengeMode"));
-		hardcore_requested = (hardcore_it != settings_.end() && IsTrueSettingValue(hardcore_it->second));
-	}
-
 	auto result = std::make_shared<bool>(false);
-	Host::RunOnCPUThread([slot, result, hardcore_requested]() {
+	Host::RunOnCPUThread([slot, result]() {
 		if (!VMManager::HasValidVM())
 			return;
 
-		if (hardcore_requested)
+		if (emucorex::android::IsRetroAchievementsFeatureBlocked(
+				emucorex::android::HardcoreRestrictedFeature::LoadState))
 		{
 			__android_log_print(ANDROID_LOG_WARN, LOG_TAG,
 				"load state slot %d blocked by RetroAchievements Hardcore Mode", slot);

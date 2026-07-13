@@ -2,6 +2,7 @@
 
 #include "emucorex/android_crash_diagnostics.h"
 #include "emucorex/android_runtime.h"
+#include "emucorex/retro_achievements_android.h"
 
 #include "pcsx2/Achievements.h"
 #include "pcsx2/Counters.h"
@@ -34,8 +35,6 @@
 #include <string_view>
 #include <thread>
 #include <vector>
-
-extern void QueryAndNotifyAchievementsState();
 
 namespace Host
 {
@@ -175,8 +174,6 @@ void SetPerformanceMetricsCallbackEnabled(bool enabled, bool detailed)
 	}
 }
 }
-
-extern void NotifySettingsChanged(const char* section, const char* key, const char* value);
 
 void Host::CommitBaseSettingChanges()
 {
@@ -604,9 +601,6 @@ std::string Host::TranslatePluralToString(const char*, const char* msg, const ch
 	return ret;
 }
 
-extern void NotifyLoginRequested(int reason);
-extern void NotifyLoginSuccess(const char* username, u32 points, u32 sc_points, u32 unread_messages);
-extern void NotifyHardcoreModeChanged(bool enabled);
 void Host::OnAchievementsLoginRequested(Achievements::LoginRequestReason reason)
 {
 	NotifyLoginRequested(static_cast<int>(reason));

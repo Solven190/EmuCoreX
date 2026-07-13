@@ -295,7 +295,7 @@ bool Patch::OpenPatchesZip()
 
 	zip_error ze = {};
 	zip_source_t* zs = zip_source_file_create(filename.c_str(), 0, 0, &ze);
-	if (zs && !(s_patches_zip = zip_open_from_source(zs, ZIP_RDONLY, &ze)))
+	if (!zs || !(s_patches_zip = zip_open_from_source(zs, ZIP_RDONLY, &ze)))
 	{
 		static bool warning_shown = false;
 		if (!warning_shown)
@@ -307,13 +307,24 @@ bool Patch::OpenPatchesZip()
 			warning_shown = true;
 		}
 
-		// have to clean up source
+		// zip_open_from_source() does not consume the source when opening fails.
 		Console.Error("Failed to open %s: %s", filename.c_str(), zip_error_strerror(&ze));
-		zip_source_free(zs);
+		if (zs)
+			zip_source_free(zs);
+		zip_error_fini(&ze);
 		return false;
 	}
 
-	std::atexit([]() { zip_close(s_patches_zip); });
+	zip_error_fini(&ze);
+	static bool cleanup_registered = false;
+	if (!cleanup_registered)
+	{
+		std::atexit([]() {
+			if (s_patches_zip)
+				zip_close(s_patches_zip);
+		});
+		cleanup_registered = true;
+	}
 	return true;
 }
 

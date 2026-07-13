@@ -8,7 +8,9 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.OAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -19,8 +21,13 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import java.security.MessageDigest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+
+private const val DEFAULT_PROFILE_ACCENT = "gold"
 
 data class PlayerAccount(
     val uid: String,
@@ -38,7 +45,11 @@ data class PlayerProfile(
     val gamesPlayed: Int,
     val lastPlayedTitle: String?,
     val lastPlayedAtMs: Long?,
-    val games: List<PlayerGamePlayStat>
+    val games: List<PlayerGamePlayStat>,
+    val playerTag: String = "",
+    val profileAccent: String = DEFAULT_PROFILE_ACCENT,
+    val favoriteGameKeys: List<String> = emptyList(),
+    val isProMember: Boolean = false
 )
 
 data class PlayerGamePlayStat(
@@ -52,13 +63,47 @@ data class PlayerGamePlayStat(
 )
 
 data class PlayerLeaderboardEntry(
-    val rank: Int,
+    val rank: Int?,
     val uid: String,
     val displayName: String,
     val photoURL: String?,
     val totalPlayTimeMs: Long,
     val gamesPlayed: Int,
-    val lastPlayedTitle: String?
+    val lastPlayedTitle: String?,
+    val playerTag: String,
+    val profileAccent: String,
+    val isProMember: Boolean
+)
+
+data class PlayerLeaderboardPage(
+    val entries: List<PlayerLeaderboardEntry>,
+    val cursor: DocumentSnapshot?,
+    val hasMore: Boolean
+)
+
+data class PublicPlayerProfilePage(
+    val profile: PlayerProfile?,
+    val cursor: DocumentSnapshot?,
+    val hasMoreGames: Boolean
+)
+
+data class PublicGamesPage(
+    val games: List<PlayerGamePlayStat>,
+    val cursor: DocumentSnapshot?,
+    val hasMore: Boolean
+)
+
+data class PlayerActivityDay(
+    val day: String,
+    val playTimeMs: Long,
+    val sessions: Int,
+    val gameKeys: List<String>
+)
+
+data class PlayerRankInsights(
+    val rank: Int,
+    val totalPlayers: Int,
+    val percentile: Int
 )
 
 data class PlayerPlayTimeDelta(
@@ -89,6 +134,17 @@ class PlayerProfileRepository(context: Context) {
 
     fun hasSignedInUser(): Boolean = auth.currentUser != null
 
+    suspend fun ensureCurrentUserProfile() {
+        auth.currentUser?.let { user ->
+            ensureUserProfile(
+                uid = user.uid,
+                email = user.email,
+                displayName = user.displayName.cleanDisplayName(user.email),
+                photoURL = user.bestPhotoUrl()
+            )
+        }
+    }
+
     fun observeProfile(uid: String): Flow<PlayerProfile?> = callbackFlow {
         val registration = firestore.collection(USERS_COLLECTION)
             .document(uid)
@@ -102,22 +158,171 @@ class PlayerProfileRepository(context: Context) {
         awaitClose { registration.remove() }
     }
 
-    fun observeLeaderboard(): Flow<List<PlayerLeaderboardEntry>> = callbackFlow {
-        val registration = firestore.collection(LEADERBOARD_COLLECTION)
+    suspend fun loadLeaderboardPage(
+        cursor: DocumentSnapshot? = null,
+        rankOffset: Int = 0
+    ): PlayerLeaderboardPage {
+        if (rankOffset >= LEADERBOARD_MAX_ENTRIES) {
+            return PlayerLeaderboardPage(emptyList(), cursor, hasMore = false)
+        }
+        var query: Query = firestore.collection(LEADERBOARD_COLLECTION)
             .orderBy(FIELD_TOTAL_PLAY_TIME_MS, Query.Direction.DESCENDING)
-            .limit(LEADERBOARD_LIMIT)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
-                }
-                val entries = snapshot?.documents.orEmpty()
-                    .mapIndexedNotNull { index, document ->
-                        document.toPlayerLeaderboardEntry(index + 1)
-                    }
-                trySend(entries)
+            .limit(LEADERBOARD_PAGE_SIZE)
+        cursor?.let { query = query.startAfter(it) }
+
+        val snapshot = query.get().await()
+        val remaining = LEADERBOARD_MAX_ENTRIES - rankOffset
+        val documents = snapshot.documents.take(remaining)
+        val entries = documents.mapIndexedNotNull { index, document ->
+            document.toPlayerLeaderboardEntry(rankOffset + index + 1)
+        }
+        return PlayerLeaderboardPage(
+            entries = entries,
+            cursor = documents.lastOrNull(),
+            hasMore = snapshot.size().toLong() == LEADERBOARD_PAGE_SIZE &&
+                rankOffset + entries.size < LEADERBOARD_MAX_ENTRIES
+        )
+    }
+
+    suspend fun searchPlayers(rawQuery: String): List<PlayerLeaderboardEntry> {
+        val trimmed = rawQuery.trim()
+        if (trimmed.length < MIN_PLAYER_SEARCH_LENGTH) return emptyList()
+        val collection = firestore.collection(LEADERBOARD_COLLECTION)
+        if (trimmed.startsWith(PLAYER_TAG_PREFIX, ignoreCase = true)) {
+            return collection
+                .whereEqualTo(FIELD_PLAYER_TAG, trimmed.uppercase(Locale.ROOT))
+                .limit(PLAYER_SEARCH_LIMIT)
+                .get()
+                .await()
+                .documents
+                .mapNotNull { it.toPlayerLeaderboardEntry(rank = null) }
+        }
+
+        val normalized = normalizeSearchName(trimmed)
+        return collection
+            .orderBy(FIELD_SEARCH_NAME, Query.Direction.ASCENDING)
+            .startAt(normalized)
+            .endAt(normalized + "\uf8ff")
+            .limit(PLAYER_SEARCH_LIMIT)
+            .get()
+            .await()
+            .documents
+            .mapNotNull { it.toPlayerLeaderboardEntry(rank = null) }
+    }
+
+    suspend fun loadRankInsights(totalPlayTimeMs: Long): PlayerRankInsights {
+        val collection = firestore.collection(LEADERBOARD_COLLECTION)
+        val ahead = collection
+            .whereGreaterThan(FIELD_TOTAL_PLAY_TIME_MS, totalPlayTimeMs)
+            .count()
+            .get(AggregateSource.SERVER)
+            .await()
+            .count
+        val total = collection.count().get(AggregateSource.SERVER).await().count.coerceAtLeast(1L)
+        val rank = (ahead + 1L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val percentile = (((total - rank + 1L).coerceAtLeast(1L) * 100L) / total)
+            .coerceIn(1L, 100L)
+            .toInt()
+        return PlayerRankInsights(rank = rank, totalPlayers = total.toInt(), percentile = percentile)
+    }
+
+    suspend fun loadPublicProfile(uid: String): PublicPlayerProfilePage {
+        val profileDocument = firestore.collection(PUBLIC_PROFILES_COLLECTION).document(uid).get().await()
+        if (!profileDocument.exists()) return PublicPlayerProfilePage(null, null, false)
+        val gamesPage = loadPublicGamesPage(uid = uid, cursor = null)
+        val gamesByKey = gamesPage.games.associateByTo(LinkedHashMap()) { it.gameKey }
+        profileDocument.stringList(FIELD_FAVORITE_GAME_KEYS).forEach { gameKey ->
+            if (gameKey !in gamesByKey) {
+                firestore.collection(PUBLIC_PROFILES_COLLECTION)
+                    .document(uid)
+                    .collection(PUBLIC_GAMES_COLLECTION)
+                    .document(gameKey)
+                    .get()
+                    .await()
+                    .data
+                    .toPlayerGamePlayStat(gameKey)
+                    ?.let { gamesByKey[gameKey] = it }
             }
-        awaitClose { registration.remove() }
+        }
+        return PublicPlayerProfilePage(
+            profile = profileDocument.toPublicPlayerProfile(gamesByKey.values.toList()),
+            cursor = gamesPage.cursor,
+            hasMoreGames = gamesPage.hasMore
+        )
+    }
+
+    suspend fun loadPublicGamesPage(
+        uid: String,
+        cursor: DocumentSnapshot?
+    ): PublicGamesPage {
+        var query: Query = firestore.collection(PUBLIC_PROFILES_COLLECTION)
+            .document(uid)
+            .collection(PUBLIC_GAMES_COLLECTION)
+            .orderBy(GAME_TOTAL_MS, Query.Direction.DESCENDING)
+            .limit(PUBLIC_GAMES_PAGE_SIZE)
+        cursor?.let { query = query.startAfter(it) }
+        val snapshot = query.get().await()
+        return PublicGamesPage(
+            games = snapshot.documents.mapNotNull { it.data.toPlayerGamePlayStat(it.id) },
+            cursor = snapshot.documents.lastOrNull(),
+            hasMore = snapshot.size().toLong() == PUBLIC_GAMES_PAGE_SIZE
+        )
+    }
+
+    suspend fun loadPlayerActivity(limit: Long = ACTIVITY_HISTORY_DAYS): List<PlayerActivityDay> {
+        val uid = auth.currentUser?.uid ?: return emptyList()
+        return firestore.collection(USERS_COLLECTION)
+            .document(uid)
+            .collection(ACTIVITY_COLLECTION)
+            .orderBy(FieldPath.documentId(), Query.Direction.DESCENDING)
+            .limit(limit)
+            .get()
+            .await()
+            .documents
+            .map { document ->
+                PlayerActivityDay(
+                    day = document.id,
+                    playTimeMs = document.getLong(ACTIVITY_PLAY_TIME_MS) ?: 0L,
+                    sessions = (document.getLong(ACTIVITY_SESSIONS) ?: 0L).toInt(),
+                    gameKeys = document.stringList(ACTIVITY_GAME_KEYS)
+                )
+            }
+            .sortedBy { it.day }
+    }
+
+    suspend fun updateProProfile(profileAccent: String, favoriteGameKeys: List<String>) {
+        val user = auth.currentUser ?: return
+        val accent = profileAccent.takeIf { it in PROFILE_ACCENTS } ?: DEFAULT_PROFILE_ACCENT
+        val favorites = favoriteGameKeys.distinct().take(MAX_FAVORITE_GAMES)
+        val profilePatch = mapOf(
+            FIELD_PROFILE_SCHEMA_VERSION to PROFILE_SCHEMA_VERSION,
+            FIELD_PROFILE_ACCENT to accent,
+            FIELD_FAVORITE_GAME_KEYS to favorites,
+            FIELD_UPDATED_AT to FieldValue.serverTimestamp()
+        )
+        val leaderboardPatch = mapOf(
+            FIELD_PROFILE_SCHEMA_VERSION to PROFILE_SCHEMA_VERSION,
+            FIELD_PROFILE_ACCENT to accent,
+            FIELD_UPDATED_AT to FieldValue.serverTimestamp()
+        )
+        firestore.runBatch { batch ->
+            batch.set(firestore.collection(USERS_COLLECTION).document(user.uid), profilePatch, SetOptions.merge())
+            batch.set(firestore.collection(PUBLIC_PROFILES_COLLECTION).document(user.uid), profilePatch, SetOptions.merge())
+            batch.set(firestore.collection(LEADERBOARD_COLLECTION).document(user.uid), leaderboardPatch, SetOptions.merge())
+        }.await()
+    }
+
+    suspend fun updateProMembership(enabled: Boolean) {
+        val uid = auth.currentUser?.uid ?: return
+        val patch = mapOf(
+            FIELD_PROFILE_SCHEMA_VERSION to PROFILE_SCHEMA_VERSION,
+            FIELD_PRO_MEMBER to enabled,
+            FIELD_UPDATED_AT to FieldValue.serverTimestamp()
+        )
+        firestore.runBatch { batch ->
+            batch.set(firestore.collection(PUBLIC_PROFILES_COLLECTION).document(uid), patch, SetOptions.merge())
+            batch.set(firestore.collection(LEADERBOARD_COLLECTION).document(uid), patch, SetOptions.merge())
+        }.await()
     }
 
     suspend fun signIn(email: String, password: String) {
@@ -162,15 +367,16 @@ class PlayerProfileRepository(context: Context) {
                 .build()
         ).await()
         val userPatch = mapOf(
+            FIELD_PROFILE_SCHEMA_VERSION to PROFILE_SCHEMA_VERSION,
             FIELD_DISPLAY_NAME to cleanName,
+            FIELD_SEARCH_NAME to normalizeSearchName(cleanName),
             FIELD_UPDATED_AT to FieldValue.serverTimestamp()
         )
-        firestore.collection(USERS_COLLECTION).document(user.uid)
-            .set(userPatch, SetOptions.merge())
-            .await()
-        firestore.collection(LEADERBOARD_COLLECTION).document(user.uid)
-            .set(userPatch, SetOptions.merge())
-            .await()
+        firestore.runBatch { batch ->
+            batch.set(firestore.collection(USERS_COLLECTION).document(user.uid), userPatch, SetOptions.merge())
+            batch.set(firestore.collection(PUBLIC_PROFILES_COLLECTION).document(user.uid), userPatch, SetOptions.merge())
+            batch.set(firestore.collection(LEADERBOARD_COLLECTION).document(user.uid), userPatch, SetOptions.merge())
+        }.await()
     }
 
     fun signOut() {
@@ -221,12 +427,21 @@ class PlayerProfileRepository(context: Context) {
         val latestTitle = latestEntry.title.ifBlank { latestEntry.gamePath.orEmpty().substringAfterLast('/').substringBeforeLast('.') }
         val cleanName = user.displayName.cleanDisplayName(user.email)
         val photoURL = user.bestPhotoUrl().orEmpty()
+        val searchName = normalizeSearchName(cleanName)
+        val playerTag = buildPlayerTag(user.uid)
         val userRef = firestore.collection(USERS_COLLECTION).document(user.uid)
+        val publicProfileRef = firestore.collection(PUBLIC_PROFILES_COLLECTION).document(user.uid)
         val leaderboardRef = firestore.collection(LEADERBOARD_COLLECTION).document(user.uid)
+        val activityGroups = validEntries.groupBy { (_, entry) -> activityDayKey(entry.lastPlayedAtMs) }
+        val activityRefs = activityGroups.mapValues { (day, _) ->
+            userRef.collection(ACTIVITY_COLLECTION).document(day)
+        }
 
         firestore.runTransaction { transaction ->
             val snapshot = transaction.get(userRef)
+            val activitySnapshots = activityRefs.mapValues { (_, reference) -> transaction.get(reference) }
             val existingGames = snapshot.getGamesMap().toMutableMap()
+            val changedGames = LinkedHashMap<String, Map<String, Any>>()
             validEntries.forEach { (gameKey, entry) ->
                 val cleanTitle = entry.title.ifBlank { entry.gamePath.orEmpty().substringAfterLast('/').substringBeforeLast('.') }
                 val existingGame = existingGames[gameKey].toGameMap()
@@ -239,40 +454,97 @@ class PlayerProfileRepository(context: Context) {
                     buildShareableCoverPath(entry.coverArtPath, entry.serial)?.let { put(GAME_COVER_ART_PATH, it.take(MAX_COVER_PATH_LENGTH)) }
                 }
                 existingGames[gameKey] = nextGame
+                changedGames[gameKey] = nextGame
             }
 
             val totalPlayTimeMs = (snapshot.getLong(FIELD_TOTAL_PLAY_TIME_MS) ?: 0L) + validEntries.sumOf { it.second.durationMs }
             val gamesPlayed = existingGames.size.toLong()
+            val profileAccent = snapshot.getString(FIELD_PROFILE_ACCENT)
+                ?.takeIf { it in PROFILE_ACCENTS }
+                ?: DEFAULT_PROFILE_ACCENT
+            val favoriteGameKeys = snapshot.stringList(FIELD_FAVORITE_GAME_KEYS)
+                .distinct()
+                .take(MAX_FAVORITE_GAMES)
             val userData = mapOf(
+                FIELD_PROFILE_SCHEMA_VERSION to PROFILE_SCHEMA_VERSION,
                 FIELD_UID to user.uid,
                 FIELD_EMAIL to (user.email ?: ""),
                 FIELD_DISPLAY_NAME to cleanName,
+                FIELD_SEARCH_NAME to searchName,
+                FIELD_PLAYER_TAG to playerTag,
                 FIELD_PHOTO_URL to photoURL,
                 FIELD_TOTAL_PLAY_TIME_MS to totalPlayTimeMs,
                 FIELD_GAMES_PLAYED to gamesPlayed,
                 FIELD_LAST_PLAYED_TITLE to latestTitle.take(MAX_GAME_TITLE_LENGTH),
                 FIELD_LAST_PLAYED_AT_MS to latestEntry.lastPlayedAtMs,
                 FIELD_GAMES to existingGames,
+                FIELD_PROFILE_ACCENT to profileAccent,
+                FIELD_FAVORITE_GAME_KEYS to favoriteGameKeys,
                 FIELD_UPDATED_AT to FieldValue.serverTimestamp(),
                 FIELD_CREATED_AT to (snapshot.getTimestamp(FIELD_CREATED_AT) ?: FieldValue.serverTimestamp())
             )
             val leaderboardData = mapOf(
+                FIELD_PROFILE_SCHEMA_VERSION to PROFILE_SCHEMA_VERSION,
                 FIELD_UID to user.uid,
                 FIELD_DISPLAY_NAME to cleanName,
+                FIELD_SEARCH_NAME to searchName,
+                FIELD_PLAYER_TAG to playerTag,
                 FIELD_PHOTO_URL to photoURL,
                 FIELD_TOTAL_PLAY_TIME_MS to totalPlayTimeMs,
                 FIELD_GAMES_PLAYED to gamesPlayed,
                 FIELD_LAST_PLAYED_TITLE to latestTitle.take(MAX_GAME_TITLE_LENGTH),
+                FIELD_PROFILE_ACCENT to profileAccent,
+                FIELD_UPDATED_AT to FieldValue.serverTimestamp()
+            )
+            val publicProfileData = mapOf(
+                FIELD_PROFILE_SCHEMA_VERSION to PROFILE_SCHEMA_VERSION,
+                FIELD_UID to user.uid,
+                FIELD_DISPLAY_NAME to cleanName,
+                FIELD_SEARCH_NAME to searchName,
+                FIELD_PLAYER_TAG to playerTag,
+                FIELD_PHOTO_URL to photoURL,
+                FIELD_TOTAL_PLAY_TIME_MS to totalPlayTimeMs,
+                FIELD_GAMES_PLAYED to gamesPlayed,
+                FIELD_LAST_PLAYED_TITLE to latestTitle.take(MAX_GAME_TITLE_LENGTH),
+                FIELD_LAST_PLAYED_AT_MS to latestEntry.lastPlayedAtMs,
+                FIELD_PROFILE_ACCENT to profileAccent,
+                FIELD_FAVORITE_GAME_KEYS to favoriteGameKeys,
                 FIELD_UPDATED_AT to FieldValue.serverTimestamp()
             )
 
             transaction.set(userRef, userData, SetOptions.merge())
+            transaction.set(publicProfileRef, publicProfileData, SetOptions.merge())
             transaction.set(leaderboardRef, leaderboardData, SetOptions.merge())
+            changedGames.forEach { (gameKey, gameData) ->
+                transaction.set(
+                    publicProfileRef.collection(PUBLIC_GAMES_COLLECTION).document(gameKey),
+                    gameData,
+                    SetOptions.merge()
+                )
+            }
+            activityGroups.forEach { (day, entriesForDay) ->
+                val activitySnapshot = activitySnapshots.getValue(day)
+                val existingGameKeys = activitySnapshot.stringList(ACTIVITY_GAME_KEYS)
+                val newGameKeys = entriesForDay.map { it.first }
+                transaction.set(
+                    activityRefs.getValue(day),
+                    mapOf(
+                        ACTIVITY_PLAY_TIME_MS to ((activitySnapshot.getLong(ACTIVITY_PLAY_TIME_MS) ?: 0L) +
+                            entriesForDay.sumOf { it.second.durationMs }),
+                        ACTIVITY_SESSIONS to ((activitySnapshot.getLong(ACTIVITY_SESSIONS) ?: 0L) +
+                            entriesForDay.sumOf { it.second.sessionCount }),
+                        ACTIVITY_GAME_KEYS to (existingGameKeys + newGameKeys).distinct().take(MAX_DAILY_GAMES),
+                        FIELD_UPDATED_AT to FieldValue.serverTimestamp()
+                    ),
+                    SetOptions.merge()
+                )
+            }
         }.await()
     }
 
     private suspend fun ensureUserProfile(uid: String, email: String?, displayName: String, photoURL: String?) {
         val userRef = firestore.collection(USERS_COLLECTION).document(uid)
+        val publicProfileRef = firestore.collection(PUBLIC_PROFILES_COLLECTION).document(uid)
         val leaderboardRef = firestore.collection(LEADERBOARD_COLLECTION).document(uid)
         firestore.runTransaction { transaction ->
             val snapshot = transaction.get(userRef)
@@ -283,30 +555,73 @@ class PlayerProfileRepository(context: Context) {
             } else {
                 0L
             }
+            val playerTag = buildPlayerTag(uid)
+            val searchName = normalizeSearchName(displayName)
+            val profileAccent = snapshot.getString(FIELD_PROFILE_ACCENT)
+                ?.takeIf { it in PROFILE_ACCENTS }
+                ?: DEFAULT_PROFILE_ACCENT
+            val favoriteGameKeys = snapshot.stringList(FIELD_FAVORITE_GAME_KEYS)
+                .distinct()
+                .take(MAX_FAVORITE_GAMES)
             val userData = mutableMapOf<String, Any?>(
+                FIELD_PROFILE_SCHEMA_VERSION to PROFILE_SCHEMA_VERSION,
                 FIELD_UID to uid,
                 FIELD_EMAIL to (email ?: ""),
                 FIELD_DISPLAY_NAME to displayName,
+                FIELD_SEARCH_NAME to searchName,
+                FIELD_PLAYER_TAG to playerTag,
                 FIELD_PHOTO_URL to photoURL.orEmpty(),
                 FIELD_TOTAL_PLAY_TIME_MS to totalPlayTimeMs,
                 FIELD_GAMES_PLAYED to gamesPlayed,
                 FIELD_GAMES to existingGames,
+                FIELD_PROFILE_ACCENT to profileAccent,
+                FIELD_FAVORITE_GAME_KEYS to favoriteGameKeys,
                 FIELD_UPDATED_AT to FieldValue.serverTimestamp()
             )
             if (!snapshot.exists()) {
                 userData[FIELD_CREATED_AT] = FieldValue.serverTimestamp()
             }
             val leaderboardData = mapOf(
+                FIELD_PROFILE_SCHEMA_VERSION to PROFILE_SCHEMA_VERSION,
                 FIELD_UID to uid,
                 FIELD_DISPLAY_NAME to displayName,
+                FIELD_SEARCH_NAME to searchName,
+                FIELD_PLAYER_TAG to playerTag,
                 FIELD_PHOTO_URL to photoURL.orEmpty(),
                 FIELD_TOTAL_PLAY_TIME_MS to totalPlayTimeMs,
                 FIELD_GAMES_PLAYED to gamesPlayed,
                 FIELD_LAST_PLAYED_TITLE to snapshot.getString(FIELD_LAST_PLAYED_TITLE).orEmpty(),
+                FIELD_PROFILE_ACCENT to profileAccent,
+                FIELD_UPDATED_AT to FieldValue.serverTimestamp()
+            )
+            val publicProfileData = mapOf(
+                FIELD_PROFILE_SCHEMA_VERSION to PROFILE_SCHEMA_VERSION,
+                FIELD_UID to uid,
+                FIELD_DISPLAY_NAME to displayName,
+                FIELD_SEARCH_NAME to searchName,
+                FIELD_PLAYER_TAG to playerTag,
+                FIELD_PHOTO_URL to photoURL.orEmpty(),
+                FIELD_TOTAL_PLAY_TIME_MS to totalPlayTimeMs,
+                FIELD_GAMES_PLAYED to gamesPlayed,
+                FIELD_LAST_PLAYED_TITLE to snapshot.getString(FIELD_LAST_PLAYED_TITLE).orEmpty(),
+                FIELD_LAST_PLAYED_AT_MS to (snapshot.getLong(FIELD_LAST_PLAYED_AT_MS) ?: 0L),
+                FIELD_PROFILE_ACCENT to profileAccent,
+                FIELD_FAVORITE_GAME_KEYS to favoriteGameKeys,
                 FIELD_UPDATED_AT to FieldValue.serverTimestamp()
             )
             transaction.set(userRef, userData, SetOptions.merge())
+            transaction.set(publicProfileRef, publicProfileData, SetOptions.merge())
             transaction.set(leaderboardRef, leaderboardData, SetOptions.merge())
+            existingGames.entries
+                .sortedByDescending { (_, value) -> value.toGameMap().longValue(GAME_TOTAL_MS) }
+                .take(PUBLIC_MIGRATION_GAME_LIMIT)
+                .forEach { (gameKey, gameData) ->
+                    transaction.set(
+                        publicProfileRef.collection(PUBLIC_GAMES_COLLECTION).document(gameKey),
+                        gameData.toGameMap().toPublicGameData(),
+                        SetOptions.merge()
+                    )
+                }
         }.await()
     }
 
@@ -325,11 +640,35 @@ class PlayerProfileRepository(context: Context) {
             gamesPlayed = (getLong(FIELD_GAMES_PLAYED) ?: games.size.toLong()).toInt(),
             lastPlayedTitle = getString(FIELD_LAST_PLAYED_TITLE),
             lastPlayedAtMs = getLong(FIELD_LAST_PLAYED_AT_MS) ?: getTimestamp(FIELD_LAST_PLAYED_AT)?.toMillisCompat(),
-            games = games
+            games = games,
+            playerTag = getString(FIELD_PLAYER_TAG) ?: buildPlayerTag(uid),
+            profileAccent = getString(FIELD_PROFILE_ACCENT) ?: DEFAULT_PROFILE_ACCENT,
+            favoriteGameKeys = stringList(FIELD_FAVORITE_GAME_KEYS),
+            isProMember = getBoolean(FIELD_PRO_MEMBER) == true
         )
     }
 
-    private fun DocumentSnapshot.toPlayerLeaderboardEntry(rank: Int): PlayerLeaderboardEntry? {
+    private fun DocumentSnapshot.toPublicPlayerProfile(games: List<PlayerGamePlayStat>): PlayerProfile? {
+        if (!exists()) return null
+        val uid = getString(FIELD_UID) ?: id
+        return PlayerProfile(
+            uid = uid,
+            email = null,
+            displayName = getString(FIELD_DISPLAY_NAME).cleanDisplayName(null),
+            photoURL = getString(FIELD_PHOTO_URL),
+            totalPlayTimeMs = getLong(FIELD_TOTAL_PLAY_TIME_MS) ?: games.sumOf { it.totalPlayTimeMs },
+            gamesPlayed = (getLong(FIELD_GAMES_PLAYED) ?: games.size.toLong()).toInt(),
+            lastPlayedTitle = getString(FIELD_LAST_PLAYED_TITLE),
+            lastPlayedAtMs = getLong(FIELD_LAST_PLAYED_AT_MS),
+            games = games,
+            playerTag = getString(FIELD_PLAYER_TAG) ?: buildPlayerTag(uid),
+            profileAccent = getString(FIELD_PROFILE_ACCENT) ?: DEFAULT_PROFILE_ACCENT,
+            favoriteGameKeys = stringList(FIELD_FAVORITE_GAME_KEYS),
+            isProMember = getBoolean(FIELD_PRO_MEMBER) == true
+        )
+    }
+
+    private fun DocumentSnapshot.toPlayerLeaderboardEntry(rank: Int?): PlayerLeaderboardEntry? {
         if (!exists()) return null
         val uid = getString(FIELD_UID) ?: id
         return PlayerLeaderboardEntry(
@@ -339,7 +678,10 @@ class PlayerProfileRepository(context: Context) {
             photoURL = getString(FIELD_PHOTO_URL),
             totalPlayTimeMs = getLong(FIELD_TOTAL_PLAY_TIME_MS) ?: 0L,
             gamesPlayed = (getLong(FIELD_GAMES_PLAYED) ?: 0L).toInt(),
-            lastPlayedTitle = getString(FIELD_LAST_PLAYED_TITLE)
+            lastPlayedTitle = getString(FIELD_LAST_PLAYED_TITLE),
+            playerTag = getString(FIELD_PLAYER_TAG) ?: buildPlayerTag(uid),
+            profileAccent = getString(FIELD_PROFILE_ACCENT) ?: DEFAULT_PROFILE_ACCENT,
+            isProMember = getBoolean(FIELD_PRO_MEMBER) == true
         )
     }
 
@@ -367,6 +709,12 @@ class PlayerProfileRepository(context: Context) {
         return (get(FIELD_GAMES) as? Map<String, Any?>).orEmpty()
     }
 
+    private fun DocumentSnapshot.stringList(field: String): List<String> {
+        return (get(field) as? List<*>)
+            .orEmpty()
+            .mapNotNull { it as? String }
+    }
+
     private fun Any?.toGameMap(): Map<String, Any?> {
         @Suppress("UNCHECKED_CAST")
         return this as? Map<String, Any?> ?: emptyMap()
@@ -383,6 +731,21 @@ class PlayerProfileRepository(context: Context) {
             is Double -> value.toLong()
             is Number -> value.toLong()
             else -> 0L
+        }
+    }
+
+    private fun Map<String, Any?>.toPublicGameData(): Map<String, Any> {
+        return buildMap {
+            put(GAME_TITLE, stringValue(GAME_TITLE).ifBlank { DEFAULT_GAME_TITLE }.take(MAX_GAME_TITLE_LENGTH))
+            put(GAME_TOTAL_MS, longValue(GAME_TOTAL_MS).coerceAtLeast(0L))
+            put(GAME_SESSIONS, longValue(GAME_SESSIONS).coerceAtLeast(0L))
+            put(GAME_LAST_PLAYED_AT_MS, longValue(GAME_LAST_PLAYED_AT_MS).coerceAtLeast(0L))
+            stringValue(GAME_SERIAL).takeIf { it.isNotBlank() }?.let {
+                put(GAME_SERIAL, it.take(MAX_SERIAL_LENGTH))
+            }
+            stringValue(GAME_COVER_ART_PATH)
+                .takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                ?.let { put(GAME_COVER_ART_PATH, it.take(MAX_COVER_PATH_LENGTH)) }
         }
     }
 
@@ -412,6 +775,21 @@ class PlayerProfileRepository(context: Context) {
             ?.replace(Regex("[^A-Z0-9_-]"), "_")
             ?.takeIf { it.isNotBlank() }
         return serialKey ?: "P_${gamePath.sha256().take(32)}"
+    }
+
+    private fun buildPlayerTag(uid: String): String {
+        return PLAYER_TAG_PREFIX + uid.sha256().take(7).uppercase(Locale.ROOT)
+    }
+
+    private fun normalizeSearchName(value: String): String {
+        return value.trim()
+            .lowercase(Locale.ROOT)
+            .replace(Regex("\\s+"), " ")
+            .take(MAX_DISPLAY_NAME_LENGTH)
+    }
+
+    private fun activityDayKey(timestampMs: Long): String {
+        return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(timestampMs))
     }
 
     private fun buildShareableCoverPath(coverArtPath: String?, serial: String?): String? {
@@ -454,18 +832,35 @@ class PlayerProfileRepository(context: Context) {
 
     companion object {
         private const val USERS_COLLECTION = "users"
+        private const val PUBLIC_PROFILES_COLLECTION = "publicProfiles"
+        private const val PUBLIC_GAMES_COLLECTION = "games"
+        private const val ACTIVITY_COLLECTION = "activity"
         private const val LEADERBOARD_COLLECTION = "leaderboardPlayTime"
-        private const val LEADERBOARD_LIMIT = 100L
+        private const val LEADERBOARD_PAGE_SIZE = 50L
+        private const val LEADERBOARD_MAX_ENTRIES = 1000
+        private const val PLAYER_SEARCH_LIMIT = 20L
+        private const val MIN_PLAYER_SEARCH_LENGTH = 2
+        private const val PUBLIC_GAMES_PAGE_SIZE = 20L
+        private const val PUBLIC_MIGRATION_GAME_LIMIT = 100
+        private const val ACTIVITY_HISTORY_DAYS = 120L
+        private const val MAX_FAVORITE_GAMES = 3
+        private const val MAX_DAILY_GAMES = 100
+        private const val PLAYER_TAG_PREFIX = "EX-"
+        private const val PROFILE_SCHEMA_VERSION = 2
         private const val MAX_DISPLAY_NAME_LENGTH = 32
         private const val MAX_GAME_TITLE_LENGTH = 120
         private const val MAX_SERIAL_LENGTH = 32
         private const val MAX_COVER_PATH_LENGTH = 500
         private const val DEFAULT_DISPLAY_NAME = "Player"
+        private const val DEFAULT_GAME_TITLE = "Unknown game"
         private const val BIOS_TITLE = "PlayStation 2 BIOS"
 
         private const val FIELD_UID = "uid"
+        private const val FIELD_PROFILE_SCHEMA_VERSION = "profileSchemaVersion"
         private const val FIELD_EMAIL = "email"
         private const val FIELD_DISPLAY_NAME = "displayName"
+        private const val FIELD_SEARCH_NAME = "searchName"
+        private const val FIELD_PLAYER_TAG = "playerTag"
         private const val FIELD_PHOTO_URL = "photoURL"
         private const val FIELD_TOTAL_PLAY_TIME_MS = "totalPlayTimeMs"
         private const val FIELD_GAMES_PLAYED = "gamesPlayed"
@@ -475,6 +870,15 @@ class PlayerProfileRepository(context: Context) {
         private const val FIELD_UPDATED_AT = "updatedAt"
         private const val FIELD_CREATED_AT = "createdAt"
         private const val FIELD_GAMES = "games"
+        private const val FIELD_PROFILE_ACCENT = "profileAccent"
+        private const val FIELD_FAVORITE_GAME_KEYS = "favoriteGameKeys"
+        private const val FIELD_PRO_MEMBER = "proMember"
+
+        private const val ACTIVITY_PLAY_TIME_MS = "playTimeMs"
+        private const val ACTIVITY_SESSIONS = "sessions"
+        private const val ACTIVITY_GAME_KEYS = "gameKeys"
+
+        private val PROFILE_ACCENTS = setOf("gold", "crimson", "blue", "violet", "emerald")
 
         private const val GAME_TITLE = "t"
         private const val GAME_TOTAL_MS = "ms"

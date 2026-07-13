@@ -127,6 +127,8 @@ import com.sbro.emucorex.R
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.data.CustomGameCoverRepository
 import com.sbro.emucorex.data.GameItem
+import com.sbro.emucorex.data.HomeBackgroundRepository
+import com.sbro.emucorex.data.HomeBackgroundType
 import com.sbro.emucorex.ui.common.GameCoverArt
 import com.sbro.emucorex.ui.common.PremiumLoadingAnimation
 import com.sbro.emucorex.ui.common.RequestFocusOnResume
@@ -134,6 +136,7 @@ import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import com.sbro.emucorex.ui.common.skipGamepadTextFieldFocus
+import com.sbro.emucorex.ui.customization.HomeBackgroundMedia
 import com.sbro.emucorex.ui.theme.GradientEnd
 import com.sbro.emucorex.ui.theme.GradientStart
 import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
@@ -161,6 +164,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val customCoverRepository = remember(context) { CustomGameCoverRepository(context) }
+    val homeBackgroundRepository = remember(context) { HomeBackgroundRepository(context) }
     val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
     val isTabletClass = configuration.smallestScreenWidthDp >= 600
     val isWide = isTabletClass && configuration.screenWidthDp >= 900
@@ -171,7 +175,8 @@ fun HomeScreen(
     val horizontalInset = ScreenHorizontalPadding
     val sectionTopSpacing = 2.dp
     val sectionInnerSpacing = 4.dp
-    val minCellSize = if (isLandscape) 94.dp else 102.dp
+    val baseCellSize = if (isLandscape) 94.dp else 102.dp
+    val minCellSize = baseCellSize * uiState.homeGridScale
     val contentWidthDp = if (isWide) (configuration.screenWidthDp - 332).coerceAtLeast(320) else configuration.screenWidthDp
     val columnsCount = maxOf(1, (contentWidthDp + 12) / (minCellSize.value.toInt() + 12))
     val isListView = uiState.libraryViewMode == HomeLibraryViewMode.LIST
@@ -289,6 +294,23 @@ fun HomeScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontalSystemBarPadding)
     ) {
+        if (!isShelfView && uiState.homeBackgroundType != HomeBackgroundType.NONE) {
+            HomeBackgroundMedia(
+                type = uiState.homeBackgroundType,
+                file = homeBackgroundRepository.existingFile(uiState.homeBackgroundType),
+                revision = uiState.homeBackgroundRevision,
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        MaterialTheme.colorScheme.background.copy(
+                            alpha = uiState.homeBackgroundDim / 100f
+                        )
+                    )
+            )
+        }
         if (uiState.isBootstrapping || uiState.isLoading) {
             LoadingState()
         } else if (!uiState.gameFolderSet || !uiState.biosValid) {
@@ -473,7 +495,8 @@ fun HomeScreen(
                                                         onLongClickCustomCover = {
                                                             gameAwaitingPickerLaunch = game
                                                         },
-                                                        compact = isLandscape
+                                                        compact = isLandscape,
+                                                        coverScale = uiState.homeGridScale
                                                     )
                                                 }
                                             }
@@ -692,7 +715,7 @@ private fun HomeHeader(
         else -> stringResource(R.string.home_view_list)
     }
 
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(
@@ -701,110 +724,148 @@ private fun HomeHeader(
                 top = if (isLandscape) sectionTopSpacing else 2.dp,
                 bottom = sectionTopSpacing
             ),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f)
+        ),
+        tonalElevation = 1.dp
     ) {
         Row(
             modifier = Modifier
-                .weight(1f)
-                .padding(end = 8.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (!isWide && onMenuClick != null) {
-                val drawerInteractionSource = remember { MutableInteractionSource() }
-                Surface(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clickable(
-                            interactionSource = drawerInteractionSource,
-                            indication = null,
-                            onClick = rememberDebouncedClick(onClick = onMenuClick)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (!isWide && onMenuClick != null) {
+                    val drawerInteractionSource = remember { MutableInteractionSource() }
+                    Surface(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clickable(
+                                interactionSource = drawerInteractionSource,
+                                indication = null,
+                                onClick = rememberDebouncedClick(onClick = onMenuClick)
+                            )
+                            .gamepadFocusableCard(
+                                shape = RoundedCornerShape(14.dp),
+                                interactionSource = drawerInteractionSource,
+                                addFocusTarget = false
+                            ),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.54f),
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.50f)
                         )
-                        .gamepadFocusableCard(
-                            shape = RoundedCornerShape(14.dp),
-                            interactionSource = drawerInteractionSource,
-                            addFocusTarget = false
-                        ),
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 3.dp,
-                    shadowElevation = 5.dp
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Menu,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = stringResource(R.string.home_game_count, gamesCount),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.50f)
+                )
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        modifier = Modifier.size(42.dp),
+                        onClick = onRefresh,
+                        enabled = refreshEnabled
+                    ) {
+                        if (isRefreshing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(19.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = stringResource(R.string.home_refresh),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    HomeHeaderActionDivider()
+                    IconButton(
+                        modifier = Modifier.size(42.dp),
+                        onClick = onToggleShelfMode
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Menu,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
+                            imageVector = Icons.Rounded.ViewCarousel,
+                            contentDescription = if (isShelfView) {
+                                stringResource(R.string.home_exit_shelf)
+                            } else {
+                                stringResource(R.string.home_view_shelf)
+                            },
+                            tint = if (isShelfView) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    HomeHeaderActionDivider()
+                    IconButton(
+                        modifier = Modifier.size(42.dp),
+                        onClick = onToggleLibraryViewMode
+                    ) {
+                        Icon(
+                            imageVector = standardToggleIcon,
+                            contentDescription = standardToggleDescription,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(14.dp))
-            }
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = stringResource(R.string.home_game_count, gamesCount),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        Row(
-            modifier = Modifier.widthIn(min = 132.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            IconButton(
-                onClick = onRefresh,
-                enabled = refreshEnabled
-            ) {
-                if (isRefreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Rounded.Refresh,
-                        contentDescription = stringResource(R.string.home_refresh),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            IconButton(onClick = onToggleShelfMode) {
-                Icon(
-                    imageVector = Icons.Rounded.ViewCarousel,
-                    contentDescription = if (isShelfView) {
-                        stringResource(R.string.home_exit_shelf)
-                    } else {
-                        stringResource(R.string.home_view_shelf)
-                    },
-                    tint = if (isShelfView) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(onClick = onToggleLibraryViewMode) {
-                Icon(
-                    imageVector = standardToggleIcon,
-                    contentDescription = standardToggleDescription,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
+}
+
+@Composable
+private fun HomeHeaderActionDivider() {
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .height(20.dp)
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+    )
 }
 
 @Composable
@@ -1211,7 +1272,8 @@ private fun RecentGameCard(
     onLongClickCreateShortcut: () -> Unit,
     onLongClickOpenGameDb: () -> Unit,
     onLongClickCustomCover: () -> Unit,
-    compact: Boolean
+    compact: Boolean,
+    coverScale: Float
 ) {
     val debouncedClick = rememberDebouncedClick(onClick = onClick)
     val interactionSource = remember { MutableInteractionSource() }
@@ -1221,7 +1283,7 @@ private fun RecentGameCard(
 
     Box(
         modifier = modifier
-            .width(if (compact) 98.dp else 108.dp)
+            .width((if (compact) 98.dp else 108.dp) * coverScale)
     ) {
         Surface(
             modifier = focusModifier

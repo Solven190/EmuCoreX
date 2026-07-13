@@ -23,6 +23,10 @@ data class RetroAchievementEntry(
     val points: Int,
     val category: Int,
     val type: Int,
+    val state: Int,
+    val bucket: Int,
+    val measuredProgress: String?,
+    val measuredPercent: Float,
     val rarity: Float,
     val rarityHardcore: Float,
     val earnedSoftcore: Boolean,
@@ -32,7 +36,15 @@ data class RetroAchievementEntry(
 ) {
     val isEarned: Boolean
         get() = earnedSoftcore || earnedHardcore
+
+    val isPrimed: Boolean
+        get() = bucket == RETRO_ACHIEVEMENT_BUCKET_ACTIVE_CHALLENGE
+
+    val hasMeasuredProgress: Boolean
+        get() = !isEarned && !measuredProgress.isNullOrBlank()
 }
+
+private const val RETRO_ACHIEVEMENT_BUCKET_ACTIVE_CHALLENGE = 6
 
 data class RetroAchievementGameData(
     val gameId: Long,
@@ -750,6 +762,10 @@ private fun JSONArray?.toPatchAchievementEntries(
                     points = item.optInt("Points"),
                     category = item.optInt("Flags"),
                     type = type,
+                    state = 0,
+                    bucket = 0,
+                    measuredProgress = null,
+                    measuredPercent = 0f,
                     rarity = item.optDouble("Rarity", 100.0).toFloat(),
                     rarityHardcore = item.optDouble("RarityHardcore", 100.0).toFloat(),
                     earnedSoftcore = id in softcoreUnlocks || id in hardcoreUnlocks,
@@ -797,6 +813,10 @@ private fun JSONArray?.toRetroAchievementEntries(): List<RetroAchievementEntry> 
                     points = item.optInt("points"),
                     category = item.optInt("category"),
                     type = item.optInt("type"),
+                    state = item.optInt("state"),
+                    bucket = item.optInt("bucket"),
+                    measuredProgress = item.optString("measuredProgress").takeIf { it.isNotBlank() },
+                    measuredPercent = item.optDouble("measuredPercent").toFloat().coerceIn(0f, 100f),
                     rarity = item.optDouble("rarity").toFloat(),
                     rarityHardcore = item.optDouble("rarityHardcore").toFloat(),
                     earnedSoftcore = item.optBoolean("earnedSoftcore"),

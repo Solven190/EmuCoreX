@@ -1,4 +1,5 @@
 #include "emucorex/upstream_vm_bridge.h"
+#include "emucorex/retro_achievements_android.h"
 #include "emucorex/android_crash_diagnostics.h"
 #include "emucorex/android_runtime.h"
 
@@ -22,8 +23,6 @@
 #include <cstdlib>
 #include <mutex>
 #include <thread>
-
-extern void QueryAndNotifyAchievementsState();
 
 namespace emucorex::android
 {

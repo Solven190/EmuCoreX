@@ -164,7 +164,6 @@ class CatalogSearchViewModel(application: Application) : AndroidViewModel(applic
     }
 
     override fun onCleared() {
-        super.onCleared()
         repository.close()
     }
 }

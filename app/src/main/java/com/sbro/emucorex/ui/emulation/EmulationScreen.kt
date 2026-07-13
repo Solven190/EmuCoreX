@@ -161,6 +161,9 @@ import com.sbro.emucorex.data.RetroAchievementEntry
 import com.sbro.emucorex.data.RetroAchievementGameData
 import com.sbro.emucorex.data.RetroAchievementsRepository
 import com.sbro.emucorex.data.SettingsSnapshot
+import com.sbro.emucorex.data.TouchControlVisualStyle
+import com.sbro.emucorex.data.GameMenuTabId
+import com.sbro.emucorex.data.GameMenuSessionSection
 import com.sbro.emucorex.ui.common.BitmapPathImage
 import com.sbro.emucorex.ui.common.ProvideGamepadMenuAction
 import com.sbro.emucorex.ui.common.ProvideGamepadShoulderActions
@@ -1127,6 +1130,7 @@ fun EmulationScreen(
                 touchHaptics = uiState.touchHaptics,
                 touchHapticsPreset = uiState.touchHapticsPreset,
                 touchHapticsStrength = uiState.touchHapticsStrength,
+                visualStyle = uiState.touchControlVisualStyle,
                 dpadOffset = uiState.dpadOffset,
                 lstickOffset = uiState.lstickOffset,
                 rstickOffset = uiState.rstickOffset,
@@ -1625,6 +1629,15 @@ fun EmulationScreen(
     }
 }
 
+private fun GameMenuTabId.toEmulationMenuTab(): EmulationMenuTab = when (this) {
+    GameMenuTabId.SESSION -> EmulationMenuTab.Session
+    GameMenuTabId.CONTROLS -> EmulationMenuTab.Controls
+    GameMenuTabId.EMULATION -> EmulationMenuTab.Emulation
+    GameMenuTabId.GRAPHICS -> EmulationMenuTab.Graphics
+    GameMenuTabId.FIXES -> EmulationMenuTab.Fixes
+    GameMenuTabId.ACHIEVEMENTS -> EmulationMenuTab.Achievements
+}
+
 @Composable
 private fun TransportStatusOverlay(mode: EmulationTransportMode) {
     if (mode == EmulationTransportMode.None) return
@@ -1678,6 +1691,7 @@ private fun OnScreenControls(
     touchHaptics: Boolean = false,
     touchHapticsPreset: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET,
     touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
+    visualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
     dpadOffset: Pair<Float, Float>,
     lstickOffset: Pair<Float, Float>,
     rstickOffset: Pair<Float, Float>,
@@ -1875,22 +1889,23 @@ private fun OnScreenControls(
 
         val leftShoulderSpecs = runtimeSpecs(layout.leftShoulders)
         if (leftShoulderSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = leftShoulderSpecs, onTouchHaptic = ::performTouchHaptic)
+            TouchButtonGroup(specs = leftShoulderSpecs, visualStyle = visualStyle, onTouchHaptic = ::performTouchHaptic)
         }
 
         val rightShoulderSpecs = runtimeSpecs(layout.rightShoulders)
         if (rightShoulderSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = rightShoulderSpecs, onTouchHaptic = ::performTouchHaptic)
+            TouchButtonGroup(specs = rightShoulderSpecs, visualStyle = visualStyle, onTouchHaptic = ::performTouchHaptic)
         }
 
         val dpadSpecs = runtimeSpecs(layout.dpadButtons)
         if (dpadSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = dpadSpecs, onTouchHaptic = ::performTouchHaptic)
+            TouchButtonGroup(specs = dpadSpecs, visualStyle = visualStyle, onTouchHaptic = ::performTouchHaptic)
         }
 
         layout.dpadCluster?.takeIf { it.visible }?.let { cluster ->
             VectorDpadCluster(
                 size = cluster.size,
+                visualStyle = visualStyle,
                 onDirectionsChange = ::updateExtraDpadDirections,
                 modifier = Modifier.offset {
                     IntOffset(cluster.x.roundToPx(), cluster.y.roundToPx())
@@ -1905,6 +1920,7 @@ private fun OnScreenControls(
                 analogWidth = panelWidth,
                 analogHeight = stick.size,
                 surfaceOnly = stickIsSurfaceOnly(stick),
+                visualStyle = visualStyle,
                 onValueChange = { x, y ->
                     updateAnalogStick(
                         x = if (invertLeftStickHorizontal) -x else x,
@@ -1925,7 +1941,7 @@ private fun OnScreenControls(
 
         val actionSpecs = runtimeSpecs(layout.actionButtons)
         if (actionSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = actionSpecs, onTouchHaptic = ::performTouchHaptic)
+            TouchButtonGroup(specs = actionSpecs, visualStyle = visualStyle, onTouchHaptic = ::performTouchHaptic)
         }
 
         layout.rightStick?.takeIf { it.visible }?.let { stick ->
@@ -1935,6 +1951,7 @@ private fun OnScreenControls(
                 analogWidth = panelWidth,
                 analogHeight = stick.size,
                 surfaceOnly = stickIsSurfaceOnly(stick),
+                visualStyle = visualStyle,
                 visualY = rightStickTriggerVisualY,
                 onValueChange = { x, y ->
                     updateRightAnalogStick(
@@ -1952,7 +1969,7 @@ private fun OnScreenControls(
 
         val centerSpecs = runtimeSpecs(layout.centerButtons)
         if (centerSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = centerSpecs, onTouchHaptic = ::performTouchHaptic)
+            TouchButtonGroup(specs = centerSpecs, visualStyle = visualStyle, onTouchHaptic = ::performTouchHaptic)
         }
     }
 }
@@ -2034,6 +2051,7 @@ private fun RetroAchievementsNotificationToast(
 @Composable
 private fun TouchButtonGroup(
     specs: List<TouchButtonSpec>,
+    visualStyle: TouchControlVisualStyle,
     onTouchHaptic: (ButtonPhase) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2270,6 +2288,7 @@ private fun TouchButtonGroup(
                 shape = spec.shape,
                 interactive = false,
                 pressed = activeTargets.containsValue(spec.id) || latchedTargets[spec.id] == true,
+                visualStyle = visualStyle,
                 modifier = Modifier.offset {
                     IntOffset(
                         (spec.x.roundToPx() - groupRect.left.roundToInt()),
@@ -2490,15 +2509,16 @@ private fun EmulationSidebarMenu(
     LaunchedEffect(selectedMenuTab) {
         railFocusRequesters[selectedMenuTab]?.requestFocus()
     }
-    val menuTabs = remember {
-        listOf(
-            EmulationMenuTab.Session,
-            EmulationMenuTab.Controls,
-            EmulationMenuTab.Emulation,
-            EmulationMenuTab.Graphics,
-            EmulationMenuTab.Fixes,
-            EmulationMenuTab.Achievements
-        )
+    val menuTabs = remember(uiState.gameMenuTabOrder, uiState.hiddenGameMenuTabs) {
+        uiState.gameMenuTabOrder
+            .filterNot(uiState.hiddenGameMenuTabs::contains)
+            .map(GameMenuTabId::toEmulationMenuTab)
+            .ifEmpty { listOf(EmulationMenuTab.Session) }
+    }
+    LaunchedEffect(menuTabs, selectedMenuTab) {
+        if (selectedMenuTab !in menuTabs) {
+            selectedMenuTabName = menuTabs.first().name
+        }
     }
     fun selectRelativeMenuTab(offset: Int) {
         val currentIndex = menuTabs.indexOf(selectedMenuTab).coerceAtLeast(0)
@@ -2621,6 +2641,10 @@ private fun EmulationSidebarMenu(
                             }
                         }
 
+                        if (
+                            GameMenuSessionSection.SAVE_STATES !in uiState.hiddenGameMenuSections ||
+                            GameMenuSessionSection.AUTO_SAVE !in uiState.hiddenGameMenuSections
+                        ) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
@@ -2630,6 +2654,7 @@ private fun EmulationSidebarMenu(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
+                                if (GameMenuSessionSection.SAVE_STATES !in uiState.hiddenGameMenuSections) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -2680,8 +2705,16 @@ private fun EmulationSidebarMenu(
                                     }
                                 }
 
-                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                }
 
+                                if (
+                                    GameMenuSessionSection.SAVE_STATES !in uiState.hiddenGameMenuSections &&
+                                    GameMenuSessionSection.AUTO_SAVE !in uiState.hiddenGameMenuSections
+                                ) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                }
+
+                                if (GameMenuSessionSection.AUTO_SAVE !in uiState.hiddenGameMenuSections) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -2753,9 +2786,13 @@ private fun EmulationSidebarMenu(
                                         )
                                     }
                                 }
+                                }
                             }
                         }
 
+                        }
+
+                        if (GameMenuSessionSection.QUICK_ACTIONS !in uiState.hiddenGameMenuSections) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -2780,6 +2817,8 @@ private fun EmulationSidebarMenu(
                                     containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
                                 )
                             }
+                        }
+
                         }
 
                         if (uiState.showDebugOptions) {
@@ -2852,6 +2891,7 @@ private fun EmulationSidebarMenu(
                             }
                         }
 
+                        if (GameMenuSessionSection.AUTOMATION !in uiState.hiddenGameMenuSections) {
                         SettingsToggle(
                             title = stringResource(R.string.emulation_auto_save_on_exit),
                             checked = uiState.autoSaveOnExit,
@@ -2868,6 +2908,9 @@ private fun EmulationSidebarMenu(
                             helpText = stringResource(R.string.emulation_auto_load_on_start_desc)
                         )
 
+                        }
+
+                        if (GameMenuSessionSection.GAME_PROFILE !in uiState.hiddenGameMenuSections) {
                         SidebarSectionTitle(
                             text = stringResource(R.string.game_settings_overlay_section).uppercase(),
                             color = sectionTitleColor,
@@ -2927,6 +2970,8 @@ private fun EmulationSidebarMenu(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
                                 )
                             }
+                        }
+
                         }
 
                     }
@@ -3944,48 +3989,31 @@ private fun EmulationSidebarMenu(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                EmulationMenuRailButton(
-                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Session)),
-                    icon = Icons.Rounded.Menu,
-                    contentDescription = stringResource(R.string.emulation_session_tab),
-                    selected = selectedMenuTab == EmulationMenuTab.Session,
-                    onClick = { selectedMenuTabName = EmulationMenuTab.Session.name }
-                )
-                EmulationMenuRailButton(
-                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Controls)),
-                    icon = Icons.Rounded.Gamepad,
-                    contentDescription = stringResource(R.string.settings_controls_tab),
-                    selected = selectedMenuTab == EmulationMenuTab.Controls,
-                    onClick = { selectedMenuTabName = EmulationMenuTab.Controls.name }
-                )
-                EmulationMenuRailButton(
-                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Emulation)),
-                    icon = Icons.Rounded.SettingsSuggest,
-                    contentDescription = stringResource(R.string.settings_emulation_tab),
-                    selected = selectedMenuTab == EmulationMenuTab.Emulation,
-                    onClick = { selectedMenuTabName = EmulationMenuTab.Emulation.name }
-                )
-                EmulationMenuRailButton(
-                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Graphics)),
-                    icon = Icons.Rounded.Fullscreen,
-                    contentDescription = stringResource(R.string.settings_graphics_tab),
-                    selected = selectedMenuTab == EmulationMenuTab.Graphics,
-                    onClick = { selectedMenuTabName = EmulationMenuTab.Graphics.name }
-                )
-                EmulationMenuRailButton(
-                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Fixes)),
-                    icon = Icons.Rounded.Star,
-                    contentDescription = stringResource(R.string.settings_fixes_tab),
-                    selected = selectedMenuTab == EmulationMenuTab.Fixes,
-                    onClick = { selectedMenuTabName = EmulationMenuTab.Fixes.name }
-                )
-                EmulationMenuRailButton(
-                    modifier = Modifier.focusRequester(railFocusRequesters.getValue(EmulationMenuTab.Achievements)),
-                    icon = Icons.Rounded.LockOpen,
-                    contentDescription = stringResource(R.string.emulation_achievements_tab),
-                    selected = selectedMenuTab == EmulationMenuTab.Achievements,
-                    onClick = { selectedMenuTabName = EmulationMenuTab.Achievements.name }
-                )
+                menuTabs.forEach { tab ->
+                    val icon = when (tab) {
+                        EmulationMenuTab.Session -> Icons.Rounded.Menu
+                        EmulationMenuTab.Controls -> Icons.Rounded.Gamepad
+                        EmulationMenuTab.Emulation -> Icons.Rounded.SettingsSuggest
+                        EmulationMenuTab.Graphics -> Icons.Rounded.Fullscreen
+                        EmulationMenuTab.Fixes -> Icons.Rounded.Star
+                        EmulationMenuTab.Achievements -> Icons.Rounded.LockOpen
+                    }
+                    val description = when (tab) {
+                        EmulationMenuTab.Session -> stringResource(R.string.emulation_session_tab)
+                        EmulationMenuTab.Controls -> stringResource(R.string.settings_controls_tab)
+                        EmulationMenuTab.Emulation -> stringResource(R.string.settings_emulation_tab)
+                        EmulationMenuTab.Graphics -> stringResource(R.string.settings_graphics_tab)
+                        EmulationMenuTab.Fixes -> stringResource(R.string.settings_fixes_tab)
+                        EmulationMenuTab.Achievements -> stringResource(R.string.emulation_achievements_tab)
+                    }
+                    EmulationMenuRailButton(
+                        modifier = Modifier.focusRequester(railFocusRequesters.getValue(tab)),
+                        icon = icon,
+                        contentDescription = description,
+                        selected = selectedMenuTab == tab,
+                        onClick = { selectedMenuTabName = tab.name }
+                    )
+                }
                 Spacer(modifier = Modifier.weight(1f))
                 EmulationMenuRailButton(
                     icon = Icons.AutoMirrored.Rounded.ExitToApp,
@@ -4332,6 +4360,18 @@ private fun OverlayAchievementRow(achievement: RetroAchievementEntry) {
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (achievement.hasMeasuredProgress) {
+                    Text(
+                        text = stringResource(
+                            R.string.achievements_measured_progress,
+                            achievement.measuredProgress.orEmpty()
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
             Column(
                 horizontalAlignment = Alignment.End,
@@ -4344,8 +4384,11 @@ private fun OverlayAchievementRow(achievement: RetroAchievementEntry) {
                 )
                 Text(
                     text = stringResource(
-                        if (achievement.isEarned) R.string.achievements_status_earned
-                        else R.string.achievements_status_locked
+                        when {
+                            achievement.isPrimed -> R.string.achievements_status_primed
+                            achievement.isEarned -> R.string.achievements_status_earned
+                            else -> R.string.achievements_status_locked
+                        }
                     ),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (achievement.isEarned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant

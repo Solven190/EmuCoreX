@@ -57,8 +57,7 @@ public/
 tools/
 y/
 .firebaserc
-firebase.json
-firestore.rules
+firestore.indexes.json
 **/__pycache__/
 *.pyc
 *.pyo

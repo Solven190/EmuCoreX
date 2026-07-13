@@ -1,6 +1,7 @@
 package com.sbro.emucorex.data
 
 import android.content.Context
+import androidx.core.content.edit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -42,7 +43,7 @@ class PlayTimeSyncCacheRepository(context: Context) {
             withContext(Dispatchers.IO) {
                 val entries = readEntriesLocked().values.toList()
                 if (entries.isNotEmpty()) {
-                    preferences.edit().remove(KEY_PENDING_ENTRIES).apply()
+                    preferences.edit { remove(KEY_PENDING_ENTRIES) }
                 }
                 entries
             }
@@ -86,7 +87,7 @@ class PlayTimeSyncCacheRepository(context: Context) {
     suspend fun setLastCloudSyncAtMs(timestampMs: Long) {
         mutex.withLock {
             withContext(Dispatchers.IO) {
-                preferences.edit().putLong(KEY_LAST_CLOUD_SYNC_AT_MS, timestampMs).apply()
+                preferences.edit { putLong(KEY_LAST_CLOUD_SYNC_AT_MS, timestampMs) }
             }
         }
     }
@@ -130,7 +131,7 @@ class PlayTimeSyncCacheRepository(context: Context) {
                     .put("lastPlayedAtMs", entry.lastPlayedAtMs)
             )
         }
-        preferences.edit().putString(KEY_PENDING_ENTRIES, array.toString()).apply()
+        preferences.edit { putString(KEY_PENDING_ENTRIES, array.toString()) }
     }
 
     private fun buildCacheKey(entry: PlayerPlayTimeDelta): String {

@@ -11,6 +11,8 @@ import com.sbro.emucorex.core.SetupValidator
 import com.sbro.emucorex.core.ProPurchaseManager
 import com.sbro.emucorex.core.StorageAccess
 import com.sbro.emucorex.data.AppPreferences
+import com.sbro.emucorex.data.HomeBackgroundRepository
+import com.sbro.emucorex.data.HomeBackgroundType
 import com.sbro.emucorex.data.CoverArtRepository
 import com.sbro.emucorex.data.CustomGameCoverRepository
 import com.sbro.emucorex.data.GameItem
@@ -62,6 +64,10 @@ data class HomeUiState(
     val setupComplete: Boolean = false,
     val showRecentGames: Boolean = true,
     val showHomeSearch: Boolean = false,
+    val homeGridScale: Float = AppPreferences.DEFAULT_HOME_GRID_SCALE,
+    val homeBackgroundType: HomeBackgroundType = HomeBackgroundType.NONE,
+    val homeBackgroundRevision: Int = 0,
+    val homeBackgroundDim: Int = AppPreferences.DEFAULT_HOME_BACKGROUND_DIM,
     val searchQuery: String = "",
     val sortOption: HomeSortOption = HomeSortOption.TITLE_ASC,
     val libraryViewMode: HomeLibraryViewMode = HomeLibraryViewMode.GRID,
@@ -92,6 +98,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val libraryCacheRepository = GameLibraryCacheRepository(application)
     private val customGameCoverRepository = CustomGameCoverRepository(application)
     private val preferences = AppPreferences(application)
+    private val homeBackgroundRepository = HomeBackgroundRepository(application)
     private val proPurchaseManager = ProPurchaseManager.getInstance(application)
     private var allGames: List<GameItem> = emptyList()
     private var recentEntries: List<RecentGameEntry> = emptyList()
@@ -116,6 +123,31 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            preferences.homeGridScale.collect { scale ->
+                _uiState.value = _uiState.value.copy(homeGridScale = scale)
+            }
+        }
+        viewModelScope.launch {
+            preferences.homeBackgroundType.collect { type ->
+                val availableType = if (homeBackgroundRepository.existingFile(type) != null) {
+                    type
+                } else {
+                    HomeBackgroundType.NONE
+                }
+                _uiState.value = _uiState.value.copy(homeBackgroundType = availableType)
+            }
+        }
+        viewModelScope.launch {
+            preferences.homeBackgroundRevision.collect { revision ->
+                _uiState.value = _uiState.value.copy(homeBackgroundRevision = revision)
+            }
+        }
+        viewModelScope.launch {
+            preferences.homeBackgroundDim.collect { dim ->
+                _uiState.value = _uiState.value.copy(homeBackgroundDim = dim)
+            }
+        }
         viewModelScope.launch {
             preferences.welcomeDialogShown.distinctUntilChanged().collect { shown ->
                 _uiState.value = _uiState.value.copy(showWelcomeDialog = !shown)

@@ -15,6 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -23,6 +24,8 @@ import com.sbro.emucorex.core.AppLocaleManager
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.NativeApp
 import com.sbro.emucorex.data.AppPreferences
+import com.sbro.emucorex.data.AppFontChoice
+import com.sbro.emucorex.data.CustomFontRepository
 import com.sbro.emucorex.navigation.AppNavigation
 import com.sbro.emucorex.ui.common.GamepadUiInputRouter
 import com.sbro.emucorex.ui.theme.EmuCoreXTheme
@@ -71,7 +74,11 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
+            val customFontRepository = remember { CustomFontRepository(applicationContext) }
             val themeMode by preferences.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+            val fontChoice by preferences.appFontChoice.collectAsState(initial = AppFontChoice.SYSTEM)
+            val appFontScale by preferences.appFontScale.collectAsState(initial = 1f)
+            val customFontRevision by preferences.customFontRevision.collectAsState(initial = 0)
             val systemDarkTheme = isSystemInDarkTheme()
             val darkTheme = when (themeMode) {
                 ThemeMode.SYSTEM -> systemDarkTheme
@@ -84,7 +91,13 @@ class MainActivity : ComponentActivity() {
                 applySystemBarTheme(darkTheme)
             }
 
-            EmuCoreXTheme(themeMode = themeMode) {
+            EmuCoreXTheme(
+                themeMode = themeMode,
+                fontChoice = fontChoice,
+                fontScale = appFontScale,
+                customFontFile = customFontRepository.installedFile(),
+                customFontRevision = customFontRevision
+            ) {
                 AppNavigation(
                     launchIntentVersion = launchIntentVersion,
                     restoredFromSavedState = restoredFromSavedState,

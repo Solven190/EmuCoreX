@@ -1385,12 +1385,27 @@ private fun AchievementCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (achievement.hasMeasuredProgress) {
+                    Text(
+                        text = androidx.compose.ui.res.stringResource(
+                            R.string.achievements_measured_progress,
+                            achievement.measuredProgress.orEmpty()
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Row(
                     modifier = Modifier.padding(top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     MiniBadge(text = "${achievement.points} pts")
-                    if (achievement.isEarned) {
+                    if (achievement.isPrimed) {
+                        MiniBadge(
+                            text = androidx.compose.ui.res.stringResource(R.string.achievements_status_primed),
+                            isHardcore = true
+                        )
+                    } else if (achievement.isEarned) {
                         MiniBadge(
                             text = if (achievement.earnedHardcore) "HARDCORE" else "EARNED",
                             isHardcore = achievement.earnedHardcore

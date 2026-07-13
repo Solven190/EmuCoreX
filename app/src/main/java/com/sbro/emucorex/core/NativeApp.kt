@@ -11,6 +11,7 @@ import java.lang.ref.WeakReference
 import java.security.cert.CertificateEncodingException
 import java.security.cert.X509Certificate
 import java.util.Base64
+import java.util.zip.ZipFile
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 import androidx.core.net.toUri
@@ -133,6 +134,7 @@ object NativeApp {
         val dataRoot = resolveDataRoot(context.applicationContext)
         prepareNativeDataRoot(File(dataRoot))
         copyAssetTree(context.applicationContext, RESOURCE_ROOT, File(dataRoot, RESOURCE_ROOT))
+        verifyBundledPatchArchive(File(dataRoot, "$RESOURCE_ROOT/patches.zip"))
         val caBundle = File(dataRoot, "system-ca-bundle.pem")
         exportSystemCaBundle(caBundle)
         setSystemCaBundlePath(caBundle.absolutePath)
@@ -271,6 +273,22 @@ object NativeApp {
             }
         } catch (error: IOException) {
             Log.w(TAG, "Failed to copy asset file $assetPath", error)
+        }
+    }
+
+    private fun verifyBundledPatchArchive(archive: File) {
+        runCatching {
+            require(archive.isFile && archive.length() > 0L) { "Bundled patches.zip is missing" }
+            val patchCount = ZipFile(archive).use { zip ->
+                zip.entries().asSequence().count { entry ->
+                    !entry.isDirectory && entry.name.endsWith(".pnach", ignoreCase = true)
+                }
+            }
+            require(patchCount > 0) { "Bundled patches.zip contains no PNACH files" }
+            Log.i(TAG, "Bundled PCSX2 patch archive ready: $patchCount patches, ${archive.length()} bytes")
+        }.onFailure { error ->
+            Log.e(TAG, "Bundled PCSX2 patch archive is unavailable", error)
+            CrashLogger.logError(TAG, "Bundled PCSX2 patch archive unavailable", error)
         }
     }
 

@@ -4,6 +4,7 @@ import android.view.MotionEvent
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,9 +14,12 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -28,8 +32,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
@@ -39,7 +48,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import com.sbro.emucorex.R
+import com.sbro.emucorex.data.TouchControlVisualStyle
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -89,13 +100,18 @@ fun VectorOverlayButton(
     pressed: Boolean = false,
     interactive: Boolean = true,
     pressedScale: Float = 1.3f,
+    visualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
     onClick: (() -> Unit)? = null,
     onPressChange: ((Boolean) -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if ((interactive && isPressed) || pressed) pressedScale.coerceAtLeast(1f) else 1f,
+        targetValue = if ((interactive && isPressed) || pressed) {
+            if (visualStyle == TouchControlVisualStyle.CLASSIC) pressedScale.coerceAtLeast(1f) else 0.92f
+        } else {
+            1f
+        },
         animationSpec = tween(durationMillis = 80),
         label = "vector_overlay_button_scale"
     )
@@ -117,6 +133,41 @@ fun VectorOverlayButton(
         Modifier
     }
 
+    val isFaceButton = drawableRes == R.drawable.ic_controller_triangle_button ||
+        drawableRes == R.drawable.ic_controller_cross_button ||
+        drawableRes == R.drawable.ic_controller_square_button ||
+        drawableRes == R.drawable.ic_controller_circle_button
+    val isShoulderButton = drawableRes == R.drawable.ic_controller_l1_button ||
+        drawableRes == R.drawable.ic_controller_l2_button ||
+        drawableRes == R.drawable.ic_controller_r1_button ||
+        drawableRes == R.drawable.ic_controller_r2_button
+    val styleShape = when (visualStyle) {
+        TouchControlVisualStyle.CLASSIC -> shape
+        TouchControlVisualStyle.LEGACY -> if (isFaceButton) CircleShape else RoundedCornerShape(if (isShoulderButton) 16.dp else 12.dp)
+        TouchControlVisualStyle.MODERN -> if (isFaceButton) RoundedCornerShape(32) else RoundedCornerShape(if (isShoulderButton) 10.dp else 8.dp)
+    }
+    val isActivelyPressed = pressed || (interactive && isPressed)
+    val styleBrush = when (visualStyle) {
+        TouchControlVisualStyle.CLASSIC -> null
+        TouchControlVisualStyle.LEGACY -> Brush.verticalGradient(
+            listOf(
+                Color(0xFF626A77).copy(alpha = if (isActivelyPressed) 0.78f else 0.88f),
+                Color(0xFF171A21).copy(alpha = 0.94f)
+            )
+        )
+        TouchControlVisualStyle.MODERN -> Brush.linearGradient(
+            listOf(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isActivelyPressed) 0.92f else 0.76f),
+                Color(0xFF090D16).copy(alpha = 0.92f)
+            )
+        )
+    }
+    val styleBorder = when (visualStyle) {
+        TouchControlVisualStyle.CLASSIC -> null
+        TouchControlVisualStyle.LEGACY -> Color.White.copy(alpha = if (isActivelyPressed) 0.48f else 0.34f)
+        TouchControlVisualStyle.MODERN -> MaterialTheme.colorScheme.primary.copy(alpha = if (isActivelyPressed) 0.96f else 0.72f)
+    }
+
     Box(
         modifier = modifier
             .size(width = width, height = height)
@@ -125,12 +176,14 @@ fun VectorOverlayButton(
                 scaleY = scale,
                 alpha = alpha
             )
-            .clip(shape)
+            .clip(styleShape)
+            .then(styleBrush?.let { Modifier.background(it, styleShape) } ?: Modifier)
+            .then(styleBorder?.let { Modifier.border(if (visualStyle == TouchControlVisualStyle.MODERN) 1.5.dp else 1.dp, it, styleShape) } ?: Modifier)
             .then(
                 if (selected) {
-                    Modifier.border(1.5.dp, OverlaySelectedStroke, shape)
+                    Modifier.border(1.5.dp, OverlaySelectedStroke, styleShape)
                 } else if (alpha < 0.65f) {
-                    Modifier.border(1.dp, OverlayPreviewStroke.copy(alpha = 0.35f), shape)
+                    Modifier.border(1.dp, OverlayPreviewStroke.copy(alpha = 0.35f), styleShape)
                 } else {
                     Modifier
                 }
@@ -138,12 +191,143 @@ fun VectorOverlayButton(
             .then(clickableModifier),
         contentAlignment = Alignment.Center
     ) {
-        Image(
-            painter = painterResource(drawableRes),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = contentScale
+        if (visualStyle == TouchControlVisualStyle.LEGACY) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(3.dp)
+                    .border(0.75.dp, Color.White.copy(alpha = 0.13f), styleShape)
+            )
+        } else if (visualStyle == TouchControlVisualStyle.MODERN) {
+            val accent = MaterialTheme.colorScheme.primary.copy(alpha = if (isActivelyPressed) 0.95f else 0.55f)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val inset = size.minDimension * 0.14f
+                val segment = size.minDimension * 0.18f
+                val stroke = size.minDimension * 0.025f
+                drawLine(accent, Offset(inset, inset), Offset(inset + segment, inset), stroke)
+                drawLine(accent, Offset(inset, inset), Offset(inset, inset + segment), stroke)
+                drawLine(accent, Offset(size.width - inset, size.height - inset), Offset(size.width - inset - segment, size.height - inset), stroke)
+                drawLine(accent, Offset(size.width - inset, size.height - inset), Offset(size.width - inset, size.height - inset - segment), stroke)
+            }
+        }
+        if (visualStyle == TouchControlVisualStyle.CLASSIC) {
+            Image(
+                painter = painterResource(drawableRes),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = contentScale
+            )
+        } else {
+            AlternativeControlGlyph(
+                drawableRes = drawableRes,
+                visualStyle = visualStyle,
+                modifier = Modifier.fillMaxSize(if (isShoulderButton) 0.7f else 0.54f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AlternativeControlGlyph(
+    @DrawableRes drawableRes: Int,
+    visualStyle: TouchControlVisualStyle,
+    modifier: Modifier = Modifier
+) {
+    val baseColor = if (visualStyle == TouchControlVisualStyle.LEGACY) {
+        Color.White.copy(alpha = 0.92f)
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.94f)
+    }
+    val text = when (drawableRes) {
+        R.drawable.ic_controller_l1_button -> "L1"
+        R.drawable.ic_controller_l2_button -> "L2"
+        R.drawable.ic_controller_r1_button -> "R1"
+        R.drawable.ic_controller_r2_button -> "R2"
+        R.drawable.ic_controller_l3_button -> "L3"
+        R.drawable.ic_controller_r3_button -> "R3"
+        R.drawable.ic_controller_select_button -> "SELECT"
+        R.drawable.ic_controller_start_button -> "START"
+        R.drawable.ic_controller_analog_button -> "ANALOG"
+        R.drawable.ic_controller_pressure_modifier -> "P"
+        else -> null
+    }
+    if (text != null) {
+        Text(
+            text = text,
+            color = baseColor,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            maxLines = 1
         )
+        return
+    }
+
+    Canvas(modifier = modifier) {
+        val strokeWidth = size.minDimension * if (visualStyle == TouchControlVisualStyle.LEGACY) 0.095f else 0.075f
+        val inset = size.minDimension * 0.17f
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val faceColor = when (drawableRes) {
+            R.drawable.ic_controller_triangle_button -> Color(0xFF63D59A)
+            R.drawable.ic_controller_circle_button -> Color(0xFFFF6C82)
+            R.drawable.ic_controller_cross_button -> Color(0xFF78A6FF)
+            R.drawable.ic_controller_square_button -> Color(0xFFE58BEF)
+            else -> baseColor
+        }
+        when (drawableRes) {
+            R.drawable.ic_controller_triangle_button -> {
+                val path = Path().apply {
+                    moveTo(center.x, inset)
+                    lineTo(size.width - inset, size.height - inset)
+                    lineTo(inset, size.height - inset)
+                    close()
+                }
+                drawPath(path, faceColor, style = Stroke(strokeWidth, cap = StrokeCap.Round))
+            }
+            R.drawable.ic_controller_circle_button -> {
+                drawCircle(faceColor, size.minDimension * 0.31f, center, style = Stroke(strokeWidth))
+            }
+            R.drawable.ic_controller_cross_button -> {
+                drawLine(faceColor, Offset(inset, inset), Offset(size.width - inset, size.height - inset), strokeWidth, StrokeCap.Round)
+                drawLine(faceColor, Offset(size.width - inset, inset), Offset(inset, size.height - inset), strokeWidth, StrokeCap.Round)
+            }
+            R.drawable.ic_controller_square_button -> {
+                drawRect(
+                    faceColor,
+                    topLeft = Offset(inset, inset),
+                    size = androidx.compose.ui.geometry.Size(size.width - inset * 2f, size.height - inset * 2f),
+                    style = Stroke(strokeWidth)
+                )
+            }
+            R.drawable.ic_controller_up_button,
+            R.drawable.ic_controller_down_button,
+            R.drawable.ic_controller_left_button,
+            R.drawable.ic_controller_right_button -> {
+                val arrow = Path()
+                when (drawableRes) {
+                    R.drawable.ic_controller_up_button -> {
+                        arrow.moveTo(center.x, inset)
+                        arrow.lineTo(size.width - inset, size.height - inset)
+                        arrow.lineTo(inset, size.height - inset)
+                    }
+                    R.drawable.ic_controller_down_button -> {
+                        arrow.moveTo(inset, inset)
+                        arrow.lineTo(size.width - inset, inset)
+                        arrow.lineTo(center.x, size.height - inset)
+                    }
+                    R.drawable.ic_controller_left_button -> {
+                        arrow.moveTo(inset, center.y)
+                        arrow.lineTo(size.width - inset, inset)
+                        arrow.lineTo(size.width - inset, size.height - inset)
+                    }
+                    else -> {
+                        arrow.moveTo(inset, inset)
+                        arrow.lineTo(size.width - inset, center.y)
+                        arrow.lineTo(inset, size.height - inset)
+                    }
+                }
+                arrow.close()
+                drawPath(arrow, baseColor.copy(alpha = 0.88f))
+            }
+        }
     }
 }
 
@@ -154,6 +338,7 @@ fun VectorDpadCluster(
     alpha: Float = 1f,
     selected: Boolean = false,
     interactive: Boolean = true,
+    visualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
     onDirectionsChange: ((Set<OverlayDpadDirection>) -> Unit)? = null
 ) {
     var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
@@ -239,19 +424,39 @@ fun VectorDpadCluster(
         }
     }
 
-    val shape = RoundedCornerShape(22.dp)
+    val shape = when (visualStyle) {
+        TouchControlVisualStyle.CLASSIC -> RoundedCornerShape(22.dp)
+        TouchControlVisualStyle.LEGACY -> RoundedCornerShape(28.dp)
+        TouchControlVisualStyle.MODERN -> RoundedCornerShape(16.dp)
+    }
+    val clusterBrush = when (visualStyle) {
+        TouchControlVisualStyle.CLASSIC -> Brush.verticalGradient(
+            listOf(Color(0xFF14213A).copy(alpha = 0.54f), Color(0xFF14213A).copy(alpha = 0.54f))
+        )
+        TouchControlVisualStyle.LEGACY -> Brush.radialGradient(
+            listOf(Color(0xFF5B626D).copy(alpha = 0.82f), Color(0xFF11141A).copy(alpha = 0.94f))
+        )
+        TouchControlVisualStyle.MODERN -> Brush.linearGradient(
+            listOf(
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+            )
+        )
+    }
     val buttonSize = size * 0.36f
     Box(
         modifier = modifier
             .size(size)
             .graphicsLayer(alpha = alpha)
             .clip(shape)
-            .background(Color(0xFF14213A).copy(alpha = 0.54f))
+            .background(clusterBrush)
             .border(
                 width = if (selected) 1.5.dp else 1.dp,
                 color = when {
                     selected -> OverlaySelectedStroke
                     alpha < 0.65f -> OverlayPreviewStroke.copy(alpha = 0.35f)
+                    visualStyle == TouchControlVisualStyle.MODERN -> MaterialTheme.colorScheme.primary.copy(alpha = 0.48f)
+                    visualStyle == TouchControlVisualStyle.LEGACY -> Color.White.copy(alpha = 0.32f)
                     else -> Color.White.copy(alpha = 0.16f)
                 },
                 shape = shape
@@ -260,6 +465,35 @@ fun VectorDpadCluster(
             .then(pointerModifier),
         contentAlignment = Alignment.Center
     ) {
+        if (visualStyle != TouchControlVisualStyle.CLASSIC) {
+            val hubShape = if (visualStyle == TouchControlVisualStyle.LEGACY) CircleShape else RoundedCornerShape(7.dp)
+            Box(
+                modifier = Modifier
+                    .size(buttonSize * if (visualStyle == TouchControlVisualStyle.LEGACY) 0.78f else 0.68f)
+                    .clip(hubShape)
+                    .background(
+                        if (visualStyle == TouchControlVisualStyle.LEGACY) {
+                            Brush.verticalGradient(listOf(Color(0xFF454B55), Color(0xFF171A20)))
+                        } else {
+                            Brush.linearGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.46f),
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f)
+                                )
+                            )
+                        }
+                    )
+                    .border(
+                        1.dp,
+                        if (visualStyle == TouchControlVisualStyle.LEGACY) {
+                            Color.White.copy(alpha = 0.25f)
+                        } else {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                        },
+                        hubShape
+                    )
+            )
+        }
         VectorOverlayButton(
             drawableRes = R.drawable.ic_controller_up_button,
             width = buttonSize,
@@ -267,6 +501,7 @@ fun VectorDpadCluster(
             shape = RoundedCornerShape(8.dp),
             pressed = activeDirections.contains(OverlayDpadDirection.Up),
             interactive = false,
+            visualStyle = visualStyle,
             modifier = Modifier.align(Alignment.TopCenter)
         )
         VectorOverlayButton(
@@ -276,6 +511,7 @@ fun VectorDpadCluster(
             shape = RoundedCornerShape(8.dp),
             pressed = activeDirections.contains(OverlayDpadDirection.Down),
             interactive = false,
+            visualStyle = visualStyle,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
         VectorOverlayButton(
@@ -285,6 +521,7 @@ fun VectorDpadCluster(
             shape = RoundedCornerShape(8.dp),
             pressed = activeDirections.contains(OverlayDpadDirection.Left),
             interactive = false,
+            visualStyle = visualStyle,
             modifier = Modifier.align(Alignment.CenterStart)
         )
         VectorOverlayButton(
@@ -294,6 +531,7 @@ fun VectorDpadCluster(
             shape = RoundedCornerShape(8.dp),
             pressed = activeDirections.contains(OverlayDpadDirection.Right),
             interactive = false,
+            visualStyle = visualStyle,
             modifier = Modifier.align(Alignment.CenterEnd)
         )
     }
@@ -311,6 +549,7 @@ fun VectorAnalogStick(
     visualX: Float = 0f,
     visualY: Float = 0f,
     interactive: Boolean = true,
+    visualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
     onClick: (() -> Unit)? = null,
     onTouchStart: (() -> Unit)? = null,
     onValueChange: ((Float, Float) -> Unit)? = null
@@ -430,6 +669,15 @@ fun VectorAnalogStick(
     } else {
         Offset(animatedVisualThumbX, animatedVisualThumbY)
     }
+    val selectionShape = if (!surfaceOnly) {
+        CircleShape
+    } else {
+        when (visualStyle) {
+            TouchControlVisualStyle.CLASSIC -> RoundedCornerShape(22.dp)
+            TouchControlVisualStyle.LEGACY -> RoundedCornerShape(30.dp)
+            TouchControlVisualStyle.MODERN -> RoundedCornerShape(14.dp)
+        }
+    }
 
     Box(
         modifier = modifier
@@ -440,13 +688,13 @@ fun VectorAnalogStick(
                     Modifier.border(
                         width = 1.5.dp,
                         color = OverlaySelectedStroke,
-                        shape = if (surfaceOnly) RoundedCornerShape(22.dp) else CircleShape
+                        shape = selectionShape
                     )
                 } else if (alpha < 0.65f) {
                     Modifier.border(
                         width = 1.dp,
                         color = OverlayPreviewStroke.copy(alpha = 0.35f),
-                        shape = if (surfaceOnly) RoundedCornerShape(22.dp) else CircleShape
+                        shape = selectionShape
                     )
                 } else {
                     Modifier
@@ -460,47 +708,168 @@ fun VectorAnalogStick(
         contentAlignment = Alignment.Center
     ) {
         if (surfaceOnly) {
-            val panelShape = RoundedCornerShape(22.dp)
+            val panelShape = when (visualStyle) {
+                TouchControlVisualStyle.CLASSIC -> RoundedCornerShape(22.dp)
+                TouchControlVisualStyle.LEGACY -> RoundedCornerShape(30.dp)
+                TouchControlVisualStyle.MODERN -> RoundedCornerShape(14.dp)
+            }
             val guideSize = minOf(analogWidth, analogHeight)
+            val guideColor = when (visualStyle) {
+                TouchControlVisualStyle.CLASSIC -> Color(0xFF7CC8FF).copy(alpha = 0.28f)
+                TouchControlVisualStyle.LEGACY -> Color.White.copy(alpha = 0.22f)
+                TouchControlVisualStyle.MODERN -> MaterialTheme.colorScheme.primary.copy(alpha = 0.44f)
+            }
+            val panelBrush = when (visualStyle) {
+                TouchControlVisualStyle.CLASSIC -> Brush.verticalGradient(
+                    listOf(Color(0xFF14213A).copy(alpha = 0.58f), Color(0xFF14213A).copy(alpha = 0.58f))
+                )
+                TouchControlVisualStyle.LEGACY -> Brush.verticalGradient(
+                    listOf(Color(0xFF565E6A).copy(alpha = 0.72f), Color(0xFF12151B).copy(alpha = 0.9f))
+                )
+                TouchControlVisualStyle.MODERN -> Brush.linearGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
+                    )
+                )
+            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(panelShape)
-                    .background(Color(0xFF14213A).copy(alpha = 0.58f))
-                    .border(1.dp, Color.White.copy(alpha = 0.16f), panelShape)
+                    .background(panelBrush)
+                    .border(
+                        if (visualStyle == TouchControlVisualStyle.MODERN) 1.5.dp else 1.dp,
+                        when (visualStyle) {
+                            TouchControlVisualStyle.CLASSIC -> Color.White.copy(alpha = 0.16f)
+                            TouchControlVisualStyle.LEGACY -> Color.White.copy(alpha = 0.3f)
+                            TouchControlVisualStyle.MODERN -> MaterialTheme.colorScheme.primary.copy(alpha = 0.58f)
+                        },
+                        panelShape
+                    )
             )
             Box(
                 modifier = Modifier
                     .size(width = analogWidth * 0.58f, height = 1.5.dp)
-                    .background(Color(0xFF7CC8FF).copy(alpha = 0.28f))
+                    .background(guideColor)
             )
             Box(
                 modifier = Modifier
                     .size(width = 1.5.dp, height = analogHeight * 0.54f)
-                    .background(Color(0xFF7CC8FF).copy(alpha = 0.28f))
+                    .background(guideColor)
             )
             Box(
                 modifier = Modifier
                     .size(guideSize * 0.14f)
-                    .clip(CircleShape)
-                    .background(Color(0xFF7CC8FF).copy(alpha = 0.38f))
+                    .clip(if (visualStyle == TouchControlVisualStyle.MODERN) RoundedCornerShape(5.dp) else CircleShape)
+                    .background(guideColor.copy(alpha = 0.78f))
                     .offset { IntOffset(displayedThumbOffset.x.roundToInt(), displayedThumbOffset.y.roundToInt()) }
             )
         } else {
-            Image(
-                painter = painterResource(R.drawable.ic_controller_analog_base),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit
-            )
-            Image(
-                painter = painterResource(R.drawable.ic_controller_analog_stick),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(analogSize * 0.52f)
-                    .offset { IntOffset(displayedThumbOffset.x.roundToInt(), displayedThumbOffset.y.roundToInt()) },
-                contentScale = ContentScale.Fit
-            )
+            when (visualStyle) {
+                TouchControlVisualStyle.CLASSIC -> {
+                    Image(
+                        painter = painterResource(R.drawable.ic_controller_analog_base),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                    Image(
+                        painter = painterResource(R.drawable.ic_controller_analog_stick),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(analogSize * 0.52f)
+                            .offset { IntOffset(displayedThumbOffset.x.roundToInt(), displayedThumbOffset.y.roundToInt()) },
+                        contentScale = ContentScale.Fit
+                    )
+                }
+
+                TouchControlVisualStyle.LEGACY -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize(0.96f)
+                            .shadow(7.dp, CircleShape, clip = false)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    listOf(Color(0xFF626A76), Color(0xFF171A20), Color(0xFF080A0E))
+                                )
+                            )
+                            .border(1.5.dp, Color.White.copy(alpha = 0.34f), CircleShape)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize(0.72f)
+                            .clip(CircleShape)
+                            .border(1.dp, Color.Black.copy(alpha = 0.72f), CircleShape)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(analogSize * 0.52f)
+                            .offset { IntOffset(displayedThumbOffset.x.roundToInt(), displayedThumbOffset.y.roundToInt()) }
+                            .shadow(5.dp, CircleShape, clip = false)
+                            .clip(CircleShape)
+                            .background(Brush.verticalGradient(listOf(Color(0xFF707885), Color(0xFF242831))))
+                            .border(1.25.dp, Color.White.copy(alpha = 0.38f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize(0.62f)) {
+                            val dotRadius = size.minDimension * 0.055f
+                            val color = Color.Black.copy(alpha = 0.42f)
+                            listOf(0.28f, 0.5f, 0.72f).forEach { x ->
+                                listOf(0.28f, 0.5f, 0.72f).forEach { y ->
+                                    drawCircle(color, dotRadius, Offset(size.width * x, size.height * y))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                TouchControlVisualStyle.MODERN -> {
+                    val accent = MaterialTheme.colorScheme.primary
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize(0.94f)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+                                        Color(0xFF070B12).copy(alpha = 0.96f)
+                                    )
+                                )
+                            )
+                            .border(2.dp, accent.copy(alpha = 0.68f), CircleShape)
+                            .padding(4.dp)
+                            .border(1.dp, accent.copy(alpha = 0.22f), CircleShape)
+                    )
+                    Canvas(modifier = Modifier.fillMaxSize(0.86f)) {
+                        val tick = size.minDimension * 0.11f
+                        val stroke = size.minDimension * 0.025f
+                        val c = accent.copy(alpha = 0.82f)
+                        drawLine(c, Offset(size.width / 2f, 0f), Offset(size.width / 2f, tick), stroke)
+                        drawLine(c, Offset(size.width / 2f, size.height), Offset(size.width / 2f, size.height - tick), stroke)
+                        drawLine(c, Offset(0f, size.height / 2f), Offset(tick, size.height / 2f), stroke)
+                        drawLine(c, Offset(size.width, size.height / 2f), Offset(size.width - tick, size.height / 2f), stroke)
+                    }
+                    val thumbShape = RoundedCornerShape(34)
+                    Box(
+                        modifier = Modifier
+                            .size(analogSize * 0.48f)
+                            .offset { IntOffset(displayedThumbOffset.x.roundToInt(), displayedThumbOffset.y.roundToInt()) }
+                            .shadow(6.dp, thumbShape, clip = false)
+                            .clip(thumbShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(accent.copy(alpha = 0.72f), MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+                                )
+                            )
+                            .border(1.5.dp, accent.copy(alpha = 0.94f), thumbShape)
+                            .padding(3.dp)
+                            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.26f), thumbShape)
+                    )
+                }
+            }
         }
     }
 }

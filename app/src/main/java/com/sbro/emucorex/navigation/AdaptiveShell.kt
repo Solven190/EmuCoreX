@@ -34,6 +34,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.FolderZip
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -73,6 +74,7 @@ import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -378,6 +380,7 @@ private fun SideNavigation(
     val drawerSectionSpacing = 14.dp
     val drawerBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val scope = rememberCoroutineScope()
+    val uriHandler = LocalUriHandler.current
     var showResetDialog by remember { mutableStateOf(false) }
     val closeDrawerThen: (() -> Unit) -> Unit = { action ->
         scope.launch {
@@ -444,6 +447,11 @@ private fun SideNavigation(
     val launchBios = onLaunchBios?.let {
         rememberDebouncedClick {
             closeDrawerThen(it)
+        }
+    }
+    val openDiscord = rememberDebouncedClick {
+        closeDrawerThen {
+            runCatching { uriHandler.openUri(DISCORD_INVITE_URL) }
         }
     }
 
@@ -645,6 +653,15 @@ private fun SideNavigation(
                 } else Modifier,
                 onClick = navigateFormats
             )
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+            )
+            ShellAction(
+                icon = Icons.Rounded.Forum,
+                label = stringResource(R.string.shell_discord_server),
+                onClick = openDiscord
+            )
         }
 
         if (showResetDialog && onResetAllSettings != null) {
@@ -813,3 +830,5 @@ private fun Modifier.activateDrawerItemOnGamepad(onClick: () -> Unit): Modifier 
         }
     }
 }
+
+private const val DISCORD_INVITE_URL = "https://discord.gg/82hhArvYwC"

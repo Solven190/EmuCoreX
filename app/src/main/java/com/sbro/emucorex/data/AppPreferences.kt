@@ -37,6 +37,18 @@ data class RecentGameEntry(
 
 data class SettingsSnapshot(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val appFontChoice: AppFontChoice = AppFontChoice.SYSTEM,
+    val appFontScale: Float = AppPreferences.DEFAULT_APP_FONT_SCALE,
+    val customFontName: String? = null,
+    val customFontRevision: Int = 0,
+    val homeGridScale: Float = AppPreferences.DEFAULT_HOME_GRID_SCALE,
+    val homeBackgroundType: HomeBackgroundType = HomeBackgroundType.NONE,
+    val homeBackgroundRevision: Int = 0,
+    val homeBackgroundDim: Int = AppPreferences.DEFAULT_HOME_BACKGROUND_DIM,
+    val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
+    val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
+    val hiddenGameMenuSections: Set<GameMenuSessionSection> = emptySet(),
     val proUnlocked: Boolean = false,
     val languageTag: String? = null,
     val performanceProfile: Int = PerformanceProfiles.SAFE,
@@ -251,6 +263,13 @@ class AppPreferences(private val context: Context) {
         const val DEFAULT_NTSC_FRAMERATE = 59.94f
         const val DEFAULT_PAL_FRAMERATE = 50f
         const val DEFAULT_FAST_FORWARD_SPEED = 2.0f
+        const val DEFAULT_APP_FONT_SCALE = 1.0f
+        const val MIN_APP_FONT_SCALE = 0.75f
+        const val MAX_APP_FONT_SCALE = 1.50f
+        const val DEFAULT_HOME_GRID_SCALE = 1.0f
+        const val MIN_HOME_GRID_SCALE = 0.60f
+        const val MAX_HOME_GRID_SCALE = 1.60f
+        const val DEFAULT_HOME_BACKGROUND_DIM = 48
         const val MIN_FAST_FORWARD_SPEED = 1.25f
         const val MAX_FAST_FORWARD_SPEED = 5.0f
         private const val LEGACY_DEFAULT_LSTICK_OFFSET_X = 18f
@@ -341,6 +360,18 @@ class AppPreferences(private val context: Context) {
         )
 
         private val THEME_MODE = intPreferencesKey("theme_mode")
+        private val APP_FONT_CHOICE = intPreferencesKey("app_font_choice")
+        private val APP_FONT_SCALE = floatPreferencesKey("app_font_scale")
+        private val CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
+        private val CUSTOM_FONT_REVISION = intPreferencesKey("custom_font_revision")
+        private val HOME_GRID_SCALE = floatPreferencesKey("home_grid_scale")
+        private val HOME_BACKGROUND_TYPE = intPreferencesKey("home_background_type")
+        private val HOME_BACKGROUND_REVISION = intPreferencesKey("home_background_revision")
+        private val HOME_BACKGROUND_DIM = intPreferencesKey("home_background_dim")
+        private val TOUCH_CONTROL_VISUAL_STYLE = intPreferencesKey("touch_control_visual_style")
+        private val GAME_MENU_TAB_ORDER = stringPreferencesKey("game_menu_tab_order")
+        private val HIDDEN_GAME_MENU_TABS = stringPreferencesKey("hidden_game_menu_tabs")
+        private val HIDDEN_GAME_MENU_SECTIONS = stringPreferencesKey("hidden_game_menu_sections")
         private val PRO_UNLOCKED = booleanPreferencesKey("pro_unlocked")
         private val WELCOME_DIALOG_SHOWN = booleanPreferencesKey("welcome_dialog_shown")
         private val RENDERER = intPreferencesKey("renderer")
@@ -560,6 +591,54 @@ class AppPreferences(private val context: Context) {
     // Theme
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs -> readThemeMode(prefs) }
 
+    val appFontChoice: Flow<AppFontChoice> = context.dataStore.data
+        .map { prefs -> AppFontChoice.fromPreference(prefs[APP_FONT_CHOICE]) }
+        .distinctUntilChanged()
+
+    val appFontScale: Flow<Float> = context.dataStore.data
+        .map { prefs -> (prefs[APP_FONT_SCALE] ?: DEFAULT_APP_FONT_SCALE).coerceIn(MIN_APP_FONT_SCALE, MAX_APP_FONT_SCALE) }
+        .distinctUntilChanged()
+
+    val customFontName: Flow<String?> = context.dataStore.data
+        .map { prefs -> prefs[CUSTOM_FONT_NAME]?.takeIf(String::isNotBlank) }
+        .distinctUntilChanged()
+
+    val customFontRevision: Flow<Int> = context.dataStore.data
+        .map { prefs -> (prefs[CUSTOM_FONT_REVISION] ?: 0).coerceAtLeast(0) }
+        .distinctUntilChanged()
+
+    val homeGridScale: Flow<Float> = context.dataStore.data
+        .map { prefs -> (prefs[HOME_GRID_SCALE] ?: DEFAULT_HOME_GRID_SCALE).coerceIn(MIN_HOME_GRID_SCALE, MAX_HOME_GRID_SCALE) }
+        .distinctUntilChanged()
+
+    val homeBackgroundType: Flow<HomeBackgroundType> = context.dataStore.data
+        .map { prefs -> HomeBackgroundType.fromPreference(prefs[HOME_BACKGROUND_TYPE]) }
+        .distinctUntilChanged()
+
+    val homeBackgroundRevision: Flow<Int> = context.dataStore.data
+        .map { prefs -> (prefs[HOME_BACKGROUND_REVISION] ?: 0).coerceAtLeast(0) }
+        .distinctUntilChanged()
+
+    val homeBackgroundDim: Flow<Int> = context.dataStore.data
+        .map { prefs -> (prefs[HOME_BACKGROUND_DIM] ?: DEFAULT_HOME_BACKGROUND_DIM).coerceIn(0, 85) }
+        .distinctUntilChanged()
+
+    val touchControlVisualStyle: Flow<TouchControlVisualStyle> = context.dataStore.data
+        .map { prefs -> TouchControlVisualStyle.fromPreference(prefs[TOUCH_CONTROL_VISUAL_STYLE]) }
+        .distinctUntilChanged()
+
+    val gameMenuTabOrder: Flow<List<GameMenuTabId>> = context.dataStore.data
+        .map { prefs -> sanitizeGameMenuTabOrder(prefs[GAME_MENU_TAB_ORDER]) }
+        .distinctUntilChanged()
+
+    val hiddenGameMenuTabs: Flow<Set<GameMenuTabId>> = context.dataStore.data
+        .map { prefs -> sanitizeHiddenGameMenuTabs(prefs[HIDDEN_GAME_MENU_TABS]) }
+        .distinctUntilChanged()
+
+    val hiddenGameMenuSections: Flow<Set<GameMenuSessionSection>> = context.dataStore.data
+        .map { prefs -> sanitizeHiddenGameMenuSections(prefs[HIDDEN_GAME_MENU_SECTIONS]) }
+        .distinctUntilChanged()
+
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { prefs ->
             if (mode == ThemeMode.PRO && prefs[PRO_UNLOCKED] != true) return@edit
@@ -569,6 +648,69 @@ class AppPreferences(private val context: Context) {
                 ThemeMode.DARK -> 2
                 ThemeMode.PRO -> 3
             }
+        }
+    }
+
+    suspend fun setAppFontChoice(choice: AppFontChoice) {
+        context.dataStore.edit { it[APP_FONT_CHOICE] = choice.preferenceValue }
+    }
+
+    suspend fun setCustomFontInstalled(displayName: String?) {
+        context.dataStore.edit { prefs ->
+            val cleanName = displayName?.trim()?.takeIf(String::isNotEmpty)
+            if (cleanName == null) prefs.remove(CUSTOM_FONT_NAME) else prefs[CUSTOM_FONT_NAME] = cleanName
+            prefs[CUSTOM_FONT_REVISION] = (prefs[CUSTOM_FONT_REVISION] ?: 0) + 1
+            prefs[APP_FONT_CHOICE] = AppFontChoice.CUSTOM.preferenceValue
+        }
+    }
+
+    suspend fun clearCustomFont() {
+        context.dataStore.edit { prefs ->
+            prefs.remove(CUSTOM_FONT_NAME)
+            prefs[CUSTOM_FONT_REVISION] = (prefs[CUSTOM_FONT_REVISION] ?: 0) + 1
+            if (AppFontChoice.fromPreference(prefs[APP_FONT_CHOICE]) == AppFontChoice.CUSTOM) {
+                prefs[APP_FONT_CHOICE] = AppFontChoice.SYSTEM.preferenceValue
+            }
+        }
+    }
+
+    suspend fun setAppFontScale(scale: Float) {
+        context.dataStore.edit { it[APP_FONT_SCALE] = scale.coerceIn(MIN_APP_FONT_SCALE, MAX_APP_FONT_SCALE) }
+    }
+
+    suspend fun setHomeGridScale(scale: Float) {
+        context.dataStore.edit { it[HOME_GRID_SCALE] = scale.coerceIn(MIN_HOME_GRID_SCALE, MAX_HOME_GRID_SCALE) }
+    }
+
+    suspend fun setHomeBackgroundType(type: HomeBackgroundType) {
+        context.dataStore.edit { prefs ->
+            prefs[HOME_BACKGROUND_TYPE] = type.preferenceValue
+            // A separate revision makes replacing a file with the same type/path observable.
+            prefs[HOME_BACKGROUND_REVISION] = (prefs[HOME_BACKGROUND_REVISION] ?: 0) + 1
+        }
+    }
+
+    suspend fun setHomeBackgroundDim(dim: Int) {
+        context.dataStore.edit { it[HOME_BACKGROUND_DIM] = dim.coerceIn(0, 85) }
+    }
+
+    suspend fun setTouchControlVisualStyle(style: TouchControlVisualStyle) {
+        context.dataStore.edit { it[TOUCH_CONTROL_VISUAL_STYLE] = style.preferenceValue }
+    }
+
+    suspend fun setGameMenuTabOrder(order: List<GameMenuTabId>) {
+        val normalized = (order + DefaultGameMenuTabOrder).distinct()
+        context.dataStore.edit { it[GAME_MENU_TAB_ORDER] = normalized.joinToString(",") { tab -> tab.name } }
+    }
+
+    suspend fun setHiddenGameMenuTabs(hidden: Set<GameMenuTabId>) {
+        val normalized = hidden.filterNot { it == GameMenuTabId.SESSION }.toSet()
+        context.dataStore.edit { it[HIDDEN_GAME_MENU_TABS] = normalized.joinToString(",") { tab -> tab.name } }
+    }
+
+    suspend fun setHiddenGameMenuSections(hidden: Set<GameMenuSessionSection>) {
+        context.dataStore.edit {
+            it[HIDDEN_GAME_MENU_SECTIONS] = hidden.joinToString(",") { section -> section.name }
         }
     }
 
@@ -1014,6 +1156,21 @@ class AppPreferences(private val context: Context) {
             val gpuHardwareProfile = resolveGpuHardwareProfile(prefs)
             SettingsSnapshot(
                 themeMode = readThemeMode(prefs),
+                appFontChoice = AppFontChoice.fromPreference(prefs[APP_FONT_CHOICE]),
+                appFontScale = (prefs[APP_FONT_SCALE] ?: DEFAULT_APP_FONT_SCALE)
+                    .coerceIn(MIN_APP_FONT_SCALE, MAX_APP_FONT_SCALE),
+                customFontName = prefs[CUSTOM_FONT_NAME]?.takeIf(String::isNotBlank),
+                customFontRevision = (prefs[CUSTOM_FONT_REVISION] ?: 0).coerceAtLeast(0),
+                homeGridScale = (prefs[HOME_GRID_SCALE] ?: DEFAULT_HOME_GRID_SCALE)
+                    .coerceIn(MIN_HOME_GRID_SCALE, MAX_HOME_GRID_SCALE),
+                homeBackgroundType = HomeBackgroundType.fromPreference(prefs[HOME_BACKGROUND_TYPE]),
+                homeBackgroundRevision = (prefs[HOME_BACKGROUND_REVISION] ?: 0).coerceAtLeast(0),
+                homeBackgroundDim = (prefs[HOME_BACKGROUND_DIM] ?: DEFAULT_HOME_BACKGROUND_DIM)
+                    .coerceIn(0, 85),
+                touchControlVisualStyle = TouchControlVisualStyle.fromPreference(prefs[TOUCH_CONTROL_VISUAL_STYLE]),
+                gameMenuTabOrder = sanitizeGameMenuTabOrder(prefs[GAME_MENU_TAB_ORDER]),
+                hiddenGameMenuTabs = sanitizeHiddenGameMenuTabs(prefs[HIDDEN_GAME_MENU_TABS]),
+                hiddenGameMenuSections = sanitizeHiddenGameMenuSections(prefs[HIDDEN_GAME_MENU_SECTIONS]),
                 proUnlocked = prefs[PRO_UNLOCKED] ?: false,
                 languageTag = prefs[LANGUAGE_TAG],
                 performanceProfile = performanceProfile,
@@ -2699,6 +2856,16 @@ class AppPreferences(private val context: Context) {
         val gpuHardwareProfile = resolveGpuHardwareProfile(prefs)
         return JSONObject().apply {
             put("themeMode", prefs[THEME_MODE] ?: 0)
+            put("appFontChoice", prefs[APP_FONT_CHOICE] ?: AppFontChoice.SYSTEM.preferenceValue)
+            put("appFontScale", (prefs[APP_FONT_SCALE] ?: DEFAULT_APP_FONT_SCALE).toDouble())
+            put("customFontName", prefs[CUSTOM_FONT_NAME])
+            put("homeGridScale", (prefs[HOME_GRID_SCALE] ?: DEFAULT_HOME_GRID_SCALE).toDouble())
+            put("homeBackgroundDim", prefs[HOME_BACKGROUND_DIM] ?: DEFAULT_HOME_BACKGROUND_DIM)
+            put("homeBackgroundType", prefs[HOME_BACKGROUND_TYPE] ?: HomeBackgroundType.NONE.preferenceValue)
+            put("touchControlVisualStyle", prefs[TOUCH_CONTROL_VISUAL_STYLE] ?: TouchControlVisualStyle.CLASSIC.preferenceValue)
+            put("gameMenuTabOrder", prefs[GAME_MENU_TAB_ORDER] ?: DefaultGameMenuTabOrder.joinToString(",") { it.name })
+            put("hiddenGameMenuTabs", prefs[HIDDEN_GAME_MENU_TABS] ?: "")
+            put("hiddenGameMenuSections", prefs[HIDDEN_GAME_MENU_SECTIONS] ?: "")
             put("performanceProfile", resolvePerformanceProfile(prefs))
             put("gpuHardwareProfile", gpuHardwareProfile)
             put("renderer", normalizeRendererPreference(prefs[RENDERER]))
@@ -2898,6 +3065,30 @@ class AppPreferences(private val context: Context) {
         localePrefs.edit().putString("language_tag", languageTag).apply()
         context.dataStore.edit { prefs ->
             prefs[THEME_MODE] = json.optInt("themeMode", 0)
+            prefs[APP_FONT_CHOICE] = AppFontChoice.fromPreference(
+                json.optInt("appFontChoice", AppFontChoice.SYSTEM.preferenceValue)
+            ).preferenceValue
+            prefs[APP_FONT_SCALE] = json.optDouble("appFontScale", DEFAULT_APP_FONT_SCALE.toDouble())
+                .toFloat().coerceIn(MIN_APP_FONT_SCALE, MAX_APP_FONT_SCALE)
+            json.optString("customFontName").trim().takeIf(String::isNotEmpty)?.let {
+                prefs[CUSTOM_FONT_NAME] = it
+            } ?: prefs.remove(CUSTOM_FONT_NAME)
+            prefs[HOME_GRID_SCALE] = json.optDouble("homeGridScale", DEFAULT_HOME_GRID_SCALE.toDouble())
+                .toFloat().coerceIn(MIN_HOME_GRID_SCALE, MAX_HOME_GRID_SCALE)
+            prefs[HOME_BACKGROUND_DIM] = json.optInt("homeBackgroundDim", DEFAULT_HOME_BACKGROUND_DIM)
+                .coerceIn(0, 85)
+            prefs[HOME_BACKGROUND_TYPE] = HomeBackgroundType.fromPreference(
+                json.optInt("homeBackgroundType", HomeBackgroundType.NONE.preferenceValue)
+            ).preferenceValue
+            prefs[TOUCH_CONTROL_VISUAL_STYLE] = TouchControlVisualStyle.fromPreference(
+                json.optInt("touchControlVisualStyle", TouchControlVisualStyle.CLASSIC.preferenceValue)
+            ).preferenceValue
+            prefs[GAME_MENU_TAB_ORDER] = sanitizeGameMenuTabOrder(json.optString("gameMenuTabOrder"))
+                .joinToString(",") { it.name }
+            prefs[HIDDEN_GAME_MENU_TABS] = sanitizeHiddenGameMenuTabs(json.optString("hiddenGameMenuTabs"))
+                .joinToString(",") { it.name }
+            prefs[HIDDEN_GAME_MENU_SECTIONS] = sanitizeHiddenGameMenuSections(json.optString("hiddenGameMenuSections"))
+                .joinToString(",") { it.name }
             prefs[PERFORMANCE_PROFILE] = PerformanceProfiles.normalize(
                 json.optInt("performanceProfile", PerformanceProfiles.SAFE)
             )

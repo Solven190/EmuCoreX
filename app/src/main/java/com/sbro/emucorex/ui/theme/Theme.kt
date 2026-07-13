@@ -5,7 +5,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import com.sbro.emucorex.data.AppFontChoice
+import com.sbro.emucorex.data.AppPreferences
+import java.io.File
 
 private val DarkColorScheme = darkColorScheme(
     primary = AccentPrimary,
@@ -92,6 +96,10 @@ enum class ThemeMode {
 @Composable
 fun EmuCoreXTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
+    fontChoice: AppFontChoice = AppFontChoice.SYSTEM,
+    fontScale: Float = 1f,
+    customFontFile: File? = null,
+    customFontRevision: Int = 0,
     content: @Composable () -> Unit
 ) {
     val darkTheme = when (themeMode) {
@@ -106,9 +114,21 @@ fun EmuCoreXTheme(
         else -> if (darkTheme) DarkColorScheme else LightColorScheme
     }
 
+    val safeFontScale = fontScale.coerceIn(AppPreferences.MIN_APP_FONT_SCALE, AppPreferences.MAX_APP_FONT_SCALE)
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = remember(
+            fontChoice,
+            safeFontScale,
+            customFontFile?.absolutePath,
+            customFontRevision
+        ) {
+            typographyFor(
+                choice = fontChoice,
+                customFontFile = customFontFile,
+                fontScale = safeFontScale
+            )
+        },
         content = content
     )
 }

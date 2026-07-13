@@ -18,6 +18,27 @@ if(NOT EXISTS "${PCSX2_UPSTREAM_DIR}/pcsx2/VMManager.h")
 	message(FATAL_ERROR "PCSX2 upstream checkout is missing at ${PCSX2_UPSTREAM_DIR}")
 endif()
 
+# RetroAchievements is compiled from the tracked Android overlay below. These
+# guards prevent unreviewed local edits in the vendor checkout from silently
+# changing client identity or Hardcore behavior in a release build.
+function(emucorex_verify_upstream_file relative_path expected_sha256)
+	set(_path "${PCSX2_UPSTREAM_DIR}/${relative_path}")
+	if(NOT EXISTS "${_path}")
+		message(FATAL_ERROR "Required PCSX2 upstream file is missing: ${_path}")
+	endif()
+	file(SHA256 "${_path}" _actual_sha256)
+	if(NOT _actual_sha256 STREQUAL expected_sha256)
+		message(FATAL_ERROR
+			"PCSX2 upstream file ${relative_path} does not match v2.7.316. "
+			"Rebase ARM_ANDROID/src/integration before changing the pinned source. "
+			"Expected ${expected_sha256}, got ${_actual_sha256}.")
+	endif()
+endfunction()
+
+emucorex_verify_upstream_file("pcsx2/Achievements.cpp" "80f6bbdf45e7604dc30ab02d18c8008a606fa8cb29d2859ad0193633a11f08c2")
+emucorex_verify_upstream_file("pcsx2/Achievements.h" "dbdcfe13a8e583ca9f691b4c94d0812a632fa6412bc9d68c0d5cc829b83b5c5c")
+emucorex_verify_upstream_file("pcsx2/Host.cpp" "4c6b27e56f8c1887f8c7411348cf667070b8aad9a2266cf8a76246c315e839e4")
+
 if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 	set(EMUCOREX_THIRD_PARTY_DIR "${EMUCOREX_PCSX2_THIRD_PARTY_DIR}")
 	set(TOP_CMAKE_WAS_SOURCED TRUE)
@@ -204,10 +225,12 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 		"${PCSX2_UPSTREAM_DIR}/3rdparty/include"
 	)
 	emucorex_remove_target_sources(PCSX2
+		"Achievements.cpp"
 		"Host/SDLAudioStream.cpp"
 		"Input/SDLInputSource.cpp"
 	)
 	target_sources(PCSX2 PRIVATE
+		"${CMAKE_CURRENT_LIST_DIR}/src/integration/pcsx2_achievements_android.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_aaudio_stream.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_network_adapters.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_posix_compat.cpp"
@@ -259,6 +282,7 @@ endif()
 add_library(emucore SHARED
 	src/jni/native_app_jni.cpp
 	src/jni/support_jni.cpp
+	src/integration/retro_achievements_android.cpp
 	src/platform/android_disc_io.cpp
 	src/runtime/android_crash_diagnostics.cpp
 	src/runtime/android_input_services.cpp

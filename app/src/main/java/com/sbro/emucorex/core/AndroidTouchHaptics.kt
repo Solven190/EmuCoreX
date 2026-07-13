@@ -151,7 +151,7 @@ object AndroidTouchHaptics {
     }
 
     private fun createTouchEffect(amplitude: Int, durationMs: Long): VibrationEffect {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && durationMs <= 120L) {
+        if (durationMs <= 120L) {
             return VibrationEffect.createPredefined(
                 if (amplitude >= 180) {
                     VibrationEffect.EFFECT_HEAVY_CLICK

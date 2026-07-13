@@ -1038,16 +1038,12 @@ object GamepadManager {
     private fun vibrate(target: VibrationTarget, amplitude: Int, durationMs: Long) {
         when (target) {
             is VibrationTarget.Single -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    val resolvedAmplitude = if (target.vibrator.hasAmplitudeControl()) {
-                        amplitude
-                    } else {
-                        VibrationEffect.DEFAULT_AMPLITUDE
-                    }
-                    target.vibrator.vibrate(VibrationEffect.createOneShot(durationMs, resolvedAmplitude))
+                val resolvedAmplitude = if (target.vibrator.hasAmplitudeControl()) {
+                    amplitude
                 } else {
-                    target.vibrator.vibrate(durationMs)
+                    VibrationEffect.DEFAULT_AMPLITUDE
                 }
+                target.vibrator.vibrate(VibrationEffect.createOneShot(durationMs, resolvedAmplitude))
             }
             is VibrationTarget.Managed -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

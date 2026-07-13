@@ -19,12 +19,21 @@ import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.PerformancePresets
 import com.sbro.emucorex.core.ProPurchaseManager
+import com.sbro.emucorex.core.NativeApp
 import com.sbro.emucorex.core.SetupValidator
 import com.sbro.emucorex.core.StorageAccess
 import com.sbro.emucorex.core.normalizeUpscale
 import com.sbro.emucorex.data.AppPreferences
+import com.sbro.emucorex.data.AppFontChoice
+import com.sbro.emucorex.data.HomeBackgroundRepository
+import com.sbro.emucorex.data.HomeBackgroundType
+import com.sbro.emucorex.data.TouchControlVisualStyle
+import com.sbro.emucorex.data.GameMenuTabId
+import com.sbro.emucorex.data.GameMenuSessionSection
+import com.sbro.emucorex.data.DefaultGameMenuTabOrder
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
 import com.sbro.emucorex.data.CoverArtRepository
+import com.sbro.emucorex.data.CustomFontRepository
 import com.sbro.emucorex.data.SettingsSnapshot
 import com.sbro.emucorex.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
@@ -39,11 +48,24 @@ import com.sbro.emucorex.core.InstalledGpuDriver
 import com.sbro.emucorex.core.RemoteGpuDriver
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 data class SettingsUiState(
     val isLoaded: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val appFontChoice: AppFontChoice = AppFontChoice.SYSTEM,
+    val appFontScale: Float = AppPreferences.DEFAULT_APP_FONT_SCALE,
+    val customFontName: String? = null,
+    val customFontRevision: Int = 0,
+    val homeGridScale: Float = AppPreferences.DEFAULT_HOME_GRID_SCALE,
+    val homeBackgroundType: HomeBackgroundType = HomeBackgroundType.NONE,
+    val homeBackgroundRevision: Int = 0,
+    val homeBackgroundDim: Int = AppPreferences.DEFAULT_HOME_BACKGROUND_DIM,
+    val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
+    val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
+    val hiddenGameMenuSections: Set<GameMenuSessionSection> = emptySet(),
+    val isBackgroundImporting: Boolean = false,
+    val customizationMessageResId: Int? = null,
     val isProUnlocked: Boolean = false,
     val proPrice: String? = null,
     val isProProductLoading: Boolean = false,
@@ -226,6 +248,8 @@ data class AppUpdateUiState(
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val preferences = AppPreferences(application)
+    private val customFontRepository = CustomFontRepository(application)
+    private val homeBackgroundRepository = HomeBackgroundRepository(application)
     private val appUpdateRepository = AppUpdateRepository(application)
     private val gpuDriverManager = GpuDriverManager(application)
     private val gpuDriverCatalogRepository = GpuDriverCatalogRepository(application)
@@ -265,6 +289,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _uiState.value = _uiState.value.copy(
             isLoaded = true,
             themeMode = snapshot.themeMode,
+            appFontChoice = snapshot.appFontChoice,
+            appFontScale = snapshot.appFontScale,
+            customFontName = snapshot.customFontName,
+            customFontRevision = snapshot.customFontRevision,
+            homeGridScale = snapshot.homeGridScale,
+            homeBackgroundType = snapshot.homeBackgroundType,
+            homeBackgroundRevision = snapshot.homeBackgroundRevision,
+            homeBackgroundDim = snapshot.homeBackgroundDim,
+            touchControlVisualStyle = snapshot.touchControlVisualStyle,
+            gameMenuTabOrder = snapshot.gameMenuTabOrder,
+            hiddenGameMenuTabs = snapshot.hiddenGameMenuTabs,
+            hiddenGameMenuSections = snapshot.hiddenGameMenuSections,
             isProUnlocked = snapshot.proUnlocked,
             languageTag = snapshot.languageTag,
             renderer = snapshot.renderer,
@@ -425,6 +461,123 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setThemeMode(mode: ThemeMode) { viewModelScope.launch { preferences.setThemeMode(mode) } }
+    fun setAppFontChoice(choice: AppFontChoice) = viewModelScope.launch {
+        if (choice == AppFontChoice.CUSTOM && customFontRepository.installedFile() == null) return@launch
+        preferences.setAppFontChoice(choice)
+    }
+
+    fun installCustomFont(uri: Uri) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(customizationMessageResId = null)
+        val result = customFontRepository.install(uri)
+        result.getOrNull()?.let { installed ->
+            preferences.setCustomFontInstalled(installed.displayName)
+        }
+        _uiState.value = _uiState.value.copy(
+            customizationMessageResId = if (result.isSuccess) {
+                com.sbro.emucorex.R.string.settings_customization_custom_font_applied
+            } else {
+                com.sbro.emucorex.R.string.settings_customization_custom_font_failed
+            }
+        )
+    }
+
+    fun clearCustomFont() = viewModelScope.launch(Dispatchers.IO) {
+        customFontRepository.clear()
+        preferences.clearCustomFont()
+        _uiState.value = _uiState.value.copy(
+            customizationMessageResId = com.sbro.emucorex.R.string.settings_customization_custom_font_removed
+        )
+    }
+
+    fun setAppFontScale(scale: Float) = viewModelScope.launch {
+        preferences.setAppFontScale(scale)
+    }
+
+    fun setHomeGridScale(scale: Float) = viewModelScope.launch {
+        preferences.setHomeGridScale(scale)
+    }
+
+    fun setHomeBackgroundDim(dim: Int) = viewModelScope.launch {
+        preferences.setHomeBackgroundDim(dim)
+    }
+
+    fun setTouchControlVisualStyle(style: TouchControlVisualStyle) = viewModelScope.launch {
+        preferences.setTouchControlVisualStyle(style)
+    }
+
+    fun setGameMenuTabVisible(tab: GameMenuTabId, visible: Boolean) = viewModelScope.launch {
+        if (tab == GameMenuTabId.SESSION) return@launch
+        val hidden = _uiState.value.hiddenGameMenuTabs.toMutableSet()
+        if (visible) hidden.remove(tab) else hidden.add(tab)
+        preferences.setHiddenGameMenuTabs(hidden)
+    }
+
+    fun moveGameMenuTab(tab: GameMenuTabId, direction: Int) = viewModelScope.launch {
+        val order = _uiState.value.gameMenuTabOrder.toMutableList()
+        val from = order.indexOf(tab)
+        val to = (from + direction).coerceIn(0, order.lastIndex)
+        if (from >= 0 && from != to) {
+            order.removeAt(from)
+            order.add(to, tab)
+            preferences.setGameMenuTabOrder(order)
+        }
+    }
+
+    fun setGameMenuSectionVisible(section: GameMenuSessionSection, visible: Boolean) = viewModelScope.launch {
+        val hidden = _uiState.value.hiddenGameMenuSections.toMutableSet()
+        if (visible) hidden.remove(section) else hidden.add(section)
+        preferences.setHiddenGameMenuSections(hidden)
+    }
+
+    fun resetGameMenuCustomization() = viewModelScope.launch {
+        preferences.setGameMenuTabOrder(DefaultGameMenuTabOrder)
+        preferences.setHiddenGameMenuTabs(emptySet())
+        preferences.setHiddenGameMenuSections(emptySet())
+    }
+
+    fun installHomeBackground(uri: Uri) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(
+            isBackgroundImporting = true,
+            customizationMessageResId = null
+        )
+        val result = homeBackgroundRepository.install(uri)
+        result.getOrNull()?.let { preferences.setHomeBackgroundType(it) }
+        _uiState.value = _uiState.value.copy(
+            isBackgroundImporting = false,
+            customizationMessageResId = if (result.isSuccess) {
+                com.sbro.emucorex.R.string.settings_customization_background_applied
+            } else {
+                com.sbro.emucorex.R.string.settings_customization_background_failed
+            }
+        )
+    }
+
+    fun clearHomeBackground() = viewModelScope.launch(Dispatchers.IO) {
+        homeBackgroundRepository.clear()
+        preferences.setHomeBackgroundType(HomeBackgroundType.NONE)
+        _uiState.value = _uiState.value.copy(
+            customizationMessageResId = com.sbro.emucorex.R.string.settings_customization_background_removed
+        )
+    }
+
+    fun resetCustomization() = viewModelScope.launch(Dispatchers.IO) {
+        homeBackgroundRepository.clear()
+        customFontRepository.clear()
+        preferences.setHomeBackgroundType(HomeBackgroundType.NONE)
+        preferences.setHomeBackgroundDim(AppPreferences.DEFAULT_HOME_BACKGROUND_DIM)
+        preferences.setHomeGridScale(AppPreferences.DEFAULT_HOME_GRID_SCALE)
+        preferences.setAppFontChoice(AppFontChoice.SYSTEM)
+        preferences.clearCustomFont()
+        preferences.setAppFontScale(AppPreferences.DEFAULT_APP_FONT_SCALE)
+        preferences.setTouchControlVisualStyle(TouchControlVisualStyle.CLASSIC)
+        _uiState.value = _uiState.value.copy(
+            customizationMessageResId = com.sbro.emucorex.R.string.settings_customization_reset_done
+        )
+    }
+
+    fun clearCustomizationMessage() {
+        _uiState.value = _uiState.value.copy(customizationMessageResId = null)
+    }
     fun setLanguage(tag: String?) { viewModelScope.launch { preferences.setLanguageTag(tag) } }
 
     fun setDev9EthernetEnabled(enabled: Boolean) = viewModelScope.launch {
@@ -1161,6 +1314,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             markPerformancePresetCustom()
             preferences.setEnableWidescreenPatches(enabled)
             EmulatorBridge.setSetting("EmuCore", "EnableWideScreenPatches", "bool", enabled.toString())
+            NativeApp.reloadPatches()
         }
     }
 
@@ -1169,6 +1323,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             markPerformancePresetCustom()
             preferences.setEnableNoInterlacingPatches(enabled)
             EmulatorBridge.setSetting("EmuCore", "EnableNoInterlacingPatches", "bool", enabled.toString())
+            NativeApp.reloadPatches()
         }
     }
 

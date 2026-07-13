@@ -33,6 +33,7 @@ private const val TAG = "ProPurchaseManager"
 
 data class ProPurchaseState(
     val isProUnlocked: Boolean = false,
+    val isPurchaseStatusVerified: Boolean = false,
     val isBillingReady: Boolean = false,
     val isPurchaseInProgress: Boolean = false,
     val isProductLoading: Boolean = false,
@@ -150,8 +151,11 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
         billingClient.queryPurchasesAsync(params) { billingResult, purchases ->
             if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                 val hasPro = purchases.any(::isActiveProPurchase)
+                _state.value = _state.value.copy(isPurchaseStatusVerified = true)
                 if (hasPro) {
                     handlePurchases(purchases, showUnlockMessage = showMessage)
+                } else {
+                    lockPro()
                 }
                 if (showMessage && !hasPro) {
                     _state.value = _state.value.copy(messageResId = R.string.pro_message_restore_missing)
@@ -272,6 +276,16 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
                 isProUnlocked = true,
                 isPurchaseInProgress = false,
                 messageResId = if (showMessage) R.string.pro_message_active else null
+            )
+        }
+    }
+
+    private fun lockPro() {
+        scope.launch {
+            preferences.setProUnlocked(false)
+            _state.value = _state.value.copy(
+                isProUnlocked = false,
+                isPurchaseInProgress = false
             )
         }
     }
