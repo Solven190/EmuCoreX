@@ -847,6 +847,7 @@ bool GSDeviceOGL::CheckFeatures()
 	SetRuntimeGPUProfile(gpu_profile_selection.runtime_profile);
 	SetMobileGPUIdentity(gpu_profile_selection.gpu);
 	SetMobileGSTuning(gpu_profile_selection.gs_tuning);
+	SetMediaTekSoC(gpu_profile_selection.is_mediatek_soc);
 	Console.WriteLn("GL: Android GPU profile override='%s' resolved='%s' model='%s' architecture='%s'%s.",
 		GpuProfileDetector::OverrideToConfigString(gpu_profile_selection.override_mode),
 		GpuProfileDetector::RuntimeProfileToString(gpu_profile_selection.runtime_profile),

@@ -262,7 +262,6 @@ private:
 
 	VkDescriptorPool m_global_descriptor_pool = VK_NULL_HANDLE;
 	bool m_use_push_descriptors = true;
-	bool m_is_mediatek_soc = false;
 
 	VkQueue m_graphics_queue = VK_NULL_HANDLE;
 	VkQueue m_present_queue = VK_NULL_HANDLE;

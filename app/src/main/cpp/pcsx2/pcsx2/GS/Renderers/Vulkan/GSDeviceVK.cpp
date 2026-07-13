@@ -541,11 +541,11 @@ bool GSDeviceVK::CreateDevice(VkSurfaceKHR surface, bool enable_validation_layer
 	SetRuntimeGPUProfile(gpu_profile_selection.runtime_profile);
 	SetMobileGPUIdentity(gpu_profile_selection.gpu);
 	SetMobileGSTuning(gpu_profile_selection.gs_tuning);
-	m_is_mediatek_soc = gpu_profile_selection.is_mediatek_soc;
+	SetMediaTekSoC(gpu_profile_selection.is_mediatek_soc);
 	Console.WriteLn("VK: Android GPU profile override='%s' resolved='%s' soc='%s' model='%s' architecture='%s'%s.",
 		GpuProfileDetector::OverrideToConfigString(gpu_profile_selection.override_mode),
 		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
-		m_is_mediatek_soc ? "MediaTek" : "other/unknown",
+		IsMediaTekSoC() ? "MediaTek" : "other/unknown",
 		gpu_profile_selection.gpu.name.c_str(),
 		GpuProfileDetector::ArchitectureToString(gpu_profile_selection.gpu.architecture),
 		gpu_profile_selection.gs_tuning.constrained ? " constrained" : "");
@@ -2854,7 +2854,7 @@ bool GSDeviceVK::CheckFeatures()
 		((GetMobileGPUIdentity().architecture == MobileGpuArchitecture::MaliValhall1 &&
 			 GetMobileGPUIdentity().model_number == 57) ||
 			 std::strstr(m_device_properties.deviceName, "Mali-G57") != nullptr);
-	const bool is_mediatek_mali_vk = is_mali_vk && m_is_mediatek_soc;
+	const bool is_mediatek_mali_vk = is_mali_vk && IsMediaTekSoC();
 	const bool unreliable_mali_fbfetch = is_mediatek_mali_vk || is_mali_g57;
 	const bool vendor_allows_fbfetch =
 		!unreliable_mali_fbfetch && (is_mali_vk || GSConfig.EnableAdrenoFramebufferFetch);
@@ -2959,7 +2959,7 @@ bool GSDeviceVK::CheckFeatures()
 		"dualSrcBlend=%d fastMAD=%d madFallback=%s",
 		m_device_properties.deviceName, m_device_properties.vendorID, m_device_properties.driverVersion,
 		GpuProfileDetector::RuntimeProfileToString(GetRuntimeGPUProfile()),
-		m_is_mediatek_soc ? "MediaTek" : "other/unknown", GetMobileGPUIdentity().name.c_str(),
+		IsMediaTekSoC() ? "MediaTek" : "other/unknown", GetMobileGPUIdentity().name.c_str(),
 		GpuProfileDetector::ArchitectureToString(GetMobileGPUIdentity().architecture),
 		has_framebuffer_fetch_extension ? 1 : 0, m_features.framebuffer_fetch ? 1 : 0,
 		unreliable_mali_fbfetch ? 1 : 0, m_features.texture_barrier ? 1 : 0,

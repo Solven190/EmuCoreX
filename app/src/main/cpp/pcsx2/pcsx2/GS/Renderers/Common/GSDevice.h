@@ -993,6 +993,7 @@ protected:
 	RuntimeGpuProfile m_runtime_gpu_profile = RuntimeGpuProfile::Unknown;
 	MobileGpuIdentity m_mobile_gpu_identity;
 	MobileGsTuning m_mobile_gs_tuning;
+	bool m_is_mediatek_soc = false;
 
 	struct
 	{
@@ -1101,9 +1102,11 @@ public:
 	__fi void SetRuntimeGPUProfile(RuntimeGpuProfile profile) { m_runtime_gpu_profile = profile; }
 	__fi void SetMobileGPUIdentity(const MobileGpuIdentity& identity) { m_mobile_gpu_identity = identity; }
 	__fi void SetMobileGSTuning(const MobileGsTuning& tuning) { m_mobile_gs_tuning = tuning; }
+	__fi void SetMediaTekSoC(bool is_mediatek_soc) { m_is_mediatek_soc = is_mediatek_soc; }
 	__fi RuntimeGpuProfile GetRuntimeGPUProfile() const { return m_runtime_gpu_profile; }
 	__fi const MobileGpuIdentity& GetMobileGPUIdentity() const { return m_mobile_gpu_identity; }
 	__fi const MobileGsTuning& GetMobileGSTuning() const { return m_mobile_gs_tuning; }
+	__fi bool IsMediaTekSoC() const { return m_is_mediatek_soc; }
 	__fi bool IsConstrainedMobileGPUProfile() const { return m_mobile_gs_tuning.constrained; }
 	__fi bool IsMaliGPUProfile() const { return m_runtime_gpu_profile == RuntimeGpuProfile::Mali; }
 	__fi bool IsAdrenoGPUProfile() const { return m_runtime_gpu_profile == RuntimeGpuProfile::Adreno; }

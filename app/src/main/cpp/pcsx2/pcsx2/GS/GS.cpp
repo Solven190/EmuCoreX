@@ -56,6 +56,8 @@
 
 #include "fmt/format.h"
 
+#include <algorithm>
+#include <array>
 #include <fstream>
 
 Pcsx2Config::GSOptions GSConfig;
@@ -217,6 +219,36 @@ static void GSClampUpscaleMultiplier(Pcsx2Config::GSOptions& config)
 	config.UpscaleMultiplier = static_cast<float>(max_upscale_multiplier);
 }
 
+#ifdef __ANDROID__
+static bool IsTekken5Serial(std::string_view serial)
+{
+	static constexpr std::array<std::string_view, 11> serials = {
+		"SCAJ-20125", "SCAJ-20126", "SCAJ-20199", "SCED-53538", "SCES-53202", "SCKA-20049",
+		"SCKA-20081", "SLPS-25510", "SLPS-73223", "SLUS-21059", "SLUS-21160",
+	};
+	return std::find(serials.begin(), serials.end(), serial) != serials.end();
+}
+
+static void ApplyAndroidGameDBOverrides()
+{
+	// Native half-pixel offset changes target invalidation, clamping and downsampling in addition to
+	// vertex alignment. MediaTek Mali drivers can render duplicated horizontal framebuffer regions in
+	// Tekken 5 with this mode, while disabling it produces the correct frame. Keep the desktop GameDB
+	// fix for every other GPU/game, and preserve explicit manual hardware-hack selections.
+	if (!g_gs_device || !g_gs_device->IsMaliGPUProfile() || !g_gs_device->IsMediaTekSoC() ||
+		GSConfig.ManualUserHacks || GSConfig.UserHacks_HalfPixelOffset != GSHalfPixelOffset::Native)
+	{
+		return;
+	}
+
+	const std::string serial = VMManager::GetDiscSerial();
+	if (!IsTekken5Serial(serial))
+		return;
+
+	GSConfig.UserHacks_HalfPixelOffset = GSHalfPixelOffset::Off;
+}
+#endif
+
 static bool OpenGSRenderer(GSRendererType renderer, u8* basemem)
 {
 	// Must be done first, initialization routines in GSState use GSIsHardwareRenderer().
@@ -344,6 +376,9 @@ bool GSreopen(bool recreate_device, bool recreate_renderer, GSRendererType new_r
 
 	if (recreate_renderer)
 	{
+#ifdef __ANDROID__
+		ApplyAndroidGameDBOverrides();
+#endif
 		if (!OpenGSRenderer(active_renderer, basemem))
 		{
 			Console.Error("(GSreopen) Failed to create new renderer");
@@ -378,6 +413,9 @@ bool GSopen(const Pcsx2Config::GSOptions& config, GSRendererType renderer, u8* b
 	bool res = OpenGSDevice(renderer, true, false, vsync_mode, allow_present_throttle);
 	if (res)
 	{
+#ifdef __ANDROID__
+		ApplyAndroidGameDBOverrides();
+#endif
 		res = OpenGSRenderer(renderer, basemem);
 		if (!res)
 			CloseGSDevice(true);
