@@ -348,6 +348,7 @@ fun AppNavigation(
             composable<HomeRoute> {
                 AdaptiveShell(
                     selected = PrimaryDestination.Home,
+                    isProUnlocked = settingsUiState.isProUnlocked,
                     drawerEnabled = homeDrawerEnabled,
                     onNavigateHome = { },
                     onNavigateSearch = {
@@ -443,6 +444,7 @@ fun AppNavigation(
             composable<CatalogSearchRoute> {
                 AdaptiveShell(
                     selected = PrimaryDestination.Search,
+                    isProUnlocked = settingsUiState.isProUnlocked,
                     onNavigateHome = {
                         navController.navigate(HomeRoute) {
                             launchSingleTop = true
@@ -526,6 +528,7 @@ fun AppNavigation(
             composable<SupportedFormatsRoute> {
                 AdaptiveShell(
                     selected = PrimaryDestination.Formats,
+                    isProUnlocked = settingsUiState.isProUnlocked,
                     onNavigateHome = {
                         navController.navigate(HomeRoute) {
                             launchSingleTop = true
@@ -572,6 +575,7 @@ fun AppNavigation(
                 val route = backStackEntry.toRoute<SettingsRoute>()
                 AdaptiveShell(
                     selected = PrimaryDestination.Settings,
+                    isProUnlocked = settingsUiState.isProUnlocked,
                     onNavigateHome = {
                         navController.navigate(HomeRoute) {
                             launchSingleTop = true
@@ -664,6 +668,7 @@ fun AppNavigation(
             composable<AchievementsRoute> {
                 AdaptiveShell(
                     selected = PrimaryDestination.Achievements,
+                    isProUnlocked = settingsUiState.isProUnlocked,
                     onNavigateHome = {
                         navController.navigate(HomeRoute) {
                             launchSingleTop = true
@@ -719,6 +724,7 @@ fun AppNavigation(
             composable<ProfileRoute> {
                 AdaptiveShell(
                     selected = PrimaryDestination.Profile,
+                    isProUnlocked = settingsUiState.isProUnlocked,
                     onNavigateHome = {
                         navController.navigate(HomeRoute) {
                             launchSingleTop = true

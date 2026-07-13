@@ -2058,7 +2058,7 @@ SCAJ-20125:
   name: "Tekken 5"
   region: "NTSC-Unk"
   clampModes:
-    eeClampMode: 2 # Fixes camera and stops constant coin noises on Pirates Cove.
+    eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -2071,7 +2071,7 @@ SCAJ-20126:
   name: "Tekken 5"
   region: "NTSC-Unk"
   clampModes:
-    eeClampMode: 2 # Fixes camera and stops constant coin noises on Pirates Cove.
+    eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -2592,7 +2592,7 @@ SCAJ-20199:
   name: "Tekken 5 [PlayStation2 the Best]"
   region: "NTSC-Unk"
   clampModes:
-    eeClampMode: 2 # Fixes camera and stops constant coin noises on Pirates Cove.
+    eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -2891,7 +2891,7 @@ SCED-50041:
   name: "Tekken Tag Tournament [Demo]"
   region: "PAL-E"
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -3204,7 +3204,7 @@ SCED-51120:
   name: "Tekken 4 [Demo]"
   region: "PAL-E"
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -4330,7 +4330,7 @@ SCED-53538:
   name: "Tekken 5 [Demo]"
   region: "PAL-M5"
   clampModes:
-    eeClampMode: 2 # Fixes camera and stops constant coin noises on Pirates Cove.
+    eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -4757,7 +4757,7 @@ SCES-50001:
   region: "PAL-M5"
   compat: 5
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -5127,7 +5127,7 @@ SCES-50878:
   region: "PAL-M5"
   compat: 5
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -6048,7 +6048,7 @@ SCES-53202:
   region: "PAL-M5"
   compat: 5
   clampModes:
-    eeClampMode: 2 # Fixes camera and stops constant coin noises on Pirates Cove.
+    eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -7557,7 +7557,7 @@ SCKA-20045:
   name-en: "Tekken 4 [PlayStation 2 Big Hit Series]"
   region: "NTSC-K"
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -7610,7 +7610,7 @@ SCKA-20049:
   name-en: "Tekken 5"
   region: "NTSC-K"
   clampModes:
-    eeClampMode: 2 # Fixes camera and stops constant coin noises on Pirates Cove.
+    eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -7894,7 +7894,7 @@ SCKA-20081:
   name-en: "Tekken 5 [PlayStation 2 BigHit Series]"
   region: "NTSC-K"
   clampModes:
-    eeClampMode: 2 # Fixes camera and stops constant coin noises on Pirates Cove.
+    eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -10654,7 +10654,7 @@ SCPS-55017:
   region: "NTSC-J"
   compat: 3
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1
@@ -10935,7 +10935,7 @@ SCPS-56002:
   region: "NTSC-K"
   compat: 5
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -10963,7 +10963,7 @@ SCPS-56006:
   region: "NTSC-K"
   compat: 5
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1
@@ -54900,7 +54900,7 @@ SLPS-20015:
   region: "NTSC-J"
   compat: 5
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -58005,7 +58005,7 @@ SLPS-25100:
   region: "NTSC-J"
   compat: 5
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -60467,7 +60467,7 @@ SLPS-25510:
   region: "NTSC-J"
   compat: 5
   clampModes:
-    eeClampMode: 2 # Fixes camera and stops constant coin noises on Pirates Cove.
+    eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -63432,7 +63432,7 @@ SLPS-71501:
   name-en: "Tekken Tag Tournament [MEGA HITS!]"
   region: "NTSC-J"
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -63531,7 +63531,7 @@ SLPS-73104:
   name-en: "Tekken Tag Tournament [PlayStation2 the Best]"
   region: "NTSC-J"
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -63662,7 +63662,7 @@ SLPS-73209:
   name-en: "Tekken 4 [PlayStation2 the Best]"
   region: "NTSC-J"
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -63781,7 +63781,7 @@ SLPS-73223:
   name-en: "Tekken 5 [PlayStation2 the Best]"
   region: "NTSC-J"
   clampModes:
-    eeClampMode: 2 # Fixes camera and stops constant coin noises on Pirates Cove.
+    eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -64401,7 +64401,7 @@ SLUS-20001:
   region: "NTSC-U"
   compat: 5
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -65801,7 +65801,7 @@ SLUS-20328:
   region: "NTSC-U"
   compat: 5
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -69938,7 +69938,7 @@ SLUS-21059:
   region: "NTSC-U"
   compat: 5
   clampModes:
-    eeClampMode: 2 # Fixes camera and stops constant coin noises on Pirates Cove.
+    eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -70505,7 +70505,7 @@ SLUS-21160:
   name: "Tekken 5 [Demo]"
   region: "NTSC-U"
   clampModes:
-    eeClampMode: 2 # Fixes camera and stops constant coin noises on Pirates Cove.
+    eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -75209,7 +75209,7 @@ SLUS-28012:
   name: "Tekken 4 [Trade Demo]"
   region: "NTSC-U"
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -75506,7 +75506,7 @@ SLUS-29034:
   name: "Tekken 4 [Regular Demo]"
   region: "NTSC-U"
   clampModes:
-    eeClampMode: 2 # Fixes broken effects.
+    eeClampMode: 3 # Fixes broken effects.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.

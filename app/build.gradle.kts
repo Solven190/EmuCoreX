@@ -38,7 +38,7 @@ android {
         applicationId = "com.sbro.emucorex"
         minSdk = 29
         targetSdk = 37
-        versionCode = 114
+        versionCode = 116
         versionName = "0.2.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

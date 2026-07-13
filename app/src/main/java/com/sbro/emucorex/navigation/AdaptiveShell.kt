@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -71,6 +73,7 @@ import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.sbro.emucorex.R
@@ -94,6 +97,7 @@ private enum class MobileLeadingAction {
 @Composable
 fun AdaptiveShell(
     selected: PrimaryDestination,
+    isProUnlocked: Boolean = false,
     drawerEnabled: Boolean = true,
     onNavigateHome: () -> Unit,
     onNavigateSearch: () -> Unit,
@@ -115,6 +119,7 @@ fun AdaptiveShell(
     val navContent: @Composable () -> Unit = {
         SideNavigation(
             selected = selected,
+            isProUnlocked = isProUnlocked,
             onNavigateHome = onNavigateHome,
             onNavigateSearch = onNavigateSearch,
             onNavigateFormats = onNavigateFormats,
@@ -161,6 +166,7 @@ fun AdaptiveShell(
     } else {
         CompactAdaptiveShell(
             selected = selected,
+            isProUnlocked = isProUnlocked,
             drawerEnabled = drawerEnabled,
             onNavigateHome = onNavigateHome,
             onNavigateSearch = onNavigateSearch,
@@ -187,6 +193,7 @@ fun AdaptiveShell(
 @Composable
 private fun CompactAdaptiveShell(
     selected: PrimaryDestination,
+    isProUnlocked: Boolean,
     drawerEnabled: Boolean,
     onNavigateHome: () -> Unit,
     onNavigateSearch: () -> Unit,
@@ -283,6 +290,7 @@ private fun CompactAdaptiveShell(
             ) {
                 SideNavigation(
                     selected = selected,
+                    isProUnlocked = isProUnlocked,
                     onNavigateHome = onNavigateHome,
                     onNavigateSearch = onNavigateSearch,
                     onNavigateFormats = onNavigateFormats,
@@ -345,6 +353,7 @@ private fun CompactAdaptiveShell(
 @Composable
 private fun SideNavigation(
     selected: PrimaryDestination,
+    isProUnlocked: Boolean,
     onNavigateHome: () -> Unit,
     onNavigateSearch: () -> Unit,
     onNavigateFormats: () -> Unit,
@@ -451,12 +460,26 @@ private fun SideNavigation(
                 ),
             verticalArrangement = Arrangement.spacedBy(drawerSectionSpacing)
         ) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = topInset + 4.dp, start = 6.dp, end = 6.dp)
-            )
+            Row(
+                modifier = Modifier.padding(top = topInset + 4.dp, start = 6.dp, end = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(
+                        if (isProUnlocked) R.drawable.ic_drawer_app_pro else R.drawable.ic_drawer_app
+                    ),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                )
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(start = 14.dp)
+                )
+            }
             Text(
                 text = stringResource(R.string.shell_quick_actions),
                 style = MaterialTheme.typography.labelLarge,
