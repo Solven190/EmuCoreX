@@ -34,6 +34,7 @@ data class PerGameSettings(
     val autoSaveOnExit: Boolean = false,
     val autoLoadOnStart: Boolean = false,
     val enableFastBoot: Boolean = true,
+    val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
     val enableThreadPinning: Boolean = false,
     val enableFastCdvd: Boolean = false,
@@ -230,6 +231,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         autoSaveOnExit = optBoolean("autoSaveOnExit", false),
         autoLoadOnStart = optBoolean("autoLoadOnStart", false),
         enableFastBoot = optBoolean("enableFastBoot", true),
+        enableInstantVu1 = optBoolean("enableInstantVu1", true),
         enableMtvu = optBoolean("enableMtvu", true),
         enableThreadPinning = optBoolean("enableThreadPinning", false),
         enableFastCdvd = optBoolean("enableFastCdvd", false),
@@ -353,6 +355,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("autoSaveOnExit")) put("autoSaveOnExit", autoSaveOnExit)
         if (shouldWrite("autoLoadOnStart")) put("autoLoadOnStart", autoLoadOnStart)
         if (shouldWrite("enableFastBoot")) put("enableFastBoot", enableFastBoot)
+        if (shouldWrite("enableInstantVu1")) put("enableInstantVu1", enableInstantVu1)
         if (shouldWrite("enableMtvu")) put("enableMtvu", enableMtvu)
         if (shouldWrite("enableThreadPinning")) put("enableThreadPinning", enableThreadPinning)
         if (shouldWrite("enableFastCdvd")) put("enableFastCdvd", enableFastCdvd)

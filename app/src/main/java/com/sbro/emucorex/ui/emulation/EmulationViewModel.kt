@@ -112,6 +112,7 @@ data class EmulationUiState(
     val upscale: Float = 1f,
     val aspectRatio: Int = 1,
     val performancePreset: Int = PerformancePresets.CUSTOM,
+    val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
     val enableThreadPinning: Boolean = false,
     val enableFastCdvd: Boolean = false,
@@ -310,6 +311,7 @@ private data class LiveRuntimeSnapshot(
     val upscale: Float,
     val aspectRatio: Int,
     val performancePreset: Int,
+    val enableInstantVu1: Boolean,
     val enableMtvu: Boolean,
     val enableThreadPinning: Boolean,
     val enableFastCdvd: Boolean,
@@ -678,6 +680,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.aspectRatio.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(aspectRatio = value) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.enableInstantVu1.collect { value ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(enableInstantVu1 = value) }
             }
         }
         viewModelScope.launch {
@@ -1508,6 +1515,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     upscale = liveRuntime.upscale,
                     aspectRatio = liveRuntime.aspectRatio,
                     performancePreset = liveRuntime.performancePreset,
+                    enableInstantVu1 = liveRuntime.enableInstantVu1,
                     enableMtvu = liveRuntime.enableMtvu,
                     enableThreadPinning = liveRuntime.enableThreadPinning,
                     enableFastCdvd = liveRuntime.enableFastCdvd,
@@ -3377,6 +3385,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             upscale = settings.upscaleMultiplier,
             aspectRatio = settings.aspectRatio,
             performancePreset = settings.performancePreset,
+            enableInstantVu1 = settings.enableInstantVu1,
             enableMtvu = settings.enableMtvu,
             enableThreadPinning = settings.enableThreadPinning,
             enableFastCdvd = settings.enableFastCdvd,
@@ -3474,6 +3483,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             renderer = pick("renderer", renderer) { renderer },
             upscaleMultiplier = pick("upscaleMultiplier", upscaleMultiplier) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
+            instantVu1 = pick("enableInstantVu1", instantVu1) { enableInstantVu1 },
             mtvu = pick("enableMtvu", mtvu) { enableMtvu },
             enableThreadPinning = pick("enableThreadPinning", enableThreadPinning) { enableThreadPinning },
             fastCdvd = pick("enableFastCdvd", fastCdvd) { enableFastCdvd },
@@ -3573,6 +3583,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             renderer = pick("renderer", renderer) { renderer },
             upscale = pick("upscaleMultiplier", upscale) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
+            enableInstantVu1 = pick("enableInstantVu1", enableInstantVu1) { enableInstantVu1 },
             enableMtvu = pick("enableMtvu", enableMtvu) { enableMtvu },
             enableThreadPinning = pick("enableThreadPinning", enableThreadPinning) { enableThreadPinning },
             enableFastCdvd = pick("enableFastCdvd", enableFastCdvd) { enableFastCdvd },
@@ -3643,6 +3654,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     ): PerGameSettings {
         val globalShowFps = preferences.showFps.first()
         val globalFpsOverlayMode = preferences.fpsOverlayMode.first()
+        val globalEnableInstantVu1 = preferences.enableInstantVu1.first()
         val globalEnableMtvu = preferences.enableMtvu.first()
         val globalEnableThreadPinning = preferences.enableThreadPinning.first()
         val globalEnableFastCdvd = preferences.enableFastCdvd.first()
@@ -3681,6 +3693,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             aspectRatio = aspectRatio,
             showFps = showFps,
             fpsOverlayMode = fpsOverlayMode,
+            enableInstantVu1 = enableInstantVu1,
             enableMtvu = enableMtvu,
             enableThreadPinning = enableThreadPinning,
             enableFastCdvd = enableFastCdvd,
@@ -3763,6 +3776,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (aspectRatio != preferences.aspectRatio.first()) add("aspectRatio")
             if (showFps != globalShowFps) add("showFps")
             if (fpsOverlayMode != globalFpsOverlayMode) add("fpsOverlayMode")
+            if (enableInstantVu1 != globalEnableInstantVu1) add("enableInstantVu1")
             if (enableMtvu != globalEnableMtvu) add("enableMtvu")
             if (enableThreadPinning != globalEnableThreadPinning) add("enableThreadPinning")
             if (enableFastCdvd != globalEnableFastCdvd) add("enableFastCdvd")

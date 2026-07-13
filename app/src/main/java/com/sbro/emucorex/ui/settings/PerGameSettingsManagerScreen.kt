@@ -1060,6 +1060,13 @@ private fun GameSettingsTabContent(
                         onResetToDefault = { onDraftChange(draft.copy(palFramerate = defaultProfile.palFramerate)) }
                     )
                     ToggleRow(
+                        title = stringResource(R.string.settings_instant_vu1),
+                        checked = draft.enableInstantVu1,
+                        onCheckedChange = { onDraftChange(draft.copy(enableInstantVu1 = it)) },
+                        helpText = stringResource(R.string.settings_help_instant_vu1),
+                        onResetToDefault = { onDraftChange(draft.copy(enableInstantVu1 = defaultProfile.enableInstantVu1)) }
+                    )
+                    ToggleRow(
                         title = stringResource(R.string.settings_mtvu),
                         checked = draft.enableMtvu,
                         onCheckedChange = { onDraftChange(draft.copy(enableMtvu = it)) },
@@ -1656,6 +1663,13 @@ private fun GameSettingsEditorDialog(
                                 valueLabelForValue = { formatFramerateHz(it) },
                                 helpText = stringResource(R.string.settings_help_pal_framerate),
                                 onResetToDefault = { draft = draft.copy(palFramerate = defaultProfile.palFramerate) }
+                            )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_instant_vu1),
+                                checked = draft.enableInstantVu1,
+                                onCheckedChange = { draft = draft.copy(enableInstantVu1 = it) },
+                                helpText = stringResource(R.string.settings_help_instant_vu1),
+                                onResetToDefault = { draft = draft.copy(enableInstantVu1 = defaultProfile.enableInstantVu1) }
                             )
                             ToggleRow(
                                 title = stringResource(R.string.settings_mtvu),
@@ -3301,6 +3315,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         autoSaveOnExit = false,
         autoLoadOnStart = false,
         enableFastBoot = enableFastBoot,
+        enableInstantVu1 = enableInstantVu1,
         enableMtvu = enableMtvu,
         enableFastCdvd = enableFastCdvd,
         enableCheats = enableCheats,
@@ -3397,6 +3412,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         autoSaveOnExit = pick("autoSaveOnExit", autoSaveOnExit, defaultProfile.autoSaveOnExit),
         autoLoadOnStart = pick("autoLoadOnStart", autoLoadOnStart, defaultProfile.autoLoadOnStart),
         enableFastBoot = pick("enableFastBoot", enableFastBoot, defaultProfile.enableFastBoot),
+        enableInstantVu1 = pick("enableInstantVu1", enableInstantVu1, defaultProfile.enableInstantVu1),
         enableMtvu = pick("enableMtvu", enableMtvu, defaultProfile.enableMtvu),
         enableFastCdvd = pick("enableFastCdvd", enableFastCdvd, defaultProfile.enableFastCdvd),
         enableCheats = pick("enableCheats", enableCheats, defaultProfile.enableCheats),
