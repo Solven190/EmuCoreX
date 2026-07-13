@@ -2,7 +2,10 @@ package com.sbro.emucorex.data
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
+import android.util.Log
 import androidx.core.net.toUri
+import androidx.documentfile.provider.DocumentFile
 import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
@@ -24,9 +27,29 @@ data class GameItem(
 class GameRepository {
 
     companion object {
+        private const val TAG = "GameRepository"
         private val SUPPORTED_EXTENSIONS = setOf("iso", "bin", "img", "mdf", "gz", "cso", "zso", "chd", "elf")
         private val COVER_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp")
         private val COVER_DIRECTORY_NAMES = setOf("covers", "cover", "art", "artwork", "boxart", "box art")
+
+        internal fun parentDocumentId(documentId: String): String? {
+            val separatorIndex = documentId.lastIndexOf('/')
+            if (separatorIndex >= 0) return documentId.substring(0, separatorIndex)
+
+            val volumeSeparatorIndex = documentId.indexOf(':')
+            return if (volumeSeparatorIndex >= 0 && volumeSeparatorIndex < documentId.lastIndex) {
+                documentId.substring(0, volumeSeparatorIndex + 1)
+            } else {
+                null
+            }
+        }
+
+        internal fun relativeDocumentSegments(rootDocumentId: String, targetDocumentId: String): List<String>? {
+            if (targetDocumentId == rootDocumentId) return emptyList()
+            val prefix = if (rootDocumentId.endsWith(':')) rootDocumentId else "$rootDocumentId/"
+            if (!targetDocumentId.startsWith(prefix)) return null
+            return targetDocumentId.removePrefix(prefix).split('/').filter(String::isNotBlank)
+        }
     }
 
     fun scanDirectory(path: String, context: Context): List<GameItem> {
@@ -66,7 +89,9 @@ class GameRepository {
         title: String? = null
     ): String? {
         return if (path.startsWith("content://")) {
-            findDocumentCover(path, context, serial, title)
+            runCatching { findDocumentCover(path, context, serial, title) }
+                .onFailure { error -> Log.w(TAG, "Unable to find cover for document URI: $path", error) }
+                .getOrNull()
         } else {
             findLocalCover(path, context, serial, title)
         }
@@ -227,19 +252,47 @@ class GameRepository {
     }
 
     private fun findDocumentCover(path: String, context: Context, serial: String?, title: String?): String? {
+        CustomGameCoverRepository(context).findCustomCoverPath(path)?.let { return it }
+        CoverArtRepository(context).findCachedCoverUri(serial)?.let { return it }
+
         val uri = path.toUri()
-        val document = androidx.documentfile.provider.DocumentFile.fromSingleUri(context, uri) ?: return null
-        val parent = androidx.documentfile.provider.DocumentFile.fromTreeUri(
-            context,
-            uri.buildUpon().path(uri.path?.substringBeforeLast('/')).build()
-        ) ?: return null
+        val document = DocumentFile.fromSingleUri(context, uri) ?: return null
+        val parent = findDocumentParent(context, uri) ?: return null
         val baseName = normalizeBaseName(document.name.orEmpty().substringBeforeLast('.'))
         val titleKey = normalizeBaseName(cleanGameName(title ?: document.name.orEmpty().substringBeforeLast('.')))
         val coverCandidates = buildDocumentCoverCandidates(parent.listFiles())
-        return CustomGameCoverRepository(context).findCustomCoverPath(path)
-            ?: CoverArtRepository(context).findCachedCoverUri(serial)
-            ?: coverCandidates[baseName]?.uri?.toString()
+        return coverCandidates[baseName]?.uri?.toString()
             ?: coverCandidates[titleKey]?.uri?.toString()
+    }
+
+    private fun findDocumentParent(context: Context, documentUri: Uri): DocumentFile? {
+        val documentId = DocumentsContract.getDocumentId(documentUri)
+        val parentId = parentDocumentId(documentId) ?: return null
+        val persistedTrees = context.contentResolver.persistedUriPermissions
+            .asSequence()
+            .filter { permission -> permission.isReadPermission && permission.uri.authority == documentUri.authority }
+            .mapNotNull { permission ->
+                val rootId = runCatching { DocumentsContract.getTreeDocumentId(permission.uri) }.getOrNull()
+                    ?: return@mapNotNull null
+                Triple(permission.uri, rootId, relativeDocumentSegments(rootId, parentId))
+            }
+            .filter { (_, _, segments) -> segments != null }
+            .sortedByDescending { (_, rootId, _) -> rootId.length }
+            .toList()
+
+        for ((treeUri, _, nullableSegments) in persistedTrees) {
+            var current = DocumentFile.fromTreeUri(context, treeUri) ?: continue
+            var found = true
+            for (segment in nullableSegments.orEmpty()) {
+                current = current.findFile(segment) ?: run {
+                    found = false
+                    break
+                }
+            }
+            if (found) return current
+        }
+
+        return null
     }
 
     private fun normalizeBaseName(value: String): String {
