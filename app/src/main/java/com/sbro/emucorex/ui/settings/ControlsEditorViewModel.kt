@@ -129,6 +129,23 @@ class ControlsEditorViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    fun updateControlOpacity(controlId: String, opacity: Int) {
+        viewModelScope.launch {
+            commitLayout { current ->
+                val updated = current.controlLayouts.toMutableMap()
+                val controlDefaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+                val control = updated[controlId] ?: controlDefaults[controlId] ?: OverlayControlLayout()
+                updated[controlId] = control.copy(
+                    opacity = opacity.coerceIn(
+                        AppPreferences.OVERLAY_CONTROL_OPACITY_MIN,
+                        AppPreferences.OVERLAY_CONTROL_OPACITY_MAX
+                    )
+                )
+                current.copy(controlLayouts = updated)
+            }
+        }
+    }
+
     fun toggleLeftInputMode() {
         viewModelScope.launch {
             commitLayout { current ->

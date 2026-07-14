@@ -99,6 +99,7 @@ fun ControlsEditorScreen(
     onUpdateControlOffsets: (Map<String, Pair<Float, Float>>) -> Unit,
     onUpdateControlScale: (String, Int) -> Unit,
     onUpdateControlWidthScale: (String, Int) -> Unit,
+    onUpdateControlOpacity: (String, Int) -> Unit,
     onToggleLeftInputMode: () -> Unit,
     onSetControlVisible: (String, Boolean) -> Unit,
     onSetStickSurfaceMode: (String, Boolean) -> Unit,
@@ -181,6 +182,18 @@ fun ControlsEditorScreen(
             put(controlId, current.copy(widthScale = nextWidthScale))
         }
         onUpdateControlWidthScale(controlId, nextWidthScale)
+    }
+
+    fun setControlOpacityLocally(controlId: String, opacity: Int) {
+        val current = currentLayoutFor(controlId, if (controlId.contains("stick")) state.stickScale else 100)
+        val nextOpacity = opacity.coerceIn(
+            AppPreferences.OVERLAY_CONTROL_OPACITY_MIN,
+            AppPreferences.OVERLAY_CONTROL_OPACITY_MAX
+        )
+        editorControlLayouts = editorControlLayouts.toMutableMap().apply {
+            put(controlId, current.copy(opacity = nextOpacity))
+        }
+        onUpdateControlOpacity(controlId, nextOpacity)
     }
 
     fun setStickSurfaceModeLocally(controlId: String, enabled: Boolean) {
@@ -384,6 +397,50 @@ fun ControlsEditorScreen(
                         OutlinedButton(
                             onClick = { setControlScaleLocally(controlId, scale + 10) },
                             enabled = scale < AppPreferences.OVERLAY_CONTROL_SCALE_MAX,
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = Color.White.copy(alpha = 0.08f),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(Icons.Rounded.Add, contentDescription = null)
+                        }
+                    }
+                }
+
+                val opacity = selectedLayout?.opacity ?: AppPreferences.OVERLAY_CONTROL_OPACITY_DEFAULT
+                Surface(
+                    modifier = Modifier.padding(top = 8.dp),
+                    color = Color(0xFF111827).copy(alpha = 0.82f),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { setControlOpacityLocally(controlId, opacity - 10) },
+                            enabled = opacity > AppPreferences.OVERLAY_CONTROL_OPACITY_MIN,
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = Color.White.copy(alpha = 0.08f),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(Icons.Rounded.Remove, contentDescription = null)
+                        }
+                        Text(
+                            text = stringResource(R.string.controls_editor_opacity_value, opacity),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                        OutlinedButton(
+                            onClick = { setControlOpacityLocally(controlId, opacity + 10) },
+                            enabled = opacity < AppPreferences.OVERLAY_CONTROL_OPACITY_MAX,
                             shape = RoundedCornerShape(14.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
@@ -774,7 +831,7 @@ private fun PreviewCanvasDpadCluster(
     ) {
         VectorDpadCluster(
             size = spec.size,
-            alpha = if (spec.visible) 1f else 0.38f,
+            alpha = if (spec.visible) spec.opacity / 100f else 0.38f,
             selected = selected,
             interactive = false,
             visualStyle = visualStyle
@@ -852,7 +909,7 @@ private fun PreviewCanvasButton(
             width = spec.width,
             height = spec.height,
             shape = spec.shape,
-            alpha = if (spec.visible) 1f else 0.38f,
+            alpha = if (spec.visible) spec.opacity / 100f else 0.38f,
             selected = selected,
             interactive = false,
             visualStyle = visualStyle
@@ -939,7 +996,7 @@ private fun PreviewCanvasStick(
             analogSize = spec.size,
             analogWidth = panelWidth,
             analogHeight = spec.size,
-            alpha = if (spec.visible) 1f else 0.38f,
+            alpha = if (spec.visible) spec.opacity / 100f else 0.38f,
             selected = selected,
             surfaceOnly = surfaceOnly,
             interactive = false,

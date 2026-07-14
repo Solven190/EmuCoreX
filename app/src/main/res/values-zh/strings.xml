@@ -585,6 +585,7 @@
     <string name="controls_editor_save">儲存</string>
     <string name="controls_editor_reset">重設</string>
     <string name="controls_editor_stick_size">搖桿大小</string>
+    <string name="controls_editor_opacity_value">不透明度 %1$d%%</string>
     <string name="controls_editor_drag_hint">拖曳按鈕以移動 • 使用滑桿調整搖桿大小</string>
     <string name="pcsx2_compatibility_title">PCSX2 相容性</string>
     <string name="pcsx2_compatibility_status">狀態</string>
@@ -1615,7 +1616,6 @@
     <string name="settings_customization_custom_font_removed">自定义字体已移除</string>
     <string name="settings_customization_font_size">字体大小</string>
     <string name="settings_customization_font_size_help">此缩放比例将与您安卓系统的无障碍字体大小设置相叠加，而不是直接替换它。</string>
-    <string name="settings_customization_free_note">此标签页中的所有个性化选项均可免费使用，无需 PRO。</string>
     <string name="settings_customization_reset_section">重置</string>
     <string name="settings_customization_reset">重置个性化设置</string>
     <string name="settings_customization_reset_desc">将背景、封面大小、字体及文字大小恢复为初始状态</string>
@@ -1641,4 +1641,19 @@
     <string name="settings_game_menu_reset_section">恢复布局</string>
     <string name="settings_game_menu_reset">重置游戏菜单</string>
     <string name="settings_game_menu_reset_desc">按原始默认顺序显示所有标签页和会话面板</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="other">每行 %d 个游戏</item>
+    </plurals>
+    <string name="settings_customization_drawer_section">导航抽屉</string>
+    <string name="settings_customization_drawer_summary">选择要在导航抽屉中显示的快捷方式。隐藏的目的地仍可在应用的其他位置访问。</string>
+    <string name="settings_customization_drawer_other">导航与社区</string>
+    <string name="settings_customization_drawer_required_note">“库”和“应用设置”始终可用，以确保导航不会被锁定。</string>
+    <string name="settings_customization_touch_style_arcade">街机</string>
+    <string name="settings_customization_touch_style_minimal">极简</string>
+    <string name="settings_game_menu_content_summary">选择在游戏内菜单中显示的选项卡、内容块及其顺序。未来更新中添加的新区块将自动包含在内。</string>
+    <string name="settings_game_menu_tab_content_format">%1$s 内容</string>
+    <string name="settings_game_menu_section_debug_tools">开发者诊断</string>
+    <string name="settings_game_menu_section_controls_general">叠加层与屏幕行为</string>
+    <string name="settings_game_menu_section_graphics_display">渲染器、分辨率与宽高比</string>
+    <string name="settings_game_menu_full_reset_desc">按原始顺序显示所有选项卡和内容块</string>
 </resources>

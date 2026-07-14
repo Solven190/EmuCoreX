@@ -795,6 +795,7 @@
     <string name="controls_editor_save">सेव करें</string>
     <string name="controls_editor_reset">रीसेट करें</string>
     <string name="controls_editor_stick_size">स्टिक का आकार</string>
+    <string name="controls_editor_opacity_value">पारदर्शिता %1$d%%</string>
     <string name="controls_editor_drag_hint">बटनों को ले जाने के लिए खींचें • स्टिक का आकार बदलने के लिए स्लाइडर</string>
     <string name="pcsx2_compatibility_title">PCSX2 संगतता</string>
     <string name="pcsx2_compatibility_status">स्थिति</string>
@@ -1613,7 +1614,6 @@
     <string name="settings_customization_custom_font_removed">कस्टम फ़ॉन्ट रिमूव हो गया</string>
     <string name="settings_customization_font_size">टेक्स्ट साइज़</string>
     <string name="settings_customization_font_size_help">यह स्केल आपके Android एक्सेसिबिलिटी फ़ॉन्ट साइज़ को रिप्लेस करने के बजाय उसके साथ कंबाइन होता है।</string>
-    <string name="settings_customization_free_note">इस टैब के सभी कस्टमाइज़ेशन ऑप्शंस बिना PRO के अवेलेबल हैं।</string>
     <string name="settings_customization_reset_section">रीसेट</string>
     <string name="settings_customization_reset">कस्टमाइज़ेशन रीसेट करें</string>
     <string name="settings_customization_reset_desc">ओरिजिनल बैकग्राउंड, कवर साइज़, फ़ॉन्ट और टेक्स्ट साइज़ रिस्टोर करें</string>
@@ -1639,4 +1639,20 @@
     <string name="settings_game_menu_reset_section">लेआउट रिस्टोर करें</string>
     <string name="settings_game_menu_reset">गेम मेनू रीसेट करें</string>
     <string name="settings_game_menu_reset_desc">हर टैब और सेशन सेक्शन को ओरिजिनल ऑर्डर में दिखाएँ</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="one">प्रति पंक्ति %d गेम</item>
+        <item quantity="other">प्रति पंक्ति %d गेम</item>
+    </plurals>
+    <string name="settings_customization_drawer_section">नेविगेशन ड्रावर</string>
+    <string name="settings_customization_drawer_summary">चुनें कि नेविगेशन ड्रावर में कौन से शॉर्टकट दिखाई दें। छिपे हुए गंतव्य ऐप में अन्य जगहों पर उपलब्ध रहेंगे।</string>
+    <string name="settings_customization_drawer_other">नेविगेशन और कम्युनिटी</string>
+    <string name="settings_customization_drawer_required_note">लाइब्रेरी और ऐप सेटिंग्स हमेशा उपलब्ध रहती हैं ताकि नेविगेशन लॉक न हो सके।</string>
+    <string name="settings_customization_touch_style_arcade">आर्केड</string>
+    <string name="settings_customization_touch_style_minimal">न्यूनतम</string>
+    <string name="settings_game_menu_content_summary">इन-गेम मेनू में दिखाए गए टैब, सामग्री ब्लॉक और क्रम चुनें। भविष्य के अपडेट द्वारा जोड़े गए नए ब्लॉक स्वचालित रूप से शामिल हो जाते हैं।</string>
+    <string name="settings_game_menu_tab_content_format">%1$s सामग्री</string>
+    <string name="settings_game_menu_section_debug_tools">डेवलपर डायग्नोस्टिक्स</string>
+    <string name="settings_game_menu_section_controls_general">ओवरले और स्क्रीन व्यवहार</string>
+    <string name="settings_game_menu_section_graphics_display">रेंडरर, रिज़ॉल्यूशन और आस्पेक्ट रेशियो</string>
+    <string name="settings_game_menu_full_reset_desc">प्रत्येक टैब और सामग्री ब्लॉक को मूल क्रम में दिखाएं</string>
 </resources>

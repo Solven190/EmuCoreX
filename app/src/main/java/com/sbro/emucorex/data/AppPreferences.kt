@@ -46,9 +46,11 @@ data class SettingsSnapshot(
     val homeBackgroundRevision: Int = 0,
     val homeBackgroundDim: Int = AppPreferences.DEFAULT_HOME_BACKGROUND_DIM,
     val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    val hiddenDrawerItems: Set<DrawerItemId> = emptySet(),
     val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
     val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
-    val hiddenGameMenuSections: Set<GameMenuSessionSection> = emptySet(),
+    val gameMenuSectionOrder: List<GameMenuSectionId> = DefaultGameMenuSectionOrder,
+    val hiddenGameMenuSections: Set<GameMenuSectionId> = emptySet(),
     val proUnlocked: Boolean = false,
     val languageTag: String? = null,
     val performanceProfile: Int = PerformanceProfiles.SAFE,
@@ -238,6 +240,7 @@ data class OverlayControlLayout(
     val offset: Pair<Float, Float> = 0f to 0f,
     val scale: Int = 100,
     val widthScale: Int = 100,
+    val opacity: Int = 100,
     val visible: Boolean = true,
     val surfaceOnly: Boolean = false
 )
@@ -297,6 +300,9 @@ class AppPreferences(private val context: Context) {
         const val OVERLAY_CONTROL_SCALE_MIN = 50
         const val OVERLAY_CONTROL_SCALE_MAX = 500
         const val OVERLAY_CONTROL_SCALE_DEFAULT = 100
+        const val OVERLAY_CONTROL_OPACITY_MIN = 20
+        const val OVERLAY_CONTROL_OPACITY_MAX = 100
+        const val OVERLAY_CONTROL_OPACITY_DEFAULT = 100
         const val DEFAULT_GAMEPAD_STICK_DEADZONE = 15
         const val DEFAULT_GAMEPAD_STICK_SENSITIVITY = 100
         const val DEFAULT_PRESSURE_MODIFIER_AMOUNT = 50
@@ -369,8 +375,10 @@ class AppPreferences(private val context: Context) {
         private val HOME_BACKGROUND_REVISION = intPreferencesKey("home_background_revision")
         private val HOME_BACKGROUND_DIM = intPreferencesKey("home_background_dim")
         private val TOUCH_CONTROL_VISUAL_STYLE = intPreferencesKey("touch_control_visual_style")
+        private val HIDDEN_DRAWER_ITEMS = stringPreferencesKey("hidden_drawer_items")
         private val GAME_MENU_TAB_ORDER = stringPreferencesKey("game_menu_tab_order")
         private val HIDDEN_GAME_MENU_TABS = stringPreferencesKey("hidden_game_menu_tabs")
+        private val GAME_MENU_SECTION_ORDER = stringPreferencesKey("game_menu_section_order")
         private val HIDDEN_GAME_MENU_SECTIONS = stringPreferencesKey("hidden_game_menu_sections")
         private val PRO_UNLOCKED = booleanPreferencesKey("pro_unlocked")
         private val WELCOME_DIALOG_SHOWN = booleanPreferencesKey("welcome_dialog_shown")
@@ -627,6 +635,10 @@ class AppPreferences(private val context: Context) {
         .map { prefs -> TouchControlVisualStyle.fromPreference(prefs[TOUCH_CONTROL_VISUAL_STYLE]) }
         .distinctUntilChanged()
 
+    val hiddenDrawerItems: Flow<Set<DrawerItemId>> = context.dataStore.data
+        .map { prefs -> sanitizeHiddenDrawerItems(prefs[HIDDEN_DRAWER_ITEMS]) }
+        .distinctUntilChanged()
+
     val gameMenuTabOrder: Flow<List<GameMenuTabId>> = context.dataStore.data
         .map { prefs -> sanitizeGameMenuTabOrder(prefs[GAME_MENU_TAB_ORDER]) }
         .distinctUntilChanged()
@@ -635,7 +647,11 @@ class AppPreferences(private val context: Context) {
         .map { prefs -> sanitizeHiddenGameMenuTabs(prefs[HIDDEN_GAME_MENU_TABS]) }
         .distinctUntilChanged()
 
-    val hiddenGameMenuSections: Flow<Set<GameMenuSessionSection>> = context.dataStore.data
+    val gameMenuSectionOrder: Flow<List<GameMenuSectionId>> = context.dataStore.data
+        .map { prefs -> sanitizeGameMenuSectionOrder(prefs[GAME_MENU_SECTION_ORDER]) }
+        .distinctUntilChanged()
+
+    val hiddenGameMenuSections: Flow<Set<GameMenuSectionId>> = context.dataStore.data
         .map { prefs -> sanitizeHiddenGameMenuSections(prefs[HIDDEN_GAME_MENU_SECTIONS]) }
         .distinctUntilChanged()
 
@@ -698,6 +714,13 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[TOUCH_CONTROL_VISUAL_STYLE] = style.preferenceValue }
     }
 
+    suspend fun setHiddenDrawerItems(hidden: Set<DrawerItemId>) {
+        val normalized = hidden.filterNot(DrawerItemId::required).toSet()
+        context.dataStore.edit {
+            it[HIDDEN_DRAWER_ITEMS] = normalized.joinToString(",") { item -> item.name }
+        }
+    }
+
     suspend fun setGameMenuTabOrder(order: List<GameMenuTabId>) {
         val normalized = (order + DefaultGameMenuTabOrder).distinct()
         context.dataStore.edit { it[GAME_MENU_TAB_ORDER] = normalized.joinToString(",") { tab -> tab.name } }
@@ -708,7 +731,14 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[HIDDEN_GAME_MENU_TABS] = normalized.joinToString(",") { tab -> tab.name } }
     }
 
-    suspend fun setHiddenGameMenuSections(hidden: Set<GameMenuSessionSection>) {
+    suspend fun setGameMenuSectionOrder(order: List<GameMenuSectionId>) {
+        val normalized = sanitizeGameMenuSectionOrder(order.joinToString(",") { it.name })
+        context.dataStore.edit {
+            it[GAME_MENU_SECTION_ORDER] = normalized.joinToString(",") { section -> section.name }
+        }
+    }
+
+    suspend fun setHiddenGameMenuSections(hidden: Set<GameMenuSectionId>) {
         context.dataStore.edit {
             it[HIDDEN_GAME_MENU_SECTIONS] = hidden.joinToString(",") { section -> section.name }
         }
@@ -1168,8 +1198,10 @@ class AppPreferences(private val context: Context) {
                 homeBackgroundDim = (prefs[HOME_BACKGROUND_DIM] ?: DEFAULT_HOME_BACKGROUND_DIM)
                     .coerceIn(0, 85),
                 touchControlVisualStyle = TouchControlVisualStyle.fromPreference(prefs[TOUCH_CONTROL_VISUAL_STYLE]),
+                hiddenDrawerItems = sanitizeHiddenDrawerItems(prefs[HIDDEN_DRAWER_ITEMS]),
                 gameMenuTabOrder = sanitizeGameMenuTabOrder(prefs[GAME_MENU_TAB_ORDER]),
                 hiddenGameMenuTabs = sanitizeHiddenGameMenuTabs(prefs[HIDDEN_GAME_MENU_TABS]),
+                gameMenuSectionOrder = sanitizeGameMenuSectionOrder(prefs[GAME_MENU_SECTION_ORDER]),
                 hiddenGameMenuSections = sanitizeHiddenGameMenuSections(prefs[HIDDEN_GAME_MENU_SECTIONS]),
                 proUnlocked = prefs[PRO_UNLOCKED] ?: false,
                 languageTag = prefs[LANGUAGE_TAG],
@@ -2598,6 +2630,8 @@ class AppPreferences(private val context: Context) {
                                 "widthScale",
                                 if (id.contains("stick")) 160 else 100
                             ).coerceIn(100, 240),
+                            opacity = item.optInt("opacity", OVERLAY_CONTROL_OPACITY_DEFAULT)
+                                .coerceIn(OVERLAY_CONTROL_OPACITY_MIN, OVERLAY_CONTROL_OPACITY_MAX),
                             visible = item.optBoolean("visible", true),
                             surfaceOnly = item.optBoolean("surfaceOnly", false)
                         )
@@ -2618,6 +2652,10 @@ class AppPreferences(private val context: Context) {
                         put("y", layout.offset.second.toDouble())
                         put("scale", layout.scale.coerceIn(OVERLAY_CONTROL_SCALE_MIN, OVERLAY_CONTROL_SCALE_MAX))
                         put("widthScale", layout.widthScale.coerceIn(100, 240))
+                        put(
+                            "opacity",
+                            layout.opacity.coerceIn(OVERLAY_CONTROL_OPACITY_MIN, OVERLAY_CONTROL_OPACITY_MAX)
+                        )
                         put("visible", layout.visible)
                         put("surfaceOnly", layout.surfaceOnly)
                     }
@@ -2863,8 +2901,10 @@ class AppPreferences(private val context: Context) {
             put("homeBackgroundDim", prefs[HOME_BACKGROUND_DIM] ?: DEFAULT_HOME_BACKGROUND_DIM)
             put("homeBackgroundType", prefs[HOME_BACKGROUND_TYPE] ?: HomeBackgroundType.NONE.preferenceValue)
             put("touchControlVisualStyle", prefs[TOUCH_CONTROL_VISUAL_STYLE] ?: TouchControlVisualStyle.CLASSIC.preferenceValue)
+            put("hiddenDrawerItems", prefs[HIDDEN_DRAWER_ITEMS] ?: "")
             put("gameMenuTabOrder", prefs[GAME_MENU_TAB_ORDER] ?: DefaultGameMenuTabOrder.joinToString(",") { it.name })
             put("hiddenGameMenuTabs", prefs[HIDDEN_GAME_MENU_TABS] ?: "")
+            put("gameMenuSectionOrder", prefs[GAME_MENU_SECTION_ORDER] ?: DefaultGameMenuSectionOrder.joinToString(",") { it.name })
             put("hiddenGameMenuSections", prefs[HIDDEN_GAME_MENU_SECTIONS] ?: "")
             put("performanceProfile", resolvePerformanceProfile(prefs))
             put("gpuHardwareProfile", gpuHardwareProfile)
@@ -3083,9 +3123,13 @@ class AppPreferences(private val context: Context) {
             prefs[TOUCH_CONTROL_VISUAL_STYLE] = TouchControlVisualStyle.fromPreference(
                 json.optInt("touchControlVisualStyle", TouchControlVisualStyle.CLASSIC.preferenceValue)
             ).preferenceValue
+            prefs[HIDDEN_DRAWER_ITEMS] = sanitizeHiddenDrawerItems(json.optString("hiddenDrawerItems"))
+                .joinToString(",") { it.name }
             prefs[GAME_MENU_TAB_ORDER] = sanitizeGameMenuTabOrder(json.optString("gameMenuTabOrder"))
                 .joinToString(",") { it.name }
             prefs[HIDDEN_GAME_MENU_TABS] = sanitizeHiddenGameMenuTabs(json.optString("hiddenGameMenuTabs"))
+                .joinToString(",") { it.name }
+            prefs[GAME_MENU_SECTION_ORDER] = sanitizeGameMenuSectionOrder(json.optString("gameMenuSectionOrder"))
                 .joinToString(",") { it.name }
             prefs[HIDDEN_GAME_MENU_SECTIONS] = sanitizeHiddenGameMenuSections(json.optString("hiddenGameMenuSections"))
                 .joinToString(",") { it.name }

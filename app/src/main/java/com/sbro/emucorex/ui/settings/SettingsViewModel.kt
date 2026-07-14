@@ -28,9 +28,11 @@ import com.sbro.emucorex.data.AppFontChoice
 import com.sbro.emucorex.data.HomeBackgroundRepository
 import com.sbro.emucorex.data.HomeBackgroundType
 import com.sbro.emucorex.data.TouchControlVisualStyle
+import com.sbro.emucorex.data.DrawerItemId
 import com.sbro.emucorex.data.GameMenuTabId
-import com.sbro.emucorex.data.GameMenuSessionSection
+import com.sbro.emucorex.data.GameMenuSectionId
 import com.sbro.emucorex.data.DefaultGameMenuTabOrder
+import com.sbro.emucorex.data.DefaultGameMenuSectionOrder
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
 import com.sbro.emucorex.data.CoverArtRepository
 import com.sbro.emucorex.data.CustomFontRepository
@@ -61,9 +63,11 @@ data class SettingsUiState(
     val homeBackgroundRevision: Int = 0,
     val homeBackgroundDim: Int = AppPreferences.DEFAULT_HOME_BACKGROUND_DIM,
     val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    val hiddenDrawerItems: Set<DrawerItemId> = emptySet(),
     val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
     val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
-    val hiddenGameMenuSections: Set<GameMenuSessionSection> = emptySet(),
+    val gameMenuSectionOrder: List<GameMenuSectionId> = DefaultGameMenuSectionOrder,
+    val hiddenGameMenuSections: Set<GameMenuSectionId> = emptySet(),
     val isBackgroundImporting: Boolean = false,
     val customizationMessageResId: Int? = null,
     val isProUnlocked: Boolean = false,
@@ -298,8 +302,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             homeBackgroundRevision = snapshot.homeBackgroundRevision,
             homeBackgroundDim = snapshot.homeBackgroundDim,
             touchControlVisualStyle = snapshot.touchControlVisualStyle,
+            hiddenDrawerItems = snapshot.hiddenDrawerItems,
             gameMenuTabOrder = snapshot.gameMenuTabOrder,
             hiddenGameMenuTabs = snapshot.hiddenGameMenuTabs,
+            gameMenuSectionOrder = snapshot.gameMenuSectionOrder,
             hiddenGameMenuSections = snapshot.hiddenGameMenuSections,
             isProUnlocked = snapshot.proUnlocked,
             languageTag = snapshot.languageTag,
@@ -505,6 +511,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         preferences.setTouchControlVisualStyle(style)
     }
 
+    fun setDrawerItemVisible(item: DrawerItemId, visible: Boolean) = viewModelScope.launch {
+        if (item.required) return@launch
+        val hidden = _uiState.value.hiddenDrawerItems.toMutableSet()
+        if (visible) hidden.remove(item) else hidden.add(item)
+        preferences.setHiddenDrawerItems(hidden)
+    }
+
     fun setGameMenuTabVisible(tab: GameMenuTabId, visible: Boolean) = viewModelScope.launch {
         if (tab == GameMenuTabId.SESSION) return@launch
         val hidden = _uiState.value.hiddenGameMenuTabs.toMutableSet()
@@ -523,15 +536,34 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun setGameMenuSectionVisible(section: GameMenuSessionSection, visible: Boolean) = viewModelScope.launch {
+    fun setGameMenuSectionVisible(section: GameMenuSectionId, visible: Boolean) = viewModelScope.launch {
         val hidden = _uiState.value.hiddenGameMenuSections.toMutableSet()
         if (visible) hidden.remove(section) else hidden.add(section)
         preferences.setHiddenGameMenuSections(hidden)
     }
 
+    fun moveGameMenuSection(section: GameMenuSectionId, direction: Int) = viewModelScope.launch {
+        val order = _uiState.value.gameMenuSectionOrder.toMutableList()
+        val sameTab = order.filter { it.tab == section.tab }
+        val fromWithinTab = sameTab.indexOf(section)
+        val toWithinTab = (fromWithinTab + direction).coerceIn(0, sameTab.lastIndex)
+        if (fromWithinTab < 0 || fromWithinTab == toWithinTab) return@launch
+
+        val reorderedTab = sameTab.toMutableList().apply {
+            removeAt(fromWithinTab)
+            add(toWithinTab, section)
+        }
+        var nextIndex = 0
+        val normalized = order.map { current ->
+            if (current.tab == section.tab) reorderedTab[nextIndex++] else current
+        }
+        preferences.setGameMenuSectionOrder(normalized)
+    }
+
     fun resetGameMenuCustomization() = viewModelScope.launch {
         preferences.setGameMenuTabOrder(DefaultGameMenuTabOrder)
         preferences.setHiddenGameMenuTabs(emptySet())
+        preferences.setGameMenuSectionOrder(DefaultGameMenuSectionOrder)
         preferences.setHiddenGameMenuSections(emptySet())
     }
 
@@ -570,6 +602,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         preferences.clearCustomFont()
         preferences.setAppFontScale(AppPreferences.DEFAULT_APP_FONT_SCALE)
         preferences.setTouchControlVisualStyle(TouchControlVisualStyle.CLASSIC)
+        preferences.setHiddenDrawerItems(emptySet())
         _uiState.value = _uiState.value.copy(
             customizationMessageResId = com.sbro.emucorex.R.string.settings_customization_reset_done
         )

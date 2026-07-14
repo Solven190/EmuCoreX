@@ -1200,6 +1200,7 @@
     <string name="controls_editor_save">Simpan</string>
     <string name="controls_editor_reset">Reset</string>
     <string name="controls_editor_stick_size">Ukuran Stik</string>
+    <string name="controls_editor_opacity_value">Opasitas %1$d%%</string>
     <string name="controls_editor_drag_hint">Tarik tombol untuk bergerak • Penggeser untuk mengubah ukuran stik</string>
     <string name="pcsx2_compatibility_title">Kompatibilitas PCSX2</string>
     <string name="pcsx2_compatibility_status">Status</string>
@@ -1628,7 +1629,6 @@
     <string name="settings_customization_custom_font_removed">Font kustom dihapus</string>
     <string name="settings_customization_font_size">Ukuran teks</string>
     <string name="settings_customization_font_size_help">Skala ini digabungkan dengan ukuran font aksesibilitas Android Anda, bukan menggantikannya.</string>
-    <string name="settings_customization_free_note">Semua opsi kustomisasi di tab ini tersedia tanpa PRO.</string>
     <string name="settings_customization_reset_section">Atur ulang</string>
     <string name="settings_customization_reset">Atur ulang kustomisasi</string>
     <string name="settings_customization_reset_desc">Pulihkan latar belakang, ukuran sampul, font, dan ukuran teks asli</string>
@@ -1654,4 +1654,19 @@
     <string name="settings_game_menu_reset_section">Pulihkan tata letak</string>
     <string name="settings_game_menu_reset">Atur ulang menu game</string>
     <string name="settings_game_menu_reset_desc">Tampilkan setiap tab dan bagian Sesi dalam urutan aslinya</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="other">%d game per baris</item>
+    </plurals>
+    <string name="settings_customization_drawer_section">Laci navigasi</string>
+    <string name="settings_customization_drawer_summary">Pilih pintasan mana yang muncul di laci navigasi. Tujuan yang disembunyikan akan tetap tersedia di tempat lain di dalam aplikasi.</string>
+    <string name="settings_customization_drawer_other">Navigasi dan komunitas</string>
+    <string name="settings_customization_drawer_required_note">Pengaturan Pustaka dan Aplikasi akan selalu tersedia agar navigasi tidak terkunci.</string>
+    <string name="settings_customization_touch_style_arcade">Arkade</string>
+    <string name="settings_customization_touch_style_minimal">Minimalis</string>
+    <string name="settings_game_menu_content_summary">Pilih tab, blok konten, dan urutan yang ditampilkan di menu dalam game. Blok baru yang ditambahkan oleh pembaruan mendatang akan disertakan secara otomatis.</string>
+    <string name="settings_game_menu_tab_content_format">Konten %1$s</string>
+    <string name="settings_game_menu_section_debug_tools">Diagnostik pengembang</string>
+    <string name="settings_game_menu_section_controls_general">Perilaku overlay dan layar</string>
+    <string name="settings_game_menu_section_graphics_display">Penyaji, resolusi, dan rasio aspek</string>
+    <string name="settings_game_menu_full_reset_desc">Tampilkan setiap tab dan blok konten dalam urutan aslinya</string>
 </resources>

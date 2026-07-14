@@ -19,6 +19,7 @@ data class OverlayCanvasButtonSpec(
     val x: Dp,
     val y: Dp,
     val shape: Shape,
+    val opacity: Int,
     val visible: Boolean
 )
 
@@ -30,6 +31,7 @@ data class OverlayCanvasStickSpec(
     val baseY: Dp,
     val x: Dp,
     val y: Dp,
+    val opacity: Int,
     val visible: Boolean
 )
 
@@ -40,6 +42,7 @@ data class OverlayCanvasDpadClusterSpec(
     val baseY: Dp,
     val x: Dp,
     val y: Dp,
+    val opacity: Int,
     val visible: Boolean
 )
 
@@ -153,6 +156,7 @@ fun buildOverlayCanvasLayout(
             x = currentBaseX + pxToDp(layout.offset.first),
             y = baseY + pxToDp(layout.offset.second),
             shape = shape,
+            opacity = layout.opacity,
             visible = visible && layout.visible
         )
     }
@@ -214,6 +218,7 @@ fun buildOverlayCanvasLayout(
         baseY = canvasHeight - bottomPad + pxToDp(lstickOffset.second) - dpadSize + leftStickBase,
         x = edgePadStart + pxToDp(lstickOffset.first) + leftStickBase + pxToDp(leftStickLayout.offset.first),
         y = canvasHeight - bottomPad + pxToDp(lstickOffset.second) - dpadSize + leftStickBase + pxToDp(leftStickLayout.offset.second),
+        opacity = leftStickLayout.opacity,
         visible = leftStickLayout.visible
     )
 
@@ -273,6 +278,7 @@ fun buildOverlayCanvasLayout(
         baseY = extraDpadBaseY,
         x = extraDpadBaseX + pxToDp(extraDpadLayout.offset.first),
         y = extraDpadBaseY + pxToDp(extraDpadLayout.offset.second),
+        opacity = extraDpadLayout.opacity,
         visible = extraDpadLayout.visible
     )
 
@@ -403,6 +409,7 @@ fun buildOverlayCanvasLayout(
             x = baseX + pxToDp(layout.offset.first),
             y = baseY + pxToDp(layout.offset.second),
             shape = shape,
+            opacity = layout.opacity,
             visible = visible && layout.visible
         )
     }
@@ -468,6 +475,7 @@ fun buildOverlayCanvasLayout(
         baseY = rightStickBaseY,
         x = rightStickBaseX + pxToDp(rightStickLayout.offset.first),
         y = rightStickBaseY + pxToDp(rightStickLayout.offset.second),
+        opacity = rightStickLayout.opacity,
         visible = rightStickLayout.visible
     )
 

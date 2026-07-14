@@ -4,12 +4,15 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.sbro.emucorex.core.EmulatorStorage
+import com.sbro.emucorex.data.pcsx2.Pcsx2CompatibilityRepository
 import java.io.File
 import java.util.Locale
 import java.util.zip.ZipInputStream
+import kotlinx.coroutines.flow.first
 
 data class TexturePackInfo(
     val serial: String,
+    val gameTitle: String?,
     val replacementCount: Int,
     val dumpCount: Int,
     val sizeBytes: Long,
@@ -37,14 +40,20 @@ class TexturePackRepository(
 ) {
     private val textureExtensions = setOf("png", "dds")
     private val serialPattern = Regex("[A-Z]{4}[-_ ]?\\d{5}", RegexOption.IGNORE_CASE)
+    private val compatibilityRepository = Pcsx2CompatibilityRepository(context.applicationContext)
+    private val libraryCacheRepository = GameLibraryCacheRepository(context.applicationContext)
 
-    fun listPacks(): TexturePackSummary {
+    suspend fun listPacks(): TexturePackSummary {
         val root = texturesRoot()
+        val libraryTitles = loadLibraryTitlesBySerial()
         val packs = root.listFiles()
             ?.asSequence()
             ?.filter { it.isDirectory }
-            ?.mapNotNull(::buildPackInfo)
-            ?.sortedBy { it.serial.lowercase(Locale.US) }
+            ?.mapNotNull { folder -> buildPackInfo(folder, libraryTitles) }
+            ?.sortedWith(
+                compareBy<TexturePackInfo> { (it.gameTitle ?: it.serial).lowercase(Locale.US) }
+                    .thenBy { it.serial }
+            )
             ?.toList()
             .orEmpty()
 
@@ -117,7 +126,7 @@ class TexturePackRepository(
         return dumps.deleteRecursively() && dumps.mkdirs()
     }
 
-    private fun buildPackInfo(folder: File): TexturePackInfo? {
+    private fun buildPackInfo(folder: File, libraryTitles: Map<String, String>): TexturePackInfo? {
         val serial = normalizeSerial(folder.name) ?: return null
         val replacementDir = File(folder, "replacements")
         val dumpDir = File(folder, "dumps")
@@ -126,11 +135,30 @@ class TexturePackRepository(
         val allFiles = replacementFiles + dumpFiles
         return TexturePackInfo(
             serial = serial,
+            gameTitle = libraryTitles[serial]
+                ?: compatibilityRepository.findBySerial(serial)?.title
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() && !it.equals(serial, ignoreCase = true) },
             replacementCount = replacementFiles.size,
             dumpCount = dumpFiles.size,
             sizeBytes = allFiles.sumOf { it.length() },
             lastModifiedAt = allFiles.maxOfOrNull { it.lastModified() } ?: folder.lastModified()
         )
+    }
+
+    private suspend fun loadLibraryTitlesBySerial(): Map<String, String> {
+        val paths = preferences.gamePaths.first()
+        if (paths.isEmpty()) return emptyMap()
+        return libraryCacheRepository
+            .loadSnapshot(GameLibraryCacheRepository.libraryKey(paths))
+            .games
+            .mapNotNull { game ->
+                val serial = game.serial?.let(::normalizeSerial) ?: return@mapNotNull null
+                val title = game.title.trim().takeIf { it.isNotBlank() && !it.equals(serial, ignoreCase = true) }
+                    ?: return@mapNotNull null
+                serial to title
+            }
+            .toMap()
     }
 
     private fun texturesRoot(): File {

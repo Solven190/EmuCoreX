@@ -1200,6 +1200,7 @@
     <string name="controls_editor_save">ذخیره</string>
     <string name="controls_editor_reset">بازنشانی</string>
     <string name="controls_editor_stick_size">اندازه استیک</string>
+    <string name="controls_editor_opacity_value">شفافیت %1$d%%</string>
     <string name="controls_editor_drag_hint">برای حرکت دکمه‌ها را بکشید • اسلایدر برای تغییر اندازه استیک‌ها</string>
     <string name="pcsx2_compatibility_title">سازگاری PCSX2</string>
     <string name="pcsx2_compatibility_status">وضعیت</string>
@@ -1628,7 +1629,6 @@
     <string name="settings_customization_custom_font_removed">فونت سفارشی حذف شد</string>
     <string name="settings_customization_font_size">اندازه متن</string>
     <string name="settings_customization_font_size_help">این مقیاس به جای جایگزینی، با اندازه فونت دسترسی‌پذیری Android شما ترکیب می‌شود.</string>
-    <string name="settings_customization_free_note">همه گزینه‌های شخصی‌سازی در این برگه بدون PRO در دسترس هستند.</string>
     <string name="settings_customization_reset_section">بازنشانی</string>
     <string name="settings_customization_reset">بازنشانی شخصی‌سازی</string>
     <string name="settings_customization_reset_desc">بازیابی پس‌زمینه، اندازه جلد، فونت و اندازه متن اصلی</string>
@@ -1654,4 +1654,20 @@
     <string name="settings_game_menu_reset_section">بازیابی چیدمان</string>
     <string name="settings_game_menu_reset">بازنشانی منوی بازی</string>
     <string name="settings_game_menu_reset_desc">نمایش هر برگه و بخش جلسه به ترتیب اصلی</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="one">%d بازی در هر ردیف</item>
+        <item quantity="other">%d بازی در هر ردیف</item>
+    </plurals>
+    <string name="settings_customization_drawer_section">منوی کشویی پیمایش</string>
+    <string name="settings_customization_drawer_summary">میانبرهایی که در منوی کشویی پیمایش ظاهر می‌شوند را انتخاب کنید. مقصدهای پنهان در بخش‌های دیگر برنامه در دسترس می‌مانند.</string>
+    <string name="settings_customization_drawer_other">پیمایش و انجمن</string>
+    <string name="settings_customization_drawer_required_note">تنظیمات کتابخانه و برنامه همیشه در دسترس هستند تا پیمایش قفل نشود.</string>
+    <string name="settings_customization_touch_style_arcade">آرکید</string>
+    <string name="settings_customization_touch_style_minimal">مینیمال</string>
+    <string name="settings_game_menu_content_summary">زبانه‌ها، بلوک‌های محتوا و ترتیب نمایش در منوی داخل بازی را انتخاب کنید. بلوک‌های جدیدی که در به‌روزرسانی‌های آینده اضافه می‌شوند به‌طور خودکار لحاظ خواهند شد.</string>
+    <string name="settings_game_menu_tab_content_format">محتوای %1$s</string>
+    <string name="settings_game_menu_section_debug_tools">عیب‌یابی توسعه‌دهنده</string>
+    <string name="settings_game_menu_section_controls_general">رفتار همپوشانی و صفحه‌نمایش</string>
+    <string name="settings_game_menu_section_graphics_display">رندر، وضوح و نسبت تصویر</string>
+    <string name="settings_game_menu_full_reset_desc">نمایش همه زبانه‌ها و بلوک‌های محتوا در ترتیب اصلی</string>
 </resources>

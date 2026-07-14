@@ -881,6 +881,7 @@
     <string name="controls_editor_save">保存</string>
     <string name="controls_editor_reset">リセット</string>
     <string name="controls_editor_stick_size">スティックサイズ</string>
+    <string name="controls_editor_opacity_value">不透明度 %1$d%%</string>
     <string name="controls_editor_drag_hint">ボタンをドラッグして移動 • スライダーでスティックのサイズ変更</string>
     <string name="pcsx2_compatibility_title">PCSX2 の互換性</string>
     <string name="pcsx2_compatibility_status">ステータス</string>
@@ -1613,7 +1614,6 @@
     <string name="settings_customization_custom_font_removed">カスタムフォントが削除されました</string>
     <string name="settings_customization_font_size">テキストサイズ</string>
     <string name="settings_customization_font_size_help">このスケールは、置き換えるのではなく、Androidのアクセシビリティフォントサイズと組み合わされます。</string>
-    <string name="settings_customization_free_note">このタブのすべてのカスタマイズオプションは、PROなしで利用できます。</string>
     <string name="settings_customization_reset_section">リセット</string>
     <string name="settings_customization_reset">カスタマイズをリセット</string>
     <string name="settings_customization_reset_desc">元の背景、カバーサイズ、フォント、テキストサイズを復元します</string>
@@ -1639,4 +1639,19 @@
     <string name="settings_game_menu_reset_section">レイアウトを復元</string>
     <string name="settings_game_menu_reset">ゲームメニューをリセット</string>
     <string name="settings_game_menu_reset_desc">すべてのタブとセッションセクションを元の順序で表示します</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="other">1行に%d個のゲーム</item>
+    </plurals>
+    <string name="settings_customization_drawer_section">ナビゲーションドロワー</string>
+    <string name="settings_customization_drawer_summary">ナビゲーションドロワーに表示するショートカットを選択します。非表示にした項目は、アプリ内の他の場所から引き続き利用可能です。</string>
+    <string name="settings_customization_drawer_other">ナビゲーションとコミュニティ</string>
+    <string name="settings_customization_drawer_required_note">ライブラリとアプリの設定は常に利用可能であり、ナビゲーションがロックされることはありません。</string>
+    <string name="settings_customization_touch_style_arcade">アーケード</string>
+    <string name="settings_customization_touch_style_minimal">ミニマル</string>
+    <string name="settings_game_menu_content_summary">ゲーム内メニューに表示されるタブ、コンテンツブロック、順序を選択します。今後のアップデートで追加される新しいブロックは自動的に含まれます。</string>
+    <string name="settings_game_menu_tab_content_format">%1$sコンテンツ</string>
+    <string name="settings_game_menu_section_debug_tools">開発者用診断</string>
+    <string name="settings_game_menu_section_controls_general">オーバーレイと画面の動作</string>
+    <string name="settings_game_menu_section_graphics_display">レンダラー、解像度、アスペクト比</string>
+    <string name="settings_game_menu_full_reset_desc">すべてのタブとコンテンツブロックを元の順序で表示する</string>
 </resources>

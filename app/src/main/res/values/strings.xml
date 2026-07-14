@@ -1222,6 +1222,7 @@
     <string name="controls_editor_save">Save</string>
     <string name="controls_editor_reset">Reset</string>
     <string name="controls_editor_stick_size">Stick Size</string>
+    <string name="controls_editor_opacity_value">Opacity %1$d%%</string>
     <string name="controls_editor_drag_hint">Drag buttons to move • Slider to resize sticks</string>
     <string name="pcsx2_compatibility_title">PCSX2 Compatibility</string>
     <string name="pcsx2_compatibility_status">Status</string>
@@ -1595,6 +1596,10 @@
     <string name="settings_customization_tab">Customization</string>
     <string name="settings_customization_preview">Live preview</string>
     <string name="settings_customization_preview_caption">Your library, tuned for this device</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="one">%d game per row</item>
+        <item quantity="other">%d games per row</item>
+    </plurals>
     <string name="settings_customization_background_section">Home background</string>
     <string name="settings_customization_background">Choose image, GIF, or video</string>
     <string name="settings_customization_background_help">The selected media is copied into EmuCoreX private storage. Videos loop silently and pause when the app is not active.</string>
@@ -1609,6 +1614,10 @@
     <string name="settings_customization_background_failed">This file could not be used as a background</string>
     <string name="settings_customization_background_removed">Custom background removed</string>
     <string name="settings_customization_library_section">Library layout</string>
+    <string name="settings_customization_drawer_section">Navigation drawer</string>
+    <string name="settings_customization_drawer_summary">Choose which shortcuts appear in the navigation drawer. Hidden destinations remain available elsewhere in the app.</string>
+    <string name="settings_customization_drawer_other">Navigation and community</string>
+    <string name="settings_customization_drawer_required_note">Library and App settings are always available so navigation cannot become locked.</string>
     <string name="settings_customization_grid_size">Game cover size</string>
     <string name="settings_customization_grid_size_help">Smaller covers fit more games on screen. The grid remains adaptive in portrait, landscape, tablets, and foldables.</string>
     <string name="settings_customization_text_section">Text and fonts</string>
@@ -1628,7 +1637,6 @@
     <string name="settings_customization_custom_font_removed">Custom font removed</string>
     <string name="settings_customization_font_size">Text size</string>
     <string name="settings_customization_font_size_help">This scale is combined with your Android accessibility font size instead of replacing it.</string>
-    <string name="settings_customization_free_note">All customization options in this tab are available without PRO.</string>
     <string name="settings_customization_reset_section">Reset</string>
     <string name="settings_customization_reset">Reset customization</string>
     <string name="settings_customization_reset_desc">Restore the original background, cover size, font, and text size</string>
@@ -1639,11 +1647,15 @@
     <string name="settings_customization_touch_style_classic">Classic</string>
     <string name="settings_customization_touch_style_glass">Legacy</string>
     <string name="settings_customization_touch_style_neon">Modern</string>
+    <string name="settings_customization_touch_style_arcade">Arcade</string>
+    <string name="settings_customization_touch_style_minimal">Minimal</string>
     <string name="settings_game_menu_tab">Game menu</string>
     <string name="settings_game_menu_preview_section">Menu preview</string>
     <string name="settings_game_menu_summary">Choose which tabs and Session sections appear while playing. The close action and Session safety controls always remain available.</string>
+    <string name="settings_game_menu_content_summary">Choose the tabs, content blocks, and order shown in the in-game menu. New blocks added by future updates are included automatically.</string>
     <string name="settings_game_menu_tabs_section">Tabs and order</string>
     <string name="settings_game_menu_session_sections">Session content</string>
+    <string name="settings_game_menu_tab_content_format">%1$s content</string>
     <string name="settings_game_menu_required">Required</string>
     <string name="settings_game_menu_session_safety_note">Pause / Resume and Exit cannot be removed, so the game menu always has a safe recovery path.</string>
     <string name="settings_game_menu_section_save_states">Save slot panel</string>
@@ -1651,7 +1663,11 @@
     <string name="settings_game_menu_section_quick_actions">Quick save and load</string>
     <string name="settings_game_menu_section_automation">Save and load automation</string>
     <string name="settings_game_menu_section_game_profile">Per-game profile</string>
+    <string name="settings_game_menu_section_debug_tools">Developer diagnostics</string>
+    <string name="settings_game_menu_section_controls_general">Overlay and screen behavior</string>
+    <string name="settings_game_menu_section_graphics_display">Renderer, resolution, and aspect ratio</string>
     <string name="settings_game_menu_reset_section">Restore layout</string>
     <string name="settings_game_menu_reset">Reset game menu</string>
     <string name="settings_game_menu_reset_desc">Show every tab and Session section in the original order</string>
+    <string name="settings_game_menu_full_reset_desc">Show every tab and content block in the original order</string>
 </resources>

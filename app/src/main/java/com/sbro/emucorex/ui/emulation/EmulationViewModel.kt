@@ -32,8 +32,9 @@ import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.TouchControlsLayoutProfile
 import com.sbro.emucorex.data.TouchControlVisualStyle
 import com.sbro.emucorex.data.GameMenuTabId
-import com.sbro.emucorex.data.GameMenuSessionSection
+import com.sbro.emucorex.data.GameMenuSectionId
 import com.sbro.emucorex.data.DefaultGameMenuTabOrder
+import com.sbro.emucorex.data.DefaultGameMenuSectionOrder
 import com.sbro.emucorex.data.PlayTimeSyncCacheRepository
 import com.sbro.emucorex.data.PlayerPlayTimeDelta
 import com.sbro.emucorex.data.PlayerProfileRepository
@@ -74,7 +75,8 @@ data class EmulationUiState(
     val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
     val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
     val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
-    val hiddenGameMenuSections: Set<GameMenuSessionSection> = emptySet(),
+    val gameMenuSectionOrder: List<GameMenuSectionId> = DefaultGameMenuSectionOrder,
+    val hiddenGameMenuSections: Set<GameMenuSectionId> = emptySet(),
     val hideOverlayOnGamepad: Boolean = true,
     val dpadOffset: Pair<Float, Float> = AppPreferences.DEFAULT_DPAD_OFFSET_X to AppPreferences.DEFAULT_DPAD_OFFSET_Y,
     val lstickOffset: Pair<Float, Float> = AppPreferences.DEFAULT_LSTICK_OFFSET_X to AppPreferences.DEFAULT_LSTICK_OFFSET_Y,
@@ -573,6 +575,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.hiddenGameMenuTabs.collect { hidden ->
                 _uiState.value = _uiState.value.copy(hiddenGameMenuTabs = hidden)
+            }
+        }
+        viewModelScope.launch {
+            preferences.gameMenuSectionOrder.collect { order ->
+                _uiState.value = _uiState.value.copy(gameMenuSectionOrder = order)
             }
         }
         viewModelScope.launch {
@@ -2089,6 +2096,22 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             val defaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
             val control = updatedLayouts[controlId] ?: defaults[controlId] ?: OverlayControlLayout()
             updatedLayouts[controlId] = control.copy(widthScale = widthScale.coerceIn(100, 240))
+            persistTouchControlsLayout(current.copy(controlLayouts = updatedLayouts))
+        }
+    }
+
+    fun updateTouchControlOpacity(controlId: String, opacity: Int) {
+        viewModelScope.launch {
+            val current = _uiState.value
+            val updatedLayouts = current.controlLayouts.toMutableMap()
+            val defaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+            val control = updatedLayouts[controlId] ?: defaults[controlId] ?: OverlayControlLayout()
+            updatedLayouts[controlId] = control.copy(
+                opacity = opacity.coerceIn(
+                    AppPreferences.OVERLAY_CONTROL_OPACITY_MIN,
+                    AppPreferences.OVERLAY_CONTROL_OPACITY_MAX
+                )
+            )
             persistTouchControlsLayout(current.copy(controlLayouts = updatedLayouts))
         }
     }

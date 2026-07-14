@@ -881,6 +881,7 @@
     <string name="controls_editor_save">حفظ</string>
     <string name="controls_editor_reset">إعادة تعيين</string>
     <string name="controls_editor_stick_size">حجم العصا</string>
+    <string name="controls_editor_opacity_value">الشفافية %1$d%%</string>
     <string name="controls_editor_drag_hint">اسحب الأزرار للتحريك • شريط التمرير لتغيير حجم العصي</string>
     <string name="pcsx2_compatibility_title">توافق PCSX2</string>
     <string name="pcsx2_compatibility_status">الحالة</string>
@@ -1613,7 +1614,6 @@
     <string name="settings_customization_custom_font_removed">تمت إزالة الخط المخصص</string>
     <string name="settings_customization_font_size">حجم النص</string>
     <string name="settings_customization_font_size_help">يتم دمج هذا المقياس مع حجم خط إمكانية الوصول في Android بدلاً من استبداله.</string>
-    <string name="settings_customization_free_note">جميع خيارات التخصيص في علامة التبويب هذه متوفرة بدون PRO.</string>
     <string name="settings_customization_reset_section">إعادة تعيين</string>
     <string name="settings_customization_reset">إعادة تعيين التخصيص</string>
     <string name="settings_customization_reset_desc">استعادة الخلفية الأصلية، وحجم الغلاف، والخط، وحجم النص</string>
@@ -1639,4 +1639,24 @@
     <string name="settings_game_menu_reset_section">استعادة التخطيط</string>
     <string name="settings_game_menu_reset">إعادة تعيين قائمة اللعبة</string>
     <string name="settings_game_menu_reset_desc">إظهار كل علامة تبويب وقسم جلسة بالترتيب الأصلي</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="zero">%d لعبة في كل صف</item>
+        <item quantity="one">لعبة واحدة في كل صف</item>
+        <item quantity="two">لعبتان في كل صف</item>
+        <item quantity="few">%d ألعاب في كل صف</item>
+        <item quantity="many">%d لعبة في كل صف</item>
+        <item quantity="other">%d لعبة في كل صف</item>
+    </plurals>
+    <string name="settings_customization_drawer_section">قائمة التنقل</string>
+    <string name="settings_customization_drawer_summary">اختر الاختصارات التي تظهر في قائمة التنقل. تظل الوجهات المخفية متاحة في مكان آخر في التطبيق.</string>
+    <string name="settings_customization_drawer_other">التنقل والمجتمع</string>
+    <string name="settings_customization_drawer_required_note">تتوفر دائمًا إعدادات المكتبة والتطبيق حتى لا يتم قفل التنقل.</string>
+    <string name="settings_customization_touch_style_arcade">أركيد</string>
+    <string name="settings_customization_touch_style_minimal">بسيط</string>
+    <string name="settings_game_menu_content_summary">اختر علامات التبويب وكتل المحتوى والترتيب الموضح في القائمة داخل اللعبة. يتم تضمين الكتل الجديدة المضافة بواسطة التحديثات المستقبلية تلقائيًا.</string>
+    <string name="settings_game_menu_tab_content_format">محتوى %1$s</string>
+    <string name="settings_game_menu_section_debug_tools">تشخيصات المطور</string>
+    <string name="settings_game_menu_section_controls_general">سلوك التراكب والشاشة</string>
+    <string name="settings_game_menu_section_graphics_display">العارض والدقة ونسبة العرض إلى الارتفاع</string>
+    <string name="settings_game_menu_full_reset_desc">إظهار كل علامة تبويب وكتلة محتوى بالترتيب الأصلي</string>
 </resources>

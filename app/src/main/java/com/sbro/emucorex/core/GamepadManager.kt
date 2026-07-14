@@ -407,7 +407,13 @@ object GamepadManager {
     fun handleBindingCapture(event: KeyEvent): Boolean {
         val captureState = bindingCaptureState ?: return false
         if (!isGameController(event.device)) return false
-        if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount != 0) return false
+        val eventPadIndex = resolvePadIndexForDevice(event.deviceId)
+        if (eventPadIndex != captureState.padIndex) {
+            // Keep another player's input from leaking into the binding dialog or
+            // overwriting the selected player's mapping.
+            return true
+        }
+        if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount != 0) return true
         captureState.onCaptured(event.keyCode)
         bindingCaptureState = null
         return true
@@ -890,27 +896,12 @@ object GamepadManager {
                     }
                 }
             }
-            val connectedDevicesById = connectedDevices.associateBy { it.id }
             val previousAssignments = deviceToPadIndex.toMap()
-            val orderedDeviceIds = buildList {
-                addAll(
-                    previousAssignments.entries
-                        .sortedBy { it.value }
-                        .map { it.key }
-                        .filter { it in connectedDevicesById }
-                )
-                connectedDevices.map { it.id }.forEach { deviceId ->
-                    if (deviceId !in previousAssignments) {
-                        add(deviceId)
-                    }
-                }
-            }
-            val targetPadIndices = desiredPadIndices(orderedDeviceIds.size)
-            val updatedAssignments = linkedMapOf<Int, Int>()
-
-            orderedDeviceIds.take(targetPadIndices.size).forEachIndexed { index, deviceId ->
-                updatedAssignments[deviceId] = targetPadIndices[index]
-            }
+            val updatedAssignments = assignConnectedGamepadSlots(
+                previousAssignments = previousAssignments,
+                connectedDeviceIds = connectedDevices.map { it.id },
+                singleGamepadReplacesTouch = singleGamepadReplacesTouch
+            )
 
             previousAssignments.forEach { (deviceId, padIndex) ->
                 if (updatedAssignments[deviceId] != padIndex) {
@@ -1068,7 +1059,41 @@ object GamepadManager {
         Log.w(TAG, "No vibration target available for pad $padIndex")
     }
 
-    private fun desiredPadIndices(connectedGamepadCount: Int): List<Int> {
+    internal fun assignConnectedGamepadSlots(
+        previousAssignments: Map<Int, Int>,
+        connectedDeviceIds: List<Int>,
+        singleGamepadReplacesTouch: Boolean
+    ): LinkedHashMap<Int, Int> {
+        val connectedIds = connectedDeviceIds.distinct()
+        val connectedIdSet = connectedIds.toSet()
+        val orderedDeviceIds = buildList {
+            addAll(
+                previousAssignments.entries
+                    .sortedBy { it.value }
+                    .map { it.key }
+                    .filter { it in connectedIdSet }
+            )
+            connectedIds.forEach { deviceId ->
+                if (deviceId !in previousAssignments) {
+                    add(deviceId)
+                }
+            }
+        }
+        val targetPadIndices = desiredPadIndices(
+            connectedGamepadCount = orderedDeviceIds.size,
+            singleGamepadReplacesTouch = singleGamepadReplacesTouch
+        )
+        return linkedMapOf<Int, Int>().apply {
+            orderedDeviceIds.take(targetPadIndices.size).forEachIndexed { index, deviceId ->
+                put(deviceId, targetPadIndices[index])
+            }
+        }
+    }
+
+    private fun desiredPadIndices(
+        connectedGamepadCount: Int,
+        singleGamepadReplacesTouch: Boolean = this.singleGamepadReplacesTouch
+    ): List<Int> {
         val visibleGamepadCount = connectedGamepadCount.coerceIn(0, MAX_PAD_SLOTS)
         return when {
             visibleGamepadCount <= 0 -> emptyList()

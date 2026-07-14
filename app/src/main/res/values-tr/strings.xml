@@ -881,6 +881,7 @@
     <string name="controls_editor_save">Kaydet</string>
     <string name="controls_editor_reset">Sıfırla</string>
     <string name="controls_editor_stick_size">Çubuk Boyutu</string>
+    <string name="controls_editor_opacity_value">Opaklık %1$d%%</string>
     <string name="controls_editor_drag_hint">Taşımak için düğmeleri sürükleyin • Çubukları yeniden boyutlandırmak için kaydırıcı</string>
     <string name="pcsx2_compatibility_title">PCSX2 Uyumluluğu</string>
     <string name="pcsx2_compatibility_status">Durum</string>
@@ -1613,7 +1614,6 @@
     <string name="settings_customization_custom_font_removed">Özel yazı tipi kaldırıldı</string>
     <string name="settings_customization_font_size">Metin boyutu</string>
     <string name="settings_customization_font_size_help">Bu ölçek, Android erişilebilirlik yazı tipi boyutuyla birleştirilir.</string>
-    <string name="settings_customization_free_note">Bu sekmedeki tüm özelleştirme seçenekleri PRO olmadan mevcuttur.</string>
     <string name="settings_customization_reset_section">Sıfırla</string>
     <string name="settings_customization_reset">Özelleştirmeyi sıfırla</string>
     <string name="settings_customization_reset_desc">Orijinal arka planı, kapak boyutunu ve yazı tipini geri yükle</string>
@@ -1639,4 +1639,20 @@
     <string name="settings_game_menu_reset_section">Düzeni geri yükle</string>
     <string name="settings_game_menu_reset">Oyun menüsünü sıfırla</string>
     <string name="settings_game_menu_reset_desc">Her sekmeyi ve bölümü orijinal sırasında göster</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="one">Satır başına %d oyun</item>
+        <item quantity="other">Satır başına %d oyun</item>
+    </plurals>
+    <string name="settings_customization_drawer_section">Gezinme çekmecesi</string>
+    <string name="settings_customization_drawer_summary">Gezinme çekmecesinde hangi kısayolların görüneceğini seçin. Gizli hedefler uygulamanın diğer bölümlerinde kullanılabilir olmaya devam eder.</string>
+    <string name="settings_customization_drawer_other">Gezinme ve topluluk</string>
+    <string name="settings_customization_drawer_required_note">Kütüphane ve Uygulama ayarları her zaman mevcuttur, bu nedenle gezinme kilitlenemez.</string>
+    <string name="settings_customization_touch_style_arcade">Arcade</string>
+    <string name="settings_customization_touch_style_minimal">Minimal</string>
+    <string name="settings_game_menu_content_summary">Oyun içi menüde gösterilecek sekmeleri, içerik bloklarını ve sırasını seçin. Gelecekteki güncellemelerle eklenen yeni bloklar otomatik olarak dahil edilir.</string>
+    <string name="settings_game_menu_tab_content_format">%1$s içeriği</string>
+    <string name="settings_game_menu_section_debug_tools">Geliştirici teşhisleri</string>
+    <string name="settings_game_menu_section_controls_general">Arayüz (Overlay) ve ekran davranışı</string>
+    <string name="settings_game_menu_section_graphics_display">Oluşturucu, çözünürlük ve en boy oranı</string>
+    <string name="settings_game_menu_full_reset_desc">Tüm sekmeleri ve içerik bloklarını orijinal sırayla göster</string>
 </resources>

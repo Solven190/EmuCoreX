@@ -59,6 +59,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,6 +74,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -80,6 +82,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.GamepadManager
+import com.sbro.emucorex.data.AppPreferences
+import com.sbro.emucorex.data.DrawerItemId
 import com.sbro.emucorex.ui.common.ProvideGamepadMenuAction
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import kotlinx.coroutines.delay
@@ -118,10 +122,14 @@ fun AdaptiveShell(
     onLaunchBios: (() -> Unit)? = null,
     content: @Composable ((() -> Unit)?) -> Unit
 ) {
+    val context = LocalContext.current
+    val preferences = remember(context) { AppPreferences(context) }
+    val hiddenDrawerItems by preferences.hiddenDrawerItems.collectAsState(initial = emptySet())
     val navContent: @Composable () -> Unit = {
         SideNavigation(
             selected = selected,
             isProUnlocked = isProUnlocked,
+            hiddenDrawerItems = hiddenDrawerItems,
             onNavigateHome = onNavigateHome,
             onNavigateSearch = onNavigateSearch,
             onNavigateFormats = onNavigateFormats,
@@ -169,6 +177,7 @@ fun AdaptiveShell(
         CompactAdaptiveShell(
             selected = selected,
             isProUnlocked = isProUnlocked,
+            hiddenDrawerItems = hiddenDrawerItems,
             drawerEnabled = drawerEnabled,
             onNavigateHome = onNavigateHome,
             onNavigateSearch = onNavigateSearch,
@@ -196,6 +205,7 @@ fun AdaptiveShell(
 private fun CompactAdaptiveShell(
     selected: PrimaryDestination,
     isProUnlocked: Boolean,
+    hiddenDrawerItems: Set<DrawerItemId>,
     drawerEnabled: Boolean,
     onNavigateHome: () -> Unit,
     onNavigateSearch: () -> Unit,
@@ -293,6 +303,7 @@ private fun CompactAdaptiveShell(
                 SideNavigation(
                     selected = selected,
                     isProUnlocked = isProUnlocked,
+                    hiddenDrawerItems = hiddenDrawerItems,
                     onNavigateHome = onNavigateHome,
                     onNavigateSearch = onNavigateSearch,
                     onNavigateFormats = onNavigateFormats,
@@ -356,6 +367,7 @@ private fun CompactAdaptiveShell(
 private fun SideNavigation(
     selected: PrimaryDestination,
     isProUnlocked: Boolean,
+    hiddenDrawerItems: Set<DrawerItemId>,
     onNavigateHome: () -> Unit,
     onNavigateSearch: () -> Unit,
     onNavigateFormats: () -> Unit,
@@ -454,6 +466,17 @@ private fun SideNavigation(
             runCatching { uriHandler.openUri(DISCORD_INVITE_URL) }
         }
     }
+    val showExecutables =
+        (launchGame != null && DrawerItemId.LAUNCH_GAME !in hiddenDrawerItems) ||
+            (launchBios != null && DrawerItemId.LAUNCH_BIOS !in hiddenDrawerItems)
+    val showAppActions =
+        (navigateGameSettingsManager != null && DrawerItemId.GAME_SETTINGS !in hiddenDrawerItems) ||
+            (navigateDataTransfer != null && DrawerItemId.DATA_TRANSFER !in hiddenDrawerItems) ||
+            (resetAllSettings != null && DrawerItemId.RESET_SETTINGS !in hiddenDrawerItems)
+    val showTools =
+        (navigateMemoryCardManager != null && DrawerItemId.MEMORY_CARDS !in hiddenDrawerItems) ||
+            (navigateTextureManager != null && DrawerItemId.TEXTURE_MANAGER !in hiddenDrawerItems) ||
+            (navigateSaveManager != null && DrawerItemId.SAVE_STATES !in hiddenDrawerItems)
 
     val content: @Composable () -> Unit = {
         Column(
@@ -503,25 +526,29 @@ private fun SideNavigation(
                 } else Modifier,
                 onClick = navigateHome
             )
-            ShellItem(
-                icon = Icons.Rounded.Search,
-                label = stringResource(R.string.shell_catalog_search),
-                selected = selected == PrimaryDestination.Search,
-                modifier = if (selected == PrimaryDestination.Search && selectedItemFocusRequester != null) {
-                    Modifier.focusRequester(selectedItemFocusRequester)
-                } else Modifier,
-                onClick = navigateSearch
-            )
-            ShellItem(
-                icon = Icons.Rounded.Star,
-                label = stringResource(R.string.settings_achievements_tab),
-                selected = selected == PrimaryDestination.Achievements,
-                modifier = if (selected == PrimaryDestination.Achievements && selectedItemFocusRequester != null) {
-                    Modifier.focusRequester(selectedItemFocusRequester)
-                } else Modifier,
-                onClick = navigateAchievements
-            )
-            if (navigateProfile != null) {
+            if (DrawerItemId.CATALOG_SEARCH !in hiddenDrawerItems) {
+                ShellItem(
+                    icon = Icons.Rounded.Search,
+                    label = stringResource(R.string.shell_catalog_search),
+                    selected = selected == PrimaryDestination.Search,
+                    modifier = if (selected == PrimaryDestination.Search && selectedItemFocusRequester != null) {
+                        Modifier.focusRequester(selectedItemFocusRequester)
+                    } else Modifier,
+                    onClick = navigateSearch
+                )
+            }
+            if (DrawerItemId.ACHIEVEMENTS !in hiddenDrawerItems) {
+                ShellItem(
+                    icon = Icons.Rounded.Star,
+                    label = stringResource(R.string.settings_achievements_tab),
+                    selected = selected == PrimaryDestination.Achievements,
+                    modifier = if (selected == PrimaryDestination.Achievements && selectedItemFocusRequester != null) {
+                        Modifier.focusRequester(selectedItemFocusRequester)
+                    } else Modifier,
+                    onClick = navigateAchievements
+                )
+            }
+            if (navigateProfile != null && DrawerItemId.PROFILE !in hiddenDrawerItems) {
                 ShellItem(
                     icon = Icons.Rounded.Person,
                     label = stringResource(R.string.profile_title),
@@ -533,6 +560,7 @@ private fun SideNavigation(
                 )
             }
 
+            if (showExecutables) {
             HorizontalDivider(
                 thickness = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
@@ -546,14 +574,14 @@ private fun SideNavigation(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
-                if (launchGame != null) {
+                if (launchGame != null && DrawerItemId.LAUNCH_GAME !in hiddenDrawerItems) {
                     ShellAction(
                         icon = Icons.Rounded.PlayArrow,
                         label = stringResource(R.string.shell_launch_game),
                         onClick = launchGame
                     )
                 }
-                if (launchBios != null) {
+                if (launchBios != null && DrawerItemId.LAUNCH_BIOS !in hiddenDrawerItems) {
                     ShellAction(
                         icon = Icons.Rounded.PlayArrow,
                         label = stringResource(R.string.shell_launch_bios),
@@ -561,6 +589,8 @@ private fun SideNavigation(
                     )
                 }
             }
+            }
+            if (showAppActions) {
             HorizontalDivider(
                 thickness = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
@@ -574,21 +604,21 @@ private fun SideNavigation(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
-                if (navigateGameSettingsManager != null) {
+                if (navigateGameSettingsManager != null && DrawerItemId.GAME_SETTINGS !in hiddenDrawerItems) {
                     ShellAction(
                         icon = Icons.Rounded.Tune,
                         label = stringResource(R.string.shell_game_settings_manager),
                         onClick = navigateGameSettingsManager
                     )
                 }
-                if (navigateDataTransfer != null) {
+                if (navigateDataTransfer != null && DrawerItemId.DATA_TRANSFER !in hiddenDrawerItems) {
                     ShellAction(
                         icon = Icons.Rounded.SwapVert,
                         label = stringResource(R.string.shell_data_transfer),
                         onClick = navigateDataTransfer
                     )
                 }
-                if (resetAllSettings != null) {
+                if (resetAllSettings != null && DrawerItemId.RESET_SETTINGS !in hiddenDrawerItems) {
                     ShellAction(
                         icon = Icons.Rounded.Refresh,
                         label = stringResource(R.string.settings_reset_all_action),
@@ -596,6 +626,8 @@ private fun SideNavigation(
                     )
                 }
             }
+            }
+            if (showTools) {
             HorizontalDivider(
                 thickness = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
@@ -609,27 +641,28 @@ private fun SideNavigation(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
-                if (navigateMemoryCardManager != null) {
+                if (navigateMemoryCardManager != null && DrawerItemId.MEMORY_CARDS !in hiddenDrawerItems) {
                     ShellAction(
                         icon = Icons.Rounded.Memory,
                         label = stringResource(R.string.shell_memory_cards),
                         onClick = navigateMemoryCardManager
                     )
                 }
-                if (navigateTextureManager != null) {
+                if (navigateTextureManager != null && DrawerItemId.TEXTURE_MANAGER !in hiddenDrawerItems) {
                     ShellAction(
                         icon = Icons.Rounded.FolderZip,
                         label = stringResource(R.string.shell_texture_manager),
                         onClick = navigateTextureManager
                     )
                 }
-                if (navigateSaveManager != null) {
+                if (navigateSaveManager != null && DrawerItemId.SAVE_STATES !in hiddenDrawerItems) {
                     ShellAction(
                         icon = Icons.Rounded.Save,
                         label = stringResource(R.string.shell_save_states),
                         onClick = navigateSaveManager
                     )
                 }
+            }
             }
             HorizontalDivider(
                 thickness = 1.dp,
@@ -644,24 +677,28 @@ private fun SideNavigation(
                 } else Modifier,
                 onClick = navigateSettings
             )
-            ShellItem(
-                icon = Icons.Rounded.Memory,
-                label = stringResource(R.string.shell_supported_formats),
-                selected = selected == PrimaryDestination.Formats,
-                modifier = if (selected == PrimaryDestination.Formats && selectedItemFocusRequester != null) {
-                    Modifier.focusRequester(selectedItemFocusRequester)
-                } else Modifier,
-                onClick = navigateFormats
-            )
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
-            )
-            ShellAction(
-                icon = Icons.Rounded.Forum,
-                label = stringResource(R.string.shell_discord_server),
-                onClick = openDiscord
-            )
+            if (DrawerItemId.SUPPORTED_FORMATS !in hiddenDrawerItems) {
+                ShellItem(
+                    icon = Icons.Rounded.Memory,
+                    label = stringResource(R.string.shell_supported_formats),
+                    selected = selected == PrimaryDestination.Formats,
+                    modifier = if (selected == PrimaryDestination.Formats && selectedItemFocusRequester != null) {
+                        Modifier.focusRequester(selectedItemFocusRequester)
+                    } else Modifier,
+                    onClick = navigateFormats
+                )
+            }
+            if (DrawerItemId.DISCORD !in hiddenDrawerItems) {
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                )
+                ShellAction(
+                    icon = Icons.Rounded.Forum,
+                    label = stringResource(R.string.shell_discord_server),
+                    onClick = openDiscord
+                )
+            }
         }
 
         if (showResetDialog && onResetAllSettings != null) {

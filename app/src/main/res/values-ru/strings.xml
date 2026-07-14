@@ -592,6 +592,7 @@
     <string name="controls_editor_save">Сохранить</string>
     <string name="controls_editor_reset">Сбросить</string>
     <string name="controls_editor_stick_size">Размер стиков</string>
+    <string name="controls_editor_opacity_value">Прозрачность %1$d%%</string>
     <string name="controls_editor_drag_hint">Перетащите для перемещения • Ползунок для масштаба</string>
     <string name="pcsx2_compatibility_title">Совместимость PCSX2</string>
     <string name="pcsx2_compatibility_status">Статус</string>
@@ -1615,7 +1616,6 @@
     <string name="settings_customization_custom_font_removed">Пользовательский шрифт удален</string>
     <string name="settings_customization_font_size">Размер текста</string>
     <string name="settings_customization_font_size_help">Этот масштаб комбинируется с размером шрифта специальных возможностей Android, а не заменяет его.</string>
-    <string name="settings_customization_free_note">Все параметры кастомизации на этой вкладке доступны без PRO.</string>
     <string name="settings_customization_reset_section">Сбросить</string>
     <string name="settings_customization_reset">Сбросить настройки кастомизации</string>
     <string name="settings_customization_reset_desc">Восстановить оригинальный фон, размер обложки, шрифт и размер текста</string>
@@ -1641,4 +1641,22 @@
     <string name="settings_game_menu_reset_section">Восстановить макет</string>
     <string name="settings_game_menu_reset">Сбросить игровое меню</string>
     <string name="settings_game_menu_reset_desc">Показывать каждую вкладку и раздел сессии в оригинальном порядке</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="one">%d игра в ряду</item>
+        <item quantity="few">%d игры в ряду</item>
+        <item quantity="many">%d игр в ряду</item>
+        <item quantity="other">%d игр в ряду</item>
+    </plurals>
+    <string name="settings_customization_drawer_section">Боковое меню</string>
+    <string name="settings_customization_drawer_summary">Выберите, какие ярлыки будут отображаться в боковом меню. Скрытые разделы останутся доступны в других местах приложения.</string>
+    <string name="settings_customization_drawer_other">Навигация и сообщество</string>
+    <string name="settings_customization_drawer_required_note">Библиотека и Настройки приложения всегда доступны, поэтому навигация не может быть заблокирована.</string>
+    <string name="settings_customization_touch_style_arcade">Аркадный</string>
+    <string name="settings_customization_touch_style_minimal">Минималистичный</string>
+    <string name="settings_game_menu_content_summary">Выберите вкладки, блоки контента и порядок их отображения во внутриигровом меню. Новые блоки из будущих обновлений будут добавлены автоматически.</string>
+    <string name="settings_game_menu_tab_content_format">Контент %1$s</string>
+    <string name="settings_game_menu_section_debug_tools">Диагностика разработчика</string>
+    <string name="settings_game_menu_section_controls_general">Поведение оверлея и экрана</string>
+    <string name="settings_game_menu_section_graphics_display">Рендерер, разрешение и соотношение сторон</string>
+    <string name="settings_game_menu_full_reset_desc">Показать каждую вкладку и блок контента в исходном порядке</string>
 </resources>

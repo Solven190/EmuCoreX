@@ -40,6 +40,8 @@ class CustomizationPreferencesTest {
         assertEquals(TouchControlVisualStyle.CLASSIC, TouchControlVisualStyle.fromPreference(99))
         assertEquals(TouchControlVisualStyle.LEGACY, TouchControlVisualStyle.fromPreference(1))
         assertEquals(TouchControlVisualStyle.MODERN, TouchControlVisualStyle.fromPreference(2))
+        assertEquals(TouchControlVisualStyle.ARCADE, TouchControlVisualStyle.fromPreference(3))
+        assertEquals(TouchControlVisualStyle.MINIMAL, TouchControlVisualStyle.fromPreference(4))
     }
 
     @Test
@@ -56,5 +58,41 @@ class CustomizationPreferencesTest {
         val hidden = sanitizeHiddenGameMenuTabs("SESSION,GRAPHICS,UNKNOWN")
         assertTrue(GameMenuTabId.SESSION !in hidden)
         assertEquals(setOf(GameMenuTabId.GRAPHICS), hidden)
+    }
+
+    @Test
+    fun requiredDrawerDestinationsCannotBeHidden() {
+        val hidden = sanitizeHiddenDrawerItems(
+            "LIBRARY,APP_SETTINGS,PROFILE,DISCORD,UNKNOWN"
+        )
+
+        assertEquals(setOf(DrawerItemId.PROFILE, DrawerItemId.DISCORD), hidden)
+        assertTrue(DrawerItemId.LIBRARY !in hidden)
+        assertTrue(DrawerItemId.APP_SETTINGS !in hidden)
+    }
+
+    @Test
+    fun gameMenuSectionOrderKeepsEachTabGroupedAndAppendsNewSections() {
+        val order = sanitizeGameMenuSectionOrder(
+            "CONTROLS_GAMEPAD,SAVE_STATES,CONTROLS_TOUCH,CONTROLS_GAMEPAD,UNKNOWN"
+        )
+
+        assertEquals(GameMenuSectionId.SAVE_STATES, gameMenuSectionsForTab(GameMenuTabId.SESSION, order).first())
+        assertEquals(
+            listOf(GameMenuSectionId.CONTROLS_GAMEPAD, GameMenuSectionId.CONTROLS_TOUCH),
+            gameMenuSectionsForTab(GameMenuTabId.CONTROLS, order).take(2)
+        )
+        assertEquals(GameMenuSectionId.entries.toSet(), order.toSet())
+        assertEquals(GameMenuSectionId.entries.size, order.size)
+    }
+
+    @Test
+    fun legacySessionVisibilityValuesRemainValid() {
+        val hidden = sanitizeHiddenGameMenuSections("SAVE_STATES,AUTO_SAVE,UNKNOWN")
+
+        assertEquals(
+            setOf(GameMenuSectionId.SAVE_STATES, GameMenuSectionId.AUTO_SAVE),
+            hidden
+        )
     }
 }

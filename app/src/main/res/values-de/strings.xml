@@ -585,6 +585,7 @@
     <string name="controls_editor_save">Speichern</string>
     <string name="controls_editor_reset">Zurücksetzen</string>
     <string name="controls_editor_stick_size">Stick-Größe</string>
+    <string name="controls_editor_opacity_value">Deckkraft %1$d%%</string>
     <string name="controls_editor_drag_hint">Tasten ziehen zum Bewegen • Schieberegler zum Ändern der Stick-Größe</string>
     <string name="pcsx2_compatibility_title">PCSX2-Kompatibilität</string>
     <string name="pcsx2_compatibility_status">Status</string>
@@ -1615,7 +1616,6 @@
     <string name="settings_customization_custom_font_removed">Benutzerdefinierte Schriftart entfernt</string>
     <string name="settings_customization_font_size">Textgröße</string>
     <string name="settings_customization_font_size_help">Diese Skalierung wird mit deiner Android-Textgröße für Barrierefreiheit kombiniert, anstatt sie zu ersetzen.</string>
-    <string name="settings_customization_free_note">Alle Anpassungsoptionen in diesem Tab sind ohne PRO verfügbar.</string>
     <string name="settings_customization_reset_section">Zurücksetzen</string>
     <string name="settings_customization_reset">Anpassung zurücksetzen</string>
     <string name="settings_customization_reset_desc">Den ursprünglichen Hintergrund, die Covergröße, die Schriftart und die Textgröße wiederherstellen</string>
@@ -1641,4 +1641,20 @@
     <string name="settings_game_menu_reset_section">Layout wiederherstellen</string>
     <string name="settings_game_menu_reset">Spielmenü zurücksetzen</string>
     <string name="settings_game_menu_reset_desc">Jeden Tab und Sitzungsbereich in der ursprünglichen Reihenfolge anzeigen</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="one">%d Spiel pro Zeile</item>
+        <item quantity="other">%d Spiele pro Zeile</item>
+    </plurals>
+    <string name="settings_customization_drawer_section">Navigationsmenü</string>
+    <string name="settings_customization_drawer_summary">Wähle aus, welche Verknüpfungen im Navigationsmenü angezeigt werden. Ausgeblendete Ziele bleiben an anderer Stelle in der App verfügbar.</string>
+    <string name="settings_customization_drawer_other">Navigation und Community</string>
+    <string name="settings_customization_drawer_required_note">Bibliotheks- und App-Einstellungen sind immer verfügbar, sodass die Navigation nicht gesperrt werden kann.</string>
+    <string name="settings_customization_touch_style_arcade">Arcade</string>
+    <string name="settings_customization_touch_style_minimal">Minimal</string>
+    <string name="settings_game_menu_content_summary">Wähle die Tabs, Inhaltsblöcke und die Reihenfolge im In-Game-Menü. Neue Blöcke aus zukünftigen Updates werden automatisch hinzugefügt.</string>
+    <string name="settings_game_menu_tab_content_format">%1$s-Inhalt</string>
+    <string name="settings_game_menu_section_debug_tools">Entwickler-Diagnose</string>
+    <string name="settings_game_menu_section_controls_general">Overlay- und Bildschirmverhalten</string>
+    <string name="settings_game_menu_section_graphics_display">Renderer, Auflösung und Seitenverhältnis</string>
+    <string name="settings_game_menu_full_reset_desc">Jeden Tab und Inhaltsblock in der ursprünglichen Reihenfolge anzeigen</string>
 </resources>

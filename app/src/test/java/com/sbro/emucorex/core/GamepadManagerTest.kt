@@ -3,9 +3,66 @@ package com.sbro.emucorex.core
 import android.view.KeyEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GamepadManagerTest {
+    @Test
+    fun twoControllersAreAssignedToPlayerOneAndPlayerTwo() {
+        val assignments = GamepadManager.assignConnectedGamepadSlots(
+            previousAssignments = emptyMap(),
+            connectedDeviceIds = listOf(41, 72),
+            singleGamepadReplacesTouch = true
+        )
+
+        assertEquals(linkedMapOf(41 to 0, 72 to 1), assignments)
+    }
+
+    @Test
+    fun existingControllerOrderStaysStableWhenAndroidEnumerationChanges() {
+        val assignments = GamepadManager.assignConnectedGamepadSlots(
+            previousAssignments = mapOf(41 to 0, 72 to 1),
+            connectedDeviceIds = listOf(72, 41),
+            singleGamepadReplacesTouch = true
+        )
+
+        assertEquals(linkedMapOf(41 to 0, 72 to 1), assignments)
+    }
+
+    @Test
+    fun touchPlusGamepadUsesPlayerTwoForOnePhysicalController() {
+        val assignments = GamepadManager.assignConnectedGamepadSlots(
+            previousAssignments = emptyMap(),
+            connectedDeviceIds = listOf(41),
+            singleGamepadReplacesTouch = false
+        )
+
+        assertEquals(linkedMapOf(41 to 1), assignments)
+    }
+
+    @Test
+    fun secondControllerPromotesPhysicalPadsToPlayerOneAndPlayerTwo() {
+        val assignments = GamepadManager.assignConnectedGamepadSlots(
+            previousAssignments = mapOf(41 to 1),
+            connectedDeviceIds = listOf(72, 41),
+            singleGamepadReplacesTouch = false
+        )
+
+        assertEquals(linkedMapOf(41 to 0, 72 to 1), assignments)
+    }
+
+    @Test
+    fun onlyTwoPhysicalControllersReceiveSlots() {
+        val assignments = GamepadManager.assignConnectedGamepadSlots(
+            previousAssignments = emptyMap(),
+            connectedDeviceIds = listOf(41, 72, 93),
+            singleGamepadReplacesTouch = true
+        )
+
+        assertEquals(2, assignments.size)
+        assertTrue(assignments.keys.containsAll(listOf(41, 72)))
+    }
+
     @Test
     fun defaultButtonMappingIsPreservedWithoutOverrides() {
         assertEquals(

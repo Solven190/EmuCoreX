@@ -163,7 +163,8 @@ import com.sbro.emucorex.data.RetroAchievementsRepository
 import com.sbro.emucorex.data.SettingsSnapshot
 import com.sbro.emucorex.data.TouchControlVisualStyle
 import com.sbro.emucorex.data.GameMenuTabId
-import com.sbro.emucorex.data.GameMenuSessionSection
+import com.sbro.emucorex.data.GameMenuSectionId
+import com.sbro.emucorex.data.gameMenuSectionsForTab
 import com.sbro.emucorex.ui.common.BitmapPathImage
 import com.sbro.emucorex.ui.common.ProvideGamepadMenuAction
 import com.sbro.emucorex.ui.common.ProvideGamepadShoulderActions
@@ -240,6 +241,7 @@ private data class TouchButtonSpec(
     val x: Dp,
     val y: Dp,
     val shape: androidx.compose.ui.graphics.Shape,
+    val opacity: Float = 1f,
     val onPressChange: ((Boolean) -> Unit)? = null,
     val onClick: (() -> Unit)? = null,
     val tapToHold: Boolean = false,
@@ -1161,6 +1163,7 @@ fun EmulationScreen(
                 onUpdateControlOffsets = viewModel::updateTouchControlOffsets,
                 onUpdateControlScale = viewModel::updateTouchControlScale,
                 onUpdateControlWidthScale = viewModel::updateTouchControlWidthScale,
+                onUpdateControlOpacity = viewModel::updateTouchControlOpacity,
                 onToggleLeftInputMode = viewModel::toggleLeftInputMode,
                 onSetControlVisible = viewModel::setTouchControlVisible,
                 onSetStickSurfaceMode = viewModel::setTouchStickSurfaceMode,
@@ -1860,6 +1863,7 @@ private fun OnScreenControls(
                     x = spec.x,
                     y = spec.y,
                     shape = spec.shape,
+                    opacity = spec.opacity / 100f,
                     onPressChange = buttonPressHandler(spec.id),
                     onClick = if (spec.id == "left_input_toggle") onToggleLeftInputMode else null,
                     tapToHold = racingMode && isRacingTapToHoldButton(spec.id),
@@ -1905,6 +1909,7 @@ private fun OnScreenControls(
         layout.dpadCluster?.takeIf { it.visible }?.let { cluster ->
             VectorDpadCluster(
                 size = cluster.size,
+                alpha = cluster.opacity / 100f,
                 visualStyle = visualStyle,
                 onDirectionsChange = ::updateExtraDpadDirections,
                 modifier = Modifier.offset {
@@ -1919,6 +1924,7 @@ private fun OnScreenControls(
                 analogSize = stick.size,
                 analogWidth = panelWidth,
                 analogHeight = stick.size,
+                alpha = stick.opacity / 100f,
                 surfaceOnly = stickIsSurfaceOnly(stick),
                 visualStyle = visualStyle,
                 onValueChange = { x, y ->
@@ -1950,6 +1956,7 @@ private fun OnScreenControls(
                 analogSize = stick.size,
                 analogWidth = panelWidth,
                 analogHeight = stick.size,
+                alpha = stick.opacity / 100f,
                 surfaceOnly = stickIsSurfaceOnly(stick),
                 visualStyle = visualStyle,
                 visualY = rightStickTriggerVisualY,
@@ -2286,6 +2293,7 @@ private fun TouchButtonGroup(
                 width = spec.width,
                 height = spec.height,
                 shape = spec.shape,
+                alpha = spec.opacity,
                 interactive = false,
                 pressed = activeTargets.containsValue(spec.id) || latchedTargets[spec.id] == true,
                 visualStyle = visualStyle,
@@ -2641,9 +2649,18 @@ private fun EmulationSidebarMenu(
                             }
                         }
 
-                        if (
-                            GameMenuSessionSection.SAVE_STATES !in uiState.hiddenGameMenuSections ||
-                            GameMenuSessionSection.AUTO_SAVE !in uiState.hiddenGameMenuSections
+                        val visibleSessionSections = gameMenuSectionsForTab(
+                            GameMenuTabId.SESSION,
+                            uiState.gameMenuSectionOrder
+                        )
+                            .filterNot(uiState.hiddenGameMenuSections::contains)
+                        visibleSessionSections.forEachIndexed { index, section ->
+                        val includeFollowingAutoSave = section == GameMenuSectionId.SAVE_STATES &&
+                            visibleSessionSections.getOrNull(index + 1) == GameMenuSectionId.AUTO_SAVE
+                        val mergedIntoPreviousSaveStates = section == GameMenuSectionId.AUTO_SAVE &&
+                            visibleSessionSections.getOrNull(index - 1) == GameMenuSectionId.SAVE_STATES
+                        if (!mergedIntoPreviousSaveStates &&
+                            (section == GameMenuSectionId.SAVE_STATES || section == GameMenuSectionId.AUTO_SAVE)
                         ) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -2654,7 +2671,7 @@ private fun EmulationSidebarMenu(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                if (GameMenuSessionSection.SAVE_STATES !in uiState.hiddenGameMenuSections) {
+                                if (section == GameMenuSectionId.SAVE_STATES) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -2707,14 +2724,11 @@ private fun EmulationSidebarMenu(
 
                                 }
 
-                                if (
-                                    GameMenuSessionSection.SAVE_STATES !in uiState.hiddenGameMenuSections &&
-                                    GameMenuSessionSection.AUTO_SAVE !in uiState.hiddenGameMenuSections
-                                ) {
+                                if (includeFollowingAutoSave) {
                                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                                 }
 
-                                if (GameMenuSessionSection.AUTO_SAVE !in uiState.hiddenGameMenuSections) {
+                                if (section == GameMenuSectionId.AUTO_SAVE || includeFollowingAutoSave) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -2792,7 +2806,7 @@ private fun EmulationSidebarMenu(
 
                         }
 
-                        if (GameMenuSessionSection.QUICK_ACTIONS !in uiState.hiddenGameMenuSections) {
+                        if (section == GameMenuSectionId.QUICK_ACTIONS) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -2821,7 +2835,7 @@ private fun EmulationSidebarMenu(
 
                         }
 
-                        if (uiState.showDebugOptions) {
+                        if (section == GameMenuSectionId.SESSION_DEBUG_TOOLS && uiState.showDebugOptions) {
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
@@ -2891,7 +2905,7 @@ private fun EmulationSidebarMenu(
                             }
                         }
 
-                        if (GameMenuSessionSection.AUTOMATION !in uiState.hiddenGameMenuSections) {
+                        if (section == GameMenuSectionId.AUTOMATION) {
                         SettingsToggle(
                             title = stringResource(R.string.emulation_auto_save_on_exit),
                             checked = uiState.autoSaveOnExit,
@@ -2910,7 +2924,7 @@ private fun EmulationSidebarMenu(
 
                         }
 
-                        if (GameMenuSessionSection.GAME_PROFILE !in uiState.hiddenGameMenuSections) {
+                        if (section == GameMenuSectionId.GAME_PROFILE) {
                         SidebarSectionTitle(
                             text = stringResource(R.string.game_settings_overlay_section).uppercase(),
                             color = sectionTitleColor,
@@ -2973,10 +2987,16 @@ private fun EmulationSidebarMenu(
                         }
 
                         }
+                            }
 
                     }
 
                     EmulationMenuTab.Controls -> {
+                        gameMenuSectionsForTab(GameMenuTabId.CONTROLS, uiState.gameMenuSectionOrder)
+                            .filterNot(uiState.hiddenGameMenuSections::contains)
+                            .forEach { section ->
+                                when (section) {
+                                    GameMenuSectionId.CONTROLS_GENERAL -> {
                         SidebarSectionTitle(
                             text = stringResource(R.string.settings_controls_tab).uppercase(),
                             color = sectionTitleColor,
@@ -3014,6 +3034,10 @@ private fun EmulationSidebarMenu(
                             helpText = stringResource(R.string.settings_help_keep_screen_on),
                             onResetToDefault = { onSetKeepScreenOn(globalDefaults.keepScreenOn) }
                         )
+
+                                    }
+
+                                    GameMenuSectionId.CONTROLS_TOUCH -> {
 
                         OverlaySubsectionLabel(text = stringResource(R.string.settings_touch_controls_section))
 
@@ -3113,6 +3137,10 @@ private fun EmulationSidebarMenu(
                             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)
                         )
 
+                                    }
+
+                                    GameMenuSectionId.CONTROLS_GAMEPAD -> {
+
                         OverlaySubsectionLabel(text = stringResource(R.string.settings_gamepad_controls_section))
 
                         if (!gamepadConnected) {
@@ -3182,9 +3210,19 @@ private fun EmulationSidebarMenu(
                             enabled = gamepadConnected,
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
                         )
+                                    }
+
+                                    else -> Unit
+                                }
+                            }
                     }
 
                     EmulationMenuTab.Emulation -> {
+                        gameMenuSectionsForTab(GameMenuTabId.EMULATION, uiState.gameMenuSectionOrder)
+                            .filterNot(uiState.hiddenGameMenuSections::contains)
+                            .forEach { section ->
+                                when (section) {
+                                    GameMenuSectionId.EMULATION_PERFORMANCE -> {
                         SidebarSectionTitle(
                             text = stringResource(R.string.settings_emulation_tab).uppercase(),
                             color = sectionTitleColor,
@@ -3224,6 +3262,10 @@ private fun EmulationSidebarMenu(
                             helpText = stringResource(R.string.settings_help_fps_overlay_position),
                             onResetToDefault = { onSetFpsOverlayCorner(globalDefaults.fpsOverlayCorner) }
                         )
+
+                                    }
+
+                                    GameMenuSectionId.EMULATION_SPEED -> {
 
                         SidebarSectionTitle(
                             text = stringResource(R.string.settings_speed_hacks).uppercase(),
@@ -3332,6 +3374,10 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetFrameSkip(globalDefaults.frameSkip) }
                         )
 
+                                    }
+
+                                    GameMenuSectionId.EMULATION_CHEATS -> {
+
                         SettingsToggle(
                             title = stringResource(R.string.settings_enable_cheats),
                             checked = uiState.enableCheats,
@@ -3349,9 +3395,19 @@ private fun EmulationSidebarMenu(
                                 enabled = true
                             )
                         }
+                                    }
+
+                                    else -> Unit
+                                }
+                            }
                     }
 
                     EmulationMenuTab.Graphics -> {
+                        gameMenuSectionsForTab(GameMenuTabId.GRAPHICS, uiState.gameMenuSectionOrder)
+                            .filterNot(uiState.hiddenGameMenuSections::contains)
+                            .forEach { section ->
+                                when (section) {
+                                    GameMenuSectionId.GRAPHICS_DISPLAY -> {
                         SidebarSectionTitle(
                             text = stringResource(R.string.settings_graphics_tab).uppercase(),
                             color = sectionTitleColor,
@@ -3405,6 +3461,10 @@ private fun EmulationSidebarMenu(
                             helpText = stringResource(R.string.settings_help_aspect_ratio),
                             onResetToDefault = { onSetAspectRatio(globalDefaults.aspectRatio) }
                         )
+
+                                    }
+
+                                    GameMenuSectionId.GRAPHICS_RENDERING -> {
 
                         SidebarSectionTitle(
                             text = stringResource(R.string.settings_rendering_section).uppercase(),
@@ -3574,6 +3634,10 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetEnableHwMipmapping(globalDefaults.enableHwMipmapping) }
                         )
 
+                                    }
+
+                                    GameMenuSectionId.GRAPHICS_SCREEN -> {
+
                         SidebarSectionTitle(
                             text = stringResource(R.string.emulation_screen_tab).uppercase(),
                             color = sectionTitleColor,
@@ -3639,9 +3703,19 @@ private fun EmulationSidebarMenu(
                             helpText = stringResource(R.string.settings_help_shadeboost_gamma),
                             onResetToDefault = { onSetShadeBoostGamma(globalDefaults.shadeBoostGamma) }
                         )
+                                    }
+
+                                    else -> Unit
+                                }
+                            }
                     }
 
                     EmulationMenuTab.Fixes -> {
+                        gameMenuSectionsForTab(GameMenuTabId.FIXES, uiState.gameMenuSectionOrder)
+                            .filterNot(uiState.hiddenGameMenuSections::contains)
+                            .forEach { section ->
+                                when (section) {
+                                    GameMenuSectionId.FIXES_PATCHES -> {
                         SidebarSectionTitle(
                             text = stringResource(R.string.settings_patches_section).uppercase(),
                             color = sectionTitleColor,
@@ -3670,6 +3744,10 @@ private fun EmulationSidebarMenu(
                             helpText = stringResource(R.string.settings_help_anti_blur),
                             onResetToDefault = { onSetAntiBlur(globalDefaults.antiBlur) }
                         )
+
+                                    }
+
+                                    GameMenuSectionId.FIXES_HARDWARE -> {
 
                         SidebarSectionTitle(
                             text = stringResource(R.string.settings_hardware_fixes).uppercase(),
@@ -3843,6 +3921,10 @@ private fun EmulationSidebarMenu(
                     onResetToDefault = { onSetGpuPaletteConversion(globalDefaults.gpuPaletteConversion) }
                 )
 
+                                    }
+
+                                    GameMenuSectionId.FIXES_UPSCALING -> {
+
                 SidebarSectionTitle(
                     text = stringResource(R.string.settings_upscaling_fixes).uppercase(),
                     color = sectionTitleColor,
@@ -3957,14 +4039,21 @@ private fun EmulationSidebarMenu(
                             helpText = stringResource(R.string.settings_help_native_palette_draw),
                             onResetToDefault = { onSetNativePaletteDraw(globalDefaults.nativePaletteDraw) }
                         )
+                                    }
+
+                                    else -> Unit
+                                }
+                            }
                     }
 
                     EmulationMenuTab.Achievements -> {
-                        OverlayAchievementsPane(
-                            gamePath = currentGamePath,
-                            currentGameTitle = uiState.currentGameTitle,
-                            retroState = retroState
-                        )
+                        if (GameMenuSectionId.ACHIEVEMENTS_PROGRESS !in uiState.hiddenGameMenuSections) {
+                            OverlayAchievementsPane(
+                                gamePath = currentGamePath,
+                                currentGameTitle = uiState.currentGameTitle,
+                                retroState = retroState
+                            )
+                        }
                     }
                 }
             }

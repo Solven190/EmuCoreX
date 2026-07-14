@@ -499,6 +499,13 @@ private fun OverlayControlLayout.toJson(): JSONObject {
             scale.coerceIn(AppPreferences.OVERLAY_CONTROL_SCALE_MIN, AppPreferences.OVERLAY_CONTROL_SCALE_MAX)
         )
         .put("widthScale", widthScale.coerceIn(100, 240))
+        .put(
+            "opacity",
+            opacity.coerceIn(
+                AppPreferences.OVERLAY_CONTROL_OPACITY_MIN,
+                AppPreferences.OVERLAY_CONTROL_OPACITY_MAX
+            )
+        )
         .put("visible", visible)
         .put("surfaceOnly", surfaceOnly)
 }
@@ -509,6 +516,11 @@ private fun JSONObject.toOverlayControlLayout(): OverlayControlLayout {
         scale = optInt("scale", AppPreferences.OVERLAY_CONTROL_SCALE_DEFAULT)
             .coerceIn(AppPreferences.OVERLAY_CONTROL_SCALE_MIN, AppPreferences.OVERLAY_CONTROL_SCALE_MAX),
         widthScale = optInt("widthScale", 100).coerceIn(100, 240),
+        opacity = optInt("opacity", AppPreferences.OVERLAY_CONTROL_OPACITY_DEFAULT)
+            .coerceIn(
+                AppPreferences.OVERLAY_CONTROL_OPACITY_MIN,
+                AppPreferences.OVERLAY_CONTROL_OPACITY_MAX
+            ),
         visible = optBoolean("visible", true),
         surfaceOnly = optBoolean("surfaceOnly", false)
     )

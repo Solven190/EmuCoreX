@@ -557,9 +557,27 @@ private fun TexturePackCard(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
+                    pack.gameTitle?.let { title ->
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     Text(
                         text = pack.serial,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = if (pack.gameTitle == null) {
+                            MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        } else {
+                            MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                        },
+                        color = if (pack.gameTitle == null) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

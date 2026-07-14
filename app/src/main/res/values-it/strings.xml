@@ -795,6 +795,7 @@
     <string name="controls_editor_save">Salva</string>
     <string name="controls_editor_reset">Ripristina</string>
     <string name="controls_editor_stick_size">Dimensione levetta</string>
+    <string name="controls_editor_opacity_value">Opacità %1$d%%</string>
     <string name="controls_editor_drag_hint">Trascina i pulsanti per spostarli • Cursore per ridimensionare le levette</string>
     <string name="pcsx2_compatibility_title">Compatibilità PCSX2</string>
     <string name="pcsx2_compatibility_status">Stato</string>
@@ -1613,7 +1614,6 @@
     <string name="settings_customization_custom_font_removed">Font personalizzato rimosso</string>
     <string name="settings_customization_font_size">Dimensione testo</string>
     <string name="settings_customization_font_size_help">Questa scala si combina con le dimensioni font di accessibilità di Android.</string>
-    <string name="settings_customization_free_note">Tutte le opzioni in questa scheda sono disponibili senza PRO.</string>
     <string name="settings_customization_reset_section">Reimposta</string>
     <string name="settings_customization_reset">Reimposta personalizzazione</string>
     <string name="settings_customization_reset_desc">Ripristina lo sfondo, le dimensioni copertina e il font originali</string>
@@ -1639,4 +1639,20 @@
     <string name="settings_game_menu_reset_section">Ripristina layout</string>
     <string name="settings_game_menu_reset">Reimposta menu di gioco</string>
     <string name="settings_game_menu_reset_desc">Mostra ogni scheda e sezione nell\'ordine originale</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="one">%d gioco per riga</item>
+        <item quantity="other">%d giochi per riga</item>
+    </plurals>
+    <string name="settings_customization_drawer_section">Menu di navigazione</string>
+    <string name="settings_customization_drawer_summary">Scegli quali scorciatoie visualizzare nel menu di navigazione. Le destinazioni nascoste rimangono disponibili altrove nell\'app.</string>
+    <string name="settings_customization_drawer_other">Navigazione e community</string>
+    <string name="settings_customization_drawer_required_note">Le impostazioni della Libreria e dell\'App sono sempre disponibili per impedire il blocco della navigazione.</string>
+    <string name="settings_customization_touch_style_arcade">Arcade</string>
+    <string name="settings_customization_touch_style_minimal">Minimale</string>
+    <string name="settings_game_menu_content_summary">Scegli le schede, i blocchi di contenuti e l\'ordine mostrati nel menu di gioco. I nuovi blocchi aggiunti dai futuri aggiornamenti vengono inclusi automaticamente.</string>
+    <string name="settings_game_menu_tab_content_format">Contenuto %1$s</string>
+    <string name="settings_game_menu_section_debug_tools">Diagnostica sviluppatore</string>
+    <string name="settings_game_menu_section_controls_general">Comportamento dell\'overlay e dello schermo</string>
+    <string name="settings_game_menu_section_graphics_display">Renderer, risoluzione e proporzioni</string>
+    <string name="settings_game_menu_full_reset_desc">Mostra ogni scheda e blocco di contenuto nell\'ordine originale</string>
 </resources>

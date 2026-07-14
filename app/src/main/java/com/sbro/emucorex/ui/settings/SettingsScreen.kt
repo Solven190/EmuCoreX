@@ -49,7 +49,9 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FormatSize
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Gamepad
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Lock
@@ -61,6 +63,7 @@ import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.SaveAs
@@ -120,6 +123,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -150,13 +156,15 @@ import com.sbro.emucorex.data.CoverArtRepository
 import com.sbro.emucorex.data.HomeBackgroundRepository
 import com.sbro.emucorex.data.HomeBackgroundType
 import com.sbro.emucorex.data.TouchControlVisualStyle
+import com.sbro.emucorex.data.DrawerItemId
 import com.sbro.emucorex.data.GameMenuTabId
-import com.sbro.emucorex.data.GameMenuSessionSection
+import com.sbro.emucorex.data.GameMenuSectionId
 import com.sbro.emucorex.data.MemoryCardRepository
 import com.sbro.emucorex.data.OverlayLayoutSnapshot
 import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.SettingsBackupRepository
 import com.sbro.emucorex.data.SettingsSnapshot
+import com.sbro.emucorex.ui.home.calculateHomeGridColumnCount
 import com.sbro.emucorex.ui.common.NavigationBackButton
 import com.sbro.emucorex.ui.common.ProvideGamepadShoulderActions
 import com.sbro.emucorex.ui.common.RequestFocusOnResume
@@ -2698,6 +2706,16 @@ private fun CustomizationSettingsTab(
     viewModel: SettingsViewModel
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val windowSize = LocalWindowInfo.current.containerSize
+    val windowWidthDp = with(density) { windowSize.width.toDp().value.roundToInt() }.coerceAtLeast(1)
+    val windowHeightDp = with(density) { windowSize.height.toDp().value.roundToInt() }.coerceAtLeast(1)
+    val previewColumns = calculateHomeGridColumnCount(
+        screenWidthDp = windowWidthDp,
+        screenHeightDp = windowHeightDp,
+        smallestScreenWidthDp = minOf(windowWidthDp, windowHeightDp),
+        gridScale = uiState.homeGridScale
+    )
     val backgroundRepository = remember(context) { HomeBackgroundRepository(context) }
     val backgroundFile = backgroundRepository.existingFile(uiState.homeBackgroundType)
     val backgroundLabel = when (uiState.homeBackgroundType) {
@@ -2746,28 +2764,84 @@ private fun CustomizationSettingsTab(
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onBackground
                     )
-                    Text(
-                        text = stringResource(R.string.settings_customization_preview_caption),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
-                    )
                     Row(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_customization_preview_caption),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+                            )
+                        ) {
+                            Text(
+                                text = pluralStringResource(
+                                    R.plurals.settings_customization_games_per_row,
+                                    previewColumns,
+                                    previewColumns
+                                ),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.Bottom
                     ) {
-                        repeat(3) { index ->
+                        repeat(previewColumns) { index ->
                             Surface(
                                 modifier = Modifier
-                                    .width((46 + index * 2).dp * uiState.homeGridScale)
+                                    .width(52.dp * uiState.homeGridScale)
                                     .aspectRatio(0.72f),
                                 shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                color = when (index % 3) {
+                                    0 -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)
+                                    1 -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f)
+                                    else -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.92f)
+                                },
                                 border = BorderStroke(
                                     1.dp,
                                     MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
                                 )
-                            ) {}
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(6.dp),
+                                    verticalArrangement = Arrangement.Bottom
+                                ) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.78f)
+                                            .height(3.dp)
+                                            .clip(RoundedCornerShape(50))
+                                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.32f))
+                                    )
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.52f)
+                                            .height(2.dp)
+                                            .clip(RoundedCornerShape(50))
+                                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -2833,6 +2907,55 @@ private fun CustomizationSettingsTab(
         )
     }
 
+    SettingsSection(title = stringResource(R.string.settings_customization_drawer_section)) {
+        SettingsInlineNote(stringResource(R.string.settings_customization_drawer_summary))
+        val groups = listOf(
+            stringResource(R.string.shell_quick_actions) to listOf(
+                DrawerItemId.LIBRARY,
+                DrawerItemId.CATALOG_SEARCH,
+                DrawerItemId.ACHIEVEMENTS,
+                DrawerItemId.PROFILE
+            ),
+            stringResource(R.string.shell_executables_section) to listOf(
+                DrawerItemId.LAUNCH_GAME,
+                DrawerItemId.LAUNCH_BIOS
+            ),
+            stringResource(R.string.shell_app_section) to listOf(
+                DrawerItemId.GAME_SETTINGS,
+                DrawerItemId.DATA_TRANSFER,
+                DrawerItemId.RESET_SETTINGS
+            ),
+            stringResource(R.string.shell_tools_section) to listOf(
+                DrawerItemId.MEMORY_CARDS,
+                DrawerItemId.TEXTURE_MANAGER,
+                DrawerItemId.SAVE_STATES
+            ),
+            stringResource(R.string.settings_customization_drawer_other) to listOf(
+                DrawerItemId.APP_SETTINGS,
+                DrawerItemId.SUPPORTED_FORMATS,
+                DrawerItemId.DISCORD
+            )
+        )
+        groups.forEach { (title, items) ->
+            Text(
+                text = title,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+            )
+            items.forEach { item ->
+                DrawerItemEditorRow(
+                    icon = drawerItemIcon(item),
+                    title = drawerItemLabel(item),
+                    visible = item !in uiState.hiddenDrawerItems,
+                    required = item.required,
+                    onVisibleChange = { viewModel.setDrawerItemVisible(item, it) }
+                )
+            }
+        }
+        SettingsInlineNote(stringResource(R.string.settings_customization_drawer_required_note))
+    }
+
     SettingsSection(title = stringResource(R.string.settings_customization_touch_controls_section)) {
         Surface(
             modifier = Modifier
@@ -2879,7 +3002,9 @@ private fun CustomizationSettingsTab(
             options = listOf(
                 TouchControlVisualStyle.CLASSIC.preferenceValue to stringResource(R.string.settings_customization_touch_style_classic),
                 TouchControlVisualStyle.LEGACY.preferenceValue to stringResource(R.string.settings_customization_touch_style_glass),
-                TouchControlVisualStyle.MODERN.preferenceValue to stringResource(R.string.settings_customization_touch_style_neon)
+                TouchControlVisualStyle.MODERN.preferenceValue to stringResource(R.string.settings_customization_touch_style_neon),
+                TouchControlVisualStyle.ARCADE.preferenceValue to stringResource(R.string.settings_customization_touch_style_arcade),
+                TouchControlVisualStyle.MINIMAL.preferenceValue to stringResource(R.string.settings_customization_touch_style_minimal)
             ),
             selectedValue = uiState.touchControlVisualStyle.preferenceValue,
             onSelect = { value -> viewModel.setTouchControlVisualStyle(TouchControlVisualStyle.fromPreference(value)) },
@@ -2937,7 +3062,6 @@ private fun CustomizationSettingsTab(
                 viewModel.setAppFontScale(AppPreferences.DEFAULT_APP_FONT_SCALE)
             }
         )
-        SettingsInlineNote(stringResource(R.string.settings_customization_free_note))
     }
 
     SettingsSection(title = stringResource(R.string.settings_customization_reset_section)) {
@@ -2956,7 +3080,7 @@ private fun GameMenuSettingsTab(
     viewModel: SettingsViewModel
 ) {
     SettingsSection(title = stringResource(R.string.settings_game_menu_preview_section)) {
-        SettingsInlineNote(stringResource(R.string.settings_game_menu_summary))
+        SettingsInlineNote(stringResource(R.string.settings_game_menu_content_summary))
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -3009,25 +3133,122 @@ private fun GameMenuSettingsTab(
         }
     }
 
-    SettingsSection(title = stringResource(R.string.settings_game_menu_session_sections)) {
-        GameMenuSessionSection.entries.forEach { section ->
-            GameMenuSectionRow(
-                title = gameMenuSectionLabel(section),
-                visible = section !in uiState.hiddenGameMenuSections,
-                onVisibleChange = { viewModel.setGameMenuSectionVisible(section, it) }
+    uiState.gameMenuTabOrder.forEach { tab ->
+        val sections = uiState.gameMenuSectionOrder.filter { it.tab == tab }
+        SettingsSection(
+            title = stringResource(
+                R.string.settings_game_menu_tab_content_format,
+                gameMenuTabLabel(tab)
             )
+        ) {
+            sections.forEachIndexed { index, section ->
+                GameMenuSectionRow(
+                    title = gameMenuSectionLabel(section),
+                    visible = section !in uiState.hiddenGameMenuSections,
+                    canMoveUp = index > 0,
+                    canMoveDown = index < sections.lastIndex,
+                    onVisibleChange = { viewModel.setGameMenuSectionVisible(section, it) },
+                    onMoveUp = { viewModel.moveGameMenuSection(section, -1) },
+                    onMoveDown = { viewModel.moveGameMenuSection(section, 1) }
+                )
+            }
+            if (tab == GameMenuTabId.SESSION) {
+                SettingsInlineNote(stringResource(R.string.settings_game_menu_session_safety_note))
+            }
         }
-        SettingsInlineNote(stringResource(R.string.settings_game_menu_session_safety_note))
     }
 
     SettingsSection(title = stringResource(R.string.settings_game_menu_reset_section)) {
         SettingsItem(
             icon = Icons.Rounded.Restore,
             label = stringResource(R.string.settings_game_menu_reset),
-            value = stringResource(R.string.settings_game_menu_reset_desc),
+            value = stringResource(R.string.settings_game_menu_full_reset_desc),
             onClick = viewModel::resetGameMenuCustomization
         )
     }
+}
+
+@Composable
+private fun DrawerItemEditorRow(
+    icon: ImageVector,
+    title: String,
+    visible: Boolean,
+    required: Boolean,
+    onVisibleChange: (Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+            Text(
+                text = title,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp),
+                style = MaterialTheme.typography.bodyLarge
+            )
+            if (required) {
+                Icon(
+                    imageVector = Icons.Rounded.Lock,
+                    contentDescription = stringResource(R.string.settings_game_menu_required),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(12.dp)
+                        .size(20.dp)
+                )
+            } else {
+                Switch(checked = visible, onCheckedChange = onVisibleChange)
+            }
+        }
+    }
+}
+
+private fun drawerItemIcon(item: DrawerItemId): ImageVector = when (item) {
+    DrawerItemId.LIBRARY -> Icons.Rounded.Home
+    DrawerItemId.CATALOG_SEARCH -> Icons.Rounded.Search
+    DrawerItemId.ACHIEVEMENTS -> Icons.Rounded.Star
+    DrawerItemId.PROFILE -> Icons.Rounded.Person
+    DrawerItemId.LAUNCH_GAME, DrawerItemId.LAUNCH_BIOS -> Icons.Rounded.PlayArrow
+    DrawerItemId.GAME_SETTINGS -> Icons.Rounded.Tune
+    DrawerItemId.DATA_TRANSFER -> Icons.Rounded.SwapVert
+    DrawerItemId.RESET_SETTINGS -> Icons.Rounded.Restore
+    DrawerItemId.MEMORY_CARDS, DrawerItemId.SUPPORTED_FORMATS -> Icons.Rounded.Memory
+    DrawerItemId.TEXTURE_MANAGER -> Icons.Rounded.FolderOpen
+    DrawerItemId.SAVE_STATES -> Icons.Rounded.Save
+    DrawerItemId.APP_SETTINGS -> Icons.Rounded.SettingsSuggest
+    DrawerItemId.DISCORD -> Icons.Rounded.Forum
+}
+
+@Composable
+private fun drawerItemLabel(item: DrawerItemId): String = when (item) {
+    DrawerItemId.LIBRARY -> stringResource(R.string.shell_library)
+    DrawerItemId.CATALOG_SEARCH -> stringResource(R.string.shell_catalog_search)
+    DrawerItemId.ACHIEVEMENTS -> stringResource(R.string.settings_achievements_tab)
+    DrawerItemId.PROFILE -> stringResource(R.string.profile_title)
+    DrawerItemId.LAUNCH_GAME -> stringResource(R.string.shell_launch_game)
+    DrawerItemId.LAUNCH_BIOS -> stringResource(R.string.shell_launch_bios)
+    DrawerItemId.GAME_SETTINGS -> stringResource(R.string.shell_game_settings_manager)
+    DrawerItemId.DATA_TRANSFER -> stringResource(R.string.shell_data_transfer)
+    DrawerItemId.RESET_SETTINGS -> stringResource(R.string.settings_reset_all_action)
+    DrawerItemId.MEMORY_CARDS -> stringResource(R.string.shell_memory_cards)
+    DrawerItemId.TEXTURE_MANAGER -> stringResource(R.string.shell_texture_manager)
+    DrawerItemId.SAVE_STATES -> stringResource(R.string.shell_save_states)
+    DrawerItemId.APP_SETTINGS -> stringResource(R.string.shell_app_settings)
+    DrawerItemId.SUPPORTED_FORMATS -> stringResource(R.string.shell_supported_formats)
+    DrawerItemId.DISCORD -> stringResource(R.string.shell_discord_server)
 }
 
 @Composable
@@ -3068,7 +3289,11 @@ private fun GameMenuEditorRow(
 private fun GameMenuSectionRow(
     title: String,
     visible: Boolean,
-    onVisibleChange: (Boolean) -> Unit
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onVisibleChange: (Boolean) -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -3080,6 +3305,12 @@ private fun GameMenuSectionRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            IconButton(onClick = onMoveUp, enabled = canMoveUp) {
+                Icon(Icons.Rounded.KeyboardArrowUp, null)
+            }
+            IconButton(onClick = onMoveDown, enabled = canMoveDown) {
+                Icon(Icons.Rounded.KeyboardArrowDown, null)
+            }
             Switch(checked = visible, onCheckedChange = onVisibleChange)
         }
     }
@@ -3105,12 +3336,26 @@ private fun gameMenuTabIcon(tab: GameMenuTabId): ImageVector = when (tab) {
 }
 
 @Composable
-private fun gameMenuSectionLabel(section: GameMenuSessionSection): String = when (section) {
-    GameMenuSessionSection.SAVE_STATES -> stringResource(R.string.settings_game_menu_section_save_states)
-    GameMenuSessionSection.AUTO_SAVE -> stringResource(R.string.settings_game_menu_section_auto_save)
-    GameMenuSessionSection.QUICK_ACTIONS -> stringResource(R.string.settings_game_menu_section_quick_actions)
-    GameMenuSessionSection.AUTOMATION -> stringResource(R.string.settings_game_menu_section_automation)
-    GameMenuSessionSection.GAME_PROFILE -> stringResource(R.string.settings_game_menu_section_game_profile)
+private fun gameMenuSectionLabel(section: GameMenuSectionId): String = when (section) {
+    GameMenuSectionId.SAVE_STATES -> stringResource(R.string.settings_game_menu_section_save_states)
+    GameMenuSectionId.AUTO_SAVE -> stringResource(R.string.settings_game_menu_section_auto_save)
+    GameMenuSectionId.QUICK_ACTIONS -> stringResource(R.string.settings_game_menu_section_quick_actions)
+    GameMenuSectionId.AUTOMATION -> stringResource(R.string.settings_game_menu_section_automation)
+    GameMenuSectionId.GAME_PROFILE -> stringResource(R.string.settings_game_menu_section_game_profile)
+    GameMenuSectionId.SESSION_DEBUG_TOOLS -> stringResource(R.string.settings_game_menu_section_debug_tools)
+    GameMenuSectionId.CONTROLS_GENERAL -> stringResource(R.string.settings_game_menu_section_controls_general)
+    GameMenuSectionId.CONTROLS_TOUCH -> stringResource(R.string.settings_touch_controls_section)
+    GameMenuSectionId.CONTROLS_GAMEPAD -> stringResource(R.string.settings_gamepad_controls_section)
+    GameMenuSectionId.EMULATION_PERFORMANCE -> stringResource(R.string.emulation_performance_stats)
+    GameMenuSectionId.EMULATION_SPEED -> stringResource(R.string.settings_speed_hacks)
+    GameMenuSectionId.EMULATION_CHEATS -> stringResource(R.string.settings_enable_cheats)
+    GameMenuSectionId.GRAPHICS_DISPLAY -> stringResource(R.string.settings_game_menu_section_graphics_display)
+    GameMenuSectionId.GRAPHICS_RENDERING -> stringResource(R.string.settings_rendering_section)
+    GameMenuSectionId.GRAPHICS_SCREEN -> stringResource(R.string.emulation_screen_tab)
+    GameMenuSectionId.FIXES_PATCHES -> stringResource(R.string.settings_patches_section)
+    GameMenuSectionId.FIXES_HARDWARE -> stringResource(R.string.settings_hardware_fixes)
+    GameMenuSectionId.FIXES_UPSCALING -> stringResource(R.string.settings_upscaling_fixes)
+    GameMenuSectionId.ACHIEVEMENTS_PROGRESS -> stringResource(R.string.emulation_achievements_tab)
 }
 
 @Composable

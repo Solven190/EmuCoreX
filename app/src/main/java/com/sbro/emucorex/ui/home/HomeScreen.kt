@@ -177,8 +177,12 @@ fun HomeScreen(
     val sectionInnerSpacing = 4.dp
     val baseCellSize = if (isLandscape) 94.dp else 102.dp
     val minCellSize = baseCellSize * uiState.homeGridScale
-    val contentWidthDp = if (isWide) (configuration.screenWidthDp - 332).coerceAtLeast(320) else configuration.screenWidthDp
-    val columnsCount = maxOf(1, (contentWidthDp + 12) / (minCellSize.value.toInt() + 12))
+    val columnsCount = calculateHomeGridColumnCount(
+        screenWidthDp = configuration.screenWidthDp,
+        screenHeightDp = configuration.screenHeightDp,
+        smallestScreenWidthDp = configuration.smallestScreenWidthDp,
+        gridScale = uiState.homeGridScale
+    )
     val isListView = uiState.libraryViewMode == HomeLibraryViewMode.LIST
     val standardViewMode = if (isShelfView) uiState.lastStandardLibraryViewMode else uiState.libraryViewMode
     val gridState = rememberLazyGridState()

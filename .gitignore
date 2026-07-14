@@ -8,8 +8,16 @@
 
 # Local machine config
 local.properties
-.firebase/
 app/google-services.json
+
+# Local Firebase deployment and maintenance files
+/.firebase/
+/.firebaserc
+/firebase.json
+/firestore.rules
+/firestore.indexes.json
+/firestore-debug.log
+/migrate-player-profiles.mjs
 
 # Build outputs
 build/
@@ -56,8 +64,6 @@ pcsx2_official/
 public/
 tools/
 y/
-.firebaserc
-firestore.indexes.json
 **/__pycache__/
 *.pyc
 *.pyo

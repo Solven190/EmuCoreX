@@ -585,6 +585,7 @@
     <string name="controls_editor_save">Enregistrer</string>
     <string name="controls_editor_reset">Réinitialiser</string>
     <string name="controls_editor_stick_size">Taille du stick</string>
+    <string name="controls_editor_opacity_value">Opacité %1$d%%</string>
     <string name="controls_editor_drag_hint">Faites glisser les boutons pour les déplacer • Curseur pour redimensionner les sticks</string>
     <string name="pcsx2_compatibility_title">Compatibilité PCSX2</string>
     <string name="pcsx2_compatibility_status">Statut</string>
@@ -1615,7 +1616,6 @@
     <string name="settings_customization_custom_font_removed">Police personnalisée supprimée</string>
     <string name="settings_customization_font_size">Taille du texte</string>
     <string name="settings_customization_font_size_help">Cette échelle est combinée avec la taille de police d\'accessibilité d\'Android.</string>
-    <string name="settings_customization_free_note">Toutes les options de personnalisation ici sont disponibles sans PRO.</string>
     <string name="settings_customization_reset_section">Réinitialiser</string>
     <string name="settings_customization_reset">Réinitialiser la personnalisation</string>
     <string name="settings_customization_reset_desc">Restaurer l\'arrière-plan, la taille des jaquettes et la police d\'origine</string>
@@ -1641,4 +1641,20 @@
     <string name="settings_game_menu_reset_section">Restaurer la disposition</string>
     <string name="settings_game_menu_reset">Réinitialiser le menu du jeu</string>
     <string name="settings_game_menu_reset_desc">Afficher chaque onglet et section dans l\'ordre d\'origine</string>
+    <plurals name="settings_customization_games_per_row">
+        <item quantity="one">%d jeu par ligne</item>
+        <item quantity="other">%d jeux par ligne</item>
+    </plurals>
+    <string name="settings_customization_drawer_section">Tiroir de navigation</string>
+    <string name="settings_customization_drawer_summary">Choisissez les raccourcis qui apparaissent dans le tiroir de navigation. Les destinations masquées restent disponibles ailleurs dans l\'application.</string>
+    <string name="settings_customization_drawer_other">Navigation et communauté</string>
+    <string name="settings_customization_drawer_required_note">Les paramètres de la bibliothèque et de l\'application sont toujours disponibles afin que la navigation ne puisse pas être bloquée.</string>
+    <string name="settings_customization_touch_style_arcade">Arcade</string>
+    <string name="settings_customization_touch_style_minimal">Minimaliste</string>
+    <string name="settings_game_menu_content_summary">Choisissez les onglets, les blocs de contenu et l\'ordre affichés dans le menu du jeu. Les nouveaux blocs ajoutés lors de futures mises à jour sont inclus automatiquement.</string>
+    <string name="settings_game_menu_tab_content_format">Contenu %1$s</string>
+    <string name="settings_game_menu_section_debug_tools">Diagnostics développeur</string>
+    <string name="settings_game_menu_section_controls_general">Comportement de la superposition et de l\'écran</string>
+    <string name="settings_game_menu_section_graphics_display">Moteur de rendu, résolution et format d\'image</string>
+    <string name="settings_game_menu_full_reset_desc">Afficher chaque onglet et bloc de contenu dans l\'ordre d\'origine</string>
 </resources>
