@@ -512,8 +512,7 @@ static void recFpuAdjustTinyOppositeSignTowardZero_emit_oaknut(int result_reg, o
 	oakAsm->FMOV(OAK_WSCRATCH, oakSRegister(result_reg));
 	oakAsm->EOR(OAK_WSCRATCH, OAK_WSCRATCH, smaller_bits);
 	oakAsm->TBZ(OAK_WSCRATCH, 31, no_adjust);
-	oakAsm->MOV(OAK_WSCRATCH, 0x7fffffff);
-	oakAsm->AND(OAK_WSCRATCH, smaller_bits, OAK_WSCRATCH);
+	oakAsm->AND(OAK_WSCRATCH, smaller_bits, 0x7fffffffu);
 	oakAsm->CBZ(OAK_WSCRATCH, no_adjust);
 	oakAsm->FMOV(OAK_WSCRATCH, oakSRegister(result_reg));
 	oakAsm->SUB(OAK_WSCRATCH, OAK_WSCRATCH, 1);
@@ -578,15 +577,14 @@ static void recFpuAddSubExact_emit_oaknut(int regd, int sreg, int treg, bool sub
 	oakAsm->B(done_negative);
 
 	oakAsm->l(special_normal);
-	oakAsm->FMOV(OAK_WSCRATCH, sreg_s);
-	oakAsm->FMOV(OAK_WSCRATCH2, treg_s);
 	oakAsm->FMOV(OAK_SSCRATCH2, OAK_WSCRATCH);
 	oakAsm->FMOV(OAK_SSCRATCH3, OAK_WSCRATCH2);
 	oakAsm->FMOV(regd_s, OAK_WSCRATCH);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH, 23);
-	oakAsm->LSR(OAK_WSCRATCH2, OAK_WSCRATCH2, 23);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0xff);
-	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, 0xff);
+	// OAK_WSCRATCH/OAK_WSCRATCH2 still hold the original operand bits from
+	// the special-value checks above. Extract the exponents directly instead
+	// of reloading both values and emitting a separate shift and mask.
+	oakAsm->UBFX(OAK_WSCRATCH, OAK_WSCRATCH, 23, 8);
+	oakAsm->UBFX(OAK_WSCRATCH2, OAK_WSCRATCH2, 23, 8);
 	oakAsm->SUB(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
 	oakAsm->CMP(OAK_WSCRATCH, 25);
 	oakAsm->B(oak::util::GE, diff_ge_25);
@@ -1718,11 +1716,13 @@ static void recFpuMulExact_emit_oaknut(int info, int regd)
 		oak::Label done;
 
 		oakAsm->FMOV(OAK_WSCRATCH, oakSRegister(sreg));
-		oakAsm->EOR(OAK_WSCRATCH, OAK_WSCRATCH, 0x3e800000);
-		oakAsm->FMOV(OAK_WSCRATCH2, oakSRegister(treg));
-		oakAsm->EOR(OAK_WSCRATCH2, OAK_WSCRATCH2, 0x40490fdb);
-		oakAsm->ORR(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH2);
-		oakAsm->CBNZ(OAK_WSCRATCH, no_hack);
+		oakAsm->MOV(OAK_WSCRATCH2, 0x3e800000u);
+		oakAsm->CMP(OAK_WSCRATCH, OAK_WSCRATCH2);
+		oakAsm->B(oak::util::NE, no_hack);
+		oakAsm->FMOV(OAK_WSCRATCH, oakSRegister(treg));
+		oakAsm->MOV(OAK_WSCRATCH2, 0x40490fdbu);
+		oakAsm->CMP(OAK_WSCRATCH, OAK_WSCRATCH2);
+		oakAsm->B(oak::util::NE, no_hack);
 		oakAsm->MOV(OAK_WSCRATCH, 0x3f490fda);
 		oakAsm->FMOV(oakSRegister(regd), OAK_WSCRATCH);
 		oakAsm->B(done);

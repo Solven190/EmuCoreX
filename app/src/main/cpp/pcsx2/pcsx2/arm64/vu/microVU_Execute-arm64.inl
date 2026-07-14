@@ -38,6 +38,7 @@ static __fi void mVUExecuteOakLoadRuntimeBases()
 {
 	oakMoveAddressToReg(oak::util::X28, &g_vuRegistersPack);
 	oakMoveAddressToReg(oak::util::X27, &g_cpuRegistersPack);
+	oakMoveAddressToReg(OAK_XVUCLAMP, &g_cpuRegistersPack.mVUglob);
 }
 
 static __fi void mVUExecuteOakLoadFpcr(OakMemOperand mem)

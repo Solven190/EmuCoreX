@@ -12,11 +12,11 @@ static __fi OakMemOperand mVUClampOakSs4Mem(s64 offset)
 	return mVUAllocOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, mVUss4)) + offset);
 }
 
-static __fi void mVUUpperClamp1VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
+static __fi void mVUUpperClamp1VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp, bool limits_ready = false)
 {
 	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && canClamp)
 	{
-		mVUClamp1VectorFast_oaknut(reg);
+		mVUClamp1VectorFast_oaknut(reg, limits_ready);
 	}
 }
 
@@ -25,20 +25,16 @@ static __fi void mVUUpperClamp1Vector_oaknut(mV, int reg, bool bClampE)
 	mVUUpperClamp1VectorIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
 }
 
-static __fi void mVUUpperClamp2VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
+static __fi void mVUUpperClamp2VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp, bool limits_ready = false)
 {
 	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
 		canClamp)
 	{
-		const oak::QReg reg_q = oakQRegister(reg);
-		oakLoad128(OAK_QSCRATCH3, mVUClampOakSs4Mem(offsetof(mVU_SSE4, sse4_maxvals[1][0])));
-		oakAsm->SMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
-		oakLoad128(OAK_QSCRATCH3, mVUClampOakSs4Mem(offsetof(mVU_SSE4, sse4_minvals[1][0])));
-		oakAsm->UMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
+		mVUClamp1VectorBits_oaknut(reg, limits_ready);
 		return;
 	}
 
-	mVUUpperClamp1VectorIf_oaknut(mVU, reg, bClampE, canClamp);
+	mVUUpperClamp1VectorIf_oaknut(mVU, reg, bClampE, canClamp, limits_ready);
 }
 
 static __fi void mVUUpperClamp2Vector_oaknut(mV, int reg, bool bClampE)
@@ -46,18 +42,18 @@ static __fi void mVUUpperClamp2Vector_oaknut(mV, int reg, bool bClampE)
 	mVUUpperClamp2VectorIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
 }
 
-static __fi void mVUUpperClamp3Vector_oaknut(mV, int reg)
+static __fi void mVUUpperClamp3Vector_oaknut(mV, int reg, bool limits_ready = false)
 {
 	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
 	if (clampE && canClamp)
-		mVUUpperClamp2VectorIf_oaknut(mVU, reg, true, true);
+		mVUUpperClamp2VectorIf_oaknut(mVU, reg, true, true, limits_ready);
 }
 
-static __fi void mVUUpperClamp4Vector_oaknut(mV, int reg)
+static __fi void mVUUpperClamp4Vector_oaknut(mV, int reg, bool limits_ready = false)
 {
 	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
 	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
-		mVUUpperClamp1VectorIf_oaknut(mVU, reg, true, true);
+		mVUUpperClamp1VectorIf_oaknut(mVU, reg, true, true, limits_ready);
 }
 
 static __fi void mVUUpperClamp1ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
@@ -78,6 +74,8 @@ static __fi void mVUUpperClamp2ScalarIf_oaknut(mV, int reg, bool bClampE, bool c
 	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
 		canClamp)
 	{
+		// These masks intentionally preserve Y/Z/W. An adjacent LDP copy matched
+		// 27,165,824 vectors, but showed no stable gain and was often slower.
 		const oak::QReg reg_q = oakQRegister(reg);
 		oakLoad128(OAK_QSCRATCH3, mVUClampOakSs4Mem(offsetof(mVU_SSE4, sse4_maxvals[0][0])));
 		oakAsm->SMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());

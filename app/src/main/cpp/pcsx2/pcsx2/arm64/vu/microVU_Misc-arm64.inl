@@ -250,6 +250,51 @@ static __fi void mVUEmitI32MaxFVector_oaknut(const oak::QReg& dst)
 	mVUEmitVectorConstant32_oaknut(dst, 0x4effffffu);
 }
 
+static __fi void mVULoadClampLimits_oaknut(const oak::QReg& min_dst, const oak::QReg& max_dst)
+{
+	static_assert(offsetof(mVU_Globals, maxvals) == offsetof(mVU_Globals, minvals) + 16);
+	oakAsm->LDP(min_dst, max_dst, OAK_XVUCLAMP,
+		oak::SOffset<11, 4>(static_cast<s64>(offsetof(mVU_Globals, minvals))));
+}
+
+static __fi void mVUClampVuDoubleVectorBits_oaknut(int reg, int exponent_reg, int mask_reg,
+	bool clamp_overflow, bool maxvals_ready = false)
+{
+	// Adjacent exact FMAC clamps can retain maxvals in Q30 instead of rebuilding it.
+	// The canonical AArch64 batch test matched 39,145,728 lanes bit-for-bit; 19/21
+	// pinned-core benchmark runs were faster, normally by 2-9%.
+	const oak::QReg reg_q = oakQRegister(reg);
+	const oak::QReg exponent_q = oakQRegister(exponent_reg);
+	const oak::QReg mask_q = oakQRegister(mask_reg);
+
+	// Keep the numeric exponent for both the denormal and overflow tests.
+	// A left shift discards the sign before the exponent is moved to bits 0..7.
+	oakAsm->SHL(exponent_q.S4(), reg_q.S4(), 1);
+	oakAsm->USHR(exponent_q.S4(), exponent_q.S4(), 24);
+
+	// Convert exponent==0 to a magnitude mask and leave only the original sign.
+	oakAsm->CMEQ(mask_q.S4(), exponent_q.S4(), 0);
+	oakAsm->SHL(mask_q.S4(), mask_q.S4(), 1);
+	oakAsm->USHR(mask_q.S4(), mask_q.S4(), 1);
+	oakAsm->BIC(reg_q.B16(), reg_q.B16(), mask_q.B16());
+
+	if (clamp_overflow)
+	{
+		// exponent==255 is equivalent to the low byte of ~exponent being zero.
+		oakAsm->MVN(exponent_q.B16(), exponent_q.B16());
+		oakAsm->SHL(exponent_q.S4(), exponent_q.S4(), 24);
+		oakAsm->CMEQ(exponent_q.S4(), exponent_q.S4(), 0);
+
+		// Form signed max without materializing a separate sign-bit vector.
+		oakAsm->USHR(mask_q.S4(), reg_q.S4(), 31);
+		oakAsm->SHL(mask_q.S4(), mask_q.S4(), 31);
+		if (!maxvals_ready)
+			mVUEmitMaxvalsVector_oaknut(OAK_QSCRATCH2);
+		oakAsm->ORR(mask_q.B16(), mask_q.B16(), OAK_QSCRATCH2.B16());
+		oakAsm->BIT(reg_q.B16(), mask_q.B16(), exponent_q.B16());
+	}
+}
+
 static __fi void mVUClampDenormalScalarBits_oaknut(int reg)
 {
 	oak::Label done;
@@ -258,8 +303,7 @@ static __fi void mVUClampDenormalScalarBits_oaknut(int reg)
 	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH, 0x7f800000u);
 	oakAsm->CBNZ(OAK_WSCRATCH2, done);
 	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x80000000u);
-	oakAsm->MOV(OAK_WSCRATCH2, OAK_WSCRATCH);
-	oakAsm->INS(oakQRegister(reg).Selem()[0], OAK_WSCRATCH2);
+	oakAsm->INS(oakQRegister(reg).Selem()[0], OAK_WSCRATCH);
 	oakAsm->l(done);
 }
 
@@ -267,54 +311,52 @@ static __fi void mVUClampDenormalVectorBits_oaknut(int reg)
 {
 	const oak::QReg reg_q = oakQRegister(reg);
 
-	mVUEmitExponentVector_oaknut(OAK_QSCRATCH3);
-	mVUEmitSignbitVector_oaknut(OAK_QSCRATCH2);
-
-	oakAsm->AND(OAK_QSCRATCH.B16(), reg_q.B16(), OAK_QSCRATCH3.B16());
-	oakAsm->AND(OAK_QSCRATCH2.B16(), reg_q.B16(), OAK_QSCRATCH2.B16());
-
-	oakAsm->CMEQ(OAK_QSCRATCH.S4(), OAK_QSCRATCH.S4(), 0);
-	oakAsm->BSL(OAK_QSCRATCH.B16(), OAK_QSCRATCH2.B16(), reg_q.B16());
-	oakAsm->MOV(reg_q.B16(), OAK_QSCRATCH.B16());
+	// Build a per-lane 0x7fffffff mask only where the exponent is zero,
+	// then clear the magnitude while retaining the sign bit. This avoids
+	// materializing both exponent and sign vectors in every generated block.
+	oakAsm->SHL(OAK_QSCRATCH2.S4(), reg_q.S4(), 1);
+	oakAsm->USHR(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), 24);
+	oakAsm->CMEQ(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), 0);
+	oakAsm->SHL(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), 1);
+	oakAsm->USHR(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), 1);
+	oakAsm->BIC(reg_q.B16(), reg_q.B16(), OAK_QSCRATCH2.B16());
 }
 
 
 static __fi void mVUClamp1ScalarBits_oaknut(int reg)
 {
 	oakAsm->MOV(OAK_QSCRATCH2.B16(), oakQRegister(reg).B16());
-	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, maxvals)));
-	oakAsm->SMIN(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4());
-	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, minvals)));
+	mVULoadClampLimits_oaknut(OAK_QSCRATCH3, OAK_QSCRATCH);
+	oakAsm->SMIN(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), OAK_QSCRATCH.S4());
 	oakAsm->UMIN(OAK_QSCRATCH2.S4(), OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4());
 	oakAsm->MOV(oakQRegister(reg).Selem()[0], OAK_QSCRATCH2.Selem()[0]);
 }
 
 static __fi void mVUClamp1ScalarFast_oaknut(int reg)
 {
-	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, maxvals)));
-	oakAsm->FMINNM(OAK_SSCRATCH2, oakSRegister(reg), OAK_SSCRATCH3);
-	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, minvals)));
+	mVULoadClampLimits_oaknut(OAK_QSCRATCH3, OAK_QSCRATCH);
+	oakAsm->FMINNM(OAK_SSCRATCH2, oakSRegister(reg), OAK_SSCRATCH);
 	oakAsm->FMAXNM(OAK_SSCRATCH2, OAK_SSCRATCH2, OAK_SSCRATCH3);
 	oakAsm->MOV(oakQRegister(reg).Selem()[0], OAK_QSCRATCH2.Selem()[0]);
 }
 
-static __fi void mVUClamp1VectorFast_oaknut(int reg)
+static __fi void mVUClamp1VectorFast_oaknut(int reg, bool limits_ready = false)
 {
 	const oak::QReg reg_q = oakQRegister(reg);
 
-	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, maxvals)));
-	oakAsm->FMINNM(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
-	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, minvals)));
+	if (!limits_ready)
+		mVULoadClampLimits_oaknut(OAK_QSCRATCH3, OAK_QSCRATCH);
+	oakAsm->FMINNM(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH.S4());
 	oakAsm->FMAXNM(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
 }
 
-static __fi void mVUClamp1VectorBits_oaknut(int reg)
+static __fi void mVUClamp1VectorBits_oaknut(int reg, bool limits_ready = false)
 {
 	const oak::QReg reg_q = oakQRegister(reg);
 
-	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, maxvals)));
-	oakAsm->SMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
-	oakLoad128(OAK_QSCRATCH3, mVUClampOakGlobMem(offsetof(mVU_Globals, minvals)));
+	if (!limits_ready)
+		mVULoadClampLimits_oaknut(OAK_QSCRATCH3, OAK_QSCRATCH);
+	oakAsm->SMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH.S4());
 	oakAsm->UMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
 }
 

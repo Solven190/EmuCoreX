@@ -595,17 +595,15 @@ void FPU_MUL(int info, int regd, int sreg, int treg, bool acc)
 
 //		alignas(16) static constexpr const u32 result[4] = { 0x3f490fda };
 
-		oakAsm->FMOV(OAK_ECX, oakSRegister(sreg));
-		oakAsm->FMOV(OAK_EDX, oakSRegister(treg));
-
-		// if (((s ^ 0x3e800000) | (t ^ 0x40490fdb)) != 0) { hack; }
-		oakAsm->EOR(OAK_ECX, OAK_ECX, 0x3e800000);
-		oakAsm->EOR(OAK_EDX, OAK_EDX, 0x40490fdb);
-		oakAsm->ORR(OAK_EDX, OAK_EDX, OAK_ECX);
-
-//		u8* noHack = JNZ8(0);
 		oak::Label noHack;
-		oakAsm->CBNZ(OAK_EDX, noHack);
+		oakAsm->FMOV(OAK_ECX, oakSRegister(sreg));
+		oakAsm->MOV(OAK_EDX, 0x3e800000u);
+		oakAsm->CMP(OAK_ECX, OAK_EDX);
+		oakAsm->B(oak::util::NE, noHack);
+		oakAsm->FMOV(OAK_ECX, oakSRegister(treg));
+		oakAsm->MOV(OAK_EDX, 0x40490fdbu);
+		oakAsm->CMP(OAK_ECX, OAK_EDX);
+		oakAsm->B(oak::util::NE, noHack);
 			oakLoad128(regD, OAK_CPU(mVUss4.result));
 //			endMul = JMP32(0);
 			oakAsm->B(endMul);

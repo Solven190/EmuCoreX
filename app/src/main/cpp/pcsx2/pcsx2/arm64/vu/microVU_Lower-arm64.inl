@@ -380,31 +380,7 @@ static __fi void mVU_EFUvuDoubleSS_oaknut(int reg)
 
 static __fi void mVU_EFUvuDoublePS_oaknut(int reg, int t1, int t2)
 {
-	const oak::QReg reg_q = oakQRegister(reg);
-	const oak::QReg t1_q = oakQRegister(t1);
-	const oak::QReg t2_q = oakQRegister(t2);
-
-	mVUEmitExponentVector_oaknut(t1_q);
-	oakAsm->AND(t1_q.B16(), t1_q.B16(), reg_q.B16());
-
-	oakAsm->EOR(t2_q.B16(), t2_q.B16(), t2_q.B16());
-	oakAsm->CMEQ(t2_q.S4(), t1_q.S4(), t2_q.S4());
-	mVUEmitSignbitVector_oaknut(OAK_QSCRATCH);
-	oakAsm->AND(OAK_QSCRATCH.B16(), reg_q.B16(), OAK_QSCRATCH.B16());
-	oakAsm->BSL(t2_q.B16(), OAK_QSCRATCH.B16(), reg_q.B16());
-	oakAsm->MOV(reg_q.B16(), t2_q.B16());
-
-	if (CHECK_VU_OVERFLOW(0))
-	{
-		mVUEmitExponentVector_oaknut(t2_q);
-		oakAsm->CMEQ(t1_q.S4(), t1_q.S4(), t2_q.S4());
-		mVUEmitSignbitVector_oaknut(OAK_QSCRATCH);
-		oakAsm->AND(OAK_QSCRATCH.B16(), reg_q.B16(), OAK_QSCRATCH.B16());
-		mVUEmitMaxvalsVector_oaknut(OAK_QSCRATCH2);
-		oakAsm->ORR(OAK_QSCRATCH.B16(), OAK_QSCRATCH.B16(), OAK_QSCRATCH2.B16());
-		oakAsm->BSL(t1_q.B16(), OAK_QSCRATCH.B16(), reg_q.B16());
-		oakAsm->MOV(reg_q.B16(), t1_q.B16());
-	}
+	mVUClampVuDoubleVectorBits_oaknut(reg, t1, t2, CHECK_VU_OVERFLOW(0));
 }
 
 static __fi void mVU_EFUreciprocalOrZero_oaknut(mV, int PQ, int one, int t1)
@@ -513,6 +489,8 @@ static __fi void mVU_sumXYZ_oaknut(int PQ, int Fs)
 
 static __fi void mVU_loadGlobSS_oaknut(int reg, s64 offset, bool clearReg = false)
 {
+	// LDR S looks shorter, but the canonical four-lane test found it 4-15%
+	// slower for isolated loads and no robust gain across the 8-term EATAN chain.
 	if (clearReg)
 		oakAsm->EOR(oakQRegister(reg).B16(), oakQRegister(reg).B16(), oakQRegister(reg).B16());
 	oakLoad32(OAK_WSCRATCH, mVU_glob_oaknut(offset));

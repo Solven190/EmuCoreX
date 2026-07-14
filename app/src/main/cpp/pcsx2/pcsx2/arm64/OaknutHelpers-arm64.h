@@ -32,6 +32,10 @@ bool oakIsCallerSavedXmm(int id);
 #define OAK_XSCRATCH2 oak::util::X17
 #define OAK_WSCRATCH2 oak::util::W17
 
+// Callee-saved and outside the EE/VU register allocators. Both JIT entry
+// paths pin it to mVUglob so hot clamp sequences can load min/max with LDP.
+#define OAK_XVUCLAMP oak::util::X26
+
 #define OAK_QSCRATCH oak::util::Q30
 #define OAK_DSCRATCH oak::util::D30
 #define OAK_SSCRATCH oak::util::S30

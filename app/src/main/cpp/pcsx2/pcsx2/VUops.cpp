@@ -703,7 +703,18 @@ static __fi void applyTernaryMACOpBroadcast(VURegs* VU, u32 bc)
 
 static __fi float _vuOpMADD(u32 acc, u32 fs, u32 ft)
 {
-	return vuDouble(acc) + vuDouble(fs) * vuDouble(ft);
+	float product = vuDouble(fs) * vuDouble(ft);
+#if defined(__clang__) || defined(__GNUC__)
+	#if defined(ARCH_ARM64)
+	asm volatile("" : "+w"(product));
+	#elif defined(ARCH_X86)
+	asm volatile("" : "+x"(product));
+	#endif
+#else
+	volatile float rounded_product = product;
+	product = rounded_product;
+#endif
+	return vuDouble(acc) + product;
 }
 
 static __fi void _vuMADD(VURegs* VU)
@@ -742,7 +753,18 @@ static __fi void _vuMADDAw(VURegs* VU) { vuMADDAbc(VU, VU->VF[_Ft_].i.w); }
 
 static __fi float _vuOpMSUB(u32 acc, u32 fs, u32 ft)
 {
-	return vuDouble(acc) - vuDouble(fs) * vuDouble(ft);
+	float product = vuDouble(fs) * vuDouble(ft);
+#if defined(__clang__) || defined(__GNUC__)
+	#if defined(ARCH_ARM64)
+	asm volatile("" : "+w"(product));
+	#elif defined(ARCH_X86)
+	asm volatile("" : "+x"(product));
+	#endif
+#else
+	volatile float rounded_product = product;
+	product = rounded_product;
+#endif
+	return vuDouble(acc) - product;
 }
 
 static __fi void _vuMSUB(VURegs* VU)

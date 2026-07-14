@@ -340,6 +340,7 @@ static const void* _DynGen_EnterRecompiledCodeOaknut()
 	oakMoveAddressToReg(X29, &recLUT);
 	oakMoveAddressToReg(X28, &psxRegs);
 	oakMoveAddressToReg(X27, &g_cpuRegistersPack);
+	oakMoveAddressToReg(OAK_XVUCLAMP, &g_cpuRegistersPack.mVUglob);
 
 	if (CHECK_FASTMEM)
 		oakLoad64(oak::util::X19, {X27, offsetof(cpuRegistersPack, vtlbdata.fastmem_base)});
