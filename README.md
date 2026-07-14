@@ -93,21 +93,6 @@ EmuCoreX currently targets Android with:
 - You must use your own legally obtained BIOS files and game dumps.
 - Compatibility, performance, and graphics behavior vary by device and renderer.
 
-## Current EE Bring-Up Notes
-
-As of 2026-05-18, the active Android core bring-up mode is EE JIT with IOP,
-VU0, and VU1 on the interpreter path. MTVU is disabled whenever VU1 recompiler
-is disabled.
-
-Already swept in the current phone pass: Bully, The Simpsons: Hit & Run, Call
-of Duty 3, Need for Speed: Underground 2, Need for Speed: Most Wanted, and
-FlatOut 2.
-
-Need for Speed: Carbon is parked as a shared EE/IOP/SIF event-scheduler
-blocker. The launch path and MTVU gate are fixed, and the native crash is gone,
-but the loading hang also reproduces in the EE interpreter control run, so it is
-not counted as an EE fallback sweep target yet.
-
 ## Credits
 
 EmuCoreX builds on the open-source PCSX2 project together with its own Android interface, library system, runtime controls, and handheld-focused UX. The Android bridge has also been rewritten in Kotlin, and the core has been adapted by EmuCoreX for Android. Further work on stability, integration, and core improvements is planned.
