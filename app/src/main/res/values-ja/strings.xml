@@ -1654,4 +1654,11 @@
     <string name="settings_game_menu_section_controls_general">オーバーレイと画面の動作</string>
     <string name="settings_game_menu_section_graphics_display">レンダラー、解像度、アスペクト比</string>
     <string name="settings_game_menu_full_reset_desc">すべてのタブとコンテンツブロックを元の順序で表示する</string>
+    <string name="settings_customization_touch_press_effect">押下エフェクト</string>
+    <string name="settings_customization_touch_press_effect_help">画面上の各ボタン、十字キーの方向、アナログスティックを押したときの反応を選択します。これはアニメーションのみを変更し、コントロールのサイズとタッチターゲットは変更されません。</string>
+    <string name="settings_customization_touch_press_effect_grow">拡大</string>
+    <string name="settings_customization_touch_press_effect_shrink">縮小</string>
+    <string name="settings_customization_touch_press_effect_spring">スプリング</string>
+    <string name="settings_customization_touch_press_effect_glow">発光</string>
+    <string name="settings_use_global">グローバル設定を使用</string>
 </resources>

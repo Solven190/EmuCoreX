@@ -754,6 +754,7 @@ private fun PreviewLayout(
             PreviewCanvasButton(
                 spec = spec,
                 visualStyle = state.touchControlVisualStyle,
+                pressEffect = state.touchControlPressEffect,
                 selected = selectedControlId == spec.id,
                 onSelectControl = onSelectControl,
                 onMoveControlBy = { id, delta -> moveButton(id, spec, delta) },
@@ -766,6 +767,7 @@ private fun PreviewLayout(
             PreviewCanvasDpadCluster(
                 spec = spec,
                 visualStyle = state.touchControlVisualStyle,
+                pressEffect = state.touchControlPressEffect,
                 selected = selectedControlId == spec.id,
                 onSelectControl = onSelectControl,
                 onMoveControlBy = { id, delta -> moveDpadCluster(id, spec, delta) },
@@ -779,6 +781,7 @@ private fun PreviewLayout(
             PreviewCanvasStick(
                 spec = spec,
                 visualStyle = state.touchControlVisualStyle,
+                pressEffect = state.touchControlPressEffect,
                 selected = selectedControlId == spec.id,
                 surfaceOnly = stickSurfaceMode(spec.id),
                 panelWidth = stickPanelWidth(spec),
@@ -794,6 +797,7 @@ private fun PreviewLayout(
             PreviewCanvasStick(
                 spec = spec,
                 visualStyle = state.touchControlVisualStyle,
+                pressEffect = state.touchControlPressEffect,
                 selected = selectedControlId == spec.id,
                 surfaceOnly = stickSurfaceMode(spec.id),
                 panelWidth = stickPanelWidth(spec),
@@ -810,6 +814,7 @@ private fun PreviewLayout(
 private fun PreviewCanvasDpadCluster(
     spec: OverlayCanvasDpadClusterSpec,
     visualStyle: com.sbro.emucorex.data.TouchControlVisualStyle,
+    pressEffect: com.sbro.emucorex.data.TouchControlPressEffect,
     selected: Boolean,
     onSelectControl: (String) -> Unit,
     onMoveControlBy: (String, Pair<Float, Float>) -> Unit,
@@ -834,7 +839,8 @@ private fun PreviewCanvasDpadCluster(
             alpha = if (spec.visible) spec.opacity / 100f else 0.38f,
             selected = selected,
             interactive = false,
-            visualStyle = visualStyle
+            visualStyle = visualStyle,
+            pressEffect = pressEffect
         )
     }
 }
@@ -884,6 +890,7 @@ private fun DraggableControl(
 private fun PreviewCanvasButton(
     spec: OverlayCanvasButtonSpec,
     visualStyle: com.sbro.emucorex.data.TouchControlVisualStyle,
+    pressEffect: com.sbro.emucorex.data.TouchControlPressEffect,
     selected: Boolean,
     onSelectControl: (String) -> Unit,
     onMoveControlBy: (String, Pair<Float, Float>) -> Unit,
@@ -912,7 +919,8 @@ private fun PreviewCanvasButton(
             alpha = if (spec.visible) spec.opacity / 100f else 0.38f,
             selected = selected,
             interactive = false,
-            visualStyle = visualStyle
+            visualStyle = visualStyle,
+            pressEffect = pressEffect
         )
     }
 }
@@ -970,6 +978,7 @@ private fun PreviewCanvasButtonGroup(
 private fun PreviewCanvasStick(
     spec: OverlayCanvasStickSpec,
     visualStyle: com.sbro.emucorex.data.TouchControlVisualStyle,
+    pressEffect: com.sbro.emucorex.data.TouchControlPressEffect,
     selected: Boolean,
     surfaceOnly: Boolean = false,
     panelWidth: Dp = spec.size,
@@ -1000,7 +1009,8 @@ private fun PreviewCanvasStick(
             selected = selected,
             surfaceOnly = surfaceOnly,
             interactive = false,
-            visualStyle = visualStyle
+            visualStyle = visualStyle,
+            pressEffect = pressEffect
         )
     }
 }

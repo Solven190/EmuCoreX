@@ -1670,4 +1670,11 @@
     <string name="settings_game_menu_section_controls_general">رفتار همپوشانی و صفحه‌نمایش</string>
     <string name="settings_game_menu_section_graphics_display">رندر، وضوح و نسبت تصویر</string>
     <string name="settings_game_menu_full_reset_desc">نمایش همه زبانه‌ها و بلوک‌های محتوا در ترتیب اصلی</string>
+    <string name="settings_customization_touch_press_effect">جلوه فشار</string>
+    <string name="settings_customization_touch_press_effect_help">انتخاب کنید که هر دکمه روی صفحه، جهت D-pad و استیک آنالوگ هنگام فشردن چگونه واکنش نشان دهند. این فقط انیمیشن را تغییر می‌دهد؛ اندازه کنترل و اهداف لمسی بدون تغییر باقی می‌مانند.</string>
+    <string name="settings_customization_touch_press_effect_grow">بزرگ‌نمایی</string>
+    <string name="settings_customization_touch_press_effect_shrink">فشرده‌سازی</string>
+    <string name="settings_customization_touch_press_effect_spring">فنری</string>
+    <string name="settings_customization_touch_press_effect_glow">درخشش</string>
+    <string name="settings_use_global">استفاده از تنظیمات سراسری</string>
 </resources>

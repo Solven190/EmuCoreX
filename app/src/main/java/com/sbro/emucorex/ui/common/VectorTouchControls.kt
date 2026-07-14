@@ -3,6 +3,8 @@ package com.sbro.emucorex.ui.common
 import android.view.MotionEvent
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -52,12 +54,44 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sbro.emucorex.R
+import com.sbro.emucorex.data.TouchControlPressEffect
 import com.sbro.emucorex.data.TouchControlVisualStyle
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private val OverlaySelectedStroke = Color(0xFF7CC8FF).copy(alpha = 0.88f)
 private val OverlayPreviewStroke = Color.White.copy(alpha = 0.18f)
+
+@Composable
+private fun animatedPressScale(
+    pressed: Boolean,
+    effect: TouchControlPressEffect,
+    growScale: Float,
+    label: String
+): Float {
+    val target = if (!pressed) {
+        1f
+    } else {
+        when (effect) {
+            TouchControlPressEffect.GROW -> growScale.coerceAtLeast(1f)
+            TouchControlPressEffect.SHRINK -> 0.88f
+            TouchControlPressEffect.SPRING -> 1.16f
+            TouchControlPressEffect.GLOW -> 1.06f
+        }
+    }
+    return animateFloatAsState(
+        targetValue = target,
+        animationSpec = if (effect == TouchControlPressEffect.SPRING) {
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            )
+        } else {
+            tween(durationMillis = if (effect == TouchControlPressEffect.SHRINK) 70 else 90)
+        },
+        label = label
+    ).value
+}
 
 enum class OverlayDpadDirection {
     Up,
@@ -103,19 +137,23 @@ fun VectorOverlayButton(
     interactive: Boolean = true,
     pressedScale: Float = 1.3f,
     visualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    pressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
     onClick: (() -> Unit)? = null,
     onPressChange: ((Boolean) -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if ((interactive && isPressed) || pressed) {
-            if (visualStyle == TouchControlVisualStyle.CLASSIC) pressedScale.coerceAtLeast(1f) else 0.92f
-        } else {
-            1f
-        },
-        animationSpec = tween(durationMillis = 80),
+    val isActivelyPressed = pressed || (interactive && isPressed)
+    val scale = animatedPressScale(
+        pressed = isActivelyPressed,
+        effect = pressEffect,
+        growScale = pressedScale,
         label = "vector_overlay_button_scale"
+    )
+    val glowProgress by animateFloatAsState(
+        targetValue = if (isActivelyPressed && pressEffect == TouchControlPressEffect.GLOW) 1f else 0f,
+        animationSpec = tween(durationMillis = 110),
+        label = "vector_overlay_button_glow"
     )
 
     LaunchedEffect(isPressed, onPressChange) {
@@ -154,7 +192,6 @@ fun VectorOverlayButton(
         TouchControlVisualStyle.ARCADE -> if (isFaceButton || isDirectionalButton) CircleShape else RoundedCornerShape(if (isShoulderButton) 18.dp else 12.dp)
         TouchControlVisualStyle.MINIMAL -> if (isFaceButton || isDirectionalButton) CircleShape else RoundedCornerShape(if (isShoulderButton) 8.dp else 6.dp)
     }
-    val isActivelyPressed = pressed || (interactive && isPressed)
     val styleBrush = when (visualStyle) {
         TouchControlVisualStyle.CLASSIC -> null
         TouchControlVisualStyle.LEGACY -> Brush.verticalGradient(
@@ -213,6 +250,17 @@ fun VectorOverlayButton(
                         styleShape
                     )
                 } ?: Modifier
+            )
+            .then(
+                if (glowProgress > 0.01f) {
+                    Modifier.border(
+                        width = (1.5f + glowProgress).dp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f + (glowProgress * 0.6f)),
+                        shape = styleShape
+                    )
+                } else {
+                    Modifier
+                }
             )
             .then(
                 if (selected) {
@@ -401,6 +449,7 @@ fun VectorDpadCluster(
     selected: Boolean = false,
     interactive: Boolean = true,
     visualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    pressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
     onDirectionsChange: ((Set<OverlayDpadDirection>) -> Unit)? = null
 ) {
     var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
@@ -601,6 +650,7 @@ fun VectorDpadCluster(
             pressed = activeDirections.contains(OverlayDpadDirection.Up),
             interactive = false,
             visualStyle = visualStyle,
+            pressEffect = pressEffect,
             modifier = Modifier.align(Alignment.TopCenter)
         )
         VectorOverlayButton(
@@ -611,6 +661,7 @@ fun VectorDpadCluster(
             pressed = activeDirections.contains(OverlayDpadDirection.Down),
             interactive = false,
             visualStyle = visualStyle,
+            pressEffect = pressEffect,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
         VectorOverlayButton(
@@ -621,6 +672,7 @@ fun VectorDpadCluster(
             pressed = activeDirections.contains(OverlayDpadDirection.Left),
             interactive = false,
             visualStyle = visualStyle,
+            pressEffect = pressEffect,
             modifier = Modifier.align(Alignment.CenterStart)
         )
         VectorOverlayButton(
@@ -631,6 +683,7 @@ fun VectorDpadCluster(
             pressed = activeDirections.contains(OverlayDpadDirection.Right),
             interactive = false,
             visualStyle = visualStyle,
+            pressEffect = pressEffect,
             modifier = Modifier.align(Alignment.CenterEnd)
         )
     }
@@ -649,6 +702,8 @@ fun VectorAnalogStick(
     visualY: Float = 0f,
     interactive: Boolean = true,
     visualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    pressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
+    pressed: Boolean = false,
     onClick: (() -> Unit)? = null,
     onTouchStart: (() -> Unit)? = null,
     onValueChange: ((Float, Float) -> Unit)? = null
@@ -779,11 +834,34 @@ fun VectorAnalogStick(
             TouchControlVisualStyle.MINIMAL -> RoundedCornerShape(20.dp)
         }
     }
+    val isActivelyPressed = pressed || activePointerId != MotionEvent.INVALID_POINTER_ID
+    val pressScale = animatedPressScale(
+        pressed = isActivelyPressed,
+        effect = pressEffect,
+        growScale = 1.12f,
+        label = "vector_analog_stick_scale"
+    )
+    val glowProgress by animateFloatAsState(
+        targetValue = if (isActivelyPressed && pressEffect == TouchControlPressEffect.GLOW) 1f else 0f,
+        animationSpec = tween(durationMillis = 110),
+        label = "vector_analog_stick_glow"
+    )
 
     Box(
         modifier = modifier
             .size(width = analogWidth, height = analogHeight)
-            .graphicsLayer(alpha = alpha)
+            .graphicsLayer(alpha = alpha, scaleX = pressScale, scaleY = pressScale)
+            .then(
+                if (glowProgress > 0.01f) {
+                    Modifier.border(
+                        width = (1.5f + glowProgress).dp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f + (glowProgress * 0.6f)),
+                        shape = selectionShape
+                    )
+                } else {
+                    Modifier
+                }
+            )
             .then(
                 if (selected) {
                     Modifier.border(

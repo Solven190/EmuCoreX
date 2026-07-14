@@ -20,9 +20,12 @@ import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
 import com.sbro.emucorex.core.AppLocaleManager
+import com.sbro.emucorex.core.GameLaunchShortcut
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.NativeApp
+import com.sbro.emucorex.core.PlayInAppReviewManager
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.AppFontChoice
 import com.sbro.emucorex.data.CustomFontRepository
@@ -30,12 +33,14 @@ import com.sbro.emucorex.navigation.AppNavigation
 import com.sbro.emucorex.ui.common.GamepadUiInputRouter
 import com.sbro.emucorex.ui.theme.EmuCoreXTheme
 import com.sbro.emucorex.ui.theme.ThemeMode
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 private const val LIGHT_NAVIGATION_BAR_SCRIM = 0x04000000
 private const val DARK_NAVIGATION_BAR_SCRIM = 0x0A000000
+private const val IN_APP_REVIEW_START_DELAY_MS = 1_500L
 
 class MainActivity : ComponentActivity() {
     private var appliedLanguageTag: String? = null
@@ -43,6 +48,7 @@ class MainActivity : ComponentActivity() {
     private var keepSplashVisible = true
     private var launchIntentVersion by mutableIntStateOf(0)
     private var restoredFromSavedState = false
+    private var startupReadyHandled = false
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocaleManager.wrap(newBase))
@@ -103,8 +109,31 @@ class MainActivity : ComponentActivity() {
                     restoredFromSavedState = restoredFromSavedState,
                     onStartupReady = {
                         keepSplashVisible = false
+                        if (!startupReadyHandled) {
+                            startupReadyHandled = true
+                            maybeRequestInAppReview(preferences)
+                        }
                     }
                 )
+            }
+        }
+    }
+
+    private fun maybeRequestInAppReview(preferences: AppPreferences) {
+        if (restoredFromSavedState) return
+        if (GameLaunchShortcut.parseLaunchRequest(intent) != null) return
+        if (!PlayInAppReviewManager.canRequest(this)) return
+
+        lifecycleScope.launch {
+            if (!preferences.registerInAppReviewLaunch()) return@launch
+
+            delay(IN_APP_REVIEW_START_DELAY_MS)
+            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@launch
+
+            PlayInAppReviewManager.request(this@MainActivity) {
+                lifecycleScope.launch {
+                    preferences.markInAppReviewRequested()
+                }
             }
         }
     }

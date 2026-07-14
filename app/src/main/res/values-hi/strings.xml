@@ -1655,4 +1655,11 @@
     <string name="settings_game_menu_section_controls_general">ओवरले और स्क्रीन व्यवहार</string>
     <string name="settings_game_menu_section_graphics_display">रेंडरर, रिज़ॉल्यूशन और आस्पेक्ट रेशियो</string>
     <string name="settings_game_menu_full_reset_desc">प्रत्येक टैब और सामग्री ब्लॉक को मूल क्रम में दिखाएं</string>
+    <string name="settings_customization_touch_press_effect">प्रेस प्रभाव</string>
+    <string name="settings_customization_touch_press_effect_help">चुनें कि दबाए जाने पर हर ऑन-स्क्रीन बटन, डी-पैड दिशा और एनालॉग स्टिक कैसे प्रतिक्रिया करता है। यह केवल एनीमेशन बदलता है; नियंत्रण का आकार और स्पर्श लक्ष्य अपरिवर्तित रहते हैं।</string>
+    <string name="settings_customization_touch_press_effect_grow">बड़ा करें</string>
+    <string name="settings_customization_touch_press_effect_shrink">सिकोड़ें</string>
+    <string name="settings_customization_touch_press_effect_spring">स्प्रिंग</string>
+    <string name="settings_customization_touch_press_effect_glow">चमक</string>
+    <string name="settings_use_global">ग्लोबल का उपयोग करें</string>
 </resources>

@@ -31,6 +31,7 @@ import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.TouchControlsLayoutProfile
 import com.sbro.emucorex.data.TouchControlVisualStyle
+import com.sbro.emucorex.data.TouchControlPressEffect
 import com.sbro.emucorex.data.GameMenuTabId
 import com.sbro.emucorex.data.GameMenuSectionId
 import com.sbro.emucorex.data.DefaultGameMenuTabOrder
@@ -49,6 +50,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
 
@@ -73,6 +75,7 @@ data class EmulationUiState(
     val overlayScale: Int = 100,
     val overlayOpacity: Int = 80,
     val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    val touchControlPressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
     val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
     val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
     val gameMenuSectionOrder: List<GameMenuSectionId> = DefaultGameMenuSectionOrder,
@@ -338,6 +341,8 @@ private data class LiveRuntimeSnapshot(
     val touchHaptics: Boolean,
     val touchHapticsPreset: Int,
     val touchHapticsStrength: Int,
+    val touchControlVisualStyle: TouchControlVisualStyle,
+    val touchControlPressEffect: TouchControlPressEffect,
     val gyroMode: Int,
     val gyroSensitivity: Int,
     val gyroSmoothing: Int,
@@ -564,7 +569,22 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
         viewModelScope.launch {
             preferences.touchControlVisualStyle.collect { style ->
-                _uiState.value = _uiState.value.copy(touchControlVisualStyle = style)
+                val override = withContext(Dispatchers.IO) {
+                    activePerGameKey()
+                        ?.let(perGameSettingsRepository::get)
+                        ?.touchControlVisualStyle
+                }
+                _uiState.value = _uiState.value.copy(touchControlVisualStyle = override ?: style)
+            }
+        }
+        viewModelScope.launch {
+            preferences.touchControlPressEffect.collect { effect ->
+                val override = withContext(Dispatchers.IO) {
+                    activePerGameKey()
+                        ?.let(perGameSettingsRepository::get)
+                        ?.touchControlPressEffect
+                }
+                _uiState.value = _uiState.value.copy(touchControlPressEffect = override ?: effect)
             }
         }
         viewModelScope.launch {
@@ -1614,6 +1634,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     touchHaptics = liveRuntime.touchHaptics,
                     touchHapticsPreset = liveRuntime.touchHapticsPreset,
                     touchHapticsStrength = liveRuntime.touchHapticsStrength,
+                    touchControlVisualStyle = liveRuntime.touchControlVisualStyle,
+                    touchControlPressEffect = liveRuntime.touchControlPressEffect,
                     gyroMode = liveRuntime.gyroMode,
                     gyroSensitivity = liveRuntime.gyroSensitivity,
                     gyroSmoothing = liveRuntime.gyroSmoothing,
@@ -3255,14 +3277,24 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 gameTitle = resolvePerGameTitle(updatedState),
                 gameSerial = currentGameSerial.takeIf { it.isNotBlank() }
             )
+            val visualStyleOverride = existingProfile?.touchControlVisualStyle
+                ?: runtimeProfile.touchControlVisualStyle
+            val pressEffectOverride = existingProfile?.touchControlPressEffect
+                ?: runtimeProfile.touchControlPressEffect
+            val visualOverrideKeys = buildSet {
+                if (visualStyleOverride != null) add("touchControlVisualStyle")
+                if (pressEffectOverride != null) add("touchControlPressEffect")
+            }
             val providedKeys = when {
-                touchControlsLayout == null -> runtimeProfile.providedKeys
                 runtimeProfile.providedKeys == null -> null
-                else -> runtimeProfile.providedKeys + TOUCH_CONTROLS_LAYOUT_KEY
+                touchControlsLayout == null -> runtimeProfile.providedKeys + visualOverrideKeys
+                else -> runtimeProfile.providedKeys + visualOverrideKeys + TOUCH_CONTROLS_LAYOUT_KEY
             }
             perGameSettingsRepository.save(
                 runtimeProfile.copy(
                     touchControlsLayout = touchControlsLayout,
+                    touchControlVisualStyle = visualStyleOverride,
+                    touchControlPressEffect = pressEffectOverride,
                     providedKeys = providedKeys
                 )
             )
@@ -3298,6 +3330,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         perGameSettingsRepository.delete(gameKey)
         currentTouchControlsLayoutProfile = null
         _uiState.value = _uiState.value.copy(gameSettingsProfileActive = false)
+        viewModelScope.launch {
+            val settings = preferences.settingsSnapshot.first()
+            _uiState.value = _uiState.value
+                .withOverlayLayoutSnapshot(preferences.overlayLayoutSnapshot.first())
+                .copy(
+                    touchControlVisualStyle = settings.touchControlVisualStyle,
+                    touchControlPressEffect = settings.touchControlPressEffect,
+                    gameSettingsProfileActive = false
+                )
+        }
     }
 
     private suspend fun loadLaunchConfig(): EmulationLaunchConfig {
@@ -3456,6 +3498,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             touchHaptics = settings.touchHaptics,
             touchHapticsPreset = settings.touchHapticsPreset,
             touchHapticsStrength = settings.touchHapticsStrength,
+            touchControlVisualStyle = settings.touchControlVisualStyle,
+            touchControlPressEffect = settings.touchControlPressEffect,
             gyroMode = settings.gyroMode,
             gyroSensitivity = settings.gyroSensitivity,
             gyroSmoothing = settings.gyroSmoothing,
@@ -3623,6 +3667,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             touchHaptics = pick("touchHaptics", touchHaptics) { touchHaptics },
             touchHapticsPreset = pick("touchHapticsPreset", touchHapticsPreset) { touchHapticsPreset },
             touchHapticsStrength = touchHapticsStrength,
+            touchControlVisualStyle = profile.touchControlVisualStyle ?: touchControlVisualStyle,
+            touchControlPressEffect = profile.touchControlPressEffect ?: touchControlPressEffect,
             gyroMode = pick("gyroMode", gyroMode) { gyroMode },
             gyroSensitivity = pick("gyroSensitivity", gyroSensitivity) { gyroSensitivity },
             gyroSmoothing = pick("gyroSmoothing", gyroSmoothing) { gyroSmoothing },
@@ -3722,6 +3768,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val globalRacingMode = preferences.racingMode.first()
         val globalTouchHaptics = preferences.touchHaptics.first()
         val globalTouchHapticsPreset = preferences.touchHapticsPreset.first()
+        val globalTouchControlVisualStyle = preferences.touchControlVisualStyle.first()
+        val globalTouchControlPressEffect = preferences.touchControlPressEffect.first()
         val globalGyroMode = preferences.gyroMode.first()
         val globalGyroSensitivity = preferences.gyroSensitivity.first()
         val globalGyroSmoothing = preferences.gyroSmoothing.first()
@@ -3762,6 +3810,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             racingMode = racingMode,
             touchHaptics = touchHaptics,
             touchHapticsPreset = touchHapticsPreset,
+            touchControlVisualStyle = touchControlVisualStyle.takeIf { it != globalTouchControlVisualStyle },
+            touchControlPressEffect = touchControlPressEffect.takeIf { it != globalTouchControlPressEffect },
             gyroMode = gyroMode,
             gyroSensitivity = gyroSensitivity,
             gyroSmoothing = gyroSmoothing,
@@ -3845,6 +3895,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (racingMode != globalRacingMode) add("racingMode")
             if (touchHaptics != globalTouchHaptics) add("touchHaptics")
             if (touchHapticsPreset != globalTouchHapticsPreset) add("touchHapticsPreset")
+            if (profile.touchControlVisualStyle != null) add("touchControlVisualStyle")
+            if (profile.touchControlPressEffect != null) add("touchControlPressEffect")
             if (gyroMode != globalGyroMode) add("gyroMode")
             if (gyroSensitivity != globalGyroSensitivity) add("gyroSensitivity")
             if (gyroSmoothing != globalGyroSmoothing) add("gyroSmoothing")

@@ -156,6 +156,7 @@ import com.sbro.emucorex.data.CoverArtRepository
 import com.sbro.emucorex.data.HomeBackgroundRepository
 import com.sbro.emucorex.data.HomeBackgroundType
 import com.sbro.emucorex.data.TouchControlVisualStyle
+import com.sbro.emucorex.data.TouchControlPressEffect
 import com.sbro.emucorex.data.DrawerItemId
 import com.sbro.emucorex.data.GameMenuTabId
 import com.sbro.emucorex.data.GameMenuSectionId
@@ -2976,6 +2977,8 @@ private fun CustomizationSettingsTab(
                 VectorAnalogStick(
                     analogSize = 76.dp,
                     visualStyle = uiState.touchControlVisualStyle,
+                    pressEffect = uiState.touchControlPressEffect,
+                    pressed = true,
                     interactive = false
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2984,6 +2987,7 @@ private fun CustomizationSettingsTab(
                         width = 44.dp,
                         height = 44.dp,
                         visualStyle = uiState.touchControlVisualStyle,
+                        pressEffect = uiState.touchControlPressEffect,
                         interactive = false
                     )
                     VectorOverlayButton(
@@ -2991,6 +2995,7 @@ private fun CustomizationSettingsTab(
                         width = 44.dp,
                         height = 44.dp,
                         visualStyle = uiState.touchControlVisualStyle,
+                        pressEffect = uiState.touchControlPressEffect,
                         pressed = true,
                         interactive = false
                     )
@@ -3010,6 +3015,21 @@ private fun CustomizationSettingsTab(
             onSelect = { value -> viewModel.setTouchControlVisualStyle(TouchControlVisualStyle.fromPreference(value)) },
             helpText = stringResource(R.string.settings_customization_touch_controls_help),
             onResetToDefault = { viewModel.setTouchControlVisualStyle(TouchControlVisualStyle.CLASSIC) }
+        )
+        ChoiceSection(
+            title = stringResource(R.string.settings_customization_touch_press_effect),
+            options = listOf(
+                TouchControlPressEffect.GROW.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_grow),
+                TouchControlPressEffect.SHRINK.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_shrink),
+                TouchControlPressEffect.SPRING.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_spring),
+                TouchControlPressEffect.GLOW.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_glow)
+            ),
+            selectedValue = uiState.touchControlPressEffect.preferenceValue,
+            onSelect = { value ->
+                viewModel.setTouchControlPressEffect(TouchControlPressEffect.fromPreference(value))
+            },
+            helpText = stringResource(R.string.settings_customization_touch_press_effect_help),
+            onResetToDefault = { viewModel.setTouchControlPressEffect(TouchControlPressEffect.GROW) }
         )
     }
 
@@ -4059,6 +4079,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Customization, R.string.settings_customization_font),
         entry(SettingsTab.Customization, R.string.settings_customization_font_size),
         entry(SettingsTab.Customization, R.string.settings_customization_touch_controls_style),
+        entry(SettingsTab.Customization, R.string.settings_customization_touch_press_effect),
         entry(SettingsTab.GameMenu, R.string.settings_game_menu_tabs_section),
         entry(SettingsTab.GameMenu, R.string.settings_game_menu_session_sections),
         entry(SettingsTab.Pro, R.string.settings_pro_title),

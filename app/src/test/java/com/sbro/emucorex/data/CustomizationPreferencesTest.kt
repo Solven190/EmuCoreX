@@ -45,6 +45,15 @@ class CustomizationPreferencesTest {
     }
 
     @Test
+    fun touchPressEffectFallsBackToGrowForUnknownValues() {
+        assertEquals(TouchControlPressEffect.GROW, TouchControlPressEffect.fromPreference(null))
+        assertEquals(TouchControlPressEffect.GROW, TouchControlPressEffect.fromPreference(99))
+        assertEquals(TouchControlPressEffect.SHRINK, TouchControlPressEffect.fromPreference(1))
+        assertEquals(TouchControlPressEffect.SPRING, TouchControlPressEffect.fromPreference(2))
+        assertEquals(TouchControlPressEffect.GLOW, TouchControlPressEffect.fromPreference(3))
+    }
+
+    @Test
     fun gameMenuOrderKeepsStoredOrderAndAppendsNewTabs() {
         val order = sanitizeGameMenuTabOrder("GRAPHICS,SESSION,GRAPHICS,UNKNOWN")
         assertEquals(GameMenuTabId.GRAPHICS, order[0])

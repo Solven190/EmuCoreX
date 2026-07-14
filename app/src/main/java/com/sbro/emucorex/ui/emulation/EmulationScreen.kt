@@ -162,6 +162,7 @@ import com.sbro.emucorex.data.RetroAchievementGameData
 import com.sbro.emucorex.data.RetroAchievementsRepository
 import com.sbro.emucorex.data.SettingsSnapshot
 import com.sbro.emucorex.data.TouchControlVisualStyle
+import com.sbro.emucorex.data.TouchControlPressEffect
 import com.sbro.emucorex.data.GameMenuTabId
 import com.sbro.emucorex.data.GameMenuSectionId
 import com.sbro.emucorex.data.gameMenuSectionsForTab
@@ -1133,6 +1134,7 @@ fun EmulationScreen(
                 touchHapticsPreset = uiState.touchHapticsPreset,
                 touchHapticsStrength = uiState.touchHapticsStrength,
                 visualStyle = uiState.touchControlVisualStyle,
+                pressEffect = uiState.touchControlPressEffect,
                 dpadOffset = uiState.dpadOffset,
                 lstickOffset = uiState.lstickOffset,
                 rstickOffset = uiState.rstickOffset,
@@ -1695,6 +1697,7 @@ private fun OnScreenControls(
     touchHapticsPreset: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET,
     touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
     visualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    pressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
     dpadOffset: Pair<Float, Float>,
     lstickOffset: Pair<Float, Float>,
     rstickOffset: Pair<Float, Float>,
@@ -1893,17 +1896,17 @@ private fun OnScreenControls(
 
         val leftShoulderSpecs = runtimeSpecs(layout.leftShoulders)
         if (leftShoulderSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = leftShoulderSpecs, visualStyle = visualStyle, onTouchHaptic = ::performTouchHaptic)
+            TouchButtonGroup(specs = leftShoulderSpecs, visualStyle = visualStyle, pressEffect = pressEffect, onTouchHaptic = ::performTouchHaptic)
         }
 
         val rightShoulderSpecs = runtimeSpecs(layout.rightShoulders)
         if (rightShoulderSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = rightShoulderSpecs, visualStyle = visualStyle, onTouchHaptic = ::performTouchHaptic)
+            TouchButtonGroup(specs = rightShoulderSpecs, visualStyle = visualStyle, pressEffect = pressEffect, onTouchHaptic = ::performTouchHaptic)
         }
 
         val dpadSpecs = runtimeSpecs(layout.dpadButtons)
         if (dpadSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = dpadSpecs, visualStyle = visualStyle, onTouchHaptic = ::performTouchHaptic)
+            TouchButtonGroup(specs = dpadSpecs, visualStyle = visualStyle, pressEffect = pressEffect, onTouchHaptic = ::performTouchHaptic)
         }
 
         layout.dpadCluster?.takeIf { it.visible }?.let { cluster ->
@@ -1911,6 +1914,7 @@ private fun OnScreenControls(
                 size = cluster.size,
                 alpha = cluster.opacity / 100f,
                 visualStyle = visualStyle,
+                pressEffect = pressEffect,
                 onDirectionsChange = ::updateExtraDpadDirections,
                 modifier = Modifier.offset {
                     IntOffset(cluster.x.roundToPx(), cluster.y.roundToPx())
@@ -1927,6 +1931,7 @@ private fun OnScreenControls(
                 alpha = stick.opacity / 100f,
                 surfaceOnly = stickIsSurfaceOnly(stick),
                 visualStyle = visualStyle,
+                pressEffect = pressEffect,
                 onValueChange = { x, y ->
                     updateAnalogStick(
                         x = if (invertLeftStickHorizontal) -x else x,
@@ -1947,7 +1952,7 @@ private fun OnScreenControls(
 
         val actionSpecs = runtimeSpecs(layout.actionButtons)
         if (actionSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = actionSpecs, visualStyle = visualStyle, onTouchHaptic = ::performTouchHaptic)
+            TouchButtonGroup(specs = actionSpecs, visualStyle = visualStyle, pressEffect = pressEffect, onTouchHaptic = ::performTouchHaptic)
         }
 
         layout.rightStick?.takeIf { it.visible }?.let { stick ->
@@ -1959,6 +1964,7 @@ private fun OnScreenControls(
                 alpha = stick.opacity / 100f,
                 surfaceOnly = stickIsSurfaceOnly(stick),
                 visualStyle = visualStyle,
+                pressEffect = pressEffect,
                 visualY = rightStickTriggerVisualY,
                 onValueChange = { x, y ->
                     updateRightAnalogStick(
@@ -1976,7 +1982,7 @@ private fun OnScreenControls(
 
         val centerSpecs = runtimeSpecs(layout.centerButtons)
         if (centerSpecs.isNotEmpty()) {
-            TouchButtonGroup(specs = centerSpecs, visualStyle = visualStyle, onTouchHaptic = ::performTouchHaptic)
+            TouchButtonGroup(specs = centerSpecs, visualStyle = visualStyle, pressEffect = pressEffect, onTouchHaptic = ::performTouchHaptic)
         }
     }
 }
@@ -2059,6 +2065,7 @@ private fun RetroAchievementsNotificationToast(
 private fun TouchButtonGroup(
     specs: List<TouchButtonSpec>,
     visualStyle: TouchControlVisualStyle,
+    pressEffect: TouchControlPressEffect,
     onTouchHaptic: (ButtonPhase) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2297,6 +2304,7 @@ private fun TouchButtonGroup(
                 interactive = false,
                 pressed = activeTargets.containsValue(spec.id) || latchedTargets[spec.id] == true,
                 visualStyle = visualStyle,
+                pressEffect = pressEffect,
                 modifier = Modifier.offset {
                     IntOffset(
                         (spec.x.roundToPx() - groupRect.left.roundToInt()),

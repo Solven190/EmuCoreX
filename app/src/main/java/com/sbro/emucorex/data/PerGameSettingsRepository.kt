@@ -102,6 +102,8 @@ data class PerGameSettings(
     val mergeSprite: Boolean = false,
     val forceEvenSpritePosition: Boolean = false,
     val nativePaletteDraw: Boolean = false,
+    val touchControlVisualStyle: TouchControlVisualStyle? = null,
+    val touchControlPressEffect: TouchControlPressEffect? = null,
     val touchControlsLayout: TouchControlsLayoutProfile? = null,
     val providedKeys: Set<String>? = null,
     val updatedAt: Long = System.currentTimeMillis()
@@ -322,6 +324,16 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         mergeSprite = optBoolean("mergeSprite", false),
         forceEvenSpritePosition = optBoolean("forceEvenSpritePosition", false),
         nativePaletteDraw = optBoolean("nativePaletteDraw", false),
+        touchControlVisualStyle = if (has("touchControlVisualStyle")) {
+            TouchControlVisualStyle.fromPreference(optInt("touchControlVisualStyle"))
+        } else {
+            null
+        },
+        touchControlPressEffect = if (has("touchControlPressEffect")) {
+            TouchControlPressEffect.fromPreference(optInt("touchControlPressEffect"))
+        } else {
+            null
+        },
         touchControlsLayout = optJSONObject("touchControlsLayout")?.toTouchControlsLayoutProfile(),
         providedKeys = providedKeys,
         updatedAt = optLong("updatedAt", System.currentTimeMillis())
@@ -423,6 +435,12 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("mergeSprite")) put("mergeSprite", mergeSprite)
         if (shouldWrite("forceEvenSpritePosition")) put("forceEvenSpritePosition", forceEvenSpritePosition)
         if (shouldWrite("nativePaletteDraw")) put("nativePaletteDraw", nativePaletteDraw)
+        if (shouldWrite("touchControlVisualStyle")) {
+            touchControlVisualStyle?.let { put("touchControlVisualStyle", it.preferenceValue) }
+        }
+        if (shouldWrite("touchControlPressEffect")) {
+            touchControlPressEffect?.let { put("touchControlPressEffect", it.preferenceValue) }
+        }
         if (shouldWrite("touchControlsLayout")) touchControlsLayout?.let { put("touchControlsLayout", it.toJson()) }
         put("updatedAt", updatedAt)
     }

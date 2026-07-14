@@ -1644,6 +1644,13 @@
     <string name="settings_customization_touch_controls_section">On-screen controls</string>
     <string name="settings_customization_touch_controls_style">Control style</string>
     <string name="settings_customization_touch_controls_help">Changes the complete control design: button shells, D-pad, stick rings, thumb caps, outlines, and pressed states. Positions, hit targets, multi-touch, and input behavior remain unchanged.</string>
+    <string name="settings_customization_touch_press_effect">Press effect</string>
+    <string name="settings_customization_touch_press_effect_help">Choose how every on-screen button, D-pad direction, and analog stick responds while pressed. This changes animation only; control size and touch targets stay unchanged.</string>
+    <string name="settings_customization_touch_press_effect_grow">Enlarge</string>
+    <string name="settings_customization_touch_press_effect_shrink">Compress</string>
+    <string name="settings_customization_touch_press_effect_spring">Spring</string>
+    <string name="settings_customization_touch_press_effect_glow">Glow</string>
+    <string name="settings_use_global">Use global</string>
     <string name="settings_customization_touch_style_classic">Classic</string>
     <string name="settings_customization_touch_style_glass">Legacy</string>
     <string name="settings_customization_touch_style_neon">Modern</string>

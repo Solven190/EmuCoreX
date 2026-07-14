@@ -107,6 +107,8 @@ import com.sbro.emucorex.data.GameRepository
 import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.SettingsSnapshot
+import com.sbro.emucorex.data.TouchControlPressEffect
+import com.sbro.emucorex.data.TouchControlVisualStyle
 import com.sbro.emucorex.ui.common.GameCoverArt
 import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.SettingHelpButton
@@ -1111,6 +1113,51 @@ private fun GameSettingsTabContent(
                 }
             }
             GameSettingsManagerTab.Controls -> {
+                EditorSection(title = stringResource(R.string.settings_customization_touch_controls_section)) {
+                    SelectionRow(
+                        title = stringResource(R.string.settings_customization_touch_controls_style),
+                        options = listOf(
+                            -1 to stringResource(R.string.settings_use_global),
+                            TouchControlVisualStyle.CLASSIC.preferenceValue to stringResource(R.string.settings_customization_touch_style_classic),
+                            TouchControlVisualStyle.LEGACY.preferenceValue to stringResource(R.string.settings_customization_touch_style_glass),
+                            TouchControlVisualStyle.MODERN.preferenceValue to stringResource(R.string.settings_customization_touch_style_neon),
+                            TouchControlVisualStyle.ARCADE.preferenceValue to stringResource(R.string.settings_customization_touch_style_arcade),
+                            TouchControlVisualStyle.MINIMAL.preferenceValue to stringResource(R.string.settings_customization_touch_style_minimal)
+                        ),
+                        selectedValue = draft.touchControlVisualStyle?.preferenceValue ?: -1,
+                        onSelected = { value ->
+                            onDraftChange(
+                                draft.copy(
+                                    touchControlVisualStyle = value.takeIf { it >= 0 }
+                                        ?.let { TouchControlVisualStyle.fromPreference(it) }
+                                )
+                            )
+                        },
+                        helpText = stringResource(R.string.settings_customization_touch_controls_help),
+                        onResetToDefault = { onDraftChange(draft.copy(touchControlVisualStyle = null)) }
+                    )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_customization_touch_press_effect),
+                        options = listOf(
+                            -1 to stringResource(R.string.settings_use_global),
+                            TouchControlPressEffect.GROW.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_grow),
+                            TouchControlPressEffect.SHRINK.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_shrink),
+                            TouchControlPressEffect.SPRING.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_spring),
+                            TouchControlPressEffect.GLOW.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_glow)
+                        ),
+                        selectedValue = draft.touchControlPressEffect?.preferenceValue ?: -1,
+                        onSelected = { value ->
+                            onDraftChange(
+                                draft.copy(
+                                    touchControlPressEffect = value.takeIf { it >= 0 }
+                                        ?.let { TouchControlPressEffect.fromPreference(it) }
+                                )
+                            )
+                        },
+                        helpText = stringResource(R.string.settings_customization_touch_press_effect_help),
+                        onResetToDefault = { onDraftChange(draft.copy(touchControlPressEffect = null)) }
+                    )
+                }
                 EditorSection(title = stringResource(R.string.settings_controls_tab)) {
                     ToggleRow(
                         title = stringResource(R.string.settings_racing_mode),
@@ -1498,6 +1545,47 @@ private fun GameSettingsEditorDialog(
                                 onSelected = { draft = draft.copy(aspectRatio = it) },
                                 helpText = stringResource(R.string.settings_help_aspect_ratio),
                                 onResetToDefault = { draft = draft.copy(aspectRatio = defaultProfile.aspectRatio) }
+                            )
+                        }
+                        EditorSection(title = stringResource(R.string.settings_customization_touch_controls_section)) {
+                            SelectionRow(
+                                title = stringResource(R.string.settings_customization_touch_controls_style),
+                                options = listOf(
+                                    -1 to stringResource(R.string.settings_use_global),
+                                    TouchControlVisualStyle.CLASSIC.preferenceValue to stringResource(R.string.settings_customization_touch_style_classic),
+                                    TouchControlVisualStyle.LEGACY.preferenceValue to stringResource(R.string.settings_customization_touch_style_glass),
+                                    TouchControlVisualStyle.MODERN.preferenceValue to stringResource(R.string.settings_customization_touch_style_neon),
+                                    TouchControlVisualStyle.ARCADE.preferenceValue to stringResource(R.string.settings_customization_touch_style_arcade),
+                                    TouchControlVisualStyle.MINIMAL.preferenceValue to stringResource(R.string.settings_customization_touch_style_minimal)
+                                ),
+                                selectedValue = draft.touchControlVisualStyle?.preferenceValue ?: -1,
+                                onSelected = { value ->
+                                    draft = draft.copy(
+                                        touchControlVisualStyle = value.takeIf { it >= 0 }
+                                            ?.let { TouchControlVisualStyle.fromPreference(it) }
+                                    )
+                                },
+                                helpText = stringResource(R.string.settings_customization_touch_controls_help),
+                                onResetToDefault = { draft = draft.copy(touchControlVisualStyle = null) }
+                            )
+                            SelectionRow(
+                                title = stringResource(R.string.settings_customization_touch_press_effect),
+                                options = listOf(
+                                    -1 to stringResource(R.string.settings_use_global),
+                                    TouchControlPressEffect.GROW.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_grow),
+                                    TouchControlPressEffect.SHRINK.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_shrink),
+                                    TouchControlPressEffect.SPRING.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_spring),
+                                    TouchControlPressEffect.GLOW.preferenceValue to stringResource(R.string.settings_customization_touch_press_effect_glow)
+                                ),
+                                selectedValue = draft.touchControlPressEffect?.preferenceValue ?: -1,
+                                onSelected = { value ->
+                                    draft = draft.copy(
+                                        touchControlPressEffect = value.takeIf { it >= 0 }
+                                            ?.let { TouchControlPressEffect.fromPreference(it) }
+                                    )
+                                },
+                                helpText = stringResource(R.string.settings_customization_touch_press_effect_help),
+                                onResetToDefault = { draft = draft.copy(touchControlPressEffect = null) }
                             )
                         }
                         EditorSection(title = stringResource(R.string.game_settings_manager_section_runtime)) {
@@ -3484,6 +3572,8 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         mergeSprite = pick("mergeSprite", mergeSprite, defaultProfile.mergeSprite),
         forceEvenSpritePosition = pick("forceEvenSpritePosition", forceEvenSpritePosition, defaultProfile.forceEvenSpritePosition),
         nativePaletteDraw = pick("nativePaletteDraw", nativePaletteDraw, defaultProfile.nativePaletteDraw),
+        touchControlVisualStyle = pick("touchControlVisualStyle", touchControlVisualStyle, defaultProfile.touchControlVisualStyle),
+        touchControlPressEffect = pick("touchControlPressEffect", touchControlPressEffect, defaultProfile.touchControlPressEffect),
         providedKeys = null,
         updatedAt = updatedAt
     )

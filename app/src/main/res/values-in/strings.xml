@@ -1669,4 +1669,11 @@
     <string name="settings_game_menu_section_controls_general">Perilaku overlay dan layar</string>
     <string name="settings_game_menu_section_graphics_display">Penyaji, resolusi, dan rasio aspek</string>
     <string name="settings_game_menu_full_reset_desc">Tampilkan setiap tab dan blok konten dalam urutan aslinya</string>
+    <string name="settings_customization_touch_press_effect">Efek tekan</string>
+    <string name="settings_customization_touch_press_effect_help">Pilih bagaimana setiap tombol di layar, arah D-pad, dan stik analog merespons saat ditekan. Ini hanya mengubah animasi; ukuran kontrol dan target sentuh tidak berubah.</string>
+    <string name="settings_customization_touch_press_effect_grow">Perbesar</string>
+    <string name="settings_customization_touch_press_effect_shrink">Perkecil</string>
+    <string name="settings_customization_touch_press_effect_spring">Pegas</string>
+    <string name="settings_customization_touch_press_effect_glow">Bercahaya</string>
+    <string name="settings_use_global">Gunakan global</string>
 </resources>

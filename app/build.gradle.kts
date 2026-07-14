@@ -170,6 +170,8 @@ dependencies {
     implementation(libs.androidx.documentfile)
     implementation(libs.androidx.fragment)
     implementation(libs.google.play.billing)
+    implementation(libs.google.play.review)
+    implementation(libs.google.play.review.ktx)
     implementation(libs.android.youtube.player.core)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)

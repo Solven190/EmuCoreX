@@ -28,6 +28,7 @@ import com.sbro.emucorex.data.AppFontChoice
 import com.sbro.emucorex.data.HomeBackgroundRepository
 import com.sbro.emucorex.data.HomeBackgroundType
 import com.sbro.emucorex.data.TouchControlVisualStyle
+import com.sbro.emucorex.data.TouchControlPressEffect
 import com.sbro.emucorex.data.DrawerItemId
 import com.sbro.emucorex.data.GameMenuTabId
 import com.sbro.emucorex.data.GameMenuSectionId
@@ -63,6 +64,7 @@ data class SettingsUiState(
     val homeBackgroundRevision: Int = 0,
     val homeBackgroundDim: Int = AppPreferences.DEFAULT_HOME_BACKGROUND_DIM,
     val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    val touchControlPressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
     val hiddenDrawerItems: Set<DrawerItemId> = emptySet(),
     val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
     val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
@@ -302,6 +304,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             homeBackgroundRevision = snapshot.homeBackgroundRevision,
             homeBackgroundDim = snapshot.homeBackgroundDim,
             touchControlVisualStyle = snapshot.touchControlVisualStyle,
+            touchControlPressEffect = snapshot.touchControlPressEffect,
             hiddenDrawerItems = snapshot.hiddenDrawerItems,
             gameMenuTabOrder = snapshot.gameMenuTabOrder,
             hiddenGameMenuTabs = snapshot.hiddenGameMenuTabs,
@@ -567,6 +570,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         preferences.setHiddenGameMenuSections(emptySet())
     }
 
+    fun setTouchControlPressEffect(effect: TouchControlPressEffect) = viewModelScope.launch {
+        preferences.setTouchControlPressEffect(effect)
+    }
+
     fun installHomeBackground(uri: Uri) = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(
             isBackgroundImporting = true,
@@ -602,6 +609,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         preferences.clearCustomFont()
         preferences.setAppFontScale(AppPreferences.DEFAULT_APP_FONT_SCALE)
         preferences.setTouchControlVisualStyle(TouchControlVisualStyle.CLASSIC)
+        preferences.setTouchControlPressEffect(TouchControlPressEffect.GROW)
         preferences.setHiddenDrawerItems(emptySet())
         _uiState.value = _uiState.value.copy(
             customizationMessageResId = com.sbro.emucorex.R.string.settings_customization_reset_done

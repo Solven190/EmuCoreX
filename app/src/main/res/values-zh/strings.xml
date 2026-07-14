@@ -1656,4 +1656,11 @@
     <string name="settings_game_menu_section_controls_general">叠加层与屏幕行为</string>
     <string name="settings_game_menu_section_graphics_display">渲染器、分辨率与宽高比</string>
     <string name="settings_game_menu_full_reset_desc">按原始顺序显示所有选项卡和内容块</string>
+    <string name="settings_customization_touch_press_effect">按压效果</string>
+    <string name="settings_customization_touch_press_effect_help">选择屏幕上的每个按钮、方向键方向和模拟摇杆在按下时的响应方式。这仅更改动画；控件大小和触摸目标保持不变。</string>
+    <string name="settings_customization_touch_press_effect_grow">放大</string>
+    <string name="settings_customization_touch_press_effect_shrink">压缩</string>
+    <string name="settings_customization_touch_press_effect_spring">回弹</string>
+    <string name="settings_customization_touch_press_effect_glow">发光</string>
+    <string name="settings_use_global">使用全局设置</string>
 </resources>

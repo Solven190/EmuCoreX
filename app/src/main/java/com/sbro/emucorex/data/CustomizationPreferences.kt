@@ -38,6 +38,19 @@ enum class TouchControlVisualStyle(val preferenceValue: Int) {
     }
 }
 
+/** Visual feedback only; input hit targets and controller geometry never depend on this value. */
+enum class TouchControlPressEffect(val preferenceValue: Int) {
+    GROW(0),
+    SHRINK(1),
+    SPRING(2),
+    GLOW(3);
+
+    companion object {
+        fun fromPreference(value: Int?): TouchControlPressEffect =
+            entries.firstOrNull { it.preferenceValue == value } ?: GROW
+    }
+}
+
 enum class GameMenuTabId {
     SESSION,
     CONTROLS,

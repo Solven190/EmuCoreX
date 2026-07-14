@@ -1657,4 +1657,11 @@
     <string name="settings_game_menu_section_controls_general">Overlay- und Bildschirmverhalten</string>
     <string name="settings_game_menu_section_graphics_display">Renderer, Auflösung und Seitenverhältnis</string>
     <string name="settings_game_menu_full_reset_desc">Jeden Tab und Inhaltsblock in der ursprünglichen Reihenfolge anzeigen</string>
+    <string name="settings_customization_touch_press_effect">Tastendruck-Effekt</string>
+    <string name="settings_customization_touch_press_effect_help">Wähle, wie jede Bildschirmtaste, Steuerkreuz-Richtung und jeder Analogstick beim Drücken reagiert. Dies ändert nur die Animation; Steuerungsgröße und Touch-Ziele bleiben unverändert.</string>
+    <string name="settings_customization_touch_press_effect_grow">Vergrößern</string>
+    <string name="settings_customization_touch_press_effect_shrink">Stauchen</string>
+    <string name="settings_customization_touch_press_effect_spring">Federn</string>
+    <string name="settings_customization_touch_press_effect_glow">Leuchten</string>
+    <string name="settings_use_global">Global verwenden</string>
 </resources>

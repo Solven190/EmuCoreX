@@ -1657,4 +1657,11 @@
     <string name="settings_game_menu_section_controls_general">Comportamento da sobreposição e da tela</string>
     <string name="settings_game_menu_section_graphics_display">Renderizador, resolução e proporção de tela</string>
     <string name="settings_game_menu_full_reset_desc">Mostrar todas as abas e blocos de conteúdo na ordem original</string>
+    <string name="settings_customization_touch_press_effect">Efeito de pressão</string>
+    <string name="settings_customization_touch_press_effect_help">Escolha como cada botão na tela, direção do D-pad e direcional analógico responde enquanto pressionado. Isso altera apenas a animação; o tamanho do controle e as áreas de toque permanecem inalterados.</string>
+    <string name="settings_customization_touch_press_effect_grow">Ampliar</string>
+    <string name="settings_customization_touch_press_effect_shrink">Comprimir</string>
+    <string name="settings_customization_touch_press_effect_spring">Mola</string>
+    <string name="settings_customization_touch_press_effect_glow">Brilho</string>
+    <string name="settings_use_global">Usar global</string>
 </resources>

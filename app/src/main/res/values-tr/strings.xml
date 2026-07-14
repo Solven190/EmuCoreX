@@ -1655,4 +1655,11 @@
     <string name="settings_game_menu_section_controls_general">Arayüz (Overlay) ve ekran davranışı</string>
     <string name="settings_game_menu_section_graphics_display">Oluşturucu, çözünürlük ve en boy oranı</string>
     <string name="settings_game_menu_full_reset_desc">Tüm sekmeleri ve içerik bloklarını orijinal sırayla göster</string>
+    <string name="settings_customization_touch_press_effect">Basma efekti</string>
+    <string name="settings_customization_touch_press_effect_help">Ekrandaki her düğmenin, D-pad yönünün ve analog çubuğun basıldığında nasıl tepki vereceğini seçin. Bu yalnızca animasyonu değiştirir; kontrol boyutu ve dokunma hedefleri değişmeden kalır.</string>
+    <string name="settings_customization_touch_press_effect_grow">Büyüt</string>
+    <string name="settings_customization_touch_press_effect_shrink">Küçült</string>
+    <string name="settings_customization_touch_press_effect_spring">Yay</string>
+    <string name="settings_customization_touch_press_effect_glow">Parlama</string>
+    <string name="settings_use_global">Global ayarları kullan</string>
 </resources>

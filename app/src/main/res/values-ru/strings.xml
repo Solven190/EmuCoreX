@@ -1659,4 +1659,11 @@
     <string name="settings_game_menu_section_controls_general">Поведение оверлея и экрана</string>
     <string name="settings_game_menu_section_graphics_display">Рендерер, разрешение и соотношение сторон</string>
     <string name="settings_game_menu_full_reset_desc">Показать каждую вкладку и блок контента в исходном порядке</string>
+    <string name="settings_customization_touch_press_effect">Эффект нажатия</string>
+    <string name="settings_customization_touch_press_effect_help">Выберите, как будет реагировать каждая экранная кнопка, направление крестовины и аналоговый стик при нажатии. Это меняет только анимацию; размер элементов управления и сенсорные зоны остаются без изменений.</string>
+    <string name="settings_customization_touch_press_effect_grow">Увеличение</string>
+    <string name="settings_customization_touch_press_effect_shrink">Сжатие</string>
+    <string name="settings_customization_touch_press_effect_spring">Пружина</string>
+    <string name="settings_customization_touch_press_effect_glow">Свечение</string>
+    <string name="settings_use_global">Использовать глобальные</string>
 </resources>

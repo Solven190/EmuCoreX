@@ -46,6 +46,7 @@ data class SettingsSnapshot(
     val homeBackgroundRevision: Int = 0,
     val homeBackgroundDim: Int = AppPreferences.DEFAULT_HOME_BACKGROUND_DIM,
     val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    val touchControlPressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
     val hiddenDrawerItems: Set<DrawerItemId> = emptySet(),
     val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
     val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
@@ -273,6 +274,7 @@ class AppPreferences(private val context: Context) {
         const val MIN_HOME_GRID_SCALE = 0.60f
         const val MAX_HOME_GRID_SCALE = 1.60f
         const val DEFAULT_HOME_BACKGROUND_DIM = 48
+        private const val IN_APP_REVIEW_MIN_LAUNCHES = 3
         const val MIN_FAST_FORWARD_SPEED = 1.25f
         const val MAX_FAST_FORWARD_SPEED = 5.0f
         private const val LEGACY_DEFAULT_LSTICK_OFFSET_X = 18f
@@ -375,6 +377,7 @@ class AppPreferences(private val context: Context) {
         private val HOME_BACKGROUND_REVISION = intPreferencesKey("home_background_revision")
         private val HOME_BACKGROUND_DIM = intPreferencesKey("home_background_dim")
         private val TOUCH_CONTROL_VISUAL_STYLE = intPreferencesKey("touch_control_visual_style")
+        private val TOUCH_CONTROL_PRESS_EFFECT = intPreferencesKey("touch_control_press_effect")
         private val HIDDEN_DRAWER_ITEMS = stringPreferencesKey("hidden_drawer_items")
         private val GAME_MENU_TAB_ORDER = stringPreferencesKey("game_menu_tab_order")
         private val HIDDEN_GAME_MENU_TABS = stringPreferencesKey("hidden_game_menu_tabs")
@@ -382,6 +385,8 @@ class AppPreferences(private val context: Context) {
         private val HIDDEN_GAME_MENU_SECTIONS = stringPreferencesKey("hidden_game_menu_sections")
         private val PRO_UNLOCKED = booleanPreferencesKey("pro_unlocked")
         private val WELCOME_DIALOG_SHOWN = booleanPreferencesKey("welcome_dialog_shown")
+        private val IN_APP_REVIEW_LAUNCH_COUNT = intPreferencesKey("in_app_review_launch_count")
+        private val IN_APP_REVIEW_REQUESTED = booleanPreferencesKey("in_app_review_requested")
         private val RENDERER = intPreferencesKey("renderer")
         private val UPSCALE = floatPreferencesKey("upscale_multiplier_v2")
         private val UPSCALE_LEGACY = intPreferencesKey("upscale_multiplier")
@@ -635,6 +640,10 @@ class AppPreferences(private val context: Context) {
         .map { prefs -> TouchControlVisualStyle.fromPreference(prefs[TOUCH_CONTROL_VISUAL_STYLE]) }
         .distinctUntilChanged()
 
+    val touchControlPressEffect: Flow<TouchControlPressEffect> = context.dataStore.data
+        .map { prefs -> TouchControlPressEffect.fromPreference(prefs[TOUCH_CONTROL_PRESS_EFFECT]) }
+        .distinctUntilChanged()
+
     val hiddenDrawerItems: Flow<Set<DrawerItemId>> = context.dataStore.data
         .map { prefs -> sanitizeHiddenDrawerItems(prefs[HIDDEN_DRAWER_ITEMS]) }
         .distinctUntilChanged()
@@ -714,6 +723,10 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[TOUCH_CONTROL_VISUAL_STYLE] = style.preferenceValue }
     }
 
+    suspend fun setTouchControlPressEffect(effect: TouchControlPressEffect) {
+        context.dataStore.edit { it[TOUCH_CONTROL_PRESS_EFFECT] = effect.preferenceValue }
+    }
+
     suspend fun setHiddenDrawerItems(hidden: Set<DrawerItemId>) {
         val normalized = hidden.filterNot(DrawerItemId::required).toSet()
         context.dataStore.edit {
@@ -770,6 +783,26 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setWelcomeDialogShown(shown: Boolean) {
         context.dataStore.edit { prefs -> prefs[WELCOME_DIALOG_SHOWN] = shown }
+    }
+
+    suspend fun registerInAppReviewLaunch(): Boolean {
+        var shouldRequestReview = false
+        context.dataStore.edit { prefs ->
+            if (prefs[IN_APP_REVIEW_REQUESTED] == true) return@edit
+            val previousLaunchCount = prefs[IN_APP_REVIEW_LAUNCH_COUNT] ?: 0
+            val launchCount = if (previousLaunchCount == Int.MAX_VALUE) {
+                Int.MAX_VALUE
+            } else {
+                previousLaunchCount + 1
+            }
+            prefs[IN_APP_REVIEW_LAUNCH_COUNT] = launchCount
+            shouldRequestReview = launchCount >= IN_APP_REVIEW_MIN_LAUNCHES
+        }
+        return shouldRequestReview
+    }
+
+    suspend fun markInAppReviewRequested() {
+        context.dataStore.edit { prefs -> prefs[IN_APP_REVIEW_REQUESTED] = true }
     }
 
     val renderer: Flow<Int> = context.dataStore.data.map { prefs ->
@@ -1198,6 +1231,7 @@ class AppPreferences(private val context: Context) {
                 homeBackgroundDim = (prefs[HOME_BACKGROUND_DIM] ?: DEFAULT_HOME_BACKGROUND_DIM)
                     .coerceIn(0, 85),
                 touchControlVisualStyle = TouchControlVisualStyle.fromPreference(prefs[TOUCH_CONTROL_VISUAL_STYLE]),
+                touchControlPressEffect = TouchControlPressEffect.fromPreference(prefs[TOUCH_CONTROL_PRESS_EFFECT]),
                 hiddenDrawerItems = sanitizeHiddenDrawerItems(prefs[HIDDEN_DRAWER_ITEMS]),
                 gameMenuTabOrder = sanitizeGameMenuTabOrder(prefs[GAME_MENU_TAB_ORDER]),
                 hiddenGameMenuTabs = sanitizeHiddenGameMenuTabs(prefs[HIDDEN_GAME_MENU_TABS]),
@@ -2901,6 +2935,7 @@ class AppPreferences(private val context: Context) {
             put("homeBackgroundDim", prefs[HOME_BACKGROUND_DIM] ?: DEFAULT_HOME_BACKGROUND_DIM)
             put("homeBackgroundType", prefs[HOME_BACKGROUND_TYPE] ?: HomeBackgroundType.NONE.preferenceValue)
             put("touchControlVisualStyle", prefs[TOUCH_CONTROL_VISUAL_STYLE] ?: TouchControlVisualStyle.CLASSIC.preferenceValue)
+            put("touchControlPressEffect", prefs[TOUCH_CONTROL_PRESS_EFFECT] ?: TouchControlPressEffect.GROW.preferenceValue)
             put("hiddenDrawerItems", prefs[HIDDEN_DRAWER_ITEMS] ?: "")
             put("gameMenuTabOrder", prefs[GAME_MENU_TAB_ORDER] ?: DefaultGameMenuTabOrder.joinToString(",") { it.name })
             put("hiddenGameMenuTabs", prefs[HIDDEN_GAME_MENU_TABS] ?: "")
@@ -3122,6 +3157,9 @@ class AppPreferences(private val context: Context) {
             ).preferenceValue
             prefs[TOUCH_CONTROL_VISUAL_STYLE] = TouchControlVisualStyle.fromPreference(
                 json.optInt("touchControlVisualStyle", TouchControlVisualStyle.CLASSIC.preferenceValue)
+            ).preferenceValue
+            prefs[TOUCH_CONTROL_PRESS_EFFECT] = TouchControlPressEffect.fromPreference(
+                json.optInt("touchControlPressEffect", TouchControlPressEffect.GROW.preferenceValue)
             ).preferenceValue
             prefs[HIDDEN_DRAWER_ITEMS] = sanitizeHiddenDrawerItems(json.optString("hiddenDrawerItems"))
                 .joinToString(",") { it.name }

@@ -1654,4 +1654,11 @@
     <string name="settings_game_menu_section_controls_general">오버레이 및 화면 동작</string>
     <string name="settings_game_menu_section_graphics_display">렌더러, 해상도 및 가로 세로 비율</string>
     <string name="settings_game_menu_full_reset_desc">모든 탭과 콘텐츠 블록을 원래 순서대로 표시</string>
+    <string name="settings_customization_touch_press_effect">누르기 효과</string>
+    <string name="settings_customization_touch_press_effect_help">화면의 모든 버튼, D-패드 방향 및 아날로그 스틱이 눌렸을 때 반응하는 방식을 선택하세요. 이는 애니메이션만 변경하며 컨트롤 크기와 터치 영역은 그대로 유지됩니다.</string>
+    <string name="settings_customization_touch_press_effect_grow">확대</string>
+    <string name="settings_customization_touch_press_effect_shrink">축소</string>
+    <string name="settings_customization_touch_press_effect_spring">스프링</string>
+    <string name="settings_customization_touch_press_effect_glow">글로우</string>
+    <string name="settings_use_global">글로벌 설정 사용</string>
 </resources>

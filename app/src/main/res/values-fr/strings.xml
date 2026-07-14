@@ -1657,4 +1657,11 @@
     <string name="settings_game_menu_section_controls_general">Comportement de la superposition et de l\'écran</string>
     <string name="settings_game_menu_section_graphics_display">Moteur de rendu, résolution et format d\'image</string>
     <string name="settings_game_menu_full_reset_desc">Afficher chaque onglet et bloc de contenu dans l\'ordre d\'origine</string>
+    <string name="settings_customization_touch_press_effect">Effet de pression</string>
+    <string name="settings_customization_touch_press_effect_help">Choisissez comment chaque bouton à l\'écran, direction de la croix directionnelle et stick analogique réagit lorsqu\'il est pressé. Cela ne modifie que l\'animation ; la taille des commandes et les zones tactiles restent inchangées.</string>
+    <string name="settings_customization_touch_press_effect_grow">Agrandir</string>
+    <string name="settings_customization_touch_press_effect_shrink">Compresser</string>
+    <string name="settings_customization_touch_press_effect_spring">Rebond</string>
+    <string name="settings_customization_touch_press_effect_glow">Lueur</string>
+    <string name="settings_use_global">Utiliser les paramètres globaux</string>
 </resources>

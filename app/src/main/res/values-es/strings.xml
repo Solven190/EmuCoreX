@@ -1657,4 +1657,11 @@
     <string name="settings_game_menu_section_controls_general">Comportamiento de superposición y pantalla</string>
     <string name="settings_game_menu_section_graphics_display">Renderizador, resolución y relación de aspecto</string>
     <string name="settings_game_menu_full_reset_desc">Mostrar todas las pestañas y bloques de contenido en el orden original</string>
+    <string name="settings_customization_touch_press_effect">Efecto de pulsación</string>
+    <string name="settings_customization_touch_press_effect_help">Elige cómo responde cada botón en pantalla, dirección del D-pad y joystick analógico mientras se pulsa. Esto solo cambia la animación; el tamaño del control y las áreas táctiles permanecen sin cambios.</string>
+    <string name="settings_customization_touch_press_effect_grow">Agrandar</string>
+    <string name="settings_customization_touch_press_effect_shrink">Comprimir</string>
+    <string name="settings_customization_touch_press_effect_spring">Resorte</string>
+    <string name="settings_customization_touch_press_effect_glow">Resplandor</string>
+    <string name="settings_use_global">Usar global</string>
 </resources>

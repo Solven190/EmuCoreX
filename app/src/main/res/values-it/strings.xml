@@ -1655,4 +1655,11 @@
     <string name="settings_game_menu_section_controls_general">Comportamento dell\'overlay e dello schermo</string>
     <string name="settings_game_menu_section_graphics_display">Renderer, risoluzione e proporzioni</string>
     <string name="settings_game_menu_full_reset_desc">Mostra ogni scheda e blocco di contenuto nell\'ordine originale</string>
+    <string name="settings_customization_touch_press_effect">Effetto pressione</string>
+    <string name="settings_customization_touch_press_effect_help">Scegli come risponde ogni pulsante sullo schermo, direzione del D-pad e levetta analogica mentre viene premuto. Questo modifica solo l\'animazione; le dimensioni dei comandi e i target di tocco rimangono invariati.</string>
+    <string name="settings_customization_touch_press_effect_grow">Ingrandisci</string>
+    <string name="settings_customization_touch_press_effect_shrink">Comprimi</string>
+    <string name="settings_customization_touch_press_effect_spring">Molla</string>
+    <string name="settings_customization_touch_press_effect_glow">Bagliore</string>
+    <string name="settings_use_global">Usa globale</string>
 </resources>
