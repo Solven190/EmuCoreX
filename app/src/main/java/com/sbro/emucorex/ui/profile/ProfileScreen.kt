@@ -2493,20 +2493,6 @@ private fun RevealOnEnter(
 }
 
 @Composable
-private fun LoadingRow(text: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(18.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-        Text(text = text, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
 private fun EmptyProfileState(text: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),

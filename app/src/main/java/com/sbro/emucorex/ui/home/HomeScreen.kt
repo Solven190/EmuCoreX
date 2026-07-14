@@ -143,6 +143,7 @@ import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.foundation.lazy.itemsIndexed as rowItemsIndexed
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -192,7 +193,7 @@ fun HomeScreen(
     val shouldRequestGamepadFocus = remember { GamepadManager.isGamepadConnected() }
 
     fun applyShelfSystemBarsHidden() {
-        val activity = context as? android.app.Activity ?: return
+        val activity = context as? Activity ?: return
         val window = activity.window
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         controller.systemBarsBehavior =
@@ -201,7 +202,7 @@ fun HomeScreen(
     }
 
     DisposableEffect(context, isShelfView) {
-        val activity = context as? android.app.Activity
+        val activity = context as? Activity
         val window = activity?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
 
@@ -230,7 +231,7 @@ fun HomeScreen(
     LaunchedEffect(isShelfView, context) {
         if (!isShelfView) return@LaunchedEffect
         applyShelfSystemBarsHidden()
-        delay(150)
+        delay(150.milliseconds)
         applyShelfSystemBarsHidden()
     }
     LaunchedEffect(isShelfView) {
@@ -603,7 +604,6 @@ fun HomeScreen(
             isProUnlocked = uiState.isProUnlocked,
             proPrice = uiState.proPrice,
             isProductLoading = uiState.isProProductLoading,
-            isProductAvailable = uiState.isProProductAvailable,
             isPurchaseInProgress = uiState.isProPurchaseInProgress,
             onDismiss = viewModel::dismissWelcomeDialog,
             onPurchase = {
@@ -630,7 +630,6 @@ private fun WelcomeProDialog(
     isProUnlocked: Boolean,
     proPrice: String?,
     isProductLoading: Boolean,
-    isProductAvailable: Boolean,
     isPurchaseInProgress: Boolean,
     onDismiss: () -> Unit,
     onPurchase: () -> Unit
@@ -1170,7 +1169,7 @@ private fun EmptyState(
 
 @Composable
 private fun StatusCard(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     title: String,
     isReady: Boolean,
     modifier: Modifier = Modifier

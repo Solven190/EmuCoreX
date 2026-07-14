@@ -21,18 +21,14 @@ class PlayTimeSyncCacheRepository(context: Context) {
                 val entries = readEntriesLocked().toMutableMap()
                 val key = buildCacheKey(entry)
                 val existing = entries[key]
-                entries[key] = if (existing == null) {
-                    entry
-                } else {
-                    existing.copy(
-                        title = entry.title.ifBlank { existing.title },
-                        serial = entry.serial ?: existing.serial,
-                        coverArtPath = entry.coverArtPath ?: existing.coverArtPath,
-                        durationMs = existing.durationMs + entry.durationMs,
-                        sessionCount = existing.sessionCount + entry.sessionCount,
-                        lastPlayedAtMs = maxOf(existing.lastPlayedAtMs, entry.lastPlayedAtMs)
-                    )
-                }
+                entries[key] = existing?.copy(
+                    title = entry.title.ifBlank { existing.title },
+                    serial = entry.serial ?: existing.serial,
+                    coverArtPath = entry.coverArtPath ?: existing.coverArtPath,
+                    durationMs = existing.durationMs + entry.durationMs,
+                    sessionCount = existing.sessionCount + entry.sessionCount,
+                    lastPlayedAtMs = maxOf(existing.lastPlayedAtMs, entry.lastPlayedAtMs)
+                ) ?: entry
                 writeEntriesLocked(entries.values.toList())
             }
         }
@@ -58,18 +54,14 @@ class PlayTimeSyncCacheRepository(context: Context) {
                 entries.forEach { entry ->
                     val key = buildCacheKey(entry)
                     val existing = current[key]
-                    current[key] = if (existing == null) {
-                        entry
-                    } else {
-                        existing.copy(
-                            title = entry.title.ifBlank { existing.title },
-                            serial = entry.serial ?: existing.serial,
-                            coverArtPath = entry.coverArtPath ?: existing.coverArtPath,
-                            durationMs = existing.durationMs + entry.durationMs,
-                            sessionCount = existing.sessionCount + entry.sessionCount,
-                            lastPlayedAtMs = maxOf(existing.lastPlayedAtMs, entry.lastPlayedAtMs)
-                        )
-                    }
+                    current[key] = existing?.copy(
+                        title = entry.title.ifBlank { existing.title },
+                        serial = entry.serial ?: existing.serial,
+                        coverArtPath = entry.coverArtPath ?: existing.coverArtPath,
+                        durationMs = existing.durationMs + entry.durationMs,
+                        sessionCount = existing.sessionCount + entry.sessionCount,
+                        lastPlayedAtMs = maxOf(existing.lastPlayedAtMs, entry.lastPlayedAtMs)
+                    ) ?: entry
                 }
                 writeEntriesLocked(current.values.toList())
             }

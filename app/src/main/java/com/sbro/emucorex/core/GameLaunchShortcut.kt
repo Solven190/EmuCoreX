@@ -76,23 +76,6 @@ object GameLaunchShortcut {
         return ShortcutManagerCompat.requestPinShortcut(context, shortcut, null)
     }
 
-    fun buildLaunchUri(
-        gamePath: String? = null,
-        saveSlot: Int? = null,
-        bootBios: Boolean = false
-    ): Uri {
-        val normalizedSaveSlot = normalizeSaveSlot(saveSlot)
-        return Uri.Builder()
-            .scheme(SCHEME)
-            .authority(HOST)
-            .apply {
-                gamePath?.let { appendQueryParameter("gamePath", it) }
-                normalizedSaveSlot?.let { appendQueryParameter("saveSlot", it.toString()) }
-                if (bootBios) appendQueryParameter("bootBios", "true")
-            }
-            .build()
-    }
-
     fun parseLaunchRequest(intent: Intent?): LaunchRequest? {
         intent ?: return null
         val data = intent.data
@@ -186,10 +169,10 @@ object GameLaunchShortcut {
     }
 
     private fun normalizeSaveSlot(slot: Int?): Int? {
-        return when {
-            slot == null -> null
-            slot in 1..10 -> slot
-            slot in 0..9 -> slot + 1
+        return when (slot) {
+            null -> null
+            in 1..10 -> slot
+            in 0..9 -> slot + 1
             else -> null
         }
     }

@@ -371,7 +371,6 @@ fun SettingsScreen(
             val gameKey = fileName.substringBeforeLast('.').ifBlank { "cheat_${System.currentTimeMillis()}" }
             val blockCount = cheatRepository.importCheatFile(
                 gameKey = gameKey,
-                fileName = fileName,
                 contents = contents,
                 enableAllByDefault = true
             )

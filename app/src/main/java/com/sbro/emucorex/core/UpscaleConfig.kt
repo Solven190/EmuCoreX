@@ -25,12 +25,10 @@ fun upscaleKeyToMultiplier(value: Int): Float = normalizeUpscale(value.toFloat()
 
 fun formatUpscaleLabel(value: Float, nativeLabel: String): String {
     val normalized = normalizeUpscale(value)
-    return if (normalized == UPSCALE_NATIVE_MULTIPLIER) {
-        nativeLabel
-    } else if (normalized == normalized.roundToInt().toFloat()) {
-        "${normalized.roundToInt()}x"
-    } else {
-        "${"%.2f".format(java.util.Locale.US, normalized)}x"
+    return when {
+        normalized == UPSCALE_NATIVE_MULTIPLIER -> nativeLabel
+        normalized == normalized.roundToInt().toFloat() -> "${normalized.roundToInt()}x"
+        else -> "${"%.2f".format(java.util.Locale.US, normalized)}x"
     }
 }
 

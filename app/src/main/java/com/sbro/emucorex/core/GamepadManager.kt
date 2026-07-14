@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -201,6 +202,7 @@ object GamepadManager {
     private val rumbleStatesByPad = mutableMapOf<Int, RumbleState>()
     private var lastMissingVibratorLogElapsedMs = 0L
 
+    @Suppress("ConstPropertyName")
     private object PadKey {
         const val Up = 19
         const val Right = 22
@@ -258,7 +260,7 @@ object GamepadManager {
     val connectedGamepadCountState: StateFlow<Int> = _connectedGamepadCountState
     private var connectedGamepadSnapshot: List<ConnectedGamepad> = emptyList()
 
-    fun ensureInitialized(context: android.content.Context) {
+    fun ensureInitialized(context: Context) {
         if (initialized) return
         initialized = true
         appContext = context.applicationContext
@@ -347,7 +349,7 @@ object GamepadManager {
         scope.launch {
             while (true) {
                 refreshConnectedGamepads()
-                delay(750)
+                delay(750.milliseconds)
             }
         }
         refreshConnectedGamepads()
@@ -390,8 +392,6 @@ object GamepadManager {
         return connectedGamepads().firstOrNull { it.padIndex == normalizedPadIndex }?.name
     }
 
-    fun firstConnectedControllerName(): String? = connectedGamepads().firstOrNull()?.name
-
     fun startBindingCapture(onCaptured: (Int) -> Unit) {
         startBindingCapture(0, onCaptured)
     }
@@ -433,8 +433,6 @@ object GamepadManager {
     }
 
     fun isGamepadConnected(): Boolean = connectedGamepads().isNotEmpty()
-
-    fun connectedGamepadCount(): Int = _connectedGamepadCountState.value
 
     fun resolveTouchPadIndex(): Int? {
         val connectedCount = synchronized(connectionLock) { deviceToPadIndex.size }
@@ -888,7 +886,7 @@ object GamepadManager {
     private fun refreshConnectedGamepads(): List<ConnectedGamepad> {
         val releasedAssignments = mutableListOf<Pair<Int, Int>>()
         val connectedSnapshot = synchronized(connectionLock) {
-            val connectedDevices = buildList<InputDevice> {
+            val connectedDevices = buildList {
                 for (deviceId in InputDevice.getDeviceIds()) {
                     val device = InputDevice.getDevice(deviceId) ?: continue
                     if (isGameController(device)) {

@@ -383,27 +383,6 @@ class PlayerProfileRepository(context: Context) {
         auth.signOut()
     }
 
-    suspend fun recordPlayTime(
-        gamePath: String?,
-        title: String,
-        serial: String?,
-        coverArtPath: String?,
-        durationMs: Long
-    ) {
-        recordPlayTimeBatch(
-            listOf(
-                PlayerPlayTimeDelta(
-                    gamePath = gamePath,
-                    title = title,
-                    serial = serial,
-                    coverArtPath = coverArtPath,
-                    durationMs = durationMs,
-                    sessionCount = 1L
-                )
-            )
-        )
-    }
-
     suspend fun recordPlayTimeBatch(entries: List<PlayerPlayTimeDelta>) {
         val user = auth.currentUser ?: return
         val validEntries = entries
@@ -423,7 +402,6 @@ class PlayerProfileRepository(context: Context) {
         if (validEntries.isEmpty()) return
 
         val latestEntry = validEntries.maxBy { it.second.lastPlayedAtMs }.second
-        val nowMs = System.currentTimeMillis()
         val latestTitle = latestEntry.title.ifBlank { latestEntry.gamePath.orEmpty().substringAfterLast('/').substringBeforeLast('.') }
         val cleanName = user.displayName.cleanDisplayName(user.email)
         val photoURL = user.bestPhotoUrl().orEmpty()
@@ -685,10 +663,6 @@ class PlayerProfileRepository(context: Context) {
         )
     }
 
-    private fun Map.Entry<String, Any?>.toPlayerGamePlayStat(): PlayerGamePlayStat? {
-        return value.toPlayerGamePlayStat(key)
-    }
-
     private fun Any?.toPlayerGamePlayStat(gameKey: String): PlayerGamePlayStat? {
         val map = toGameMap()
         val title = map.stringValue(GAME_TITLE).takeIf { it.isNotBlank() } ?: return null
@@ -712,7 +686,7 @@ class PlayerProfileRepository(context: Context) {
     private fun DocumentSnapshot.stringList(field: String): List<String> {
         return (get(field) as? List<*>)
             .orEmpty()
-            .mapNotNull { it as? String }
+            .filterIsInstance<String>()
     }
 
     private fun Any?.toGameMap(): Map<String, Any?> {
@@ -735,15 +709,16 @@ class PlayerProfileRepository(context: Context) {
     }
 
     private fun Map<String, Any?>.toPublicGameData(): Map<String, Any> {
+        val source = this
         return buildMap {
-            put(GAME_TITLE, stringValue(GAME_TITLE).ifBlank { DEFAULT_GAME_TITLE }.take(MAX_GAME_TITLE_LENGTH))
-            put(GAME_TOTAL_MS, longValue(GAME_TOTAL_MS).coerceAtLeast(0L))
-            put(GAME_SESSIONS, longValue(GAME_SESSIONS).coerceAtLeast(0L))
-            put(GAME_LAST_PLAYED_AT_MS, longValue(GAME_LAST_PLAYED_AT_MS).coerceAtLeast(0L))
-            stringValue(GAME_SERIAL).takeIf { it.isNotBlank() }?.let {
+            put(GAME_TITLE, source.stringValue(GAME_TITLE).ifBlank { DEFAULT_GAME_TITLE }.take(MAX_GAME_TITLE_LENGTH))
+            put(GAME_TOTAL_MS, source.longValue(GAME_TOTAL_MS).coerceAtLeast(0L))
+            put(GAME_SESSIONS, source.longValue(GAME_SESSIONS).coerceAtLeast(0L))
+            put(GAME_LAST_PLAYED_AT_MS, source.longValue(GAME_LAST_PLAYED_AT_MS).coerceAtLeast(0L))
+            source.stringValue(GAME_SERIAL).takeIf { it.isNotBlank() }?.let {
                 put(GAME_SERIAL, it.take(MAX_SERIAL_LENGTH))
             }
-            stringValue(GAME_COVER_ART_PATH)
+            source.stringValue(GAME_COVER_ART_PATH)
                 .takeIf { it.startsWith("https://") || it.startsWith("http://") }
                 ?.let { put(GAME_COVER_ART_PATH, it.take(MAX_COVER_PATH_LENGTH)) }
         }

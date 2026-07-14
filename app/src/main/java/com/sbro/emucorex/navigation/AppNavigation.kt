@@ -123,9 +123,6 @@ data class SaveManagerRoute(val gamePath: String? = null, val gameTitle: String?
 object MemoryCardManagerRoute
 
 @Serializable
-object ControlsEditorRoute
-
-@Serializable
 object GpuDriverSettingsRoute
 
 @Serializable

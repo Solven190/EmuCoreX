@@ -44,6 +44,7 @@ object NativeApp {
     }
 
     @JvmStatic external fun initialize(path: String, apiVer: Int)
+    @Suppress("unused") // Exported JNI entry point retained for native data-root reloads.
     @JvmStatic external fun reloadDataRoot(path: String)
     @JvmStatic external fun setSystemCaBundlePath(path: String)
     @JvmStatic external fun getGameTitle(path: String): String?
@@ -62,6 +63,7 @@ object NativeApp {
     @JvmStatic external fun setAspectRatio(type: Int)
     @JvmStatic external fun renderUpscalemultiplier(value: Float)
     @JvmStatic external fun getMaxUpscaleMultiplier(renderer: Int): Int
+    @Suppress("unused") // Exported JNI entry point retained for renderer compatibility.
     @JvmStatic external fun renderGpu(value: Int)
     @JvmStatic external fun setCustomDriverPath(path: String)
     @JvmStatic external fun setNativeLibraryDir(path: String)
@@ -86,6 +88,7 @@ object NativeApp {
     @JvmStatic external fun shutdown()
     @JvmStatic external fun refreshBIOS()
     @JvmStatic external fun hasValidVm(): Boolean
+    @Suppress("unused") // Exported JNI entry point retained for native game metadata.
     @JvmStatic external fun getGameSerial(): String?
     @JvmStatic external fun saveStateToSlot(slot: Int): Boolean
     @JvmStatic external fun loadStateFromSlot(slot: Int): Boolean
@@ -154,6 +157,7 @@ object NativeApp {
     }
 
     @JvmStatic
+    @Suppress("unused") // Called from C++ with GetStaticMethodID; there is no Kotlin call site.
     fun onRetroAchievementsNotification(kind: String?, title: String?, message: String?, imagePath: String?) {
         RetroAchievementsBridge.notifyNotification(kind, title, message, imagePath)
     }

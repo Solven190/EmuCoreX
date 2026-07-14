@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 
 enum class GameDbFilter {
     ALL,
@@ -55,7 +56,7 @@ class GameDbBrowserViewModel(application: Application) : AndroidViewModel(applic
 
     private val searchState = combine(
         query,
-        query.debounce(120),
+        query.debounce(120.milliseconds),
         filter
     ) { rawQuery, debouncedQuery, currentFilter ->
         Triple(rawQuery, debouncedQuery, currentFilter)

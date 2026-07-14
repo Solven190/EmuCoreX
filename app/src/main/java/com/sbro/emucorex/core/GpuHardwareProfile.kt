@@ -40,10 +40,10 @@ object GpuHardwareProfiles {
 
     private fun buildHardwareHints(): String {
         val socManufacturer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Build.SOC_MANUFACTURER.orEmpty()
+            Build.SOC_MANUFACTURER
         } else { "" }
         val socModel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Build.SOC_MODEL.orEmpty()
+            Build.SOC_MODEL
         } else { "" }
         val hardware = listOf(Build.HARDWARE, Build.BOARD, Build.DEVICE)
             .filterNot { it.isNullOrBlank() }

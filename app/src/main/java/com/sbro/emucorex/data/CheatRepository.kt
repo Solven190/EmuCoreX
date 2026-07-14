@@ -76,12 +76,11 @@ class CheatRepository(private val context: Context) {
     }
 
     fun updateImportedCheatText(gameKey: String, contents: String) {
-        importCheatFile(gameKey = gameKey, fileName = "$gameKey.pnach", contents = contents)
+        importCheatFile(gameKey = gameKey, contents = contents)
     }
 
     fun importCheatFile(
         gameKey: String,
-        fileName: String,
         contents: String,
         enableAllByDefault: Boolean = false
     ): Int {

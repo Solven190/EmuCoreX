@@ -14,11 +14,12 @@ import java.util.Locale
 import kotlin.math.min
 
 object ImageConversionManager {
-    private const val chdHeaderSize = 124
-    private const val chdVersionV5 = 5
-    private const val defaultHunkBytes = 0x80000
-    private const val defaultUnitBytes = 2048
-    private const val ioBufferSize = 64 * 1024
+    private const val CHD_HEADER_SIZE = 124
+    private const val CHD_VERSION_V5 = 5
+    private const val DEFAULT_HUNK_BYTES = 0x80000
+    private const val DEFAULT_UNIT_BYTES = 2048
+    private const val IO_BUFFER_SIZE = 64 * 1024
+    private const val MAP_ENTRY_BYTES = 4L
 
     val libraryFormats = listOf("ISO", "BIN", "IMG", "MDF", "GZ", "CSO", "ZSO", "CHD", "ELF")
     val recommendedFormats = listOf("ISO", "CHD", "BIN")
@@ -163,19 +164,19 @@ object ImageConversionManager {
         }
 
         val isoSize = inputFile.length()
-        val hunkBytes = defaultHunkBytes.toLong()
+        val hunkBytes = DEFAULT_HUNK_BYTES.toLong()
         val hunkCount = if (isoSize == 0L) 0L else (isoSize + hunkBytes - 1L) / hunkBytes
         if (hunkCount > UInt.MAX_VALUE.toLong()) {
             return -7
         }
 
-        val mapSize = safeMultiply(hunkCount, 4L) ?: return -8
-        val mapOffset = chdHeaderSize.toLong()
+        val mapSize = safeMultiplyByMapEntrySize(hunkCount) ?: return -8
+        val mapOffset = CHD_HEADER_SIZE.toLong()
         val mapEnd = safeAdd(mapOffset, mapSize) ?: return -8
         val dataOffset = if (hunkCount == 0L) {
             mapEnd
         } else {
-            alignUp(mapEnd, hunkBytes) ?: return -8
+            alignUpToHunk(mapEnd) ?: return -8
         }
         val baseHunkIndex = if (hunkCount == 0L) 0L else dataOffset / hunkBytes
         if (baseHunkIndex > UInt.MAX_VALUE.toLong()) {
@@ -186,7 +187,7 @@ object ImageConversionManager {
             FileInputStream(inputFile).use { input ->
                 RandomAccessFile(outputFile, "rw").use { output ->
                     output.setLength(0L)
-                    output.write(ByteArray(chdHeaderSize))
+                    output.write(ByteArray(CHD_HEADER_SIZE))
                     repeat(hunkCount.toInt()) { index ->
                         output.writeInt((baseHunkIndex + index).toInt())
                     }
@@ -197,8 +198,8 @@ object ImageConversionManager {
                     }
 
                     val sha1 = MessageDigest.getInstance("SHA-1")
-                    val hunkBuffer = ByteArray(defaultHunkBytes)
-                    val copyBuffer = ByteArray(ioBufferSize)
+                    val hunkBuffer = ByteArray(DEFAULT_HUNK_BYTES)
+                    val copyBuffer = ByteArray(IO_BUFFER_SIZE)
                     var bytesRemaining = isoSize
 
                     repeat(hunkCount.toInt()) {
@@ -220,7 +221,7 @@ object ImageConversionManager {
 
                     val digest = sha1.digest()
                     output.seek(0L)
-                    output.write(chdHeader(digest, isoSize, mapOffset))
+                    output.write(chdHeader(digest, isoSize))
                 }
             }
             0
@@ -235,22 +236,22 @@ object ImageConversionManager {
         }
     }
 
-    private fun chdHeader(sha1: ByteArray, logicalBytes: Long, mapOffset: Long): ByteArray {
-        val header = ByteArray(chdHeaderSize)
+    private fun chdHeader(sha1: ByteArray, logicalBytes: Long): ByteArray {
+        val header = ByteArray(CHD_HEADER_SIZE)
         val magic = "MComprHD".encodeToByteArray()
         magic.copyInto(header, endIndex = magic.size)
 
-        writeIntBe(header, 8, chdHeaderSize)
-        writeIntBe(header, 12, chdVersionV5)
+        writeIntBe(header, 8, CHD_HEADER_SIZE)
+        writeIntBe(header, 12, CHD_VERSION_V5)
         writeIntBe(header, 16, 0)
         writeIntBe(header, 20, 0)
         writeIntBe(header, 24, 0)
         writeIntBe(header, 28, 0)
         writeLongBe(header, 32, logicalBytes)
-        writeLongBe(header, 40, mapOffset)
+        writeLongBe(header, 40, CHD_HEADER_SIZE.toLong())
         writeLongBe(header, 48, 0L)
-        writeIntBe(header, 56, defaultHunkBytes)
-        writeIntBe(header, 60, defaultUnitBytes)
+        writeIntBe(header, 56, DEFAULT_HUNK_BYTES)
+        writeIntBe(header, 60, DEFAULT_UNIT_BYTES)
         sha1.copyInto(header, destinationOffset = 64)
         sha1.copyInto(header, destinationOffset = 84)
         return header
@@ -258,7 +259,7 @@ object ImageConversionManager {
 
     private fun writeZeroPadding(output: RandomAccessFile, byteCount: Long) {
         if (byteCount <= 0L) return
-        val zeros = ByteArray(min(ioBufferSize.toLong(), byteCount).toInt())
+        val zeros = ByteArray(min(IO_BUFFER_SIZE.toLong(), byteCount).toInt())
         var remaining = byteCount
         while (remaining > 0L) {
             val chunkSize = min(remaining, zeros.size.toLong()).toInt()
@@ -307,18 +308,18 @@ object ImageConversionManager {
         return if (Long.MAX_VALUE - left < right) null else left + right
     }
 
-    private fun safeMultiply(left: Long, right: Long): Long? {
-        return if (left == 0L || right == 0L) {
+    private fun safeMultiplyByMapEntrySize(value: Long): Long? {
+        return if (value == 0L) {
             0L
-        } else if (left > Long.MAX_VALUE / right) {
+        } else if (value > Long.MAX_VALUE / MAP_ENTRY_BYTES) {
             null
         } else {
-            left * right
+            value * MAP_ENTRY_BYTES
         }
     }
 
-    private fun alignUp(value: Long, alignment: Long): Long? {
-        if (alignment == 0L) return value
+    private fun alignUpToHunk(value: Long): Long? {
+        val alignment = DEFAULT_HUNK_BYTES.toLong()
         val remainder = value % alignment
         if (remainder == 0L) return value
         return safeAdd(value, alignment - remainder)

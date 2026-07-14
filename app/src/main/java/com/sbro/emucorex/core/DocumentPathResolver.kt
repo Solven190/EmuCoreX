@@ -171,16 +171,6 @@ object DocumentPathResolver {
         return normalizeDisplayName(rawPath, uri)
     }
 
-    fun getFileSize(context: Context, rawPath: String): Long {
-        if (!rawPath.startsWith("content://")) {
-            val file = File(rawPath)
-            return if (file.exists()) file.length() else 0L
-        }
-
-        val uri = rawPath.toUri()
-        return DocumentFile.fromSingleUri(context, uri)?.length() ?: 0L
-    }
-
     fun prepareElfLaunchPath(context: Context, rawPath: String): String? {
         if (rawPath.isBlank()) return null
         if (!rawPath.startsWith("content://")) return File(rawPath).takeIf { it.isFile && it.canRead() }?.absolutePath ?: rawPath
@@ -208,10 +198,8 @@ object DocumentPathResolver {
             if (direct.isFile && direct.canRead()) return direct.absolutePath
 
             val uri = findAccessibleTreeUriForRawPath(context, rawPath)
-            if (uri == null) {
-                return if (isScopedStorageExternalPath(rawPath)) null else rawPath
-            }
-            return prepareUriGameLaunchPath(context, uri, direct.name)
+                ?: return if (isScopedStorageExternalPath(rawPath)) null else rawPath
+            return prepareUriGameLaunchPath(context, uri)
         }
 
         val uri = rawPath.toUri()
@@ -221,13 +209,13 @@ object DocumentPathResolver {
             ?.absolutePath
         if (!directPath.isNullOrBlank()) return directPath
 
-        return prepareUriGameLaunchPath(context, uri, getDisplayName(context, rawPath))
+        return prepareUriGameLaunchPath(context, uri)
     }
 
     fun releasePreparedLaunchHandles() {
     }
 
-    private fun prepareUriGameLaunchPath(context: Context, uri: Uri, displayName: String): String? {
+    private fun prepareUriGameLaunchPath(context: Context, uri: Uri): String {
         val resolvedDirect = resolveFilePath(context, uri.toString())
             ?.let(::File)
             ?.takeIf { it.isFile && it.canRead() }

@@ -14,6 +14,8 @@ class AndroidGyroscopeInput(
     private val onAnalog: (mode: Int, x: Float, y: Float) -> Unit
 ) : SensorEventListener {
     companion object {
+        private const val INPUT_DEADZONE = 0.035f
+
         fun isModeAvailable(context: Context, mode: Int): Boolean {
             val manager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
             return when (mode) {
@@ -61,14 +63,6 @@ class AndroidGyroscopeInput(
         return sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME)
     }
 
-    fun recenter() {
-        steeringCenter = null
-        filteredX = 0f
-        filteredY = 0f
-        wasActive = false
-        onAnalog(mode, 0f, 0f)
-    }
-
     fun stop() {
         activeSensor?.let { sensorManager.unregisterListener(this, it) }
         activeSensor = null
@@ -85,8 +79,8 @@ class AndroidGyroscopeInput(
             2 -> steeringValues(event)
             else -> return
         }
-        var x = applyDeadzone(raw.first.coerceIn(-1f, 1f), 0.035f)
-        var y = applyDeadzone(raw.second.coerceIn(-1f, 1f), 0.035f)
+        var x = applyDeadzone(raw.first.coerceIn(-1f, 1f))
+        var y = applyDeadzone(raw.second.coerceIn(-1f, 1f))
         if (invertX) x = -x
         if (invertY) y = -y
         val alpha = (1f - smoothing * 0.86f).coerceIn(0.16f, 1f)
@@ -141,10 +135,10 @@ class AndroidGyroscopeInput(
         return (delta / steeringRange * sensitivity).coerceIn(-1f, 1f) to 0f
     }
 
-    private fun applyDeadzone(value: Float, deadzone: Float): Float {
+    private fun applyDeadzone(value: Float): Float {
         val magnitude = kotlin.math.abs(value)
-        if (magnitude <= deadzone) return 0f
-        return kotlin.math.sign(value) * ((magnitude - deadzone) / (1f - deadzone))
+        if (magnitude <= INPUT_DEADZONE) return 0f
+        return kotlin.math.sign(value) * ((magnitude - INPUT_DEADZONE) / (1f - INPUT_DEADZONE))
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit

@@ -4,9 +4,7 @@ import android.content.Context
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import android.view.Surface
-import androidx.core.net.toUri
 import com.sbro.emucorex.data.AppPreferences
-import com.sbro.emucorex.core.CrashLogger
 import com.sbro.emucorex.core.utils.NetworkAdapterCollector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,13 +18,13 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.lang.ref.WeakReference
 import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 
 object EmulatorBridge {
     private const val TAG = "EmulatorBridge"
     const val AUTO_RENDERER = RendererDefaults.AUTO
     const val OPENGL_RENDERER = RendererDefaults.OPENGL
     const val VULKAN_RENDERER = RendererDefaults.VULKAN
-    const val DEFAULT_RENDERER = RendererDefaults.DEFAULT
     private const val ANGLE_EGL_LIBRARY_NAME = "libEGL_angle.so"
     private const val ANGLE_GLES_LIBRARY_NAME = "libGLESv2_angle.so"
     private const val BOOT_SMOKE_PROBE_STEPS = 67_108_864
@@ -479,12 +477,7 @@ object EmulatorBridge {
         } else {
             ""
         }
-        val directEeRecompiler = enableEeRecompiler
-        val directIopRecompiler = enableIopRecompiler
-        val directVu0Recompiler = enableVu0Recompiler
-        val directVu1Recompiler = enableVu1Recompiler
-        val directMtvu = mtvu && directVu1Recompiler
-        val directInstantVu1 = instantVu1
+        val directMtvu = mtvu && enableVu1Recompiler
         val directEeFpuRoundMode = sanitizeFloatRoundMode(eeFpuRoundMode, AppPreferences.DEFAULT_EE_FPU_ROUND_MODE)
         val directVu0RoundMode = sanitizeFloatRoundMode(vu0RoundMode, AppPreferences.DEFAULT_VU_ROUND_MODE)
         val directVu1RoundMode = sanitizeFloatRoundMode(vu1RoundMode, AppPreferences.DEFAULT_VU_ROUND_MODE)
@@ -493,10 +486,10 @@ object EmulatorBridge {
         val directVu1ClampingMode = sanitizeClampingMode(vu1ClampingMode, AppPreferences.DEFAULT_VU1_CLAMPING_MODE)
         Log.i(
             "EmuCoreX",
-            "android jit: requested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack mtvu:$mtvu instantVu1:$instantVu1} direct={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem} round={ee:$directEeFpuRoundMode vu0:$directVu0RoundMode vu1:$directVu1RoundMode} clamp={ee:$directEeFpuClampingMode vu0:$directVu0ClampingMode vu1:$directVu1ClampingMode}"
+            "android jit: requested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack mtvu:$mtvu instantVu1:$instantVu1} direct={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler mtvu:$directMtvu instantVu1:$instantVu1 fastmem:$enableFastmem} round={ee:$directEeFpuRoundMode vu0:$directVu0RoundMode vu1:$directVu1RoundMode} clamp={ee:$directEeFpuClampingMode vu0:$directVu0ClampingMode vu1:$directVu1ClampingMode}"
         )
         NativeApp.logCrashBreadcrumb(
-            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode directJit={ee:$directEeRecompiler iop:$directIopRecompiler vu0:$directVu0Recompiler vu1:$directVu1Recompiler mtvu:$directMtvu instantVu1:$directInstantVu1 fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack fastBoot:$enableFastBoot fastCdvd:$fastCdvd} round={ee:$directEeFpuRoundMode vu0:$directVu0RoundMode vu1:$directVu1RoundMode} clamp={ee:$directEeFpuClampingMode vu0:$directVu0ClampingMode vu1:$directVu1ClampingMode} gameFixes={auto:$enableGameFixes eeTiming:$eeTimingHack} jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
+            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode directJit={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler mtvu:$directMtvu instantVu1:$instantVu1 fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack fastBoot:$enableFastBoot fastCdvd:$fastCdvd} round={ee:$directEeFpuRoundMode vu0:$directVu0RoundMode vu1:$directVu1RoundMode} clamp={ee:$directEeFpuClampingMode vu0:$directVu0ClampingMode vu1:$directVu1ClampingMode} gameFixes={auto:$enableGameFixes eeTiming:$eeTimingHack} jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
         )
         val prefs = AppPreferences(context)
         val achievementsHardcore = prefs.getAchievementsHardcoreSync()
@@ -546,10 +539,10 @@ object EmulatorBridge {
                 add(settingOp("Filenames", "BIOS", "string", preferredBiosFile.orEmpty()))
                 add(refreshBiosOp())
                 add(settingOp("EmuCoreX", "OpenGLTextureDebugLog", "bool", (resolvedRenderer == 12).toString()))
-                add(settingOp("EmuCore/CPU/Recompiler", "EnableEE", "bool", directEeRecompiler.toString()))
-                add(settingOp("EmuCore/CPU/Recompiler", "EnableIOP", "bool", directIopRecompiler.toString()))
-                add(settingOp("EmuCore/CPU/Recompiler", "EnableVU0", "bool", directVu0Recompiler.toString()))
-                add(settingOp("EmuCore/CPU/Recompiler", "EnableVU1", "bool", directVu1Recompiler.toString()))
+                add(settingOp("EmuCore/CPU/Recompiler", "EnableEE", "bool", enableEeRecompiler.toString()))
+                add(settingOp("EmuCore/CPU/Recompiler", "EnableIOP", "bool", enableIopRecompiler.toString()))
+                add(settingOp("EmuCore/CPU/Recompiler", "EnableVU0", "bool", enableVu0Recompiler.toString()))
+                add(settingOp("EmuCore/CPU/Recompiler", "EnableVU1", "bool", enableVu1Recompiler.toString()))
                 add(settingOp("EmuCore/CPU/Recompiler", "EnableFastmem", "bool", enableFastmem.toString()))
                 add(settingOp("EmuCore/CPU", "FPU.Roundmode", "int", directEeFpuRoundMode.toString()))
                 add(settingOp("EmuCore/CPU", "VU0.Roundmode", "int", directVu0RoundMode.toString()))
@@ -782,7 +775,7 @@ object EmulatorBridge {
         val job = inputScope.launch {
             try {
                 setAutoProgressiveScanButtons(pressed = true)
-                delay(AUTO_PROGRESSIVE_SCAN_HOLD_MS)
+                delay(AUTO_PROGRESSIVE_SCAN_HOLD_MS.milliseconds)
             } finally {
                 setAutoProgressiveScanButtons(pressed = false)
                 if (autoProgressiveScanJob === coroutineContext[Job]) {
@@ -1093,17 +1086,6 @@ object EmulatorBridge {
         }
     }
 
-    fun hasSaveStateForGame(path: String, slot: Int): Boolean {
-        if (!isNativeLoaded) return false
-        if (path.startsWith("/") && !File(path).exists()) return false
-        val statePath = try {
-            NativeApp.getSaveStatePathForFile(path, slot)
-        } catch (_: Exception) {
-            null
-        } ?: return false
-        return File(statePath).exists()
-    }
-
     suspend fun setRenderer(gpuType: Int) {
         val resolvedRenderer = normalizeRenderer(gpuType)
         settingsCache["EmuCore/GS:Renderer"] = resolvedRenderer.toString()
@@ -1135,19 +1117,6 @@ object EmulatorBridge {
         }
         settingsCache["EmuCore/GS:CustomDriverPath"] = resolvedPath
         performRuntimeOps(listOf(customDriverOp(resolvedPath)))
-    }
-
-    suspend fun setGpuHardwareProfile(profile: Int) {
-        val normalized = GpuHardwareProfiles.normalize(profile)
-        val override = GpuHardwareProfiles.coreOverrideFor(normalized)
-        settingsCache["EmuCoreX:GpuHardwareProfile"] = normalized.toString()
-        NativeApp.setCrashContextString("emu_gpu_profile", override)
-        performRuntimeOps(
-            listOf(
-                settingOp("EmuCore/GS", "AndroidGpuProfileOverride", "string", override),
-                settingOp("EmuCoreX", "GpuHardwareProfile", "int", normalized.toString())
-            )
-        )
     }
 
     suspend fun setFrameLimitEnabled(enabled: Boolean) {
@@ -1195,10 +1164,6 @@ object EmulatorBridge {
                 add(settingOp("Framerate", "NominalScalar", "float", "1.0"))
             }
         )
-    }
-
-    fun setPadButton(index: Int, range: Int, pressed: Boolean) {
-        setPadButton(0, index, range, pressed)
     }
 
     fun setPadButton(padIndex: Int, index: Int, range: Int, pressed: Boolean) {

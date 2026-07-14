@@ -40,7 +40,7 @@ data class ProPurchaseState(
     val isProductAvailable: Boolean = false,
     val productTitle: String? = null,
     val productPrice: String? = null,
-    @StringRes val messageResId: Int? = null
+    @param:StringRes val messageResId: Int? = null
 )
 
 class ProPurchaseManager private constructor(context: Context) : PurchasesUpdatedListener {

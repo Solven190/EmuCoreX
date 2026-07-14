@@ -57,8 +57,7 @@ object CrashLogger {
 
     private fun resolveLogFile(context: Context): File? {
         return try {
-            val dir = (context.getExternalFilesDir(null) ?: context.filesDir)
-                .let { File(it, LOG_DIR) }
+            val dir = File(context.getExternalFilesDir(null) ?: context.filesDir, LOG_DIR)
             if (!dir.exists()) dir.mkdirs()
             File(dir, LOG_FILE)
         } catch (e: Exception) {

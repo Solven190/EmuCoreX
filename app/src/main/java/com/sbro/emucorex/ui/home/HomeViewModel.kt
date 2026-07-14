@@ -38,6 +38,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.text.Normalizer
+import kotlin.time.Duration.Companion.milliseconds
 
 enum class HomeSortOption {
     TITLE_ASC,
@@ -351,7 +352,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(searchQuery = query)
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            delay(180)
+            delay(180.milliseconds)
             publishVisibleGames()
         }
     }
@@ -525,7 +526,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 while (true) {
                     if (EmulatorBridge.isVmActive()) {
-                        delay(1500)
+                        delay(1500.milliseconds)
                         continue
                     }
 

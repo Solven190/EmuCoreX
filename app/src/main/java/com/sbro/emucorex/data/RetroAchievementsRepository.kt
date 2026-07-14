@@ -64,9 +64,6 @@ data class RetroAchievementGameData(
     val totalCount: Int
         get() = totalCountOverride ?: achievements.size
 
-    val earnedHardcoreCount: Int
-        get() = earnedHardcoreCountOverride ?: achievements.count { it.earnedHardcore }
-
     val earnedPoints: Int
         get() = earnedPointsOverride ?: achievements.filter { it.isEarned }.sumOf { it.points }
 

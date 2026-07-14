@@ -98,6 +98,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.time.Duration.Companion.milliseconds
 
 private data class HubContentState(
     val isLoading: Boolean = true,
@@ -563,7 +564,7 @@ private suspend fun loadActiveRetroAchievementsGameDataWithRetry(
             return data
         }
         if (attempt < 7) {
-            delay(500)
+            delay(500.milliseconds)
             RetroAchievementsStateManager.refreshState(invalidateCaches = false)
         }
     }

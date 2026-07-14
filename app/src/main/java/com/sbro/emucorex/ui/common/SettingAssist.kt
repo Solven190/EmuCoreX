@@ -1,11 +1,5 @@
 package com.sbro.emucorex.ui.common
 
-import android.view.WindowManager
-import android.view.Gravity
-import android.graphics.Color
-import android.os.Build
-import android.view.View
-import android.view.WindowInsets
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -35,21 +29,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.core.graphics.drawable.toDrawable
 import com.sbro.emucorex.R
 
 @Composable
@@ -240,57 +230,4 @@ fun SettingHelpButton(
             }
         }
     }
-}
-
-@Composable
-private fun DialogWindowWidth(
-    enabled: Boolean,
-    widthFraction: Float,
-    maxWidthDp: Int
-) {
-    val view = LocalView.current
-    val density = LocalDensity.current
-    val containerSize = LocalWindowInfo.current.containerSize
-    val windowWidth = with(density) { containerSize.width.toDp() }
-    val isLandscape = containerSize.width > containerSize.height
-
-    SideEffect {
-        val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
-        window.setGravity(Gravity.CENTER)
-        window.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
-        window.decorView.setPadding(0, 0, 0, 0)
-        if (!enabled) {
-            val attributes = window.attributes
-            attributes.x = 0
-            window.attributes = attributes
-            window.setLayout(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT
-            )
-            return@SideEffect
-        }
-
-        val requestedWidthPx = with(density) {
-            (windowWidth * widthFraction)
-                .coerceAtMost(maxWidthDp.dp)
-                .roundToPx()
-        }
-        val attributes = window.attributes
-        attributes.x = landscapeCenterOffsetPx(view, isLandscape)
-        window.attributes = attributes
-        window.setLayout(requestedWidthPx, WindowManager.LayoutParams.WRAP_CONTENT)
-    }
-}
-
-private fun landscapeCenterOffsetPx(view: View, isLandscape: Boolean): Int {
-    if (!isLandscape) return 0
-    val insets = view.rootWindowInsets ?: return 0
-    val leftRight = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
-        bars.left to bars.right
-    } else {
-        @Suppress("DEPRECATION")
-        insets.systemWindowInsetLeft to insets.systemWindowInsetRight
-    }
-    return (leftRight.first - leftRight.second) / 2
 }

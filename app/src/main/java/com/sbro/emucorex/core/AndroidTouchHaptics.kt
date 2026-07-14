@@ -100,7 +100,6 @@ object AndroidTouchHaptics {
             3 -> if (phase == ButtonPhase.PRESS) Pulse(32L, 55, 191, 255) else Pulse(20L, 28, 125, 209)
             else -> if (phase == ButtonPhase.PRESS) Pulse(24L, 28, 153, 255) else Pulse(14L, 14, 98, 163)
         }
-        val normalizedStrength = normalizeStrength(strengthPercent)
         if (!runCatching { vibrator.hasAmplitudeControl() }.getOrDefault(false)) {
             if (strengthPercent.coerceIn(10, 100) == 60) {
                 return VibrationEffect.createPredefined(
@@ -170,9 +169,6 @@ object AndroidTouchHaptics {
             -1
         )
     }
-
-    private fun normalizeStrength(strengthPercent: Int): Float =
-        ((strengthPercent.coerceIn(10, 100) - 10) / 90f).coerceIn(0f, 1f)
 
     private fun findVibrator(context: Context): Vibrator? {
         val appContext = context.applicationContext

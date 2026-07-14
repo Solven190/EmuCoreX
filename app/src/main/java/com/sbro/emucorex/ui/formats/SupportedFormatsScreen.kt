@@ -63,6 +63,9 @@ private enum class ConversionUiState {
     Error
 }
 
+// These state and launcher initializers are read across Compose recompositions and callbacks;
+// the IDE's local data-flow inspection cannot model that lifecycle correctly.
+@Suppress("VARIABLE_WITH_REDUNDANT_INITIALIZER", "RedundantInitializer")
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SupportedFormatsScreen(

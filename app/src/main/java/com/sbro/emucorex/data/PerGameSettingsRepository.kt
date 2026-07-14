@@ -257,12 +257,14 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         skipDuplicateFrames = optBoolean("skipDuplicateFrames", true),
         frameLimitEnabled = optBoolean("frameLimitEnabled", true),
         targetFps = optInt("targetFps", 0).let { if (it <= 0) 0 else it.coerceIn(20, 120) },
-        ntscFramerate = optDouble("ntscFramerate", AppPreferences.DEFAULT_NTSC_FRAMERATE.toDouble()).toFloat().let {
-            sanitizeRegionFramerate(it, AppPreferences.DEFAULT_NTSC_FRAMERATE)
-        },
-        palFramerate = optDouble("palFramerate", AppPreferences.DEFAULT_PAL_FRAMERATE.toDouble()).toFloat().let {
-            sanitizeRegionFramerate(it, AppPreferences.DEFAULT_PAL_FRAMERATE)
-        },
+        ntscFramerate = sanitizeRegionFramerate(
+            optDouble("ntscFramerate", AppPreferences.DEFAULT_NTSC_FRAMERATE.toDouble()).toFloat(),
+            AppPreferences.DEFAULT_NTSC_FRAMERATE
+        ),
+        palFramerate = sanitizeRegionFramerate(
+            optDouble("palFramerate", AppPreferences.DEFAULT_PAL_FRAMERATE.toDouble()).toFloat(),
+            AppPreferences.DEFAULT_PAL_FRAMERATE
+        ),
         textureFiltering = GsHackDefaults.coerceBilinearFiltering(
             optInt("textureFiltering", GsHackDefaults.BILINEAR_FILTERING_DEFAULT)
         ),

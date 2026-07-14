@@ -712,7 +712,6 @@ private fun GameSettingsManagerEditorPanel(
             }
         }
         GameSettingsTabContent(
-            game = game,
             draft = draft,
             defaultProfile = defaultProfile,
             selectedTab = selectedTab,
@@ -724,7 +723,6 @@ private fun GameSettingsManagerEditorPanel(
 
 @Composable
 private fun GameSettingsTabContent(
-    game: GameItem,
     draft: PerGameSettings,
     defaultProfile: PerGameSettings,
     selectedTab: GameSettingsManagerTab,
@@ -1270,6 +1268,7 @@ private fun GameSettingsTabContent(
 }
 
 @Composable
+@Suppress("unused")
 fun PerGameSettingsQuickEditorDialog(
     game: GameItem,
     onDismiss: () -> Unit
@@ -1292,6 +1291,7 @@ fun PerGameSettingsQuickEditorDialog(
 }
 
 @Composable
+@Suppress("unused")
 private fun GameSettingsProfileCard(
     profile: PerGameSettings,
     onEdit: () -> Unit,
@@ -2579,6 +2579,7 @@ private fun SliderRow(
 }
 
 @Composable
+@Suppress("unused")
 private fun ManagerActionButton(
     modifier: Modifier = Modifier,
     icon: ImageVector,
@@ -3291,6 +3292,7 @@ private fun bilinearUpscaleOptions(): List<Pair<Int, String>> = listOf(
 )
 
 @Composable
+@Suppress("unused")
 private fun DialogWindowWidth(
     enabled: Boolean,
     widthFraction: Float,
@@ -3377,9 +3379,9 @@ private fun formatFramerateHz(value: Float): String {
     val rounded = kotlin.math.round(value * 100f) / 100f
     val whole = rounded.toInt()
     return if (rounded == whole.toFloat()) {
-        "${whole} Hz"
+        "$whole Hz"
     } else {
-        "${rounded} Hz"
+        "$rounded Hz"
     }
 }
 

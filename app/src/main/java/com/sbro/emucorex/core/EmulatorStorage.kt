@@ -55,15 +55,9 @@ object EmulatorStorage {
     fun logDir(context: Context, customRootPath: String? = null): File =
         File(root(context, customRootPath), "logs").apply { mkdirs() }
 
-    fun backupsDir(context: Context): File = File(root(context), "backups").apply { mkdirs() }
-
     fun appStateDir(context: Context): File = File(root(context), "app-state").apply { mkdirs() }
 
     fun importedCheatsDir(context: Context): File = File(appStateDir(context), "imported-cheats").apply { mkdirs() }
-
-    fun dataRoot(context: Context, customRootPath: String? = null): File = root(context, customRootPath)
-
-    fun defaultDataRoot(context: Context): File = defaultRoot(context).apply { prepareRoot(this) }
 
     private fun prepareRoot(root: File): Boolean {
         return runCatching {

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 data class CatalogSearchUiState(
     val query: String = "",
@@ -86,7 +87,7 @@ class CatalogSearchViewModel(application: Application) : AndroidViewModel(applic
     private fun scheduleRefresh() {
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
-            delay(220)
+            delay(220.milliseconds)
             refresh(showFullscreenLoader = false)
         }
     }

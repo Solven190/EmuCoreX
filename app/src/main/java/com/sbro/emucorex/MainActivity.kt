@@ -37,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 private const val LIGHT_NAVIGATION_BAR_SCRIM = 0x04000000
 private const val DARK_NAVIGATION_BAR_SCRIM = 0x0A000000
@@ -127,7 +128,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             if (!preferences.registerInAppReviewLaunch()) return@launch
 
-            delay(IN_APP_REVIEW_START_DELAY_MS)
+            delay(IN_APP_REVIEW_START_DELAY_MS.milliseconds)
             if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@launch
 
             PlayInAppReviewManager.request(this@MainActivity) {

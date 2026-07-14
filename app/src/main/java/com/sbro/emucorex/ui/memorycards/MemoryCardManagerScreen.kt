@@ -242,7 +242,6 @@ fun MemoryCardManagerScreen(
         MemoryCardCreateDialog(
             title = stringResource(R.string.memory_card_create_title),
             confirmLabel = stringResource(R.string.memory_card_create_action),
-            showSizeOptions = true,
             onDismiss = { showCreateDialog.value = false },
             onConfirm = { name, createType, sizeMb ->
                 scope.launch {
@@ -659,7 +658,6 @@ private enum class MemoryCardCreateType {
 private fun MemoryCardCreateDialog(
     title: String,
     confirmLabel: String,
-    showSizeOptions: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (String, MemoryCardCreateType, Int) -> Unit
 ) {
@@ -762,7 +760,7 @@ private fun MemoryCardCreateDialog(
                         )
                     }
 
-                    if (showSizeOptions && selectedType == MemoryCardCreateType.File) {
+                    if (selectedType == MemoryCardCreateType.File) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 text = stringResource(R.string.memory_card_size_title),

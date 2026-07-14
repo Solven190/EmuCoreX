@@ -26,7 +26,6 @@ data class AppUpdateRelease(
     val parallelApkSizeBytes: Long? = null
 ) {
     val displayName: String = name.ifBlank { tagName }
-    val hasInstallableApk: Boolean = !apkDownloadUrl.isNullOrBlank()
     val hasParallelApk: Boolean = !parallelApkDownloadUrl.isNullOrBlank()
 }
 
@@ -49,7 +48,7 @@ class AppUpdateRepository(private val context: Context) {
             return emptyList()
         }
 
-        val connection = openConnection(RELEASES_URL, "application/vnd.github+json,application/json,*/*")
+        val connection = openConnection()
         val etagFile = File(context.cacheDir, "release_history.etag")
         if (etagFile.exists() && cacheFile.exists()) {
             val etag = runCatching { etagFile.readText() }.getOrNull()
@@ -59,7 +58,7 @@ class AppUpdateRepository(private val context: Context) {
         }
 
         return try {
-            ensureSuccess(connection, "release history", allow304 = true)
+            ensureSuccess(connection)
             if (connection.responseCode == 304) {
                 val json = cacheFile.readText()
                 return parseReleaseList(json)
@@ -139,12 +138,12 @@ class AppUpdateRepository(private val context: Context) {
         }.getOrNull()?.takeIf { it.isNotBlank() } ?: "0.0.0"
     }
 
-    private fun openConnection(url: String, accept: String): HttpURLConnection {
-        return (URL(url).openConnection() as HttpURLConnection).apply {
+    private fun openConnection(): HttpURLConnection {
+        return (URL(RELEASES_URL).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 20_000
             instanceFollowRedirects = true
-            setRequestProperty("Accept", accept)
+            setRequestProperty("Accept", "application/vnd.github+json,application/json,*/*")
             setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
             setRequestProperty("User-Agent", "EmuCoreX/${currentVersionName()}")
         }
@@ -156,7 +155,7 @@ class AppUpdateRepository(private val context: Context) {
         return age < 15 * 60 * 1000L
     }
 
-    private fun ensureSuccess(connection: HttpURLConnection, label: String, allow304: Boolean = false) {
+    private fun ensureSuccess(connection: HttpURLConnection) {
         val remaining = connection.getHeaderField("x-ratelimit-remaining")?.toIntOrNull() ?: -1
         val reset = connection.getHeaderField("x-ratelimit-reset")?.toLongOrNull() ?: 0L
         val responseCode = connection.responseCode
@@ -165,13 +164,13 @@ class AppUpdateRepository(private val context: Context) {
             throw RateLimitException(reset * 1000L)
         }
 
-        if (responseCode == 304 && allow304) {
+        if (responseCode == 304) {
             return
         }
 
         if (responseCode !in 200..299) {
             val responseMessage = connection.responseMessage.orEmpty().ifBlank { "HTTP $responseCode" }
-            throw IOException("Could not load $label: $responseMessage")
+            throw IOException("Could not load release history: $responseMessage")
         }
     }
 

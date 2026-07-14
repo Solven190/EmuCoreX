@@ -53,6 +53,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 
 enum class EmulationTransportMode {
     None,
@@ -405,14 +406,6 @@ private data class LiveRuntimeSnapshot(
     val nativePaletteDraw: Boolean
 )
 
-private data class GyroRuntimeSettings(
-    val mode: Int,
-    val sensitivity: Int,
-    val smoothing: Int,
-    val invertX: Boolean,
-    val invertY: Boolean
-)
-
 class EmulationViewModel(application: Application) : AndroidViewModel(application) {
     private companion object {
         const val TAG = "EmulationViewModel"
@@ -512,7 +505,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             toastMessage = "hardcore_blocked"
         )
         viewModelScope.launch {
-            delay(2000)
+            delay(2000.milliseconds)
             if (_uiState.value.toastMessage == "hardcore_blocked") {
                 _uiState.value = _uiState.value.copy(toastMessage = null)
             }
@@ -1074,13 +1067,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         
         viewModelScope.launch {
             while (isActive) {
-                delay(1_000)
+                delay(1_000.milliseconds)
                 pollNativePerformanceMetrics()
             }
         }
         viewModelScope.launch {
             while (isActive) {
-                delay(1_000)
+                delay(1_000.milliseconds)
                 tickActivePlayTimeAndAutoSave()
             }
         }
@@ -1293,7 +1286,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
             if (_uiState.value.isRunning || EmulatorBridge.hasValidVm()) {
                 performShutdown()
-                delay(300)
+                delay(300.milliseconds)
             }
 
             var finalLaunchPath: String? = null
@@ -1329,7 +1322,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                             statusMessage = null,
                             toastMessage = "bios_missing"
                         )
-                        delay(2500)
+                        delay(2500.milliseconds)
                         _uiState.value = _uiState.value.copy(toastMessage = null)
                         return@withLock
                     }
@@ -1338,7 +1331,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.value = _uiState.value.copy(
                     statusMessage = "status_applying_config"
                 )
-                delay(200)
+                delay(200.milliseconds)
 
                 EmulatorBridge.applyRuntimeConfig(
                     biosPath = config.biosPath,
@@ -1456,7 +1449,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.value = _uiState.value.copy(
                     statusMessage = "status_loading_game"
                 )
-                delay(200)
+                delay(200.milliseconds)
 
                 val launchPath = when {
                     bootToBios -> ""
@@ -1473,7 +1466,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         statusMessage = null,
                         toastMessage = "launch_path_error"
                     )
-                    delay(2500)
+                    delay(2500.milliseconds)
                     _uiState.value = _uiState.value.copy(toastMessage = null)
                     return@withLock
                 }
@@ -1668,7 +1661,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         try {
                             if (EmulatorBridge.hasValidVm()) break
                         } catch (_: Exception) { }
-                        delay(250)
+                        delay(250.milliseconds)
                         vmReadyWaitFrames++
                     }
                     if (!isActive) return@launch
@@ -1678,14 +1671,14 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                             statusMessage = null,
                             toastMessage = "load_failed"
                         )
-                        delay(2500)
+                        delay(2500.milliseconds)
                         if (_uiState.value.toastMessage == "load_failed") {
                             _uiState.value = _uiState.value.copy(toastMessage = null)
                         }
                         return@launch
                     }
 
-                    delay(500)
+                    delay(500.milliseconds)
                     val hardcoreBlocked = isRetroAchievementsHardcoreRestricted()
                     val loaded = if (hardcoreBlocked) {
                         false
@@ -1703,18 +1696,18 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         }
                     )
                     refreshSaveStateMetadata()
-                    delay(2000)
+                    delay(2000.milliseconds)
                     if (_uiState.value.statusMessage == "status_running") {
                         _uiState.value = _uiState.value.copy(statusMessage = null)
                     }
                     if (_uiState.value.toastMessage == "load_failed") {
-                        delay(500)
+                        delay(500.milliseconds)
                         if (_uiState.value.toastMessage == "load_failed") {
                             _uiState.value = _uiState.value.copy(toastMessage = null)
                         }
                     }
                     if (_uiState.value.toastMessage == "hardcore_blocked") {
-                        delay(500)
+                        delay(500.milliseconds)
                         if (_uiState.value.toastMessage == "hardcore_blocked") {
                             _uiState.value = _uiState.value.copy(toastMessage = null)
                         }
@@ -1742,13 +1735,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                                 break
                             }
                             _uiState.value = _uiState.value.copy(statusMessage = "status_running")
-                            delay(2000)
+                            delay(2000.milliseconds)
                             if (_uiState.value.statusMessage == "status_running") {
                                 _uiState.value = _uiState.value.copy(statusMessage = null)
                             }
                             break
                         }
-                        delay(250)
+                        delay(250.milliseconds)
                         waitFrames++
                     }
                 }
@@ -1768,7 +1761,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (started && gsDumpFrames != null && gsDumpFrames > 0) {
                 val delayMs = gsDumpDelayMs?.coerceAtLeast(0) ?: 0
                 viewModelScope.launch(Dispatchers.IO) {
-                    delay(delayMs.toLong())
+                    delay(delayMs.milliseconds)
                     if (EmulatorBridge.hasValidVm()) {
                         Log.i(TAG, "Queueing GS dump frames=$gsDumpFrames delayMs=$delayMs")
                         NativeApp.queueGsDump(gsDumpFrames)
@@ -1790,7 +1783,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     statusMessage = null,
                     toastMessage = "launch_failed"
                 )
-                delay(2500)
+                delay(2500.milliseconds)
                 _uiState.value = _uiState.value.copy(toastMessage = null)
             }
         }
@@ -3563,14 +3556,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         ).applyProfile(profile)
     }
 
-    private suspend fun loadGyroRuntimeSettings() = GyroRuntimeSettings(
-        mode = preferences.gyroMode.first(),
-        sensitivity = preferences.gyroSensitivity.first(),
-        smoothing = preferences.gyroSmoothing.first(),
-        invertX = preferences.gyroInvertX.first(),
-        invertY = preferences.gyroInvertY.first()
-    )
-
     private fun EmulationLaunchConfig.applyProfile(profile: PerGameSettings?): EmulationLaunchConfig {
         if (profile == null) return this
         fun <T> pick(key: String, current: T, value: PerGameSettings.() -> T): T {
@@ -4067,7 +4052,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (modified > 0L && modified != previousModified) {
                 return true
             }
-            delay(250)
+            delay(250.milliseconds)
         }
         return (resolveSaveStateFile(gamePath, slot) ?: fallbackFile).exists()
     }
@@ -4134,7 +4119,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             if (success) {
                 refreshSaveStateMetadata()
             }
-            delay(2000)
+            delay(2000.milliseconds)
             _uiState.value = _uiState.value.copy(toastMessage = null)
         }
     }
@@ -4165,7 +4150,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 actionLabel = null,
                 toastMessage = if (success) "loaded" else null
             )
-            delay(2000)
+            delay(2000.milliseconds)
             _uiState.value = _uiState.value.copy(toastMessage = null)
         }
     }
@@ -4195,7 +4180,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 actionLabel = null,
                 toastMessage = if (success) "loaded" else null
             )
-            delay(2000)
+            delay(2000.milliseconds)
             _uiState.value = _uiState.value.copy(toastMessage = null)
         }
     }
@@ -4233,7 +4218,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             toastMessage = if (success) "loaded" else "load_failed"
         )
         refreshSaveStateMetadata()
-        delay(2000)
+        delay(2000.milliseconds)
         if (_uiState.value.statusMessage == "status_running") {
             _uiState.value = _uiState.value.copy(statusMessage = null)
         }
@@ -4257,7 +4242,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             syncPendingPlayTime()
             performShutdown()
             if (onExit != null) {
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                withContext(Dispatchers.Main) {
                     onExit.invoke()
                 }
             }
@@ -4328,7 +4313,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     EmulatorBridge.shutdown()
                     var waitTime = 0
                     while (EmulatorBridge.isVmActive() && waitTime < 2000) {
-                        delay(50)
+                        delay(50.milliseconds)
                         waitTime += 50
                     }
                     DocumentPathResolver.releasePreparedLaunchHandles()

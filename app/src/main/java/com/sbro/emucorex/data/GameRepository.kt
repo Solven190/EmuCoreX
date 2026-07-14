@@ -77,7 +77,7 @@ class GameRepository {
         cachedGamesByPath: Map<String, GameItem>,
         shouldAbort: () -> Boolean = { false }
     ): List<GameItem> {
-        val docFile = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, uri)
+        val docFile = DocumentFile.fromTreeUri(context, uri)
             ?: return emptyList()
         return scanDocumentFile(docFile, context, cachedGamesByPath, shouldAbort).sortedBy { it.title.lowercase() }
     }
@@ -172,7 +172,7 @@ class GameRepository {
     }
 
     private fun scanDocumentFile(
-        docFile: androidx.documentfile.provider.DocumentFile,
+        docFile: DocumentFile,
         context: Context,
         cachedGamesByPath: Map<String, GameItem>,
         shouldAbort: () -> Boolean
@@ -327,8 +327,8 @@ class GameRepository {
     }
 
     private fun buildDocumentCoverCandidates(
-        children: Array<androidx.documentfile.provider.DocumentFile>
-    ): Map<String, androidx.documentfile.provider.DocumentFile> {
+        children: Array<DocumentFile>
+    ): Map<String, DocumentFile> {
         val directFiles = children
             .filter {
                 it.isFile &&

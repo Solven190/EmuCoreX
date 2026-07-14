@@ -189,6 +189,7 @@ import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.util.Date
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 
 private object PadKey {
     const val UP = 19
@@ -666,14 +667,14 @@ fun EmulationScreen(
         if (!uiState.isRunning || gamePath.isNullOrBlank() || !retroAchievementsState.enabled) {
             return@LaunchedEffect
         }
-        delay(800)
+        delay(800.milliseconds)
         RetroAchievementsLiveStateManager.refreshFromNative()
     }
 
     LaunchedEffect(gamepadConnected, uiState.showMenu) {
         if (gamepadConnected && !uiState.showMenu) {
             showGamepadIndicator = true
-            delay(5000)
+            delay(5000.milliseconds)
             showGamepadIndicator = false
         } else {
             showGamepadIndicator = false
@@ -684,14 +685,14 @@ fun EmulationScreen(
         if (uiState.showMenu) {
             showOverlayShortcut = false
         } else if (showOverlayShortcut) {
-            delay(2200)
+            delay(2200.milliseconds)
             showOverlayShortcut = false
         }
     }
 
     LaunchedEffect(retroAchievementsNotification?.id) {
         val notification = retroAchievementsNotification ?: return@LaunchedEffect
-        delay(if (notification.kind == "mastery") 6500 else 4300)
+        delay((if (notification.kind == "mastery") 6500 else 4300).milliseconds)
         RetroAchievementsLiveStateManager.dismissNotification(notification.id)
     }
 
@@ -2145,7 +2146,7 @@ private fun TouchButtonGroup(
         if (!spec.hasLongPressAction()) return
         longPressJobs.remove(pointerId)?.cancel()
         longPressJobs[pointerId] = coroutineScope.launch {
-            delay(spec.longPressDelayMs)
+            delay(spec.longPressDelayMs.milliseconds)
             if (activeTargets[pointerId] != targetId) return@launch
             val wasAlreadyActive = longPressActiveTargets.containsValue(targetId)
             longPressActiveTargets[pointerId] = targetId
@@ -2159,7 +2160,7 @@ private fun TouchButtonGroup(
         val press = spec.onPressChange ?: return
         coroutineScope.launch {
             press(true)
-            delay(70L)
+            delay(70.milliseconds)
             press(false)
         }
     }
@@ -4166,10 +4167,10 @@ private fun OverlayAchievementsPane(
             gameTitle = retroState.game?.title ?: currentGameTitle,
             gameId = retroState.game?.gameId
         )
-        if (cachedData != null) {
-            value = OverlayAchievementsContentState(isLoading = false, gameData = cachedData)
+        value = if (cachedData != null) {
+            OverlayAchievementsContentState(isLoading = false, gameData = cachedData)
         } else {
-            value = OverlayAchievementsContentState(isLoading = true, gameData = null)
+            OverlayAchievementsContentState(isLoading = true, gameData = null)
         }
         value = withContext(Dispatchers.IO) {
             val loadedData = loadOverlayRetroAchievementsGameDataWithFallback(
@@ -4338,7 +4339,7 @@ private suspend fun loadActiveRetroAchievementsGameDataWithRetry(
             return data
         }
         if (attempt < attempts - 1) {
-            delay(500)
+            delay(500.milliseconds)
             RetroAchievementsLiveStateManager.refreshFromNative()
         }
     }

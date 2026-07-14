@@ -103,6 +103,7 @@ import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 
 private enum class DeviceChipsetFamily {
     Snapdragon, MediaTek, Exynos, Tensor, Unknown
@@ -116,14 +117,15 @@ private data class DeviceChipsetInfo(
     val deviceModel: String
 )
 
+@Suppress("unused")
 private fun detectDeviceChipsetInfo(): DeviceChipsetInfo {
     val socManufacturer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        Build.SOC_MANUFACTURER.orEmpty()
+        Build.SOC_MANUFACTURER
     } else {
         ""
     }
     val socModel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        Build.SOC_MODEL.orEmpty()
+        Build.SOC_MODEL
     } else {
         ""
     }
@@ -227,7 +229,7 @@ fun OnboardingScreen(
             if (isCompleting || !uiState.canContinue) return@rememberDebouncedClick
             isCompleting = true
             scope.launch {
-                delay(280)
+                delay(280.milliseconds)
                 viewModel.completeOnboarding(onComplete)
             }
         }
@@ -430,7 +432,6 @@ fun OnboardingScreen(
                                     isProUnlocked = uiState.isProUnlocked,
                                     proPrice = uiState.proPrice,
                                     isProductLoading = uiState.isProProductLoading,
-                                    isProductAvailable = uiState.isProProductAvailable,
                                     isPurchaseInProgress = uiState.isProPurchaseInProgress,
                                     onPurchase = { (context as? Activity)?.let(viewModel::purchasePro) },
                                     modifier = Modifier.padding(horizontal = 32.dp)
@@ -562,7 +563,6 @@ fun OnboardingScreen(
                                     isProUnlocked = uiState.isProUnlocked,
                                     proPrice = uiState.proPrice,
                                     isProductLoading = uiState.isProProductLoading,
-                                    isProductAvailable = uiState.isProProductAvailable,
                                     isPurchaseInProgress = uiState.isProPurchaseInProgress,
                                     onPurchase = { (context as? Activity)?.let(viewModel::purchasePro) }
                                 )
@@ -826,7 +826,6 @@ private fun OnboardingProContent(
     isProUnlocked: Boolean,
     proPrice: String?,
     isProductLoading: Boolean,
-    isProductAvailable: Boolean,
     isPurchaseInProgress: Boolean,
     onPurchase: () -> Unit,
     modifier: Modifier = Modifier
@@ -1271,6 +1270,7 @@ private fun OnboardingPerformanceProfileContent(
 }
 
 @Composable
+@Suppress("unused")
 private fun ChipsetInfoDialog(
     chipsetInfo: DeviceChipsetInfo,
     onDismiss: () -> Unit
@@ -1358,6 +1358,7 @@ private fun ChipsetInfoRow(
 }
 
 @Composable
+@Suppress("unused")
 private fun CompactProfileCard(
     title: String,
     selected: Boolean,

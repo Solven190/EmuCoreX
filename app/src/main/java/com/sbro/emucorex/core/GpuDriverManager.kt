@@ -45,9 +45,9 @@ class GpuDriverManager(private val context: Context) {
         val archiveName = queryDisplayName(uri)
             ?: uri.lastPathSegment
             ?: "custom-driver.zip"
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            return installFromArchive(input, archiveName)
-        } ?: error("Could not open archive")
+        val input = context.contentResolver.openInputStream(uri)
+            ?: error("Could not open archive")
+        return input.use { installFromArchive(it, archiveName) }
     }
 
     fun installFromArchive(file: File): String {

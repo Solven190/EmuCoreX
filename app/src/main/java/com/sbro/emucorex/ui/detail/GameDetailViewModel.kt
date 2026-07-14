@@ -158,7 +158,7 @@ class GameDetailViewModel(application: Application) : AndroidViewModel(applicati
             phoneId = Build.DEVICE.orEmpty().ifBlank { Build.ID.orEmpty() },
             phoneModel = model,
             phoneName = listOf(brand, model).filter { it.isNotBlank() }.joinToString(" "),
-            phoneCpu = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Build.SOC_MODEL.orEmpty() else Build.HARDWARE.orEmpty(),
+            phoneCpu = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Build.SOC_MODEL else Build.HARDWARE,
             phoneRam = totalRamGb
         )
     }

@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
 import com.sbro.emucorex.core.GpuDriverCatalogRepository
 import com.sbro.emucorex.core.GpuDriverManager
 import com.sbro.emucorex.core.InstalledGpuDriver
@@ -903,7 +904,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 preset = preset,
                 phase = AndroidTouchHaptics.ButtonPhase.PRESS
             )
-            delay(85L)
+            delay(85.milliseconds)
             AndroidTouchHaptics.playButton(
                 context = getApplication(),
                 strengthPercent = strengthPercent,
@@ -1843,7 +1844,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun installGpuDriver(uri: android.net.Uri, onComplete: (Result<String>) -> Unit) {
+    fun installGpuDriver(uri: Uri, onComplete: (Result<String>) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             val result = runCatching {
                 val driverName = gpuDriverManager.installFromArchive(uri)

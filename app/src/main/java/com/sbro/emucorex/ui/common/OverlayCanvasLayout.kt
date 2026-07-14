@@ -72,8 +72,6 @@ data class OverlayCanvasLayout(
         else -> null
     }
 
-    fun dpadCluster(id: String): OverlayCanvasDpadClusterSpec? =
-        dpadCluster?.takeIf { it.id == id }
 }
 
 fun buildOverlayCanvasLayout(
@@ -266,7 +264,6 @@ fun buildOverlayCanvasLayout(
 
     val extraDpadLayout = layoutFor("dpad_cluster")
     val extraDpadSize = dpadClusterExtent * (extraDpadLayout.scale / 100f)
-    val extraDpadBaseX = dpadClusterLeft
     val extraDpadBaseY = maxOf(
         edgePadTop + shoulderH + 16.dp,
         dpadClusterTop - extraDpadSize - 14.dp
@@ -274,9 +271,9 @@ fun buildOverlayCanvasLayout(
     val dpadCluster = OverlayCanvasDpadClusterSpec(
         id = "dpad_cluster",
         size = extraDpadSize,
-        baseX = extraDpadBaseX,
+        baseX = dpadClusterLeft,
         baseY = extraDpadBaseY,
-        x = extraDpadBaseX + pxToDp(extraDpadLayout.offset.first),
+        x = dpadClusterLeft + pxToDp(extraDpadLayout.offset.first),
         y = extraDpadBaseY + pxToDp(extraDpadLayout.offset.second),
         opacity = extraDpadLayout.opacity,
         visible = extraDpadLayout.visible

@@ -88,6 +88,7 @@ import com.sbro.emucorex.ui.common.ProvideGamepadMenuAction
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 enum class PrimaryDestination {
     Home, Search, Formats, Achievements, Profile, Settings
@@ -267,7 +268,7 @@ private fun CompactAdaptiveShell(
     LaunchedEffect(drawerState.isOpen, mobileLeadingAction, selected) {
         if (drawerState.isOpen && mobileLeadingAction == MobileLeadingAction.Drawer) {
             if (GamepadManager.isGamepadConnected() || inputModeManager.inputMode == InputMode.Keyboard) {
-                delay(40)
+                delay(40.milliseconds)
                 selectedDrawerItemFocusRequester.requestFocus()
             }
         }

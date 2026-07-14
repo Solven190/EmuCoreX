@@ -257,7 +257,6 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class AppPreferences(private val context: Context) {
 
     private val localePrefs = context.getSharedPreferences("ui_locale", Context.MODE_PRIVATE)
-    private val appUpdatePrefs = context.getSharedPreferences("app_update", Context.MODE_PRIVATE)
 
     companion object {
         const val DEV9_DNS_MODE_MANUAL = "Manual"
@@ -539,7 +538,6 @@ class AppPreferences(private val context: Context) {
         private val DEV9_DNS2 = stringPreferencesKey("dev9_dns2")
         private val DEV9_LOG_DHCP = booleanPreferencesKey("dev9_log_dhcp")
         private val DEV9_LOG_DNS = booleanPreferencesKey("dev9_log_dns")
-        private val SCREEN_SETTINGS_RESET_HINT_SHOWN = booleanPreferencesKey("screen_settings_reset_hint_shown")
         private val FRAME_LIMIT_ENABLED = booleanPreferencesKey("frame_limit_enabled")
         private val VSYNC_ENABLED = booleanPreferencesKey("vsync_enabled")
         private val FAST_FORWARD_SPEED = floatPreferencesKey("fast_forward_speed")
@@ -578,20 +576,7 @@ class AppPreferences(private val context: Context) {
         private val ACHIEVEMENTS_REMEMBER_PASSWORD = booleanPreferencesKey("achievements_remember_password")
         private val ACHIEVEMENTS_PASSWORD = stringPreferencesKey("achievements_password")
         private val ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON = stringPreferencesKey("achievements_account_progress_json")
-        private const val KEY_SKIPPED_UPDATE_TAG = "skipped_update_tag"
     }
-
-    var skippedUpdateTag: String?
-        get() = appUpdatePrefs.getString(KEY_SKIPPED_UPDATE_TAG, null)
-        set(value) {
-            appUpdatePrefs.edit().apply {
-                if (value.isNullOrBlank()) {
-                    remove(KEY_SKIPPED_UPDATE_TAG)
-                } else {
-                    putString(KEY_SKIPPED_UPDATE_TAG, value)
-                }
-            }.apply()
-        }
     private fun readThemeMode(prefs: Preferences): ThemeMode {
         return when (prefs[THEME_MODE]) {
             1 -> ThemeMode.LIGHT
@@ -836,16 +821,6 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[PERFORMANCE_PROFILE] = PerformanceProfiles.normalize(value) }
     }
 
-    suspend fun setGpuHardwareProfile(value: Int) {
-        context.dataStore.edit { prefs ->
-            val normalized = GpuHardwareProfiles.normalize(value)
-            prefs[GPU_HARDWARE_PROFILE] = normalized
-            if (!GpuHardwareProfiles.isMediatekProfile(normalized)) {
-                prefs[MEDIATEK_ANGLE_OPENGL] = false
-            }
-        }
-    }
-
     private fun normalizeRendererPreference(value: Int?): Int {
         return RendererDefaults.normalizeAndroidRenderer(value ?: RendererDefaults.AUTO)
     }
@@ -857,7 +832,7 @@ class AppPreferences(private val context: Context) {
     private fun resolvePerformanceProfileConfig(prefs: Preferences) =
         PerformanceProfiles.configFor(resolvePerformanceProfile(prefs))
 
-    private fun resolveGpuHardwareProfile(prefs: Preferences): Int {
+    private fun resolveGpuHardwareProfile(): Int {
         return GpuHardwareProfiles.detectHardwareProfile()
     }
 
@@ -870,14 +845,6 @@ class AppPreferences(private val context: Context) {
             if (path == null) prefs.remove(CUSTOM_DRIVER_PATH)
             else prefs[CUSTOM_DRIVER_PATH] = path
         }
-    }
-
-    val screenSettingsResetHintShown: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[SCREEN_SETTINGS_RESET_HINT_SHOWN] ?: false
-    }
-
-    suspend fun setScreenSettingsResetHintShown(shown: Boolean) {
-        context.dataStore.edit { it[SCREEN_SETTINGS_RESET_HINT_SHOWN] = shown }
     }
 
     val frameLimitEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -1216,7 +1183,7 @@ class AppPreferences(private val context: Context) {
             val biosPath = prefs[BIOS_PATH]
             val performanceProfile = resolvePerformanceProfile(prefs)
             val profileConfig = resolvePerformanceProfileConfig(prefs)
-            val gpuHardwareProfile = resolveGpuHardwareProfile(prefs)
+            val gpuHardwareProfile = resolveGpuHardwareProfile()
             SettingsSnapshot(
                 themeMode = readThemeMode(prefs),
                 appFontChoice = AppFontChoice.fromPreference(prefs[APP_FONT_CHOICE]),
@@ -2925,7 +2892,7 @@ class AppPreferences(private val context: Context) {
 
     suspend fun exportJson(): JSONObject {
         val prefs = context.dataStore.data.first()
-        val gpuHardwareProfile = resolveGpuHardwareProfile(prefs)
+        val gpuHardwareProfile = resolveGpuHardwareProfile()
         return JSONObject().apply {
             put("themeMode", prefs[THEME_MODE] ?: 0)
             put("appFontChoice", prefs[APP_FONT_CHOICE] ?: AppFontChoice.SYSTEM.preferenceValue)

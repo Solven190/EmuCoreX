@@ -42,7 +42,7 @@ class SettingsBackupRepository(
         return runCatching {
             var restoredBackgroundType: HomeBackgroundType? = null
             var restoredCustomFont = false
-            context.contentResolver.openInputStream(source)?.use { input ->
+            val restored = context.contentResolver.openInputStream(source)?.use { input ->
                 ZipInputStream(input).use { zip ->
                     generateSequence { zip.nextEntry }.forEach { entry ->
                         when (entry.name) {
@@ -73,15 +73,16 @@ class SettingsBackupRepository(
                         zip.closeEntry()
                     }
                 }
-            } != null && restoredBackgroundType.let { restoredType ->
-                if (restoredType != null) preferences.setHomeBackgroundType(restoredType)
-                if (restoredCustomFont) {
-                    preferences.setCustomFontInstalled(
-                        preferences.customFontName.first() ?: CustomFontRepository.DEFAULT_DISPLAY_NAME
-                    )
-                }
-                true
+            } != null
+            if (!restored) return@runCatching false
+
+            restoredBackgroundType?.let { preferences.setHomeBackgroundType(it) }
+            if (restoredCustomFont) {
+                preferences.setCustomFontInstalled(
+                    preferences.customFontName.first() ?: CustomFontRepository.DEFAULT_DISPLAY_NAME
+                )
             }
+            true
         }.getOrDefault(false)
     }
 

@@ -6,7 +6,7 @@ import androidx.compose.ui.res.stringResource
 import com.sbro.emucorex.R
 
 data class GameDbText(
-    @StringRes val resourceId: Int,
+    @param:StringRes val resourceId: Int,
     val argument: String? = null
 )
 
