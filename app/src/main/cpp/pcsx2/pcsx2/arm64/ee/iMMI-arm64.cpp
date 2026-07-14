@@ -1369,14 +1369,33 @@ void recPEXTUH()
 
 alignas(16) static u32 tempqw[8];
 
-static void recQFSRV_emit_oaknut(int dstreg, int sreg, int treg)
+static void recQFSRV_emit_oaknut(int dstreg, int sreg, int treg, int rs, int rt)
 {
 	recBeginOaknutEmit();
 	oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.sa))});
 	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0xf);
-	oakMoveAddressToReg(OAK_XSCRATCH2, tempqw);
-	oakAsm->STR(oakQRegister(treg), OAK_XSCRATCH2);
-	oakAsm->STR(oakQRegister(sreg), OAK_XSCRATCH2, 16);
+
+	// QFSRV reads a 128-bit window from the conceptual {Rt, Rs} pair. When the
+	// guest registers are adjacent, that pair already has the required layout
+	// in cpuRegs.GPR. Store the allocator-resident source values there and use
+	// the pinned register-pack base instead of materializing tempqw's absolute
+	// address. This is alias-safe because both sources are stored before dst is
+	// overwritten, including Rd==Rs/Rt.
+	if (rt != 0 && rs == rt + 1)
+	{
+		const s64 rt_offset = static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0]) + rt * sizeof(GPR_reg));
+		const s64 rs_offset = rt_offset + sizeof(GPR_reg);
+		pxAssert(rt_offset >= 0 && rt_offset <= 4095);
+		oakStore128(oakQRegister(treg), {oak::util::X27, rt_offset});
+		oakStore128(oakQRegister(sreg), {oak::util::X27, rs_offset});
+		oakAsm->ADD(OAK_XSCRATCH2, oak::util::X27, static_cast<u32>(rt_offset));
+	}
+	else
+	{
+		oakMoveAddressToReg(OAK_XSCRATCH2, tempqw);
+		oakAsm->STR(oakQRegister(treg), OAK_XSCRATCH2);
+		oakAsm->STR(oakQRegister(sreg), OAK_XSCRATCH2, 16);
+	}
 	oakAsm->LDR(oakQRegister(dstreg), OAK_XSCRATCH2, OAK_XSCRATCH);
 	recEndOaknutEmit();
 }
@@ -1389,7 +1408,7 @@ void recQFSRV()
 	EE::Profiler.EmitOp(eeOpcode::QFSRV);
 
 	int info = eeRecompileCodeXMM(XMMINFO_READS | XMMINFO_READT | XMMINFO_WRITED);
-	recQFSRV_emit_oaknut(EEREC_D, EEREC_S, EEREC_T);
+	recQFSRV_emit_oaknut(EEREC_D, EEREC_S, EEREC_T, _Rs_, _Rt_);
 	_clearNeededXMMregs();
 }
 

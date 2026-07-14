@@ -1876,8 +1876,12 @@ void recompileNextInstruction(bool delayslot, bool swapped_delay_slot)
 			return;
 		}
 	}
-	// Check for NOP
-	if (delayslot)
+	// Only memory operations need the vtlb IsDelaySlot marker. Keeping it off
+	// ordinary ALU/move/NOP delay slots removes four emitted instructions from
+	// the common path without weakening the current immediate vtlb exception
+	// exit. Other exception behavior remains unchanged from this core.
+	const bool delay_slot_memory = delayslot && cpuRegs.code != 0 && (opcode.flags & IS_MEMORY);
+	if (delay_slot_memory)
 		recompileDelaySlotBegin_emit_oaknut();
 
 	if (cpuRegs.code == 0x00000000)
@@ -1901,7 +1905,8 @@ void recompileNextInstruction(bool delayslot, bool swapped_delay_slot)
 
 	if (delayslot)
 	{
-		recompileDelaySlotEnd_emit_oaknut();
+		if (delay_slot_memory)
+			recompileDelaySlotEnd_emit_oaknut();
 		pc += 4;
 		g_cpuFlushedPC = false;
 		g_cpuFlushedCode = false;

@@ -37,6 +37,32 @@ __fi static void mVUSetBitSFLAG_emit_oaknut(oak::WReg dst, oak::WReg src, u32 bi
 	oakAsm->l(skip);
 }
 
+// Convert the four denormalized lane groups into the four aggregate bits in
+// the architectural status flag. This code is emitted into hot VU blocks, so
+// keep it branchless: the old TST/B/ORR sequence added four runtime branches
+// every time a status flag was normalized.
+__fi static void mVUNormalizeSFLAGGroups_emit_oaknut(oak::WReg dst, oak::WReg src)
+{
+	pxAssert(dst.index() != src.index());
+	pxAssert(dst.index() != OAK_WSCRATCH.index());
+	pxAssert(src.index() != OAK_WSCRATCH.index());
+
+	oakAsm->TST(src, 0x0f00);
+	oakAsm->CSET(dst, oak::Cond::NE);
+
+	oakAsm->TST(src, 0xf000);
+	oakAsm->CSET(OAK_WSCRATCH, oak::Cond::NE);
+	oakAsm->ORR(dst, dst, OAK_WSCRATCH, oak::LogShift::LSL, 1);
+
+	oakAsm->TST(src, 0x000f);
+	oakAsm->CSET(OAK_WSCRATCH, oak::Cond::NE);
+	oakAsm->ORR(dst, dst, OAK_WSCRATCH, oak::LogShift::LSL, 6);
+
+	oakAsm->TST(src, 0x00f0);
+	oakAsm->CSET(OAK_WSCRATCH, oak::Cond::NE);
+	oakAsm->ORR(dst, dst, OAK_WSCRATCH, oak::LogShift::LSL, 7);
+}
+
 __fi void setBitSFLAG(int reg, int regT, int bitTest, int bitSet)
 {
 	recBeginOaknutEmit();
@@ -79,13 +105,9 @@ __ri void mVUallocSFLAGc(int reg, int regT, int fInstance)
 	recBeginOaknutEmit();
 	const oak::WReg dst = oakWRegister(reg);
 	const oak::WReg tmp = oakWRegister(regT);
-	oakAsm->EOR(dst, dst, dst);
 	oakAsm->MOV(tmp, oakWRegister(getFlagRegId(fInstance)));
 
-	mVUSetBitSFLAG_emit_oaknut(dst, tmp, 0x0f00, 0x0001);
-	mVUSetBitSFLAG_emit_oaknut(dst, tmp, 0xf000, 0x0002);
-	mVUSetBitSFLAG_emit_oaknut(dst, tmp, 0x000f, 0x0040);
-	mVUSetBitSFLAG_emit_oaknut(dst, tmp, 0x00f0, 0x0080);
+	mVUNormalizeSFLAGGroups_emit_oaknut(dst, tmp);
 	oakAsm->AND(tmp, tmp, 0xffff0000);
 	oakAsm->LSR(tmp, tmp, 14);
 	oakAsm->ORR(dst, dst, tmp);

@@ -116,15 +116,6 @@ static void mVUDenormalizeStatusFlagForMacro_emit_oaknut()
 	recEndOaknutEmit();
 }
 
-static void mVUSetBitSFLAGForMacro_emit_oaknut(oak::WReg dst, oak::WReg src, u32 bitTest, u32 bitSet)
-{
-	oak::Label skip;
-	oakAsm->TST(src, bitTest);
-	oakAsm->B(oak::Cond::EQ, skip);
-	oakAsm->ORR(dst, dst, bitSet);
-	oakAsm->l(skip);
-}
-
 static void mVUNormalizeStatusFlagForMacro_emit_oaknut()
 {
 	recBeginOaknutEmit();
@@ -132,13 +123,8 @@ static void mVUNormalizeStatusFlagForMacro_emit_oaknut()
 	const oak::WReg denormalized = oakWRegister(VU_HOST_F0);
 	pxAssert(normalized.index() != denormalized.index());
 
-	oakAsm->MOV(normalized, 0);
-	mVUSetBitSFLAGForMacro_emit_oaknut(normalized, denormalized, 0x0f00, 0x0001);
-	mVUSetBitSFLAGForMacro_emit_oaknut(normalized, denormalized, 0xf000, 0x0002);
-	mVUSetBitSFLAGForMacro_emit_oaknut(normalized, denormalized, 0x000f, 0x0040);
-	mVUSetBitSFLAGForMacro_emit_oaknut(normalized, denormalized, 0x00f0, 0x0080);
-	oakAsm->MOV(OAK_WSCRATCH, 0xffff0000);
-	oakAsm->AND(denormalized, denormalized, OAK_WSCRATCH);
+	mVUNormalizeSFLAGGroups_emit_oaknut(normalized, denormalized);
+	oakAsm->AND(denormalized, denormalized, 0xffff0000);
 	oakAsm->LSR(denormalized, denormalized, 14);
 	oakAsm->ORR(normalized, normalized, denormalized);
 	oakStore32(normalized, mVUOakCpuMemVu0Status());

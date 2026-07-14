@@ -504,6 +504,7 @@ void mVUsetCycles(mV)
 
 static __fi void mVUCompileCompareCycles_emit_oaknut(mV, u32 cycles);
 static __fi void mVUCompileSubCycles_emit_oaknut(mV, u32 cycles);
+static __fi void mVUCompileStoreComparedCycles_emit_oaknut(mV);
 static __fi void mVUCompileStoreNextBlockCycles_emit_oaknut(mV, u32 cycles);
 
 // Test cycles to see if we need to exit-early...
@@ -557,7 +558,19 @@ void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
 //	skip.SetTarget();
 	mVUBranchPatchCondToHere_emit_oaknut(skip, oak::Cond::PL);
 
-	mVUCompileSubCycles_emit_oaknut(mVU, mVUcycles);
+	if (EmuConfig.Gamefixes.VUSyncHack)
+	{
+		// The compare above already calculated cycles - mVUcycles in
+		// OAK_WSCRATCH. The taken PL branch executes no intervening code, so
+		// store that exact result instead of loading and subtracting again.
+		mVUCompileStoreComparedCycles_emit_oaknut(mVU);
+	}
+	else
+	{
+		// Without VUSyncHack the compare only subtracts one cycle, while the
+		// block must still deduct its full cost.
+		mVUCompileSubCycles_emit_oaknut(mVU, mVUcycles);
+	}
 }
 
 //------------------------------------------------------------------
@@ -630,6 +643,14 @@ static __fi void mVUCompileSubCycles_emit_oaknut(mV, u32 cycles)
 	oakLoad32(OAK_WSCRATCH,
 		mVUBranchOakMvuMem(static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].cycles))));
 	oakAsm->SUB(OAK_WSCRATCH, OAK_WSCRATCH, cycles);
+	oakStore32(OAK_WSCRATCH,
+		mVUBranchOakMvuMem(static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].cycles))));
+	recEndOaknutEmit();
+}
+
+static __fi void mVUCompileStoreComparedCycles_emit_oaknut(mV)
+{
+	recBeginOaknutEmit();
 	oakStore32(OAK_WSCRATCH,
 		mVUBranchOakMvuMem(static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].cycles))));
 	recEndOaknutEmit();

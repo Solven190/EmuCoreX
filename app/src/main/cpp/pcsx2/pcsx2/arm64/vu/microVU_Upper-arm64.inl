@@ -451,11 +451,11 @@ static void mVUupdateFlags_oaknut(mV, int reg, int regT1in = VU_HOST_NO_XMM, int
 	if (sFLAG.doFlag && CHECK_VUOVERFLOWHACK)
 	{
 		oak::Label no_overflow;
-		oakAsm->MOV(t1_q.B16(), t2_q.B16());
-		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_compvals[1][0])));
-		oakAsm->AND(t1_q.B16(), t1_q.B16(), OAK_QSCRATCH3.B16());
 		oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, sse4_compvals[0][0])));
-		oakAsm->FCMGE(t1_q.S4(), t1_q.S4(), OAK_QSCRATCH3.S4());
+		// FACGE performs the same unordered-safe absolute comparison as the
+		// previous copy + abs-mask + FCMGE sequence, without materializing the
+		// mask or modifying a copy first.
+		oakAsm->FACGE(t1_q.S4(), t2_q.S4(), OAK_QSCRATCH3.S4());
 		mVUUpperMovmskps_oaknut(temp_w, t1_q);
 		oakAsm->MOV(OAK_WSCRATCH, AND_XYZW);
 		oakAsm->AND(temp_w, temp_w, OAK_WSCRATCH);
@@ -2530,10 +2530,10 @@ static void mVU_ADDi_triace_hack_oaknut(int to, int from)
 
 	oakAsm->FMOV(to_bits, oakSRegister(to));
 	oakAsm->FMOV(from_bits, oakSRegister(from));
-	oakAsm->LSR(to_bits, to_bits, 23);
-	oakAsm->LSR(from_bits, from_bits, 23);
-	oakAsm->AND(to_bits, to_bits, 0xff);
-	oakAsm->AND(from_bits, from_bits, 0xff);
+	// Extracting the exponent directly saves two runtime instructions from
+	// every scalar ADDi using the Tri-Ace bit-accuracy fix.
+	oakAsm->UBFX(to_bits, to_bits, 23, 8);
+	oakAsm->UBFX(from_bits, from_bits, 23, 8);
 	oakAsm->SUB(from_bits, from_bits, to_bits);
 
 	oakAsm->CMN(from_bits, 25);
