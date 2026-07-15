@@ -3553,6 +3553,8 @@ static void mVU_MULA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane
 
 	if (_XYZW_SS2)
 	{
+		const int flagsTemp = (useFtLane && (sFLAG.doFlag || mFLAG.doFlag)) ?
+			mVU.regAlloc->allocRegId() : VU_HOST_NO_XMM;
 		recBeginOaknutEmit();
 		mVUUpperClamp2Scalar_oaknut(mVU, Fs, false);
 		if (useFtLane)
@@ -3560,11 +3562,16 @@ static void mVU_MULA_lane_direct_emit_oaknut(microVU& mVU, int recPass, int lane
 		else
 			mVUUpperMulSs_oaknut(mVU, Fs, FtL);
 		recEndOaknutEmit();
-		mVUupdateFlags_oaknut(mVU, Fs, useFtLane ? FtRaw : FtL);
+		// FtRaw is a cached guest VF register, while mVUupdateFlags overwrites its
+		// first temporary. Keep the direct ACC lane commit, but use an uninitialized
+		// host temp for flags; allocation emits no runtime instruction. GTA SA VU0
+		// and Tekken 5 VU1 save tests exposed the stale-cache corruption here.
+		mVUupdateFlags_oaknut(mVU, Fs, useFtLane ? flagsTemp : FtL);
 		recBeginOaknutEmit();
 		const int laneIdx = (_X ? 0 : (_Y ? 1 : (_Z ? 2 : 3)));
 		oakAsm->MOV(oakQRegister(ACC).Selem()[laneIdx], oakQRegister(Fs).Selem()[0]);
 		recEndOaknutEmit();
+		mVU.regAlloc->clearNeededXmmId(flagsTemp);
 	}
 	else
 	{

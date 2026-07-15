@@ -2059,6 +2059,7 @@ SCAJ-20125:
   region: "NTSC-Unk"
   clampModes:
     eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -2072,6 +2073,7 @@ SCAJ-20126:
   region: "NTSC-Unk"
   clampModes:
     eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -2593,6 +2595,7 @@ SCAJ-20199:
   region: "NTSC-Unk"
   clampModes:
     eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -2892,6 +2895,7 @@ SCED-50041:
   region: "PAL-E"
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -3205,6 +3209,7 @@ SCED-51120:
   region: "PAL-E"
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -4331,6 +4336,7 @@ SCED-53538:
   region: "PAL-M5"
   clampModes:
     eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -4758,6 +4764,7 @@ SCES-50001:
   compat: 5
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -5128,6 +5135,7 @@ SCES-50878:
   compat: 5
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -6049,6 +6057,7 @@ SCES-53202:
   compat: 5
   clampModes:
     eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -7558,6 +7567,7 @@ SCKA-20045:
   region: "NTSC-K"
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -7611,6 +7621,7 @@ SCKA-20049:
   region: "NTSC-K"
   clampModes:
     eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -7895,6 +7906,7 @@ SCKA-20081:
   region: "NTSC-K"
   clampModes:
     eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -7956,6 +7968,8 @@ SCKA-20088:
 SCKA-20089:
   name: "BioHazard 4" # No listed Korean name on ReDump
   region: "NTSC-K"
+  clampModes:
+    vu1ClampMode: 1 # Uses Normal VU1 clamping for stable game behavior.
   gameFixes:
     - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
@@ -10655,6 +10669,7 @@ SCPS-55017:
   compat: 3
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1
@@ -10936,6 +10951,7 @@ SCPS-56002:
   compat: 5
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -10964,6 +10980,7 @@ SCPS-56006:
   compat: 5
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1
@@ -13504,6 +13521,8 @@ SLAJ-25073:
   name-sort: "ばいおはざーど4 [Asiaばん]"
   name-en: "BioHazard 4 [Asia Version]"
   region: "NTSC-J"
+  clampModes:
+    vu1ClampMode: 1 # Uses Normal VU1 clamping for stable game behavior.
   gameFixes:
     - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
@@ -24525,6 +24544,8 @@ SLES-53702:
   name: "Resident Evil 4"
   region: "PAL-M5"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1 # Uses Normal VU1 clamping for stable game behavior.
   gsHWFixes:
     halfPixelOffset: 5 # Fixes blurriness.
 SLES-53703:
@@ -24769,6 +24790,8 @@ SLES-53755:
 SLES-53756:
   name: "Resident Evil 4"
   region: "PAL-M5"
+  clampModes:
+    vu1ClampMode: 1 # Uses Normal VU1 clamping for stable game behavior.
   gsHWFixes:
     halfPixelOffset: 5 # Fixes blurriness.
 SLES-53758:
@@ -33422,6 +33445,8 @@ SLKA-25410:
   name: "바이오하자드 4 [PlayStation 2 BigHit Series]" # Undumped on ReDump as of 2025-08-28
   name-en: "Biohazard 4 [PlayStation 2 BigHit Series]" # Resident Evil 4
   region: "NTSC-K"
+  clampModes:
+    vu1ClampMode: 1 # Uses Normal VU1 clamping for stable game behavior.
   gameFixes:
     - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
@@ -48518,6 +48543,8 @@ SLPM-66213:
   name-en: "BioHazard 4"
   region: "NTSC-J"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1 # Uses Normal VU1 clamping for stable game behavior.
   gameFixes:
     - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
@@ -54204,6 +54231,8 @@ SLPM-74229:
   name-sort: "ばいおはざーど4 [PlayStation2 the Best]"
   name-en: "BioHazard 4 [PlayStation2 the Best]"
   region: "NTSC-J"
+  clampModes:
+    vu1ClampMode: 1 # Uses Normal VU1 clamping for stable game behavior.
   gameFixes:
     - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
@@ -54498,6 +54527,8 @@ SLPM-74262:
   name-sort: "ばいおはざーど4 [PlayStation2 the Best]"
   name-en: "BioHazard 4 [PlayStation2 the Best]"
   region: "NTSC-J"
+  clampModes:
+    vu1ClampMode: 1 # Uses Normal VU1 clamping for stable game behavior.
   gameFixes:
     - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
@@ -54623,6 +54654,8 @@ SLPM-74288:
   name-sort: "ばいおはざーど4 [PlayStation2 the Best]"
   name-en: "BioHazard 4 [PlayStation2 the Best]"
   region: "NTSC-J"
+  clampModes:
+    vu1ClampMode: 1 # Uses Normal VU1 clamping for stable game behavior.
   gameFixes:
     - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
@@ -54901,6 +54934,7 @@ SLPS-20015:
   compat: 5
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -58006,6 +58040,7 @@ SLPS-25100:
   compat: 5
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -60468,6 +60503,7 @@ SLPS-25510:
   compat: 5
   clampModes:
     eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -63433,6 +63469,7 @@ SLPS-71501:
   region: "NTSC-J"
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -63532,6 +63569,7 @@ SLPS-73104:
   region: "NTSC-J"
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -63663,6 +63701,7 @@ SLPS-73209:
   region: "NTSC-J"
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -63782,6 +63821,7 @@ SLPS-73223:
   region: "NTSC-J"
   clampModes:
     eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -64402,6 +64442,7 @@ SLUS-20001:
   compat: 5
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -65802,6 +65843,7 @@ SLUS-20328:
   compat: 5
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -69939,6 +69981,7 @@ SLUS-21059:
   compat: 5
   clampModes:
     eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -70363,6 +70406,8 @@ SLUS-21134:
   name: "Resident Evil 4"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1 # Uses Normal VU1 clamping for stable game behavior.
   gameFixes:
     - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
@@ -70506,6 +70551,7 @@ SLUS-21160:
   region: "NTSC-U"
   clampModes:
     eeClampMode: 3 # Fixes camera and stops constant coin noises on Pirates Cove.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     recommendedBlendingLevel: 3 # Improves effect rendering on various levels.
@@ -75210,6 +75256,7 @@ SLUS-28012:
   region: "NTSC-U"
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -75507,6 +75554,7 @@ SLUS-29034:
   region: "NTSC-U"
   clampModes:
     eeClampMode: 3 # Fixes broken effects.
+    vu0ClampMode: 3 # Fixes VU0 calculations with Extra + Preserve Sign clamping.
     vu1ClampMode: 2 # Fixes broken effects.
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
@@ -76053,6 +76101,8 @@ SLUS-29168:
 SLUS-29169:
   name: "Resident Evil 4 [Demo]"
   region: "NTSC-U"
+  clampModes:
+    vu1ClampMode: 1 # Uses Normal VU1 clamping for stable game behavior.
   gameFixes:
     - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:

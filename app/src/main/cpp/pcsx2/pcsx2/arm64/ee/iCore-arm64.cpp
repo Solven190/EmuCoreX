@@ -190,8 +190,11 @@ bool _isAllocatableX86reg(int x86reg)
 	if (x86reg == 4)
 		return false;
 
-	// Pinned EE JIT registers: X19=fastmem base, X24=RECCYCLE, X25=old fastmem base, X27=cpuRegistersPack, X28=psxRegs, X29=recLUT
-	if (x86reg == 19 || x86reg == 24 || x86reg == 25 || x86reg == 27 || x86reg == 28 || x86reg == 29)
+	// Pinned EE JIT registers: X19=fastmem base, X24=RECCYCLE, X25=old fastmem base,
+	// X26=mVU clamp base, X27=cpuRegistersPack, X28=psxRegs, X29=recLUT.
+	// X26 must stay reserved: real-game COP2 testing showed that allocating it lets
+	// a guest value replace the clamp base used by subsequently generated VU code.
+	if (x86reg == 19 || x86reg == 24 || x86reg == 25 || x86reg == 26 || x86reg == 27 || x86reg == 28 || x86reg == 29)
 		return false;
 
 	return true;
