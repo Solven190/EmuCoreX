@@ -1,6 +1,7 @@
 package com.sbro.emucorex.data
 
 import android.content.Context
+import android.util.Log
 import androidx.core.net.toUri
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.NativeApp
@@ -222,11 +223,14 @@ class RetroAchievementsRepository(private val context: Context) {
         activeGameTitle: String?,
         activeGameId: Int?
     ): List<LibraryAchievementGame> {
+        val startedAt = System.currentTimeMillis()
+        Log.i(LOG_TAG, "library_sync start")
         val libraryPaths = preferences.gamePaths.first()
         if (libraryPaths.isEmpty()) return emptyList()
         val libraryPath = GameLibraryCacheRepository.libraryKey(libraryPaths)
 
         val accountProgress = loadAccountProgressGames()
+        Log.i(LOG_TAG, "library_sync progress_done games=${accountProgress.size} elapsed=${System.currentTimeMillis() - startedAt}ms")
         val cachedActiveData = lastActiveGameData?.takeIf { it.totalCount > 0 }
         val cachedActiveTitle = cachedActiveData?.title?.ifBlank { activeGameTitle.orEmpty() }
             ?.takeIf { it.isNotBlank() }
@@ -253,6 +257,7 @@ class RetroAchievementsRepository(private val context: Context) {
         achievementGamesCache[cacheKey]?.let { return it }
 
         val libraryGames = scanLibraryGames(libraryPaths)
+        Log.i(LOG_TAG, "library_sync scan_done games=${libraryGames.size} elapsed=${System.currentTimeMillis() - startedAt}ms")
 
         val resultByKey = linkedMapOf<String, LibraryAchievementGame>()
         accountProgress
@@ -298,6 +303,7 @@ class RetroAchievementsRepository(private val context: Context) {
         lastAccountAchievementGamesLibraryPath = libraryPath
 
         achievementGamesCache[cacheKey] = result
+        Log.i(LOG_TAG, "library_sync complete matches=${result.size} elapsed=${System.currentTimeMillis() - startedAt}ms")
         return result
     }
 
@@ -367,34 +373,75 @@ class RetroAchievementsRepository(private val context: Context) {
     }
 
     private suspend fun loadAccountProgressGames(): List<RetroAchievementAccountProgress> {
-        lastAccountProgress.takeIf { it.isNotEmpty() }?.let { return it }
-
-        val nativeProgress = nativeLoadMutex.withLock {
-            val nativeJson = runCatching { NativeApp.getRetroAchievementsAccountData() }.getOrNull()
-                ?.takeIf { it.isNotBlank() }
-            nativeJson?.toRetroAchievementAccountProgress().orEmpty()
+        Log.i(LOG_TAG, "account_progress start")
+        val username = preferences.getAchievementsUsernameSync()?.trim().orEmpty()
+        if (username.isBlank()) {
+            Log.w(LOG_TAG, "account_progress skipped missing_username")
+            return emptyList()
         }
 
-        val remoteJson = fetchRemoteAccountProgressJson()
-        val remoteProgress = remoteJson.toRetroAchievementAccountProgress()
-        if (remoteProgress.isNotEmpty()) {
-            preferences.setAchievementsAccountProgressJson(remoteJson)
-            lastAccountProgress = remoteProgress
-            return remoteProgress
+        val now = System.currentTimeMillis()
+        val forceRefresh = synchronized(accountProgressStateLock) {
+            val value = forceAccountProgressRefresh
+            forceAccountProgressRefresh = false
+            value
+        }
+        if (!forceRefresh && lastAccountProgressLoaded &&
+            lastAccountProgressUsername.equals(username, ignoreCase = true) &&
+            RetroAchievementsCachePolicy.isFresh(lastAccountProgressUpdatedAt, now)
+        ) {
+            return lastAccountProgress
         }
 
-        if (nativeProgress.isNotEmpty()) {
-            lastAccountProgress = nativeProgress
-            return nativeProgress
+        // The disk snapshot is account-owned and returned immediately while it is fresh.
+        // Stale data is retained only as a network-failure fallback, never for another user.
+        val diskCache = preferences.getAchievementsAccountProgressCache()
+            ?.takeIf { RetroAchievementsCachePolicy.isSameAccount(it.username, username) }
+            ?.takeIf { it.json.isRetroAchievementAccountProgressPayload() }
+        val diskProgress = diskCache?.json?.toRetroAchievementAccountProgress().orEmpty()
+        if (!forceRefresh && diskCache != null &&
+            RetroAchievementsCachePolicy.isFresh(diskCache.updatedAtMillis, now)
+        ) {
+            rememberAccountProgress(username, diskProgress, diskCache.updatedAtMillis)
+            return diskProgress
         }
 
-        val cachedJson = preferences.getAchievementsAccountProgressJson().orEmpty()
-        val cachedProgress = cachedJson.toRetroAchievementAccountProgress()
-        if (cachedProgress.isNotEmpty()) {
-            lastAccountProgress = cachedProgress
-            return cachedProgress
+        // Account-wide progress is fetched through the bounded Android request path.
+        // Waiting synchronously for every native rcheevos request can also join an
+        // in-flight token login and hold this screen for the native 60-second timeout.
+        val refreshedJson = fetchRemoteAccountProgressJson()
+            .takeIf { it.isRetroAchievementAccountProgressPayload() }
+        if (refreshedJson != null) {
+            val refreshedProgress = refreshedJson.toRetroAchievementAccountProgress()
+            preferences.setAchievementsAccountProgressCache(
+                AchievementsAccountProgressCache(
+                    username = username,
+                    json = refreshedJson,
+                    updatedAtMillis = now
+                )
+            )
+            rememberAccountProgress(username, refreshedProgress, now)
+            return refreshedProgress
         }
+
+        if (diskCache != null) {
+            rememberAccountProgress(username, diskProgress, diskCache.updatedAtMillis)
+            return diskProgress
+        }
+        // A failed request is not a valid empty-account snapshot. Leave it stale so
+        // the next screen entry retries instead of caching a transient outage for 15m.
         return emptyList()
+    }
+
+    private fun rememberAccountProgress(
+        username: String,
+        progress: List<RetroAchievementAccountProgress>,
+        updatedAtMillis: Long
+    ) {
+        lastAccountProgress = progress
+        lastAccountProgressUsername = username
+        lastAccountProgressUpdatedAt = updatedAtMillis
+        lastAccountProgressLoaded = true
     }
 
     private fun findAccountCachedGameData(gamePath: String): RetroAchievementGameData? {
@@ -469,19 +516,26 @@ class RetroAchievementsRepository(private val context: Context) {
     private fun fetchRemoteAccountProgressJson(): String {
         val username = preferences.getAchievementsUsernameSync().orEmpty()
         val token = preferences.getAchievementsTokenSync().orEmpty()
-        if (username.isBlank() || token.isBlank()) return ""
+        if (username.isBlank() || token.isBlank()) {
+            Log.w(LOG_TAG, "account_progress credentials_missing username=${username.isNotBlank()} token=${token.isNotBlank()}")
+            return ""
+        }
 
+        Log.i(LOG_TAG, "account_progress allprogress_start")
         val progressJson = postRetroAchievementsRequest(
             "r" to "allprogress",
             "u" to username,
             "t" to token,
             "c" to PLAYSTATION_2_CONSOLE_ID.toString()
         ) ?: return ""
+        Log.i(LOG_TAG, "account_progress allprogress_done")
 
         val progressEntries = progressJson.toRemoteAccountProgressEntries()
         if (progressEntries.isEmpty()) return ""
 
         val titleMap = fetchRemoteGameTitleMap(progressEntries.keys)
+        Log.i(LOG_TAG, "account_progress titles_done requested=${progressEntries.size} received=${titleMap.size}")
+        if (!titleMap.keys.containsAll(progressEntries.keys)) return ""
         val games = JSONArray()
         progressEntries.values
             .filter { it.totalAchievements > 0 }
@@ -522,6 +576,8 @@ class RetroAchievementsRepository(private val context: Context) {
 
     private fun postRetroAchievementsRequest(vararg params: Pair<String, String>): String? {
         var connection: HttpURLConnection? = null
+        val route = params.firstOrNull { it.first == "r" }?.second ?: "unknown"
+        val startedAt = System.currentTimeMillis()
         return runCatching {
             val body = params.joinToString("&") { (key, value) ->
                 "${URLEncoder.encode(key, Charsets.UTF_8.name())}=${URLEncoder.encode(value, Charsets.UTF_8.name())}"
@@ -542,7 +598,10 @@ class RetroAchievementsRepository(private val context: Context) {
             val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
             stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
                 ?.takeIf { responseCode in 200..299 && it.isNotBlank() }
+        }.onFailure { error ->
+            Log.w(LOG_TAG, "request route=$route failed elapsed=${System.currentTimeMillis() - startedAt}ms", error)
         }.getOrNull().also {
+            Log.i(LOG_TAG, "request route=$route complete success=${it != null} elapsed=${System.currentTimeMillis() - startedAt}ms")
             connection?.disconnect()
         }
     }
@@ -553,21 +612,35 @@ class RetroAchievementsRepository(private val context: Context) {
         private val nativeLoadMutex = Mutex()
         private var lastActiveGameData: RetroAchievementGameData? = null
         private var lastAccountProgress: List<RetroAchievementAccountProgress> = emptyList()
+        private var lastAccountProgressUsername: String? = null
+        private var lastAccountProgressUpdatedAt: Long = 0L
+        private var lastAccountProgressLoaded: Boolean = false
+        private var forceAccountProgressRefresh: Boolean = false
+        private val accountProgressStateLock = Any()
         private var lastAccountAchievementGames: List<LibraryAchievementGame> = emptyList()
         private var lastAccountAchievementGamesLibraryPath: String? = null
         private val remoteGameDataCache = mutableMapOf<Long, RetroAchievementGameData>()
         private val overlayGameDataCache = mutableMapOf<String, RetroAchievementGameData>()
         private const val PLAYSTATION_2_CONSOLE_ID = 21
         private const val ACTIVE_GAME_LOOKUP_KEY = "__active_retroachievements_game__"
+        private const val LOG_TAG = "RetroAchievementsSync"
 
-        fun invalidateUnlockedAchievementsCache() {
+        fun invalidateUnlockedAchievementsCache(forceAccountRefresh: Boolean = true) {
             unlockedAchievementsCache.clear()
             achievementGamesCache.clear()
             lastAccountProgress = emptyList()
+            lastAccountProgressUsername = null
+            lastAccountProgressUpdatedAt = 0L
+            lastAccountProgressLoaded = false
             lastAccountAchievementGames = emptyList()
             lastAccountAchievementGamesLibraryPath = null
             remoteGameDataCache.clear()
             overlayGameDataCache.clear()
+            if (forceAccountRefresh) {
+                synchronized(accountProgressStateLock) {
+                    forceAccountProgressRefresh = true
+                }
+            }
         }
 
         private fun overlayGameDataCacheKeys(gamePath: String?, gameTitle: String?, gameId: Int?): List<String> {
@@ -594,6 +667,21 @@ class RetroAchievementsRepository(private val context: Context) {
     }
 }
 
+internal object RetroAchievementsCachePolicy {
+    const val ACCOUNT_PROGRESS_TTL_MILLIS: Long = 15L * 60L * 1000L
+
+    fun isFresh(updatedAtMillis: Long, nowMillis: Long, ttlMillis: Long = ACCOUNT_PROGRESS_TTL_MILLIS): Boolean {
+        if (updatedAtMillis <= 0L || nowMillis < updatedAtMillis || ttlMillis < 0L) return false
+        return nowMillis - updatedAtMillis <= ttlMillis
+    }
+
+    fun isSameAccount(cachedUsername: String?, currentUsername: String?): Boolean {
+        val cached = cachedUsername?.trim().orEmpty()
+        val current = currentUsername?.trim().orEmpty()
+        return cached.isNotBlank() && current.isNotBlank() && cached.equals(current, ignoreCase = true)
+    }
+}
+
 private fun String.toAchievementTitleKey(): String {
     return lowercase()
         .substringBeforeLast('.')
@@ -614,25 +702,44 @@ private fun String.toRetroAchievementGameData(): RetroAchievementGameData? {
     }.getOrNull()
 }
 
-private fun String.toRetroAchievementAccountProgress(): List<RetroAchievementAccountProgress> {
+internal fun String.toRetroAchievementAccountProgress(): List<RetroAchievementAccountProgress> {
     return runCatching {
         val games = JSONObject(this).optJSONArray("games") ?: return@runCatching emptyList()
         buildList {
             for (index in 0 until games.length()) {
                 val item = games.optJSONObject(index) ?: continue
+                val gameId = item.optLong("gameId")
+                val title = item.optString("title").trim()
+                if (gameId <= 0L || title.isBlank()) continue
+                val total = item.optInt("totalAchievements").coerceAtLeast(0)
+                val earned = item.optInt("earnedAchievements").coerceIn(0, total)
+                val earnedHardcore = item.optInt("earnedHardcoreAchievements").coerceIn(0, earned)
                 add(
                     RetroAchievementAccountProgress(
-                        gameId = item.optLong("gameId"),
-                        title = item.optString("title"),
+                        gameId = gameId,
+                        title = title,
                         gameImageUrl = normalizeRetroAchievementsImageUrl(item.optString("gameImageUrl")),
-                        earnedAchievements = item.optInt("earnedAchievements"),
-                        earnedHardcoreAchievements = item.optInt("earnedHardcoreAchievements"),
-                        totalAchievements = item.optInt("totalAchievements")
+                        earnedAchievements = earned,
+                        earnedHardcoreAchievements = earnedHardcore,
+                        totalAchievements = total
                     )
                 )
             }
         }
     }.getOrDefault(emptyList())
+}
+
+internal fun String.isRetroAchievementAccountProgressPayload(): Boolean {
+    if (isBlank()) return false
+    return runCatching {
+        val games = JSONObject(this).optJSONArray("games") ?: return@runCatching false
+        for (index in 0 until games.length()) {
+            val item = games.optJSONObject(index) ?: return@runCatching false
+            if (item.optLong("gameId") <= 0L || item.optString("title").isBlank()) return@runCatching false
+            if (item.optInt("totalAchievements", -1) < 0) return@runCatching false
+        }
+        true
+    }.getOrDefault(false)
 }
 
 private fun String.toRemoteAccountProgressEntries(): Map<Long, RemoteAccountProgressEntry> {

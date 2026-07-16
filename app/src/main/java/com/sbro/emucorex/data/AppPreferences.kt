@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sbro.emucorex.core.BiosValidator
@@ -33,6 +34,22 @@ data class RecentGameEntry(
     val title: String,
     val lastPlayedAt: Long,
     val serial: String? = null
+)
+
+data class AchievementsProfileCache(
+    val username: String,
+    val displayName: String,
+    val avatarPath: String?,
+    val points: Int,
+    val softcorePoints: Int,
+    val unreadMessages: Int,
+    val updatedAtMillis: Long
+)
+
+data class AchievementsAccountProgressCache(
+    val username: String,
+    val json: String,
+    val updatedAtMillis: Long
 )
 
 data class SettingsSnapshot(
@@ -573,9 +590,17 @@ class AppPreferences(private val context: Context) {
         private val ACHIEVEMENTS_TOKEN = stringPreferencesKey("achievements_token")
         private val ACHIEVEMENTS_LOGIN_TIMESTAMP = stringPreferencesKey("achievements_login_timestamp")
         private val ACHIEVEMENTS_AVATAR_PATH = stringPreferencesKey("achievements_avatar_path")
+        private val ACHIEVEMENTS_PROFILE_USERNAME = stringPreferencesKey("achievements_profile_username")
+        private val ACHIEVEMENTS_DISPLAY_NAME = stringPreferencesKey("achievements_display_name")
+        private val ACHIEVEMENTS_POINTS = intPreferencesKey("achievements_points")
+        private val ACHIEVEMENTS_SOFTCORE_POINTS = intPreferencesKey("achievements_softcore_points")
+        private val ACHIEVEMENTS_UNREAD_MESSAGES = intPreferencesKey("achievements_unread_messages")
+        private val ACHIEVEMENTS_PROFILE_UPDATED_AT = longPreferencesKey("achievements_profile_updated_at")
         private val ACHIEVEMENTS_REMEMBER_PASSWORD = booleanPreferencesKey("achievements_remember_password")
         private val ACHIEVEMENTS_PASSWORD = stringPreferencesKey("achievements_password")
         private val ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON = stringPreferencesKey("achievements_account_progress_json")
+        private val ACHIEVEMENTS_ACCOUNT_PROGRESS_USERNAME = stringPreferencesKey("achievements_account_progress_username")
+        private val ACHIEVEMENTS_ACCOUNT_PROGRESS_UPDATED_AT = longPreferencesKey("achievements_account_progress_updated_at")
     }
     private fun readThemeMode(prefs: Preferences): ThemeMode {
         return when (prefs[THEME_MODE]) {
@@ -3472,6 +3497,29 @@ class AppPreferences(private val context: Context) {
         }
     }
 
+    suspend fun setAchievementsProfileCache(cache: AchievementsProfileCache?) {
+        context.dataStore.edit { prefs ->
+            if (cache == null) {
+                prefs.remove(ACHIEVEMENTS_PROFILE_USERNAME)
+                prefs.remove(ACHIEVEMENTS_DISPLAY_NAME)
+                prefs.remove(ACHIEVEMENTS_AVATAR_PATH)
+                prefs.remove(ACHIEVEMENTS_POINTS)
+                prefs.remove(ACHIEVEMENTS_SOFTCORE_POINTS)
+                prefs.remove(ACHIEVEMENTS_UNREAD_MESSAGES)
+                prefs.remove(ACHIEVEMENTS_PROFILE_UPDATED_AT)
+            } else {
+                prefs[ACHIEVEMENTS_PROFILE_USERNAME] = cache.username
+                prefs[ACHIEVEMENTS_DISPLAY_NAME] = cache.displayName
+                if (cache.avatarPath.isNullOrBlank()) prefs.remove(ACHIEVEMENTS_AVATAR_PATH)
+                else prefs[ACHIEVEMENTS_AVATAR_PATH] = cache.avatarPath
+                prefs[ACHIEVEMENTS_POINTS] = cache.points.coerceAtLeast(0)
+                prefs[ACHIEVEMENTS_SOFTCORE_POINTS] = cache.softcorePoints.coerceAtLeast(0)
+                prefs[ACHIEVEMENTS_UNREAD_MESSAGES] = cache.unreadMessages.coerceAtLeast(0)
+                prefs[ACHIEVEMENTS_PROFILE_UPDATED_AT] = cache.updatedAtMillis
+            }
+        }
+    }
+
     suspend fun setAchievementsRememberPassword(remember: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[ACHIEVEMENTS_REMEMBER_PASSWORD] = remember
@@ -3490,8 +3538,27 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setAchievementsAccountProgressJson(json: String?) {
         context.dataStore.edit { prefs ->
-            if (json.isNullOrBlank()) prefs.remove(ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON)
-            else prefs[ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON] = json
+            if (json.isNullOrBlank()) {
+                prefs.remove(ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON)
+                prefs.remove(ACHIEVEMENTS_ACCOUNT_PROGRESS_USERNAME)
+                prefs.remove(ACHIEVEMENTS_ACCOUNT_PROGRESS_UPDATED_AT)
+            } else {
+                prefs[ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON] = json
+            }
+        }
+    }
+
+    suspend fun setAchievementsAccountProgressCache(cache: AchievementsAccountProgressCache?) {
+        context.dataStore.edit { prefs ->
+            if (cache == null) {
+                prefs.remove(ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON)
+                prefs.remove(ACHIEVEMENTS_ACCOUNT_PROGRESS_USERNAME)
+                prefs.remove(ACHIEVEMENTS_ACCOUNT_PROGRESS_UPDATED_AT)
+            } else {
+                prefs[ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON] = cache.json
+                prefs[ACHIEVEMENTS_ACCOUNT_PROGRESS_USERNAME] = cache.username
+                prefs[ACHIEVEMENTS_ACCOUNT_PROGRESS_UPDATED_AT] = cache.updatedAtMillis
+            }
         }
     }
 
@@ -3525,6 +3592,24 @@ class AppPreferences(private val context: Context) {
         }
     }
 
+    fun getAchievementsProfileCacheSync(): AchievementsProfileCache? {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { prefs ->
+                val username = prefs[ACHIEVEMENTS_PROFILE_USERNAME]?.trim().orEmpty()
+                if (username.isBlank()) return@map null
+                AchievementsProfileCache(
+                    username = username,
+                    displayName = prefs[ACHIEVEMENTS_DISPLAY_NAME]?.takeIf { it.isNotBlank() } ?: username,
+                    avatarPath = prefs[ACHIEVEMENTS_AVATAR_PATH]?.takeIf { it.isNotBlank() },
+                    points = (prefs[ACHIEVEMENTS_POINTS] ?: 0).coerceAtLeast(0),
+                    softcorePoints = (prefs[ACHIEVEMENTS_SOFTCORE_POINTS] ?: 0).coerceAtLeast(0),
+                    unreadMessages = (prefs[ACHIEVEMENTS_UNREAD_MESSAGES] ?: 0).coerceAtLeast(0),
+                    updatedAtMillis = prefs[ACHIEVEMENTS_PROFILE_UPDATED_AT] ?: 0L
+                )
+            }.first()
+        }
+    }
+
     fun getAchievementsRememberPasswordSync(): Boolean {
         return kotlinx.coroutines.runBlocking {
             context.dataStore.data.map { it[ACHIEVEMENTS_REMEMBER_PASSWORD] ?: false }.first()
@@ -3539,6 +3624,19 @@ class AppPreferences(private val context: Context) {
 
     suspend fun getAchievementsAccountProgressJson(): String? {
         return context.dataStore.data.map { it[ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON] }.first()
+    }
+
+    suspend fun getAchievementsAccountProgressCache(): AchievementsAccountProgressCache? {
+        return context.dataStore.data.map { prefs ->
+            val username = prefs[ACHIEVEMENTS_ACCOUNT_PROGRESS_USERNAME]?.trim().orEmpty()
+            val json = prefs[ACHIEVEMENTS_ACCOUNT_PROGRESS_JSON].orEmpty()
+            if (username.isBlank() || json.isBlank()) return@map null
+            AchievementsAccountProgressCache(
+                username = username,
+                json = json,
+                updatedAtMillis = prefs[ACHIEVEMENTS_ACCOUNT_PROGRESS_UPDATED_AT] ?: 0L
+            )
+        }.first()
     }
 
     private fun JSONObject.readUpscaleMultiplier(): Float {

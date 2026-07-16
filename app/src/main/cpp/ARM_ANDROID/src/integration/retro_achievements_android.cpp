@@ -270,7 +270,9 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchieve
 	}
 	if (enabled == JNI_TRUE)
 	{
-		if (!Achievements::IsActive() && Host::Internal::GetBaseSettingsLayer() != nullptr)
+		// The Android hub exists before a VM (and sometimes before a base settings
+		// layer). RA account/profile requests still need a persistent rcheevos client.
+		if (!Achievements::IsActive())
 			Achievements::Initialize();
 	}
 	else if (Achievements::IsActive())

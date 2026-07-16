@@ -1,6 +1,7 @@
 package com.sbro.emucorex.core.utils
 
 import com.sbro.emucorex.core.NativeApp
+import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.data.AppPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -106,14 +107,22 @@ object RetroAchievementsBridge {
 
     @JvmStatic
     fun notifySettingsChanged(section: String, key: String, value: String) {
-        val context = NativeApp.getContext() ?: return
+        // NativeApp's JNI context is not guaranteed to exist in the library hub,
+        // before a VM is started. EmulatorBridge owns the application context there.
+        val context = NativeApp.getContext() ?: EmulatorBridge.getContext() ?: return
         val prefs = AppPreferences(context)
         if (section == "Achievements" && (key == "Username" || key == "Token" || key == "LoginTimestamp")) {
+            // The library hub can commit native settings before a VM/settings layer
+            // exists. Those commits contain empty credential values and must not erase
+            // a token which rcheevos has already authenticated and saved to DataStore.
+            // Explicit logout and a verified TOKEN_INVALID response own credential
+            // removal; native synchronization only accepts usable values.
+            if (!RetroAchievementsCredentialSyncPolicy.shouldPersistNativeValue(value)) return
             runBlocking(Dispatchers.IO) {
                 when (key) {
-                    "Username" -> prefs.setAchievementsUsername(value.ifBlank { null })
-                    "Token" -> prefs.setAchievementsToken(value.ifBlank { null })
-                    "LoginTimestamp" -> prefs.setAchievementsLoginTimestamp(value.ifBlank { null })
+                    "Username" -> prefs.setAchievementsUsername(value)
+                    "Token" -> prefs.setAchievementsToken(value)
+                    "LoginTimestamp" -> prefs.setAchievementsLoginTimestamp(value)
                 }
             }
             return
@@ -128,4 +137,8 @@ object RetroAchievementsBridge {
             }
         }
     }
+}
+
+internal object RetroAchievementsCredentialSyncPolicy {
+    fun shouldPersistNativeValue(value: String?): Boolean = !value.isNullOrBlank()
 }
