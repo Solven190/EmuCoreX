@@ -1688,4 +1688,8 @@
     <string name="settings_fps_metric_gs">GS</string>
     <string name="settings_fps_metric_vu">VU</string>
     <string name="settings_fps_metric_software_threads">소프트웨어 스레드</string>
+    <string name="settings_ra_achievement_indicators">업적 표시기</string>
+    <string name="settings_ra_achievement_indicators_desc">게임 플레이 중 진행 중인 도전 과제에 대한 배지와 측정된 업적 진행률을 표시합니다.</string>
+    <string name="settings_ra_leaderboard_trackers">순위표 트래커</string>
+    <string name="settings_ra_leaderboard_trackers_desc">순위표 도전이 활성화되어 있는 동안 실시간 시간 또는 점수를 표시합니다.</string>
 </resources>

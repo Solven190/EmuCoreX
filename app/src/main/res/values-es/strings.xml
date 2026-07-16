@@ -1691,4 +1691,8 @@
     <string name="settings_fps_metric_gs">GS</string>
     <string name="settings_fps_metric_vu">VU</string>
     <string name="settings_fps_metric_software_threads">Hilos de software</string>
+    <string name="settings_ra_achievement_indicators">Indicadores de logros</string>
+    <string name="settings_ra_achievement_indicators_desc">Muestra insignias para los desafíos activos y el progreso medido de los logros durante el juego.</string>
+    <string name="settings_ra_leaderboard_trackers">Rastreadores de la tabla de clasificación</string>
+    <string name="settings_ra_leaderboard_trackers_desc">Muestra el tiempo en vivo o la puntuación mientras un intento de la tabla de clasificación está activo.</string>
 </resources>

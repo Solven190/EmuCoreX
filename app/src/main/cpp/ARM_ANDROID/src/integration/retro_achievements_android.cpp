@@ -302,6 +302,32 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchieve
 	QueryAndNotifyAchievementsState();
 }
 
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchievementsBridge_nativeSetAchievementIndicators(
+	JNIEnv* env, jclass clazz, jboolean enabled)
+{
+	InitializeJniIfNeeded(env, clazz);
+	const bool requested = (enabled == JNI_TRUE);
+	EmuConfig.Achievements.Overlays = requested;
+	if (Host::Internal::GetBaseSettingsLayer() != nullptr)
+	{
+		Host::SetBaseBoolSettingValue("Achievements", "Overlays", requested);
+		Host::CommitBaseSettingChanges();
+	}
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchievementsBridge_nativeSetLeaderboardTrackers(
+	JNIEnv* env, jclass clazz, jboolean enabled)
+{
+	InitializeJniIfNeeded(env, clazz);
+	const bool requested = (enabled == JNI_TRUE);
+	EmuConfig.Achievements.LBOverlays = requested;
+	if (Host::Internal::GetBaseSettingsLayer() != nullptr)
+	{
+		Host::SetBaseBoolSettingValue("Achievements", "LBOverlays", requested);
+		Host::CommitBaseSettingChanges();
+	}
+}
+
 namespace
 {
 bool RestartAchievementsClientAfterHostChange()

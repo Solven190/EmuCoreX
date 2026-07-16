@@ -471,6 +471,10 @@
     <string name="settings_ra_hardcore_pending">HARDCORE AFTER RESET</string>
     <string name="settings_ra_softcore_active">SOFTCORE</string>
     <string name="settings_ra_hardcore_pending_desc">Hardcore is enabled in settings, but it will become active after the game is reset or restarted.</string>
+    <string name="settings_ra_achievement_indicators">Achievement Indicators</string>
+    <string name="settings_ra_achievement_indicators_desc">Show badges for active challenges and measured achievement progress during gameplay.</string>
+    <string name="settings_ra_leaderboard_trackers">Leaderboard Trackers</string>
+    <string name="settings_ra_leaderboard_trackers_desc">Show the live time or score while a leaderboard attempt is active.</string>
     <string name="settings_ra_profile">Account</string>
     <string name="settings_ra_current_game">Current Game</string>
     <string name="settings_ra_username">Username</string>

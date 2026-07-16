@@ -1704,4 +1704,8 @@
     <string name="settings_fps_metric_gs">GS</string>
     <string name="settings_fps_metric_vu">VU</string>
     <string name="settings_fps_metric_software_threads">رشته‌های نرم‌افزاری</string>
+    <string name="settings_ra_achievement_indicators">نشانگرهای دستاورد</string>
+    <string name="settings_ra_achievement_indicators_desc">نمایش نشان‌ها برای چالش‌های فعال و پیشرفت اندازه‌گیری شده دستاوردها در طول بازی.</string>
+    <string name="settings_ra_leaderboard_trackers">ردیاب‌های جدول امتیازات</string>
+    <string name="settings_ra_leaderboard_trackers_desc">نمایش زمان یا امتیاز زنده در حالی که تلاش برای جدول امتیازات فعال است.</string>
 </resources>

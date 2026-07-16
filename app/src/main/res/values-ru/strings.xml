@@ -1693,4 +1693,8 @@
     <string name="settings_fps_metric_gs">GS</string>
     <string name="settings_fps_metric_vu">VU</string>
     <string name="settings_fps_metric_software_threads">Программные потоки</string>
+    <string name="settings_ra_achievement_indicators">Индикаторы достижений</string>
+    <string name="settings_ra_achievement_indicators_desc">Показывать значки для активных испытаний и измеренный прогресс достижений во время игры.</string>
+    <string name="settings_ra_leaderboard_trackers">Трекеры таблицы лидеров</string>
+    <string name="settings_ra_leaderboard_trackers_desc">Показывать текущее время или счет, пока активна попытка в таблице лидеров.</string>
 </resources>
