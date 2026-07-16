@@ -6,6 +6,8 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
+    <!-- A loopback proxy is device-local transient state and must never migrate. -->
+    <exclude domain="sharedpref" path="retroachievements_host_override.xml" />
     <!--
    <include domain="sharedpref" path="."/>
    <exclude domain="sharedpref" path="device.xml"/>

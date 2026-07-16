@@ -5,15 +5,14 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <!-- A loopback proxy is device-local transient state and must never migrate. -->
+        <exclude domain="sharedpref" path="retroachievements_host_override.xml" />
         <!-- TODO: Use <include> and <exclude> to control what is backed up.
         <include .../>
         <exclude .../>
         -->
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="retroachievements_host_override.xml" />
     </device-transfer>
-    -->
 </data-extraction-rules>
