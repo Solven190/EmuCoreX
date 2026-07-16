@@ -1,6 +1,11 @@
 package com.sbro.emucorex.ui.achievements
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -13,6 +18,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
@@ -24,10 +30,13 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -37,6 +46,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Speed
@@ -45,9 +55,15 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -78,8 +94,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.DocumentPathResolver
+import com.sbro.emucorex.core.utils.RetroAchievementsBridge
 import com.sbro.emucorex.core.utils.RetroAchievementsLoginRequestReason
 import com.sbro.emucorex.core.utils.RetroAchievementsStateManager
 import com.sbro.emucorex.core.utils.RetroAchievementsUiState
@@ -100,6 +119,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 import kotlin.time.Duration.Companion.milliseconds
 
 private data class HubContentState(
@@ -632,6 +652,8 @@ private fun ScrollToTopButton(
 
 @Composable
 private fun AchievementToggleCard(retroState: RetroAchievementsUiState) {
+    var showDisplaySettings by rememberSaveable { mutableStateOf(false) }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -647,11 +669,34 @@ private fun AchievementToggleCard(retroState: RetroAchievementsUiState) {
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = androidx.compose.ui.res.stringResource(R.string.settings_ra_overview),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = androidx.compose.ui.res.stringResource(R.string.settings_ra_overview),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Surface(
+                    onClick = { showDisplaySettings = true },
+                    modifier = Modifier.size(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.MoreVert,
+                            contentDescription = androidx.compose.ui.res.stringResource(R.string.settings_more_options),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
             ToggleRow(
                 icon = Icons.Rounded.Star,
                 title = androidx.compose.ui.res.stringResource(R.string.settings_ra_enabled),
@@ -666,20 +711,6 @@ private fun AchievementToggleCard(retroState: RetroAchievementsUiState) {
                 checked = retroState.hardcorePreference,
                 onCheckedChange = RetroAchievementsStateManager::setHardcore
             )
-            ToggleRow(
-                icon = Icons.Rounded.Visibility,
-                title = androidx.compose.ui.res.stringResource(R.string.settings_ra_achievement_indicators),
-                subtitle = androidx.compose.ui.res.stringResource(R.string.settings_ra_achievement_indicators_desc),
-                checked = retroState.achievementIndicators,
-                onCheckedChange = RetroAchievementsStateManager::setAchievementIndicators
-            )
-            ToggleRow(
-                icon = Icons.Rounded.Timer,
-                title = androidx.compose.ui.res.stringResource(R.string.settings_ra_leaderboard_trackers),
-                subtitle = androidx.compose.ui.res.stringResource(R.string.settings_ra_leaderboard_trackers_desc),
-                checked = retroState.leaderboardTrackers,
-                onCheckedChange = RetroAchievementsStateManager::setLeaderboardTrackers
-            )
             if (retroState.hardcorePreference && !retroState.hardcoreActive) {
                 NoticeCard(
                     text = androidx.compose.ui.res.stringResource(R.string.settings_ra_hardcore_pending_desc),
@@ -688,7 +719,367 @@ private fun AchievementToggleCard(retroState: RetroAchievementsUiState) {
             }
         }
     }
+
+    if (showDisplaySettings) {
+        AchievementDisplaySettingsDialog(
+            retroState = retroState,
+            onDismiss = { showDisplaySettings = false }
+        )
+    }
 }
+
+@Composable
+private fun AchievementDisplaySettingsDialog(
+    retroState: RetroAchievementsUiState,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var soundImportError by remember { mutableStateOf<AchievementSoundImportError?>(null) }
+    val soundPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        soundImportError = null
+        scope.launch {
+            when (val result = withContext(Dispatchers.IO) { importAchievementUnlockSound(context, uri) }) {
+                is AchievementSoundImportResult.Success -> {
+                    RetroAchievementsStateManager.setUnlockSound(result.path, result.displayName)
+                    runCatching { RetroAchievementsBridge.nativePreviewSound(result.path) }
+                }
+                is AchievementSoundImportResult.Error -> soundImportError = result.reason
+            }
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.94f)
+                    .widthIn(max = 580.dp)
+                    .heightIn(max = maxHeight),
+                shape = RoundedCornerShape(28.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+                ),
+                tonalElevation = 0.dp,
+                shadowElevation = 14.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(52.dp),
+                            shape = RoundedCornerShape(17.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Visibility,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(26.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = androidx.compose.ui.res.stringResource(R.string.settings_ra_overview),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = androidx.compose.ui.res.stringResource(R.string.settings_title),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f))
+
+                    ToggleRow(
+                        icon = Icons.Rounded.Notifications,
+                        title = androidx.compose.ui.res.stringResource(R.string.settings_ra_achievement_notifications),
+                        subtitle = androidx.compose.ui.res.stringResource(R.string.settings_ra_achievement_notifications_desc),
+                        checked = retroState.notifications,
+                        onCheckedChange = RetroAchievementsStateManager::setNotifications
+                    )
+                    ToggleRow(
+                        icon = Icons.Rounded.EmojiEvents,
+                        title = androidx.compose.ui.res.stringResource(R.string.settings_ra_leaderboard_notifications),
+                        subtitle = androidx.compose.ui.res.stringResource(R.string.settings_ra_leaderboard_notifications_desc),
+                        checked = retroState.leaderboardNotifications,
+                        onCheckedChange = RetroAchievementsStateManager::setLeaderboardNotifications
+                    )
+                    ToggleRow(
+                        icon = Icons.Rounded.Visibility,
+                        title = androidx.compose.ui.res.stringResource(R.string.settings_ra_achievement_indicators),
+                        subtitle = androidx.compose.ui.res.stringResource(R.string.settings_ra_achievement_indicators_desc),
+                        checked = retroState.achievementIndicators,
+                        onCheckedChange = RetroAchievementsStateManager::setAchievementIndicators
+                    )
+                    ToggleRow(
+                        icon = Icons.Rounded.Timer,
+                        title = androidx.compose.ui.res.stringResource(R.string.settings_ra_leaderboard_trackers),
+                        subtitle = androidx.compose.ui.res.stringResource(R.string.settings_ra_leaderboard_trackers_desc),
+                        checked = retroState.leaderboardTrackers,
+                        onCheckedChange = RetroAchievementsStateManager::setLeaderboardTrackers
+                    )
+                    ToggleRow(
+                        icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                        title = androidx.compose.ui.res.stringResource(R.string.settings_ra_sound_effects),
+                        subtitle = androidx.compose.ui.res.stringResource(R.string.settings_ra_sound_effects_desc),
+                        checked = retroState.soundEffects,
+                        onCheckedChange = RetroAchievementsStateManager::setSoundEffects
+                    )
+
+                    AchievementUnlockSoundRow(
+                        currentName = retroState.unlockSoundName,
+                        onSelect = {
+                            soundImportError = null
+                            soundPicker.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave"))
+                        },
+                        onReset = {
+                            soundImportError = null
+                            runCatching { achievementUnlockSoundFile(context).delete() }
+                            RetroAchievementsStateManager.setUnlockSound(null, null)
+                        }
+                    )
+
+                    soundImportError?.let { error ->
+                        NoticeCard(
+                            text = androidx.compose.ui.res.stringResource(
+                                when (error) {
+                                    AchievementSoundImportError.INVALID_WAV -> R.string.settings_ra_unlock_sound_invalid
+                                    AchievementSoundImportError.TOO_LARGE -> R.string.settings_ra_unlock_sound_too_large
+                                    AchievementSoundImportError.IMPORT_FAILED -> R.string.settings_ra_unlock_sound_failed
+                                }
+                            ),
+                            isError = true
+                        )
+                    }
+
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text(
+                            text = androidx.compose.ui.res.stringResource(R.string.close),
+                            modifier = Modifier.padding(vertical = 5.dp),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AchievementUnlockSoundRow(
+    currentName: String?,
+    onSelect: () -> Unit,
+    onReset: () -> Unit
+) {
+    Surface(
+        onClick = onSelect,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(48.dp),
+                shape = RoundedCornerShape(15.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.MusicNote,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = androidx.compose.ui.res.stringResource(R.string.settings_ra_unlock_sound),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = androidx.compose.ui.res.stringResource(R.string.settings_ra_unlock_sound_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = currentName
+                        ?: androidx.compose.ui.res.stringResource(R.string.settings_ra_unlock_sound_default),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (currentName != null) {
+                TextButton(onClick = onReset) {
+                    Text(androidx.compose.ui.res.stringResource(R.string.controls_editor_reset))
+                }
+            }
+        }
+    }
+}
+
+private const val MAX_ACHIEVEMENT_SOUND_BYTES = 16L * 1024L * 1024L
+
+private enum class AchievementSoundImportError {
+    INVALID_WAV,
+    TOO_LARGE,
+    IMPORT_FAILED
+}
+
+private class AchievementSoundTooLargeException : Exception()
+
+private sealed interface AchievementSoundImportResult {
+    data class Success(val path: String, val displayName: String) : AchievementSoundImportResult
+    data class Error(val reason: AchievementSoundImportError) : AchievementSoundImportResult
+}
+
+private fun achievementUnlockSoundFile(context: Context): File =
+    File(File(context.filesDir, "achievements"), "unlock_sound.wav")
+
+private fun importAchievementUnlockSound(context: Context, uri: Uri): AchievementSoundImportResult {
+    val resolver = context.contentResolver
+    val header = ByteArray(12)
+    val headerRead = runCatching {
+        resolver.openInputStream(uri)?.use { input ->
+            var offset = 0
+            while (offset < header.size) {
+                val count = input.read(header, offset, header.size - offset)
+                if (count <= 0) break
+                offset += count
+            }
+            offset
+        } ?: 0
+    }.getOrDefault(0)
+    if (headerRead != header.size || !isValidAchievementWavHeader(header)) {
+        return AchievementSoundImportResult.Error(AchievementSoundImportError.INVALID_WAV)
+    }
+
+    val target = achievementUnlockSoundFile(context)
+    val temp = File(target.parentFile, "${target.name}.tmp")
+    val backup = File(target.parentFile, "${target.name}.bak")
+    var backupCreated = false
+    return runCatching {
+        target.parentFile?.mkdirs()
+        check(!temp.exists() || temp.delete())
+        check(!backup.exists() || backup.delete())
+        resolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(temp).use { output ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var total = 0L
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count <= 0) break
+                    total += count
+                    if (!isAchievementSoundSizeAllowed(total)) throw AchievementSoundTooLargeException()
+                    output.write(buffer, 0, count)
+                }
+                output.fd.sync()
+            }
+        } ?: error("Unable to open selected sound")
+
+        check(temp.length() >= header.size)
+        if (target.exists()) {
+            check(target.renameTo(backup))
+            backupCreated = true
+        }
+        check(temp.renameTo(target))
+        if (backupCreated) {
+            backup.delete()
+            backupCreated = false
+        }
+
+        val displayName = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.take(80)
+            ?: target.name
+        AchievementSoundImportResult.Success(target.absolutePath, displayName)
+    }.getOrElse { error ->
+        temp.delete()
+        if (backupCreated && backup.exists()) {
+            target.delete()
+            backup.renameTo(target)
+        }
+        AchievementSoundImportResult.Error(
+            if (error is AchievementSoundTooLargeException) {
+                AchievementSoundImportError.TOO_LARGE
+            } else {
+                AchievementSoundImportError.IMPORT_FAILED
+            }
+        )
+    }
+}
+
+internal fun isValidAchievementWavHeader(header: ByteArray): Boolean {
+    if (header.size < 12) return false
+    return header[0] == 'R'.code.toByte() &&
+        header[1] == 'I'.code.toByte() &&
+        header[2] == 'F'.code.toByte() &&
+        header[3] == 'F'.code.toByte() &&
+        header[8] == 'W'.code.toByte() &&
+        header[9] == 'A'.code.toByte() &&
+        header[10] == 'V'.code.toByte() &&
+        header[11] == 'E'.code.toByte()
+}
+
+internal fun isAchievementSoundSizeAllowed(byteCount: Long): Boolean =
+    byteCount in 0..MAX_ACHIEVEMENT_SOUND_BYTES
 
 @Composable
 private fun AchievementAccountCard(

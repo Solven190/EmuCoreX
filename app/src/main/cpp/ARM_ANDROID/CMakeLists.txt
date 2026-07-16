@@ -212,6 +212,7 @@ if(EMUCOREX_LINK_UPSTREAM_PCSX2)
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_hostsys.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/src/platform/android_misc.cpp"
 	)
+	target_include_directories(common PRIVATE "${CMAKE_CURRENT_LIST_DIR}/include")
 	set_property(TARGET common PROPERTY CXX_STANDARD 20)
 	set_property(TARGET common PROPERTY CXX_STANDARD_REQUIRED ON)
 	add_subdirectory("${PCSX2_UPSTREAM_DIR}/pcsx2" "${CMAKE_CURRENT_BINARY_DIR}/upstream/pcsx2")

@@ -1,6 +1,10 @@
 package com.sbro.emucorex.core
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Surface
 import org.json.JSONArray
@@ -22,12 +26,15 @@ object NativeApp {
 
     private const val TAG = "NativeApp"
     private const val RESOURCE_ROOT = "resources"
+    private const val MAX_ACTIVE_SOUND_PLAYERS = 4
 
     @JvmStatic
     val hasNativeTools: Boolean
 
     private var contextRef: WeakReference<Context>? = null
     private var dataRootOverride: String? = null
+    private val soundHandler = Handler(Looper.getMainLooper())
+    private val activeSoundPlayers = LinkedHashSet<MediaPlayer>()
 
 
     init {
@@ -164,6 +171,46 @@ object NativeApp {
     @Suppress("unused") // Called from C++ with GetStaticMethodID; there is no Kotlin call site.
     fun onRetroAchievementsNotification(kind: String?, title: String?, message: String?, imagePath: String?) {
         RetroAchievementsBridge.notifyNotification(kind, title, message, imagePath)
+    }
+
+    @JvmStatic
+    @Suppress("unused") // Called from C++ with GetStaticMethodID; there is no Kotlin call site.
+    fun onRetroAchievementsSound(path: String?) {
+        val resolvedPath = path?.takeIf { it.isNotBlank() } ?: return
+        soundHandler.post { playRetroAchievementsSound(resolvedPath) }
+    }
+
+    private fun playRetroAchievementsSound(path: String) {
+        if (!File(path).isFile) return
+
+        val player = MediaPlayer()
+        try {
+            player.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            player.setDataSource(path)
+            player.setOnPreparedListener { it.start() }
+            player.setOnCompletionListener { releaseSoundPlayer(it) }
+            player.setOnErrorListener { failedPlayer, _, _ ->
+                releaseSoundPlayer(failedPlayer)
+                true
+            }
+            while (activeSoundPlayers.size >= MAX_ACTIVE_SOUND_PLAYERS) {
+                releaseSoundPlayer(activeSoundPlayers.first())
+            }
+            activeSoundPlayers += player
+            player.prepareAsync()
+        } catch (_: Exception) {
+            releaseSoundPlayer(player)
+        }
+    }
+
+    private fun releaseSoundPlayer(player: MediaPlayer) {
+        activeSoundPlayers.remove(player)
+        runCatching { player.release() }
     }
 
     @JvmStatic

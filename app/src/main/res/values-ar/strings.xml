@@ -1697,4 +1697,16 @@
     <string name="settings_ra_achievement_indicators_desc">إظهار الشارات للتحديات النشطة وتقدم الإنجاز المقاس أثناء اللعب.</string>
     <string name="settings_ra_leaderboard_trackers">متتبعات لوحة المتصدرين</string>
     <string name="settings_ra_leaderboard_trackers_desc">إظهار الوقت المباشر أو النتيجة أثناء تنشيط محاولة لوحة المتصدرين.</string>
+    <string name="settings_ra_achievement_notifications">إشعارات الإنجازات</string>
+    <string name="settings_ra_achievement_notifications_desc">إظهار النوافذ المنبثقة لفتح الإنجازات والإتقان والأحداث ذات الصلة.</string>
+    <string name="settings_ra_leaderboard_notifications">إشعارات لوحة المتصدرين</string>
+    <string name="settings_ra_leaderboard_notifications_desc">إظهار نافذة منبثقة عند بدء محاولة لوحة المتصدرين أو فشلها أو إرسالها.</string>
+    <string name="settings_ra_sound_effects">تأثيرات صوتية</string>
+    <string name="settings_ra_sound_effects_desc">تشغيل الأصوات لأحداث الإنجازات ولوحة المتصدرين.</string>
+    <string name="settings_ra_unlock_sound">صوت فتح الإنجاز</string>
+    <string name="settings_ra_unlock_sound_desc">اختر ملف WAV قصيرًا، بحجم يصل إلى 16 ميغابايت، لتشغيله عند فتح إنجاز.</string>
+    <string name="settings_ra_unlock_sound_default">الصوت الافتراضي</string>
+    <string name="settings_ra_unlock_sound_invalid">الملف المحدد ليس صوت WAV صالحًا.</string>
+    <string name="settings_ra_unlock_sound_too_large">ملف WAV المحدد أكبر من 16 ميغابايت.</string>
+    <string name="settings_ra_unlock_sound_failed">تعذر استيراد الصوت المحدد.</string>
 </resources>

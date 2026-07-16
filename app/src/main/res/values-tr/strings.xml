@@ -1693,4 +1693,16 @@
     <string name="settings_ra_achievement_indicators_desc">Oyun sırasında aktif zorluklar ve ölçülen başarı ilerlemesi için rozetleri gösterir.</string>
     <string name="settings_ra_leaderboard_trackers">Lider Tablosu İzleyicileri</string>
     <string name="settings_ra_leaderboard_trackers_desc">Bir lider tablosu denemesi etkinken canlı süreyi veya puanı gösterir.</string>
+    <string name="settings_ra_achievement_notifications">Başarı Bildirimleri</string>
+    <string name="settings_ra_achievement_notifications_desc">Başarıların kilidi açıldığında, bir oyunda ustalık kazanıldığında ve ilgili etkinliklerde açılır bildirimler gösterir.</string>
+    <string name="settings_ra_leaderboard_notifications">Lider Tablosu Bildirimleri</string>
+    <string name="settings_ra_leaderboard_notifications_desc">Bir lider tablosu denemesi başladığında, başarısız olduğunda veya gönderildiğinde açılır pencere gösterir.</string>
+    <string name="settings_ra_sound_effects">Ses Efektleri</string>
+    <string name="settings_ra_sound_effects_desc">Başarı ve lider tablosu etkinlikleri için sesleri çalar.</string>
+    <string name="settings_ra_unlock_sound">Başarı Açma Sesi</string>
+    <string name="settings_ra_unlock_sound_desc">Bir başarı kilidi açıldığında çalması için en fazla 16 MB boyutunda kısa bir WAV dosyası seçin.</string>
+    <string name="settings_ra_unlock_sound_default">Varsayılan ses</string>
+    <string name="settings_ra_unlock_sound_invalid">Seçilen dosya geçerli bir WAV sesi değil.</string>
+    <string name="settings_ra_unlock_sound_too_large">Seçilen WAV dosyası 16 MB\'den büyük.</string>
+    <string name="settings_ra_unlock_sound_failed">Seçilen ses içe aktarılamadı.</string>
 </resources>

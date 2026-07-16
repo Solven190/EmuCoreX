@@ -1693,4 +1693,16 @@
     <string name="settings_ra_achievement_indicators_desc">Mostra i badge per le sfide attive e i progressi misurati degli obiettivi durante il gioco.</string>
     <string name="settings_ra_leaderboard_trackers">Tracker delle classifiche</string>
     <string name="settings_ra_leaderboard_trackers_desc">Mostra il tempo reale o il punteggio mentre un tentativo in classifica è attivo.</string>
+    <string name="settings_ra_achievement_notifications">Notifiche degli obiettivi</string>
+    <string name="settings_ra_achievement_notifications_desc">Mostra popup per sblocchi di obiettivi, maestria ed eventi correlati.</string>
+    <string name="settings_ra_leaderboard_notifications">Notifiche della classifica</string>
+    <string name="settings_ra_leaderboard_notifications_desc">Mostra un popup quando un tentativo in classifica inizia, fallisce o viene inviato.</string>
+    <string name="settings_ra_sound_effects">Effetti sonori</string>
+    <string name="settings_ra_sound_effects_desc">Riproduci suoni per gli eventi degli obiettivi e delle classifiche.</string>
+    <string name="settings_ra_unlock_sound">Suono di sblocco obiettivo</string>
+    <string name="settings_ra_unlock_sound_desc">Scegli un breve file WAV (fino a 16 MB) da riprodurre quando viene sbloccato un obiettivo.</string>
+    <string name="settings_ra_unlock_sound_default">Suono predefinito</string>
+    <string name="settings_ra_unlock_sound_invalid">Il file selezionato non è un audio WAV valido.</string>
+    <string name="settings_ra_unlock_sound_too_large">Il file WAV selezionato supera i 16 MB.</string>
+    <string name="settings_ra_unlock_sound_failed">Impossibile importare l\'audio selezionato.</string>
 </resources>

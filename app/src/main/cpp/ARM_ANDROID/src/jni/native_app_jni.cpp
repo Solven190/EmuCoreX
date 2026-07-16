@@ -249,6 +249,49 @@ void DispatchRetroAchievementsNotification(const char* kind, const char* title, 
 		java_vm->DetachCurrentThread();
 }
 
+bool DispatchRetroAchievementsSound(const char* path)
+{
+	JavaVM* java_vm = nullptr;
+	jclass native_app_class = nullptr;
+	{
+		std::lock_guard lock(s_callback_mutex);
+		java_vm = s_java_vm;
+		native_app_class = s_native_app_class;
+	}
+
+	if (!java_vm || !native_app_class || !path || !*path)
+		return false;
+
+	JNIEnv* env = nullptr;
+	bool did_attach = false;
+	if (java_vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK)
+	{
+		if (java_vm->AttachCurrentThread(&env, nullptr) != JNI_OK || !env)
+			return false;
+		did_attach = true;
+	}
+
+	bool dispatched = false;
+	jmethodID method = env->GetStaticMethodID(native_app_class, "onRetroAchievementsSound", "(Ljava/lang/String;)V");
+	if (method)
+	{
+		jstring j_path = env->NewStringUTF(path);
+		if (j_path)
+		{
+			env->CallStaticVoidMethod(native_app_class, method, j_path);
+			dispatched = !env->ExceptionCheck();
+			env->DeleteLocalRef(j_path);
+		}
+	}
+
+	if (env->ExceptionCheck())
+		env->ExceptionClear();
+
+	if (did_attach)
+		java_vm->DetachCurrentThread();
+	return dispatched;
+}
+
 }
 
 int FileSystem::OpenFDFileContent(const char* filename)

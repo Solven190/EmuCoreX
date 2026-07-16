@@ -1708,4 +1708,16 @@
     <string name="settings_ra_achievement_indicators_desc">نمایش نشان‌ها برای چالش‌های فعال و پیشرفت اندازه‌گیری شده دستاوردها در طول بازی.</string>
     <string name="settings_ra_leaderboard_trackers">ردیاب‌های جدول امتیازات</string>
     <string name="settings_ra_leaderboard_trackers_desc">نمایش زمان یا امتیاز زنده در حالی که تلاش برای جدول امتیازات فعال است.</string>
+    <string name="settings_ra_achievement_notifications">اعلان‌های دستاورد</string>
+    <string name="settings_ra_achievement_notifications_desc">نمایش پنجره‌های بازشو برای باز شدن دستاوردها، تسلط و رویدادهای مرتبط.</string>
+    <string name="settings_ra_leaderboard_notifications">اعلان‌های جدول امتیازات</string>
+    <string name="settings_ra_leaderboard_notifications_desc">نمایش یک پنجره بازشو هنگام شروع، شکست یا ثبت یک تلاش در جدول امتیازات.</string>
+    <string name="settings_ra_sound_effects">جلوه‌های صوتی</string>
+    <string name="settings_ra_sound_effects_desc">پخش صداها برای رویدادهای دستاورد و جدول امتیازات.</string>
+    <string name="settings_ra_unlock_sound">صدای باز شدن دستاورد</string>
+    <string name="settings_ra_unlock_sound_desc">یک فایل صوتی کوتاه WAV تا حجم 16 مگابایت را برای پخش هنگام باز شدن یک دستاورد انتخاب کنید.</string>
+    <string name="settings_ra_unlock_sound_default">صدای پیش‌فرض</string>
+    <string name="settings_ra_unlock_sound_invalid">فایل انتخاب شده یک صدای WAV معتبر نیست.</string>
+    <string name="settings_ra_unlock_sound_too_large">حجم فایل WAV انتخاب شده بیش از 16 مگابایت است.</string>
+    <string name="settings_ra_unlock_sound_failed">صدای انتخاب شده وارد نشد.</string>
 </resources>

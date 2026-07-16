@@ -3,6 +3,7 @@
 #include "common/Pcsx2Types.h"
 #include "common/HostSys.h"
 #include "common/Threading.h"
+#include "emucorex/android_runtime.h"
 
 #include <ctime>
 #include <cstdio>
@@ -102,8 +103,7 @@ void Common::DetachMousePositionCb()
 
 bool Common::PlaySoundAsync(const char* path)
 {
-	(void)path;
-	return false;
+	return path && *path && emucorex::android::DispatchRetroAchievementsSound(path);
 }
 
 void Threading::Sleep(int ms)

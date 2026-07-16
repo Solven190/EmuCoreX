@@ -1695,4 +1695,16 @@
     <string name="settings_ra_achievement_indicators_desc">Afficher les badges pour les défis actifs et la progression mesurée des succès pendant le jeu.</string>
     <string name="settings_ra_leaderboard_trackers">Suivi des classements</string>
     <string name="settings_ra_leaderboard_trackers_desc">Afficher le temps réel ou le score lorsqu\'une tentative de classement est active.</string>
+    <string name="settings_ra_achievement_notifications">Notifications de succès</string>
+    <string name="settings_ra_achievement_notifications_desc">Afficher des pop-ups pour le déblocage de succès, la maîtrise et les événements liés.</string>
+    <string name="settings_ra_leaderboard_notifications">Notifications de classement</string>
+    <string name="settings_ra_leaderboard_notifications_desc">Afficher un pop-up lorsqu\'une tentative de classement démarre, échoue ou est soumise.</string>
+    <string name="settings_ra_sound_effects">Effets sonores</string>
+    <string name="settings_ra_sound_effects_desc">Jouer des sons pour les événements liés aux succès et aux classements.</string>
+    <string name="settings_ra_unlock_sound">Son de déblocage de succès</string>
+    <string name="settings_ra_unlock_sound_desc">Choisissez un court fichier WAV (jusqu\'à 16 Mo) à lire lorsqu\'un succès est débloqué.</string>
+    <string name="settings_ra_unlock_sound_default">Son par défaut</string>
+    <string name="settings_ra_unlock_sound_invalid">Le fichier sélectionné n\'est pas un son WAV valide.</string>
+    <string name="settings_ra_unlock_sound_too_large">Le fichier WAV sélectionné dépasse 16 Mo.</string>
+    <string name="settings_ra_unlock_sound_failed">Le son sélectionné n\'a pas pu être importé.</string>
 </resources>

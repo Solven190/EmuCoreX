@@ -1697,4 +1697,16 @@
     <string name="settings_ra_achievement_indicators_desc">Показувати значки для активних випробувань та виміряний прогрес досягнень під час гри.</string>
     <string name="settings_ra_leaderboard_trackers">Трекери таблиці лідерів</string>
     <string name="settings_ra_leaderboard_trackers_desc">Показувати поточний час або рахунок, поки активна спроба в таблиці лідерів.</string>
+    <string name="settings_ra_achievement_notifications">Сповіщення про досягнення</string>
+    <string name="settings_ra_achievement_notifications_desc">Показувати спливаючі вікна під час розблокування досягнень, повного опанування гри та пов\'язаних подій.</string>
+    <string name="settings_ra_leaderboard_notifications">Сповіщення таблиці лідерів</string>
+    <string name="settings_ra_leaderboard_notifications_desc">Показувати спливаюче вікно, коли спроба в таблиці лідерів починається, завершується невдало або надсилається.</string>
+    <string name="settings_ra_sound_effects">Звукові ефекти</string>
+    <string name="settings_ra_sound_effects_desc">Відтворювати звуки для подій досягнень і таблиці лідерів.</string>
+    <string name="settings_ra_unlock_sound">Звук розблокування досягнення</string>
+    <string name="settings_ra_unlock_sound_desc">Виберіть короткий файл WAV розміром до 16 МБ для відтворення під час розблокування досягнення.</string>
+    <string name="settings_ra_unlock_sound_default">Звук за замовчуванням</string>
+    <string name="settings_ra_unlock_sound_invalid">Вибраний файл не є коректним WAV-файлом.</string>
+    <string name="settings_ra_unlock_sound_too_large">Розмір вибраного файлу WAV перевищує 16 МБ.</string>
+    <string name="settings_ra_unlock_sound_failed">Не вдалося імпортувати вибраний звук.</string>
 </resources>

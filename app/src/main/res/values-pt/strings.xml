@@ -1695,4 +1695,16 @@
     <string name="settings_ra_achievement_indicators_desc">Mostrar insígnias para desafios ativos e o progresso medido das conquistas durante o jogo.</string>
     <string name="settings_ra_leaderboard_trackers">Rastreadores de classificação</string>
     <string name="settings_ra_leaderboard_trackers_desc">Mostrar o tempo ou a pontuação ao vivo enquanto uma tentativa de classificação estiver ativa.</string>
+    <string name="settings_ra_achievement_notifications">Notificações de conquistas</string>
+    <string name="settings_ra_achievement_notifications_desc">Mostra pop-ups para desbloqueios de conquistas, maestria e eventos relacionados.</string>
+    <string name="settings_ra_leaderboard_notifications">Notificações da tabela de classificação</string>
+    <string name="settings_ra_leaderboard_notifications_desc">Mostra um pop-up quando uma tentativa na tabela de classificação é iniciada, falha ou é enviada.</string>
+    <string name="settings_ra_sound_effects">Efeitos sonoros</string>
+    <string name="settings_ra_sound_effects_desc">Reproduz sons para eventos de conquistas e tabelas de classificação.</string>
+    <string name="settings_ra_unlock_sound">Som de desbloqueio de conquista</string>
+    <string name="settings_ra_unlock_sound_desc">Escolha um arquivo WAV curto, de até 16 MB, para reproduzir quando uma conquista for desbloqueada.</string>
+    <string name="settings_ra_unlock_sound_default">Som padrão</string>
+    <string name="settings_ra_unlock_sound_invalid">O arquivo selecionado não é um som WAV válido.</string>
+    <string name="settings_ra_unlock_sound_too_large">O arquivo WAV selecionado é maior que 16 MB.</string>
+    <string name="settings_ra_unlock_sound_failed">Não foi possível importar o som selecionado.</string>
 </resources>
