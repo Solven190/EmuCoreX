@@ -2,6 +2,7 @@ package com.sbro.emucorex.data
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import com.google.android.gms.tasks.Task
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
@@ -136,6 +137,8 @@ class PlayerProfileRepository(context: Context) {
 
     suspend fun ensureCurrentUserProfile() {
         auth.currentUser?.let { user ->
+            runCatching { removeLegacyAutotestProfileEntries(user.uid) }
+                .onFailure { error -> Log.e(TAG, "Legacy autotest profile cleanup failed", error) }
             ensureUserProfile(
                 uid = user.uid,
                 email = user.email,
@@ -389,7 +392,8 @@ class PlayerProfileRepository(context: Context) {
             .filter { entry ->
                 !entry.gamePath.isNullOrBlank() &&
                     entry.durationMs > 0L &&
-                    !entry.title.equals(BIOS_TITLE, ignoreCase = true)
+                    !entry.title.equals(BIOS_TITLE, ignoreCase = true) &&
+                    !isAutotestPlayTimeEntry(entry)
             }
             .groupBy { entry -> buildGameKey(entry.serial, entry.gamePath.orEmpty()) }
             .map { (gameKey, gameEntries) ->
@@ -516,6 +520,111 @@ class PlayerProfileRepository(context: Context) {
                     ),
                     SetOptions.merge()
                 )
+            }
+        }.await()
+    }
+
+    private suspend fun removeLegacyAutotestProfileEntries(uid: String) {
+        val userRef = firestore.collection(USERS_COLLECTION).document(uid)
+        val initialSnapshot = userRef.get().await()
+        if (sanitizeLegacyAutotestGames(initialSnapshot.getGamesMap()).removedGames.isEmpty()) return
+
+        val activityDocuments = userRef.collection(ACTIVITY_COLLECTION).get().await().documents
+        val publicProfileRef = firestore.collection(PUBLIC_PROFILES_COLLECTION).document(uid)
+        val leaderboardRef = firestore.collection(LEADERBOARD_COLLECTION).document(uid)
+
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(userRef)
+            val activitySnapshots = activityDocuments.associate { document ->
+                document.id to transaction.get(document.reference)
+            }
+            val cleanup = sanitizeLegacyAutotestGames(snapshot.getGamesMap())
+            if (cleanup.removedGames.isEmpty()) return@runTransaction
+
+            val latestRemainingGame = cleanup.remainingGames.entries.maxByOrNull { (_, rawGame) ->
+                rawGame.toGameMap().longValue(GAME_LAST_PLAYED_AT_MS)
+            }
+            val latestGameMap = latestRemainingGame?.value.toGameMap()
+            val lastPlayedTitle = latestGameMap.stringValue(GAME_TITLE)
+            val lastPlayedAtMs = latestGameMap.longValue(GAME_LAST_PLAYED_AT_MS)
+            // Rebuild the total from retained games instead of subtracting from a possibly migrated
+            // value. This makes recovery exact and the cleanup safe to retry after an interrupted sync.
+            val totalAfterCleanup = cleanup.remainingGames.values
+                .sumOf { it.toGameMap().longValue(GAME_TOTAL_MS) }
+                .coerceAtLeast(0L)
+            val favoriteGameKeys = snapshot.stringList(FIELD_FAVORITE_GAME_KEYS)
+                .filter { it in cleanup.remainingGames }
+                .distinct()
+                .take(MAX_FAVORITE_GAMES)
+
+            val profilePatch = mapOf(
+                FIELD_GAMES to cleanup.remainingGames,
+                FIELD_TOTAL_PLAY_TIME_MS to totalAfterCleanup,
+                FIELD_GAMES_PLAYED to cleanup.remainingGames.size.toLong(),
+                FIELD_LAST_PLAYED_TITLE to lastPlayedTitle,
+                FIELD_LAST_PLAYED_AT_MS to lastPlayedAtMs,
+                FIELD_FAVORITE_GAME_KEYS to favoriteGameKeys,
+                FIELD_UPDATED_AT to FieldValue.serverTimestamp()
+            )
+            val publicPatch = mapOf(
+                FIELD_TOTAL_PLAY_TIME_MS to totalAfterCleanup,
+                FIELD_GAMES_PLAYED to cleanup.remainingGames.size.toLong(),
+                FIELD_LAST_PLAYED_TITLE to lastPlayedTitle,
+                FIELD_LAST_PLAYED_AT_MS to lastPlayedAtMs,
+                FIELD_FAVORITE_GAME_KEYS to favoriteGameKeys,
+                FIELD_UPDATED_AT to FieldValue.serverTimestamp()
+            )
+            val leaderboardPatch = mapOf(
+                FIELD_TOTAL_PLAY_TIME_MS to totalAfterCleanup,
+                FIELD_GAMES_PLAYED to cleanup.remainingGames.size.toLong(),
+                FIELD_LAST_PLAYED_TITLE to lastPlayedTitle,
+                FIELD_UPDATED_AT to FieldValue.serverTimestamp()
+            )
+
+            // update() replaces the complete games field. A merge-set recursively preserves omitted
+            // nested keys, which is exactly what must not happen while removing legacy test games.
+            transaction.update(userRef, profilePatch)
+            transaction.set(publicProfileRef, publicPatch, SetOptions.merge())
+            transaction.set(leaderboardRef, leaderboardPatch, SetOptions.merge())
+            cleanup.removedGames.keys.forEach { gameKey ->
+                transaction.delete(publicProfileRef.collection(PUBLIC_GAMES_COLLECTION).document(gameKey))
+            }
+
+            val keyOccurrences = mutableMapOf<String, Int>()
+            activitySnapshots.values.forEach { activitySnapshot ->
+                activitySnapshot.stringList(ACTIVITY_GAME_KEYS)
+                    .filter { it in cleanup.removedGames }
+                    .forEach { gameKey -> keyOccurrences[gameKey] = keyOccurrences.getOrDefault(gameKey, 0) + 1 }
+            }
+            activitySnapshots.forEach { (_, activitySnapshot) ->
+                val existingKeys = activitySnapshot.stringList(ACTIVITY_GAME_KEYS)
+                val removedKeys = existingKeys.filter { it in cleanup.removedGames }
+                if (removedKeys.isEmpty()) return@forEach
+
+                // A legacy game total can be subtracted exactly when that key occurs on one activity day.
+                // Ambiguous multi-day keys are removed from the list without guessing their daily split.
+                val exactRemovedKeys = removedKeys.filter { keyOccurrences[it] == 1 }
+                val removedDayMs = exactRemovedKeys.sumOf { cleanup.removedGames.getValue(it).profileLongValue(GAME_TOTAL_MS) }
+                val removedDaySessions = exactRemovedKeys.sumOf { cleanup.removedGames.getValue(it).profileLongValue(GAME_SESSIONS) }
+                val nextKeys = existingKeys.filterNot { it in cleanup.removedGames }
+                val nextPlayTimeMs = ((activitySnapshot.getLong(ACTIVITY_PLAY_TIME_MS) ?: 0L) - removedDayMs)
+                    .coerceAtLeast(0L)
+                val nextSessions = ((activitySnapshot.getLong(ACTIVITY_SESSIONS) ?: 0L) - removedDaySessions)
+                    .coerceAtLeast(0L)
+                if (nextKeys.isEmpty() && nextPlayTimeMs == 0L && nextSessions == 0L) {
+                    transaction.delete(activitySnapshot.reference)
+                } else {
+                    transaction.set(
+                        activitySnapshot.reference,
+                        mapOf(
+                            ACTIVITY_PLAY_TIME_MS to nextPlayTimeMs,
+                            ACTIVITY_SESSIONS to nextSessions,
+                            ACTIVITY_GAME_KEYS to nextKeys,
+                            FIELD_UPDATED_AT to FieldValue.serverTimestamp()
+                        ),
+                        SetOptions.merge()
+                    )
+                }
             }
         }.await()
     }
@@ -806,6 +915,7 @@ class PlayerProfileRepository(context: Context) {
     }
 
     companion object {
+        private const val TAG = "PlayerProfileRepository"
         private const val USERS_COLLECTION = "users"
         private const val PUBLIC_PROFILES_COLLECTION = "publicProfiles"
         private const val PUBLIC_GAMES_COLLECTION = "games"

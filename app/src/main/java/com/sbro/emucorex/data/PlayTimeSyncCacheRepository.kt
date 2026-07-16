@@ -15,7 +15,7 @@ class PlayTimeSyncCacheRepository(context: Context) {
     private val mutex = Mutex()
 
     suspend fun add(entry: PlayerPlayTimeDelta) {
-        if (entry.gamePath.isNullOrBlank() || entry.durationMs <= 0L) return
+        if (entry.gamePath.isNullOrBlank() || entry.durationMs <= 0L || isAutotestPlayTimeEntry(entry)) return
         mutex.withLock {
             withContext(Dispatchers.IO) {
                 val entries = readEntriesLocked().toMutableMap()
@@ -47,11 +47,12 @@ class PlayTimeSyncCacheRepository(context: Context) {
     }
 
     suspend fun restore(entries: List<PlayerPlayTimeDelta>) {
-        if (entries.isEmpty()) return
+        val validEntries = entries.filterNot(::isAutotestPlayTimeEntry)
+        if (validEntries.isEmpty()) return
         mutex.withLock {
             withContext(Dispatchers.IO) {
                 val current = readEntriesLocked().toMutableMap()
-                entries.forEach { entry ->
+                validEntries.forEach { entry ->
                     val key = buildCacheKey(entry)
                     val existing = current[key]
                     current[key] = existing?.copy(
@@ -101,7 +102,7 @@ class PlayTimeSyncCacheRepository(context: Context) {
                         sessionCount = json.optLong("sessions"),
                         lastPlayedAtMs = json.optLong("lastPlayedAtMs")
                     )
-                    if (!entry.gamePath.isNullOrBlank() && entry.durationMs > 0L) {
+                    if (!entry.gamePath.isNullOrBlank() && entry.durationMs > 0L && !isAutotestPlayTimeEntry(entry)) {
                         put(buildCacheKey(entry), entry)
                     }
                 }
@@ -111,7 +112,7 @@ class PlayTimeSyncCacheRepository(context: Context) {
 
     private fun writeEntriesLocked(entries: List<PlayerPlayTimeDelta>) {
         val array = JSONArray()
-        entries.forEach { entry ->
+        entries.filterNot(::isAutotestPlayTimeEntry).forEach { entry ->
             array.put(
                 JSONObject()
                     .put("path", entry.gamePath.orEmpty())
