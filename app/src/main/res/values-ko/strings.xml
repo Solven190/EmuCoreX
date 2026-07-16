@@ -1692,4 +1692,16 @@
     <string name="settings_ra_achievement_indicators_desc">게임 플레이 중 진행 중인 도전 과제에 대한 배지와 측정된 업적 진행률을 표시합니다.</string>
     <string name="settings_ra_leaderboard_trackers">순위표 트래커</string>
     <string name="settings_ra_leaderboard_trackers_desc">순위표 도전이 활성화되어 있는 동안 실시간 시간 또는 점수를 표시합니다.</string>
+    <string name="settings_ra_achievement_notifications">업적 알림</string>
+    <string name="settings_ra_achievement_notifications_desc">업적 잠금 해제, 마스터리 및 관련 이벤트에 대한 팝업을 표시합니다.</string>
+    <string name="settings_ra_leaderboard_notifications">순위표 알림</string>
+    <string name="settings_ra_leaderboard_notifications_desc">순위표 도전이 시작되거나 실패하거나 제출될 때 팝업을 표시합니다.</string>
+    <string name="settings_ra_sound_effects">효과음</string>
+    <string name="settings_ra_sound_effects_desc">업적 및 순위표 이벤트에 대한 소리를 재생합니다.</string>
+    <string name="settings_ra_unlock_sound">업적 잠금 해제 소리</string>
+    <string name="settings_ra_unlock_sound_desc">업적이 잠금 해제될 때 재생할 최대 16MB의 짧은 WAV 파일을 선택합니다.</string>
+    <string name="settings_ra_unlock_sound_default">기본 소리</string>
+    <string name="settings_ra_unlock_sound_invalid">선택한 파일이 올바른 WAV 오디오가 아닙니다.</string>
+    <string name="settings_ra_unlock_sound_too_large">선택한 WAV 파일이 16MB보다 큽니다.</string>
+    <string name="settings_ra_unlock_sound_failed">선택한 소리를 가져올 수 없습니다.</string>
 </resources>

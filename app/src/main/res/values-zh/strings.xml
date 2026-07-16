@@ -1694,4 +1694,16 @@
     <string name="settings_ra_achievement_indicators_desc">在游戏过程中显示活跃挑战的徽章和已计量的成就进度。</string>
     <string name="settings_ra_leaderboard_trackers">排行榜追踪器</string>
     <string name="settings_ra_leaderboard_trackers_desc">在进行排行榜挑战时显示实时时间或分数。</string>
+    <string name="settings_ra_achievement_notifications">成就通知</string>
+    <string name="settings_ra_achievement_notifications_desc">显示成就解锁、精通及相关事件的弹窗。</string>
+    <string name="settings_ra_leaderboard_notifications">排行榜通知</string>
+    <string name="settings_ra_leaderboard_notifications_desc">在排行榜尝试开始、失败或提交时显示弹窗。</string>
+    <string name="settings_ra_sound_effects">音效</string>
+    <string name="settings_ra_sound_effects_desc">为成就和排行榜事件播放声音。</string>
+    <string name="settings_ra_unlock_sound">成就解锁声音</string>
+    <string name="settings_ra_unlock_sound_desc">选择一个最大为 16 MB 的短 WAV 文件，在成就解锁时播放。</string>
+    <string name="settings_ra_unlock_sound_default">默认声音</string>
+    <string name="settings_ra_unlock_sound_invalid">所选文件不是有效的 WAV 声音。</string>
+    <string name="settings_ra_unlock_sound_too_large">所选 WAV 文件大于 16 MB。</string>
+    <string name="settings_ra_unlock_sound_failed">无法导入所选声音。</string>
 </resources>

@@ -1692,4 +1692,16 @@
     <string name="settings_ra_achievement_indicators_desc">ゲームプレイ中のアクティブなチャレンジのバッジや、測定された実績の進行状況を表示します。</string>
     <string name="settings_ra_leaderboard_trackers">リーダーボードトラッカー</string>
     <string name="settings_ra_leaderboard_trackers_desc">リーダーボードへの挑戦がアクティブな間、リアルタイムの時間またはスコアを表示します。</string>
+    <string name="settings_ra_achievement_notifications">実績通知</string>
+    <string name="settings_ra_achievement_notifications_desc">実績の解除、ゲームの完全制覇、および関連イベントの通知を表示します。</string>
+    <string name="settings_ra_leaderboard_notifications">リーダーボード通知</string>
+    <string name="settings_ra_leaderboard_notifications_desc">リーダーボードへの挑戦の開始時、失敗時、または送信時にポップアップを表示します。</string>
+    <string name="settings_ra_sound_effects">効果音</string>
+    <string name="settings_ra_sound_effects_desc">実績とリーダーボードのイベント時に音を再生します。</string>
+    <string name="settings_ra_unlock_sound">実績解除音</string>
+    <string name="settings_ra_unlock_sound_desc">実績を解除したときに再生する、16 MB以下の短いWAVファイルを選択します。</string>
+    <string name="settings_ra_unlock_sound_default">デフォルトの音</string>
+    <string name="settings_ra_unlock_sound_invalid">選択したファイルは有効なWAVファイルではありません。</string>
+    <string name="settings_ra_unlock_sound_too_large">選択したWAVファイルが16MBを超えています。</string>
+    <string name="settings_ra_unlock_sound_failed">選択したサウンドをインポートできませんでした。</string>
 </resources>

@@ -1695,4 +1695,16 @@
     <string name="settings_ra_achievement_indicators_desc">Muestra insignias para los desafíos activos y el progreso medido de los logros durante el juego.</string>
     <string name="settings_ra_leaderboard_trackers">Rastreadores de la tabla de clasificación</string>
     <string name="settings_ra_leaderboard_trackers_desc">Muestra el tiempo en vivo o la puntuación mientras un intento de la tabla de clasificación está activo.</string>
+    <string name="settings_ra_achievement_notifications">Notificaciones de logros</string>
+    <string name="settings_ra_achievement_notifications_desc">Muestra ventanas emergentes para el desbloqueo de logros, maestría y eventos relacionados.</string>
+    <string name="settings_ra_leaderboard_notifications">Notificaciones de la tabla de clasificación</string>
+    <string name="settings_ra_leaderboard_notifications_desc">Muestra una ventana emergente cuando se inicia, falla o se envía un intento de la tabla de clasificación.</string>
+    <string name="settings_ra_sound_effects">Efectos de sonido</string>
+    <string name="settings_ra_sound_effects_desc">Reproduce sonidos para los eventos de logros y de la tabla de clasificación.</string>
+    <string name="settings_ra_unlock_sound">Sonido de logro desbloqueado</string>
+    <string name="settings_ra_unlock_sound_desc">Elige un archivo WAV corto, de hasta 16 MB, para que se reproduzca cuando se desbloquee un logro.</string>
+    <string name="settings_ra_unlock_sound_default">Sonido predeterminado</string>
+    <string name="settings_ra_unlock_sound_invalid">El archivo seleccionado no es un sonido WAV válido.</string>
+    <string name="settings_ra_unlock_sound_too_large">El archivo WAV seleccionado es mayor a 16 MB.</string>
+    <string name="settings_ra_unlock_sound_failed">No se pudo importar el sonido seleccionado.</string>
 </resources>

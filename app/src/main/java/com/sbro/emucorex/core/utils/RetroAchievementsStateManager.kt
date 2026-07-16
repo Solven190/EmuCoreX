@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.io.File
 
 enum class RetroAchievementsLoginRequestReason {
     USER_INITIATED,
@@ -49,8 +52,12 @@ data class RetroAchievementsUiState(
     val enabled: Boolean = false,
     val hardcorePreference: Boolean = false,
     val hardcoreActive: Boolean = false,
+    val notifications: Boolean = true,
+    val leaderboardNotifications: Boolean = true,
     val achievementIndicators: Boolean = true,
     val leaderboardTrackers: Boolean = true,
+    val soundEffects: Boolean = true,
+    val unlockSoundName: String? = null,
     val storedUsername: String? = null,
     val user: RetroAchievementsUserState? = null,
     val game: RetroAchievementsGameState? = null,
@@ -61,6 +68,7 @@ data class RetroAchievementsUiState(
 
 object RetroAchievementsStateManager {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val presentationSettingsMutex = Mutex()
     private val _state = MutableStateFlow(RetroAchievementsUiState())
     val state: StateFlow<RetroAchievementsUiState> = _state.asStateFlow()
 
@@ -79,8 +87,12 @@ object RetroAchievementsStateManager {
                 user = loadStoredProfile(),
                 enabled = prefsEnabled,
                 hardcorePreference = prefsHardcore,
+                notifications = loadStoredNotifications(),
+                leaderboardNotifications = loadStoredLeaderboardNotifications(),
                 achievementIndicators = loadStoredAchievementIndicators(),
                 leaderboardTrackers = loadStoredLeaderboardTrackers(),
+                soundEffects = loadStoredSoundEffects(),
+                unlockSoundName = loadStoredUnlockSoundName(),
                 isLoading = true
             )
         }
@@ -109,8 +121,12 @@ object RetroAchievementsStateManager {
                 isLoading = true,
                 enabled = loadStoredEnabled(),
                 hardcorePreference = loadStoredHardcore(),
+                notifications = loadStoredNotifications(),
+                leaderboardNotifications = loadStoredLeaderboardNotifications(),
                 achievementIndicators = loadStoredAchievementIndicators(),
                 leaderboardTrackers = loadStoredLeaderboardTrackers(),
+                soundEffects = loadStoredSoundEffects(),
+                unlockSoundName = loadStoredUnlockSoundName(),
                 storedUsername = loadStoredUsername() ?: it.storedUsername
             )
         }
@@ -276,8 +292,34 @@ object RetroAchievementsStateManager {
         _state.update { it.copy(achievementIndicators = enabled, errorMessage = null) }
         scope.launch(Dispatchers.IO) {
             runCatching {
-                EmulatorBridge.getContext()?.let { AppPreferences(it).setAchievementsIndicators(enabled) }
-                RetroAchievementsBridge.nativeSetAchievementIndicators(enabled)
+                presentationSettingsMutex.withLock {
+                    EmulatorBridge.getContext()?.let { AppPreferences(it).setAchievementsIndicators(enabled) }
+                    RetroAchievementsBridge.nativeSetAchievementIndicators(enabled)
+                }
+            }.onFailure { handleNativeFailure(it) }
+        }
+    }
+
+    fun setNotifications(enabled: Boolean) {
+        _state.update { it.copy(notifications = enabled, errorMessage = null) }
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                presentationSettingsMutex.withLock {
+                    EmulatorBridge.getContext()?.let { AppPreferences(it).setAchievementsNotifications(enabled) }
+                    RetroAchievementsBridge.nativeSetNotifications(enabled)
+                }
+            }.onFailure { handleNativeFailure(it) }
+        }
+    }
+
+    fun setLeaderboardNotifications(enabled: Boolean) {
+        _state.update { it.copy(leaderboardNotifications = enabled, errorMessage = null) }
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                presentationSettingsMutex.withLock {
+                    EmulatorBridge.getContext()?.let { AppPreferences(it).setAchievementsLeaderboardNotifications(enabled) }
+                    RetroAchievementsBridge.nativeSetLeaderboardNotifications(enabled)
+                }
             }.onFailure { handleNativeFailure(it) }
         }
     }
@@ -286,8 +328,38 @@ object RetroAchievementsStateManager {
         _state.update { it.copy(leaderboardTrackers = enabled, errorMessage = null) }
         scope.launch(Dispatchers.IO) {
             runCatching {
-                EmulatorBridge.getContext()?.let { AppPreferences(it).setAchievementsLeaderboardTrackers(enabled) }
-                RetroAchievementsBridge.nativeSetLeaderboardTrackers(enabled)
+                presentationSettingsMutex.withLock {
+                    EmulatorBridge.getContext()?.let { AppPreferences(it).setAchievementsLeaderboardTrackers(enabled) }
+                    RetroAchievementsBridge.nativeSetLeaderboardTrackers(enabled)
+                }
+            }.onFailure { handleNativeFailure(it) }
+        }
+    }
+
+    fun setSoundEffects(enabled: Boolean) {
+        _state.update { it.copy(soundEffects = enabled, errorMessage = null) }
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                presentationSettingsMutex.withLock {
+                    EmulatorBridge.getContext()?.let { AppPreferences(it).setAchievementsSoundEffects(enabled) }
+                    RetroAchievementsBridge.nativeSetSoundEffects(enabled)
+                }
+            }.onFailure { handleNativeFailure(it) }
+        }
+    }
+
+    fun setUnlockSound(path: String?, displayName: String?) {
+        val resolvedPath = path?.takeIf { it.isNotBlank() }
+        val resolvedName = displayName?.takeIf { it.isNotBlank() }
+        _state.update { it.copy(unlockSoundName = if (resolvedPath != null) resolvedName else null, errorMessage = null) }
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                presentationSettingsMutex.withLock {
+                    EmulatorBridge.getContext()?.let {
+                        AppPreferences(it).setAchievementsUnlockSound(resolvedPath, resolvedName)
+                    }
+                    RetroAchievementsBridge.nativeSetUnlockSound(resolvedPath.orEmpty())
+                }
             }.onFailure { handleNativeFailure(it) }
         }
     }
@@ -430,8 +502,12 @@ object RetroAchievementsStateManager {
                 isAuthenticating = current.isAuthenticating,
                 enabled = storedEnabled,
                 hardcorePreference = storedHardcore,
+                notifications = loadStoredNotifications(),
+                leaderboardNotifications = loadStoredLeaderboardNotifications(),
                 achievementIndicators = loadStoredAchievementIndicators(),
                 leaderboardTrackers = loadStoredLeaderboardTrackers(),
+                soundEffects = loadStoredSoundEffects(),
+                unlockSoundName = loadStoredUnlockSoundName(),
                 hardcoreActive = hardcoreActive,
                 storedUsername = resolvedStoredUsername,
                 user = verifiedUser,
@@ -484,6 +560,16 @@ object RetroAchievementsStateManager {
         return AppPreferences(context).getAchievementsHardcoreSync()
     }
 
+    private fun loadStoredNotifications(): Boolean {
+        val context = EmulatorBridge.getContext() ?: return _state.value.notifications
+        return AppPreferences(context).getAchievementsNotificationsSync()
+    }
+
+    private fun loadStoredLeaderboardNotifications(): Boolean {
+        val context = EmulatorBridge.getContext() ?: return _state.value.leaderboardNotifications
+        return AppPreferences(context).getAchievementsLeaderboardNotificationsSync()
+    }
+
     private fun loadStoredAchievementIndicators(): Boolean {
         val context = EmulatorBridge.getContext() ?: return _state.value.achievementIndicators
         return AppPreferences(context).getAchievementsIndicatorsSync()
@@ -492,6 +578,18 @@ object RetroAchievementsStateManager {
     private fun loadStoredLeaderboardTrackers(): Boolean {
         val context = EmulatorBridge.getContext() ?: return _state.value.leaderboardTrackers
         return AppPreferences(context).getAchievementsLeaderboardTrackersSync()
+    }
+
+    private fun loadStoredSoundEffects(): Boolean {
+        val context = EmulatorBridge.getContext() ?: return _state.value.soundEffects
+        return AppPreferences(context).getAchievementsSoundEffectsSync()
+    }
+
+    private fun loadStoredUnlockSoundName(): String? {
+        val context = EmulatorBridge.getContext() ?: return _state.value.unlockSoundName
+        val preferences = AppPreferences(context)
+        val path = preferences.getAchievementsUnlockSoundPathSync() ?: return null
+        return preferences.getAchievementsUnlockSoundNameSync()?.takeIf { File(path).isFile }
     }
 
     private fun loadStoredAvatarPath(): String? {

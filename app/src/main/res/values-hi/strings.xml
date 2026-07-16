@@ -1693,4 +1693,16 @@
     <string name="settings_ra_achievement_indicators_desc">गेमप्ले के दौरान सक्रिय चुनौतियों के लिए बैज और मापी गई उपलब्धि की प्रगति दिखाएं।</string>
     <string name="settings_ra_leaderboard_trackers">लीडरबोर्ड ट्रैकर</string>
     <string name="settings_ra_leaderboard_trackers_desc">जब लीडरबोर्ड प्रयास सक्रिय हो तो लाइव समय या स्कोर दिखाएं।</string>
+    <string name="settings_ra_achievement_notifications">उपलब्धि सूचनाएं</string>
+    <string name="settings_ra_achievement_notifications_desc">उपलब्धि अनलॉक, महारत और संबंधित घटनाओं के लिए पॉपअप दिखाएं।</string>
+    <string name="settings_ra_leaderboard_notifications">लीडरबोर्ड सूचनाएं</string>
+    <string name="settings_ra_leaderboard_notifications_desc">लीडरबोर्ड प्रयास शुरू होने, विफल होने या सबमिट होने पर एक पॉपअप दिखाएं।</string>
+    <string name="settings_ra_sound_effects">ध्वनि प्रभाव</string>
+    <string name="settings_ra_sound_effects_desc">उपलब्धि और लीडरबोर्ड घटनाओं के लिए ध्वनियां बजाएं।</string>
+    <string name="settings_ra_unlock_sound">उपलब्धि अनलॉक ध्वनि</string>
+    <string name="settings_ra_unlock_sound_desc">उपलब्धि अनलॉक होने पर बजाने के लिए 16 MB तक की छोटी WAV फ़ाइल चुनें।</string>
+    <string name="settings_ra_unlock_sound_default">डिफ़ॉल्ट ध्वनि</string>
+    <string name="settings_ra_unlock_sound_invalid">चयनित फ़ाइल एक वैध WAV ध्वनि नहीं है।</string>
+    <string name="settings_ra_unlock_sound_too_large">चयनित WAV फ़ाइल 16 MB से बड़ी है।</string>
+    <string name="settings_ra_unlock_sound_failed">चयनित ध्वनि आयात नहीं की जा सकी।</string>
 </resources>

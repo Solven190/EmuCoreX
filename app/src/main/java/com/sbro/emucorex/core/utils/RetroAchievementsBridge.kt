@@ -25,10 +25,25 @@ object RetroAchievementsBridge {
     external fun nativeSetHardcore(enabled: Boolean)
 
     @JvmStatic
+    external fun nativeSetNotifications(enabled: Boolean)
+
+    @JvmStatic
+    external fun nativeSetLeaderboardNotifications(enabled: Boolean)
+
+    @JvmStatic
     external fun nativeSetAchievementIndicators(enabled: Boolean)
 
     @JvmStatic
     external fun nativeSetLeaderboardTrackers(enabled: Boolean)
+
+    @JvmStatic
+    external fun nativeSetSoundEffects(enabled: Boolean)
+
+    @JvmStatic
+    external fun nativeSetUnlockSound(path: String)
+
+    @JvmStatic
+    external fun nativePreviewSound(path: String): Boolean
 
     @JvmStatic
     fun notifyLoginRequested(reason: Int) {

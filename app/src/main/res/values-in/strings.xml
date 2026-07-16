@@ -1707,4 +1707,16 @@
     <string name="settings_ra_achievement_indicators_desc">Menampilkan lencana untuk tantangan aktif dan progres pencapaian yang terukur selama permainan.</string>
     <string name="settings_ra_leaderboard_trackers">Pelacak Papan Peringkat</string>
     <string name="settings_ra_leaderboard_trackers_desc">Menampilkan waktu langsung atau skor saat upaya papan peringkat sedang aktif.</string>
+    <string name="settings_ra_achievement_notifications">Notifikasi Pencapaian</string>
+    <string name="settings_ra_achievement_notifications_desc">Tampilkan pop-up untuk pencapaian yang terbuka, penguasaan, dan acara terkait.</string>
+    <string name="settings_ra_leaderboard_notifications">Notifikasi Papan Peringkat</string>
+    <string name="settings_ra_leaderboard_notifications_desc">Tampilkan pop-up saat upaya papan peringkat dimulai, gagal, atau dikirimkan.</string>
+    <string name="settings_ra_sound_effects">Efek Suara</string>
+    <string name="settings_ra_sound_effects_desc">Putar suara untuk acara pencapaian dan papan peringkat.</string>
+    <string name="settings_ra_unlock_sound">Suara Pencapaian Terbuka</string>
+    <string name="settings_ra_unlock_sound_desc">Pilih file WAV singkat, maksimal 16 MB, untuk diputar saat pencapaian terbuka.</string>
+    <string name="settings_ra_unlock_sound_default">Suara default</string>
+    <string name="settings_ra_unlock_sound_invalid">File yang dipilih bukan suara WAV yang valid.</string>
+    <string name="settings_ra_unlock_sound_too_large">File WAV yang dipilih lebih besar dari 16 MB.</string>
+    <string name="settings_ra_unlock_sound_failed">Suara yang dipilih tidak dapat diimpor.</string>
 </resources>

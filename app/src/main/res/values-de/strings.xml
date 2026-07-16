@@ -1695,4 +1695,16 @@
     <string name="settings_ra_achievement_indicators_desc">Zeigt Abzeichen für aktive Herausforderungen und den gemessenen Fortschritt von Erfolgen während des Spiels an.</string>
     <string name="settings_ra_leaderboard_trackers">Ranglisten-Tracker</string>
     <string name="settings_ra_leaderboard_trackers_desc">Zeigt die Live-Zeit oder Punktzahl an, während ein Ranglistenversuch aktiv ist.</string>
+    <string name="settings_ra_achievement_notifications">Erfolgsbenachrichtigungen</string>
+    <string name="settings_ra_achievement_notifications_desc">Zeigt Popups für freigeschaltete Erfolge, gemeisterte Spiele und damit verbundene Ereignisse an.</string>
+    <string name="settings_ra_leaderboard_notifications">Ranglisten-Benachrichtigungen</string>
+    <string name="settings_ra_leaderboard_notifications_desc">Zeigt ein Popup an, wenn ein Ranglistenversuch gestartet, fehlgeschlagen oder eingereicht wird.</string>
+    <string name="settings_ra_sound_effects">Soundeffekte</string>
+    <string name="settings_ra_sound_effects_desc">Spielt Töne für Erfolgs- und Ranglisten-Ereignisse ab.</string>
+    <string name="settings_ra_unlock_sound">Ton beim Freischalten eines Erfolgs</string>
+    <string name="settings_ra_unlock_sound_desc">Wähle eine kurze WAV-Datei (bis zu 16 MB) aus, die abgespielt wird, wenn ein Erfolg freigeschaltet wird.</string>
+    <string name="settings_ra_unlock_sound_default">Standardton</string>
+    <string name="settings_ra_unlock_sound_invalid">Die ausgewählte Datei ist kein gültiger WAV-Ton.</string>
+    <string name="settings_ra_unlock_sound_too_large">Die ausgewählte WAV-Datei ist größer als 16 MB.</string>
+    <string name="settings_ra_unlock_sound_failed">Der ausgewählte Ton konnte nicht importiert werden.</string>
 </resources>

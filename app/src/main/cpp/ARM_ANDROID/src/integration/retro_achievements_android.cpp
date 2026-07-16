@@ -315,6 +315,32 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchieve
 	}
 }
 
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchievementsBridge_nativeSetNotifications(
+	JNIEnv* env, jclass clazz, jboolean enabled)
+{
+	InitializeJniIfNeeded(env, clazz);
+	const bool requested = (enabled == JNI_TRUE);
+	EmuConfig.Achievements.Notifications = requested;
+	if (Host::Internal::GetBaseSettingsLayer() != nullptr)
+	{
+		Host::SetBaseBoolSettingValue("Achievements", "Notifications", requested);
+		Host::CommitBaseSettingChanges();
+	}
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchievementsBridge_nativeSetLeaderboardNotifications(
+	JNIEnv* env, jclass clazz, jboolean enabled)
+{
+	InitializeJniIfNeeded(env, clazz);
+	const bool requested = (enabled == JNI_TRUE);
+	EmuConfig.Achievements.LeaderboardNotifications = requested;
+	if (Host::Internal::GetBaseSettingsLayer() != nullptr)
+	{
+		Host::SetBaseBoolSettingValue("Achievements", "LeaderboardNotifications", requested);
+		Host::CommitBaseSettingChanges();
+	}
+}
+
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchievementsBridge_nativeSetLeaderboardTrackers(
 	JNIEnv* env, jclass clazz, jboolean enabled)
 {
@@ -326,6 +352,40 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchieve
 		Host::SetBaseBoolSettingValue("Achievements", "LBOverlays", requested);
 		Host::CommitBaseSettingChanges();
 	}
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchievementsBridge_nativeSetSoundEffects(
+	JNIEnv* env, jclass clazz, jboolean enabled)
+{
+	InitializeJniIfNeeded(env, clazz);
+	const bool requested = (enabled == JNI_TRUE);
+	EmuConfig.Achievements.SoundEffects = requested;
+	if (Host::Internal::GetBaseSettingsLayer() != nullptr)
+	{
+		Host::SetBaseBoolSettingValue("Achievements", "SoundEffects", requested);
+		Host::CommitBaseSettingChanges();
+	}
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchievementsBridge_nativeSetUnlockSound(
+	JNIEnv* env, jclass clazz, jstring path)
+{
+	InitializeJniIfNeeded(env, clazz);
+	const std::string requested = JStringToString(env, path);
+	EmuConfig.Achievements.UnlockSoundName = requested;
+	if (Host::Internal::GetBaseSettingsLayer() != nullptr)
+	{
+		Host::SetBaseStringSettingValue("Achievements", "UnlockSoundName", requested.c_str());
+		Host::CommitBaseSettingChanges();
+	}
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_utils_RetroAchievementsBridge_nativePreviewSound(
+	JNIEnv* env, jclass clazz, jstring path)
+{
+	InitializeJniIfNeeded(env, clazz);
+	const std::string requested = JStringToString(env, path);
+	return Common::PlaySoundAsync(requested.c_str()) ? JNI_TRUE : JNI_FALSE;
 }
 
 namespace

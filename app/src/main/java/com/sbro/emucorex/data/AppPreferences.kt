@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 data class RecentGameEntry(
     val path: String,
@@ -232,8 +233,13 @@ data class SettingsSnapshot(
     val palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE,
     val achievementsEnabled: Boolean = false,
     val achievementsHardcore: Boolean = false,
+    val achievementsNotifications: Boolean = true,
+    val achievementsLeaderboardNotifications: Boolean = true,
     val achievementsIndicators: Boolean = true,
     val achievementsLeaderboardTrackers: Boolean = true,
+    val achievementsSoundEffects: Boolean = true,
+    val achievementsUnlockSoundPath: String? = null,
+    val achievementsUnlockSoundName: String? = null,
     val achievementsUsername: String? = null,
     val achievementsToken: String? = null
 )
@@ -599,8 +605,13 @@ class AppPreferences(private val context: Context) {
         private val OVERLAY_LAYOUT_VERSION = intPreferencesKey("overlay_layout_version")
         private val ACHIEVEMENTS_ENABLED = booleanPreferencesKey("achievements_enabled")
         private val ACHIEVEMENTS_HARDCORE = booleanPreferencesKey("achievements_hardcore")
+        private val ACHIEVEMENTS_NOTIFICATIONS = booleanPreferencesKey("achievements_notifications")
+        private val ACHIEVEMENTS_LEADERBOARD_NOTIFICATIONS = booleanPreferencesKey("achievements_leaderboard_notifications")
         private val ACHIEVEMENTS_INDICATORS = booleanPreferencesKey("achievements_indicators")
         private val ACHIEVEMENTS_LEADERBOARD_TRACKERS = booleanPreferencesKey("achievements_leaderboard_trackers")
+        private val ACHIEVEMENTS_SOUND_EFFECTS = booleanPreferencesKey("achievements_sound_effects")
+        private val ACHIEVEMENTS_UNLOCK_SOUND_PATH = stringPreferencesKey("achievements_unlock_sound_path")
+        private val ACHIEVEMENTS_UNLOCK_SOUND_NAME = stringPreferencesKey("achievements_unlock_sound_name")
         private val ACHIEVEMENTS_USERNAME = stringPreferencesKey("achievements_username")
         private val ACHIEVEMENTS_TOKEN = stringPreferencesKey("achievements_token")
         private val ACHIEVEMENTS_LOGIN_TIMESTAMP = stringPreferencesKey("achievements_login_timestamp")
@@ -1472,8 +1483,13 @@ class AppPreferences(private val context: Context) {
                 palFramerate = sanitizeRegionFramerate(prefs[PAL_FRAMERATE], DEFAULT_PAL_FRAMERATE),
                 achievementsEnabled = prefs[ACHIEVEMENTS_ENABLED] ?: false,
                 achievementsHardcore = prefs[ACHIEVEMENTS_HARDCORE] ?: false,
+                achievementsNotifications = prefs[ACHIEVEMENTS_NOTIFICATIONS] ?: true,
+                achievementsLeaderboardNotifications = prefs[ACHIEVEMENTS_LEADERBOARD_NOTIFICATIONS] ?: true,
                 achievementsIndicators = prefs[ACHIEVEMENTS_INDICATORS] ?: true,
                 achievementsLeaderboardTrackers = prefs[ACHIEVEMENTS_LEADERBOARD_TRACKERS] ?: true,
+                achievementsSoundEffects = prefs[ACHIEVEMENTS_SOUND_EFFECTS] ?: true,
+                achievementsUnlockSoundPath = prefs[ACHIEVEMENTS_UNLOCK_SOUND_PATH],
+                achievementsUnlockSoundName = prefs[ACHIEVEMENTS_UNLOCK_SOUND_NAME],
                 achievementsUsername = prefs[ACHIEVEMENTS_USERNAME],
                 achievementsToken = prefs[ACHIEVEMENTS_TOKEN]
             )
@@ -3553,12 +3569,36 @@ class AppPreferences(private val context: Context) {
         }
     }
 
+    suspend fun setAchievementsNotifications(enabled: Boolean) {
+        context.dataStore.edit { it[ACHIEVEMENTS_NOTIFICATIONS] = enabled }
+    }
+
+    suspend fun setAchievementsLeaderboardNotifications(enabled: Boolean) {
+        context.dataStore.edit { it[ACHIEVEMENTS_LEADERBOARD_NOTIFICATIONS] = enabled }
+    }
+
     suspend fun setAchievementsIndicators(enabled: Boolean) {
         context.dataStore.edit { it[ACHIEVEMENTS_INDICATORS] = enabled }
     }
 
     suspend fun setAchievementsLeaderboardTrackers(enabled: Boolean) {
         context.dataStore.edit { it[ACHIEVEMENTS_LEADERBOARD_TRACKERS] = enabled }
+    }
+
+    suspend fun setAchievementsSoundEffects(enabled: Boolean) {
+        context.dataStore.edit { it[ACHIEVEMENTS_SOUND_EFFECTS] = enabled }
+    }
+
+    suspend fun setAchievementsUnlockSound(path: String?, displayName: String?) {
+        context.dataStore.edit { prefs ->
+            if (path.isNullOrBlank() || displayName.isNullOrBlank()) {
+                prefs.remove(ACHIEVEMENTS_UNLOCK_SOUND_PATH)
+                prefs.remove(ACHIEVEMENTS_UNLOCK_SOUND_NAME)
+            } else {
+                prefs[ACHIEVEMENTS_UNLOCK_SOUND_PATH] = path
+                prefs[ACHIEVEMENTS_UNLOCK_SOUND_NAME] = displayName
+            }
+        }
     }
 
     suspend fun setAchievementsUsername(username: String?) {
@@ -3666,6 +3706,18 @@ class AppPreferences(private val context: Context) {
         }
     }
 
+    fun getAchievementsNotificationsSync(): Boolean {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_NOTIFICATIONS] ?: true }.first()
+        }
+    }
+
+    fun getAchievementsLeaderboardNotificationsSync(): Boolean {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_LEADERBOARD_NOTIFICATIONS] ?: true }.first()
+        }
+    }
+
     fun getAchievementsIndicatorsSync(): Boolean {
         return kotlinx.coroutines.runBlocking {
             context.dataStore.data.map { it[ACHIEVEMENTS_INDICATORS] ?: true }.first()
@@ -3675,6 +3727,25 @@ class AppPreferences(private val context: Context) {
     fun getAchievementsLeaderboardTrackersSync(): Boolean {
         return kotlinx.coroutines.runBlocking {
             context.dataStore.data.map { it[ACHIEVEMENTS_LEADERBOARD_TRACKERS] ?: true }.first()
+        }
+    }
+
+    fun getAchievementsSoundEffectsSync(): Boolean {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_SOUND_EFFECTS] ?: true }.first()
+        }
+    }
+
+    fun getAchievementsUnlockSoundPathSync(): String? {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_UNLOCK_SOUND_PATH] }.first()
+        }?.takeIf { File(it).isFile }
+    }
+
+    fun getAchievementsUnlockSoundNameSync(): String? {
+        if (getAchievementsUnlockSoundPathSync() == null) return null
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_UNLOCK_SOUND_NAME] }.first()
         }
     }
 
