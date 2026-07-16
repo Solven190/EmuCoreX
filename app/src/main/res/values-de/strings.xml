@@ -1536,7 +1536,7 @@
     <string name="profile_player_id">Spieler-ID</string>
     <string name="profile_player_id_format">Spieler-ID: %1$s</string>
     <string name="profile_rank">Rang</string>
-    <string name="profile_percentile">Top-Perzentil</string>
+    <string name="profile_percentile">Unter den Spielern</string>
     <string name="profile_top_percent_format">Top %1$d%%</string>
     <string name="profile_total_players">Platzierte Spieler</string>
     <string name="profile_pro_badge">PRO</string>

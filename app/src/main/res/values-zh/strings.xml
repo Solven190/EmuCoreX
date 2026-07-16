@@ -1536,7 +1536,7 @@
     <string name="profile_player_id">玩家 ID</string>
     <string name="profile_player_id_format">玩家 ID：%1$s</string>
     <string name="profile_rank">段位</string>
-    <string name="profile_percentile">最高排名比例</string>
+    <string name="profile_percentile">所有玩家中</string>
     <string name="profile_top_percent_format">前 %1$d%%</string>
     <string name="profile_total_players">已上榜玩家数</string>
     <string name="profile_pro_badge">PRO</string>

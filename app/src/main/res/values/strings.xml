@@ -1405,7 +1405,7 @@
     <string name="profile_player_id">Player ID</string>
     <string name="profile_player_id_format">Player ID: %1$s</string>
     <string name="profile_rank">Rank</string>
-    <string name="profile_percentile">Top percentile</string>
+    <string name="profile_percentile">Among players</string>
     <string name="profile_top_percent_format">Top %1$d%%</string>
     <string name="profile_total_players">Players ranked</string>
     <string name="profile_pro_badge">PRO</string>

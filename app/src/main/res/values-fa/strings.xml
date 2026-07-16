@@ -1549,7 +1549,7 @@
     <string name="profile_player_id">شناسه بازیکن</string>
     <string name="profile_player_id_format">شناسه بازیکن: %1$s</string>
     <string name="profile_rank">رتبه</string>
-    <string name="profile_percentile">صدک برتر</string>
+    <string name="profile_percentile">در میان بازیکنان</string>
     <string name="profile_top_percent_format">٪%1$d برتر</string>
     <string name="profile_total_players">بازیکنان رتبه‌بندی شده</string>
     <string name="profile_pro_badge">PRO</string>
