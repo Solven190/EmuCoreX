@@ -2127,7 +2127,10 @@ void Achievements::AppendAccountProgressJSON(
 std::string Achievements::GetAccountProgressJSON()
 {
 	auto lock = GetLock();
-	if (!s_client || !s_http_downloader || !rc_client_get_user_info(s_client))
+	// Do not join WaitForAllRequests while token login is still completing. The
+	// login callback publishes a new Android session revision, which retries this
+	// fetch after the authenticated client is fully stable.
+	if (!s_client || !s_http_downloader || s_login_request || !rc_client_get_user_info(s_client))
 		return {};
 
 	FetchAllUserProgressParameters progress_params;
@@ -2152,6 +2155,17 @@ std::string Achievements::GetAccountProgressJSON()
 			s_client, game_ids.data(), static_cast<u32>(game_ids.size()), ClientFetchGameTitlesCallback, &titles_params);
 		if (titles_params.request)
 			s_http_downloader->WaitForAllRequests();
+
+		// Never cache a half-built account list. A transient title request failure used
+		// to serialize every entry with an empty title; Android then treated that JSON
+		// as fresh for the whole session and appeared to have fetched no games.
+		if (!titles_params.list || titles_params.list->num_entries != game_ids.size())
+		{
+			if (titles_params.list)
+				rc_client_destroy_game_title_list(titles_params.list);
+			rc_client_destroy_all_user_progress(progress_params.list);
+			return {};
+		}
 	}
 
 	std::string out;
@@ -2289,11 +2303,9 @@ void Achievements::ClientLoginWithPasswordCallback(int result, const char* error
 		Host::SetBaseStringSettingValue("Achievements", "LoginTimestamp", fmt::format("{}", std::time(nullptr)).c_str());
 		Host::CommitBaseSettingChanges();
 	}
-	else
-	{
-		::NotifySettingsChanged("Achievements", "Username", params->username);
-		::NotifySettingsChanged("Achievements", "LoginTimestamp", fmt::format("{}", std::time(nullptr)).c_str());
-	}
+	// Android's Compose UI owns its own DataStore. Keep the verified timestamp in
+	// sync even when native settings layers exist; ShowLoginSuccess mirrors identity.
+	::NotifySettingsChanged("Achievements", "LoginTimestamp", fmt::format("{}", std::time(nullptr)).c_str());
 
 	SettingsInterface* secretsInterface = Host::Internal::GetSecretsSettingsLayer();
 	if (secretsInterface != nullptr)
@@ -2301,20 +2313,15 @@ void Achievements::ClientLoginWithPasswordCallback(int result, const char* error
 		secretsInterface->SetStringValue("Achievements", "Token", user->token);
 		secretsInterface->Save();
 	}
-	else
-	{
-		::NotifySettingsChanged("Achievements", "Token", user->token);
-	}
 
 	ShowLoginSuccess(client);
 }
 
 void Achievements::ClientLoginWithTokenCallback(int result, const char* error_message, rc_client_t* client, void* userdata)
 {
-	s_login_request = nullptr;
-
 	if (result != RC_OK)
 	{
+		s_login_request = nullptr;
 		ReportFmtError("Login failed: {}", error_message);
 		Host::OnAchievementsLoginRequested(LoginRequestReason::TokenInvalid);
 		return;
@@ -2324,6 +2331,8 @@ void Achievements::ClientLoginWithTokenCallback(int result, const char* error_me
 
 	if (VMManager::HasValidVM())
 		BeginLoadGame();
+
+	s_login_request = nullptr;
 }
 
 void Achievements::ShowLoginSuccess(const rc_client_t* client)
@@ -2331,6 +2340,14 @@ void Achievements::ShowLoginSuccess(const rc_client_t* client)
 	const rc_client_user_t* user = rc_client_get_user_info(client);
 	if (!user)
 		return;
+
+	// Token logins can come from an older installation whose native secret exists
+	// but whose Android DataStore cache does not. Repair that split state on every
+	// verified login; never mirror data before rcheevos authenticates it.
+	if (user->username && *user->username)
+		::NotifySettingsChanged("Achievements", "Username", user->username);
+	if (user->token && *user->token)
+		::NotifySettingsChanged("Achievements", "Token", user->token);
 
 	Host::OnAchievementsLoginSuccess(user->username, user->score, user->score_softcore, user->num_unread_messages);
 

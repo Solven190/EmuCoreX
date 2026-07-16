@@ -31,7 +31,9 @@ object EmulatorBridge {
     private const val AUTO_PROGRESSIVE_SCAN_PAD_INDEX = 0
     private const val AUTO_PROGRESSIVE_SCAN_CROSS = 96
     private const val AUTO_PROGRESSIVE_SCAN_TRIANGLE = 100
-    private const val AUTO_PROGRESSIVE_SCAN_HOLD_MS = 5_000L
+    // Games probe the boot combo at different points; Criterion titles can do so well after
+    // the PS2 logo. Keep it held through the boot sequence, matching the real-console action.
+    private const val AUTO_PROGRESSIVE_SCAN_HOLD_MS = 30_000L
 
     private val aspectRatioSettingValues = mapOf(
         0 to "Stretch",

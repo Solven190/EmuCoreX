@@ -153,7 +153,7 @@ fun AchievementsHubScreen(
         retroState.user?.username,
         retroState.game?.gameId,
         retroState.game?.totalAchievements,
-        retroState.isLoading
+        retroState.sessionRevision
     ) {
         if (!retroState.enabled || retroState.user == null) {
             value = HubContentState(isLoading = false)
@@ -321,7 +321,7 @@ fun AccountUnlockedAchievementsScreen(
     val contentState by produceState(
         initialValue = AccountUnlockedContentState(),
         key1 = retroState.enabled,
-        key2 = retroState.user?.username
+        key2 = "${retroState.user?.username.orEmpty()}|${retroState.sessionRevision}"
     ) {
         value = AccountUnlockedContentState(isLoading = true)
         value = withContext(Dispatchers.IO) {
