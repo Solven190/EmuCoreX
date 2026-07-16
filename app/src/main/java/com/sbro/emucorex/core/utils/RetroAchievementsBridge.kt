@@ -25,6 +25,12 @@ object RetroAchievementsBridge {
     external fun nativeSetHardcore(enabled: Boolean)
 
     @JvmStatic
+    external fun nativeSetAchievementIndicators(enabled: Boolean)
+
+    @JvmStatic
+    external fun nativeSetLeaderboardTrackers(enabled: Boolean)
+
+    @JvmStatic
     fun notifyLoginRequested(reason: Int) {
         RetroAchievementsStateManager.onLoginRequested(reason)
     }

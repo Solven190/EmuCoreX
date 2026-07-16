@@ -232,6 +232,8 @@ data class SettingsSnapshot(
     val palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE,
     val achievementsEnabled: Boolean = false,
     val achievementsHardcore: Boolean = false,
+    val achievementsIndicators: Boolean = true,
+    val achievementsLeaderboardTrackers: Boolean = true,
     val achievementsUsername: String? = null,
     val achievementsToken: String? = null
 )
@@ -597,6 +599,8 @@ class AppPreferences(private val context: Context) {
         private val OVERLAY_LAYOUT_VERSION = intPreferencesKey("overlay_layout_version")
         private val ACHIEVEMENTS_ENABLED = booleanPreferencesKey("achievements_enabled")
         private val ACHIEVEMENTS_HARDCORE = booleanPreferencesKey("achievements_hardcore")
+        private val ACHIEVEMENTS_INDICATORS = booleanPreferencesKey("achievements_indicators")
+        private val ACHIEVEMENTS_LEADERBOARD_TRACKERS = booleanPreferencesKey("achievements_leaderboard_trackers")
         private val ACHIEVEMENTS_USERNAME = stringPreferencesKey("achievements_username")
         private val ACHIEVEMENTS_TOKEN = stringPreferencesKey("achievements_token")
         private val ACHIEVEMENTS_LOGIN_TIMESTAMP = stringPreferencesKey("achievements_login_timestamp")
@@ -1468,6 +1472,8 @@ class AppPreferences(private val context: Context) {
                 palFramerate = sanitizeRegionFramerate(prefs[PAL_FRAMERATE], DEFAULT_PAL_FRAMERATE),
                 achievementsEnabled = prefs[ACHIEVEMENTS_ENABLED] ?: false,
                 achievementsHardcore = prefs[ACHIEVEMENTS_HARDCORE] ?: false,
+                achievementsIndicators = prefs[ACHIEVEMENTS_INDICATORS] ?: true,
+                achievementsLeaderboardTrackers = prefs[ACHIEVEMENTS_LEADERBOARD_TRACKERS] ?: true,
                 achievementsUsername = prefs[ACHIEVEMENTS_USERNAME],
                 achievementsToken = prefs[ACHIEVEMENTS_TOKEN]
             )
@@ -3547,6 +3553,14 @@ class AppPreferences(private val context: Context) {
         }
     }
 
+    suspend fun setAchievementsIndicators(enabled: Boolean) {
+        context.dataStore.edit { it[ACHIEVEMENTS_INDICATORS] = enabled }
+    }
+
+    suspend fun setAchievementsLeaderboardTrackers(enabled: Boolean) {
+        context.dataStore.edit { it[ACHIEVEMENTS_LEADERBOARD_TRACKERS] = enabled }
+    }
+
     suspend fun setAchievementsUsername(username: String?) {
         context.dataStore.edit { prefs ->
             if (username == null) prefs.remove(ACHIEVEMENTS_USERNAME)
@@ -3649,6 +3663,18 @@ class AppPreferences(private val context: Context) {
     fun getAchievementsHardcoreSync(): Boolean {
         return kotlinx.coroutines.runBlocking {
             context.dataStore.data.map { it[ACHIEVEMENTS_HARDCORE] ?: false }.first()
+        }
+    }
+
+    fun getAchievementsIndicatorsSync(): Boolean {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_INDICATORS] ?: true }.first()
+        }
+    }
+
+    fun getAchievementsLeaderboardTrackersSync(): Boolean {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[ACHIEVEMENTS_LEADERBOARD_TRACKERS] ?: true }.first()
         }
     }
 

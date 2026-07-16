@@ -45,6 +45,8 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -663,6 +665,20 @@ private fun AchievementToggleCard(retroState: RetroAchievementsUiState) {
                 subtitle = androidx.compose.ui.res.stringResource(R.string.settings_ra_hardcore_desc),
                 checked = retroState.hardcorePreference,
                 onCheckedChange = RetroAchievementsStateManager::setHardcore
+            )
+            ToggleRow(
+                icon = Icons.Rounded.Visibility,
+                title = androidx.compose.ui.res.stringResource(R.string.settings_ra_achievement_indicators),
+                subtitle = androidx.compose.ui.res.stringResource(R.string.settings_ra_achievement_indicators_desc),
+                checked = retroState.achievementIndicators,
+                onCheckedChange = RetroAchievementsStateManager::setAchievementIndicators
+            )
+            ToggleRow(
+                icon = Icons.Rounded.Timer,
+                title = androidx.compose.ui.res.stringResource(R.string.settings_ra_leaderboard_trackers),
+                subtitle = androidx.compose.ui.res.stringResource(R.string.settings_ra_leaderboard_trackers_desc),
+                checked = retroState.leaderboardTrackers,
+                onCheckedChange = RetroAchievementsStateManager::setLeaderboardTrackers
             )
             if (retroState.hardcorePreference && !retroState.hardcoreActive) {
                 NoticeCard(

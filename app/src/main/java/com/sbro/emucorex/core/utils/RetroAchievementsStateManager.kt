@@ -49,6 +49,8 @@ data class RetroAchievementsUiState(
     val enabled: Boolean = false,
     val hardcorePreference: Boolean = false,
     val hardcoreActive: Boolean = false,
+    val achievementIndicators: Boolean = true,
+    val leaderboardTrackers: Boolean = true,
     val storedUsername: String? = null,
     val user: RetroAchievementsUserState? = null,
     val game: RetroAchievementsGameState? = null,
@@ -77,6 +79,8 @@ object RetroAchievementsStateManager {
                 user = loadStoredProfile(),
                 enabled = prefsEnabled,
                 hardcorePreference = prefsHardcore,
+                achievementIndicators = loadStoredAchievementIndicators(),
+                leaderboardTrackers = loadStoredLeaderboardTrackers(),
                 isLoading = true
             )
         }
@@ -105,6 +109,8 @@ object RetroAchievementsStateManager {
                 isLoading = true,
                 enabled = loadStoredEnabled(),
                 hardcorePreference = loadStoredHardcore(),
+                achievementIndicators = loadStoredAchievementIndicators(),
+                leaderboardTrackers = loadStoredLeaderboardTrackers(),
                 storedUsername = loadStoredUsername() ?: it.storedUsername
             )
         }
@@ -266,6 +272,26 @@ object RetroAchievementsStateManager {
         }
     }
 
+    fun setAchievementIndicators(enabled: Boolean) {
+        _state.update { it.copy(achievementIndicators = enabled, errorMessage = null) }
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                EmulatorBridge.getContext()?.let { AppPreferences(it).setAchievementsIndicators(enabled) }
+                RetroAchievementsBridge.nativeSetAchievementIndicators(enabled)
+            }.onFailure { handleNativeFailure(it) }
+        }
+    }
+
+    fun setLeaderboardTrackers(enabled: Boolean) {
+        _state.update { it.copy(leaderboardTrackers = enabled, errorMessage = null) }
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                EmulatorBridge.getContext()?.let { AppPreferences(it).setAchievementsLeaderboardTrackers(enabled) }
+                RetroAchievementsBridge.nativeSetLeaderboardTrackers(enabled)
+            }.onFailure { handleNativeFailure(it) }
+        }
+    }
+
     fun clearTransientState() {
         _state.update {
             it.copy(
@@ -404,6 +430,8 @@ object RetroAchievementsStateManager {
                 isAuthenticating = current.isAuthenticating,
                 enabled = storedEnabled,
                 hardcorePreference = storedHardcore,
+                achievementIndicators = loadStoredAchievementIndicators(),
+                leaderboardTrackers = loadStoredLeaderboardTrackers(),
                 hardcoreActive = hardcoreActive,
                 storedUsername = resolvedStoredUsername,
                 user = verifiedUser,
@@ -454,6 +482,16 @@ object RetroAchievementsStateManager {
     private fun loadStoredHardcore(): Boolean {
         val context = EmulatorBridge.getContext() ?: return _state.value.hardcorePreference
         return AppPreferences(context).getAchievementsHardcoreSync()
+    }
+
+    private fun loadStoredAchievementIndicators(): Boolean {
+        val context = EmulatorBridge.getContext() ?: return _state.value.achievementIndicators
+        return AppPreferences(context).getAchievementsIndicatorsSync()
+    }
+
+    private fun loadStoredLeaderboardTrackers(): Boolean {
+        val context = EmulatorBridge.getContext() ?: return _state.value.leaderboardTrackers
+        return AppPreferences(context).getAchievementsLeaderboardTrackersSync()
     }
 
     private fun loadStoredAvatarPath(): String? {

@@ -661,6 +661,8 @@ object EmulatorBridge {
                 add(settingOp("InputSources", "PadVibration", "bool", padVibrationEnabled.toString()))
                 add(settingOp("Achievements", "Enabled", "bool", prefs.getAchievementsEnabledSync().toString()))
                 add(settingOp("Achievements", "ChallengeMode", "bool", achievementsHardcore.toString()))
+                add(settingOp("Achievements", "Overlays", "bool", prefs.getAchievementsIndicatorsSync().toString()))
+                add(settingOp("Achievements", "LBOverlays", "bool", prefs.getAchievementsLeaderboardTrackersSync().toString()))
                 add(settingOp("Achievements", "Username", "string", prefs.getAchievementsUsernameSync().orEmpty()))
                 add(settingOp("Achievements", "Token", "string", prefs.getAchievementsTokenSync().orEmpty()))
                 add(customDriverOp(resolvedCustomDriverPath))

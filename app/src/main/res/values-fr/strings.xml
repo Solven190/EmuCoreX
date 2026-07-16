@@ -1691,4 +1691,8 @@
     <string name="settings_fps_metric_gs">GS</string>
     <string name="settings_fps_metric_vu">VU</string>
     <string name="settings_fps_metric_software_threads">Threads logiciels</string>
+    <string name="settings_ra_achievement_indicators">Indicateurs de succès</string>
+    <string name="settings_ra_achievement_indicators_desc">Afficher les badges pour les défis actifs et la progression mesurée des succès pendant le jeu.</string>
+    <string name="settings_ra_leaderboard_trackers">Suivi des classements</string>
+    <string name="settings_ra_leaderboard_trackers_desc">Afficher le temps réel ou le score lorsqu\'une tentative de classement est active.</string>
 </resources>

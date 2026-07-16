@@ -1703,4 +1703,8 @@
     <string name="settings_fps_metric_gs">GS</string>
     <string name="settings_fps_metric_vu">VU</string>
     <string name="settings_fps_metric_software_threads">Utas perangkat lunak</string>
+    <string name="settings_ra_achievement_indicators">Indikator Pencapaian</string>
+    <string name="settings_ra_achievement_indicators_desc">Menampilkan lencana untuk tantangan aktif dan progres pencapaian yang terukur selama permainan.</string>
+    <string name="settings_ra_leaderboard_trackers">Pelacak Papan Peringkat</string>
+    <string name="settings_ra_leaderboard_trackers_desc">Menampilkan waktu langsung atau skor saat upaya papan peringkat sedang aktif.</string>
 </resources>

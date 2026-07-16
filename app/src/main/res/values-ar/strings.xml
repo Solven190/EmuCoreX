@@ -1693,4 +1693,8 @@
     <string name="settings_fps_metric_gs">GS</string>
     <string name="settings_fps_metric_vu">VU</string>
     <string name="settings_fps_metric_software_threads">خيوط برمجية</string>
+    <string name="settings_ra_achievement_indicators">مؤشرات الإنجازات</string>
+    <string name="settings_ra_achievement_indicators_desc">إظهار الشارات للتحديات النشطة وتقدم الإنجاز المقاس أثناء اللعب.</string>
+    <string name="settings_ra_leaderboard_trackers">متتبعات لوحة المتصدرين</string>
+    <string name="settings_ra_leaderboard_trackers_desc">إظهار الوقت المباشر أو النتيجة أثناء تنشيط محاولة لوحة المتصدرين.</string>
 </resources>
