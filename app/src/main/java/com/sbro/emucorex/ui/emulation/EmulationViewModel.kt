@@ -453,6 +453,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private var pendingPlayTimeSyncMs: Long = 0L
     private var lastCloudPlayTimeSyncAtMs: Long = 0L
     private var shouldCountCurrentProfileSession = false
+    // Autotest and boot-smoke VMs may run for minutes, but must never enter persistent player stats.
+    private var shouldTrackCurrentProfilePlayTime = false
     private val playTimeSyncMutex = Mutex()
     init {
         viewModelScope.launch {
@@ -1088,11 +1090,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
         val nextPlayTimeMs = state.activePlayTimeMs + 1_000L
         _uiState.value = state.copy(activePlayTimeMs = nextPlayTimeMs)
-        pendingPlayTimeSyncMs += 1_000L
-        if (pendingPlayTimeSyncMs >= PLAY_TIME_LOCAL_CACHE_INTERVAL_MS) {
-            viewModelScope.launch(Dispatchers.IO) {
-                cachePendingPlayTime()
-                flushCachedPlayTimeIfDue(force = false)
+        if (shouldTrackCurrentProfilePlayTime) {
+            pendingPlayTimeSyncMs += 1_000L
+            if (pendingPlayTimeSyncMs >= PLAY_TIME_LOCAL_CACHE_INTERVAL_MS) {
+                viewModelScope.launch(Dispatchers.IO) {
+                    cachePendingPlayTime()
+                    flushCachedPlayTimeIfDue(force = false)
+                }
             }
         }
 
@@ -1111,6 +1115,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     private suspend fun cachePendingPlayTime() {
         playTimeSyncMutex.withLock {
+            if (!shouldTrackCurrentProfilePlayTime) {
+                pendingPlayTimeSyncMs = 0L
+                shouldCountCurrentProfileSession = false
+                return@withLock
+            }
             val durationMs = pendingPlayTimeSyncMs
             if (durationMs <= 0L) return@withLock
             val path = currentGamePath
@@ -1272,6 +1281,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         lastAutoSavePlayTimeMs = 0L
         pendingPlayTimeSyncMs = 0L
         shouldCountCurrentProfileSession = false
+        shouldTrackCurrentProfilePlayTime = false
         _uiState.value = _uiState.value.copy(
             activePlayTimeMs = 0L,
             currentSlotLastModified = 0L,
@@ -1481,6 +1491,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     currentGameCrc = ""
                     currentGameSource = "bios_only"
                     shouldCountCurrentProfileSession = false
+                    shouldTrackCurrentProfilePlayTime = false
                     _uiState.value = _uiState.value.copy(
                         currentGameTitle = currentGameTitle,
                         currentGameSubtitle = currentGameSubtitle(),
@@ -1496,6 +1507,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     currentGameCrc = ""
                     currentGameSource = "autotest_elf"
                     shouldCountCurrentProfileSession = false
+                    shouldTrackCurrentProfilePlayTime = false
                     _uiState.value = _uiState.value.copy(
                         currentGameTitle = currentGameTitle,
                         currentGameSubtitle = currentGameSubtitle(),
@@ -1517,7 +1529,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         serial = currentGameSerial.takeIf { it.isNotBlank() },
                         title = currentGameTitle
                     )
-                    shouldCountCurrentProfileSession = true
+                    shouldTrackCurrentProfilePlayTime = !bootSmokeProbe
+                    shouldCountCurrentProfileSession = shouldTrackCurrentProfilePlayTime
                     currentGameCrc = metadata.serialWithCrc.extractCrc().orEmpty()
                     currentGameSource = when {
                         safePath.startsWith("content://") -> "content_uri"
