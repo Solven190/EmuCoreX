@@ -1,6 +1,6 @@
 package com.sbro.emucorex.core
 
-/** Values mirrored from the bundled PCSX2 audio configuration. */
+/** Audio defaults used by the Android frontend and sanitized before reaching the core. */
 object AudioDefaults {
     const val VOLUME_DEFAULT = 100
     const val VOLUME_MIN = 0
@@ -20,7 +20,9 @@ object AudioDefaults {
     const val BUFFER_MS_MIN = 10
     const val BUFFER_MS_MAX = 500
 
-    const val OUTPUT_LATENCY_MS_DEFAULT = 20
+    // 50 ms is a stable shared-mode AAudio baseline for slower Android devices. Users can
+    // still lower it explicitly; the separate 100 ms time-stretch buffer is unchanged.
+    const val OUTPUT_LATENCY_MS_DEFAULT = 50
     const val OUTPUT_LATENCY_MS_MIN = 1
     const val OUTPUT_LATENCY_MS_MAX = 500
     const val MINIMAL_OUTPUT_LATENCY_DEFAULT = false
