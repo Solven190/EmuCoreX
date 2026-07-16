@@ -51,6 +51,32 @@ enum class TouchControlPressEffect(val preferenceValue: Int) {
     }
 }
 
+/** Changes the structure of the in-game menu without changing its actions or saved content order. */
+enum class GameMenuLayoutStyle(val preferenceValue: Int) {
+    SIDEBAR(0),
+    DASHBOARD(1),
+    COMMAND_CENTER(2),
+    COMPACT(3);
+
+    companion object {
+        fun fromPreference(value: Int?): GameMenuLayoutStyle =
+            entries.firstOrNull { it.preferenceValue == value } ?: SIDEBAR
+    }
+}
+
+/** Visual and density treatment for the application navigation drawer. */
+enum class DrawerVisualStyle(val preferenceValue: Int) {
+    CLASSIC(0),
+    COMPACT(1),
+    GLASS(2),
+    CONSOLE(3);
+
+    companion object {
+        fun fromPreference(value: Int?): DrawerVisualStyle =
+            entries.firstOrNull { it.preferenceValue == value } ?: CLASSIC
+    }
+}
+
 enum class GameMenuTabId {
     SESSION,
     CONTROLS,

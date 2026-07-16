@@ -54,6 +54,24 @@ class CustomizationPreferencesTest {
     }
 
     @Test
+    fun gameMenuLayoutFallsBackToSidebarForUnknownValues() {
+        assertEquals(GameMenuLayoutStyle.SIDEBAR, GameMenuLayoutStyle.fromPreference(null))
+        assertEquals(GameMenuLayoutStyle.SIDEBAR, GameMenuLayoutStyle.fromPreference(99))
+        assertEquals(GameMenuLayoutStyle.DASHBOARD, GameMenuLayoutStyle.fromPreference(1))
+        assertEquals(GameMenuLayoutStyle.COMMAND_CENTER, GameMenuLayoutStyle.fromPreference(2))
+        assertEquals(GameMenuLayoutStyle.COMPACT, GameMenuLayoutStyle.fromPreference(3))
+    }
+
+    @Test
+    fun drawerStyleFallsBackToClassicForUnknownValues() {
+        assertEquals(DrawerVisualStyle.CLASSIC, DrawerVisualStyle.fromPreference(null))
+        assertEquals(DrawerVisualStyle.CLASSIC, DrawerVisualStyle.fromPreference(-1))
+        assertEquals(DrawerVisualStyle.COMPACT, DrawerVisualStyle.fromPreference(1))
+        assertEquals(DrawerVisualStyle.GLASS, DrawerVisualStyle.fromPreference(2))
+        assertEquals(DrawerVisualStyle.CONSOLE, DrawerVisualStyle.fromPreference(3))
+    }
+
+    @Test
     fun gameMenuOrderKeepsStoredOrderAndAppendsNewTabs() {
         val order = sanitizeGameMenuTabOrder("GRAPHICS,SESSION,GRAPHICS,UNKNOWN")
         assertEquals(GameMenuTabId.GRAPHICS, order[0])

@@ -1660,4 +1660,15 @@
     <string name="settings_customization_touch_press_effect_spring">स्प्रिंग</string>
     <string name="settings_customization_touch_press_effect_glow">चमक</string>
     <string name="settings_use_global">ग्लोबल का उपयोग करें</string>
+    <string name="settings_customization_drawer_style">ड्रॉअर की दिखावट</string>
+    <string name="settings_drawer_style_classic">क्लासिक</string>
+    <string name="settings_drawer_style_compact">कॉम्पैक्ट</string>
+    <string name="settings_drawer_style_glass">ग्लास</string>
+    <string name="settings_drawer_style_console">कंसोल</string>
+    <string name="settings_game_menu_layout_section">मेनू लेआउट</string>
+    <string name="settings_game_menu_layout_help">इन-गेम मेनू की संरचना और नेविगेशन को बदलता है। टैब, सामग्री दृश्यता, सुरक्षा कार्रवाइयां, और गेमपैड नियंत्रण हर लेआउट के बीच साझा रहते हैं।</string>
+    <string name="settings_game_menu_layout_sidebar">साइडबार</string>
+    <string name="settings_game_menu_layout_dashboard">डैशबोर्ड</string>
+    <string name="settings_game_menu_layout_command_center">कमांड सेंटर</string>
+    <string name="settings_game_menu_layout_compact">कॉम्पैक्ट</string>
 </resources>

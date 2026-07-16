@@ -1662,4 +1662,15 @@
     <string name="settings_customization_touch_press_effect_spring">Resorte</string>
     <string name="settings_customization_touch_press_effect_glow">Resplandor</string>
     <string name="settings_use_global">Usar global</string>
+    <string name="settings_customization_drawer_style">Apariencia del cajón</string>
+    <string name="settings_drawer_style_classic">Clásico</string>
+    <string name="settings_drawer_style_compact">Compacto</string>
+    <string name="settings_drawer_style_glass">Cristal</string>
+    <string name="settings_drawer_style_console">Consola</string>
+    <string name="settings_game_menu_layout_section">Diseño del menú</string>
+    <string name="settings_game_menu_layout_help">Cambia la estructura y navegación del menú del juego. Las pestañas, la visibilidad del contenido, las acciones de seguridad y los controles del gamepad siguen siendo compartidos entre cada diseño.</string>
+    <string name="settings_game_menu_layout_sidebar">Barra lateral</string>
+    <string name="settings_game_menu_layout_dashboard">Panel</string>
+    <string name="settings_game_menu_layout_command_center">Centro de mando</string>
+    <string name="settings_game_menu_layout_compact">Compacto</string>
 </resources>

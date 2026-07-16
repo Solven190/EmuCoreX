@@ -64,6 +64,8 @@ data class SettingsSnapshot(
     val homeBackgroundDim: Int = AppPreferences.DEFAULT_HOME_BACKGROUND_DIM,
     val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
     val touchControlPressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
+    val gameMenuLayoutStyle: GameMenuLayoutStyle = GameMenuLayoutStyle.SIDEBAR,
+    val drawerVisualStyle: DrawerVisualStyle = DrawerVisualStyle.CLASSIC,
     val hiddenDrawerItems: Set<DrawerItemId> = emptySet(),
     val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
     val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
@@ -394,6 +396,8 @@ class AppPreferences(private val context: Context) {
         private val HOME_BACKGROUND_DIM = intPreferencesKey("home_background_dim")
         private val TOUCH_CONTROL_VISUAL_STYLE = intPreferencesKey("touch_control_visual_style")
         private val TOUCH_CONTROL_PRESS_EFFECT = intPreferencesKey("touch_control_press_effect")
+        private val GAME_MENU_LAYOUT_STYLE = intPreferencesKey("game_menu_layout_style")
+        private val DRAWER_VISUAL_STYLE = intPreferencesKey("drawer_visual_style")
         private val HIDDEN_DRAWER_ITEMS = stringPreferencesKey("hidden_drawer_items")
         private val GAME_MENU_TAB_ORDER = stringPreferencesKey("game_menu_tab_order")
         private val HIDDEN_GAME_MENU_TABS = stringPreferencesKey("hidden_game_menu_tabs")
@@ -654,6 +658,14 @@ class AppPreferences(private val context: Context) {
         .map { prefs -> TouchControlPressEffect.fromPreference(prefs[TOUCH_CONTROL_PRESS_EFFECT]) }
         .distinctUntilChanged()
 
+    val gameMenuLayoutStyle: Flow<GameMenuLayoutStyle> = context.dataStore.data
+        .map { prefs -> GameMenuLayoutStyle.fromPreference(prefs[GAME_MENU_LAYOUT_STYLE]) }
+        .distinctUntilChanged()
+
+    val drawerVisualStyle: Flow<DrawerVisualStyle> = context.dataStore.data
+        .map { prefs -> DrawerVisualStyle.fromPreference(prefs[DRAWER_VISUAL_STYLE]) }
+        .distinctUntilChanged()
+
     val hiddenDrawerItems: Flow<Set<DrawerItemId>> = context.dataStore.data
         .map { prefs -> sanitizeHiddenDrawerItems(prefs[HIDDEN_DRAWER_ITEMS]) }
         .distinctUntilChanged()
@@ -735,6 +747,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setTouchControlPressEffect(effect: TouchControlPressEffect) {
         context.dataStore.edit { it[TOUCH_CONTROL_PRESS_EFFECT] = effect.preferenceValue }
+    }
+
+    suspend fun setGameMenuLayoutStyle(style: GameMenuLayoutStyle) {
+        context.dataStore.edit { it[GAME_MENU_LAYOUT_STYLE] = style.preferenceValue }
+    }
+
+    suspend fun setDrawerVisualStyle(style: DrawerVisualStyle) {
+        context.dataStore.edit { it[DRAWER_VISUAL_STYLE] = style.preferenceValue }
     }
 
     suspend fun setHiddenDrawerItems(hidden: Set<DrawerItemId>) {
@@ -1224,6 +1244,8 @@ class AppPreferences(private val context: Context) {
                     .coerceIn(0, 85),
                 touchControlVisualStyle = TouchControlVisualStyle.fromPreference(prefs[TOUCH_CONTROL_VISUAL_STYLE]),
                 touchControlPressEffect = TouchControlPressEffect.fromPreference(prefs[TOUCH_CONTROL_PRESS_EFFECT]),
+                gameMenuLayoutStyle = GameMenuLayoutStyle.fromPreference(prefs[GAME_MENU_LAYOUT_STYLE]),
+                drawerVisualStyle = DrawerVisualStyle.fromPreference(prefs[DRAWER_VISUAL_STYLE]),
                 hiddenDrawerItems = sanitizeHiddenDrawerItems(prefs[HIDDEN_DRAWER_ITEMS]),
                 gameMenuTabOrder = sanitizeGameMenuTabOrder(prefs[GAME_MENU_TAB_ORDER]),
                 hiddenGameMenuTabs = sanitizeHiddenGameMenuTabs(prefs[HIDDEN_GAME_MENU_TABS]),
@@ -2928,6 +2950,8 @@ class AppPreferences(private val context: Context) {
             put("homeBackgroundType", prefs[HOME_BACKGROUND_TYPE] ?: HomeBackgroundType.NONE.preferenceValue)
             put("touchControlVisualStyle", prefs[TOUCH_CONTROL_VISUAL_STYLE] ?: TouchControlVisualStyle.CLASSIC.preferenceValue)
             put("touchControlPressEffect", prefs[TOUCH_CONTROL_PRESS_EFFECT] ?: TouchControlPressEffect.GROW.preferenceValue)
+            put("gameMenuLayoutStyle", prefs[GAME_MENU_LAYOUT_STYLE] ?: GameMenuLayoutStyle.SIDEBAR.preferenceValue)
+            put("drawerVisualStyle", prefs[DRAWER_VISUAL_STYLE] ?: DrawerVisualStyle.CLASSIC.preferenceValue)
             put("hiddenDrawerItems", prefs[HIDDEN_DRAWER_ITEMS] ?: "")
             put("gameMenuTabOrder", prefs[GAME_MENU_TAB_ORDER] ?: DefaultGameMenuTabOrder.joinToString(",") { it.name })
             put("hiddenGameMenuTabs", prefs[HIDDEN_GAME_MENU_TABS] ?: "")
@@ -3152,6 +3176,12 @@ class AppPreferences(private val context: Context) {
             ).preferenceValue
             prefs[TOUCH_CONTROL_PRESS_EFFECT] = TouchControlPressEffect.fromPreference(
                 json.optInt("touchControlPressEffect", TouchControlPressEffect.GROW.preferenceValue)
+            ).preferenceValue
+            prefs[GAME_MENU_LAYOUT_STYLE] = GameMenuLayoutStyle.fromPreference(
+                json.optInt("gameMenuLayoutStyle", GameMenuLayoutStyle.SIDEBAR.preferenceValue)
+            ).preferenceValue
+            prefs[DRAWER_VISUAL_STYLE] = DrawerVisualStyle.fromPreference(
+                json.optInt("drawerVisualStyle", DrawerVisualStyle.CLASSIC.preferenceValue)
             ).preferenceValue
             prefs[HIDDEN_DRAWER_ITEMS] = sanitizeHiddenDrawerItems(json.optString("hiddenDrawerItems"))
                 .joinToString(",") { it.name }

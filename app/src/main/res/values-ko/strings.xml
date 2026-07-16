@@ -1659,4 +1659,15 @@
     <string name="settings_customization_touch_press_effect_spring">스프링</string>
     <string name="settings_customization_touch_press_effect_glow">글로우</string>
     <string name="settings_use_global">글로벌 설정 사용</string>
+    <string name="settings_customization_drawer_style">서랍 모양</string>
+    <string name="settings_drawer_style_classic">클래식</string>
+    <string name="settings_drawer_style_compact">컴팩트</string>
+    <string name="settings_drawer_style_glass">유리</string>
+    <string name="settings_drawer_style_console">콘솔</string>
+    <string name="settings_game_menu_layout_section">메뉴 레이아웃</string>
+    <string name="settings_game_menu_layout_help">게임 내 메뉴의 구조와 내비게이션을 변경합니다. 탭, 콘텐츠 가시성, 안전 작업 및 게임패드 컨트롤은 모든 레이아웃에서 동일하게 유지됩니다.</string>
+    <string name="settings_game_menu_layout_sidebar">사이드바</string>
+    <string name="settings_game_menu_layout_dashboard">대시보드</string>
+    <string name="settings_game_menu_layout_command_center">커맨드 센터</string>
+    <string name="settings_game_menu_layout_compact">컴팩트</string>
 </resources>

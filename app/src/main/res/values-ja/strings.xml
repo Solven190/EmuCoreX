@@ -1659,4 +1659,15 @@
     <string name="settings_customization_touch_press_effect_spring">スプリング</string>
     <string name="settings_customization_touch_press_effect_glow">発光</string>
     <string name="settings_use_global">グローバル設定を使用</string>
+    <string name="settings_customization_drawer_style">ドロワーの外観</string>
+    <string name="settings_drawer_style_classic">クラシック</string>
+    <string name="settings_drawer_style_compact">コンパクト</string>
+    <string name="settings_drawer_style_glass">ガラス</string>
+    <string name="settings_drawer_style_console">コンソール</string>
+    <string name="settings_game_menu_layout_section">メニューレイアウト</string>
+    <string name="settings_game_menu_layout_help">ゲーム内メニューの構造とナビゲーションを変更します。タブ、コンテンツの表示、安全アクション、ゲームパッドの操作は、すべてのレイアウトで共通です。</string>
+    <string name="settings_game_menu_layout_sidebar">サイドバー</string>
+    <string name="settings_game_menu_layout_dashboard">ダッシュボード</string>
+    <string name="settings_game_menu_layout_command_center">コマンドセンター</string>
+    <string name="settings_game_menu_layout_compact">コンパクト</string>
 </resources>

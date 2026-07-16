@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -51,6 +52,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -165,6 +167,7 @@ import com.sbro.emucorex.data.TouchControlVisualStyle
 import com.sbro.emucorex.data.TouchControlPressEffect
 import com.sbro.emucorex.data.GameMenuTabId
 import com.sbro.emucorex.data.GameMenuSectionId
+import com.sbro.emucorex.data.GameMenuLayoutStyle
 import com.sbro.emucorex.data.gameMenuSectionsForTab
 import com.sbro.emucorex.ui.common.BitmapPathImage
 import com.sbro.emucorex.ui.common.ProvideGamepadMenuAction
@@ -2546,30 +2549,7 @@ private fun EmulationSidebarMenu(
         onNext = { selectRelativeMenuTab(1) }
     )
 
-    Row(
-        modifier = modifier
-            .padding(WindowInsets.displayCutout.asPaddingValues())
-            .padding(WindowInsets.statusBars.asPaddingValues())
-            .padding(end = 16.dp + animatedRightInset, top = 16.dp, bottom = 16.dp),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.Top
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxHeight()
-                .widthIn(max = 420.dp),
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(selectedTabScrollState)
-                    .padding(horizontal = 18.dp, vertical = 18.dp)
-                    .padding(bottom = drawerBottomPadding + animatedBottomInset),
-                verticalArrangement = Arrangement.spacedBy(sectionSpacing)
-            ) {
+    val menuContent: @Composable ColumnScope.() -> Unit = {
                 Surface(
                     shape = RoundedCornerShape(22.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
@@ -4065,54 +4045,306 @@ private fun EmulationSidebarMenu(
                         }
                     }
                 }
+    }
+
+    GameMenuLayoutHost(
+        style = uiState.gameMenuLayoutStyle,
+        modifier = modifier,
+        menuTabs = menuTabs,
+        selectedMenuTab = selectedMenuTab,
+        selectedTabScrollState = selectedTabScrollState,
+        railFocusRequesters = railFocusRequesters,
+        contentBottomPadding = drawerBottomPadding + animatedBottomInset,
+        rightInset = animatedRightInset,
+        sectionSpacing = sectionSpacing,
+        onSelectTab = { selectedMenuTabName = it.name },
+        onClose = onClose,
+        content = menuContent
+    )
+}
+
+@Composable
+private fun GameMenuLayoutHost(
+    style: GameMenuLayoutStyle,
+    modifier: Modifier,
+    menuTabs: List<EmulationMenuTab>,
+    selectedMenuTab: EmulationMenuTab,
+    selectedTabScrollState: ScrollState,
+    railFocusRequesters: Map<EmulationMenuTab, FocusRequester>,
+    contentBottomPadding: Dp,
+    rightInset: Dp,
+    sectionSpacing: Dp,
+    onSelectTab: (EmulationMenuTab) -> Unit,
+    onClose: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val safeModifier = modifier
+        .padding(WindowInsets.displayCutout.asPaddingValues())
+        .padding(WindowInsets.statusBars.asPaddingValues())
+
+    when (style) {
+        GameMenuLayoutStyle.SIDEBAR -> {
+            Row(
+                modifier = safeModifier.padding(end = 16.dp + rightInset, top = 16.dp, bottom = 16.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.Top
+            ) {
+                GameMenuContentSurface(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .widthIn(min = 300.dp, max = 420.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    scrollState = selectedTabScrollState,
+                    bottomPadding = contentBottomPadding,
+                    sectionSpacing = sectionSpacing,
+                    content = content
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                GameMenuVerticalNavigation(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(74.dp),
+                    menuTabs = menuTabs,
+                    selectedMenuTab = selectedMenuTab,
+                    railFocusRequesters = railFocusRequesters,
+                    showLabels = false,
+                    onSelectTab = onSelectTab,
+                    onClose = onClose
+                )
             }
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Surface(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(74.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f))
-        ) {
-            val railScrollState = rememberScrollState()
-            Column(
-                modifier = Modifier
+        GameMenuLayoutStyle.DASHBOARD -> {
+            Box(
+                modifier = safeModifier
                     .fillMaxSize()
-                    .verticalScroll(railScrollState)
-                    .padding(vertical = 16.dp, horizontal = 10.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(end = rightInset, bottom = contentBottomPadding.coerceAtMost(36.dp)),
+                contentAlignment = Alignment.Center
             ) {
-                menuTabs.forEach { tab ->
-                    val icon = when (tab) {
-                        EmulationMenuTab.Session -> Icons.Rounded.Menu
-                        EmulationMenuTab.Controls -> Icons.Rounded.Gamepad
-                        EmulationMenuTab.Emulation -> Icons.Rounded.SettingsSuggest
-                        EmulationMenuTab.Graphics -> Icons.Rounded.Fullscreen
-                        EmulationMenuTab.Fixes -> Icons.Rounded.Star
-                        EmulationMenuTab.Achievements -> Icons.Rounded.LockOpen
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.94f)
+                        .fillMaxHeight(0.90f),
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+                    shadowElevation = 12.dp
+                ) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        GameMenuVerticalNavigation(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(196.dp),
+                            menuTabs = menuTabs,
+                            selectedMenuTab = selectedMenuTab,
+                            railFocusRequesters = railFocusRequesters,
+                            showLabels = true,
+                            onSelectTab = onSelectTab,
+                            onClose = onClose
+                        )
+                        GameMenuContentColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            scrollState = selectedTabScrollState,
+                            bottomPadding = 18.dp,
+                            sectionSpacing = sectionSpacing,
+                            content = content
+                        )
                     }
-                    val description = when (tab) {
-                        EmulationMenuTab.Session -> stringResource(R.string.emulation_session_tab)
-                        EmulationMenuTab.Controls -> stringResource(R.string.settings_controls_tab)
-                        EmulationMenuTab.Emulation -> stringResource(R.string.settings_emulation_tab)
-                        EmulationMenuTab.Graphics -> stringResource(R.string.settings_graphics_tab)
-                        EmulationMenuTab.Fixes -> stringResource(R.string.settings_fixes_tab)
-                        EmulationMenuTab.Achievements -> stringResource(R.string.emulation_achievements_tab)
+                }
+            }
+        }
+
+        GameMenuLayoutStyle.COMMAND_CENTER -> {
+            Box(
+                modifier = safeModifier
+                    .fillMaxSize()
+                    .padding(end = rightInset),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.96f)
+                        .fillMaxHeight(0.78f)
+                        .padding(bottom = contentBottomPadding.coerceAtMost(28.dp)),
+                    shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.50f)),
+                    shadowElevation = 14.dp
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        GameMenuHorizontalNavigation(
+                            menuTabs = menuTabs,
+                            selectedMenuTab = selectedMenuTab,
+                            railFocusRequesters = railFocusRequesters,
+                            iconOnly = false,
+                            onSelectTab = onSelectTab,
+                            onClose = onClose
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+                        GameMenuContentColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            scrollState = selectedTabScrollState,
+                            bottomPadding = 18.dp,
+                            sectionSpacing = sectionSpacing,
+                            content = content
+                        )
                     }
+                }
+            }
+        }
+
+        GameMenuLayoutStyle.COMPACT -> {
+            Box(
+                modifier = safeModifier
+                    .fillMaxSize()
+                    .padding(end = 12.dp + rightInset, top = 12.dp, bottom = 12.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxHeight(0.86f)
+                        .widthIn(min = 300.dp, max = 352.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
+                    shadowElevation = 10.dp
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        GameMenuHorizontalNavigation(
+                            menuTabs = menuTabs,
+                            selectedMenuTab = selectedMenuTab,
+                            railFocusRequesters = railFocusRequesters,
+                            iconOnly = true,
+                            pinClose = true,
+                            onSelectTab = onSelectTab,
+                            onClose = onClose
+                        )
+                        GameMenuContentColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            scrollState = selectedTabScrollState,
+                            bottomPadding = contentBottomPadding,
+                            sectionSpacing = 10.dp,
+                            horizontalPadding = 12.dp,
+                            verticalPadding = 12.dp,
+                            content = content
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GameMenuContentSurface(
+    modifier: Modifier,
+    shape: RoundedCornerShape,
+    scrollState: ScrollState,
+    bottomPadding: Dp,
+    sectionSpacing: Dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = modifier,
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+    ) {
+        GameMenuContentColumn(
+            scrollState = scrollState,
+            bottomPadding = bottomPadding,
+            sectionSpacing = sectionSpacing,
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun GameMenuContentColumn(
+    modifier: Modifier = Modifier,
+    scrollState: ScrollState,
+    bottomPadding: Dp,
+    sectionSpacing: Dp,
+    horizontalPadding: Dp = 18.dp,
+    verticalPadding: Dp = 18.dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
+            .padding(bottom = bottomPadding),
+        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+        content = content
+    )
+}
+
+@Composable
+private fun GameMenuVerticalNavigation(
+    modifier: Modifier,
+    menuTabs: List<EmulationMenuTab>,
+    selectedMenuTab: EmulationMenuTab,
+    railFocusRequesters: Map<EmulationMenuTab, FocusRequester>,
+    showLabels: Boolean,
+    onSelectTab: (EmulationMenuTab) -> Unit,
+    onClose: () -> Unit
+) {
+    Surface(
+        modifier = modifier,
+        shape = if (showLabels) RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp) else RoundedCornerShape(24.dp),
+        color = if (showLabels) {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+        },
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f))
+    ) {
+        val railScrollState = rememberScrollState()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(railScrollState)
+                .padding(vertical = 16.dp, horizontal = if (showLabels) 12.dp else 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            menuTabs.forEach { tab ->
+                if (showLabels) {
+                    GameMenuNavigationTile(
+                        modifier = Modifier.focusRequester(railFocusRequesters.getValue(tab)),
+                        tab = tab,
+                        selected = selectedMenuTab == tab,
+                        iconOnly = false,
+                        onClick = { onSelectTab(tab) }
+                    )
+                } else {
                     EmulationMenuRailButton(
                         modifier = Modifier.focusRequester(railFocusRequesters.getValue(tab)),
-                        icon = icon,
-                        contentDescription = description,
+                        icon = gameMenuTabIcon(tab),
+                        contentDescription = gameMenuTabLabel(tab),
                         selected = selectedMenuTab == tab,
-                        onClick = { selectedMenuTabName = tab.name }
+                        onClick = { onSelectTab(tab) }
                     )
                 }
-                Spacer(modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            if (showLabels) {
+                GameMenuNavigationTile(
+                    icon = Icons.AutoMirrored.Rounded.ExitToApp,
+                    label = stringResource(R.string.emulation_close_menu),
+                    selected = false,
+                    destructive = true,
+                    iconOnly = false,
+                    onClick = onClose
+                )
+            } else {
                 EmulationMenuRailButton(
                     icon = Icons.AutoMirrored.Rounded.ExitToApp,
                     contentDescription = stringResource(R.string.emulation_close_menu),
@@ -4123,7 +4355,170 @@ private fun EmulationSidebarMenu(
             }
         }
     }
+}
 
+@Composable
+private fun GameMenuHorizontalNavigation(
+    menuTabs: List<EmulationMenuTab>,
+    selectedMenuTab: EmulationMenuTab,
+    railFocusRequesters: Map<EmulationMenuTab, FocusRequester>,
+    iconOnly: Boolean,
+    pinClose: Boolean = false,
+    onSelectTab: (EmulationMenuTab) -> Unit,
+    onClose: () -> Unit
+) {
+    if (pinClose) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LazyRow(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items(menuTabs, key = { it.name }) { tab ->
+                    GameMenuNavigationTile(
+                        modifier = Modifier.focusRequester(railFocusRequesters.getValue(tab)),
+                        tab = tab,
+                        selected = selectedMenuTab == tab,
+                        iconOnly = iconOnly,
+                        fillWidth = false,
+                        onClick = { onSelectTab(tab) }
+                    )
+                }
+            }
+            GameMenuNavigationTile(
+                modifier = Modifier.padding(end = 12.dp),
+                icon = Icons.AutoMirrored.Rounded.ExitToApp,
+                label = stringResource(R.string.emulation_close_menu),
+                selected = false,
+                destructive = true,
+                iconOnly = iconOnly,
+                fillWidth = false,
+                onClick = onClose
+            )
+        }
+        return
+    }
+
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        items(menuTabs, key = { it.name }) { tab ->
+            GameMenuNavigationTile(
+                modifier = Modifier.focusRequester(railFocusRequesters.getValue(tab)),
+                tab = tab,
+                selected = selectedMenuTab == tab,
+                iconOnly = iconOnly,
+                fillWidth = false,
+                onClick = { onSelectTab(tab) }
+            )
+        }
+        item(key = "close") {
+            GameMenuNavigationTile(
+                icon = Icons.AutoMirrored.Rounded.ExitToApp,
+                label = stringResource(R.string.emulation_close_menu),
+                selected = false,
+                destructive = true,
+                iconOnly = iconOnly,
+                fillWidth = false,
+                onClick = onClose
+            )
+        }
+    }
+}
+
+@Composable
+private fun GameMenuNavigationTile(
+    modifier: Modifier = Modifier,
+    tab: EmulationMenuTab? = null,
+    icon: ImageVector? = null,
+    label: String? = null,
+    selected: Boolean,
+    destructive: Boolean = false,
+    iconOnly: Boolean,
+    fillWidth: Boolean = !iconOnly,
+    onClick: () -> Unit
+) {
+    val resolvedIcon = icon ?: tab?.let(::gameMenuTabIcon) ?: Icons.Rounded.Menu
+    val resolvedLabel = label ?: tab?.let { gameMenuTabLabel(it) }.orEmpty()
+    val shape = RoundedCornerShape(if (iconOnly) 14.dp else 16.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    Surface(
+        modifier = modifier
+            .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .focusable(interactionSource = interactionSource),
+        shape = shape,
+        color = when {
+            destructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+            selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.26f)
+        },
+        border = BorderStroke(
+            if (isFocused) 2.dp else 1.dp,
+            when {
+                isFocused -> MaterialTheme.colorScheme.primary
+                destructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.24f)
+                selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
+                else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = if (iconOnly) 13.dp else 14.dp,
+                vertical = if (iconOnly) 12.dp else 13.dp
+            ),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = resolvedIcon,
+                contentDescription = resolvedLabel,
+                tint = when {
+                    destructive -> MaterialTheme.colorScheme.error
+                    selected -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(21.dp)
+            )
+            if (!iconOnly) {
+                Text(
+                    text = resolvedLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+private fun gameMenuTabIcon(tab: EmulationMenuTab): ImageVector = when (tab) {
+    EmulationMenuTab.Session -> Icons.Rounded.Menu
+    EmulationMenuTab.Controls -> Icons.Rounded.Gamepad
+    EmulationMenuTab.Emulation -> Icons.Rounded.SettingsSuggest
+    EmulationMenuTab.Graphics -> Icons.Rounded.Fullscreen
+    EmulationMenuTab.Fixes -> Icons.Rounded.Star
+    EmulationMenuTab.Achievements -> Icons.Rounded.LockOpen
+}
+
+@Composable
+private fun gameMenuTabLabel(tab: EmulationMenuTab): String = when (tab) {
+    EmulationMenuTab.Session -> stringResource(R.string.emulation_session_tab)
+    EmulationMenuTab.Controls -> stringResource(R.string.settings_controls_tab)
+    EmulationMenuTab.Emulation -> stringResource(R.string.settings_emulation_tab)
+    EmulationMenuTab.Graphics -> stringResource(R.string.settings_graphics_tab)
+    EmulationMenuTab.Fixes -> stringResource(R.string.settings_fixes_tab)
+    EmulationMenuTab.Achievements -> stringResource(R.string.emulation_achievements_tab)
 }
 
 @Composable
