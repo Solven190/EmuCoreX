@@ -1534,7 +1534,7 @@
     <string name="profile_player_id">Oyuncu Kimliği</string>
     <string name="profile_player_id_format">Oyuncu Kimliği: %1$s</string>
     <string name="profile_rank">Rütbe</string>
-    <string name="profile_percentile">En iyi yüzdelik</string>
+    <string name="profile_percentile">Oyuncular arasında</string>
     <string name="profile_top_percent_format">İlk %%%1$d</string>
     <string name="profile_total_players">Sıralanan oyuncular</string>
     <string name="profile_pro_badge">PRO</string>

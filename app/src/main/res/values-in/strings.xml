@@ -1549,7 +1549,7 @@
     <string name="profile_player_id">ID Pemain</string>
     <string name="profile_player_id_format">ID Pemain: %1$s</string>
     <string name="profile_rank">Peringkat</string>
-    <string name="profile_percentile">Persentil teratas</string>
+    <string name="profile_percentile">Di antara pemain</string>
     <string name="profile_top_percent_format">Teratas %1$d%%</string>
     <string name="profile_total_players">Pemain diurutkan</string>
     <string name="profile_pro_badge">PRO</string>

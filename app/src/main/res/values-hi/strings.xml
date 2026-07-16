@@ -1534,7 +1534,7 @@
     <string name="profile_player_id">प्लेयर ID</string>
     <string name="profile_player_id_format">प्लेयर ID: %1$s</string>
     <string name="profile_rank">रैंक</string>
-    <string name="profile_percentile">टॉप पर्सेंटाइल</string>
+    <string name="profile_percentile">खिलाड़ियों में</string>
     <string name="profile_top_percent_format">टॉप %1$d%%</string>
     <string name="profile_total_players">रैंक किए गए प्लेयर्स</string>
     <string name="profile_pro_badge">PRO</string>
