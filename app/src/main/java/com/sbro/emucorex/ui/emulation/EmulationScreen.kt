@@ -4168,13 +4168,13 @@ private fun GameMenuLayoutHost(
             Box(
                 modifier = safeModifier
                     .fillMaxSize()
-                    .padding(end = rightInset, bottom = contentBottomPadding.coerceAtMost(36.dp)),
+                    .padding(end = rightInset, top = 16.dp, bottom = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth(0.94f)
-                        .fillMaxHeight(0.90f),
+                        .fillMaxHeight(),
                     shape = RoundedCornerShape(24.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
@@ -4210,14 +4210,13 @@ private fun GameMenuLayoutHost(
             Box(
                 modifier = safeModifier
                     .fillMaxSize()
-                    .padding(end = rightInset),
+                    .padding(end = rightInset, top = 16.dp, bottom = 16.dp),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth(0.96f)
-                        .fillMaxHeight(0.78f)
-                        .padding(bottom = contentBottomPadding.coerceAtMost(28.dp)),
+                        .fillMaxHeight(),
                     shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.50f)),
@@ -4251,12 +4250,12 @@ private fun GameMenuLayoutHost(
             Box(
                 modifier = safeModifier
                     .fillMaxSize()
-                    .padding(end = 12.dp + rightInset, top = 12.dp, bottom = 12.dp),
+                    .padding(end = 12.dp + rightInset, top = 16.dp, bottom = 16.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Surface(
                     modifier = Modifier
-                        .fillMaxHeight(0.86f)
+                        .fillMaxHeight()
                         .widthIn(min = 300.dp, max = 352.dp),
                     shape = RoundedCornerShape(18.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
