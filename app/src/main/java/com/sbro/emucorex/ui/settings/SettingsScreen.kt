@@ -129,6 +129,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -160,6 +161,8 @@ import com.sbro.emucorex.data.TouchControlPressEffect
 import com.sbro.emucorex.data.DrawerItemId
 import com.sbro.emucorex.data.GameMenuTabId
 import com.sbro.emucorex.data.GameMenuSectionId
+import com.sbro.emucorex.data.GameMenuLayoutStyle
+import com.sbro.emucorex.data.DrawerVisualStyle
 import com.sbro.emucorex.data.MemoryCardRepository
 import com.sbro.emucorex.data.OverlayLayoutSnapshot
 import com.sbro.emucorex.data.PerGameSettingsRepository
@@ -2909,6 +2912,10 @@ private fun CustomizationSettingsTab(
 
     SettingsSection(title = stringResource(R.string.settings_customization_drawer_section)) {
         SettingsInlineNote(stringResource(R.string.settings_customization_drawer_summary))
+        DrawerVisualStylePicker(
+            selected = uiState.drawerVisualStyle,
+            onSelect = viewModel::setDrawerVisualStyle
+        )
         val groups = listOf(
             stringResource(R.string.shell_quick_actions) to listOf(
                 DrawerItemId.LIBRARY,
@@ -3100,40 +3107,11 @@ private fun GameMenuSettingsTab(
 ) {
     SettingsSection(title = stringResource(R.string.settings_game_menu_preview_section)) {
         SettingsInlineNote(stringResource(R.string.settings_game_menu_content_summary))
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(22.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
-        ) {
-            val visibleTabs = uiState.gameMenuTabOrder.filterNot(uiState.hiddenGameMenuTabs::contains)
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(14.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                items(visibleTabs, key = { it.name }) { tab ->
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (tab == GameMenuTabId.SESSION) {
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
-                            } else {
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-                            }
-                        ) {
-                            Icon(
-                                imageVector = gameMenuTabIcon(tab),
-                                contentDescription = gameMenuTabLabel(tab),
-                                tint = if (tab == GameMenuTabId.SESSION) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(10.dp).size(20.dp)
-                            )
-                        }
-                }
-            }
-        }
+        GameMenuLayoutStylePicker(
+            selected = uiState.gameMenuLayoutStyle,
+            visibleTabs = uiState.gameMenuTabOrder.filterNot(uiState.hiddenGameMenuTabs::contains),
+            onSelect = viewModel::setGameMenuLayoutStyle
+        )
     }
 
     SettingsSection(title = stringResource(R.string.settings_game_menu_tabs_section)) {
@@ -3186,6 +3164,307 @@ private fun GameMenuSettingsTab(
         )
     }
 }
+
+@Composable
+private fun GameMenuLayoutStylePicker(
+    selected: GameMenuLayoutStyle,
+    visibleTabs: List<GameMenuTabId>,
+    onSelect: (GameMenuLayoutStyle) -> Unit
+) {
+    Text(
+        text = stringResource(R.string.settings_game_menu_layout_section),
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+        color = MaterialTheme.colorScheme.primary
+    )
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(GameMenuLayoutStyle.entries, key = { it.name }) { style ->
+            VisualStylePreviewCard(
+                title = gameMenuLayoutStyleLabel(style),
+                selected = selected == style,
+                onClick = { onSelect(style) }
+            ) {
+                GameMenuLayoutMiniature(style = style, tabCount = visibleTabs.size.coerceAtLeast(1))
+            }
+        }
+    }
+    SettingsInlineNote(stringResource(R.string.settings_game_menu_layout_help))
+}
+
+@Composable
+private fun DrawerVisualStylePicker(
+    selected: DrawerVisualStyle,
+    onSelect: (DrawerVisualStyle) -> Unit
+) {
+    Text(
+        text = stringResource(R.string.settings_customization_drawer_style),
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+        color = MaterialTheme.colorScheme.primary
+    )
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(DrawerVisualStyle.entries, key = { it.name }) { style ->
+            VisualStylePreviewCard(
+                title = drawerVisualStyleLabel(style),
+                selected = selected == style,
+                onClick = { onSelect(style) }
+            ) {
+                DrawerStyleMiniature(style)
+            }
+        }
+    }
+}
+
+@Composable
+private fun VisualStylePreviewCard(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    preview: @Composable () -> Unit
+) {
+    val shape = RoundedCornerShape(18.dp)
+    Surface(
+        modifier = Modifier
+            .width(176.dp)
+            .height(132.dp)
+            .clickable(onClick = onClick),
+        shape = shape,
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.48f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
+        },
+        border = BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.72f))
+                    .padding(7.dp)
+            ) {
+                preview()
+            }
+            Text(
+                text = title,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun GameMenuLayoutMiniature(style: GameMenuLayoutStyle, tabCount: Int) {
+    val panelColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.88f)
+    val navColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+    when (style) {
+        GameMenuLayoutStyle.SIDEBAR -> Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            MiniatureContentPanel(Modifier.fillMaxHeight().weight(1f), panelColor)
+            Spacer(Modifier.width(5.dp))
+            MiniatureVerticalTabs(Modifier.fillMaxHeight().width(20.dp), tabCount, navColor)
+        }
+
+        GameMenuLayoutStyle.DASHBOARD -> Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 3.dp, vertical = 5.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(panelColor)
+        ) {
+            MiniatureVerticalTabs(Modifier.fillMaxHeight().width(38.dp), tabCount, navColor, labelled = true)
+            MiniatureContentPanel(Modifier.fillMaxHeight().weight(1f), MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
+        }
+
+        GameMenuLayoutStyle.COMMAND_CENTER -> Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.78f)
+                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                    .background(panelColor)
+                    .padding(5.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                MiniatureHorizontalTabs(Modifier.fillMaxWidth().height(16.dp), tabCount, navColor)
+                MiniatureContentPanel(Modifier.fillMaxSize(), MaterialTheme.colorScheme.surface.copy(alpha = 0.72f))
+            }
+        }
+
+        GameMenuLayoutStyle.COMPACT -> Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.64f)
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(panelColor)
+                    .padding(5.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                MiniatureHorizontalTabs(Modifier.fillMaxWidth().height(14.dp), tabCount, navColor)
+                MiniatureContentPanel(Modifier.fillMaxSize(), MaterialTheme.colorScheme.surface.copy(alpha = 0.72f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun DrawerStyleMiniature(style: DrawerVisualStyle) {
+    val shape = when (style) {
+        DrawerVisualStyle.CLASSIC -> RoundedCornerShape(9.dp)
+        DrawerVisualStyle.COMPACT -> RoundedCornerShape(3.dp)
+        DrawerVisualStyle.GLASS -> RoundedCornerShape(13.dp)
+        DrawerVisualStyle.CONSOLE -> RoundedCornerShape(2.dp)
+    }
+    val panelWidth = when (style) {
+        DrawerVisualStyle.COMPACT -> 0.66f
+        DrawerVisualStyle.CONSOLE -> 0.90f
+        else -> 0.78f
+    }
+    val rowHeight = when (style) {
+        DrawerVisualStyle.COMPACT -> 11.dp
+        DrawerVisualStyle.CONSOLE -> 18.dp
+        else -> 15.dp
+    }
+    val rowColor = when (style) {
+        DrawerVisualStyle.GLASS -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
+        DrawerVisualStyle.CONSOLE -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.76f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.82f)
+    }
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(panelWidth)
+                .clip(shape)
+                .background(
+                    if (style == DrawerVisualStyle.GLASS) {
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.62f)
+                    } else {
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+                    }
+                )
+                .padding(if (style == DrawerVisualStyle.COMPACT) 5.dp else 7.dp),
+            verticalArrangement = Arrangement.spacedBy(if (style == DrawerVisualStyle.COMPACT) 4.dp else 6.dp)
+        ) {
+            repeat(if (style == DrawerVisualStyle.COMPACT) 5 else 4) { index ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(rowHeight)
+                        .clip(shape)
+                        .background(if (index == 0) MaterialTheme.colorScheme.primary.copy(alpha = 0.30f) else rowColor)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniatureContentPanel(modifier: Modifier, color: Color) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(7.dp))
+            .background(color)
+            .padding(7.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Box(Modifier.fillMaxWidth(0.62f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.34f)))
+        repeat(3) {
+            Box(Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)))
+        }
+    }
+}
+
+@Composable
+private fun MiniatureVerticalTabs(
+    modifier: Modifier,
+    tabCount: Int,
+    color: Color,
+    labelled: Boolean = false
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(7.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f))
+            .padding(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        repeat(tabCount.coerceAtMost(4)) { index ->
+            Box(
+                Modifier
+                    .fillMaxWidth(if (labelled) 1f else 0.85f)
+                    .height(if (labelled) 11.dp else 9.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(if (index == 0) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f))
+            )
+        }
+    }
+}
+
+@Composable
+private fun MiniatureHorizontalTabs(modifier: Modifier, tabCount: Int, color: Color) {
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        repeat(tabCount.coerceAtMost(5)) { index ->
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(if (index == 0) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f))
+            )
+        }
+    }
+}
+
+@Composable
+private fun gameMenuLayoutStyleLabel(style: GameMenuLayoutStyle): String = stringResource(
+    when (style) {
+        GameMenuLayoutStyle.SIDEBAR -> R.string.settings_game_menu_layout_sidebar
+        GameMenuLayoutStyle.DASHBOARD -> R.string.settings_game_menu_layout_dashboard
+        GameMenuLayoutStyle.COMMAND_CENTER -> R.string.settings_game_menu_layout_command_center
+        GameMenuLayoutStyle.COMPACT -> R.string.settings_game_menu_layout_compact
+    }
+)
+
+@Composable
+private fun drawerVisualStyleLabel(style: DrawerVisualStyle): String = stringResource(
+    when (style) {
+        DrawerVisualStyle.CLASSIC -> R.string.settings_drawer_style_classic
+        DrawerVisualStyle.COMPACT -> R.string.settings_drawer_style_compact
+        DrawerVisualStyle.GLASS -> R.string.settings_drawer_style_glass
+        DrawerVisualStyle.CONSOLE -> R.string.settings_drawer_style_console
+    }
+)
 
 @Composable
 private fun DrawerItemEditorRow(
@@ -4078,8 +4357,10 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Customization, R.string.settings_customization_font),
         entry(SettingsTab.Customization, R.string.settings_customization_font_size),
         entry(SettingsTab.Customization, R.string.settings_customization_touch_controls_style),
+        entry(SettingsTab.Customization, R.string.settings_customization_drawer_style),
         entry(SettingsTab.Customization, R.string.settings_customization_touch_press_effect),
         entry(SettingsTab.GameMenu, R.string.settings_game_menu_tabs_section),
+        entry(SettingsTab.GameMenu, R.string.settings_game_menu_layout_section),
         entry(SettingsTab.GameMenu, R.string.settings_game_menu_session_sections),
         entry(SettingsTab.Pro, R.string.settings_pro_title),
         entry(SettingsTab.General, R.string.settings_keep_screen_on),

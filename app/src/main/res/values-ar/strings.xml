@@ -1664,4 +1664,15 @@
     <string name="settings_customization_touch_press_effect_spring">ارتداد</string>
     <string name="settings_customization_touch_press_effect_glow">توهج</string>
     <string name="settings_use_global">استخدام الإعدادات العامة</string>
+    <string name="settings_customization_drawer_style">مظهر الدرج</string>
+    <string name="settings_drawer_style_classic">كلاسيكي</string>
+    <string name="settings_drawer_style_compact">مضغوط</string>
+    <string name="settings_drawer_style_glass">زجاجي</string>
+    <string name="settings_drawer_style_console">كونسول</string>
+    <string name="settings_game_menu_layout_section">تخطيط القائمة</string>
+    <string name="settings_game_menu_layout_help">يغير هيكل وتنقل القائمة داخل اللعبة. تظل علامات التبويب ورؤية المحتوى وإجراءات الأمان وعناصر تحكم لوحة الألعاب مشتركة بين كل تخطيط.</string>
+    <string name="settings_game_menu_layout_sidebar">شريط جانبي</string>
+    <string name="settings_game_menu_layout_dashboard">لوحة القيادة</string>
+    <string name="settings_game_menu_layout_command_center">مركز القيادة</string>
+    <string name="settings_game_menu_layout_compact">مضغوط</string>
 </resources>

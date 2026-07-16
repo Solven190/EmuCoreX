@@ -1675,4 +1675,15 @@
     <string name="settings_customization_touch_press_effect_spring">فنری</string>
     <string name="settings_customization_touch_press_effect_glow">درخشش</string>
     <string name="settings_use_global">استفاده از تنظیمات سراسری</string>
+    <string name="settings_customization_drawer_style">ظاهر کشو</string>
+    <string name="settings_drawer_style_classic">کلاسیک</string>
+    <string name="settings_drawer_style_compact">فشرده</string>
+    <string name="settings_drawer_style_glass">شیشه‌ای</string>
+    <string name="settings_drawer_style_console">کنسول</string>
+    <string name="settings_game_menu_layout_section">طرح‌بندی منو</string>
+    <string name="settings_game_menu_layout_help">ساختار و ناوبری منوی داخل بازی را تغییر می‌دهد. برگه‌ها، دید محتوا، اقدامات ایمنی و کنترل‌های گیم‌پد بین هر طرح‌بندی مشترک باقی می‌مانند.</string>
+    <string name="settings_game_menu_layout_sidebar">نوار کناری</string>
+    <string name="settings_game_menu_layout_dashboard">داشبورد</string>
+    <string name="settings_game_menu_layout_command_center">مرکز فرماندهی</string>
+    <string name="settings_game_menu_layout_compact">فشرده</string>
 </resources>

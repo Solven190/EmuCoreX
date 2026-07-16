@@ -1664,4 +1664,15 @@
     <string name="settings_customization_touch_press_effect_spring">Пружина</string>
     <string name="settings_customization_touch_press_effect_glow">Свечение</string>
     <string name="settings_use_global">Использовать глобальные</string>
+    <string name="settings_customization_drawer_style">Внешний вид меню</string>
+    <string name="settings_drawer_style_classic">Классический</string>
+    <string name="settings_drawer_style_compact">Компактный</string>
+    <string name="settings_drawer_style_glass">Стекло</string>
+    <string name="settings_drawer_style_console">Консоль</string>
+    <string name="settings_game_menu_layout_section">Макет меню</string>
+    <string name="settings_game_menu_layout_help">Изменяет структуру и навигацию внутриигрового меню. Вкладки, видимость контента, действия по обеспечению безопасности и элементы управления геймпада остаются общими для каждого макета.</string>
+    <string name="settings_game_menu_layout_sidebar">Боковая панель</string>
+    <string name="settings_game_menu_layout_dashboard">Панель управления</string>
+    <string name="settings_game_menu_layout_command_center">Командный центр</string>
+    <string name="settings_game_menu_layout_compact">Компактный</string>
 </resources>

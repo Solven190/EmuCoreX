@@ -1660,4 +1660,15 @@
     <string name="settings_customization_touch_press_effect_spring">Yay</string>
     <string name="settings_customization_touch_press_effect_glow">Parlama</string>
     <string name="settings_use_global">Global ayarları kullan</string>
+    <string name="settings_customization_drawer_style">Çekmece görünümü</string>
+    <string name="settings_drawer_style_classic">Klasik</string>
+    <string name="settings_drawer_style_compact">Kompakt</string>
+    <string name="settings_drawer_style_glass">Cam</string>
+    <string name="settings_drawer_style_console">Konsol</string>
+    <string name="settings_game_menu_layout_section">Menü düzeni</string>
+    <string name="settings_game_menu_layout_help">Oyun içi menünün yapısını ve gezinmesini değiştirir. Sekmeler, içerik görünürlüğü, güvenlik eylemleri ve gamepad kontrolleri her düzende ortak kalır.</string>
+    <string name="settings_game_menu_layout_sidebar">Kenar çubuğu</string>
+    <string name="settings_game_menu_layout_dashboard">Kontrol paneli</string>
+    <string name="settings_game_menu_layout_command_center">Komuta merkezi</string>
+    <string name="settings_game_menu_layout_compact">Kompakt</string>
 </resources>

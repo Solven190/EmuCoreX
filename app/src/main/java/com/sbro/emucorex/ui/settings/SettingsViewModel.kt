@@ -29,6 +29,8 @@ import com.sbro.emucorex.data.HomeBackgroundRepository
 import com.sbro.emucorex.data.HomeBackgroundType
 import com.sbro.emucorex.data.TouchControlVisualStyle
 import com.sbro.emucorex.data.TouchControlPressEffect
+import com.sbro.emucorex.data.GameMenuLayoutStyle
+import com.sbro.emucorex.data.DrawerVisualStyle
 import com.sbro.emucorex.data.DrawerItemId
 import com.sbro.emucorex.data.GameMenuTabId
 import com.sbro.emucorex.data.GameMenuSectionId
@@ -66,6 +68,8 @@ data class SettingsUiState(
     val homeBackgroundDim: Int = AppPreferences.DEFAULT_HOME_BACKGROUND_DIM,
     val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
     val touchControlPressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
+    val gameMenuLayoutStyle: GameMenuLayoutStyle = GameMenuLayoutStyle.SIDEBAR,
+    val drawerVisualStyle: DrawerVisualStyle = DrawerVisualStyle.CLASSIC,
     val hiddenDrawerItems: Set<DrawerItemId> = emptySet(),
     val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
     val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
@@ -306,6 +310,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             homeBackgroundDim = snapshot.homeBackgroundDim,
             touchControlVisualStyle = snapshot.touchControlVisualStyle,
             touchControlPressEffect = snapshot.touchControlPressEffect,
+            gameMenuLayoutStyle = snapshot.gameMenuLayoutStyle,
+            drawerVisualStyle = snapshot.drawerVisualStyle,
             hiddenDrawerItems = snapshot.hiddenDrawerItems,
             gameMenuTabOrder = snapshot.gameMenuTabOrder,
             hiddenGameMenuTabs = snapshot.hiddenGameMenuTabs,
@@ -515,6 +521,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         preferences.setTouchControlVisualStyle(style)
     }
 
+    fun setGameMenuLayoutStyle(style: GameMenuLayoutStyle) = viewModelScope.launch {
+        preferences.setGameMenuLayoutStyle(style)
+    }
+
+    fun setDrawerVisualStyle(style: DrawerVisualStyle) = viewModelScope.launch {
+        preferences.setDrawerVisualStyle(style)
+    }
+
     fun setDrawerItemVisible(item: DrawerItemId, visible: Boolean) = viewModelScope.launch {
         if (item.required) return@launch
         val hidden = _uiState.value.hiddenDrawerItems.toMutableSet()
@@ -565,6 +579,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun resetGameMenuCustomization() = viewModelScope.launch {
+        preferences.setGameMenuLayoutStyle(GameMenuLayoutStyle.SIDEBAR)
         preferences.setGameMenuTabOrder(DefaultGameMenuTabOrder)
         preferences.setHiddenGameMenuTabs(emptySet())
         preferences.setGameMenuSectionOrder(DefaultGameMenuSectionOrder)
@@ -611,6 +626,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         preferences.setAppFontScale(AppPreferences.DEFAULT_APP_FONT_SCALE)
         preferences.setTouchControlVisualStyle(TouchControlVisualStyle.CLASSIC)
         preferences.setTouchControlPressEffect(TouchControlPressEffect.GROW)
+        preferences.setDrawerVisualStyle(DrawerVisualStyle.CLASSIC)
         preferences.setHiddenDrawerItems(emptySet())
         _uiState.value = _uiState.value.copy(
             customizationMessageResId = com.sbro.emucorex.R.string.settings_customization_reset_done

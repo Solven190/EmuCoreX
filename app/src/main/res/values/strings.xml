@@ -1656,6 +1656,12 @@
     <string name="settings_customization_touch_style_minimal">Minimal</string>
     <string name="settings_game_menu_tab">Game menu</string>
     <string name="settings_game_menu_preview_section">Menu preview</string>
+    <string name="settings_game_menu_layout_section">Menu layout</string>
+    <string name="settings_game_menu_layout_help">Changes the structure and navigation of the in-game menu. Tabs, content visibility, safety actions, and gamepad controls remain shared between every layout.</string>
+    <string name="settings_game_menu_layout_sidebar">Sidebar</string>
+    <string name="settings_game_menu_layout_dashboard">Dashboard</string>
+    <string name="settings_game_menu_layout_command_center">Command center</string>
+    <string name="settings_game_menu_layout_compact">Compact</string>
     <string name="settings_game_menu_summary">Choose which tabs and Session sections appear while playing. The close action and Session safety controls always remain available.</string>
     <string name="settings_game_menu_content_summary">Choose the tabs, content blocks, and order shown in the in-game menu. New blocks added by future updates are included automatically.</string>
     <string name="settings_game_menu_tabs_section">Tabs and order</string>
@@ -1675,4 +1681,9 @@
     <string name="settings_game_menu_reset">Reset game menu</string>
     <string name="settings_game_menu_reset_desc">Show every tab and Session section in the original order</string>
     <string name="settings_game_menu_full_reset_desc">Show every tab and content block in the original order</string>
+    <string name="settings_customization_drawer_style">Drawer appearance</string>
+    <string name="settings_drawer_style_classic">Classic</string>
+    <string name="settings_drawer_style_compact">Compact</string>
+    <string name="settings_drawer_style_glass">Glass</string>
+    <string name="settings_drawer_style_console">Console</string>
 </resources>

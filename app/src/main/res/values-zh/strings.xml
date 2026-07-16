@@ -1661,4 +1661,15 @@
     <string name="settings_customization_touch_press_effect_spring">回弹</string>
     <string name="settings_customization_touch_press_effect_glow">发光</string>
     <string name="settings_use_global">使用全局设置</string>
+    <string name="settings_customization_drawer_style">抽屉外观</string>
+    <string name="settings_drawer_style_classic">经典</string>
+    <string name="settings_drawer_style_compact">紧凑</string>
+    <string name="settings_drawer_style_glass">玻璃</string>
+    <string name="settings_drawer_style_console">主机</string>
+    <string name="settings_game_menu_layout_section">菜单布局</string>
+    <string name="settings_game_menu_layout_help">更改游戏内菜单的结构和导航。标签页、内容可见性、安全操作和手柄控制在每个布局之间保持共享。</string>
+    <string name="settings_game_menu_layout_sidebar">侧边栏</string>
+    <string name="settings_game_menu_layout_dashboard">仪表板</string>
+    <string name="settings_game_menu_layout_command_center">指挥中心</string>
+    <string name="settings_game_menu_layout_compact">紧凑</string>
 </resources>

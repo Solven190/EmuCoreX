@@ -32,6 +32,7 @@ import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.TouchControlsLayoutProfile
 import com.sbro.emucorex.data.TouchControlVisualStyle
 import com.sbro.emucorex.data.TouchControlPressEffect
+import com.sbro.emucorex.data.GameMenuLayoutStyle
 import com.sbro.emucorex.data.GameMenuTabId
 import com.sbro.emucorex.data.GameMenuSectionId
 import com.sbro.emucorex.data.DefaultGameMenuTabOrder
@@ -77,6 +78,7 @@ data class EmulationUiState(
     val overlayOpacity: Int = 80,
     val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
     val touchControlPressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
+    val gameMenuLayoutStyle: GameMenuLayoutStyle = GameMenuLayoutStyle.SIDEBAR,
     val gameMenuTabOrder: List<GameMenuTabId> = DefaultGameMenuTabOrder,
     val hiddenGameMenuTabs: Set<GameMenuTabId> = emptySet(),
     val gameMenuSectionOrder: List<GameMenuSectionId> = DefaultGameMenuSectionOrder,
@@ -580,6 +582,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         ?.touchControlPressEffect
                 }
                 _uiState.value = _uiState.value.copy(touchControlPressEffect = override ?: effect)
+            }
+        }
+        viewModelScope.launch {
+            preferences.gameMenuLayoutStyle.collect { style ->
+                _uiState.value = _uiState.value.copy(gameMenuLayoutStyle = style)
             }
         }
         viewModelScope.launch {

@@ -1674,4 +1674,15 @@
     <string name="settings_customization_touch_press_effect_spring">Pegas</string>
     <string name="settings_customization_touch_press_effect_glow">Bercahaya</string>
     <string name="settings_use_global">Gunakan global</string>
+    <string name="settings_customization_drawer_style">Tampilan laci</string>
+    <string name="settings_drawer_style_classic">Klasik</string>
+    <string name="settings_drawer_style_compact">Kompak</string>
+    <string name="settings_drawer_style_glass">Kaca</string>
+    <string name="settings_drawer_style_console">Konsol</string>
+    <string name="settings_game_menu_layout_section">Tata letak menu</string>
+    <string name="settings_game_menu_layout_help">Mengubah struktur dan navigasi menu dalam game. Tab, visibilitas konten, tindakan keamanan, dan kontrol gamepad tetap sama di setiap tata letak.</string>
+    <string name="settings_game_menu_layout_sidebar">Bilah samping</string>
+    <string name="settings_game_menu_layout_dashboard">Dasbor</string>
+    <string name="settings_game_menu_layout_command_center">Pusat komando</string>
+    <string name="settings_game_menu_layout_compact">Kompak</string>
 </resources>

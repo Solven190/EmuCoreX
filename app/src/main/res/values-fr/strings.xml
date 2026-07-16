@@ -1662,4 +1662,15 @@
     <string name="settings_customization_touch_press_effect_spring">Rebond</string>
     <string name="settings_customization_touch_press_effect_glow">Lueur</string>
     <string name="settings_use_global">Utiliser les paramètres globaux</string>
+    <string name="settings_customization_drawer_style">Apparence du tiroir</string>
+    <string name="settings_drawer_style_classic">Classique</string>
+    <string name="settings_drawer_style_compact">Compact</string>
+    <string name="settings_drawer_style_glass">Verre</string>
+    <string name="settings_drawer_style_console">Console</string>
+    <string name="settings_game_menu_layout_section">Disposition du menu</string>
+    <string name="settings_game_menu_layout_help">Modifie la structure et la navigation du menu en jeu. Les onglets, la visibilité du contenu, les actions de sécurité et les commandes de la manette restent partagés entre chaque disposition.</string>
+    <string name="settings_game_menu_layout_sidebar">Barre latérale</string>
+    <string name="settings_game_menu_layout_dashboard">Tableau de bord</string>
+    <string name="settings_game_menu_layout_command_center">Centre de commande</string>
+    <string name="settings_game_menu_layout_compact">Compact</string>
 </resources>

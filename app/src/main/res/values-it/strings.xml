@@ -1660,4 +1660,15 @@
     <string name="settings_customization_touch_press_effect_spring">Molla</string>
     <string name="settings_customization_touch_press_effect_glow">Bagliore</string>
     <string name="settings_use_global">Usa globale</string>
+    <string name="settings_customization_drawer_style">Aspetto del cassetto</string>
+    <string name="settings_drawer_style_classic">Classico</string>
+    <string name="settings_drawer_style_compact">Compatto</string>
+    <string name="settings_drawer_style_glass">Vetro</string>
+    <string name="settings_drawer_style_console">Console</string>
+    <string name="settings_game_menu_layout_section">Layout del menu</string>
+    <string name="settings_game_menu_layout_help">Modifica la struttura e la navigazione del menu di gioco. Le schede, la visibilità dei contenuti, le azioni di sicurezza e i controlli del gamepad rimangono condivisi in ogni layout.</string>
+    <string name="settings_game_menu_layout_sidebar">Barra laterale</string>
+    <string name="settings_game_menu_layout_dashboard">Dashboard</string>
+    <string name="settings_game_menu_layout_command_center">Centro di comando</string>
+    <string name="settings_game_menu_layout_compact">Compatto</string>
 </resources>
