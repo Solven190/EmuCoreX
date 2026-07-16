@@ -302,6 +302,64 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_utils_RetroAchieve
 	QueryAndNotifyAchievementsState();
 }
 
+namespace
+{
+bool RestartAchievementsClientAfterHostChange()
+{
+	if (!Achievements::IsActive())
+		return true;
+
+	Achievements::Shutdown(false);
+	return Achievements::Initialize();
+}
+} // namespace
+
+extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_setAchievementsHostOverride(
+	JNIEnv* env, jclass, jstring host)
+{
+	if (Host::Internal::GetBaseSettingsLayer() == nullptr)
+		return JNI_FALSE;
+
+	const std::string host_string = JStringToString(env, host);
+	if (host_string.empty())
+		return JNI_FALSE;
+
+	// The Android receiver persists the original preference because the base
+	// settings layer itself is reconstructed from DataStore after every cold start.
+	Host::SetBaseStringSettingValue("Achievements", "Host", host_string.c_str());
+	Host::RemoveBaseSettingValue("Achievements", "HostOverrideSavedHardcore");
+	Host::SetBaseBoolSettingValue("Achievements", "ChallengeMode", false);
+	EmuConfig.Achievements.HardcoreMode = false;
+	if (Achievements::IsHardcoreModeActive())
+		Achievements::DisableHardcoreMode();
+	Host::CommitBaseSettingChanges();
+
+	const bool restarted = RestartAchievementsClientAfterHostChange();
+	QueryAndNotifyAchievementsState();
+	return restarted ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_clearAchievementsHostOverride(
+	JNIEnv*, jclass, jint hardcore_restore_mode)
+{
+	if (Host::Internal::GetBaseSettingsLayer() == nullptr)
+		return JNI_FALSE;
+
+	Host::RemoveBaseSettingValue("Achievements", "Host");
+	if (hardcore_restore_mode >= 0)
+	{
+		const bool restore_hardcore = (hardcore_restore_mode != 0);
+		Host::SetBaseBoolSettingValue("Achievements", "ChallengeMode", restore_hardcore);
+		EmuConfig.Achievements.HardcoreMode = restore_hardcore;
+	}
+	Host::RemoveBaseSettingValue("Achievements", "HostOverrideSavedHardcore");
+	Host::CommitBaseSettingChanges();
+
+	const bool restarted = RestartAchievementsClientAfterHostChange();
+	QueryAndNotifyAchievementsState();
+	return restarted ? JNI_TRUE : JNI_FALSE;
+}
+
 bool emucorex::android::IsRetroAchievementsHardcoreActive()
 {
 	return Achievements::IsHardcoreModeActive();

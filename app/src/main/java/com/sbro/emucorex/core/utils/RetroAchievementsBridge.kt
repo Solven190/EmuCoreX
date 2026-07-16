@@ -69,7 +69,6 @@ object RetroAchievementsBridge {
             richPresenceEnabled = richPresenceEnabled
         )
         RetroAchievementsStateManager.onStateChanged(
-            enabled = enabled,
             haveUser = haveUser,
             username = username,
             displayName = displayName,
@@ -77,7 +76,6 @@ object RetroAchievementsBridge {
             points = points,
             scPoints = scPoints,
             unreadMessages = unreadMessages,
-            hardcorePreference = hardcorePreference,
             hardcoreActive = hardcoreActive,
             haveGame = haveGame,
             gameTitle = gameTitle,

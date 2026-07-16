@@ -16,6 +16,7 @@ import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 import androidx.core.net.toUri
 import com.sbro.emucorex.core.utils.RetroAchievementsBridge
+import com.sbro.emucorex.core.utils.RetroAchievementsHostOverrideReceiver
 
 object NativeApp {
 
@@ -96,6 +97,8 @@ object NativeApp {
     @JvmStatic external fun getSaveStateScreenshot(path: String): ByteArray?
     @JvmStatic external fun getRetroAchievementGameData(path: String): String?
     @JvmStatic external fun getRetroAchievementsAccountData(): String?
+    @JvmStatic external fun setAchievementsHostOverride(host: String): Boolean
+    @JvmStatic external fun clearAchievementsHostOverride(hardcoreRestoreMode: Int): Boolean
     @JvmStatic external fun listMemoryCards(): String?
     @JvmStatic external fun createMemoryCard(name: String, type: Int, fileType: Int): Boolean
     @JvmStatic external fun convertIsoToChd(inputIsoPath: String): Int
@@ -146,6 +149,7 @@ object NativeApp {
         nativeCrashLog.parentFile?.mkdirs()
         setNativeCrashLogFilePath(nativeCrashLog.absolutePath)
         initialize(dataRoot, android.os.Build.VERSION.SDK_INT)
+        RetroAchievementsHostOverrideReceiver.applyAfterNativeInitialization(context.applicationContext)
     }
 
     @JvmStatic
