@@ -184,7 +184,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private enum class SettingsTab {
-    General, Customization, GameMenu, Graphics, Audio, Controls, Emulation, Fixes, Network, Library, About, Pro, Updates
+    General, Graphics, Controls, Emulation, Audio, Fixes, Library, Network, Customization, GameMenu, Updates, Pro, About
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
