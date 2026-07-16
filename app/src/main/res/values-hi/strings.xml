@@ -1526,7 +1526,7 @@
     <string name="achievements_measured_progress">प्रोग्रेस: %1$s</string>
     <string name="achievements_status_primed">तैयार है</string>
     <string name="shell_discord_server">Discord सर्वर</string>
-    <string name="profile_leaderboard_search_hint">नाम या प्लेयर ID सर्च करें</string>
+    <string name="profile_leaderboard_search_hint">नाम या ID</string>
     <string name="profile_leaderboard_search_help">कम से कम 2 कैरेक्टर दर्ज करें, या EX-A7K4P2 जैसी पूरी ID लिखें।</string>
     <string name="profile_leaderboard_no_results">कोई मैचिंग प्लेयर नहीं मिला।</string>
     <string name="profile_leaderboard_loading_more">और प्लेयर्स लोड हो रहे हैं…</string>

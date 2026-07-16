@@ -1526,7 +1526,7 @@
     <string name="achievements_measured_progress">진행도: %1$s</string>
     <string name="achievements_status_primed">준비 완료</string>
     <string name="shell_discord_server">Discord 서버</string>
-    <string name="profile_leaderboard_search_hint">이름 또는 플레이어 ID 검색</string>
+    <string name="profile_leaderboard_search_hint">이름 또는 ID</string>
     <string name="profile_leaderboard_search_help">최소 2자 이상, 또는 EX-A7K4P2와 같은 전체 ID를 입력하세요.</string>
     <string name="profile_leaderboard_no_results">일치하는 플레이어가 없습니다.</string>
     <string name="profile_leaderboard_loading_more">더 많은 플레이어 불러오는 중…</string>

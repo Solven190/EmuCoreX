@@ -1526,7 +1526,7 @@
     <string name="achievements_measured_progress">التقدم: %1$s</string>
     <string name="achievements_status_primed">جاهز</string>
     <string name="shell_discord_server">خادم Discord</string>
-    <string name="profile_leaderboard_search_hint">ابحث عن الاسم أو معرف اللاعب</string>
+    <string name="profile_leaderboard_search_hint">الاسم أو المعرّف</string>
     <string name="profile_leaderboard_search_help">أدخل حرفين على الأقل، أو معرفًا كاملاً مثل EX-A7K4P2.</string>
     <string name="profile_leaderboard_no_results">لم يتم العثور على لاعبين مطابقين.</string>
     <string name="profile_leaderboard_loading_more">جاري تحميل المزيد من اللاعبين…</string>

@@ -1415,7 +1415,7 @@
     <string name="profile_game_sessions_format">%1$d sessions</string>
     <string name="profile_game_last_played_format">Last played %1$s</string>
     <string name="profile_leaderboard_loading">Loading leaderboard…</string>
-    <string name="profile_leaderboard_search_hint">Search name or Player ID</string>
+    <string name="profile_leaderboard_search_hint">Name or ID</string>
     <string name="profile_leaderboard_search_help">Enter at least 2 characters, or a full ID such as EX-A7K4P2.</string>
     <string name="profile_leaderboard_no_results">No matching players found.</string>
     <string name="profile_leaderboard_loading_more">Loading more players…</string>

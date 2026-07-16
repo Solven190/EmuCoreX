@@ -1541,7 +1541,7 @@
     <string name="achievements_measured_progress">پیشرفت: %1$s</string>
     <string name="achievements_status_primed">آماده</string>
     <string name="shell_discord_server">سرور دیسکورد</string>
-    <string name="profile_leaderboard_search_hint">جستجوی نام یا شناسه بازیکن</string>
+    <string name="profile_leaderboard_search_hint">نام یا شناسه</string>
     <string name="profile_leaderboard_search_help">حداقل ۲ نویسه، یا یک شناسه کامل مانند EX-A7K4P2 وارد کنید.</string>
     <string name="profile_leaderboard_no_results">هیچ بازیکن مشابهی یافت نشد.</string>
     <string name="profile_leaderboard_loading_more">در حال بارگیری بازیکنان بیشتر…</string>

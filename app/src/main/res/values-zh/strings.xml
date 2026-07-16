@@ -1528,7 +1528,7 @@
     <string name="achievements_measured_progress">进度：%1$s</string>
     <string name="achievements_status_primed">已准备就绪</string>
     <string name="shell_discord_server">Discord 服务器</string>
-    <string name="profile_leaderboard_search_hint">搜索昵称或玩家 ID</string>
+    <string name="profile_leaderboard_search_hint">昵称或 ID</string>
     <string name="profile_leaderboard_search_help">请输入至少 2 个字符，或输入完整的 ID（如 EX-A7K4P2）。</string>
     <string name="profile_leaderboard_no_results">未找到匹配的玩家。</string>
     <string name="profile_leaderboard_loading_more">正在加载更多玩家…</string>

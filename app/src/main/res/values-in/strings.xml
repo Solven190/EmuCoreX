@@ -1541,7 +1541,7 @@
     <string name="achievements_measured_progress">Progres: %1$s</string>
     <string name="achievements_status_primed">Siap</string>
     <string name="shell_discord_server">Server Discord</string>
-    <string name="profile_leaderboard_search_hint">Cari nama atau ID Pemain</string>
+    <string name="profile_leaderboard_search_hint">Nama atau ID</string>
     <string name="profile_leaderboard_search_help">Masukkan minimal 2 karakter, atau ID lengkap seperti EX-A7K4P2.</string>
     <string name="profile_leaderboard_no_results">Pemain yang cocok tidak ditemukan.</string>
     <string name="profile_leaderboard_loading_more">Memuat lebih banyak pemain…</string>

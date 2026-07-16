@@ -1528,7 +1528,7 @@
     <string name="achievements_measured_progress">Прогрес: %1$s</string>
     <string name="achievements_status_primed">Готово</string>
     <string name="shell_discord_server">Сервер Discord</string>
-    <string name="profile_leaderboard_search_hint">Пошук за іменем або ID гравця</string>
+    <string name="profile_leaderboard_search_hint">Ім’я або ID</string>
     <string name="profile_leaderboard_search_help">Введіть щонайменше 2 символи або повний ID, наприклад EX-A7K4P2.</string>
     <string name="profile_leaderboard_no_results">Відповідних гравців не знайдено.</string>
     <string name="profile_leaderboard_loading_more">Завантаження інших гравців…</string>

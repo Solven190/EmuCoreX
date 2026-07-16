@@ -1526,7 +1526,7 @@
     <string name="achievements_measured_progress">İlerleme: %1$s</string>
     <string name="achievements_status_primed">Hazır</string>
     <string name="shell_discord_server">Discord Sunucusu</string>
-    <string name="profile_leaderboard_search_hint">Ad veya Oyuncu Kimliği ara</string>
+    <string name="profile_leaderboard_search_hint">Ad veya ID</string>
     <string name="profile_leaderboard_search_help">En az 2 karakter veya EX-A7K4P2 gibi tam bir kimlik girin.</string>
     <string name="profile_leaderboard_no_results">Eşleşen oyuncu bulunamadı.</string>
     <string name="profile_leaderboard_loading_more">Daha fazla oyuncu yükleniyor…</string>
