@@ -1536,8 +1536,6 @@
     <string name="profile_player_id">ID гравця</string>
     <string name="profile_player_id_format">ID гравця: %1$s</string>
     <string name="profile_rank">Ранг</string>
-    <string name="profile_percentile">Серед гравців</string>
-    <string name="profile_top_percent_format">Топ %1$d%%</string>
     <string name="profile_total_players">Гравців у рейтингу</string>
     <string name="profile_pro_badge">PRO</string>
     <string name="profile_customize_pro">Налаштувати профіль Pro</string>

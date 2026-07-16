@@ -1534,8 +1534,6 @@
     <string name="profile_player_id">플레이어 ID</string>
     <string name="profile_player_id_format">플레이어 ID: %1$s</string>
     <string name="profile_rank">랭크</string>
-    <string name="profile_percentile">전체 플레이어 중</string>
-    <string name="profile_top_percent_format">상위 %1$d%%</string>
     <string name="profile_total_players">랭크된 플레이어 수</string>
     <string name="profile_pro_badge">PRO</string>
     <string name="profile_customize_pro">Pro 프로필 설정</string>

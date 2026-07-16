@@ -1534,8 +1534,6 @@
     <string name="profile_player_id">プレイヤーID</string>
     <string name="profile_player_id_format">プレイヤーID: %1$s</string>
     <string name="profile_rank">ランク</string>
-    <string name="profile_percentile">全プレイヤー中</string>
-    <string name="profile_top_percent_format">上位 %1$d%%</string>
     <string name="profile_total_players">ランクインしたプレイヤー</string>
     <string name="profile_pro_badge">PRO</string>
     <string name="profile_customize_pro">Proプロフィールをカスタマイズ</string>
