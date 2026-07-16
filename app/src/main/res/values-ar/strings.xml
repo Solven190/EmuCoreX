@@ -1534,8 +1534,6 @@
     <string name="profile_player_id">معرف اللاعب</string>
     <string name="profile_player_id_format">معرف اللاعب: %1$s</string>
     <string name="profile_rank">التصنيف</string>
-    <string name="profile_percentile">بين اللاعبين</string>
-    <string name="profile_top_percent_format">أفضل %1$d%%</string>
     <string name="profile_total_players">اللاعبون المصنفون</string>
     <string name="profile_pro_badge">PRO</string>
     <string name="profile_customize_pro">تخصيص ملف Pro</string>

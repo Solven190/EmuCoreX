@@ -922,8 +922,8 @@ private fun ProfileOverview(
                         )
                         StatChip(
                             icon = Icons.Rounded.Leaderboard,
-                            label = stringResource(R.string.profile_percentile),
-                            value = stringResource(R.string.profile_top_percent_format, (101 - insights.percentile).coerceIn(1, 100)),
+                            label = stringResource(R.string.profile_total_players),
+                            value = insights.totalPlayers.toString(),
                             modifier = Modifier.weight(1f)
                         )
                     }
