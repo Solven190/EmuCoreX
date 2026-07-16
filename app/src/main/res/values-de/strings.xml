@@ -1673,4 +1673,22 @@
     <string name="settings_game_menu_layout_dashboard">Dashboard</string>
     <string name="settings_game_menu_layout_command_center">Kommandozentrale</string>
     <string name="settings_game_menu_layout_compact">Kompakt</string>
+    <string name="settings_fps_overlay_scale">Textgröße der Statistiken</string>
+    <string name="settings_fps_overlay_scale_value">%1$d%%</string>
+    <string name="settings_help_fps_overlay_scale">Ändert die Textgröße sowohl der einfachen FPS-Anzeige als auch der detaillierten Statistiken. Größere Werte verbreitern auch das detaillierte Overlay, um Zeilenumbrüche zu reduzieren.</string>
+    <string name="settings_fps_overlay_metrics">Sichtbare Statistiken</string>
+    <string name="settings_help_fps_overlay_metrics">Wähle die einzelnen Werte aus, die im detaillierten Statistik-Overlay angezeigt werden sollen. Dies wirkt sich weder auf die Erfassung der Messwerte noch auf die Emulationsleistung aus.</string>
+    <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_vps">VPS</string>
+    <string name="settings_fps_metric_speed">Geschwindigkeit</string>
+    <string name="settings_fps_metric_target">Ziel</string>
+    <string name="settings_fps_metric_renderer">Renderer</string>
+    <string name="settings_fps_metric_vram">VRAM</string>
+    <string name="settings_fps_metric_frame_time">Framezeit</string>
+    <string name="settings_fps_metric_queue">GS-Warteschlange</string>
+    <string name="settings_fps_metric_resolution">Auflösung</string>
+    <string name="settings_fps_metric_ee">EE</string>
+    <string name="settings_fps_metric_gs">GS</string>
+    <string name="settings_fps_metric_vu">VU</string>
+    <string name="settings_fps_metric_software_threads">Software-Threads</string>
 </resources>

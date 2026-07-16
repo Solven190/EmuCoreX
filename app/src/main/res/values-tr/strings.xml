@@ -1671,4 +1671,22 @@
     <string name="settings_game_menu_layout_dashboard">Kontrol paneli</string>
     <string name="settings_game_menu_layout_command_center">Komuta merkezi</string>
     <string name="settings_game_menu_layout_compact">Kompakt</string>
+    <string name="settings_fps_overlay_scale">İstatistik metin boyutu</string>
+    <string name="settings_fps_overlay_scale_value">%1$d%%</string>
+    <string name="settings_help_fps_overlay_scale">Hem basit FPS sayacının hem de ayrıntılı istatistiklerin metin boyutunu değiştirir. Daha büyük değerler, satır kaydırmayı azaltmak için ayrıntılı istatistik katmanını da genişletir.</string>
+    <string name="settings_fps_overlay_metrics">Görünür istatistikler</string>
+    <string name="settings_help_fps_overlay_metrics">Ayrıntılı istatistik katmanında gösterilecek değerleri seçin. Bu, metrik toplamayı veya emülasyon performansını etkilemez.</string>
+    <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_vps">VPS</string>
+    <string name="settings_fps_metric_speed">Hız</string>
+    <string name="settings_fps_metric_target">Hedef</string>
+    <string name="settings_fps_metric_renderer">Oluşturucu</string>
+    <string name="settings_fps_metric_vram">VRAM</string>
+    <string name="settings_fps_metric_frame_time">Kare süresi</string>
+    <string name="settings_fps_metric_queue">GS kuyruğu</string>
+    <string name="settings_fps_metric_resolution">Çözünürlük</string>
+    <string name="settings_fps_metric_ee">EE</string>
+    <string name="settings_fps_metric_gs">GS</string>
+    <string name="settings_fps_metric_vu">VU</string>
+    <string name="settings_fps_metric_software_threads">Yazılım iş parçacıkları</string>
 </resources>

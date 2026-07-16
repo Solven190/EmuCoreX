@@ -1686,4 +1686,22 @@
     <string name="settings_game_menu_layout_dashboard">داشبورد</string>
     <string name="settings_game_menu_layout_command_center">مرکز فرماندهی</string>
     <string name="settings_game_menu_layout_compact">فشرده</string>
+    <string name="settings_fps_overlay_scale">اندازه متن آمار</string>
+    <string name="settings_fps_overlay_scale_value">%1$d%%</string>
+    <string name="settings_help_fps_overlay_scale">اندازه متن شمارشگر ساده FPS و آمار دقیق را تغییر می‌دهد. مقادیر بزرگ‌تر همچنین روکش آمار دقیق را برای کاهش شکست خطوط عریض‌تر می‌کنند.</string>
+    <string name="settings_fps_overlay_metrics">آمار قابل مشاهده</string>
+    <string name="settings_help_fps_overlay_metrics">مقادیر نمایش‌داده‌شده در روکش آمار دقیق را انتخاب کنید. این تنظیم بر جمع‌آوری معیارها یا عملکرد شبیه‌سازی تأثیری ندارد.</string>
+    <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_vps">VPS</string>
+    <string name="settings_fps_metric_speed">سرعت</string>
+    <string name="settings_fps_metric_target">هدف</string>
+    <string name="settings_fps_metric_renderer">رندرکننده</string>
+    <string name="settings_fps_metric_vram">VRAM</string>
+    <string name="settings_fps_metric_frame_time">زمان فریم</string>
+    <string name="settings_fps_metric_queue">صف GS</string>
+    <string name="settings_fps_metric_resolution">وضوح</string>
+    <string name="settings_fps_metric_ee">EE</string>
+    <string name="settings_fps_metric_gs">GS</string>
+    <string name="settings_fps_metric_vu">VU</string>
+    <string name="settings_fps_metric_software_threads">رشته‌های نرم‌افزاری</string>
 </resources>

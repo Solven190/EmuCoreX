@@ -32,6 +32,20 @@ class CustomizationPreferencesTest {
         assertEquals(1.50f, AppPreferences.MAX_APP_FONT_SCALE, 0f)
         assertEquals(0.60f, AppPreferences.MIN_HOME_GRID_SCALE, 0f)
         assertEquals(1.60f, AppPreferences.MAX_HOME_GRID_SCALE, 0f)
+        assertTrue(
+            AppPreferences.DEFAULT_FPS_OVERLAY_SCALE in
+                AppPreferences.MIN_FPS_OVERLAY_SCALE..AppPreferences.MAX_FPS_OVERLAY_SCALE
+        )
+        assertEquals(
+            PerformanceOverlayMetrics.DEFAULT,
+            PerformanceOverlayMetrics.sanitize(PerformanceOverlayMetrics.DEFAULT)
+        )
+        assertTrue(
+            !PerformanceOverlayMetrics.isEnabled(
+                PerformanceOverlayMetrics.DEFAULT,
+                PerformanceOverlayMetrics.QUEUE
+            )
+        )
     }
 
     @Test

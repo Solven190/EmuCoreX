@@ -93,6 +93,8 @@ data class SettingsSnapshot(
     val showFps: Boolean = false,
     val fpsOverlayMode: Int = AppPreferences.FPS_OVERLAY_MODE_DETAILED,
     val fpsOverlayCorner: Int = AppPreferences.FPS_OVERLAY_CORNER_TOP_RIGHT,
+    val fpsOverlayScale: Int = AppPreferences.DEFAULT_FPS_OVERLAY_SCALE,
+    val fpsOverlayMetrics: Int = PerformanceOverlayMetrics.DEFAULT,
     val confirmSaveLoadActions: Boolean = true,
     val compactControls: Boolean = true,
     val keepScreenOn: Boolean = true,
@@ -347,6 +349,9 @@ class AppPreferences(private val context: Context) {
         const val FPS_OVERLAY_CORNER_TOP_RIGHT = 1
         const val FPS_OVERLAY_CORNER_BOTTOM_LEFT = 2
         const val FPS_OVERLAY_CORNER_BOTTOM_RIGHT = 3
+        const val MIN_FPS_OVERLAY_SCALE = 75
+        const val MAX_FPS_OVERLAY_SCALE = 200
+        const val DEFAULT_FPS_OVERLAY_SCALE = 100
         const val FLOAT_ROUND_NEAREST = 0
         const val FLOAT_ROUND_NEGATIVE = 1
         const val FLOAT_ROUND_POSITIVE = 2
@@ -436,6 +441,8 @@ class AppPreferences(private val context: Context) {
         private val SHOW_FPS = booleanPreferencesKey("show_fps")
         private val FPS_OVERLAY_MODE = intPreferencesKey("fps_overlay_mode")
         private val FPS_OVERLAY_CORNER = intPreferencesKey("fps_overlay_corner")
+        private val FPS_OVERLAY_SCALE = intPreferencesKey("fps_overlay_scale")
+        private val FPS_OVERLAY_METRICS = intPreferencesKey("fps_overlay_metrics")
         private val CONFIRM_SAVE_LOAD_ACTIONS = booleanPreferencesKey("confirm_save_load_actions")
         private val COMPACT_CONTROLS = booleanPreferencesKey("compact_controls")
         private val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
@@ -1292,6 +1299,13 @@ class AppPreferences(private val context: Context) {
                     FPS_OVERLAY_CORNER_BOTTOM_RIGHT -> prefs[FPS_OVERLAY_CORNER] ?: FPS_OVERLAY_CORNER_TOP_RIGHT
                     else -> FPS_OVERLAY_CORNER_TOP_RIGHT
                 },
+                fpsOverlayScale = (prefs[FPS_OVERLAY_SCALE] ?: DEFAULT_FPS_OVERLAY_SCALE).coerceIn(
+                    MIN_FPS_OVERLAY_SCALE,
+                    MAX_FPS_OVERLAY_SCALE
+                ),
+                fpsOverlayMetrics = PerformanceOverlayMetrics.sanitize(
+                    prefs[FPS_OVERLAY_METRICS] ?: PerformanceOverlayMetrics.DEFAULT
+                ),
                 confirmSaveLoadActions = prefs[CONFIRM_SAVE_LOAD_ACTIONS] ?: true,
                 compactControls = prefs[COMPACT_CONTROLS] ?: true,
                 keepScreenOn = prefs[KEEP_SCREEN_ON] ?: true,
@@ -1667,6 +1681,31 @@ class AppPreferences(private val context: Context) {
                 FPS_OVERLAY_CORNER_BOTTOM_RIGHT -> corner
                 else -> FPS_OVERLAY_CORNER_TOP_RIGHT
             }
+        }
+    }
+
+    val fpsOverlayScale: Flow<Int> = context.dataStore.data.map { prefs ->
+        (prefs[FPS_OVERLAY_SCALE] ?: DEFAULT_FPS_OVERLAY_SCALE).coerceIn(
+            MIN_FPS_OVERLAY_SCALE,
+            MAX_FPS_OVERLAY_SCALE
+        )
+    }.distinctUntilChanged()
+
+    suspend fun setFpsOverlayScale(scale: Int) {
+        context.dataStore.edit {
+            it[FPS_OVERLAY_SCALE] = scale.coerceIn(MIN_FPS_OVERLAY_SCALE, MAX_FPS_OVERLAY_SCALE)
+        }
+    }
+
+    val fpsOverlayMetrics: Flow<Int> = context.dataStore.data.map { prefs ->
+        PerformanceOverlayMetrics.sanitize(
+            prefs[FPS_OVERLAY_METRICS] ?: PerformanceOverlayMetrics.DEFAULT
+        )
+    }.distinctUntilChanged()
+
+    suspend fun setFpsOverlayMetrics(metrics: Int) {
+        context.dataStore.edit {
+            it[FPS_OVERLAY_METRICS] = PerformanceOverlayMetrics.sanitize(metrics)
         }
     }
 
@@ -2986,6 +3025,8 @@ class AppPreferences(private val context: Context) {
             put("showFps", prefs[SHOW_FPS] ?: false)
             put("fpsOverlayMode", prefs[FPS_OVERLAY_MODE] ?: FPS_OVERLAY_MODE_DETAILED)
             put("fpsOverlayCorner", prefs[FPS_OVERLAY_CORNER] ?: FPS_OVERLAY_CORNER_TOP_RIGHT)
+            put("fpsOverlayScale", (prefs[FPS_OVERLAY_SCALE] ?: DEFAULT_FPS_OVERLAY_SCALE).coerceIn(MIN_FPS_OVERLAY_SCALE, MAX_FPS_OVERLAY_SCALE))
+            put("fpsOverlayMetrics", PerformanceOverlayMetrics.sanitize(prefs[FPS_OVERLAY_METRICS] ?: PerformanceOverlayMetrics.DEFAULT))
             put("confirmSaveLoadActions", prefs[CONFIRM_SAVE_LOAD_ACTIONS] ?: true)
             put("compactControls", prefs[COMPACT_CONTROLS] ?: true)
             put("keepScreenOn", prefs[KEEP_SCREEN_ON] ?: true)
@@ -3268,6 +3309,13 @@ class AppPreferences(private val context: Context) {
             prefs[FPS_OVERLAY_CORNER] = json.optInt("fpsOverlayCorner", FPS_OVERLAY_CORNER_TOP_RIGHT).coerceIn(
                 FPS_OVERLAY_CORNER_TOP_LEFT,
                 FPS_OVERLAY_CORNER_BOTTOM_RIGHT
+            )
+            prefs[FPS_OVERLAY_SCALE] = json.optInt("fpsOverlayScale", DEFAULT_FPS_OVERLAY_SCALE).coerceIn(
+                MIN_FPS_OVERLAY_SCALE,
+                MAX_FPS_OVERLAY_SCALE
+            )
+            prefs[FPS_OVERLAY_METRICS] = PerformanceOverlayMetrics.sanitize(
+                json.optInt("fpsOverlayMetrics", PerformanceOverlayMetrics.DEFAULT)
             )
             prefs[CONFIRM_SAVE_LOAD_ACTIONS] = json.optBoolean("confirmSaveLoadActions", true)
             prefs[COMPACT_CONTROLS] = json.optBoolean("compactControls", true)

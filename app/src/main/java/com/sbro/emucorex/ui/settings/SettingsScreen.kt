@@ -13,6 +13,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -114,6 +116,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -165,6 +168,7 @@ import com.sbro.emucorex.data.GameMenuLayoutStyle
 import com.sbro.emucorex.data.DrawerVisualStyle
 import com.sbro.emucorex.data.MemoryCardRepository
 import com.sbro.emucorex.data.OverlayLayoutSnapshot
+import com.sbro.emucorex.data.PerformanceOverlayMetrics
 import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.SettingsBackupRepository
 import com.sbro.emucorex.data.SettingsSnapshot
@@ -871,34 +875,66 @@ private fun SettingsTabRow(
     selectedTabFocusRequester: FocusRequester
 ) {
     val tabs = remember { SettingsTab.entries.toList() }
-    LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        contentPadding = PaddingValues(horizontal = ScreenHorizontalPadding),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(items = tabs, key = { it.name }) { tab ->
-            val interactionSource = remember { MutableInteractionSource() }
-            FilterChip(
-                modifier = if (tab == selectedTab) {
-                    Modifier.focusRequester(selectedTabFocusRequester)
-                } else {
-                    Modifier
-                },
-                selected = selectedTab == tab,
-                onClick = { onSelected(tab) },
-                interactionSource = interactionSource,
-                colors = premiumFilterChipColors(),
-                label = { Text(tab.label()) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = tab.icon(),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+    val listState = rememberLazyListState()
+    Box(modifier = Modifier.fillMaxWidth()) {
+        LaunchedEffect(selectedTab) {
+            val selectedIndex = tabs.indexOf(selectedTab).coerceAtLeast(0)
+            var selectedItem = listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == selectedIndex }
+            if (selectedItem == null) {
+                listState.scrollToItem(selectedIndex)
+                withFrameNanos { }
+                selectedItem = listState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == selectedIndex }
+            }
+
+            selectedItem?.let { item ->
+                val layoutInfo = listState.layoutInfo
+                val delta = centeredTabScrollDelta(
+                    itemOffset = item.offset,
+                    itemSize = item.size,
+                    viewportStart = layoutInfo.viewportStartOffset,
+                    viewportEnd = layoutInfo.viewportEndOffset
+                )
+                if (kotlin.math.abs(delta) > 1f) {
+                    listState.animateScrollBy(delta)
                 }
-            )
+            }
+        }
+
+        LazyRow(
+            state = listState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
+            contentPadding = PaddingValues(
+                start = ScreenHorizontalPadding,
+                end = ScreenHorizontalPadding
+            ),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(items = tabs, key = { it.name }) { tab ->
+                val interactionSource = remember { MutableInteractionSource() }
+                FilterChip(
+                    modifier = if (tab == selectedTab) {
+                        Modifier.focusRequester(selectedTabFocusRequester)
+                    } else {
+                        Modifier
+                    },
+                    selected = selectedTab == tab,
+                    onClick = { onSelected(tab) },
+                    interactionSource = interactionSource,
+                    colors = premiumFilterChipColors(),
+                    label = { Text(tab.label()) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = tab.icon(),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                )
+            }
         }
     }
 }
@@ -1922,6 +1958,30 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_fps_overlay_position),
                             onResetToDefault = { viewModel.setFpsOverlayCorner(defaults.fpsOverlayCorner) }
                         )
+                        SliderItem(
+                            icon = Icons.Rounded.FormatSize,
+                            title = stringResource(R.string.settings_fps_overlay_scale),
+                            subtitle = stringResource(R.string.settings_fps_overlay_scale_value, uiState.fpsOverlayScale),
+                            value = uiState.fpsOverlayScale.toFloat(),
+                            range = AppPreferences.MIN_FPS_OVERLAY_SCALE.toFloat()..AppPreferences.MAX_FPS_OVERLAY_SCALE.toFloat(),
+                            steps = 24,
+                            onValueChange = { viewModel.setFpsOverlayScale(it.toInt()) },
+                            valueLabel = { "${it.toInt()}%" },
+                            helpText = stringResource(R.string.settings_help_fps_overlay_scale),
+                            onResetToDefault = { viewModel.setFpsOverlayScale(defaults.fpsOverlayScale) }
+                        )
+                        if (uiState.fpsOverlayMode == FPS_OVERLAY_MODE_DETAILED) {
+                            BitmaskChoiceSection(
+                                title = stringResource(R.string.settings_fps_overlay_metrics),
+                                options = fpsOverlayMetricOptions(),
+                                selectedMask = uiState.fpsOverlayMetrics,
+                                onToggle = { metric ->
+                                    viewModel.setFpsOverlayMetrics(uiState.fpsOverlayMetrics xor metric)
+                                },
+                                helpText = stringResource(R.string.settings_help_fps_overlay_metrics),
+                                onResetToDefault = { viewModel.setFpsOverlayMetrics(defaults.fpsOverlayMetrics) }
+                            )
+                        }
                     }
                     SettingsSection(title = stringResource(R.string.settings_jit_section)) {
                         ToggleItem(
@@ -4434,6 +4494,8 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Emulation, R.string.settings_show_fps),
         entry(SettingsTab.Emulation, R.string.settings_fps_overlay_mode),
         entry(SettingsTab.Emulation, R.string.settings_fps_overlay_position),
+        entry(SettingsTab.Emulation, R.string.settings_fps_overlay_scale),
+        entry(SettingsTab.Emulation, R.string.settings_fps_overlay_metrics),
         entry(SettingsTab.Emulation, R.string.settings_enable_ee_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_enable_iop_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_enable_vu0_recompiler),
@@ -4935,6 +4997,63 @@ private fun ChoiceSection(
 }
 
 @Composable
+private fun BitmaskChoiceSection(
+    title: String,
+    options: List<Pair<Int, String>>,
+    selectedMask: Int,
+    onToggle: (Int) -> Unit,
+    helpText: String? = null,
+    onResetToDefault: (() -> Unit)? = null
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val context = LocalContext.current
+    val resetToast = stringResource(R.string.settings_reset_to_default_toast)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = {},
+                    onLongClick = onResetToDefault?.let {
+                        {
+                            it()
+                            Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            helpText?.let {
+                SettingHelpButton(title = title, description = it)
+            }
+        }
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(options) { (metric, label) ->
+                FilterChip(
+                    selected = PerformanceOverlayMetrics.isEnabled(selectedMask, metric),
+                    onClick = { onToggle(metric) },
+                    colors = premiumFilterChipColors(),
+                    label = { Text(text = label) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun premiumFilterChipColors() = FilterChipDefaults.filterChipColors(
     containerColor = Color.Transparent,
     labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -5212,6 +5331,23 @@ private fun nativeScalingOptions(): List<Pair<Int, String>> = listOf(
     2 to stringResource(R.string.settings_native_scaling_aggressive),
     3 to stringResource(R.string.settings_native_scaling_normal_maintain_upscale),
     4 to stringResource(R.string.settings_native_scaling_aggressive_maintain_upscale)
+)
+
+@Composable
+private fun fpsOverlayMetricOptions(): List<Pair<Int, String>> = listOf(
+    PerformanceOverlayMetrics.FPS to stringResource(R.string.settings_fps_metric_fps),
+    PerformanceOverlayMetrics.VPS to stringResource(R.string.settings_fps_metric_vps),
+    PerformanceOverlayMetrics.SPEED to stringResource(R.string.settings_fps_metric_speed),
+    PerformanceOverlayMetrics.TARGET to stringResource(R.string.settings_fps_metric_target),
+    PerformanceOverlayMetrics.RENDERER to stringResource(R.string.settings_fps_metric_renderer),
+    PerformanceOverlayMetrics.VRAM to stringResource(R.string.settings_fps_metric_vram),
+    PerformanceOverlayMetrics.FRAME_TIME to stringResource(R.string.settings_fps_metric_frame_time),
+    PerformanceOverlayMetrics.QUEUE to stringResource(R.string.settings_fps_metric_queue),
+    PerformanceOverlayMetrics.RESOLUTION to stringResource(R.string.settings_fps_metric_resolution),
+    PerformanceOverlayMetrics.EE to stringResource(R.string.settings_fps_metric_ee),
+    PerformanceOverlayMetrics.GS to stringResource(R.string.settings_fps_metric_gs),
+    PerformanceOverlayMetrics.VU to stringResource(R.string.settings_fps_metric_vu),
+    PerformanceOverlayMetrics.SOFTWARE_THREADS to stringResource(R.string.settings_fps_metric_software_threads)
 )
 
 @Composable
