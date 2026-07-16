@@ -40,6 +40,7 @@ import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
 import com.sbro.emucorex.data.CoverArtRepository
 import com.sbro.emucorex.data.CustomFontRepository
 import com.sbro.emucorex.data.SettingsSnapshot
+import com.sbro.emucorex.data.PerformanceOverlayMetrics
 import com.sbro.emucorex.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -102,6 +103,8 @@ data class SettingsUiState(
     val showFps: Boolean = true,
     val fpsOverlayMode: Int = FPS_OVERLAY_MODE_DETAILED,
     val fpsOverlayCorner: Int = AppPreferences.FPS_OVERLAY_CORNER_TOP_RIGHT,
+    val fpsOverlayScale: Int = AppPreferences.DEFAULT_FPS_OVERLAY_SCALE,
+    val fpsOverlayMetrics: Int = PerformanceOverlayMetrics.DEFAULT,
     val confirmSaveLoadActions: Boolean = true,
     val compactControls: Boolean = true,
     val keepScreenOn: Boolean = true,
@@ -337,6 +340,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             showFps = snapshot.showFps,
             fpsOverlayMode = snapshot.fpsOverlayMode,
             fpsOverlayCorner = snapshot.fpsOverlayCorner,
+            fpsOverlayScale = snapshot.fpsOverlayScale,
+            fpsOverlayMetrics = snapshot.fpsOverlayMetrics,
             confirmSaveLoadActions = snapshot.confirmSaveLoadActions,
             compactControls = snapshot.compactControls,
             keepScreenOn = snapshot.keepScreenOn,
@@ -898,6 +903,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setFpsOverlayMode(mode: Int) { viewModelScope.launch { preferences.setFpsOverlayMode(mode) } }
     fun setFpsOverlayCorner(corner: Int) { viewModelScope.launch { preferences.setFpsOverlayCorner(corner) } }
+    fun setFpsOverlayScale(scale: Int) { viewModelScope.launch { preferences.setFpsOverlayScale(scale) } }
+    fun setFpsOverlayMetrics(metrics: Int) { viewModelScope.launch { preferences.setFpsOverlayMetrics(metrics) } }
     fun setConfirmSaveLoadActions(enabled: Boolean) { viewModelScope.launch { preferences.setConfirmSaveLoadActions(enabled) } }
     fun setKeepScreenOn(enabled: Boolean) { viewModelScope.launch { preferences.setKeepScreenOn(enabled) } }
     fun setRacingMode(enabled: Boolean) { viewModelScope.launch { preferences.setRacingMode(enabled) } }

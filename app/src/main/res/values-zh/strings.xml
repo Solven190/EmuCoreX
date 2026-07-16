@@ -1672,4 +1672,22 @@
     <string name="settings_game_menu_layout_dashboard">仪表板</string>
     <string name="settings_game_menu_layout_command_center">指挥中心</string>
     <string name="settings_game_menu_layout_compact">紧凑</string>
+    <string name="settings_fps_overlay_scale">统计数据文本大小</string>
+    <string name="settings_fps_overlay_scale_value">%1$d%%</string>
+    <string name="settings_help_fps_overlay_scale">更改简单 FPS 计数器和详细统计数据的文本大小。较大的值还会加宽详细覆盖层以减少文本换行。</string>
+    <string name="settings_fps_overlay_metrics">可见统计数据</string>
+    <string name="settings_help_fps_overlay_metrics">选择详细统计数据覆盖层中包含的各项数值。这不会影响指标收集或模拟器性能。</string>
+    <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_vps">VPS</string>
+    <string name="settings_fps_metric_speed">速度</string>
+    <string name="settings_fps_metric_target">目标</string>
+    <string name="settings_fps_metric_renderer">渲染器</string>
+    <string name="settings_fps_metric_vram">VRAM</string>
+    <string name="settings_fps_metric_frame_time">帧时间</string>
+    <string name="settings_fps_metric_queue">GS 队列</string>
+    <string name="settings_fps_metric_resolution">分辨率</string>
+    <string name="settings_fps_metric_ee">EE</string>
+    <string name="settings_fps_metric_gs">GS</string>
+    <string name="settings_fps_metric_vu">VU</string>
+    <string name="settings_fps_metric_software_threads">软件线程</string>
 </resources>

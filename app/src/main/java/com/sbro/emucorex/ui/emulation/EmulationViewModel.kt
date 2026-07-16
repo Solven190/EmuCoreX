@@ -38,6 +38,7 @@ import com.sbro.emucorex.data.GameMenuSectionId
 import com.sbro.emucorex.data.DefaultGameMenuTabOrder
 import com.sbro.emucorex.data.DefaultGameMenuSectionOrder
 import com.sbro.emucorex.data.PlayTimeSyncCacheRepository
+import com.sbro.emucorex.data.PerformanceOverlayMetrics
 import com.sbro.emucorex.data.PlayerPlayTimeDelta
 import com.sbro.emucorex.data.PlayerProfileRepository
 import com.sbro.emucorex.data.pcsx2.Pcsx2CompatibilityRepository
@@ -74,6 +75,8 @@ data class EmulationUiState(
     val compactControls: Boolean = true,
     val keepScreenOn: Boolean = true,
     val fpsOverlayCorner: Int = AppPreferences.FPS_OVERLAY_CORNER_TOP_RIGHT,
+    val fpsOverlayScale: Int = AppPreferences.DEFAULT_FPS_OVERLAY_SCALE,
+    val fpsOverlayMetrics: Int = PerformanceOverlayMetrics.DEFAULT,
     val overlayScale: Int = 100,
     val overlayOpacity: Int = 80,
     val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
@@ -617,6 +620,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.fpsOverlayCorner.collect { corner ->
                 _uiState.value = _uiState.value.copy(fpsOverlayCorner = corner)
+            }
+        }
+        viewModelScope.launch {
+            preferences.fpsOverlayScale.collect { scale ->
+                _uiState.value = _uiState.value.copy(fpsOverlayScale = scale)
+            }
+        }
+        viewModelScope.launch {
+            preferences.fpsOverlayMetrics.collect { metrics ->
+                _uiState.value = _uiState.value.copy(fpsOverlayMetrics = metrics)
             }
         }
         viewModelScope.launch {
@@ -2248,6 +2261,18 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
             EmulatorBridge.setSetting("EmuCore/Speedhacks", "vuThread", "bool", effectiveEnabled.toString())
             updateCrashContext()
+        }
+    }
+
+    fun setFpsOverlayScale(scale: Int) {
+        viewModelScope.launch {
+            preferences.setFpsOverlayScale(scale)
+        }
+    }
+
+    fun setFpsOverlayMetrics(metrics: Int) {
+        viewModelScope.launch {
+            preferences.setFpsOverlayMetrics(metrics)
         }
     }
 

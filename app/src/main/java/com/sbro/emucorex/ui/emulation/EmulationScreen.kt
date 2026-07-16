@@ -159,6 +159,7 @@ import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_SIMPLE
 import com.sbro.emucorex.data.OverlayControlLayout
 import com.sbro.emucorex.data.OverlayLayoutSnapshot
+import com.sbro.emucorex.data.PerformanceOverlayMetrics
 import com.sbro.emucorex.data.RetroAchievementEntry
 import com.sbro.emucorex.data.RetroAchievementGameData
 import com.sbro.emucorex.data.RetroAchievementsRepository
@@ -277,6 +278,23 @@ private fun fpsOverlayCornerLiveOptions(): List<LiveSelectionOption> = listOf(
     LiveSelectionOption(AppPreferences.FPS_OVERLAY_CORNER_TOP_RIGHT, stringResource(R.string.settings_fps_overlay_corner_top_right)),
     LiveSelectionOption(AppPreferences.FPS_OVERLAY_CORNER_BOTTOM_LEFT, stringResource(R.string.settings_fps_overlay_corner_bottom_left)),
     LiveSelectionOption(AppPreferences.FPS_OVERLAY_CORNER_BOTTOM_RIGHT, stringResource(R.string.settings_fps_overlay_corner_bottom_right))
+)
+
+@Composable
+private fun fpsOverlayMetricLiveOptions(): List<Pair<Int, String>> = listOf(
+    PerformanceOverlayMetrics.FPS to stringResource(R.string.settings_fps_metric_fps),
+    PerformanceOverlayMetrics.VPS to stringResource(R.string.settings_fps_metric_vps),
+    PerformanceOverlayMetrics.SPEED to stringResource(R.string.settings_fps_metric_speed),
+    PerformanceOverlayMetrics.TARGET to stringResource(R.string.settings_fps_metric_target),
+    PerformanceOverlayMetrics.RENDERER to stringResource(R.string.settings_fps_metric_renderer),
+    PerformanceOverlayMetrics.VRAM to stringResource(R.string.settings_fps_metric_vram),
+    PerformanceOverlayMetrics.FRAME_TIME to stringResource(R.string.settings_fps_metric_frame_time),
+    PerformanceOverlayMetrics.QUEUE to stringResource(R.string.settings_fps_metric_queue),
+    PerformanceOverlayMetrics.RESOLUTION to stringResource(R.string.settings_fps_metric_resolution),
+    PerformanceOverlayMetrics.EE to stringResource(R.string.settings_fps_metric_ee),
+    PerformanceOverlayMetrics.GS to stringResource(R.string.settings_fps_metric_gs),
+    PerformanceOverlayMetrics.VU to stringResource(R.string.settings_fps_metric_vu),
+    PerformanceOverlayMetrics.SOFTWARE_THREADS to stringResource(R.string.settings_fps_metric_software_threads)
 )
 
 @Composable
@@ -1093,12 +1111,17 @@ fun EmulationScreen(
                 .zIndex(30f)
         ) {
             if (uiState.fpsOverlayMode == FPS_OVERLAY_MODE_SIMPLE) {
-                SimpleFpsCounter(uiState.fps)
+                SimpleFpsCounter(
+                    fps = uiState.fps,
+                    fontScale = uiState.fpsOverlayScale / 100f
+                )
             } else {
                 SystemPerformanceHud(
                     speedPercent = uiState.speedPercent,
                     text = uiState.performanceOverlayText,
-                    isRightCorner = uiState.fpsOverlayCorner.isRightOverlayCorner()
+                    isRightCorner = uiState.fpsOverlayCorner.isRightOverlayCorner(),
+                    fontScale = uiState.fpsOverlayScale / 100f,
+                    metricsMask = uiState.fpsOverlayMetrics
                 )
             }
         }
@@ -1220,6 +1243,8 @@ fun EmulationScreen(
                     onToggleFps = { viewModel.toggleFpsVisibility() },
                     onSetFpsOverlayMode = { viewModel.setFpsOverlayMode(it) },
                     onSetFpsOverlayCorner = { viewModel.setFpsOverlayCorner(it) },
+                    onSetFpsOverlayScale = { viewModel.setFpsOverlayScale(it) },
+                    onSetFpsOverlayMetrics = { viewModel.setFpsOverlayMetrics(it) },
                     onSetOverlayScale = { viewModel.setOverlayScale(it) },
                     onSetOverlayOpacity = { viewModel.setOverlayOpacity(it) },
                     onSetHideOverlayOnGamepad = { viewModel.setHideOverlayOnGamepad(it) },
@@ -2397,6 +2422,8 @@ private fun EmulationSidebarMenu(
     onToggleFps: () -> Unit,
     onSetFpsOverlayMode: (Int) -> Unit,
     onSetFpsOverlayCorner: (Int) -> Unit,
+    onSetFpsOverlayScale: (Int) -> Unit,
+    onSetFpsOverlayMetrics: (Int) -> Unit,
     onSetOverlayScale: (Int) -> Unit,
     onSetOverlayOpacity: (Int) -> Unit,
     onSetHideOverlayOnGamepad: (Boolean) -> Unit,
@@ -3251,6 +3278,29 @@ private fun EmulationSidebarMenu(
                             helpText = stringResource(R.string.settings_help_fps_overlay_position),
                             onResetToDefault = { onSetFpsOverlayCorner(globalDefaults.fpsOverlayCorner) }
                         )
+
+                        LiveSliderRow(
+                            title = stringResource(R.string.settings_fps_overlay_scale),
+                            valueLabelResId = R.string.settings_fps_overlay_scale_value,
+                            valueLabelForValue = { scale -> "$scale%" },
+                            value = uiState.fpsOverlayScale.toFloat(),
+                            range = AppPreferences.MIN_FPS_OVERLAY_SCALE.toFloat()..AppPreferences.MAX_FPS_OVERLAY_SCALE.toFloat(),
+                            steps = 24,
+                            onValueChange = { onSetFpsOverlayScale(it.toInt()) },
+                            helpText = stringResource(R.string.settings_help_fps_overlay_scale),
+                            onResetToDefault = { onSetFpsOverlayScale(globalDefaults.fpsOverlayScale) }
+                        )
+
+                        if (uiState.fpsOverlayMode == FPS_OVERLAY_MODE_DETAILED) {
+                            LiveBitmaskChoiceRow(
+                                title = stringResource(R.string.settings_fps_overlay_metrics),
+                                options = fpsOverlayMetricLiveOptions(),
+                                selectedMask = uiState.fpsOverlayMetrics,
+                                onToggle = { metric -> onSetFpsOverlayMetrics(uiState.fpsOverlayMetrics xor metric) },
+                                helpText = stringResource(R.string.settings_help_fps_overlay_metrics),
+                                onResetToDefault = { onSetFpsOverlayMetrics(globalDefaults.fpsOverlayMetrics) }
+                            )
+                        }
 
                                     }
 
@@ -5295,7 +5345,11 @@ private fun LiveSelectionChip(
 }
 
 @Composable
-private fun SimpleFpsCounter(fps: String) {
+private fun SimpleFpsCounter(
+    fps: String,
+    fontScale: Float
+) {
+    val safeScale = fontScale.coerceIn(0.75f, 2f)
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
@@ -5305,7 +5359,7 @@ private fun SimpleFpsCounter(fps: String) {
                 color = Color.White.copy(alpha = 0.08f),
                 shape = RoundedCornerShape(999.dp)
             )
-            .padding(horizontal = 10.dp, vertical = 5.dp)
+            .padding(horizontal = 10.dp * safeScale, vertical = 5.dp * safeScale)
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -5315,6 +5369,8 @@ private fun SimpleFpsCounter(fps: String) {
                 text = stringResource(R.string.emulation_hud_fps_label),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp * safeScale,
+                    lineHeight = 14.sp * safeScale,
                     letterSpacing = 0.2.sp
                 ),
                 color = Color.White.copy(alpha = 0.72f)
@@ -5323,7 +5379,9 @@ private fun SimpleFpsCounter(fps: String) {
                 text = fps,
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp * safeScale,
+                    lineHeight = 18.sp * safeScale
                 ),
                 color = if (fps.toFloatOrNull()?.let { it >= 55f } == true) {
                     Color(0xFF50D9A0)
@@ -5339,44 +5397,20 @@ private fun SimpleFpsCounter(fps: String) {
 private fun SystemPerformanceHud(
     speedPercent: Float,
     text: String,
-    isRightCorner: Boolean = false
+    isRightCorner: Boolean = false,
+    fontScale: Float,
+    metricsMask: Int
 ) {
-    val lines = remember(text) {
-        fun isRendererLine(line: String): Boolean {
-            return line.endsWith(" HW") ||
-                line.endsWith(" SW") ||
-                line.endsWith(" Null") ||
-                line.contains(" HW |") ||
-                line.contains(" SW |") ||
-                line.contains(" Null |")
-        }
-
-        val rawLines = text.lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .toMutableList()
-        rawLines.removeAll { it.startsWith("Queue:") }
-        val rendererIdx = rawLines.indexOfFirst(::isRendererLine)
-        if (rendererIdx >= 0 && rendererIdx + 1 < rawLines.size && rawLines[rendererIdx + 1].startsWith("VRAM:")) {
-            rawLines[rendererIdx] = rawLines[rendererIdx] + " | " + rawLines[rendererIdx + 1]
-            rawLines.removeAt(rendererIdx + 1)
-        }
-        val topLines    = rawLines.filter { l -> l.startsWith("FPS:") || l.startsWith("Speed:") }
-        val middleLines = rawLines.filter { l -> l.startsWith("EE:") || l.startsWith("GS:") || l.startsWith("VU:") || l.startsWith("SW-") }
-        val bottomLines = rawLines.filter { l -> isRendererLine(l) || l.startsWith("VRAM:") || l.startsWith("Frame:") || l.startsWith("Res:") }
-        val ordered = (topLines + middleLines + bottomLines).ifEmpty { rawLines.toList() }
-        Pair(topLines + middleLines, bottomLines).let { (main, bottom) ->
-            Pair(main.ifEmpty { ordered }, bottom)
-        }
-    }
-    val mainLines   = lines.first
-    val bottomLines = lines.second
+    val safeScale = fontScale.coerceIn(0.75f, 2f)
+    val lines = remember(text, metricsMask) { buildPerformanceOverlayLayout(text, metricsMask) }
+    val mainLines = lines.mainLines
+    val bottomLines = lines.bottomLines
     val textAlign = if (isRightCorner) TextAlign.End else TextAlign.Start
     Column(
         modifier = Modifier
-            .widthIn(min = 190.dp, max = 330.dp)
-            .padding(horizontal = 6.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(1.dp)
+            .widthIn(min = 190.dp, max = 330.dp * safeScale.coerceAtMost(1.75f))
+            .padding(horizontal = 6.dp * safeScale, vertical = 4.dp * safeScale),
+        verticalArrangement = Arrangement.spacedBy(1.dp * safeScale)
     ) {
         mainLines.forEach { line ->
             Text(
@@ -5385,13 +5419,13 @@ private fun SystemPerformanceHud(
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp,
-                    lineHeight = 13.sp,
+                    fontSize = 10.sp * safeScale,
+                    lineHeight = 13.sp * safeScale,
                     letterSpacing = 0.sp,
                     shadow = Shadow(
                         color = Color.Black.copy(alpha = 1f),
                         offset = Offset(0f, 0f),
-                        blurRadius = 6f
+                        blurRadius = 6f * safeScale
                     )
                 ),
                 color = Color.White.copy(alpha = 0.97f),
@@ -5400,7 +5434,9 @@ private fun SystemPerformanceHud(
             )
         }
         if (bottomLines.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(4.dp))
+            if (mainLines.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp * safeScale))
+            }
             bottomLines.forEach { line ->
                 Text(
                     text = buildPerformanceAnnotatedText(line, speedPercent),
@@ -5408,13 +5444,13 @@ private fun SystemPerformanceHud(
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Medium,
-                        fontSize = 8.5.sp,
-                        lineHeight = 11.sp,
+                        fontSize = 8.5.sp * safeScale,
+                        lineHeight = 11.sp * safeScale,
                         letterSpacing = 0.sp,
                         shadow = Shadow(
                             color = Color.Black.copy(alpha = 1f),
                             offset = Offset(0f, 0f),
-                            blurRadius = 5f
+                            blurRadius = 5f * safeScale
                         )
                     ),
                     color = Color.White.copy(alpha = 0.97f),
@@ -5438,7 +5474,7 @@ private fun buildPerformanceAnnotatedText(text: String, speedPercent: Float): An
         append(text)
         addRepeatedStyle(
             text,
-            listOf("FPS:", "VPS:", "Speed:", "Target:", "Frame:", "Res:", "EE:", "GS:", "VU:", "SW-", "VRAM:"),
+            listOf("FPS:", "VPS:", "Speed:", "Target:", "Frame:", "GS Queue:", "Res:", "EE:", "GS:", "VU:", "SW-", "VRAM:"),
             SpanStyle(color = Color(0xFF9DD7FF))
         )
         addRepeatedStyle(
@@ -5535,6 +5571,64 @@ private fun LiveChipsSelectionRow(
                 FilterChip(
                     selected = currentValue == value,
                     onClick = { onValueChange(value) },
+                    label = { Text(text = label) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveBitmaskChoiceRow(
+    title: String,
+    options: List<Pair<Int, String>>,
+    selectedMask: Int,
+    onToggle: (Int) -> Unit,
+    helpText: String? = null,
+    onResetToDefault: (() -> Unit)? = null
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val context = LocalContext.current
+    val resetToast = stringResource(R.string.settings_reset_to_default_toast)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 4.dp)
+                .combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = {},
+                    onLongClick = onResetToDefault?.let {
+                        {
+                            it()
+                            Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            helpText?.let {
+                SettingHelpButton(title = title, description = it)
+            }
+        }
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalViewportBleed(18.dp),
+            contentPadding = PaddingValues(horizontal = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(options) { (metric, label) ->
+                FilterChip(
+                    selected = PerformanceOverlayMetrics.isEnabled(selectedMask, metric),
+                    onClick = { onToggle(metric) },
                     label = { Text(text = label) }
                 )
             }

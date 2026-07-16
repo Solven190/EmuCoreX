@@ -1670,4 +1670,22 @@
     <string name="settings_game_menu_layout_dashboard">ダッシュボード</string>
     <string name="settings_game_menu_layout_command_center">コマンドセンター</string>
     <string name="settings_game_menu_layout_compact">コンパクト</string>
+    <string name="settings_fps_overlay_scale">統計テキストのサイズ</string>
+    <string name="settings_fps_overlay_scale_value">%1$d%%</string>
+    <string name="settings_help_fps_overlay_scale">シンプルなFPSカウンターと詳細な統計の両方のテキストサイズを変更します。数値を大きくすると、折り返しを減らすために詳細オーバーレイの幅も広がります。</string>
+    <string name="settings_fps_overlay_metrics">表示される統計</string>
+    <string name="settings_help_fps_overlay_metrics">詳細な統計オーバーレイに含まれる個別の値を選択します。これは、指標の収集やエミュレーションのパフォーマンスには影響しません。</string>
+    <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_vps">VPS</string>
+    <string name="settings_fps_metric_speed">速度</string>
+    <string name="settings_fps_metric_target">ターゲット</string>
+    <string name="settings_fps_metric_renderer">レンダラー</string>
+    <string name="settings_fps_metric_vram">VRAM</string>
+    <string name="settings_fps_metric_frame_time">フレームタイム</string>
+    <string name="settings_fps_metric_queue">GSキュー</string>
+    <string name="settings_fps_metric_resolution">解像度</string>
+    <string name="settings_fps_metric_ee">EE</string>
+    <string name="settings_fps_metric_gs">GS</string>
+    <string name="settings_fps_metric_vu">VU</string>
+    <string name="settings_fps_metric_software_threads">ソフトウェアスレッド</string>
 </resources>

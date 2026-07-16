@@ -1670,4 +1670,22 @@
     <string name="settings_game_menu_layout_dashboard">대시보드</string>
     <string name="settings_game_menu_layout_command_center">커맨드 센터</string>
     <string name="settings_game_menu_layout_compact">컴팩트</string>
+    <string name="settings_fps_overlay_scale">통계 텍스트 크기</string>
+    <string name="settings_fps_overlay_scale_value">%1$d%%</string>
+    <string name="settings_help_fps_overlay_scale">단순 FPS 카운터 및 세부 통계의 텍스트 크기를 변경합니다. 값이 클수록 줄바꿈을 줄이기 위해 세부 오버레이도 넓어집니다.</string>
+    <string name="settings_fps_overlay_metrics">표시되는 통계</string>
+    <string name="settings_help_fps_overlay_metrics">세부 통계 오버레이에 포함될 개별 값을 선택합니다. 이는 지표 수집이나 에뮬레이션 성능에 영향을 미치지 않습니다.</string>
+    <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_vps">VPS</string>
+    <string name="settings_fps_metric_speed">속도</string>
+    <string name="settings_fps_metric_target">목표</string>
+    <string name="settings_fps_metric_renderer">렌더러</string>
+    <string name="settings_fps_metric_vram">VRAM</string>
+    <string name="settings_fps_metric_frame_time">프레임 시간</string>
+    <string name="settings_fps_metric_queue">GS 대기열</string>
+    <string name="settings_fps_metric_resolution">해상도</string>
+    <string name="settings_fps_metric_ee">EE</string>
+    <string name="settings_fps_metric_gs">GS</string>
+    <string name="settings_fps_metric_vu">VU</string>
+    <string name="settings_fps_metric_software_threads">소프트웨어 스레드</string>
 </resources>

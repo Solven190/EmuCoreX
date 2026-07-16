@@ -1675,4 +1675,22 @@
     <string name="settings_game_menu_layout_dashboard">لوحة القيادة</string>
     <string name="settings_game_menu_layout_command_center">مركز القيادة</string>
     <string name="settings_game_menu_layout_compact">مضغوط</string>
+    <string name="settings_fps_overlay_scale">حجم نص الإحصائيات</string>
+    <string name="settings_fps_overlay_scale_value">%1$d%%</string>
+    <string name="settings_help_fps_overlay_scale">يغير حجم نص عداد FPS البسيط والإحصائيات التفصيلية. تعمل القيم الأكبر أيضًا على توسيع طبقة الإحصائيات التفصيلية لتقليل التفاف النص.</string>
+    <string name="settings_fps_overlay_metrics">الإحصائيات المرئية</string>
+    <string name="settings_help_fps_overlay_metrics">اختر القيم التي تظهر في طبقة الإحصائيات التفصيلية. لا يؤثر هذا على جمع المقاييس أو أداء المحاكاة.</string>
+    <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_vps">VPS</string>
+    <string name="settings_fps_metric_speed">السرعة</string>
+    <string name="settings_fps_metric_target">الهدف</string>
+    <string name="settings_fps_metric_renderer">العارض</string>
+    <string name="settings_fps_metric_vram">VRAM</string>
+    <string name="settings_fps_metric_frame_time">وقت الإطار</string>
+    <string name="settings_fps_metric_queue">قائمة انتظار GS</string>
+    <string name="settings_fps_metric_resolution">الدقة</string>
+    <string name="settings_fps_metric_ee">EE</string>
+    <string name="settings_fps_metric_gs">GS</string>
+    <string name="settings_fps_metric_vu">VU</string>
+    <string name="settings_fps_metric_software_threads">خيوط برمجية</string>
 </resources>

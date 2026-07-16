@@ -1685,4 +1685,22 @@
     <string name="settings_game_menu_layout_dashboard">Dasbor</string>
     <string name="settings_game_menu_layout_command_center">Pusat komando</string>
     <string name="settings_game_menu_layout_compact">Kompak</string>
+    <string name="settings_fps_overlay_scale">Ukuran teks statistik</string>
+    <string name="settings_fps_overlay_scale_value">%1$d%%</string>
+    <string name="settings_help_fps_overlay_scale">Mengubah ukuran teks untuk penghitung FPS sederhana dan statistik mendetail. Nilai yang lebih besar juga memperlebar hamparan mendetail untuk mengurangi pembungkusan teks.</string>
+    <string name="settings_fps_overlay_metrics">Statistik yang terlihat</string>
+    <string name="settings_help_fps_overlay_metrics">Pilih nilai individual yang disertakan dalam hamparan statistik mendetail. Hal ini tidak memengaruhi pengumpulan metrik atau performa emulasi.</string>
+    <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_vps">VPS</string>
+    <string name="settings_fps_metric_speed">Kecepatan</string>
+    <string name="settings_fps_metric_target">Target</string>
+    <string name="settings_fps_metric_renderer">Perender</string>
+    <string name="settings_fps_metric_vram">VRAM</string>
+    <string name="settings_fps_metric_frame_time">Waktu bingkai</string>
+    <string name="settings_fps_metric_queue">Antrean GS</string>
+    <string name="settings_fps_metric_resolution">Resolusi</string>
+    <string name="settings_fps_metric_ee">EE</string>
+    <string name="settings_fps_metric_gs">GS</string>
+    <string name="settings_fps_metric_vu">VU</string>
+    <string name="settings_fps_metric_software_threads">Utas perangkat lunak</string>
 </resources>
