@@ -1528,7 +1528,7 @@
     <string name="achievements_measured_progress">Progression : %1$s</string>
     <string name="achievements_status_primed">Prêt</string>
     <string name="shell_discord_server">Serveur Discord</string>
-    <string name="profile_leaderboard_search_hint">Rechercher un nom ou un ID</string>
+    <string name="profile_leaderboard_search_hint">Nom ou ID</string>
     <string name="profile_leaderboard_search_help">Saisissez au moins 2 caractères ou un ID complet comme EX-A7K4P2.</string>
     <string name="profile_leaderboard_no_results">Aucun joueur correspondant trouvé.</string>
     <string name="profile_leaderboard_loading_more">Chargement d\'autres joueurs…</string>

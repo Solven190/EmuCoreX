@@ -1526,7 +1526,7 @@
     <string name="achievements_measured_progress">進行状況: %1$s</string>
     <string name="achievements_status_primed">準備完了</string>
     <string name="shell_discord_server">Discordサーバー</string>
-    <string name="profile_leaderboard_search_hint">名前またはプレイヤーIDを検索</string>
+    <string name="profile_leaderboard_search_hint">名前またはID</string>
     <string name="profile_leaderboard_search_help">2文字以上、またはEX-A7K4P2などの完全なIDを入力してください。</string>
     <string name="profile_leaderboard_no_results">一致するプレイヤーが見つかりません。</string>
     <string name="profile_leaderboard_loading_more">さらにプレイヤーを読み込んでいます…</string>

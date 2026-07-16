@@ -1528,7 +1528,7 @@
     <string name="achievements_measured_progress">Progresso: %1$s</string>
     <string name="achievements_status_primed">Preparado</string>
     <string name="shell_discord_server">Servidor do Discord</string>
-    <string name="profile_leaderboard_search_hint">Pesquisar nome ou ID de Jogador</string>
+    <string name="profile_leaderboard_search_hint">Nome ou ID</string>
     <string name="profile_leaderboard_search_help">Insira pelo menos 2 caracteres, ou um ID completo como EX-A7K4P2.</string>
     <string name="profile_leaderboard_no_results">Nenhum jogador correspondente encontrado.</string>
     <string name="profile_leaderboard_loading_more">Carregando mais jogadores…</string>
