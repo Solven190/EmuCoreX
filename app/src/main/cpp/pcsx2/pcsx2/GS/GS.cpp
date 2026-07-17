@@ -22,6 +22,10 @@
 #include "GS/Renderers/HW/GSTextureReplacements.h"
 #include "VMManager.h"
 
+#ifdef __ANDROID__
+#include "emucorex/android_runtime.h"
+#endif
+
 #if defined(__ANDROID__) && defined(ENABLE_OPENGL)
 #include "GS/Renderers/Common/GSGPUProfile.h"
 #endif
@@ -177,7 +181,9 @@ static bool OpenGSDevice(GSRendererType renderer, bool clear_state_on_fail, bool
 	}
 
 #ifdef __ANDROID__
-	GSConfig.OsdShowGPU = false;
+	GSConfig.OsdShowGPU = emucorex::android::IsPerformanceGpuTimingRequested() &&
+		g_gs_device->SetGPUTimingEnabled(true);
+	emucorex::android::SetPerformanceGpuState(g_gs_device->GetName(), GSConfig.OsdShowGPU);
 #else
 	GSConfig.OsdShowGPU = GSConfig.OsdShowGPU && g_gs_device->SetGPUTimingEnabled(true);
 #endif
@@ -192,6 +198,10 @@ static void CloseGSDevice(bool clear_state)
 {
 	if (!g_gs_device)
 		return;
+
+#ifdef __ANDROID__
+	emucorex::android::SetPerformanceGpuState({}, false);
+#endif
 
 #ifndef __ANDROID__
 	ImGuiManager::Shutdown(clear_state);
@@ -946,7 +956,9 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 	if (GSConfig.OsdShowGPU != old_config.OsdShowGPU)
 	{
 #ifdef __ANDROID__
-		GSConfig.OsdShowGPU = false;
+		GSConfig.OsdShowGPU = emucorex::android::IsPerformanceGpuTimingRequested() &&
+			g_gs_device->SetGPUTimingEnabled(true);
+		emucorex::android::SetPerformanceGpuState(g_gs_device->GetName(), GSConfig.OsdShowGPU);
 #else
 		if (!g_gs_device->SetGPUTimingEnabled(GSConfig.OsdShowGPU))
 			GSConfig.OsdShowGPU = false;

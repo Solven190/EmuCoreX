@@ -46,6 +46,18 @@ class CustomizationPreferencesTest {
                 PerformanceOverlayMetrics.QUEUE
             )
         )
+        assertTrue(
+            PerformanceOverlayMetrics.isEnabled(
+                PerformanceOverlayMetrics.DEFAULT,
+                PerformanceOverlayMetrics.HOST_CPU
+            )
+        )
+        assertTrue(
+            PerformanceOverlayMetrics.isEnabled(
+                PerformanceOverlayMetrics.DEFAULT,
+                PerformanceOverlayMetrics.HOST_GPU
+            )
+        )
     }
 
     @Test

@@ -5344,6 +5344,8 @@ private fun fpsOverlayMetricOptions(): List<Pair<Int, String>> = listOf(
     PerformanceOverlayMetrics.FRAME_TIME to stringResource(R.string.settings_fps_metric_frame_time),
     PerformanceOverlayMetrics.QUEUE to stringResource(R.string.settings_fps_metric_queue),
     PerformanceOverlayMetrics.RESOLUTION to stringResource(R.string.settings_fps_metric_resolution),
+    PerformanceOverlayMetrics.HOST_CPU to stringResource(R.string.settings_fps_metric_host_cpu),
+    PerformanceOverlayMetrics.HOST_GPU to stringResource(R.string.settings_fps_metric_host_gpu),
     PerformanceOverlayMetrics.EE to stringResource(R.string.settings_fps_metric_ee),
     PerformanceOverlayMetrics.GS to stringResource(R.string.settings_fps_metric_gs),
     PerformanceOverlayMetrics.VU to stringResource(R.string.settings_fps_metric_vu),

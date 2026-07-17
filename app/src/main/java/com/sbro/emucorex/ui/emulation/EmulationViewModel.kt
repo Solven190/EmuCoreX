@@ -13,6 +13,7 @@ import com.sbro.emucorex.core.EmulatorStorage
 import com.sbro.emucorex.core.GamepadManager
 import com.sbro.emucorex.core.GpuDriverManager
 import com.sbro.emucorex.core.GsHackDefaults
+import com.sbro.emucorex.core.MobileSocNameMapper
 import com.sbro.emucorex.core.NativeApp
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.PerformancePresets
@@ -60,6 +61,27 @@ import kotlin.time.Duration.Companion.milliseconds
 enum class EmulationTransportMode {
     None,
     FastForward
+}
+
+private fun buildPerformanceOverlayHeader(application: Application): String {
+    val packageInfo = runCatching {
+        application.packageManager.getPackageInfo(application.packageName, 0)
+    }.getOrNull()
+    val appVersion = packageInfo?.versionName?.takeIf(String::isNotBlank) ?: "?"
+    val buildNumber = packageInfo?.longVersionCode?.toString() ?: "?"
+    val coreVersion = runCatching { NativeApp.getCoreVersion().orEmpty() }
+        .getOrDefault("")
+        .ifBlank { "?" }
+    return "EmuCoreX - $appVersion | $buildNumber | $coreVersion"
+}
+
+internal fun replacePerformanceCpuName(text: String, cpuName: String): String {
+    if (cpuName.isBlank() || cpuName == "Unknown") return text
+    return text.lineSequence().joinToString("\n") { line ->
+        if (!line.startsWith("CPU:")) return@joinToString line
+        val valuesStart = line.indexOf(" | ")
+        if (valuesStart < 0) "CPU: $cpuName" else "CPU: $cpuName${line.substring(valuesStart)}"
+    }
 }
 
 data class EmulationUiState(
@@ -122,6 +144,7 @@ data class EmulationUiState(
     val fps: String = "0.0",
     val fpsOverlayMode: Int = FPS_OVERLAY_MODE_DETAILED,
     val performanceOverlayText: String = "",
+    val performanceOverlayHeader: String = "",
     val speedPercent: Float = 100f,
     val transportMode: EmulationTransportMode = EmulationTransportMode.None,
     val toastMessage: String? = null,
@@ -430,7 +453,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private val gameRepository = GameRepository()
     private val playerProfileRepository = PlayerProfileRepository(application)
     private val playTimeSyncCacheRepository = PlayTimeSyncCacheRepository(application)
-    private val _uiState = MutableStateFlow(EmulationUiState())
+    private val performanceCpuName = MobileSocNameMapper.currentDeviceName()
+    private val _uiState = MutableStateFlow(
+        EmulationUiState(performanceOverlayHeader = buildPerformanceOverlayHeader(application))
+    )
     val uiState: StateFlow<EmulationUiState> = _uiState.asStateFlow()
     private val lifecycleMutex = Mutex()
     private val transportMutex = Mutex()
@@ -479,9 +505,14 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun syncNativePerformanceOverlayState(state: EmulationUiState) {
+        val detailed = state.showFps && state.fpsOverlayMode != FPS_OVERLAY_MODE_SIMPLE
         NativeApp.setPerformanceMetricsEnabled(
             visible = state.showFps,
-            detailed = state.showFps && state.fpsOverlayMode != FPS_OVERLAY_MODE_SIMPLE
+            detailed = detailed,
+            gpuTiming = detailed && PerformanceOverlayMetrics.isEnabled(
+                state.fpsOverlayMetrics,
+                PerformanceOverlayMetrics.HOST_GPU
+            )
         )
     }
 
@@ -629,7 +660,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
         viewModelScope.launch {
             preferences.fpsOverlayMetrics.collect { metrics ->
-                _uiState.value = _uiState.value.copy(fpsOverlayMetrics = metrics)
+                val updated = _uiState.value.copy(fpsOverlayMetrics = metrics)
+                _uiState.value = updated
+                syncNativePerformanceOverlayState(updated)
             }
         }
         viewModelScope.launch {
@@ -1252,7 +1285,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         if (parts.size < 3) return
         val fps = parts[0].toFloatOrNull() ?: return
         val speedPercent = parts[1].toFloatOrNull() ?: return
-        val overlayText = parts[2]
+        val overlayText = replacePerformanceCpuName(parts[2], performanceCpuName)
         _uiState.value = state.copy(
             performanceOverlayText = overlayText,
             fps = "%.1f".format(fps),
@@ -4455,7 +4488,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     override fun onCleared() {
-        NativeApp.setPerformanceMetricsEnabled(visible = false, detailed = false)
+        NativeApp.setPerformanceMetricsEnabled(visible = false, detailed = false, gpuTiming = false)
         fastForwardRequested = false
         runCatching {
             kotlinx.coroutines.runBlocking(Dispatchers.IO) {

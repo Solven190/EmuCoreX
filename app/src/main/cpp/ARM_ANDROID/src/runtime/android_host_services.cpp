@@ -7,6 +7,7 @@
 #include "pcsx2/Achievements.h"
 #include "pcsx2/Counters.h"
 #include "pcsx2/GS/GS.h"
+#include "pcsx2/GS/Renderers/Common/GSDevice.h"
 #include "pcsx2/Host.h"
 #include "pcsx2/Input/InputManager.h"
 #include "pcsx2/MTGS.h"
@@ -14,6 +15,7 @@
 #include "pcsx2/VMManager.h"
 
 #include "common/ProgressCallback.h"
+#include "common/HostSys.h"
 #include "common/SmallString.h"
 #include "common/StringUtil.h"
 #include "common/WindowInfo.h"
@@ -33,6 +35,7 @@
 #include <memory>
 #include <mutex>
 #include <string_view>
+#include <sys/system_properties.h>
 #include <thread>
 #include <vector>
 
@@ -64,6 +67,9 @@ std::mutex s_metrics_mutex;
 std::string s_metrics_snapshot;
 std::atomic_bool s_performance_metrics_enabled{false};
 std::atomic_bool s_performance_metrics_detailed{false};
+std::atomic_bool s_performance_gpu_timing_requested{false};
+std::string s_performance_gpu_name;
+bool s_performance_gpu_timing_active = false;
 
 void LogHostMessage(android_LogPriority priority, std::string_view title, std::string_view message)
 {
@@ -107,6 +113,41 @@ void AppendProcessorStat(std::string& text, const char* label, double usage, dou
 		AppendFormat(text, "100%% (%.2fms)", time);
 	else
 		AppendFormat(text, "%.1f%% (%.2fms)", usage, time);
+}
+
+std::string GetAndroidSystemProperty(const char* name)
+{
+	char value[PROP_VALUE_MAX] = {};
+	const int length = __system_property_get(name, value);
+	return length > 0 ? std::string(value, static_cast<size_t>(length)) : std::string();
+}
+
+std::string GetHostCpuName(const CPUInfo& cpu_info)
+{
+	if (!cpu_info.name.empty() && cpu_info.name != "Unknown")
+		return cpu_info.name;
+
+	std::string name = GetAndroidSystemProperty("ro.soc.model");
+	if (name.empty())
+		name = GetAndroidSystemProperty("ro.board.platform");
+	if (name.empty())
+		name = GetAndroidSystemProperty("ro.hardware");
+	return name.empty() ? "Unknown" : name;
+}
+
+std::string GetCompactGpuName(std::string name)
+{
+	constexpr std::string_view QUALCOMM_PREFIX = "Qualcomm ";
+	if (name.starts_with(QUALCOMM_PREFIX))
+		name.erase(0, QUALCOMM_PREFIX.size());
+
+	constexpr std::string_view TRADEMARK = "(TM) ";
+	for (size_t position = name.find(TRADEMARK); position != std::string::npos;
+		position = name.find(TRADEMARK, position))
+	{
+		name.erase(position, TRADEMARK.size());
+	}
+	return name;
 }
 
 const char* GetInternalFpsMethodSuffix()
@@ -163,15 +204,46 @@ std::string GetPerformanceMetricsSnapshot()
 	return s_metrics_snapshot;
 }
 
-void SetPerformanceMetricsCallbackEnabled(bool enabled, bool detailed)
+void SetPerformanceMetricsCallbackEnabled(bool enabled, bool detailed, bool gpu_timing)
 {
 	s_performance_metrics_enabled.store(enabled, std::memory_order_relaxed);
 	s_performance_metrics_detailed.store(enabled && detailed, std::memory_order_relaxed);
+	const bool request_gpu_timing = enabled && detailed && gpu_timing;
+	s_performance_gpu_timing_requested.store(request_gpu_timing, std::memory_order_relaxed);
+	if (MTGS::IsOpen())
+	{
+		MTGS::RunOnGSThread([request_gpu_timing]() {
+			bool timing_active = false;
+			std::string gpu_name;
+			if (g_gs_device)
+			{
+				gpu_name = g_gs_device->GetName();
+				if (request_gpu_timing)
+					timing_active = g_gs_device->SetGPUTimingEnabled(true);
+				else
+					g_gs_device->SetGPUTimingEnabled(false);
+			}
+			GSConfig.OsdShowGPU = timing_active;
+			emucorex::android::SetPerformanceGpuState(std::move(gpu_name), timing_active);
+		});
+	}
 	if (!enabled)
 	{
 		std::lock_guard lock(s_metrics_mutex);
 		s_metrics_snapshot.clear();
 	}
+}
+
+bool IsPerformanceGpuTimingRequested()
+{
+	return s_performance_gpu_timing_requested.load(std::memory_order_relaxed);
+}
+
+void SetPerformanceGpuState(std::string name, bool timing_active)
+{
+	std::lock_guard lock(s_metrics_mutex);
+	s_performance_gpu_name = std::move(name);
+	s_performance_gpu_timing_active = timing_active;
 }
 }
 
@@ -418,6 +490,36 @@ void Host::OnPerformanceMetricsUpdated()
 			AppendLine(overlay, line);
 		}
 
+		const CPUInfo& cpu_info = GetCPUInfo();
+		double cpu_usage = PerformanceMetrics::GetCPUThreadUsage() + PerformanceMetrics::GetGSThreadUsage() +
+			PerformanceMetrics::GetVUThreadUsage();
+		const u32 gs_sw_threads = PerformanceMetrics::GetGSSWThreadCount();
+		for (u32 thread = 0; thread < gs_sw_threads; thread++)
+			cpu_usage += PerformanceMetrics::GetGSSWThreadUsage(thread);
+		const double normalized_cpu_usage = std::clamp(
+			cpu_usage / static_cast<double>(std::max(cpu_info.num_threads, 1u)), 0.0, 100.0);
+		line.clear();
+		line.append("CPU: ");
+		line.append(GetHostCpuName(cpu_info));
+		AppendFormat(line, " | %.1f%%", normalized_cpu_usage);
+		AppendLine(overlay, line);
+
+		std::string gpu_name;
+		bool gpu_timing_active = false;
+		{
+			std::lock_guard lock(s_metrics_mutex);
+			gpu_name = s_performance_gpu_name;
+			gpu_timing_active = s_performance_gpu_timing_active;
+		}
+		line.clear();
+		line.append("GPU: ");
+		line.append(gpu_name.empty() ? "Unknown" : GetCompactGpuName(std::move(gpu_name)));
+		if (gpu_timing_active)
+			AppendFormat(line, " | %.1f%% (%.2fms)", PerformanceMetrics::GetGPUUsage(), PerformanceMetrics::GetGPUAverageTime());
+		else
+			line.append(" | N/A");
+		AppendLine(overlay, line);
+
 		line.clear();
 		AppendProcessorStat(line, "EE: ", PerformanceMetrics::GetCPUThreadUsage(), PerformanceMetrics::GetCPUThreadAverageTime());
 		AppendLine(overlay, line);
@@ -430,7 +532,6 @@ void Host::OnPerformanceMetricsUpdated()
 		AppendProcessorStat(line, "VU: ", PerformanceMetrics::GetVUThreadUsage(), PerformanceMetrics::GetVUThreadAverageTime());
 		AppendLine(overlay, line);
 
-		const u32 gs_sw_threads = PerformanceMetrics::GetGSSWThreadCount();
 		for (u32 thread = 0; thread < gs_sw_threads; thread++)
 		{
 			line.clear();
