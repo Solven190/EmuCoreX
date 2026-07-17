@@ -5,6 +5,8 @@ import android.os.Build
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.sbro.emucorex.core.AndroidGamePerformance
+import com.sbro.emucorex.core.AndroidGamePhase
 import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.DocumentPathResolver
 import com.sbro.emucorex.core.EmulatorBridge
@@ -17,6 +19,7 @@ import com.sbro.emucorex.core.MobileSocNameMapper
 import com.sbro.emucorex.core.NativeApp
 import com.sbro.emucorex.core.PerformanceProfiles
 import com.sbro.emucorex.core.PerformancePresets
+import com.sbro.emucorex.core.resolveAndroidGamePhase
 import com.sbro.emucorex.core.utils.RetroAchievementsLiveStateManager
 import com.sbro.emucorex.core.normalizeUpscale
 import com.sbro.emucorex.data.AppPreferences
@@ -52,7 +55,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -457,6 +462,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private val playerProfileRepository = PlayerProfileRepository(application)
     private val playTimeSyncCacheRepository = PlayTimeSyncCacheRepository(application)
     private val performanceCpuName = MobileSocNameMapper.currentDeviceName()
+    private val androidGamePerformance = AndroidGamePerformance(application)
     private val _uiState = MutableStateFlow(
         EmulationUiState(performanceOverlayHeader = buildPerformanceOverlayHeader(application))
     )
@@ -494,6 +500,19 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.cleanupLegacyClampingPreferencesIfNeeded()
             preferences.migrateOverlayLayoutIfNeeded()
+        }
+        viewModelScope.launch {
+            uiState
+                .map { state ->
+                    resolveAndroidGamePhase(
+                        isStarting = state.isStarting,
+                        isRunning = state.isRunning,
+                        isPaused = state.isPaused,
+                        showMenu = state.showMenu
+                    )
+                }
+                .distinctUntilChanged()
+                .collect(androidGamePerformance::update)
         }
     }
 
@@ -4459,6 +4478,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     override fun onCleared() {
+        androidGamePerformance.update(AndroidGamePhase.Idle)
         NativeApp.setPerformanceMetricsEnabled(visible = false, detailed = false, gpuTiming = false)
         fastForwardRequested = false
         runCatching {
