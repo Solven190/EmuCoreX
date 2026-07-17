@@ -57,8 +57,9 @@ object NativeApp {
     @JvmStatic external fun setSystemCaBundlePath(path: String)
     @JvmStatic external fun getGameTitle(path: String): String?
     @JvmStatic external fun setPadVibration(enabled: Boolean)
-    @JvmStatic external fun setPerformanceMetricsEnabled(visible: Boolean, detailed: Boolean)
+    @JvmStatic external fun setPerformanceMetricsEnabled(visible: Boolean, detailed: Boolean, gpuTiming: Boolean)
     @JvmStatic external fun getPerformanceMetricsSnapshot(): String?
+    @JvmStatic external fun getCoreVersion(): String?
     @JvmStatic external fun queueGsDump(frames: Int)
     @JvmStatic external fun setPadButton(padIndex: Int, index: Int, range: Int, pressed: Boolean)
     @JvmStatic external fun setPadPressureModifierAmount(amountPercent: Int)

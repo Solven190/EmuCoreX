@@ -14,12 +14,15 @@ object PerformanceOverlayMetrics {
     const val GS = 1 shl 10
     const val VU = 1 shl 11
     const val SOFTWARE_THREADS = 1 shl 12
+    const val HOST_CPU = 1 shl 13
+    const val HOST_GPU = 1 shl 14
 
     const val ALL = FPS or VPS or SPEED or TARGET or RENDERER or VRAM or FRAME_TIME or QUEUE or
-        RESOLUTION or EE or GS or VU or SOFTWARE_THREADS
+        RESOLUTION or EE or GS or VU or SOFTWARE_THREADS or HOST_CPU or HOST_GPU
 
-    // Queue was intentionally hidden by the previous overlay, so keep the default appearance unchanged.
-    const val DEFAULT = ALL and QUEUE.inv()
+    // Show device hardware metrics by default while keeping every metric user-configurable.
+    const val DEFAULT = FPS or VPS or SPEED or TARGET or RENDERER or VRAM or FRAME_TIME or
+        RESOLUTION or EE or GS or VU or SOFTWARE_THREADS or HOST_CPU or HOST_GPU
 
     fun sanitize(mask: Int): Int = mask and ALL
 

@@ -9,6 +9,7 @@
 #include "arm64/OaknutHelpers-arm64.h"
 #include "emucorex/retro_achievements_android.h"
 #include "pcsx2/Achievements.h"
+#include "pcsx2/BuildVersion.h"
 #include "pcsx2/HangTrace.h"
 #include "pcsx2/JitProfiler.h"
 
@@ -348,13 +349,18 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_reloadDa
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setSystemCaBundlePath(JNIEnv* env, jclass, jstring path) { HTTPDownloaderCurl::SetCABundlePath(JStringToString(env, path)); }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getGameTitle(JNIEnv* env, jclass, jstring path) { return StringToJString(env, AndroidRuntime::Instance().GetGameTitle(JStringToString(env, path))); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPadVibration(JNIEnv*, jclass, jboolean enabled) { AndroidRuntime::Instance().SetSetting("InputSources", "PadVibration", "bool", enabled == JNI_TRUE ? "true" : "false"); }
-extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPerformanceMetricsEnabled(JNIEnv*, jclass, jboolean visible, jboolean detailed)
+extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPerformanceMetricsEnabled(JNIEnv*, jclass, jboolean visible, jboolean detailed, jboolean gpu_timing)
 {
-	emucorex::android::SetPerformanceMetricsCallbackEnabled(visible == JNI_TRUE, detailed == JNI_TRUE);
+	emucorex::android::SetPerformanceMetricsCallbackEnabled(
+		visible == JNI_TRUE, detailed == JNI_TRUE, gpu_timing == JNI_TRUE);
 }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getPerformanceMetricsSnapshot(JNIEnv* env, jclass)
 {
 	return StringToJString(env, emucorex::android::GetPerformanceMetricsSnapshot());
+}
+extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getCoreVersion(JNIEnv* env, jclass)
+{
+	return StringToJString(env, BuildVersion::GitRev ? BuildVersion::GitRev : "Unknown");
 }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_queueGsDump(JNIEnv*, jclass, jint frames)
 {

@@ -64,6 +64,7 @@ pcsx2_official/
 public/
 tools/
 y/
+app/src/main/java/com/sbro/emucorex/core/MobileSocNameMapper.kt
 **/__pycache__/
 *.pyc
 *.pyo

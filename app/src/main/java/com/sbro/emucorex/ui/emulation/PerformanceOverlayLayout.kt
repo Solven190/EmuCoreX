@@ -9,7 +9,8 @@ internal data class PerformanceOverlayLayout(
 
 internal fun buildPerformanceOverlayLayout(
     text: String,
-    metricsMask: Int
+    metricsMask: Int,
+    fixedHeaderLine: String = ""
 ): PerformanceOverlayLayout {
     fun isRendererLine(line: String): Boolean {
         return line.endsWith(" HW") ||
@@ -51,6 +52,8 @@ internal fun buildPerformanceOverlayLayout(
             line.startsWith("GS:") -> PerformanceOverlayMetrics.GS
             line.startsWith("VU:") -> PerformanceOverlayMetrics.VU
             line.startsWith("SW-") -> PerformanceOverlayMetrics.SOFTWARE_THREADS
+            line.startsWith("CPU:") -> PerformanceOverlayMetrics.HOST_CPU
+            line.startsWith("GPU:") -> PerformanceOverlayMetrics.HOST_GPU
             else -> 0
         }
         if (metric != 0 && !PerformanceOverlayMetrics.isEnabled(metricsMask, metric)) return null
@@ -72,9 +75,12 @@ internal fun buildPerformanceOverlayLayout(
             line.startsWith("Speed:") || line.startsWith("Target:")
     }
     val processorLines = filtered.filter { line ->
-        line.startsWith("EE:") || line.startsWith("GS:") ||
-            line.startsWith("VU:") || line.startsWith("SW-")
+        line.startsWith("EE:") || line.startsWith("GS:") || line.startsWith("VU:")
     }
+    val hardwareLines = filtered.filter { line ->
+        line.startsWith("CPU:") || line.startsWith("GPU:")
+    }
+    val softwareThreadLines = filtered.filter { line -> line.startsWith("SW-") }
     val rendererLine = filtered.firstOrNull(::isRendererLine)
     val vramLine = filtered.firstOrNull { it.startsWith("VRAM:") }
     val bottomLines = buildList {
@@ -87,13 +93,14 @@ internal fun buildPerformanceOverlayLayout(
             line.startsWith("Frame:") || line.startsWith("GS Queue:") || line.startsWith("Res:")
         })
     }
-    val knownLines = (topLines + processorLines + bottomLines).toSet()
+    val knownLines = (topLines + processorLines + hardwareLines + softwareThreadLines + bottomLines).toSet()
     val unknownLines = filtered.filterNot { line ->
         line in knownLines || line == rendererLine || line == vramLine
     }
 
     return PerformanceOverlayLayout(
-        mainLines = topLines + processorLines + unknownLines,
+        mainLines = listOf(fixedHeaderLine).filter(String::isNotBlank) +
+            topLines + processorLines + hardwareLines + softwareThreadLines + unknownLines,
         bottomLines = bottomLines
     )
 }

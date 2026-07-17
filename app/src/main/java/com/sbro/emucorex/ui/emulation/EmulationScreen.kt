@@ -291,6 +291,8 @@ private fun fpsOverlayMetricLiveOptions(): List<Pair<Int, String>> = listOf(
     PerformanceOverlayMetrics.FRAME_TIME to stringResource(R.string.settings_fps_metric_frame_time),
     PerformanceOverlayMetrics.QUEUE to stringResource(R.string.settings_fps_metric_queue),
     PerformanceOverlayMetrics.RESOLUTION to stringResource(R.string.settings_fps_metric_resolution),
+    PerformanceOverlayMetrics.HOST_CPU to stringResource(R.string.settings_fps_metric_host_cpu),
+    PerformanceOverlayMetrics.HOST_GPU to stringResource(R.string.settings_fps_metric_host_gpu),
     PerformanceOverlayMetrics.EE to stringResource(R.string.settings_fps_metric_ee),
     PerformanceOverlayMetrics.GS to stringResource(R.string.settings_fps_metric_gs),
     PerformanceOverlayMetrics.VU to stringResource(R.string.settings_fps_metric_vu),
@@ -1119,6 +1121,7 @@ fun EmulationScreen(
                 SystemPerformanceHud(
                     speedPercent = uiState.speedPercent,
                     text = uiState.performanceOverlayText,
+                    fixedHeaderLine = uiState.performanceOverlayHeader,
                     isRightCorner = uiState.fpsOverlayCorner.isRightOverlayCorner(),
                     fontScale = uiState.fpsOverlayScale / 100f,
                     metricsMask = uiState.fpsOverlayMetrics
@@ -5396,12 +5399,15 @@ private fun SimpleFpsCounter(
 private fun SystemPerformanceHud(
     speedPercent: Float,
     text: String,
+    fixedHeaderLine: String,
     isRightCorner: Boolean = false,
     fontScale: Float,
     metricsMask: Int
 ) {
     val safeScale = fontScale.coerceIn(0.75f, 2f)
-    val lines = remember(text, metricsMask) { buildPerformanceOverlayLayout(text, metricsMask) }
+    val lines = remember(text, metricsMask, fixedHeaderLine) {
+        buildPerformanceOverlayLayout(text, metricsMask, fixedHeaderLine)
+    }
     val mainLines = lines.mainLines
     val bottomLines = lines.bottomLines
     val textAlign = if (isRightCorner) TextAlign.End else TextAlign.Start
@@ -5473,7 +5479,11 @@ private fun buildPerformanceAnnotatedText(text: String, speedPercent: Float): An
         append(text)
         addRepeatedStyle(
             text,
-            listOf("FPS:", "VPS:", "Speed:", "Target:", "Frame:", "GS Queue:", "Res:", "EE:", "GS:", "VU:", "SW-", "VRAM:"),
+            listOf(
+                "EmuCoreX", "FPS:", "VPS:", "Speed:", "Target:",
+                "Frame:", "GS Queue:", "Res:", "CPU:", "GPU:",
+                "EE:", "GS:", "VU:", "SW-", "VRAM:"
+            ),
             SpanStyle(color = Color(0xFF9DD7FF))
         )
         addRepeatedStyle(
