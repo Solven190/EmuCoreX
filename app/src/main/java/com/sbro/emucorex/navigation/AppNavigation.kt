@@ -30,6 +30,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -165,10 +166,12 @@ data class ControlsLayoutEditorRoute(
 @Serializable
 data class GameAchievementsRoute(val gamePath: String, val gameTitle: String? = null)
 
-private enum class StartupDestination {
+internal enum class StartupDestination {
     HOME,
     ONBOARDING
 }
+
+internal fun shouldReleaseStartupSplash(destination: StartupDestination?): Boolean = destination != null
 
 private const val TAG = "AppNavigation"
 
@@ -197,9 +200,6 @@ fun AppNavigation(
     val activity = context as? ComponentActivity
     val preferences = AppPreferences(context)
     val saveStateRepository = SaveStateRepository(context)
-    LaunchedEffect(Unit) {
-        onStartupReady()
-    }
     val startupDestination by produceState<StartupDestination?>(
         initialValue = null,
         key1 = preferences,
@@ -242,6 +242,14 @@ fun AppNavigation(
             }
         }
         return
+    }
+
+    LaunchedEffect(startupDestination) {
+        if (!shouldReleaseStartupSplash(startupDestination)) return@LaunchedEffect
+        // Keep the platform splash above the first fully composed destination frame.
+        withFrameNanos { }
+        withFrameNanos { }
+        onStartupReady()
     }
 
     val navController = rememberNavController()

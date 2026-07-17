@@ -28,4 +28,38 @@ class HomeGridLayoutTest {
     fun gridAlwaysKeepsAtLeastOneColumn() {
         assertEquals(1, calculateHomeGridColumnCount(1, 1, 1, 10f))
     }
+
+    @Test
+    fun measuredWindowWinsOverStaleLandscapeConfigurationAfterGameExit() {
+        val metrics = resolveHomeWindowMetrics(
+            configurationWidthDp = 844,
+            configurationHeightDp = 390,
+            measuredWidthDp = 390,
+            measuredHeightDp = 844
+        )
+
+        assertEquals(HomeWindowMetrics(widthDp = 390, heightDp = 844), metrics)
+        assertEquals(
+            3,
+            calculateHomeGridColumnCount(
+                screenWidthDp = metrics.widthDp,
+                screenHeightDp = metrics.heightDp,
+                smallestScreenWidthDp = 390,
+                gridScale = 1f
+            )
+        )
+    }
+
+    @Test
+    fun invalidMeasuredWindowFallsBackToConfiguration() {
+        assertEquals(
+            HomeWindowMetrics(widthDp = 390, heightDp = 844),
+            resolveHomeWindowMetrics(
+                configurationWidthDp = 390,
+                configurationHeightDp = 844,
+                measuredWidthDp = 0,
+                measuredHeightDp = 0
+            )
+        )
+    }
 }
