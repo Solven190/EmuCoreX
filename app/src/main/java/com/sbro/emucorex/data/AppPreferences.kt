@@ -302,7 +302,6 @@ class AppPreferences(private val context: Context) {
         const val MIN_HOME_GRID_SCALE = 0.60f
         const val MAX_HOME_GRID_SCALE = 1.60f
         const val DEFAULT_HOME_BACKGROUND_DIM = 48
-        private const val IN_APP_REVIEW_MIN_LAUNCHES = 3
         const val MIN_FAST_FORWARD_SPEED = 1.25f
         const val MAX_FAST_FORWARD_SPEED = 5.0f
         private const val LEGACY_DEFAULT_LSTICK_OFFSET_X = 18f
@@ -418,7 +417,12 @@ class AppPreferences(private val context: Context) {
         private val HIDDEN_GAME_MENU_SECTIONS = stringPreferencesKey("hidden_game_menu_sections")
         private val PRO_UNLOCKED = booleanPreferencesKey("pro_unlocked")
         private val WELCOME_DIALOG_SHOWN = booleanPreferencesKey("welcome_dialog_shown")
-        private val IN_APP_REVIEW_LAUNCH_COUNT = intPreferencesKey("in_app_review_launch_count")
+        private val IN_APP_REVIEW_QUALIFYING_SESSION_COUNT =
+            intPreferencesKey("in_app_review_qualifying_session_count")
+        private val IN_APP_REVIEW_TOTAL_ACTIVE_PLAY_TIME_MS =
+            longPreferencesKey("in_app_review_total_active_play_time_ms")
+        private val IN_APP_REVIEW_LAST_ATTEMPT_AT_MS =
+            longPreferencesKey("in_app_review_last_attempt_at_ms")
         private val IN_APP_REVIEW_REQUESTED = booleanPreferencesKey("in_app_review_requested")
         private val RENDERER = intPreferencesKey("renderer")
         private val UPSCALE = floatPreferencesKey("upscale_multiplier_v2")
@@ -837,25 +841,52 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { prefs -> prefs[WELCOME_DIALOG_SHOWN] = shown }
     }
 
-    suspend fun registerInAppReviewLaunch(): Boolean {
-        var shouldRequestReview = false
+    suspend fun recordInAppReviewSession(activePlayTimeMs: Long) {
         context.dataStore.edit { prefs ->
-            if (prefs[IN_APP_REVIEW_REQUESTED] == true) return@edit
-            val previousLaunchCount = prefs[IN_APP_REVIEW_LAUNCH_COUNT] ?: 0
-            val launchCount = if (previousLaunchCount == Int.MAX_VALUE) {
-                Int.MAX_VALUE
-            } else {
-                previousLaunchCount + 1
-            }
-            prefs[IN_APP_REVIEW_LAUNCH_COUNT] = launchCount
-            shouldRequestReview = launchCount >= IN_APP_REVIEW_MIN_LAUNCHES
+            val updated = InAppReviewPolicy.recordSession(
+                progress = prefs.inAppReviewProgress(),
+                activePlayTimeMs = activePlayTimeMs
+            )
+            prefs[IN_APP_REVIEW_QUALIFYING_SESSION_COUNT] = updated.qualifyingSessionCount
+            prefs[IN_APP_REVIEW_TOTAL_ACTIVE_PLAY_TIME_MS] = updated.totalActivePlayTimeMs
         }
-        return shouldRequestReview
     }
 
-    suspend fun markInAppReviewRequested() {
-        context.dataStore.edit { prefs -> prefs[IN_APP_REVIEW_REQUESTED] = true }
+    suspend fun claimInAppReviewAttempt(nowMs: Long = System.currentTimeMillis()): Long? {
+        val claimedAtMs = nowMs.coerceAtLeast(1L)
+        var claimed = false
+        context.dataStore.edit { prefs ->
+            if (!InAppReviewPolicy.canAttempt(prefs.inAppReviewProgress(), claimedAtMs)) return@edit
+            prefs[IN_APP_REVIEW_LAST_ATTEMPT_AT_MS] = claimedAtMs
+            claimed = true
+        }
+        return claimedAtMs.takeIf { claimed }
     }
+
+    suspend fun releaseInAppReviewAttempt(claimedAtMs: Long) {
+        context.dataStore.edit { prefs ->
+            if (prefs[IN_APP_REVIEW_LAST_ATTEMPT_AT_MS] == claimedAtMs &&
+                prefs[IN_APP_REVIEW_REQUESTED] != true
+            ) {
+                prefs.remove(IN_APP_REVIEW_LAST_ATTEMPT_AT_MS)
+            }
+        }
+    }
+
+    suspend fun markInAppReviewRequested(claimedAtMs: Long) {
+        context.dataStore.edit { prefs ->
+            if (prefs[IN_APP_REVIEW_LAST_ATTEMPT_AT_MS] == claimedAtMs) {
+                prefs[IN_APP_REVIEW_REQUESTED] = true
+            }
+        }
+    }
+
+    private fun Preferences.inAppReviewProgress(): InAppReviewProgress = InAppReviewProgress(
+        qualifyingSessionCount = this[IN_APP_REVIEW_QUALIFYING_SESSION_COUNT] ?: 0,
+        totalActivePlayTimeMs = this[IN_APP_REVIEW_TOTAL_ACTIVE_PLAY_TIME_MS] ?: 0L,
+        reviewRequested = this[IN_APP_REVIEW_REQUESTED] ?: false,
+        lastAttemptAtMs = this[IN_APP_REVIEW_LAST_ATTEMPT_AT_MS] ?: 0L
+    )
 
     val renderer: Flow<Int> = context.dataStore.data.map { prefs ->
         normalizeRendererPreference(prefs[RENDERER])

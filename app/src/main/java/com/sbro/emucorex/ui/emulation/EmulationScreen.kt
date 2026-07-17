@@ -366,7 +366,7 @@ fun EmulationScreen(
     gsDumpFrames: Int? = null,
     gsDumpDelayMs: Int? = null,
     restoredAfterProcessDeath: Boolean = false,
-    onExit: () -> Unit,
+    onExit: (activePlayTimeMs: Long) -> Unit,
     viewModel: EmulationViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -419,6 +419,7 @@ fun EmulationScreen(
     val touchPadIndex = GamepadManager.resolveTouchPadIndex()
     val overlayPadIndex = touchPadIndex ?: 0
     val currentOverlayPadIndex by rememberUpdatedState(overlayPadIndex)
+    val currentActivePlayTimeMs by rememberUpdatedState(uiState.activePlayTimeMs)
     val gyroController = remember(context) {
         AndroidGyroscopeInput(context) { emittedMode, x, y ->
             val targetRightStick = emittedMode == AppPreferences.GYRO_MODE_AIM
@@ -509,7 +510,8 @@ fun EmulationScreen(
     val requestExitClick = rememberDebouncedClick(onClick = { showExitDialog = true })
     val confirmExitClick = rememberDebouncedClick(onClick = {
         showExitDialog = false
-        viewModel.stopEmulation(onExit = onExit)
+        val completedActivePlayTimeMs = currentActivePlayTimeMs
+        viewModel.stopEmulation(onExit = { onExit(completedActivePlayTimeMs) })
     })
     val dismissExitClick = rememberDebouncedClick(onClick = { showExitDialog = false })
     val dismissCheatsDialog: () -> Unit = { showCheatsDialog = false }
@@ -584,7 +586,7 @@ fun EmulationScreen(
             sessionRestoredUnavailableMessage,
             Toast.LENGTH_LONG
         ).show()
-        onExit()
+        onExit(0L)
     }
 
     LaunchedEffect(Unit) {

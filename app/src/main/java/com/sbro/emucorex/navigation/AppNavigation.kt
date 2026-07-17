@@ -101,6 +101,13 @@ data class EmulationRoute(
     val exitAppOnExit: Boolean = false
 )
 
+internal fun EmulationRoute.isMeaningfulReviewSession(): Boolean =
+    !bootBios &&
+        !bootSmokeProbe &&
+        !autotestMode &&
+        !exitAppOnExit &&
+        !gamePath.isNullOrBlank()
+
 @Serializable
 data class SettingsRoute(val tab: String = "general")
 
@@ -171,7 +178,8 @@ private fun appScreenPopExitTransition(): ExitTransition {
 fun AppNavigation(
     launchIntentVersion: Int = 0,
     restoredFromSavedState: Boolean = false,
-    onStartupReady: () -> Unit = {}
+    onStartupReady: () -> Unit = {},
+    onEmulationSessionCompleted: (activePlayTimeMs: Long) -> Unit = {}
 ) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
@@ -507,7 +515,7 @@ fun AppNavigation(
                     gsDumpFrames = route.gsDumpFrames,
                     gsDumpDelayMs = route.gsDumpDelayMs,
                     restoredAfterProcessDeath = blockRestoredEmulationRoute,
-                    onExit = {
+                    onExit = { activePlayTimeMs ->
                         if (route.exitAppOnExit) {
                             activity?.finishAndRemoveTask()
                         } else {
@@ -516,6 +524,9 @@ fun AppNavigation(
                                     launchSingleTop = true
                                     popUpTo(navController.graph.startDestinationId) { inclusive = false }
                                 }
+                            }
+                            if (route.isMeaningfulReviewSession()) {
+                                onEmulationSessionCompleted(activePlayTimeMs)
                             }
                         }
                     }

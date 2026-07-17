@@ -6,8 +6,12 @@ import com.sbro.emucorex.core.CrashLogger
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.utils.RetroAchievementsStateManager
 import com.sbro.emucorex.data.AppPreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 class EmuCoreXApp : Application() {
+    internal val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
