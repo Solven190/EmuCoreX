@@ -1704,4 +1704,14 @@
     <string name="settings_ra_unlock_sound_invalid">選択したファイルは有効なWAVファイルではありません。</string>
     <string name="settings_ra_unlock_sound_too_large">選択したWAVファイルが16MBを超えています。</string>
     <string name="settings_ra_unlock_sound_failed">選択したサウンドをインポートできませんでした。</string>
+    <string name="settings_fps_metric_host_cpu">CPUモデルと負荷</string>
+    <string name="settings_fps_metric_host_gpu">GPUモデルと負荷</string>
+    <string name="controls_editor_global_scope">すべてのゲームのデフォルト</string>
+    <string name="controls_editor_game_scope">%1$s 専用</string>
+    <string name="controls_editor_game_inherited">%1$s はグローバルレイアウトを使用しています</string>
+    <string name="controls_editor_save_failed">タッチレイアウトを保存できませんでした。もう一度お試しください。</string>
+    <string name="settings_edit_global_controls">デフォルトのタッチレイアウト</string>
+    <string name="settings_edit_global_controls_desc">独自のレイアウトを持たないすべてのゲームで使用されるタッチコントロールを設定します。</string>
+    <string name="game_settings_edit_controls">このゲームのタッチレイアウトを編集</string>
+    <string name="game_settings_edit_controls_desc">ここでの変更はこのゲームにのみ適用されます。再びグローバルレイアウトを使用するには、エディタでレイアウトをリセットしてください。</string>
 </resources>

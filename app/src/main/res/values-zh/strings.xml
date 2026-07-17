@@ -1706,4 +1706,14 @@
     <string name="settings_ra_unlock_sound_invalid">所选文件不是有效的 WAV 声音。</string>
     <string name="settings_ra_unlock_sound_too_large">所选 WAV 文件大于 16 MB。</string>
     <string name="settings_ra_unlock_sound_failed">无法导入所选声音。</string>
+    <string name="settings_fps_metric_host_cpu">CPU 型号和负载</string>
+    <string name="settings_fps_metric_host_gpu">GPU 型号和负载</string>
+    <string name="controls_editor_global_scope">所有游戏的默认设置</string>
+    <string name="controls_editor_game_scope">仅适用于 %1$s</string>
+    <string name="controls_editor_game_inherited">%1$s 正在使用全局布局</string>
+    <string name="controls_editor_save_failed">无法保存触摸布局。请重试。</string>
+    <string name="settings_edit_global_controls">默认触摸布局</string>
+    <string name="settings_edit_global_controls_desc">设置所有没有专属布局的游戏所使用的触摸控制。</string>
+    <string name="game_settings_edit_controls">编辑此游戏的触摸布局</string>
+    <string name="game_settings_edit_controls_desc">此处的更改仅适用于此游戏。在编辑器中重置布局即可恢复使用全局布局。</string>
 </resources>

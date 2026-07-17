@@ -183,6 +183,7 @@ import com.sbro.emucorex.ui.common.buildOverlayCanvasLayout
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import com.sbro.emucorex.ui.settings.ControlsEditorScreen
+import com.sbro.emucorex.ui.settings.toControlsEditorState
 import com.sbro.emucorex.ui.theme.GradientEnd
 import com.sbro.emucorex.ui.theme.GradientStart
 import kotlinx.coroutines.Dispatchers
@@ -1187,7 +1188,7 @@ fun EmulationScreen(
 
         if (showControlsEditor) {
             ControlsEditorScreen(
-                state = uiState,
+                state = uiState.toControlsEditorState(),
                 onBackClick = { showControlsEditor = false },
                 manageActivityOrientation = false,
                 overlayHorizontalSafeInset = overlayHorizontalSafeInset,

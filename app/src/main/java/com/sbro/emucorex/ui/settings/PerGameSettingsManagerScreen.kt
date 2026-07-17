@@ -65,6 +65,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -83,6 +84,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
@@ -120,6 +124,8 @@ import java.text.DateFormat
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 private enum class GameSettingsManagerTab {
@@ -135,6 +141,7 @@ private val GameSettingsSectionContentPadding = 16.dp
 @Composable
 fun PerGameSettingsManagerScreen(
     initialGamePath: String? = null,
+    onOpenControlsLayoutEditor: (GameItem) -> Unit,
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -145,10 +152,13 @@ fun PerGameSettingsManagerScreen(
     val rootPaths by preferences.gamePaths.collectAsState(initial = emptyList())
     val preferEnglishTitles by preferences.preferEnglishGameTitles.collectAsState(initial = false)
     val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val profileMutationMutex = remember { Mutex() }
     var profiles by remember { mutableStateOf(emptyList<PerGameSettings>()) }
     var libraryGames by remember { mutableStateOf(emptyList<GameItem>()) }
     var selectedGamePath by rememberSaveable { mutableStateOf(initialGamePath) }
     var selectedTab by rememberSaveable { mutableStateOf(GameSettingsManagerTab.Graphics) }
+    var isOpeningControlsEditor by remember { mutableStateOf(false) }
     var showTopBarMenu by remember { mutableStateOf(false) }
     val pendingDeleteProfile = remember { mutableStateOf<PerGameSettings?>(null) }
     val showResetAllDialog = remember { mutableStateOf(false) }
@@ -159,10 +169,26 @@ fun PerGameSettingsManagerScreen(
     val exportFailure = stringResource(R.string.game_settings_manager_export_failure)
     val importSuccess = stringResource(R.string.game_settings_manager_import_success)
     val importFailure = stringResource(R.string.game_settings_manager_import_failure)
+    val controlsLayoutSaveFailure = stringResource(R.string.controls_editor_save_failed)
 
     fun refreshProfiles() {
         scope.launch {
-            profiles = withContext(Dispatchers.IO) {
+            profiles = profileMutationMutex.withLock {
+                withContext(Dispatchers.IO) { repository.getAll() }
+            }
+        }
+    }
+
+    suspend fun persistDraft(draft: PerGameSettings): List<PerGameSettings> {
+        return profileMutationMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val currentLayout = repository.get(draft.gameKey)?.touchControlsLayout
+                repository.save(
+                    draft.copy(
+                        touchControlsLayout = currentLayout,
+                        providedKeys = null
+                    )
+                )
                 repository.getAll()
             }
         }
@@ -176,6 +202,17 @@ fun PerGameSettingsManagerScreen(
         profiles = withContext(Dispatchers.IO) {
             repository.getAll()
         }
+    }
+
+    DisposableEffect(lifecycleOwner, repository) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isOpeningControlsEditor = false
+                refreshProfiles()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     LaunchedEffect(rootPaths, preferEnglishTitles) {
@@ -442,10 +479,7 @@ fun PerGameSettingsManagerScreen(
 
                     LaunchedEffect(draft) {
                         if (hasUserChange) {
-                            profiles = withContext(Dispatchers.IO) {
-                                repository.save(draft.copy(providedKeys = null))
-                                repository.getAll()
-                            }
+                            profiles = persistDraft(draft)
                         } else {
                             hasUserChange = true
                         }
@@ -457,6 +491,20 @@ fun PerGameSettingsManagerScreen(
                         defaultProfile = defaultProfile,
                         selectedTab = selectedTab,
                         maxUpscaleMultiplier = maxUpscaleMultiplier,
+                        onOpenControlsLayoutEditor = {
+                            if (isOpeningControlsEditor) return@GameSettingsManagerEditorPanel
+                            isOpeningControlsEditor = true
+                            scope.launch {
+                                val savedProfiles = runCatching { persistDraft(draft) }.getOrNull()
+                                if (savedProfiles != null) {
+                                    profiles = savedProfiles
+                                    onOpenControlsLayoutEditor(game)
+                                } else {
+                                    isOpeningControlsEditor = false
+                                    toast(controlsLayoutSaveFailure)
+                                }
+                            }
+                        },
                         onDraftChange = { draft = it }
                     )
                 }
@@ -684,6 +732,7 @@ private fun GameSettingsManagerEditorPanel(
     defaultProfile: PerGameSettings,
     selectedTab: GameSettingsManagerTab,
     maxUpscaleMultiplier: Int,
+    onOpenControlsLayoutEditor: () -> Unit,
     onDraftChange: (PerGameSettings) -> Unit
 ) {
     Column(
@@ -710,6 +759,20 @@ private fun GameSettingsManagerEditorPanel(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+        if (selectedTab == GameSettingsManagerTab.Controls) {
+            ManagerActionButton(
+                modifier = Modifier.fillMaxWidth(),
+                icon = Icons.Rounded.Tune,
+                title = stringResource(R.string.game_settings_edit_controls),
+                onClick = onOpenControlsLayoutEditor
+            )
+            Text(
+                text = stringResource(R.string.game_settings_edit_controls_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
         }
         GameSettingsTabContent(
             draft = draft,

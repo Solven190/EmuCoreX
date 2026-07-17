@@ -1707,4 +1707,14 @@
     <string name="settings_ra_unlock_sound_invalid">O arquivo selecionado não é um som WAV válido.</string>
     <string name="settings_ra_unlock_sound_too_large">O arquivo WAV selecionado é maior que 16 MB.</string>
     <string name="settings_ra_unlock_sound_failed">Não foi possível importar o som selecionado.</string>
+    <string name="settings_fps_metric_host_cpu">Modelo e carga da CPU</string>
+    <string name="settings_fps_metric_host_gpu">Modelo e carga da GPU</string>
+    <string name="controls_editor_global_scope">Padrão para todos os jogos</string>
+    <string name="controls_editor_game_scope">Apenas para %1$s</string>
+    <string name="controls_editor_game_inherited">%1$s está usando o layout global</string>
+    <string name="controls_editor_save_failed">O layout de toque não pôde ser salvo. Tente novamente.</string>
+    <string name="settings_edit_global_controls">Layout de toque padrão</string>
+    <string name="settings_edit_global_controls_desc">Defina os controles de toque usados por todos os jogos que não têm seu próprio layout.</string>
+    <string name="game_settings_edit_controls">Editar o layout de toque deste jogo</string>
+    <string name="game_settings_edit_controls_desc">As alterações aqui se aplicam apenas a este jogo. Redefina o layout no editor para usar o layout global novamente.</string>
 </resources>

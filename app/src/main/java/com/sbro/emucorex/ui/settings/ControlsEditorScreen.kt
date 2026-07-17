@@ -64,6 +64,9 @@ import androidx.compose.ui.zIndex
 import com.sbro.emucorex.R
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.OverlayControlLayout
+import com.sbro.emucorex.data.TouchControlPressEffect
+import com.sbro.emucorex.data.TouchControlVisualStyle
+import com.sbro.emucorex.data.TouchControlsLayoutProfile
 import com.sbro.emucorex.ui.common.OverlayCanvasButtonSpec
 import com.sbro.emucorex.ui.common.OverlayCanvasDpadClusterSpec
 import com.sbro.emucorex.ui.common.OverlayCanvasStickSpec
@@ -72,6 +75,67 @@ import com.sbro.emucorex.ui.common.VectorDpadCluster
 import com.sbro.emucorex.ui.common.VectorOverlayButton
 import com.sbro.emucorex.ui.common.buildOverlayCanvasLayout
 import com.sbro.emucorex.ui.emulation.EmulationUiState
+
+data class ControlsEditorState(
+    val overlayScale: Int = 100,
+    val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
+    val touchControlPressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
+    val dpadOffset: Pair<Float, Float> = AppPreferences.DEFAULT_DPAD_OFFSET_X to AppPreferences.DEFAULT_DPAD_OFFSET_Y,
+    val lstickOffset: Pair<Float, Float> = AppPreferences.DEFAULT_LSTICK_OFFSET_X to AppPreferences.DEFAULT_LSTICK_OFFSET_Y,
+    val rstickOffset: Pair<Float, Float> = AppPreferences.DEFAULT_RSTICK_OFFSET_X to AppPreferences.DEFAULT_RSTICK_OFFSET_Y,
+    val actionOffset: Pair<Float, Float> = AppPreferences.DEFAULT_ACTION_OFFSET_X to AppPreferences.DEFAULT_ACTION_OFFSET_Y,
+    val lbtnOffset: Pair<Float, Float> = AppPreferences.DEFAULT_LBTN_OFFSET_X to AppPreferences.DEFAULT_LBTN_OFFSET_Y,
+    val rbtnOffset: Pair<Float, Float> = AppPreferences.DEFAULT_RBTN_OFFSET_X to AppPreferences.DEFAULT_RBTN_OFFSET_Y,
+    val centerOffset: Pair<Float, Float> = AppPreferences.DEFAULT_CENTER_OFFSET_X to AppPreferences.DEFAULT_CENTER_OFFSET_Y,
+    val stickScale: Int = 100,
+    val controlLayouts: Map<String, OverlayControlLayout> = AppPreferences.defaultOverlayControlLayouts()
+)
+
+fun EmulationUiState.toControlsEditorState(): ControlsEditorState = ControlsEditorState(
+    overlayScale = overlayScale,
+    touchControlVisualStyle = touchControlVisualStyle,
+    touchControlPressEffect = touchControlPressEffect,
+    dpadOffset = dpadOffset,
+    lstickOffset = lstickOffset,
+    rstickOffset = rstickOffset,
+    actionOffset = actionOffset,
+    lbtnOffset = lbtnOffset,
+    rbtnOffset = rbtnOffset,
+    centerOffset = centerOffset,
+    stickScale = stickScale,
+    controlLayouts = controlLayouts
+)
+
+fun TouchControlsLayoutProfile.toControlsEditorState(
+    visualStyle: TouchControlVisualStyle,
+    pressEffect: TouchControlPressEffect,
+    overlayScale: Int
+): ControlsEditorState = ControlsEditorState(
+    overlayScale = overlayScale,
+    touchControlVisualStyle = visualStyle,
+    touchControlPressEffect = pressEffect,
+    dpadOffset = dpadOffset,
+    lstickOffset = lstickOffset,
+    rstickOffset = rstickOffset,
+    actionOffset = actionOffset,
+    lbtnOffset = lbtnOffset,
+    rbtnOffset = rbtnOffset,
+    centerOffset = centerOffset,
+    stickScale = stickScale,
+    controlLayouts = controlLayouts
+)
+
+fun ControlsEditorState.toTouchControlsLayoutProfile(): TouchControlsLayoutProfile = TouchControlsLayoutProfile(
+    dpadOffset = dpadOffset,
+    lstickOffset = lstickOffset,
+    rstickOffset = rstickOffset,
+    actionOffset = actionOffset,
+    lbtnOffset = lbtnOffset,
+    rbtnOffset = rbtnOffset,
+    centerOffset = centerOffset,
+    stickScale = stickScale,
+    controlLayouts = controlLayouts
+)
 
 private const val ControlGroupDpad = "group_dpad"
 private const val ControlGroupActions = "group_actions"
@@ -89,8 +153,9 @@ private data class PreviewGroupBounds(
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun ControlsEditorScreen(
-    state: EmulationUiState,
+    state: ControlsEditorState,
     onBackClick: () -> Unit,
+    subtitle: String? = null,
     manageActivityOrientation: Boolean = true,
     overlayHorizontalSafeInset: Dp? = null,
     overlayTopSafeInset: Dp? = null,
@@ -261,6 +326,14 @@ fun ControlsEditorScreen(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = Color.White
                     )
+                    subtitle?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.84f),
+                            maxLines = 1
+                        )
+                    }
                     selectedControlId?.let {
                         Text(
                             text = controlTitle(it),
@@ -534,7 +607,7 @@ private fun controlTitle(controlId: String): String = when (controlId) {
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 private fun PreviewLayout(
-    state: EmulationUiState,
+    state: ControlsEditorState,
     controlLayouts: Map<String, OverlayControlLayout>,
     selectedControlId: String?,
     onSelectControl: (String) -> Unit,

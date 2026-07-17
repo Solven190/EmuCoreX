@@ -1719,4 +1719,14 @@
     <string name="settings_ra_unlock_sound_invalid">File yang dipilih bukan suara WAV yang valid.</string>
     <string name="settings_ra_unlock_sound_too_large">File WAV yang dipilih lebih besar dari 16 MB.</string>
     <string name="settings_ra_unlock_sound_failed">Suara yang dipilih tidak dapat diimpor.</string>
+    <string name="settings_fps_metric_host_cpu">Model dan beban CPU</string>
+    <string name="settings_fps_metric_host_gpu">Model dan beban GPU</string>
+    <string name="controls_editor_global_scope">Default untuk semua game</string>
+    <string name="controls_editor_game_scope">Hanya untuk %1$s</string>
+    <string name="controls_editor_game_inherited">%1$s menggunakan tata letak global</string>
+    <string name="controls_editor_save_failed">Tata letak sentuh tidak dapat disimpan. Silakan coba lagi.</string>
+    <string name="settings_edit_global_controls">Tata Letak Sentuh Default</string>
+    <string name="settings_edit_global_controls_desc">Atur kontrol sentuh yang digunakan oleh setiap game yang tidak memiliki tata letaknya sendiri.</string>
+    <string name="game_settings_edit_controls">Edit Tata Letak Sentuh Game Ini</string>
+    <string name="game_settings_edit_controls_desc">Perubahan di sini hanya berlaku untuk game ini. Setel ulang tata letak di editor untuk menggunakan tata letak global lagi.</string>
 </resources>

@@ -1704,4 +1704,14 @@
     <string name="settings_ra_unlock_sound_invalid">선택한 파일이 올바른 WAV 오디오가 아닙니다.</string>
     <string name="settings_ra_unlock_sound_too_large">선택한 WAV 파일이 16MB보다 큽니다.</string>
     <string name="settings_ra_unlock_sound_failed">선택한 소리를 가져올 수 없습니다.</string>
+    <string name="settings_fps_metric_host_cpu">CPU 모델 및 사용량</string>
+    <string name="settings_fps_metric_host_gpu">GPU 모델 및 사용량</string>
+    <string name="controls_editor_global_scope">모든 게임의 기본값</string>
+    <string name="controls_editor_game_scope">%1$s 전용</string>
+    <string name="controls_editor_game_inherited">%1$s은(는) 전역 레이아웃을 사용 중입니다</string>
+    <string name="controls_editor_save_failed">터치 레이아웃을 저장할 수 없습니다. 다시 시도해 주세요.</string>
+    <string name="settings_edit_global_controls">기본 터치 레이아웃</string>
+    <string name="settings_edit_global_controls_desc">자체 레이아웃이 없는 모든 게임에서 사용하는 터치 컨트롤을 설정합니다.</string>
+    <string name="game_settings_edit_controls">이 게임의 터치 레이아웃 편집</string>
+    <string name="game_settings_edit_controls_desc">여기서 변경된 사항은 이 게임에만 적용됩니다. 전역 레이아웃을 다시 사용하려면 편집기에서 레이아웃을 재설정하세요.</string>
 </resources>

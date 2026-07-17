@@ -7,6 +7,22 @@ internal data class PerformanceOverlayLayout(
     val bottomLines: List<String>
 )
 
+private val overlayColonSpacing = Regex(":\\s+")
+private val overlayPipeSpacing = Regex("\\s*\\|\\s*")
+private val overlaySlashSpacing = Regex("\\s*/\\s*")
+private val overlayGroupingSpacing = Regex("\\s+(?=[\\[(])")
+private val overlayUnitSpacing = Regex("(?<=\\d)\\s+(?=(?:ms|MB)\\b)")
+
+internal fun compactPerformanceOverlayLine(line: String): String {
+    return line
+        .replace(overlayColonSpacing, ":")
+        .replace(overlayPipeSpacing, "|")
+        .replace(overlaySlashSpacing, "/")
+        .replace(overlayGroupingSpacing, "")
+        .replace(overlayUnitSpacing, "")
+        .trim()
+}
+
 internal fun buildPerformanceOverlayLayout(
     text: String,
     metricsMask: Int,
@@ -99,8 +115,10 @@ internal fun buildPerformanceOverlayLayout(
     }
 
     return PerformanceOverlayLayout(
-        mainLines = listOf(fixedHeaderLine).filter(String::isNotBlank) +
-            topLines + processorLines + hardwareLines + softwareThreadLines + unknownLines,
-        bottomLines = bottomLines
+        mainLines = (
+            listOf(fixedHeaderLine).filter(String::isNotBlank) +
+                topLines + processorLines + hardwareLines + softwareThreadLines + unknownLines
+            ).map(::compactPerformanceOverlayLine),
+        bottomLines = bottomLines.map(::compactPerformanceOverlayLine)
     )
 }

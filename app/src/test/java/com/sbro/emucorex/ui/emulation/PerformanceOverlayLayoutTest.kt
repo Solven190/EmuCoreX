@@ -15,8 +15,8 @@ class PerformanceOverlayLayoutTest {
         Frame: 15.20 / 16.67 / 18.40 ms
         Queue: 2
         Res: 1280x896 NTSC Progressive
-        CPU: Snapdragon 8 Gen 3 | 31.5%
-        GPU: Adreno 750 | 82.4% (13.73ms)
+        CPU:Snapdragon 8 Gen 3 | 31.5%
+        GPU:Adreno 750 | 82.4% (13.73ms)
         EE: 55.2% (11.04 ms)
         GS: 57.7% (11.53 ms)
         VU: 57.4% (11.49 ms)
@@ -28,17 +28,17 @@ class PerformanceOverlayLayoutTest {
         val layout = buildPerformanceOverlayLayout(
             fullSnapshot,
             PerformanceOverlayMetrics.DEFAULT,
-            "EmuCoreX - 0.2.6 | 119 | v2.7.316"
+            "EmuCoreX-0.2.6 | 119 | v2.7.316"
         )
 
-        assertEquals("EmuCoreX - 0.2.6 | 119 | v2.7.316", layout.mainLines[0])
-        assertEquals("FPS: 59.94 [P] | VPS: 60.00", layout.mainLines[1])
-        assertEquals("Speed: 100% | Target: 100%", layout.mainLines[2])
+        assertEquals("EmuCoreX-0.2.6|119|v2.7.316", layout.mainLines[0])
+        assertEquals("FPS:59.94[P]|VPS:60.00", layout.mainLines[1])
+        assertEquals("Speed:100%|Target:100%", layout.mainLines[2])
         assertTrue(layout.mainLines.any { it.startsWith("CPU:") })
         assertTrue(layout.mainLines.any { it.startsWith("GPU:") })
         assertTrue(layout.mainLines.any { it.startsWith("EE:") })
         assertTrue(layout.mainLines.any { it.startsWith("SW-0:") })
-        assertEquals("Vulkan HW | VRAM: 24 MB | TGT: 8 MB | SRC: 4 MB", layout.bottomLines[0])
+        assertEquals("Vulkan HW|VRAM:24MB|TGT:8MB|SRC:4MB", layout.bottomLines[0])
         assertFalse(layout.bottomLines.any { it.startsWith("GS Queue:") })
     }
 
@@ -47,7 +47,7 @@ class PerformanceOverlayLayoutTest {
         val mask = PerformanceOverlayMetrics.VPS or PerformanceOverlayMetrics.TARGET
         val layout = buildPerformanceOverlayLayout(fullSnapshot, mask)
 
-        assertEquals(listOf("VPS: 60.00", "Target: 100%"), layout.mainLines)
+        assertEquals(listOf("VPS:60.00", "Target:100%"), layout.mainLines)
         assertTrue(layout.bottomLines.isEmpty())
     }
 
@@ -57,14 +57,14 @@ class PerformanceOverlayLayoutTest {
         val vramOnly = buildPerformanceOverlayLayout(fullSnapshot, PerformanceOverlayMetrics.VRAM)
 
         assertEquals(listOf("Vulkan HW"), rendererOnly.bottomLines)
-        assertEquals(listOf("VRAM: 24 MB | TGT: 8 MB | SRC: 4 MB"), vramOnly.bottomLines)
+        assertEquals(listOf("VRAM:24MB|TGT:8MB|SRC:4MB"), vramOnly.bottomLines)
     }
 
     @Test
     fun queueCanBeEnabledExplicitly() {
         val layout = buildPerformanceOverlayLayout(fullSnapshot, PerformanceOverlayMetrics.QUEUE)
 
-        assertEquals(listOf("GS Queue: 2"), layout.bottomLines)
+        assertEquals(listOf("GS Queue:2"), layout.bottomLines)
         assertTrue(layout.mainLines.isEmpty())
     }
 
@@ -73,14 +73,14 @@ class PerformanceOverlayLayoutTest {
         val layout = buildPerformanceOverlayLayout(
             fullSnapshot,
             PerformanceOverlayMetrics.HOST_CPU or PerformanceOverlayMetrics.HOST_GPU,
-            "EmuCoreX - 0.2.6 | 119 | v2.7.316"
+            "EmuCoreX-0.2.6 | 119 | v2.7.316"
         )
 
         assertEquals(
             listOf(
-                "EmuCoreX - 0.2.6 | 119 | v2.7.316",
-                "CPU: Snapdragon 8 Gen 3 | 31.5%",
-                "GPU: Adreno 750 | 82.4% (13.73ms)"
+                "EmuCoreX-0.2.6|119|v2.7.316",
+                "CPU:Snapdragon 8 Gen 3|31.5%",
+                "GPU:Adreno 750|82.4%(13.73ms)"
             ),
             layout.mainLines
         )
@@ -99,9 +99,25 @@ class PerformanceOverlayLayoutTest {
 
     @Test
     fun cpuPlatformCodeCanBeReplacedWithoutChangingItsLoad() {
-        val text = replacePerformanceCpuName("CPU: SM8850 | 4.9%", "Snapdragon 8 Elite Gen 5")
+        val text = replacePerformanceCpuName("CPU:SM8850 | 4.9%", "Snapdragon 8 Elite Gen 5")
 
-        assertEquals("CPU: Snapdragon 8 Elite Gen 5 | 4.9%", text)
+        assertEquals("CPU:Snapdragon 8 Elite Gen 5 | 4.9%", text)
+    }
+
+    @Test
+    fun allFormattingWhitespaceIsCompactedWithoutDamagingNames() {
+        assertEquals(
+            "CPU:Snapdragon 8 Elite Gen 5|4.7%(2.15ms)",
+            compactPerformanceOverlayLine(" CPU: Snapdragon 8 Elite Gen 5 | 4.7% (2.15 ms) ")
+        )
+        assertEquals(
+            "Res:640x512 PAL Interlaced(Field)",
+            compactPerformanceOverlayLine("Res: 640x512 PAL Interlaced (Field)")
+        )
+        assertEquals(
+            "Frame:17.89/20.00/22.73ms",
+            compactPerformanceOverlayLine("Frame: 17.89 / 20.00 / 22.73 ms")
+        )
     }
 
     @Test

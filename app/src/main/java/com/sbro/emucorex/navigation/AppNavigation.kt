@@ -61,6 +61,7 @@ import com.sbro.emucorex.ui.onboarding.OnboardingScreen
 import com.sbro.emucorex.ui.profile.ProfileScreen
 import com.sbro.emucorex.ui.saves.SaveManagerScreen
 import com.sbro.emucorex.ui.settings.LanguageSettingsScreen
+import com.sbro.emucorex.ui.settings.ControlsLayoutEditorHostScreen
 import com.sbro.emucorex.ui.settings.PerGameSettingsManagerScreen
 import com.sbro.emucorex.ui.settings.SettingsScreen
 import com.sbro.emucorex.ui.settings.SettingsViewModel
@@ -149,6 +150,13 @@ object AccountUnlockedAchievementsRoute
 
 @Serializable
 data class GameSettingsManagerRoute(val gamePath: String? = null)
+
+@Serializable
+data class ControlsLayoutEditorRoute(
+    val gamePath: String? = null,
+    val gameTitle: String? = null,
+    val gameSerial: String? = null
+)
 
 @Serializable
 data class GameAchievementsRoute(val gamePath: String, val gameTitle: String? = null)
@@ -639,6 +647,11 @@ fun AppNavigation(
                                 launchSingleTop = true
                             }
                         },
+                        onOpenControlsLayoutEditor = {
+                            navController.navigate(ControlsLayoutEditorRoute()) {
+                                launchSingleTop = true
+                            }
+                        },
                         viewModel = settingsViewModel
                     )
                 }
@@ -669,6 +682,27 @@ fun AppNavigation(
                 val route = backStackEntry.toRoute<GameSettingsManagerRoute>()
                 PerGameSettingsManagerScreen(
                     initialGamePath = route.gamePath,
+                    onOpenControlsLayoutEditor = { game ->
+                        navController.navigate(
+                            ControlsLayoutEditorRoute(
+                                gamePath = game.path,
+                                gameTitle = game.title,
+                                gameSerial = game.serial
+                            )
+                        ) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            composable<ControlsLayoutEditorRoute> { backStackEntry ->
+                val route = backStackEntry.toRoute<ControlsLayoutEditorRoute>()
+                ControlsLayoutEditorHostScreen(
+                    gamePath = route.gamePath,
+                    gameTitle = route.gameTitle,
+                    gameSerial = route.gameSerial,
                     onBackClick = { navController.popBackStack() }
                 )
             }
