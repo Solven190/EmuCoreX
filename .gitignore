@@ -9,6 +9,13 @@
 # Local machine config
 local.properties
 app/google-services.json
+/.env
+/.env.*
+*.secret
+*.secrets
+
+# Local Cloudflare Workers and deployment secrets
+/workers/
 
 # Local Firebase deployment and maintenance files
 /.firebase/
@@ -95,3 +102,4 @@ app/src/main/cpp/PCSX2/bin/docs/
 # Temporary / backup directories
 CoreVixlOLD/
 OLDCORE/
+oldcore/

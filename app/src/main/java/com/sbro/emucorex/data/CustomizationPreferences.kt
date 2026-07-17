@@ -101,6 +101,7 @@ enum class DrawerItemId(val required: Boolean = false) {
     SAVE_STATES,
     APP_SETTINGS(required = true),
     SUPPORTED_FORMATS,
+    FEEDBACK,
     DISCORD
 }
 

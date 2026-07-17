@@ -20,6 +20,13 @@ val localProperties = Properties().apply {
 
 fun localProperty(name: String): String? = localProperties.getProperty(name)?.takeIf { it.isNotBlank() }
 
+fun buildConfigString(value: String): String = "\"" + value
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"") + "\""
+
+val feedbackEndpoint = localProperty("emucorex.feedback.endpoint").orEmpty()
+val feedbackApiKey = localProperty("emucorex.feedback.apiKey").orEmpty()
+
 val releaseStoreFilePath = localProperty("emucorex.release.storeFile")
 val releaseStorePassword = localProperty("emucorex.release.storePassword")
 val releaseKeyAlias = localProperty("emucorex.release.keyAlias")
@@ -42,6 +49,9 @@ android {
         targetSdk = 37
         versionCode = 119
         versionName = "0.2.6"
+
+        buildConfigField("String", "FEEDBACK_ENDPOINT", buildConfigString(feedbackEndpoint))
+        buildConfigField("String", "FEEDBACK_API_KEY", buildConfigString(feedbackApiKey))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -98,6 +108,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     sourceSets {
         getByName("main") {
@@ -172,6 +183,7 @@ dependencies {
     implementation(libs.google.play.billing)
     implementation(libs.google.play.review)
     implementation(libs.google.play.review.ktx)
+    implementation(libs.androidx.work.runtime)
     implementation(libs.android.youtube.player.core)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
