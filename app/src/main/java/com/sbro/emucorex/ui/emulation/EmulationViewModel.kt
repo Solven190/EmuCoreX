@@ -160,7 +160,7 @@ data class EmulationUiState(
     val performancePreset: Int = PerformancePresets.CUSTOM,
     val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
-    val enableThreadPinning: Boolean = false,
+    val enableThreadPinning: Boolean = AppPreferences.DEFAULT_THREAD_PINNING,
     val enableFastCdvd: Boolean = false,
     val enableFastBoot: Boolean = true,
     val enableCheats: Boolean = false,

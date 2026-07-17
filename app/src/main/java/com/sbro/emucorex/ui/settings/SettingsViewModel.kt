@@ -142,7 +142,7 @@ data class SettingsUiState(
     val enableVuFlagHack: Boolean = true,
     val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
-    val enableThreadPinning: Boolean = false,
+    val enableThreadPinning: Boolean = AppPreferences.DEFAULT_THREAD_PINNING,
     val enableFastBoot: Boolean = true,
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
