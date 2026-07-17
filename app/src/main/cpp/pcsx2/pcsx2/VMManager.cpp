@@ -3608,6 +3608,16 @@ static u32 GetProcessorIdForProcessor(const cpuinfo_processor* proc)
 #endif
 }
 
+#if defined(__ANDROID__)
+static u64 GetAndroidProcessorCapacity(const cpuinfo_processor* proc)
+{
+	const u32 processor_id = GetProcessorIdForProcessor(proc);
+	const std::string path = fmt::format("/sys/devices/system/cpu/cpu{}/cpu_capacity", processor_id);
+	const std::optional<std::string> value = FileSystem::ReadFileToString(path.c_str());
+	return value.has_value() ? StringUtil::FromChars<u64>(*value).value_or(0) : 0;
+}
+#endif
+
 static void InitializeProcessorList()
 {
 	if (!cpuinfo_initialize())
@@ -3631,10 +3641,40 @@ static void InitializeProcessorList()
 		processors.push_back(proc);
 	}
 
-	// Prioritize faster cores in heterogeneous CPUs.
+	// Prioritize faster cores in heterogeneous CPUs. Android's scheduler capacity is a better
+	// performance signal than frequency alone because it also accounts for different core designs.
+#if defined(__ANDROID__)
+	std::vector<u64> capacities;
+	capacities.reserve(processors.size());
+	for (const cpuinfo_processor* proc : processors)
+		capacities.push_back(GetAndroidProcessorCapacity(proc));
+	const bool have_complete_capacity_data =
+		!capacities.empty() && std::all_of(capacities.begin(), capacities.end(), [](u64 value) { return value > 0; });
+#endif
 	std::sort(processors.begin(), processors.end(),
-		[](const cpuinfo_processor* lhs, const cpuinfo_processor* rhs) {
-			return (lhs->core->frequency > rhs->core->frequency);
+		[
+#if defined(__ANDROID__)
+			have_complete_capacity_data
+#endif
+		](const cpuinfo_processor* lhs, const cpuinfo_processor* rhs) {
+#if defined(__ANDROID__)
+			if (have_complete_capacity_data)
+			{
+				const u64 lhs_capacity = GetAndroidProcessorCapacity(lhs);
+				const u64 rhs_capacity = GetAndroidProcessorCapacity(rhs);
+				if (lhs_capacity != rhs_capacity)
+					return lhs_capacity > rhs_capacity;
+			}
+#endif
+			if (lhs->core->frequency != rhs->core->frequency)
+				return lhs->core->frequency > rhs->core->frequency;
+#if defined(__ANDROID__)
+			// Android devices conventionally enumerate efficiency cores first. This only acts as a
+			// deterministic fallback when both capacity and frequency are identical or unavailable.
+			return GetProcessorIdForProcessor(lhs) > GetProcessorIdForProcessor(rhs);
+#else
+			return GetProcessorIdForProcessor(lhs) < GetProcessorIdForProcessor(rhs);
+#endif
 		});
 
 	SmallString str;

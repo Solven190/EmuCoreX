@@ -131,7 +131,7 @@ data class SettingsSnapshot(
     val enableVuFlagHack: Boolean = true,
     val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
-    val enableThreadPinning: Boolean = false,
+    val enableThreadPinning: Boolean = AppPreferences.DEFAULT_THREAD_PINNING,
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
     val hwDownloadMode: Int = PerformanceProfiles.safeConfig.hwDownloadMode,
@@ -293,6 +293,7 @@ class AppPreferences(private val context: Context) {
         const val DEV9_DNS_MODE_INTERNAL = "Internal"
         private const val CURRENT_OVERLAY_LAYOUT_VERSION = 16
         const val DEFAULT_NTSC_FRAMERATE = 59.94f
+        const val DEFAULT_THREAD_PINNING = true
         const val DEFAULT_PAL_FRAMERATE = 50f
         const val DEFAULT_FAST_FORWARD_SPEED = 2.0f
         const val DEFAULT_APP_FONT_SCALE = 1.0f
@@ -1391,7 +1392,7 @@ class AppPreferences(private val context: Context) {
                 enableVuFlagHack = prefs[ENABLE_VU_FLAG_HACK] ?: true,
                 enableInstantVu1 = prefs[ENABLE_INSTANT_VU1] ?: true,
                 enableMtvu = prefs[ENABLE_MTVU] ?: true,
-                enableThreadPinning = prefs[ENABLE_THREAD_PINNING] ?: false,
+                enableThreadPinning = prefs[ENABLE_THREAD_PINNING] ?: DEFAULT_THREAD_PINNING,
                 enableFastCdvd = prefs[ENABLE_FAST_CDVD] ?: false,
                 enableCheats = prefs[ENABLE_CHEATS] ?: false,
                 hwDownloadMode = GsHackDefaults.coerceHardwareDownloadMode(
@@ -2212,7 +2213,7 @@ class AppPreferences(private val context: Context) {
     }
 
     val enableThreadPinning: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[ENABLE_THREAD_PINNING] ?: false
+        prefs[ENABLE_THREAD_PINNING] ?: DEFAULT_THREAD_PINNING
     }
 
     suspend fun setEnableThreadPinning(enabled: Boolean) {
@@ -3126,7 +3127,7 @@ class AppPreferences(private val context: Context) {
             put("enableVuFlagHack", prefs[ENABLE_VU_FLAG_HACK] ?: true)
             put("enableInstantVu1", prefs[ENABLE_INSTANT_VU1] ?: true)
             put("enableMtvu", prefs[ENABLE_MTVU] ?: true)
-            put("enableThreadPinning", prefs[ENABLE_THREAD_PINNING] ?: false)
+            put("enableThreadPinning", prefs[ENABLE_THREAD_PINNING] ?: DEFAULT_THREAD_PINNING)
             put("enableFastCdvd", prefs[ENABLE_FAST_CDVD] ?: false)
             put("hwDownloadMode", GsHackDefaults.coerceHardwareDownloadMode(
                 prefs[HW_DOWNLOAD_MODE] ?: GsHackDefaults.HW_DOWNLOAD_MODE_DEFAULT
@@ -3417,7 +3418,7 @@ class AppPreferences(private val context: Context) {
             prefs[ENABLE_VU_FLAG_HACK] = json.optBoolean("enableVuFlagHack", true)
             prefs[ENABLE_INSTANT_VU1] = json.optBoolean("enableInstantVu1", true)
             prefs[ENABLE_MTVU] = json.optBoolean("enableMtvu", true)
-            prefs[ENABLE_THREAD_PINNING] = json.optBoolean("enableThreadPinning", false)
+            prefs[ENABLE_THREAD_PINNING] = json.optBoolean("enableThreadPinning", DEFAULT_THREAD_PINNING)
             prefs[ENABLE_FAST_CDVD] = json.optBoolean("enableFastCdvd", false)
             prefs[HW_DOWNLOAD_MODE] = GsHackDefaults.coerceHardwareDownloadMode(
                 json.optInt("hwDownloadMode", GsHackDefaults.HW_DOWNLOAD_MODE_DEFAULT)

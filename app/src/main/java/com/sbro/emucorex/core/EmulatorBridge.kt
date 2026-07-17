@@ -339,7 +339,7 @@ object EmulatorBridge {
         vuFlagHack: Boolean = true,
         instantVu1: Boolean = true,
         mtvu: Boolean = true,
-        enableThreadPinning: Boolean = false,
+        enableThreadPinning: Boolean = AppPreferences.DEFAULT_THREAD_PINNING,
         enableFastBoot: Boolean = true,
         fastCdvd: Boolean = false,
         enableCheats: Boolean = false,

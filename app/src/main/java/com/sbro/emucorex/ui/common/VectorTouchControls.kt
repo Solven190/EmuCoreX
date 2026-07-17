@@ -62,13 +62,6 @@ import kotlin.math.roundToInt
 private val OverlaySelectedStroke = Color(0xFF7CC8FF).copy(alpha = 0.88f)
 private val OverlayPreviewStroke = Color.White.copy(alpha = 0.18f)
 
-private data class DpadHubStyle(
-    val shape: Shape,
-    val scale: Float,
-    val brush: Brush,
-    val borderColor: Color
-)
-
 @Composable
 private fun animatedPressScale(
     pressed: Boolean,
@@ -550,103 +543,22 @@ fun VectorDpadCluster(
         TouchControlVisualStyle.ARCADE -> CircleShape
         TouchControlVisualStyle.MINIMAL -> RoundedCornerShape(24.dp)
     }
-    val clusterBrush = when (visualStyle) {
-        TouchControlVisualStyle.CLASSIC -> Brush.verticalGradient(
-            listOf(Color(0xFF14213A).copy(alpha = 0.54f), Color(0xFF14213A).copy(alpha = 0.54f))
-        )
-        TouchControlVisualStyle.LEGACY -> Brush.radialGradient(
-            listOf(Color(0xFF5B626D).copy(alpha = 0.82f), Color(0xFF11141A).copy(alpha = 0.94f))
-        )
-        TouchControlVisualStyle.MODERN -> Brush.linearGradient(
-            listOf(
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-            )
-        )
-        TouchControlVisualStyle.ARCADE -> Brush.radialGradient(
-            listOf(Color(0xFF8D2F62).copy(alpha = 0.86f), Color(0xFF1D1021).copy(alpha = 0.97f))
-        )
-        TouchControlVisualStyle.MINIMAL -> Brush.radialGradient(
-            listOf(
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.06f)
-            )
-        )
-    }
     val buttonSize = size * 0.36f
     Box(
         modifier = modifier
             .size(size)
             .graphicsLayer(alpha = alpha)
-            .clip(shape)
-            .background(clusterBrush)
-            .border(
-                width = if (selected) 1.5.dp else 1.dp,
-                color = when {
-                    selected -> OverlaySelectedStroke
-                    alpha < 0.65f -> OverlayPreviewStroke.copy(alpha = 0.35f)
-                    visualStyle == TouchControlVisualStyle.MODERN -> MaterialTheme.colorScheme.primary.copy(alpha = 0.48f)
-                    visualStyle == TouchControlVisualStyle.LEGACY -> Color.White.copy(alpha = 0.32f)
-                    visualStyle == TouchControlVisualStyle.ARCADE -> Color(0xFFFFD166).copy(alpha = 0.86f)
-                    visualStyle == TouchControlVisualStyle.MINIMAL -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f)
-                    else -> Color.White.copy(alpha = 0.16f)
-                },
-                shape = shape
+            .then(
+                if (selected) {
+                    Modifier.border(1.5.dp, OverlaySelectedStroke, shape)
+                } else {
+                    Modifier
+                }
             )
             .onSizeChanged { bounds = androidx.compose.ui.geometry.Size(it.width.toFloat(), it.height.toFloat()) }
             .then(pointerModifier),
         contentAlignment = Alignment.Center
     ) {
-        val hubStyle = when (visualStyle) {
-            TouchControlVisualStyle.CLASSIC -> null
-            TouchControlVisualStyle.LEGACY -> DpadHubStyle(
-                shape = CircleShape,
-                scale = 0.78f,
-                brush = Brush.verticalGradient(listOf(Color(0xFF454B55), Color(0xFF171A20))),
-                borderColor = Color.White.copy(alpha = 0.25f)
-            )
-            TouchControlVisualStyle.MODERN -> DpadHubStyle(
-                shape = RoundedCornerShape(7.dp),
-                scale = 0.68f,
-                brush = Brush.linearGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.46f),
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f)
-                    )
-                ),
-                borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-            )
-            TouchControlVisualStyle.ARCADE -> DpadHubStyle(
-                shape = CircleShape,
-                scale = 0.86f,
-                brush = Brush.radialGradient(listOf(Color(0xFFFFD166), Color(0xFFD94C78), Color(0xFF441832))),
-                borderColor = Color(0xFFFFE29A).copy(alpha = 0.92f)
-            )
-            TouchControlVisualStyle.MINIMAL -> DpadHubStyle(
-                shape = CircleShape,
-                scale = 0.48f,
-                brush = Brush.radialGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
-                        Color.Transparent
-                    )
-                ),
-                borderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f)
-            )
-        }
-        hubStyle?.let { style ->
-            Box(
-                modifier = Modifier
-                    .size(buttonSize * style.scale)
-                    .clip(style.shape)
-                    .background(style.brush)
-                    .border(
-                        1.dp,
-                        style.borderColor,
-                        style.shape
-                    )
-            )
-        }
         VectorOverlayButton(
             drawableRes = R.drawable.ic_controller_up_button,
             width = buttonSize,
