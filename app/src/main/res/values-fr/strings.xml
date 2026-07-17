@@ -1707,4 +1707,14 @@
     <string name="settings_ra_unlock_sound_invalid">Le fichier sélectionné n\'est pas un son WAV valide.</string>
     <string name="settings_ra_unlock_sound_too_large">Le fichier WAV sélectionné dépasse 16 Mo.</string>
     <string name="settings_ra_unlock_sound_failed">Le son sélectionné n\'a pas pu être importé.</string>
+    <string name="settings_fps_metric_host_cpu">Modèle et charge du CPU</string>
+    <string name="settings_fps_metric_host_gpu">Modèle et charge du GPU</string>
+    <string name="controls_editor_global_scope">Par défaut pour tous les jeux</string>
+    <string name="controls_editor_game_scope">Uniquement pour %1$s</string>
+    <string name="controls_editor_game_inherited">%1$s utilise la disposition globale</string>
+    <string name="controls_editor_save_failed">La disposition tactile n\'a pas pu être enregistrée. Veuillez réessayer.</string>
+    <string name="settings_edit_global_controls">Disposition tactile par défaut</string>
+    <string name="settings_edit_global_controls_desc">Définissez les commandes tactiles utilisées par chaque jeu qui ne possède pas sa propre disposition.</string>
+    <string name="game_settings_edit_controls">Modifier la disposition tactile de ce jeu</string>
+    <string name="game_settings_edit_controls_desc">Les modifications apportées ici ne s\'appliquent qu\'à ce jeu. Réinitialisez la disposition dans l\'éditeur pour utiliser à nouveau la disposition globale.</string>
 </resources>

@@ -1709,4 +1709,14 @@
     <string name="settings_ra_unlock_sound_invalid">الملف المحدد ليس صوت WAV صالحًا.</string>
     <string name="settings_ra_unlock_sound_too_large">ملف WAV المحدد أكبر من 16 ميغابايت.</string>
     <string name="settings_ra_unlock_sound_failed">تعذر استيراد الصوت المحدد.</string>
+    <string name="settings_fps_metric_host_cpu">طراز CPU والحمل</string>
+    <string name="settings_fps_metric_host_gpu">طراز GPU والحمل</string>
+    <string name="controls_editor_global_scope">الافتراضي لجميع الألعاب</string>
+    <string name="controls_editor_game_scope">فقط لـ %1$s</string>
+    <string name="controls_editor_game_inherited">يستخدم %1$s التخطيط العام</string>
+    <string name="controls_editor_save_failed">تعذر حفظ تخطيط اللمس. يرجى المحاولة مرة أخرى.</string>
+    <string name="settings_edit_global_controls">تخطيط اللمس الافتراضي</string>
+    <string name="settings_edit_global_controls_desc">قم بتعيين عناصر التحكم باللمس المستخدمة بواسطة كل لعبة ليس لها تخطيطها الخاص.</string>
+    <string name="game_settings_edit_controls">تعديل تخطيط اللمس لهذه اللعبة</string>
+    <string name="game_settings_edit_controls_desc">التغييرات هنا تنطبق فقط على هذه اللعبة. أعد تعيين التخطيط في المحرر لاستخدام التخطيط العام مرة أخرى.</string>
 </resources>

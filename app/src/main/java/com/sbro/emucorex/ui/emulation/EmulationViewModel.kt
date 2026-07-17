@@ -31,6 +31,10 @@ import com.sbro.emucorex.data.OverlayLayoutSnapshot
 import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.TouchControlsLayoutProfile
+import com.sbro.emucorex.data.PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY
+import com.sbro.emucorex.data.saveTouchControlsLayout
+import com.sbro.emucorex.data.withTouchControlsLayout
+import com.sbro.emucorex.data.withoutTouchControlsLayout
 import com.sbro.emucorex.data.TouchControlVisualStyle
 import com.sbro.emucorex.data.TouchControlPressEffect
 import com.sbro.emucorex.data.GameMenuLayoutStyle
@@ -72,7 +76,7 @@ private fun buildPerformanceOverlayHeader(application: Application): String {
     val coreVersion = runCatching { NativeApp.getCoreVersion().orEmpty() }
         .getOrDefault("")
         .ifBlank { "?" }
-    return "EmuCoreX - $appVersion | $buildNumber | $coreVersion"
+    return "EmuCoreX-$appVersion | $buildNumber | $coreVersion"
 }
 
 internal fun replacePerformanceCpuName(text: String, cpuName: String): String {
@@ -80,7 +84,7 @@ internal fun replacePerformanceCpuName(text: String, cpuName: String): String {
     return text.lineSequence().joinToString("\n") { line ->
         if (!line.startsWith("CPU:")) return@joinToString line
         val valuesStart = line.indexOf(" | ")
-        if (valuesStart < 0) "CPU: $cpuName" else "CPU: $cpuName${line.substring(valuesStart)}"
+        if (valuesStart < 0) "CPU:$cpuName" else "CPU:$cpuName${line.substring(valuesStart)}"
     }
 }
 
@@ -440,7 +444,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         private const val AUTO_SAVE_SLOT = 0
         private const val PLAY_TIME_LOCAL_CACHE_INTERVAL_MS = 60_000L
         private const val PLAY_TIME_CLOUD_SYNC_INTERVAL_MS = 10L * 60_000L
-        private const val TOUCH_CONTROLS_LAYOUT_KEY = "touchControlsLayout"
         private val SAVE_STATE_FILE_REGEX = Regex("""^(.+?) \(([0-9A-Fa-f]{8})\)\.(\d{2})\.p2s$""")
     }
 
@@ -3249,24 +3252,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private suspend fun persistGlobalTouchControlsLayout(state: EmulationUiState) {
-        preferences.setControlsLayout(
-            dpadX = state.dpadOffset.first,
-            dpadY = state.dpadOffset.second,
-            lstickX = state.lstickOffset.first,
-            lstickY = state.lstickOffset.second,
-            rstickX = state.rstickOffset.first,
-            rstickY = state.rstickOffset.second,
-            actionX = state.actionOffset.first,
-            actionY = state.actionOffset.second,
-            lbtnX = state.lbtnOffset.first,
-            lbtnY = state.lbtnOffset.second,
-            rbtnX = state.rbtnOffset.first,
-            rbtnY = state.rbtnOffset.second,
-            centerX = state.centerOffset.first,
-            centerY = state.centerOffset.second,
-            stickScaleVal = state.stickScale,
-            controlLayouts = state.controlLayouts
-        )
+        preferences.saveTouchControlsLayout(state.toTouchControlsLayoutProfile())
     }
 
     private suspend fun persistTouchControlsLayout(updatedState: EmulationUiState): EmulationUiState {
@@ -3274,22 +3260,12 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         return if (gameKey != null) {
             val layout = updatedState.toTouchControlsLayoutProfile()
             val existing = perGameSettingsRepository.get(gameKey)
-            val providedKeys = when {
-                existing == null -> setOf(TOUCH_CONTROLS_LAYOUT_KEY)
-                existing.providedKeys == null -> null
-                else -> existing.providedKeys + TOUCH_CONTROLS_LAYOUT_KEY
-            }
             perGameSettingsRepository.save(
-                (existing ?: PerGameSettings(
+                existing.withTouchControlsLayout(
                     gameKey = gameKey,
                     gameTitle = resolvePerGameTitle(updatedState),
                     gameSerial = currentGameSerial.takeIf { it.isNotBlank() },
-                    providedKeys = providedKeys
-                )).copy(
-                    gameTitle = resolvePerGameTitle(updatedState),
-                    gameSerial = currentGameSerial.takeIf { it.isNotBlank() },
-                    touchControlsLayout = layout,
-                    providedKeys = providedKeys
+                    layout = layout
                 )
             )
             currentTouchControlsLayoutProfile = layout
@@ -3315,16 +3291,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
         val existing = perGameSettingsRepository.get(gameKey)
         if (existing != null) {
-            val providedKeys = existing.providedKeys?.minus(TOUCH_CONTROLS_LAYOUT_KEY)
-            if (providedKeys != null && providedKeys.isEmpty()) {
+            val updated = existing.withoutTouchControlsLayout()
+            if (updated == null) {
                 perGameSettingsRepository.delete(gameKey)
             } else {
-                perGameSettingsRepository.save(
-                    existing.copy(
-                        touchControlsLayout = null,
-                        providedKeys = providedKeys
-                    )
-                )
+                perGameSettingsRepository.save(updated)
             }
         }
 
@@ -3359,7 +3330,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             val providedKeys = when {
                 runtimeProfile.providedKeys == null -> null
                 touchControlsLayout == null -> runtimeProfile.providedKeys + visualOverrideKeys
-                else -> runtimeProfile.providedKeys + visualOverrideKeys + TOUCH_CONTROLS_LAYOUT_KEY
+                else -> runtimeProfile.providedKeys + visualOverrideKeys + PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY
             }
             perGameSettingsRepository.save(
                 runtimeProfile.copy(

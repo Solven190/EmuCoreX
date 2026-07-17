@@ -1705,4 +1705,14 @@
     <string name="settings_ra_unlock_sound_invalid">चयनित फ़ाइल एक वैध WAV ध्वनि नहीं है।</string>
     <string name="settings_ra_unlock_sound_too_large">चयनित WAV फ़ाइल 16 MB से बड़ी है।</string>
     <string name="settings_ra_unlock_sound_failed">चयनित ध्वनि आयात नहीं की जा सकी।</string>
+    <string name="settings_fps_metric_host_cpu">CPU मॉडल और लोड</string>
+    <string name="settings_fps_metric_host_gpu">GPU मॉडल और लोड</string>
+    <string name="controls_editor_global_scope">सभी गेम के लिए डिफ़ॉल्ट</string>
+    <string name="controls_editor_game_scope">केवल %1$s के लिए</string>
+    <string name="controls_editor_game_inherited">%1$s वैश्विक लेआउट का उपयोग कर रहा है</string>
+    <string name="controls_editor_save_failed">टच लेआउट सहेजा नहीं जा सका। कृपया पुनः प्रयास करें।</string>
+    <string name="settings_edit_global_controls">डिफ़ॉल्ट टच लेआउट</string>
+    <string name="settings_edit_global_controls_desc">उन सभी गेम द्वारा उपयोग किए जाने वाले टच नियंत्रण सेट करें जिनका अपना लेआउट नहीं है।</string>
+    <string name="game_settings_edit_controls">इस गेम का टच लेआउट संपादित करें</string>
+    <string name="game_settings_edit_controls_desc">यहां किए गए परिवर्तन केवल इसी गेम पर लागू होते हैं। फिर से वैश्विक लेआउट का उपयोग करने के लिए संपादक में लेआउट को रीसेट करें।</string>
 </resources>

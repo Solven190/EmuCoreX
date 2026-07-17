@@ -1709,4 +1709,14 @@
     <string name="settings_ra_unlock_sound_invalid">Выбранный файл не является корректным WAV-файлом.</string>
     <string name="settings_ra_unlock_sound_too_large">Размер выбранного файла WAV превышает 16 МБ.</string>
     <string name="settings_ra_unlock_sound_failed">Не удалось импортировать выбранный звук.</string>
+    <string name="settings_fps_metric_host_cpu">Модель и загрузка CPU</string>
+    <string name="settings_fps_metric_host_gpu">Модель и загрузка GPU</string>
+    <string name="controls_editor_global_scope">По умолчанию для всех игр</string>
+    <string name="controls_editor_game_scope">Только для %1$s</string>
+    <string name="controls_editor_game_inherited">%1$s использует глобальный макет</string>
+    <string name="controls_editor_save_failed">Не удалось сохранить сенсорный макет. Пожалуйста, попробуйте еще раз.</string>
+    <string name="settings_edit_global_controls">Сенсорный макет по умолчанию</string>
+    <string name="settings_edit_global_controls_desc">Задайте сенсорное управление, используемое во всех играх, не имеющих собственного макета.</string>
+    <string name="game_settings_edit_controls">Изменить сенсорный макет этой игры</string>
+    <string name="game_settings_edit_controls_desc">Изменения здесь применяются только к этой игре. Сбросьте макет в редакторе, чтобы снова использовать глобальный макет.</string>
 </resources>

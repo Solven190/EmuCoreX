@@ -1705,4 +1705,14 @@
     <string name="settings_ra_unlock_sound_invalid">Seçilen dosya geçerli bir WAV sesi değil.</string>
     <string name="settings_ra_unlock_sound_too_large">Seçilen WAV dosyası 16 MB\'den büyük.</string>
     <string name="settings_ra_unlock_sound_failed">Seçilen ses içe aktarılamadı.</string>
+    <string name="settings_fps_metric_host_cpu">CPU modeli ve yükü</string>
+    <string name="settings_fps_metric_host_gpu">GPU modeli ve yükü</string>
+    <string name="controls_editor_global_scope">Tüm oyunlar için varsayılan</string>
+    <string name="controls_editor_game_scope">Sadece %1$s için</string>
+    <string name="controls_editor_game_inherited">%1$s küresel düzeni kullanıyor</string>
+    <string name="controls_editor_save_failed">Dokunmatik düzen kaydedilemedi. Lütfen tekrar deneyin.</string>
+    <string name="settings_edit_global_controls">Varsayılan Dokunmatik Düzen</string>
+    <string name="settings_edit_global_controls_desc">Kendi düzeni olmayan her oyun tarafından kullanılan dokunmatik kontrolleri ayarlayın.</string>
+    <string name="game_settings_edit_controls">Bu Oyunun Dokunmatik Düzenini Düzenle</string>
+    <string name="game_settings_edit_controls_desc">Buradaki değişiklikler yalnızca bu oyun için geçerlidir. Küresel düzeni tekrar kullanmak için düzenleyicideki düzeni sıfırlayın.</string>
 </resources>

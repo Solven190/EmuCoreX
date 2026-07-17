@@ -203,6 +203,7 @@ fun SettingsScreen(
     onOpenMemoryCardManager: (() -> Unit)? = null,
     onOpenGpuDriverManager: (() -> Unit)? = null,
     onOpenGameDbBrowser: (() -> Unit)? = null,
+    onOpenControlsLayoutEditor: (() -> Unit)? = null,
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -487,6 +488,7 @@ fun SettingsScreen(
                 onOpenMemoryCardManager = onOpenMemoryCardManager,
                 onOpenGpuDriverManager = onOpenGpuDriverManager,
                 onOpenGameDbBrowser = onOpenGameDbBrowser,
+                onOpenControlsLayoutEditor = onOpenControlsLayoutEditor,
                 viewModel = viewModel,
                 topInset = 0.dp,
                 modifier = Modifier
@@ -964,7 +966,8 @@ private fun SettingsContent(
     modifier: Modifier = Modifier,
     onOpenMemoryCardManager: (() -> Unit)? = null,
     onOpenGpuDriverManager: (() -> Unit)? = null,
-    onOpenGameDbBrowser: (() -> Unit)? = null
+    onOpenGameDbBrowser: (() -> Unit)? = null,
+    onOpenControlsLayoutEditor: (() -> Unit)? = null
 ) {
     val gamepadActions = remember { GamepadManager.mappableButtonActions() }
     val defaults = remember { SettingsSnapshot() }
@@ -1401,6 +1404,15 @@ private fun SettingsContent(
 
                 SettingsTab.Controls -> {
                     SettingsSection(title = stringResource(R.string.settings_touch_controls)) {
+                        ActionItem(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.settings_edit_global_controls),
+                            subtitle = stringResource(R.string.settings_edit_global_controls_desc),
+                            actionIcon = Icons.Rounded.Gamepad,
+                            actionLabel = stringResource(R.string.settings_edit_controls),
+                            onClick = { onOpenControlsLayoutEditor?.invoke() },
+                            enabled = onOpenControlsLayoutEditor != null
+                        )
                         SliderItem(
                             icon = Icons.Rounded.TouchApp,
                             title = stringResource(R.string.settings_overlay_scale),

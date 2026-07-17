@@ -2929,8 +2929,6 @@ class AppPreferences(private val context: Context) {
             prefs.remove(RBTN_OFFSET)
             prefs.remove(CENTER_OFFSET)
             prefs.remove(STICK_SCALE)
-            prefs.remove(LEFT_STICK_SENSITIVITY)
-            prefs.remove(RIGHT_STICK_SENSITIVITY)
             prefs.remove(STICK_SURFACE_MODE)
             prefs.remove(CONTROL_LAYOUTS)
             prefs[OVERLAY_LAYOUT_VERSION] = CURRENT_OVERLAY_LAYOUT_VERSION

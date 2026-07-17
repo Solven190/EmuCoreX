@@ -499,7 +499,7 @@ void Host::OnPerformanceMetricsUpdated()
 		const double normalized_cpu_usage = std::clamp(
 			cpu_usage / static_cast<double>(std::max(cpu_info.num_threads, 1u)), 0.0, 100.0);
 		line.clear();
-		line.append("CPU: ");
+		line.append("CPU:");
 		line.append(GetHostCpuName(cpu_info));
 		AppendFormat(line, " | %.1f%%", normalized_cpu_usage);
 		AppendLine(overlay, line);
@@ -512,7 +512,7 @@ void Host::OnPerformanceMetricsUpdated()
 			gpu_timing_active = s_performance_gpu_timing_active;
 		}
 		line.clear();
-		line.append("GPU: ");
+		line.append("GPU:");
 		line.append(gpu_name.empty() ? "Unknown" : GetCompactGpuName(std::move(gpu_name)));
 		if (gpu_timing_active)
 			AppendFormat(line, " | %.1f%% (%.2fms)", PerformanceMetrics::GetGPUUsage(), PerformanceMetrics::GetGPUAverageTime());
