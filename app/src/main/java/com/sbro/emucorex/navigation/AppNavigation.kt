@@ -54,6 +54,7 @@ import com.sbro.emucorex.ui.catalog.CatalogSearchScreen
 import com.sbro.emucorex.ui.detail.GameDetailScreen
 import com.sbro.emucorex.ui.emulation.EmulationScreen
 import com.sbro.emucorex.ui.formats.SupportedFormatsScreen
+import com.sbro.emucorex.ui.feedback.FeedbackScreen
 import com.sbro.emucorex.ui.gamedb.GameDbBrowserScreen
 import com.sbro.emucorex.ui.home.HomeScreen
 import com.sbro.emucorex.ui.memorycards.MemoryCardManagerScreen
@@ -144,6 +145,9 @@ object AchievementsRoute
 
 @Serializable
 object ProfileRoute
+
+@Serializable
+object FeedbackRoute
 
 @Serializable
 object AccountUnlockedAchievementsRoute
@@ -308,6 +312,11 @@ fun AppNavigation(
             launchSingleTop = true
         }
     }
+    val navigateFeedback: () -> Unit = {
+        navController.navigate(FeedbackRoute) {
+            launchSingleTop = true
+        }
+    }
     val launchGamePickerAction: () -> Unit = {
         launchGamePicker.launch(arrayOf("*/*"))
     }
@@ -385,6 +394,7 @@ fun AppNavigation(
                         }
                     },
                     onNavigateProfile = navigateProfile,
+                    onNavigateFeedback = navigateFeedback,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -481,6 +491,7 @@ fun AppNavigation(
                         }
                     },
                     onNavigateProfile = navigateProfile,
+                    onNavigateFeedback = navigateFeedback,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -568,6 +579,7 @@ fun AppNavigation(
                         }
                     },
                     onNavigateProfile = navigateProfile,
+                    onNavigateFeedback = navigateFeedback,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -615,6 +627,7 @@ fun AppNavigation(
                         }
                     },
                     onNavigateProfile = navigateProfile,
+                    onNavigateFeedback = navigateFeedback,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -734,6 +747,7 @@ fun AppNavigation(
                     },
                     onNavigateAchievements = { },
                     onNavigateProfile = navigateProfile,
+                    onNavigateFeedback = navigateFeedback,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -794,6 +808,7 @@ fun AppNavigation(
                         }
                     },
                     onNavigateProfile = { },
+                    onNavigateFeedback = navigateFeedback,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -827,6 +842,55 @@ fun AppNavigation(
                     },
                     onBackClick = { navController.popBackStack() }
                 )
+            }
+
+            composable<FeedbackRoute> {
+                AdaptiveShell(
+                    selected = PrimaryDestination.Feedback,
+                    isProUnlocked = settingsUiState.isProUnlocked,
+                    onNavigateHome = {
+                        navController.navigate(HomeRoute) {
+                            launchSingleTop = true
+                            popUpTo(HomeRoute) { inclusive = false }
+                        }
+                    },
+                    onNavigateSearch = {
+                        navController.navigate(CatalogSearchRoute) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateFormats = {
+                        navController.navigate(SupportedFormatsRoute) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateSettings = {
+                        navController.navigate(SettingsRoute()) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateAchievements = {
+                        navController.navigate(AchievementsRoute) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateProfile = navigateProfile,
+                    onNavigateFeedback = { },
+                    onNavigateGameSettingsManager = navigateGameSettingsManager,
+                    onNavigateDataTransfer = navigateDataTransfer,
+                    onResetAllSettings = resetAllSettingsAndOpenOnboarding,
+                    onNavigateSaveManager = {
+                        navController.navigate(SaveManagerRoute()) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateMemoryCardManager = navigateMemoryCardManager,
+                    onNavigateTextureManager = navigateTextureManager,
+                    onBackClick = { navController.popBackStack() },
+                    onLaunchGame = launchGamePickerAction
+                ) {
+                    FeedbackScreen(onBackClick = { navController.popBackStack() })
+                }
             }
 
             composable<GameAchievementsRoute> { backStackEntry ->

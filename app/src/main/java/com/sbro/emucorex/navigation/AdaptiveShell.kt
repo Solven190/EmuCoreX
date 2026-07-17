@@ -35,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.Forum
+import androidx.compose.material.icons.rounded.RateReview
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -56,7 +58,6 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -81,6 +82,7 @@ import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.GamepadManager
@@ -94,13 +96,19 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 enum class PrimaryDestination {
-    Home, Search, Formats, Achievements, Profile, Settings
+    Home, Search, Formats, Achievements, Profile, Settings, Feedback
 }
 
 private enum class MobileLeadingAction {
     Drawer,
     Back
 }
+
+internal fun shouldUseCompactModalDrawer(
+    drawerEnabled: Boolean,
+    selected: PrimaryDestination,
+    hasBackClick: Boolean
+): Boolean = drawerEnabled && (selected == PrimaryDestination.Home || !hasBackClick)
 
 private val LocalDrawerVisualStyle = staticCompositionLocalOf { DrawerVisualStyle.CLASSIC }
 
@@ -117,6 +125,7 @@ fun AdaptiveShell(
     onNavigateSettings: () -> Unit,
     onNavigateAchievements: () -> Unit,
     onNavigateProfile: (() -> Unit)? = null,
+    onNavigateFeedback: (() -> Unit)? = null,
     onNavigateGameSettingsManager: (() -> Unit)? = null,
     onNavigateDataTransfer: (() -> Unit)? = null,
     onResetAllSettings: (() -> Unit)? = null,
@@ -144,6 +153,7 @@ fun AdaptiveShell(
             onNavigateSettings = onNavigateSettings,
             onNavigateAchievements = onNavigateAchievements,
             onNavigateProfile = onNavigateProfile,
+            onNavigateFeedback = onNavigateFeedback,
             onNavigateGameSettingsManager = onNavigateGameSettingsManager,
             onNavigateDataTransfer = onNavigateDataTransfer,
             onResetAllSettings = onResetAllSettings,
@@ -200,6 +210,7 @@ fun AdaptiveShell(
             onNavigateSettings = onNavigateSettings,
             onNavigateAchievements = onNavigateAchievements,
             onNavigateProfile = onNavigateProfile,
+            onNavigateFeedback = onNavigateFeedback,
             onNavigateGameSettingsManager = onNavigateGameSettingsManager,
             onNavigateDataTransfer = onNavigateDataTransfer,
             onResetAllSettings = onResetAllSettings,
@@ -229,6 +240,7 @@ private fun CompactAdaptiveShell(
     onNavigateSettings: () -> Unit,
     onNavigateAchievements: () -> Unit,
     onNavigateProfile: (() -> Unit)?,
+    onNavigateFeedback: (() -> Unit)?,
     onNavigateGameSettingsManager: (() -> Unit)?,
     onNavigateDataTransfer: (() -> Unit)?,
     onResetAllSettings: (() -> Unit)?,
@@ -254,19 +266,22 @@ private fun CompactAdaptiveShell(
         else -> 0.74f
     }
     val selectedDrawerItemFocusRequester = remember { FocusRequester() }
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    // A drawer should never be restored as open after a configuration change.
+    // This is especially important for back-only destinations such as Feedback and Settings.
+    val drawerState = remember(selected) { DrawerState(initialValue = DrawerValue.Closed) }
     val scope = rememberCoroutineScope()
     val inputModeManager = LocalInputModeManager.current
     val drawerScrollState = rememberScrollState()
 
-    val mobileLeadingAction = if (
-        !drawerEnabled || (
-        selected != PrimaryDestination.Home &&
-        onBackClick != null
-    )) {
-        MobileLeadingAction.Back
-    } else {
+    val useModalDrawer = shouldUseCompactModalDrawer(
+        drawerEnabled = drawerEnabled,
+        selected = selected,
+        hasBackClick = onBackClick != null
+    )
+    val mobileLeadingAction = if (useModalDrawer) {
         MobileLeadingAction.Drawer
+    } else {
+        MobileLeadingAction.Back
     }
     val leadingActionClick = when (mobileLeadingAction) {
         MobileLeadingAction.Drawer -> rememberDebouncedClick {
@@ -304,9 +319,44 @@ private fun CompactAdaptiveShell(
         scope.launch { drawerState.close() }
     }
 
+    val screenContent: @Composable () -> Unit = {
+        Box(modifier = Modifier.fillMaxSize()) {
+            content(if (useModalDrawer) leadingActionClick else null)
+            if (useModalDrawer && selected != PrimaryDestination.Home) {
+                Surface(
+                    modifier = Modifier
+                        .padding(top = statusPadding + 12.dp, start = 12.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    tonalElevation = 4.dp,
+                    shadowElevation = 6.dp,
+                    onClick = leadingActionClick
+                ) {
+                    Box(
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Menu,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (!useModalDrawer) {
+        screenContent()
+        return
+    }
+
     ModalNavigationDrawer(
+        modifier = Modifier.testTag("adaptive_shell_modal_drawer"),
         drawerState = drawerState,
-        gesturesEnabled = drawerEnabled && mobileLeadingAction == MobileLeadingAction.Drawer,
+        gesturesEnabled = true,
         scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.42f),
         drawerContent = {
             ModalDrawerSheet(
@@ -340,6 +390,7 @@ private fun CompactAdaptiveShell(
                     onNavigateSettings = onNavigateSettings,
                     onNavigateAchievements = onNavigateAchievements,
                     onNavigateProfile = onNavigateProfile,
+                    onNavigateFeedback = onNavigateFeedback,
                     onNavigateGameSettingsManager = onNavigateGameSettingsManager,
                     onNavigateDataTransfer = onNavigateDataTransfer,
                     onResetAllSettings = onResetAllSettings,
@@ -356,40 +407,7 @@ private fun CompactAdaptiveShell(
                 )
             }
         }
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            content(
-                if (drawerEnabled && mobileLeadingAction == MobileLeadingAction.Drawer) {
-                    leadingActionClick
-                } else {
-                    null
-                }
-            )
-            if (mobileLeadingAction == MobileLeadingAction.Drawer && selected != PrimaryDestination.Home) {
-                Surface(
-                    modifier = Modifier
-                        .padding(top = statusPadding + 12.dp, start = 12.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                    tonalElevation = 4.dp,
-                    shadowElevation = 6.dp,
-                    onClick = leadingActionClick
-                ) {
-                    Box(
-                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Menu,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
+    ) { screenContent() }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -405,6 +423,7 @@ private fun SideNavigation(
     onNavigateSettings: () -> Unit,
     onNavigateAchievements: () -> Unit,
     onNavigateProfile: (() -> Unit)?,
+    onNavigateFeedback: (() -> Unit)?,
     onNavigateGameSettingsManager: (() -> Unit)?,
     onNavigateDataTransfer: (() -> Unit)?,
     onResetAllSettings: (() -> Unit)?,
@@ -450,6 +469,11 @@ private fun SideNavigation(
         closeDrawerThen(onNavigateAchievements)
     }
     val navigateProfile = onNavigateProfile?.let {
+        rememberDebouncedClick {
+            closeDrawerThen(it)
+        }
+    }
+    val navigateFeedback = onNavigateFeedback?.let {
         rememberDebouncedClick {
             closeDrawerThen(it)
         }
@@ -725,6 +749,17 @@ private fun SideNavigation(
                         Modifier.focusRequester(selectedItemFocusRequester)
                     } else Modifier,
                     onClick = navigateFormats
+                )
+            }
+            if (navigateFeedback != null && DrawerItemId.FEEDBACK !in hiddenDrawerItems) {
+                ShellItem(
+                    icon = Icons.Rounded.RateReview,
+                    label = stringResource(R.string.feedback_title),
+                    selected = selected == PrimaryDestination.Feedback,
+                    modifier = if (selected == PrimaryDestination.Feedback && selectedItemFocusRequester != null) {
+                        Modifier.focusRequester(selectedItemFocusRequester)
+                    } else Modifier,
+                    onClick = navigateFeedback
                 )
             }
             if (DrawerItemId.DISCORD !in hiddenDrawerItems) {

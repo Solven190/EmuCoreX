@@ -66,6 +66,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.RateReview
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.SaveAs
@@ -3012,6 +3013,7 @@ private fun CustomizationSettingsTab(
             stringResource(R.string.settings_customization_drawer_other) to listOf(
                 DrawerItemId.APP_SETTINGS,
                 DrawerItemId.SUPPORTED_FORMATS,
+                DrawerItemId.FEEDBACK,
                 DrawerItemId.DISCORD
             )
         )
@@ -3599,6 +3601,7 @@ private fun drawerItemIcon(item: DrawerItemId): ImageVector = when (item) {
     DrawerItemId.TEXTURE_MANAGER -> Icons.Rounded.FolderOpen
     DrawerItemId.SAVE_STATES -> Icons.Rounded.Save
     DrawerItemId.APP_SETTINGS -> Icons.Rounded.SettingsSuggest
+    DrawerItemId.FEEDBACK -> Icons.Rounded.RateReview
     DrawerItemId.DISCORD -> Icons.Rounded.Forum
 }
 
@@ -3618,6 +3621,7 @@ private fun drawerItemLabel(item: DrawerItemId): String = when (item) {
     DrawerItemId.SAVE_STATES -> stringResource(R.string.shell_save_states)
     DrawerItemId.APP_SETTINGS -> stringResource(R.string.shell_app_settings)
     DrawerItemId.SUPPORTED_FORMATS -> stringResource(R.string.shell_supported_formats)
+    DrawerItemId.FEEDBACK -> stringResource(R.string.feedback_title)
     DrawerItemId.DISCORD -> stringResource(R.string.shell_discord_server)
 }
 
