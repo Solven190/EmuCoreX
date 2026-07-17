@@ -374,6 +374,21 @@ fun EmulationScreen(
     val retroAchievementsState by RetroAchievementsLiveStateManager.state.collectAsState()
     val retroAchievementsNotification = retroAchievementsState.notification
     val context = LocalContext.current
+    val activity = context as? android.app.Activity
+    val originalRequestedOrientation = remember(activity) {
+        activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    }
+    val restoreHostUi = remember(activity, originalRequestedOrientation) {
+        {
+            activity?.requestedOrientation = originalRequestedOrientation
+            activity?.window?.let { window ->
+                WindowCompat.getInsetsController(window, window.decorView)
+                    .show(WindowInsetsCompat.Type.systemBars())
+            }
+            Unit
+        }
+    }
+    val currentOnExit by rememberUpdatedState(onExit)
     val lifecycleOwner = LocalLifecycleOwner.current
     val preferences = remember(context) { AppPreferences(context) }
     val globalDefaults by preferences.settingsSnapshot.collectAsState(initial = SettingsSnapshot())
@@ -401,6 +416,7 @@ fun EmulationScreen(
     LocalConfiguration.current
     val view = LocalView.current
     var showExitDialog by remember { mutableStateOf(false) }
+    var exitDispatched by remember { mutableStateOf(false) }
     var showQuickSaveDialog by remember { mutableStateOf(false) }
     var showQuickLoadDialog by remember { mutableStateOf(false) }
     var showAutoSaveLoadDialog by remember { mutableStateOf(false) }
@@ -510,9 +526,17 @@ fun EmulationScreen(
     val dismissAutoSaveLoadClick = rememberDebouncedClick(onClick = { showAutoSaveLoadDialog = false })
     val requestExitClick = rememberDebouncedClick(onClick = { showExitDialog = true })
     val confirmExitClick = rememberDebouncedClick(onClick = {
+        if (exitDispatched) return@rememberDebouncedClick
+        exitDispatched = true
         showExitDialog = false
         val completedActivePlayTimeMs = currentActivePlayTimeMs
-        viewModel.stopEmulation(onExit = { onExit(completedActivePlayTimeMs) })
+        viewModel.stopEmulation(onExit = {
+            completeEmulationExit(
+                activePlayTimeMs = completedActivePlayTimeMs,
+                restoreHostUi = restoreHostUi,
+                navigateFromEmulation = currentOnExit
+            )
+        })
     })
     val dismissExitClick = rememberDebouncedClick(onClick = { showExitDialog = false })
     val dismissCheatsDialog: () -> Unit = { showCheatsDialog = false }
@@ -587,36 +611,25 @@ fun EmulationScreen(
             sessionRestoredUnavailableMessage,
             Toast.LENGTH_LONG
         ).show()
-        onExit(0L)
-    }
-
-    LaunchedEffect(Unit) {
-        val activity = context as? android.app.Activity ?: return@LaunchedEffect
-        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-    }
-
-    DisposableEffect("orientation") {
-        val activity = context as? android.app.Activity
-        val originalOrientation = activity?.requestedOrientation
-        onDispose {
-            activity?.requestedOrientation = originalOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        if (!exitDispatched) {
+            exitDispatched = true
+            completeEmulationExit(
+                activePlayTimeMs = 0L,
+                restoreHostUi = restoreHostUi,
+                navigateFromEmulation = currentOnExit
+            )
         }
     }
 
-    LaunchedEffect(Unit) {
-        val activity = context as? android.app.Activity ?: return@LaunchedEffect
-        val window = activity.window
-        val controller = WindowCompat.getInsetsController(window, window.decorView)
-        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.hide(WindowInsetsCompat.Type.systemBars())
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            val activity = context as? android.app.Activity ?: return@onDispose
-            val window = activity.window
+    DisposableEffect(activity, originalRequestedOrientation) {
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        activity?.window?.let { window ->
             val controller = WindowCompat.getInsetsController(window, window.decorView)
-            controller.show(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            restoreHostUi()
         }
     }
 

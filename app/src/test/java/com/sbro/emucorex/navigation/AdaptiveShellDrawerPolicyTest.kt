@@ -48,4 +48,11 @@ class AdaptiveShellDrawerPolicyTest {
             )
         )
     }
+
+    @Test
+    fun drawerInteractionWaitsForDestinationToSettle() {
+        assertFalse(shouldEnableDrawerInteraction(useModalDrawer = true, destinationSettled = false))
+        assertTrue(shouldEnableDrawerInteraction(useModalDrawer = true, destinationSettled = true))
+        assertFalse(shouldEnableDrawerInteraction(useModalDrawer = false, destinationSettled = true))
+    }
 }

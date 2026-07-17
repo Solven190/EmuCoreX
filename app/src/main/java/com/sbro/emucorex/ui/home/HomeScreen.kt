@@ -109,6 +109,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -143,6 +145,7 @@ import com.sbro.emucorex.ui.theme.ScreenHorizontalPadding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.foundation.lazy.itemsIndexed as rowItemsIndexed
 
@@ -162,13 +165,21 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val windowSize = LocalWindowInfo.current.containerSize
+    val windowMetrics = resolveHomeWindowMetrics(
+        configurationWidthDp = configuration.screenWidthDp,
+        configurationHeightDp = configuration.screenHeightDp,
+        measuredWidthDp = with(density) { windowSize.width.toDp().value.roundToInt() },
+        measuredHeightDp = with(density) { windowSize.height.toDp().value.roundToInt() }
+    )
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val customCoverRepository = remember(context) { CustomGameCoverRepository(context) }
     val homeBackgroundRepository = remember(context) { HomeBackgroundRepository(context) }
-    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+    val isLandscape = windowMetrics.widthDp > windowMetrics.heightDp
     val isTabletClass = configuration.smallestScreenWidthDp >= 600
-    val isWide = isTabletClass && configuration.screenWidthDp >= 900
+    val isWide = isTabletClass && windowMetrics.widthDp >= 900
     val isShelfView = uiState.libraryViewMode == HomeLibraryViewMode.SHELF
     val topInset = if (isShelfView) 0.dp else WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding()
     val bottomInset = if (isShelfView) 0.dp else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -179,8 +190,8 @@ fun HomeScreen(
     val baseCellSize = if (isLandscape) 94.dp else 102.dp
     val minCellSize = baseCellSize * uiState.homeGridScale
     val columnsCount = calculateHomeGridColumnCount(
-        screenWidthDp = configuration.screenWidthDp,
-        screenHeightDp = configuration.screenHeightDp,
+        screenWidthDp = windowMetrics.widthDp,
+        screenHeightDp = windowMetrics.heightDp,
         smallestScreenWidthDp = configuration.smallestScreenWidthDp,
         gridScale = uiState.homeGridScale
     )

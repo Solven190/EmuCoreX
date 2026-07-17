@@ -68,6 +68,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -109,6 +110,13 @@ internal fun shouldUseCompactModalDrawer(
     selected: PrimaryDestination,
     hasBackClick: Boolean
 ): Boolean = drawerEnabled && (selected == PrimaryDestination.Home || !hasBackClick)
+
+internal fun shouldEnableDrawerInteraction(
+    useModalDrawer: Boolean,
+    destinationSettled: Boolean
+): Boolean = useModalDrawer && destinationSettled
+
+private const val DRAWER_DESTINATION_SETTLE_MS = 220L
 
 private val LocalDrawerVisualStyle = staticCompositionLocalOf { DrawerVisualStyle.CLASSIC }
 
@@ -269,6 +277,7 @@ private fun CompactAdaptiveShell(
     // A drawer should never be restored as open after a configuration change.
     // This is especially important for back-only destinations such as Feedback and Settings.
     val drawerState = remember(selected) { DrawerState(initialValue = DrawerValue.Closed) }
+    var destinationSettled by remember(selected) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val inputModeManager = LocalInputModeManager.current
     val drawerScrollState = rememberScrollState()
@@ -283,8 +292,13 @@ private fun CompactAdaptiveShell(
     } else {
         MobileLeadingAction.Back
     }
+    val drawerInteractionEnabled = shouldEnableDrawerInteraction(
+        useModalDrawer = useModalDrawer,
+        destinationSettled = destinationSettled
+    )
     val leadingActionClick = when (mobileLeadingAction) {
         MobileLeadingAction.Drawer -> rememberDebouncedClick {
+            if (!drawerInteractionEnabled) return@rememberDebouncedClick
             scope.launch {
                 if (drawerState.isClosed) drawerState.open() else drawerState.close()
             }
@@ -294,10 +308,19 @@ private fun CompactAdaptiveShell(
         }
     }
 
-    LaunchedEffect(selected, mobileLeadingAction) {
-        if (drawerState.isOpen) {
-            drawerState.close()
-        }
+    LaunchedEffect(
+        selected,
+        mobileLeadingAction,
+        configuration.screenWidthDp,
+        configuration.screenHeightDp
+    ) {
+        destinationSettled = false
+        drawerState.snapTo(DrawerValue.Closed)
+        // Consume pointer/controller events that belonged to the disappearing game surface.
+        withFrameNanos { }
+        withFrameNanos { }
+        delay(DRAWER_DESTINATION_SETTLE_MS.milliseconds)
+        destinationSettled = true
     }
     LaunchedEffect(drawerState.isOpen, mobileLeadingAction, selected) {
         if (drawerState.isOpen && mobileLeadingAction == MobileLeadingAction.Drawer) {
@@ -308,7 +331,7 @@ private fun CompactAdaptiveShell(
         }
     }
     ProvideGamepadMenuAction(
-        enabled = mobileLeadingAction == MobileLeadingAction.Drawer,
+        enabled = mobileLeadingAction == MobileLeadingAction.Drawer && drawerInteractionEnabled,
         onMenu = {
             scope.launch {
                 if (drawerState.isClosed) drawerState.open() else drawerState.close()
@@ -356,11 +379,12 @@ private fun CompactAdaptiveShell(
     ModalNavigationDrawer(
         modifier = Modifier.testTag("adaptive_shell_modal_drawer"),
         drawerState = drawerState,
-        gesturesEnabled = true,
+        gesturesEnabled = drawerInteractionEnabled,
         scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.42f),
         drawerContent = {
             ModalDrawerSheet(
                 modifier = Modifier
+                    .testTag("adaptive_shell_drawer_sheet")
                     .fillMaxHeight()
                     .fillMaxWidth(drawerWidthFraction)
                     .widthIn(min = 292.dp, max = if (isTabletClass) 360.dp else 320.dp),

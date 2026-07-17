@@ -1,5 +1,23 @@
 package com.sbro.emucorex.ui.home
 
+internal data class HomeWindowMetrics(
+    val widthDp: Int,
+    val heightDp: Int
+)
+
+internal fun resolveHomeWindowMetrics(
+    configurationWidthDp: Int,
+    configurationHeightDp: Int,
+    measuredWidthDp: Int,
+    measuredHeightDp: Int
+): HomeWindowMetrics {
+    val hasValidMeasuredSize = measuredWidthDp > 0 && measuredHeightDp > 0
+    return HomeWindowMetrics(
+        widthDp = if (hasValidMeasuredSize) measuredWidthDp else configurationWidthDp.coerceAtLeast(1),
+        heightDp = if (hasValidMeasuredSize) measuredHeightDp else configurationHeightDp.coerceAtLeast(1)
+    )
+}
+
 internal fun calculateHomeGridColumnCount(
     screenWidthDp: Int,
     screenHeightDp: Int,

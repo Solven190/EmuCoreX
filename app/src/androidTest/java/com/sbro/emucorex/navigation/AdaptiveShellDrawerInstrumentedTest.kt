@@ -1,9 +1,16 @@
 package com.sbro.emucorex.navigation
 
 import androidx.compose.material3.Text
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.junit4.StateRestorationTester
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sbro.emucorex.ui.theme.EmuCoreXTheme
 import org.junit.Assert.assertEquals
@@ -58,6 +65,27 @@ class AdaptiveShellDrawerInstrumentedTest {
         assertEquals(0, modalDrawerNodeCount())
     }
 
+    @Test
+    fun openHomeDrawerIsClosedAfterStateRestoration() {
+        val restorationTester = StateRestorationTester(composeRule)
+        restorationTester.setContent {
+            EmuCoreXTheme {
+                TestShell(selected = PrimaryDestination.Home, onBackClick = null)
+            }
+        }
+
+        composeRule.mainClock.advanceTimeBy(500)
+        composeRule.onNodeWithTag("test_open_drawer").performClick()
+        composeRule.mainClock.advanceTimeBy(500)
+        composeRule.onNodeWithTag("adaptive_shell_drawer_sheet", useUnmergedTree = true)
+            .assertIsDisplayed()
+
+        restorationTester.emulateSavedInstanceStateRestore()
+        composeRule.mainClock.advanceTimeBy(500)
+        composeRule.onNodeWithTag("adaptive_shell_drawer_sheet", useUnmergedTree = true)
+            .assertIsNotDisplayed()
+    }
+
     private fun modalDrawerNodeCount(): Int = composeRule
         .onAllNodesWithTag("adaptive_shell_modal_drawer", useUnmergedTree = true)
         .fetchSemanticsNodes()
@@ -74,7 +102,12 @@ private fun TestShell(selected: PrimaryDestination, onBackClick: (() -> Unit)?) 
         onNavigateSettings = {},
         onNavigateAchievements = {},
         onBackClick = onBackClick
-    ) {
-        Text("Test content")
+    ) { openDrawer ->
+        Text(
+            text = "Test content",
+            modifier = Modifier
+                .testTag("test_open_drawer")
+                .clickable(enabled = openDrawer != null) { openDrawer?.invoke() }
+        )
     }
 }
