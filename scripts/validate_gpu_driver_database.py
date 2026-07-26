@@ -22,6 +22,7 @@ HEADER = (
     / "GSGPUProfile.h"
 )
 RULES_CPP = HEADER.with_name("GSGPUDriverProfile.cpp")
+RENDERER_ROOT = HEADER.parents[1]
 
 
 def enum_members(source: str, enum_name: str) -> set[str]:
@@ -80,6 +81,7 @@ def main() -> int:
     sources = database.get("sources", {})
     used_bugs: set[str] = set()
     used_workarounds: set[str] = set()
+    active_integrations: set[str] = set()
 
     for rule in rules:
         rule_id = rule.get("id", "<missing>")
@@ -112,6 +114,7 @@ def main() -> int:
             if workaround not in valid_workarounds:
                 fail(f"{rule_id}: unknown DriverWorkaround {workaround}", errors)
         for integration in integrations:
+            active_integrations.add(integration)
             if integration not in workarounds:
                 fail(f"{rule_id}: active integration {integration} is not a rule workaround", errors)
         if not rule.get("sources"):
@@ -133,6 +136,18 @@ def main() -> int:
             f"unknown={sorted(used_workarounds - valid_workarounds)}",
             errors,
         )
+
+    renderer_sources = "\n".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in RENDERER_ROOT.rglob("*")
+        if path.suffix in {".cpp", ".h"} and path != RULES_CPP and path != HEADER
+    )
+    for integration in sorted(active_integrations):
+        if f"DriverWorkaround::{integration}" not in renderer_sources:
+            fail(
+                f"{integration}: marked as an active integration but has no renderer callsite",
+                errors,
+            )
 
     for source_id, source in sources.items():
         revision = source.get("revision", "")

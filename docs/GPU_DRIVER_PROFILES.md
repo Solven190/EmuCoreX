@@ -18,39 +18,40 @@ This ordering is intentional. A workaround for Qualcomm's proprietary Vulkan sta
 
 ## Integration policy
 
-`active` means the corresponding GS fallback is enforced today. `partial` means detection is active and only the actions listed in `activeIntegrations` are enforced. `catalogued` means the condition is detected and exposed to GS, but is deliberately not wired into a renderer path which has no tested equivalent yet.
+`active` means the corresponding GS fallback is enforced today. `partial` means detection is active and only the actions listed in `activeIntegrations` are enforced. `catalogued` means the condition is detected for diagnostics, but is deliberately not wired into a renderer path which has no tested PCSX2 equivalent yet.
 
-This distinction prevents a correct upstream observation from becoming an unsafe global hack. For example, a PowerVR clear-load-op issue is tracked immediately, but it should only alter PCSX2 render-pass construction after the replacement path preserves GS load/store semantics and passes regression tests.
+This distinction prevents a correct observation in another renderer from becoming an unsafe global hack. A bug flag describes a driver. A workaround describes a tested action in this GS backend; the two are not interchangeable.
+
+The runtime policy is capability-first:
+
+- persistent OpenGL buffer storage remains the first choice whenever the context exposes it;
+- native shader operators remain in unaffected shader variants;
+- optional framebuffer-fetch paths remain controlled by their capability and user setting;
+- no driver rule may silently replace a fast path with extra copies, barriers, render passes, or serialized compilation without a model or driver-version boundary;
+- unknown devices keep correctness-sensitive shader fixes, but do not inherit speculative performance workarounds.
 
 Currently enforced renderer actions include:
 
-- orphaned OpenGL streaming/upload buffers on proprietary Mali, Adreno, and PowerVR drivers;
-- single-threaded OpenGL shader compilation on Android driver stacks; Vulkan GS pipeline compilation is already serialized;
 - component-wise vector bitwise operations in Mali TFX/convert shaders;
 - boolean-negation rewriting in proprietary Adreno OpenGL TFX shaders;
 - constant-index selection for the affected legacy Mali uniform-matrix access;
-- isolated bitwise-negation temporaries in proprietary PowerVR OpenGL TFX shaders;
+- isolated bitwise-negation temporaries before the fixed PowerVR 1.8@4693462 driver;
 - descriptor-set fallback for proprietary Mali and PowerVR Vulkan;
 - disabling proprietary Adreno provoking vertex;
-- D24S8 depth selection for proprietary Adreno, with a capability-checked D32S8 fallback;
-- copy/texture-barrier feedback fallback for proprietary Adreno instead of subpass framebuffer fetch;
-- depth/stencil load-store preservation on proprietary Adreno 5xx;
+- high-precision D32S8 depth on capable devices, with D24S8 used only as a format-capability fallback;
 - blend-based preservation of fully masked RGB on Adreno 5xx depth-tested draws;
-- reusable linear-image staging before Qualcomm image-to-buffer readback;
-- materializing lazy clears before PowerVR render passes instead of using a clear load operation;
-- manual framebuffer-blit mip generation for tall PowerVR OpenGL textures;
+- reusable linear-image staging before Qualcomm image-to-buffer readback on pre-Adreno-8xx models only;
+- materializing lazy clears before PowerVR render passes only on the affected 1.7–1.9 driver range;
+- manual framebuffer-blit mip generation only for tall legacy PowerVR SGX textures;
 - legacy PowerVR swapchain-width alignment at the pinned driver cutoff;
-- GENERAL-layout round-trip before clear passes on the exact affected legacy Mali driver;
 - disabling attachment-feedback-loop layout on proprietary Mali and PowerVR;
 - coherent Vulkan readback memory on proprietary Mali and Adreno;
-- classic render passes, concrete framebuffers, static topology, and monolithic pipelines where
-  affected drivers forbid dynamic rendering, imageless framebuffers, extended dynamic state, or GPL;
-- the Vulkan backend uses a normal 0..1 viewport depth range, so affected Qualcomm drivers never
-  receive the reversed-range operation;
-- packed 4444/565/1555 host formats affected on PowerVR are absent from the Vulkan format mapping;
-- arithmetic forcing of the remaining direct Mali r32-r39 uniform-to-builtin vertex load;
-- primitive restart remains disabled in the GS pipelines, and Vulkan barriers use explicit subresource counts;
 - Mali-G57 FIFO present fallback on OpenGL ES.
+
+Known depth/stencil-discard, dynamic-rendering, imageless-framebuffer, extended-dynamic-state,
+primitive-topology, GPL, 16-bit-format, primitive-restart, reversed-depth, and Android host-precompile issues remain catalogued
+where the current GS backend either does not use the affected operation or has no equivalent fallback.
+They intentionally do not disable unrelated fast paths.
 
 All decisions and their pinned upstream revisions are stored in the private JSON database. The research copies under `oldcore/research` are disposable and are not build inputs. Neither the database nor the research copies are published.
 
