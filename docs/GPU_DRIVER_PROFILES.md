@@ -40,13 +40,16 @@ Currently enforced renderer actions include:
 - disabling proprietary Adreno provoking vertex;
 - high-precision D32S8 depth on capable devices, with D24S8 used only as a format-capability fallback;
 - blend-based preservation of fully masked RGB on Adreno 5xx depth-tested draws;
-- reusable linear-image staging before Qualcomm image-to-buffer readback on pre-Adreno-8xx models only;
 - materializing lazy clears before PowerVR render passes only on the affected 1.7–1.9 driver range;
 - manual framebuffer-blit mip generation only for tall legacy PowerVR SGX textures;
 - legacy PowerVR swapchain-width alignment at the pinned driver cutoff;
 - disabling attachment-feedback-loop layout on proprietary Mali and PowerVR;
 - coherent Vulkan readback memory on proprietary Mali and Adreno;
-- Mali-G57 FIFO present fallback on OpenGL ES.
+- Mali-G57 FIFO present fallback on proprietary OpenGL ES and Vulkan drivers.
+
+Mobile resource profiles only bound pool size and lifetime. They do not lower the user's texture-preloading
+setting or disable the same-frame texture-allocation fast path. A catalogued slow readback operation also
+does not justify inserting an extra GPU image copy without a device- and driver-bounded measurement.
 
 Known depth/stencil-discard, dynamic-rendering, imageless-framebuffer, extended-dynamic-state,
 primitive-topology, GPL, 16-bit-format, primitive-restart, reversed-depth, and Android host-precompile issues remain catalogued
