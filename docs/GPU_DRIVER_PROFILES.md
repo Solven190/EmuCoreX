@@ -37,6 +37,8 @@ Currently enforced renderer actions include:
 - constant-index selection for the affected legacy Mali uniform-matrix access;
 - isolated bitwise-negation temporaries before the fixed PowerVR 1.8@4693462 driver;
 - descriptor-set fallback for proprietary Mali and PowerVR Vulkan;
+- disabling unreliable ROAA framebuffer fetch on proprietary Mali and PowerVR Vulkan while
+  retaining the texture-barrier feedback path;
 - disabling proprietary Adreno provoking vertex;
 - high-precision D32S8 depth on capable devices, with D24S8 used only as a format-capability fallback;
 - blend-based preservation of fully masked RGB on Adreno 5xx depth-tested draws;
