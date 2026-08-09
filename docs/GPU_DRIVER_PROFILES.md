@@ -36,8 +36,9 @@ Currently enforced renderer actions include:
 - constant-index selection for the affected legacy Mali uniform-matrix access;
 - isolated bitwise-negation temporaries before the fixed PowerVR 1.8@4693462 driver;
 - descriptor-set fallback for proprietary Mali and PowerVR Vulkan;
-- enabling ROAA framebuffer fetch on Adreno and Turnip whenever the Vulkan extension and its
-  color-attachment feature are exposed, while retaining the texture-barrier fallback otherwise;
+- enabling ROAA framebuffer fetch when the Vulkan extension and its color-attachment feature are
+  exposed, except on Vulkan Adreno where proprietary and Turnip drivers can return stale
+  destination color; those devices retain the explicit feedback path;
 - disabling unreliable ROAA framebuffer fetch on proprietary Mali and PowerVR Vulkan while
   retaining the texture-barrier feedback path;
 - enabling provoking-vertex support only when both its Vulkan extension and last-vertex feature are exposed;
