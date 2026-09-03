@@ -149,6 +149,8 @@ import com.sbro.emucorex.ui.common.TvStorageRequest
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
+import com.sbro.emucorex.ui.common.safeLaunch
+import com.sbro.emucorex.ui.common.showNoDocumentPickerMessage
 import com.sbro.emucorex.ui.common.skipGamepadTextFieldFocus
 import com.sbro.emucorex.ui.common.appScreenTopPadding
 import com.sbro.emucorex.ui.customization.HomeBackgroundMedia
@@ -161,6 +163,9 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.foundation.lazy.itemsIndexed as rowItemsIndexed
+import com.sbro.emucorex.ui.theme.neon.LocalNeonTheme
+import com.sbro.emucorex.ui.theme.neon.neonShape
+import com.sbro.emucorex.ui.theme.neon.neonButtonShape
 
 @OptIn(ExperimentalLayoutApi::class)
 @SuppressLint("ConfigurationScreenWidthHeight", "FrequentlyChangingValue")
@@ -414,11 +419,11 @@ fun HomeScreen(
                 gamesReady = uiState.gameFolderSet,
                 onBiosClick = {
                     if (tvUiEnabled) tvStorageRequest = TvStorageRequest.BIOS_FILE
-                    else biosPicker.launch(null)
+                    else biosPicker.safeLaunch(null) { context.showNoDocumentPickerMessage() }
                 },
                 onFolderClick = {
                     if (tvUiEnabled) tvStorageRequest = TvStorageRequest.GAME_FOLDER
-                    else folderPicker.launch(null)
+                    else folderPicker.safeLaunch(null) { context.showNoDocumentPickerMessage() }
                 },
                 topInset = topInset
             )
@@ -834,11 +839,13 @@ private fun WelcomeProDialog(
         },
         confirmButton = {
             if (isProUnlocked) {
-                Button(onClick = onDismiss) {
+                Button(
+                    shape = neonButtonShape(),onClick = onDismiss) {
                     Text(text = stringResource(R.string.welcome_secondary))
                 }
             } else {
-                Button(onClick = onPurchase, enabled = !isPurchaseInProgress && !isProductLoading) {
+                Button(
+                    shape = neonButtonShape(),onClick = onPurchase, enabled = !isPurchaseInProgress && !isProductLoading) {
                     Text(
                         text = if (isPurchaseInProgress) {
                             stringResource(R.string.pro_purchase_busy)
@@ -896,7 +903,7 @@ private fun HomeHeader(
                 top = if (isLandscape) sectionTopSpacing else 2.dp,
                 bottom = sectionTopSpacing
             ),
-        shape = RoundedCornerShape(24.dp),
+        shape = neonShape(24.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
         border = BorderStroke(
             width = 1.dp,
@@ -907,7 +914,12 @@ private fun HomeHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(
+                    start = 10.dp + if (LocalNeonTheme.current) 8.dp else 0.dp,
+                    end = 10.dp,
+                    top = 8.dp,
+                    bottom = 8.dp
+                ),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -928,11 +940,11 @@ private fun HomeHeader(
                                 onClick = rememberDebouncedClick(onClick = onMenuClick)
                             )
                             .gamepadFocusableCard(
-                                shape = RoundedCornerShape(14.dp),
+                                shape = neonShape(14.dp),
                                 interactionSource = drawerInteractionSource,
                                 addFocusTarget = false
                             ),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = neonShape(14.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.54f),
                         border = BorderStroke(
                             1.dp,
@@ -971,7 +983,7 @@ private fun HomeHeader(
                 }
             }
             Surface(
-                shape = RoundedCornerShape(18.dp),
+                shape = neonShape(18.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
                 border = BorderStroke(
                     1.dp,
@@ -1130,7 +1142,7 @@ private fun HomeSearchField(
             }
         },
         singleLine = true,
-        shape = RoundedCornerShape(20.dp),
+        shape = neonShape(20.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
             unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
@@ -1152,7 +1164,7 @@ private fun ScrollToTopButton(
         exit = fadeOut(tween(140)) + scaleOut(tween(140)),
         modifier = modifier
     ) {
-        val shape = RoundedCornerShape(18.dp)
+        val shape = neonShape(18.dp)
         val interactionSource = remember { MutableInteractionSource() }
 
         Box(
@@ -1250,7 +1262,7 @@ private fun EmptyState(
             Box(
                 modifier = Modifier
                     .size(100.dp)
-                    .clip(RoundedCornerShape(28.dp))
+                    .clip(neonShape(28.dp))
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
@@ -1293,6 +1305,7 @@ private fun EmptyState(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 FilledTonalButton(
+                    shape = neonButtonShape(),
                     onClick = onBiosClick,
                     modifier = Modifier.weight(1f)
                 ) {
@@ -1305,6 +1318,7 @@ private fun EmptyState(
                     Text(stringResource(R.string.home_choose_bios))
                 }
                 FilledTonalButton(
+                    shape = neonButtonShape(),
                     onClick = onFolderClick,
                     modifier = Modifier.weight(1f)
                 ) {
@@ -1345,7 +1359,7 @@ private fun StatusCard(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
+        shape = neonShape(18.dp),
         color = if (isReady) {
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
         } else {
@@ -1363,7 +1377,7 @@ private fun StatusCard(
             Box(
                 modifier = Modifier
                     .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(neonShape(10.dp))
                     .background(
                         if (isReady) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                         else MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
@@ -1426,7 +1440,8 @@ internal fun NoGamesState(onShowHiddenGames: (() -> Unit)? = null) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-            if (onShowHiddenGames != null) FilledTonalButton(onClick = onShowHiddenGames) {
+            if (onShowHiddenGames != null) FilledTonalButton(
+                shape = neonButtonShape(),onClick = onShowHiddenGames) {
                 Icon(Icons.Rounded.Visibility, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.home_game_menu_show_hidden))
@@ -1476,11 +1491,11 @@ private fun RecentGameCard(
                     onLongClick = { showMenu = true }
                 )
                 .gamepadFocusableCard(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = neonShape(16.dp),
                     interactionSource = interactionSource,
                     addFocusTarget = false
                 ),
-            shape = RoundedCornerShape(16.dp),
+            shape = neonShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
             shadowElevation = 0.dp
@@ -1600,11 +1615,11 @@ private fun GameCard(
                 onLongClick = { showMenu = true }
             )
             .gamepadFocusableCard(
-                shape = RoundedCornerShape(16.dp),
+                shape = neonShape(16.dp),
                 interactionSource = interactionSource,
                 addFocusTarget = false
             ),
-        shape = RoundedCornerShape(16.dp),
+        shape = neonShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
@@ -1718,11 +1733,11 @@ private fun GameListCard(
                 onLongClick = { showMenu = true }
             )
             .gamepadFocusableCard(
-                shape = RoundedCornerShape(16.dp),
+                shape = neonShape(16.dp),
                 interactionSource = interactionSource,
                 addFocusTarget = false
             ),
-        shape = RoundedCornerShape(16.dp),
+        shape = neonShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
@@ -1739,7 +1754,7 @@ private fun GameListCard(
                     modifier = Modifier
                         .width(52.dp)
                         .aspectRatio(2f / 3f)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(neonShape(10.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                 ) {
                     GameCoverArt(
@@ -1896,7 +1911,7 @@ private fun HiddenGamesDialog(
                     items(games, key = { it.path }) { game ->
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp),
+                            shape = neonShape(18.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                             contentColor = MaterialTheme.colorScheme.onSurface,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
@@ -1909,7 +1924,7 @@ private fun HiddenGamesDialog(
                                 GameCoverArt(
                                     coverPath = game.coverArtPath,
                                     fallbackTitle = game.title,
-                                    modifier = Modifier.width(40.dp).height(58.dp).clip(RoundedCornerShape(8.dp)),
+                                    modifier = Modifier.width(40.dp).height(58.dp).clip(neonShape(8.dp)),
                                     contentScale = ContentScale.Fit
                                 )
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1953,7 +1968,7 @@ internal fun GameCardContextMenu(
         offset = offset,
         onDismissRequest = onDismiss,
         modifier = Modifier.widthIn(min = 248.dp, max = 310.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = neonShape(20.dp),
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 12.dp,
@@ -2035,7 +2050,7 @@ private fun GameContextMenuItem(
             Box(
                 modifier = Modifier
                     .size(34.dp)
-                    .clip(RoundedCornerShape(11.dp))
+                    .clip(neonShape(11.dp))
                     .background(
                         if (emphasized) {
                             MaterialTheme.colorScheme.primaryContainer

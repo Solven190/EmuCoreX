@@ -238,9 +238,23 @@ bool GSDeviceVK::SelectInstanceExtensions(ExtensionList* extension_list, const W
 		return false;
 	}
 
+	// A buggy custom driver (e.g. a corrupt Turnip build) can return garbage
+	// here; allocating blindly would OOM, and proceeding with uninitialized
+	// names crashes inside the driver on vkCreateInstance. Fail cleanly so we
+	// fall back instead. Real drivers expose dozens of instance extensions.
+	if (extension_count > 1024)
+	{
+		Console.Error("VK: Implausible instance extension count %u, rejecting driver.", extension_count);
+		return false;
+	}
+
 	std::vector<VkExtensionProperties> available_extension_list(extension_count);
 	res = vkEnumerateInstanceExtensionProperties(nullptr, &extension_count, available_extension_list.data());
-	pxAssert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS)
+	{
+		LOG_VULKAN_ERROR(res, "vkEnumerateInstanceExtensionProperties (2) failed: ");
+		return false;
+	}
 
 	auto SupportsExtension = [&available_extension_list, extension_list](const char* name, bool required) {
 		if (std::find_if(available_extension_list.begin(), available_extension_list.end(),
@@ -1828,28 +1842,48 @@ void GSDeviceVK::ExecuteCommandBuffer(WaitType wait_for_completion)
 
 void GSDeviceVK::DeferBufferDestruction(VkBuffer object, VmaAllocation allocation)
 {
+	// A null/stale entry queued here runs later inside DestroyResources; the Adreno driver
+	// faults inside vkDestroyBuffer instead of ignoring it, so never let one through.
+	// Capture the allocator by value: the lambda runs at fence completion or shutdown,
+	// when m_allocator may already be gone, and dereferencing `this` then would feed
+	// the driver a dead allocator.
+	if (object == VK_NULL_HANDLE || m_allocator == VK_NULL_HANDLE)
+		return;
 	FrameResources& resources = m_frame_resources[m_current_frame];
+	VmaAllocator allocator = m_allocator;
 	resources.cleanup_resources.push_back(
-		[this, object, allocation]() { vmaDestroyBuffer(m_allocator, object, allocation); });
+		[allocator, object, allocation]() { vmaDestroyBuffer(allocator, object, allocation); });
 }
 
 void GSDeviceVK::DeferFramebufferDestruction(VkFramebuffer object)
 {
+	// Same hazard as buffers: Adreno faults on vkDestroyFramebuffer with a dead device,
+	// so drop the entry when the device is already gone (its objects die with it) and
+	// otherwise pin the live device handle in the lambda.
+	if (object == VK_NULL_HANDLE || m_device == VK_NULL_HANDLE)
+		return;
 	FrameResources& resources = m_frame_resources[m_current_frame];
-	resources.cleanup_resources.push_back([this, object]() { vkDestroyFramebuffer(m_device, object, nullptr); });
+	VkDevice device = m_device;
+	resources.cleanup_resources.push_back([device, object]() { vkDestroyFramebuffer(device, object, nullptr); });
 }
 
 void GSDeviceVK::DeferImageDestruction(VkImage object, VmaAllocation allocation)
 {
+	if (object == VK_NULL_HANDLE || m_allocator == VK_NULL_HANDLE)
+		return;
 	FrameResources& resources = m_frame_resources[m_current_frame];
+	VmaAllocator allocator = m_allocator;
 	resources.cleanup_resources.push_back(
-		[this, object, allocation]() { vmaDestroyImage(m_allocator, object, allocation); });
+		[allocator, object, allocation]() { vmaDestroyImage(allocator, object, allocation); });
 }
 
 void GSDeviceVK::DeferImageViewDestruction(VkImageView object)
 {
+	if (object == VK_NULL_HANDLE || m_device == VK_NULL_HANDLE)
+		return;
 	FrameResources& resources = m_frame_resources[m_current_frame];
-	resources.cleanup_resources.push_back([this, object]() { vkDestroyImageView(m_device, object, nullptr); });
+	VkDevice device = m_device;
+	resources.cleanup_resources.push_back([device, object]() { vkDestroyImageView(device, object, nullptr); });
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -2579,10 +2613,14 @@ void GSDeviceVK::Destroy()
 
 	EndRenderPass();
 	if (GetCurrentCommandBuffer() != VK_NULL_HANDLE)
-	{
 		ExecuteCommandBuffer(false);
+
+	// Always idle the GPU while the device is alive, not just when a command buffer is
+	// recording. Deferred destroys below (vmaDestroyBuffer etc.) require all submitted work
+	// referencing those buffers to be complete; Adreno faults inside vkDestroyBuffer when
+	// that invariant is violated (Vitals shutdown crash via DestroyResources).
+	if (m_device != VK_NULL_HANDLE)
 		WaitForGPUIdle();
-	}
 
 	m_swap_chain.reset();
 
@@ -2595,13 +2633,19 @@ void GSDeviceVK::Destroy()
 	VKShaderCache::Destroy();
 
 	if (m_device != VK_NULL_HANDLE)
+	{
 		vkDestroyDevice(m_device, nullptr);
+		m_device = VK_NULL_HANDLE;
+	}
 
 	if (m_debug_messenger_callback != VK_NULL_HANDLE)
 		DisableDebugUtils();
 
 	if (m_instance != VK_NULL_HANDLE)
+	{
 		vkDestroyInstance(m_instance, nullptr);
+		m_instance = VK_NULL_HANDLE;
+	}
 
 	Vulkan::UnloadVulkanLibrary();
 }
@@ -5645,7 +5689,11 @@ void GSDeviceVK::DestroyResources()
 	m_expand_index_stream_buffer.Destroy(false);
 	m_vertex_stream_buffer.Destroy(false);
 	if (m_expand_index_buffer != VK_NULL_HANDLE)
+	{
 		vmaDestroyBuffer(m_allocator, m_expand_index_buffer, m_expand_index_buffer_allocation);
+		m_expand_index_buffer = VK_NULL_HANDLE;
+		m_expand_index_buffer_allocation = VK_NULL_HANDLE;
+	}
 
 	if (m_tfx_pipeline_layout != VK_NULL_HANDLE)
 		vkDestroyPipelineLayout(m_device, m_tfx_pipeline_layout, nullptr);
@@ -5661,6 +5709,7 @@ void GSDeviceVK::DestroyResources()
 	if (m_null_framebuffer != VK_NULL_HANDLE)
 	{
 		vkDestroyFramebuffer(m_device, m_null_framebuffer, nullptr);
+		m_null_framebuffer = VK_NULL_HANDLE;
 	}
 
 	if (m_null_texture)
@@ -5702,7 +5751,10 @@ void GSDeviceVK::DestroyResources()
 	m_render_pass_cache.clear();
 
 	if (m_allocator != VK_NULL_HANDLE)
+	{
 		vmaDestroyAllocator(m_allocator);
+		m_allocator = VK_NULL_HANDLE;
+	}
 }
 
 VkShaderModule GSDeviceVK::GetTFXVertexShader(GSHWDrawConfig::VSSelector sel)

@@ -76,6 +76,8 @@ import com.sbro.emucorex.ui.common.gamepadFocusableCard
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
+import com.sbro.emucorex.ui.theme.neon.neonShape
+import com.sbro.emucorex.ui.theme.neon.neonButtonShape
 
 @Composable
 internal fun HomeShelfMode(
@@ -296,7 +298,10 @@ internal fun HomeShelfMode(
                             .padding(horizontal = horizontalInset)
                             .padding(bottom = bottomInset + 8.dp)
                     ) { activePath ->
-                        val selectedGame = games.first { it.path == activePath }
+                        // AnimatedContent keeps rendering the previous path through the exit fade
+                        // while games may already have changed (hide/restore, rescan). A throwing
+                        // first {} here crashed recomposition (Vitals NoSuchElementException).
+                        val selectedGame = games.firstOrNull { it.path == activePath } ?: return@AnimatedContent
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -488,7 +493,7 @@ private fun ShelfCoverCard(
     val debouncedClick = rememberDebouncedClick(onClick = onClick)
     val interactionSource = remember { MutableInteractionSource() }
     val showMenu = remember(game.path) { mutableStateOf(false) }
-    val shape = RoundedCornerShape(24.dp)
+    val shape = neonShape(24.dp)
     val coverAspectRatio = 2f / 3f
     val horizontalCoverPadding = if (isActive) 6.dp else 8.dp
     val verticalCoverPadding = if (isActive) 6.dp else 4.dp
@@ -607,7 +612,7 @@ private fun ShelfCoverArtPrompt(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = neonShape(16.dp),
         color = Color(0xFF171B24).copy(alpha = 0.88f),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
@@ -626,6 +631,7 @@ private fun ShelfCoverArtPrompt(
                 overflow = TextOverflow.Clip
             )
             FilledTonalButton(
+                shape = neonButtonShape(),
                 onClick = onEnable3dCoverArt,
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = Color(0xFF252C38),

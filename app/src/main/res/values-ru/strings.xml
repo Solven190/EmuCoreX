@@ -128,6 +128,7 @@
     <string name="settings_theme_system">Системная</string>
     <string name="settings_theme_light">Светлая</string>
     <string name="settings_theme_dark">Темная</string>
+    <string name="settings_theme_neon">Неон</string>
     <string name="settings_language">Язык</string>
     <string name="settings_tv_interface">Интерфейс для ТВ</string>
     <string name="settings_tv_interface_auto">Автоматически</string>
@@ -542,6 +543,7 @@
     <string name="onboarding_next">Далее</string>
     <string name="onboarding_back">Назад</string>
     <string name="onboarding_get_started">Начать</string>
+    <string name="picker_no_document_handler">Не найден файловый менеджер для выбора папок. Установите приложение файлового менеджера и попробуйте снова.</string>
 
     <string name="ok">ОК</string>
     <string name="cancel">Отмена</string>
@@ -1364,7 +1366,7 @@
     <string name="error_storage_permission_not_persisted">Android не предоставил постоянный доступ к этому расположению. Выберите его ещё раз в системном окне.</string>
     <string name="settings_about_privacy_policy">Политика конфиденциальности</string>
     <string name="settings_about_privacy_policy_desc">Открыть политику конфиденциальности EmuCoreX.</string>
-    <string name="settings_about_privacy_policy_url">https://sites.google.com/view/emucorexpolicy/%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D0%BD%D0%B0-%D1%81%D1%82%D0%BE%D1%80%D1%96%D0%BD%D0%BA%D0%B0</string>
+    <string name="settings_about_privacy_policy_url">https://emucorex.web.app/privacy</string>
     <string name="settings_touch_haptics">Тактильная отдача сенсорного управления</string>
     <string name="settings_touch_haptics_desc">Кратковременная тактильная отдача при нажатии на экранные элементы управления.</string>
     <string name="settings_gamepad_button_haptics">Тактильная отдача кнопок геймпада</string>

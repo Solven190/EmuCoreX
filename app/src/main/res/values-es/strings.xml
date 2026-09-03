@@ -128,6 +128,7 @@
     <string name="settings_theme_system">Sistema</string>
     <string name="settings_theme_light">Claro</string>
     <string name="settings_theme_dark">Oscuro</string>
+    <string name="settings_theme_neon">Neón</string>
     <string name="settings_language">Idioma</string>
     <string name="settings_tv_interface">Interfaz para TV</string>
     <string name="settings_tv_interface_auto">Automático</string>
@@ -535,6 +536,7 @@
     <string name="onboarding_next">Siguiente</string>
     <string name="onboarding_back">Atrás</string>
     <string name="onboarding_get_started">Empezar</string>
+    <string name="picker_no_document_handler">No se encontró ningún explorador de archivos para elegir carpetas. Instala una aplicación de explorador de archivos e inténtalo de nuevo.</string>
 
     <string name="ok">Aceptar</string>
     <string name="cancel">Cancelar</string>
@@ -1364,7 +1366,7 @@
     <string name="error_storage_permission_not_persisted">Android no concedió acceso permanente a esta ubicación. Vuelva a seleccionarla en el selector del sistema.</string>
     <string name="settings_about_privacy_policy">Política de privacidad</string>
     <string name="settings_about_privacy_policy_desc">Abre la política de privacidad de EmuCoreX.</string>
-    <string name="settings_about_privacy_policy_url">https://sites.google.com/view/emucorexpolicy/%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D0%BD%D0%B0-%D1%81%D1%82%D0%BE%D1%80%D1%96%D0%BD%D0%BA%D0%B0</string>
+    <string name="settings_about_privacy_policy_url">https://emucorex.web.app/privacy</string>
     <string name="settings_touch_haptics">Respuesta háptica táctil</string>
     <string name="settings_touch_haptics_desc">Reproducir una breve vibración al presionar los controles en pantalla.</string>
     <string name="settings_gamepad_button_haptics">Respuesta háptica de botones del mando</string>

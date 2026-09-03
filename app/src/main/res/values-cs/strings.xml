@@ -195,6 +195,7 @@
     <string name="settings_theme_system">Systémový</string>
     <string name="settings_theme_light">Světlý</string>
     <string name="settings_theme_dark">Tmavý</string>
+    <string name="settings_theme_neon">Neon</string>
     <string name="settings_theme_pro">Crimson Pro</string>
     <string name="settings_theme_pro_locked">Odemknout s Pro</string>
     <string name="settings_pro_tab">Pro</string>
@@ -620,7 +621,7 @@
     <string name="settings_about_privacy_policy">Zásady ochrany osobních údajů</string>
     <string name="settings_about_privacy_policy_desc">Otevřít zásady ochrany osobních údajů EmuCoreX.</string>
     <string name="settings_about_privacy_policy_link">Otevřít zásady ochrany osobních údajů</string>
-    <string name="settings_about_privacy_policy_url">https://sites.google.com/view/emucorexpolicy/%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D0%BD%D0%B0-%D1%81%D1%82%D0%BE%D1%80%D1%96%D0%BD%D0%BA%D0%B0</string>
+    <string name="settings_about_privacy_policy_url">https://emucorex.web.app/privacy</string>
     <string name="settings_about_app_source">Repozitář EmuCoreX</string>
     <string name="settings_about_app_source_desc">Otevřít repozitář EmuCoreX na GitHubu pro zdrojové kódy aplikace a projektu.</string>
     <string name="settings_about_app_source_link">Otevřít EmuCoreX na GitHubu</string>
@@ -1234,6 +1235,7 @@
     <string name="onboarding_next">Další</string>
     <string name="onboarding_back">Zpět</string>
     <string name="onboarding_get_started">Začít</string>
+    <string name="picker_no_document_handler">Nenalezen žádný správce souborů pro výběr složek. Nainstalujte si aplikaci správce souborů a zkuste to znovu.</string>
 
     <!-- Common -->
     <string name="ok">OK</string>

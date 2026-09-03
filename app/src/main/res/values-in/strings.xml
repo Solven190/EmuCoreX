@@ -195,6 +195,7 @@
     <string name="settings_theme_system">Sistem</string>
     <string name="settings_theme_light">Terang</string>
     <string name="settings_theme_dark">Gelap</string>
+    <string name="settings_theme_neon">Neon</string>
     <string name="settings_theme_pro">Crimson Pro</string>
     <string name="settings_theme_pro_locked">Buka dengan Pro</string>
     <string name="settings_pro_tab">Pro</string>
@@ -584,7 +585,7 @@
     <string name="settings_about_privacy_policy">Kebijakan Privasi</string>
     <string name="settings_about_privacy_policy_desc">Buka kebijakan privasi EmuCoreX.</string>
     <string name="settings_about_privacy_policy_link">Buka Kebijakan Privasi</string>
-    <string name="settings_about_privacy_policy_url">https://sites.google.com/view/emucorexpolicy/%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D0%BD%D0%B0-%D1%81%D1%82%D0%BE%D1%80%D1%96%D0%BD%D0%BA%D0%B0</string>
+    <string name="settings_about_privacy_policy_url">https://emucorex.web.app/privacy</string>
     <string name="settings_about_app_source">Repositori EmuCoreX</string>
     <string name="settings_about_app_source_desc">Buka repositori GitHub EmuCoreX untuk sumber aplikasi dan proyek.</string>
     <string name="settings_about_app_source_link">Buka EmuCoreX di GitHub</string>
@@ -1165,6 +1166,7 @@
     <string name="onboarding_next">Berikutnya</string>
     <string name="onboarding_back">Kembali</string>
     <string name="onboarding_get_started">Mulai</string>
+    <string name="picker_no_document_handler">Tidak ditemukan pengelola file untuk memilih folder. Silakan instal aplikasi pengelola file lalu coba lagi.</string>
 
     <!-- Common -->
     <string name="ok">OK</string>
