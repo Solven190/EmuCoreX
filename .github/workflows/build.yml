@@ -1,0 +1,216 @@
+name: EmuCoreX Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: "Build type"
+        required: true
+        default: "release"
+        type: choice
+        options:
+          - debug
+          - release
+
+permissions:
+  contents: read
+
+env:
+  NDK_VERSION: "27.0.12077973"
+  CMAKE_VERSION: "3.22.1"
+  GRADLE_OPTS: "-Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4g"
+
+jobs:
+  build:
+    name: Build APK (${{ github.event.inputs.build_type }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+          cache: "gradle"
+
+      - name: Setup Android SDK
+        run: |
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          if [ -z "$SDK" ]; then
+            echo "::error::ANDROID_SDK_ROOT / ANDROID_HOME is not set on the runner."
+            exit 1
+          fi
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$SDK/ndk/${{ env.NDK_VERSION }}" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          echo "Android SDK root: $SDK"
+
+      - name: Accept Android SDK 
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+
+      - name: Setup Rust Target
+        run: rustup target add aarch64-linux-android
+
+      - name: Cache Gradle Wrapper
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-wrapper-
+
+      - name: Cache NDK + CMake
+        id: cache-ndk
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.NDK_VERSION }}
+            ${{ env.ANDROID_SDK_ROOT }}/cmake/${{ env.CMAKE_VERSION }}
+          key: android-ndk-${{ env.NDK_VERSION }}-cmake-${{ env.CMAKE_VERSION }}
+          restore-keys: |
+            android-ndk-${{ env.NDK_VERSION }}-
+
+      - name: Install NDK + CMake
+        if: steps.cache-ndk.outputs.cache-hit != 'true'
+        run: |
+          sdkmanager --install "ndk;${{ env.NDK_VERSION }}" "cmake;${{ env.CMAKE_VERSION }}"
+
+      - name: Normalize PCSX2
+        run: |
+          cd app/src/main/cpp
+          if [ -d pcsx2 ] && [ ! -e PCSX2 ]; then
+            ln -s pcsx2 PCSX2
+            echo "Created symbolic link PCSX2 -> pcsx2"
+          elif [ -e PCSX2 ]; then
+            echo "Link PCSX2 already exists. Skipping."
+          else
+            echo "Directory pcsx2 not found. Skipping."
+          fi
+
+      - name: Cache CXX
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/.cxx
+          key: cxx-${{ runner.os }}-${{ github.event.inputs.build_type }}-${{ hashFiles('app/src/main/cpp/**/CMakeLists.txt') }}
+          restore-keys: |
+            cxx-${{ runner.os }}-${{ github.event.inputs.build_type }}-
+
+      - name: Make gradlew Executable
+        run: chmod +x gradlew
+
+      - name: Fetch PCSX2 Patches
+        run: |
+          PATCHES_DIR="app/src/main/cpp/PCSX2/bin/resources"
+          PATCHES_FILE="$PATCHES_DIR/patches.zip"
+          if [ ! -f "$PATCHES_FILE" ]; then
+            mkdir -p "$PATCHES_DIR"
+            curl -fL -o "$PATCHES_FILE" "https://github.com/PCSX2/pcsx2_patches/releases/latest/download/patches.zip"
+          fi
+
+      - name: Setup google-services.json
+        run: |
+          if [ ! -f app/google-services.json ]; then
+            echo "::warning::app/google-services.json not found, generating a placeholder so the Firebase plugin does not fail the build."
+            cat > app/google-services.json << 'EOF'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "placeholder-project",
+              "storage_bucket": "placeholder-project.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+                  "android_client_info": {
+                    "package_name": "com.sbro.emucorex"
+                  }
+                },
+                "oauth_client": [
+                  {
+                    "client_id": "000000000000-placeholder.apps.googleusercontent.com",
+                    "client_type": 3
+                  }
+                ],
+                "api_key": [
+                  { "current_key": "placeholder-key" }
+                ],
+                "services": {}
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+          fi
+
+      - name: Build APK
+        id: find_apk
+        run: |
+          BUILD_START=$(date +%s)
+          ./gradlew :app:assemble${{ github.event.inputs.build_type == 'release' && 'Release' || 'Debug' }} \
+            --build-cache --stacktrace --no-daemon
+          BUILD_END=$(date +%s)
+          echo "build_seconds=$((BUILD_END - BUILD_START))" >> "$GITHUB_OUTPUT"
+
+          APK_PATH=$(ls -t app/build/outputs/apk/**/*.apk 2>/dev/null | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "::error::No APK file was produced."
+            exit 1
+          fi
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "Built APK: $APK_PATH"
+
+      - name: Sign APK
+        if: ${{ github.event.inputs.build_type == 'release' }}
+        run: |
+          KEYSTORE=~/.android/release.keystore
+          mkdir -p ~/.android
+          if [ ! -f "$KEYSTORE" ]; then
+            keytool -genkeypair -v \
+              -keystore "$KEYSTORE" -storetype PKCS12 \
+              -alias emucorex-ci -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$KS_PASS" -keypass "$KEY_PASS" \
+              -dname "CN=EmuCoreX CI, OU=CI, O=CI, L=CI, S=CI, C=US"
+          fi
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$KEYSTORE" --ks-pass pass:"$KS_PASS" --key-pass pass:"$KEY_PASS" \
+            --ks-key-alias emucorex-ci \
+            "${{ steps.find_apk.outputs.apk_path }}"
+          "$BUILD_TOOLS/apksigner" verify "${{ steps.find_apk.outputs.apk_path }}"
+        env:
+          KS_PASS: emucorex-ci-temp
+          KEY_PASS: emucorex-ci-temp
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: EmucoreX-${{ github.event.inputs.build_type }}-${{ github.run_number }}
+          path: app/build/outputs/apk/**/*.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## EmucoreX Build"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Build type | \`${{ github.event.inputs.build_type }}\` |"
+            echo "| APK path | \`${{ steps.find_apk.outputs.apk_path }}\` |"
+            echo "| Build duration | ${{ steps.find_apk.outputs.build_seconds }} seconds |"
+            echo "| Run number | ${{ github.run_number }} |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
