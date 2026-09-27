@@ -3595,8 +3595,9 @@ class AppPreferences(private val context: Context) {
     suspend fun setGamepadBinding(padIndex: Int, actionId: String, keyCode: Int) {
         context.dataStore.edit { prefs ->
             updateGamepadBindingsForPad(prefs, padIndex) { updated ->
-                updated.entries.removeAll { it.value == keyCode }
-                updated[actionId] = keyCode
+                val assigned = GamepadBindingRules.assign(updated, actionId, keyCode)
+                updated.clear()
+                updated.putAll(assigned)
             }
         }
     }

@@ -613,8 +613,8 @@ fun EmulationScreen(
     val emulationAllowsBothOrientations by preferences.emulationAllowsBothOrientations.collectAsState(
         initial = null
     )
-    val effectiveGamepadBindingsByPad = if (uiState.gameSettingsProfileActive && uiState.gamepadBindingsByPad.isNotEmpty()) {
-        uiState.gamepadBindingsByPad
+    val effectiveGamepadBindingsByPad = if (uiState.gameSettingsProfileActive) {
+        com.sbro.emucorex.data.GamepadBindingRules.merge(gamepadBindingsByPad, uiState.gamepadBindingsByPad)
     } else {
         gamepadBindingsByPad
     }
@@ -657,6 +657,8 @@ fun EmulationScreen(
     var floatingQuickSavePosition by remember { mutableStateOf<Offset?>(null) }
     var floatingQuickLoadPosition by remember { mutableStateOf<Offset?>(null) }
     var lightGunAim by remember { mutableStateOf<Offset?>(null) }
+    var touchLightGunStick by remember { mutableStateOf(Offset.Zero) }
+    val physicalLightGunSticks by GamepadManager.lightGunStickByPad.collectAsState()
     var showAutoSaveLoadDialog by remember { mutableStateOf(false) }
     var showControlsEditor by remember { mutableStateOf(false) }
     var showGamepadMappingDialog by remember { mutableStateOf(false) }
@@ -678,6 +680,25 @@ fun EmulationScreen(
     val currentActivePlayTimeMs by rememberUpdatedState(uiState.activePlayTimeMs)
     val gyroView = LocalView.current
     var lastLightGunStickNanos by remember { mutableLongStateOf(0L) }
+    // -1 means the running VM has not yet reported its cabinet type.
+    var arcadeInputMode by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(uiState.isRunning, uiState.currentGameTitle) {
+        arcadeInputMode = -1
+        if (uiState.isRunning) {
+            while (true) {
+                val mode = runCatching { NativeApp.getArcadeInputMode() }.getOrDefault(-1)
+                if (mode >= 0) {
+                    arcadeInputMode = mode
+                    return@LaunchedEffect
+                }
+                delay(100)
+            }
+        }
+    }
+    val lightGunInputContext = usesLightGunControls(
+        arcadeInputMode, uiState.usbPort1Device, uiState.usbPort2Device,
+        uiState.ps2GunProfileActive
+    )
 
     fun publishLightGunAim(normalizedX: Float, normalizedY: Float) {
         lightGunAim = Offset(normalizedX, normalizedY)
@@ -689,6 +710,10 @@ fun EmulationScreen(
     }
 
     fun applyLightGunStickAim(dx: Float, dy: Float) {
+        touchLightGunStick = Offset(dx, dy)
+    }
+
+    fun advanceLightGunStickAim(dx: Float, dy: Float) {
         if (dx == 0f && dy == 0f) {
             lastLightGunStickNanos = 0L
             return
@@ -711,17 +736,19 @@ fun EmulationScreen(
         AndroidGyroscopeInput(
             context = context,
             onAnalog = { emittedMode, x, y ->
-                val targetRightStick = emittedMode == AppPreferences.GYRO_MODE_AIM &&
-                    currentGyroStickTarget == AppPreferences.GYRO_STICK_RIGHT
-                updateAnalogStick(
-                    x = x,
-                    y = y,
-                    upKey = if (targetRightStick) PadKey.RIGHT_STICK_UP else PadKey.LEFT_STICK_UP,
-                    rightKey = if (targetRightStick) PadKey.RIGHT_STICK_RIGHT else PadKey.LEFT_STICK_RIGHT,
-                    downKey = if (targetRightStick) PadKey.RIGHT_STICK_DOWN else PadKey.LEFT_STICK_DOWN,
-                    leftKey = if (targetRightStick) PadKey.RIGHT_STICK_LEFT else PadKey.LEFT_STICK_LEFT,
-                    onPadInput = { key, range, pressed -> viewModel.onPadInput(currentOverlayPadIndex, key, range, pressed) }
-                )
+                if (emittedMode != AppPreferences.GYRO_MODE_LIGHT_GUN) {
+                    val targetRightStick = emittedMode == AppPreferences.GYRO_MODE_AIM &&
+                        currentGyroStickTarget == AppPreferences.GYRO_STICK_RIGHT
+                    updateAnalogStick(
+                        x = x,
+                        y = y,
+                        upKey = if (targetRightStick) PadKey.RIGHT_STICK_UP else PadKey.LEFT_STICK_UP,
+                        rightKey = if (targetRightStick) PadKey.RIGHT_STICK_RIGHT else PadKey.LEFT_STICK_RIGHT,
+                        downKey = if (targetRightStick) PadKey.RIGHT_STICK_DOWN else PadKey.LEFT_STICK_DOWN,
+                        leftKey = if (targetRightStick) PadKey.RIGHT_STICK_LEFT else PadKey.LEFT_STICK_LEFT,
+                        onPadInput = { key, range, pressed -> viewModel.onPadInput(currentOverlayPadIndex, key, range, pressed) }
+                    )
+                }
             },
             onLightGunAim = { normalizedX, normalizedY ->
                 if (currentLightGunAimSource == AppPreferences.LIGHT_GUN_AIM_GYRO) {
@@ -737,12 +764,19 @@ fun EmulationScreen(
         uiState.gyroSensitivity,
         uiState.gyroSmoothing,
         uiState.gyroInvertX,
-        uiState.gyroInvertY
+        uiState.gyroInvertY,
+        uiState.lightGunAim,
+        lightGunInputContext
     ) {
         fun startGyro() {
-            if (uiState.isRunning && uiState.gyroMode != AppPreferences.GYRO_MODE_OFF) {
+            val sensorMode = if (lightGunInputContext) AppPreferences.GYRO_MODE_LIGHT_GUN
+                else uiState.gyroMode
+            if (uiState.isRunning && sensorMode != AppPreferences.GYRO_MODE_OFF &&
+                (sensorMode != AppPreferences.GYRO_MODE_LIGHT_GUN || lightGunInputContext) &&
+                (sensorMode != AppPreferences.GYRO_MODE_LIGHT_GUN ||
+                    uiState.lightGunAim == AppPreferences.LIGHT_GUN_AIM_GYRO)) {
                 gyroController.start(
-                    mode = uiState.gyroMode,
+                    mode = sensorMode,
                     sensitivityPercent = uiState.gyroSensitivity,
                     smoothingPercent = uiState.gyroSmoothing,
                     invertX = uiState.gyroInvertX,
@@ -765,17 +799,49 @@ fun EmulationScreen(
         }
     }
 
-    // Gun bindings may share physical buttons with the normal pad mapping; they must take
-    // over only while a light-gun context (gyro gun mode or a GunCon2 USB port) is active.
-    val lightGunInputContext = uiState.gyroMode == AppPreferences.GYRO_MODE_LIGHT_GUN ||
-        uiState.usbPort1Device == AppPreferences.USB_DEVICE_GUNCON2 ||
-        uiState.usbPort2Device == AppPreferences.USB_DEVICE_GUNCON2
-    LaunchedEffect(lightGunInputContext) {
-        GamepadManager.setLightGunModeActive(lightGunInputContext)
+    // Aim source is independent of the gyro sensor. A GunCon2 or light-gun control mode
+    // activates the same pointer and button path for either physical or touch sticks.
+    LaunchedEffect(lightGunInputContext, uiState.lightGunAim, arcadeInputMode) {
+        GamepadManager.setLightGunModeActive(lightGunInputContext, uiState.lightGunAim)
+        GamepadManager.setArcadeModeActive(arcadeInputMode > 0)
     }
     DisposableEffect(Unit) {
         onDispose {
             GamepadManager.setLightGunModeActive(false)
+            GamepadManager.setArcadeModeActive(false)
+        }
+    }
+    LaunchedEffect(lightGunInputContext, uiState.lightGunAim, uiState.isRunning) {
+        if (lightGunInputContext && uiState.isRunning) {
+            while (gyroView.width == 0 || gyroView.height == 0) delay(16)
+            publishLightGunAim(0.5f, 0.5f)
+        } else {
+            lightGunAim = null
+            touchLightGunStick = Offset.Zero
+        }
+        lastLightGunStickNanos = 0L
+    }
+    LaunchedEffect(lightGunInputContext, uiState.lightGunAim, uiState.isRunning, uiState.isPaused,
+        uiState.showMenu, showControlsEditor, physicalLightGunSticks, touchLightGunStick, overlayPadIndex) {
+        if (!lightGunInputContext || !uiState.isRunning || uiState.isPaused || uiState.showMenu ||
+            showControlsEditor || uiState.lightGunAim == AppPreferences.LIGHT_GUN_AIM_GYRO) {
+            lastLightGunStickNanos = 0L
+            if (uiState.showMenu || showControlsEditor) touchLightGunStick = Offset.Zero
+            return@LaunchedEffect
+        }
+        val physical = physicalLightGunSticks[overlayPadIndex]
+            ?.takeIf { it.first != 0f || it.second != 0f }
+            ?: physicalLightGunSticks.values.firstOrNull { it.first != 0f || it.second != 0f }
+        val vector = if (physical != null) {
+            Offset(physical.first, physical.second)
+        } else touchLightGunStick
+        if (vector == Offset.Zero) {
+            lastLightGunStickNanos = 0L
+            return@LaunchedEffect
+        }
+        while (true) {
+            advanceLightGunStickAim(vector.x, vector.y)
+            delay(16)
         }
     }
     var showGamepadIndicator by remember { mutableStateOf(gamepadConnected) }
@@ -1073,8 +1139,8 @@ fun EmulationScreen(
                     if (uiState.gameSettingsProfileActive) {
                         val currentBindings = uiState.gamepadBindingsByPad.toMutableMap()
                         val padBindings = currentBindings[pendingGamepadPadIndex].orEmpty().toMutableMap()
-                        padBindings[actionId] = keyCode
-                        currentBindings[pendingGamepadPadIndex] = padBindings
+                        currentBindings[pendingGamepadPadIndex] =
+                            com.sbro.emucorex.data.GamepadBindingRules.assign(padBindings, actionId, keyCode)
                         viewModel.setGamepadBindingsByPad(currentBindings)
                     } else {
                         preferences.setGamepadBinding(pendingGamepadPadIndex, actionId, keyCode)
@@ -1105,7 +1171,10 @@ fun EmulationScreen(
                         viewModel.quickLoad()
                     }
                 }
-                "gun_recalibrate" -> gyroController.recalibrate()
+                "gun_recalibrate" -> {
+                    gyroController.recalibrate()
+                    publishLightGunAim(0.5f, 0.5f)
+                }
             }
         }
     }
@@ -1567,7 +1636,7 @@ fun EmulationScreen(
         // see where they aim, especially in arcade shooters that draw no reticle.
         val lightGunAimPosition = lightGunAim
         if (
-            uiState.gyroMode == AppPreferences.GYRO_MODE_LIGHT_GUN &&
+            lightGunInputContext &&
             uiState.lightGunCursorEnabled &&
             uiState.isRunning &&
             !uiState.isPaused &&
@@ -1636,9 +1705,13 @@ fun EmulationScreen(
                     controlLayouts = uiState.controlLayouts,
                     racingMode = uiState.racingMode,
                     stickToggleTarget = uiState.stickToggleTarget,
-                    lightGunAimSource = uiState.lightGunAim,
+                    lightGunAimSource = if (lightGunInputContext) uiState.lightGunAim
+                        else AppPreferences.LIGHT_GUN_AIM_GYRO,
                     onLightGunStickAim = ::applyLightGunStickAim,
-                    onLightGunRecalibrate = { gyroController.recalibrate() },
+                    onLightGunRecalibrate = {
+                        gyroController.recalibrate()
+                        publishLightGunAim(0.5f, 0.5f)
+                    },
                     onToggleSelectedStick = viewModel::toggleSelectedStick,
                     onFastForwardHoldChange = viewModel::setFastForwardHeld,
                     onPadInput = { keyCode, range, pressed ->
@@ -2075,12 +2148,16 @@ fun EmulationScreen(
                                 actionId = action.id,
                                 customBindings = selectedBindings
                             )
-                            val isCustomBinding = selectedBindings.containsKey(action.id)
+                            val isMappedBinding = selectedBindings.containsKey(action.id)
+                            val isCustomBinding = if (uiState.gameSettingsProfileActive) {
+                                uiState.gamepadBindingsByPad[selectedGamepadPadIndex]
+                                    .orEmpty().containsKey(action.id)
+                            } else isMappedBinding
                             EmulationGamepadBindingRow(
                                 title = gamepadActionLabel(action.id),
                                 value = assignedKeyCode?.let(GamepadManager::keyCodeLabel)
                                     ?: stringResource(R.string.settings_not_set),
-                                autoLabel = if (isCustomBinding || action.defaultKeyCodes.isEmpty()) {
+                                autoLabel = if (isMappedBinding || action.defaultKeyCodes.isEmpty()) {
                                     null
                                 } else {
                                     stringResource(R.string.settings_gamepad_mapping_auto_format)
@@ -2770,7 +2847,10 @@ private fun OnScreenControls(
                 pressEffect = pressEffect,
                 onValueChange = { x, y ->
                     if (lightGunAimSource == AppPreferences.LIGHT_GUN_AIM_LEFT_STICK) {
-                        onLightGunStickAim?.invoke(x, y)
+                        val (aimX, aimY) = adjustLightGunStickInput(
+                            x, y, invertLeftStickHorizontal, invertLeftStick, leftStickSensitivity
+                        )
+                        onLightGunStickAim?.invoke(aimX, aimY)
                     } else {
                         updateAnalogStick(
                             x = if (invertLeftStickHorizontal) -x else x,
@@ -2803,7 +2883,10 @@ private fun OnScreenControls(
                 visualY = rightStickTriggerVisualY,
                 onValueChange = { x, y ->
                     if (lightGunAimSource == AppPreferences.LIGHT_GUN_AIM_RIGHT_STICK) {
-                        onLightGunStickAim?.invoke(x, y)
+                        val (aimX, aimY) = adjustLightGunStickInput(
+                            x, y, invertRightStickHorizontal, invertRightStick, rightStickSensitivity
+                        )
+                        onLightGunStickAim?.invoke(aimX, aimY)
                     } else {
                         updateRightAnalogStick(
                             x = if (invertRightStickHorizontal) -x else x,

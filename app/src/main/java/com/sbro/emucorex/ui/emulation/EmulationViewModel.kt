@@ -50,6 +50,7 @@ import com.sbro.emucorex.data.PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY
 import com.sbro.emucorex.data.PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY
 import com.sbro.emucorex.data.saveTouchControlsLayout
 import com.sbro.emucorex.data.withCustomTouchControls
+import com.sbro.emucorex.data.withGamepadBindingsByPad
 import com.sbro.emucorex.data.withTouchControlsLayout
 import com.sbro.emucorex.data.withoutTouchControlsLayout
 import com.sbro.emucorex.data.TouchControlVisualStyle
@@ -118,6 +119,7 @@ internal fun replacePerformanceCpuName(text: String, cpuName: String): String {
 
 data class EmulationUiState(
     val isRunning: Boolean = false,
+    val ps2GunProfileActive: Boolean = false,
     val isStarting: Boolean = false,
     val isPaused: Boolean = false,
     val showMenu: Boolean = false,
@@ -1867,6 +1869,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         currentGameTitle = currentGameTitle,
                         currentGameSubtitle = currentGameSubtitle(),
                         currentGameCoverArtPath = currentGameCoverArtPath,
+                        ps2GunProfileActive = existingProfile?.let {
+                            it.gyroMode == AppPreferences.GYRO_MODE_LIGHT_GUN &&
+                                (it.providedKeys == null || "gyroMode" in it.providedKeys)
+                        } ?: false,
                         gameSettingsProfileActive = existingProfile != null
                     )
                     syncCurrentGameProfileMetadata()
@@ -2552,7 +2558,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     fun setGamepadBindingsByPad(bindingsByPad: Map<Int, Map<String, Int>>) {
         viewModelScope.launch {
             val newState = _uiState.value.copy(gamepadBindingsByPad = bindingsByPad)
-            _uiState.value = newState
+            val existingProfile = activePerGameKey()?.let(perGameSettingsRepository::get)
+            if (existingProfile != null) {
+                perGameSettingsRepository.save(existingProfile.withGamepadBindingsByPad(bindingsByPad))
+                _uiState.value = newState
+            } else {
+                persistRuntimeState(newState)
+            }
             GamepadManager.applyPerGameOverrides(
                 bindingsByPad = bindingsByPad,
                 deadzone = null,
@@ -4013,7 +4025,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         currentTouchControlsLayoutProfile = null
         currentCustomTouchControlsProfile = null
         GamepadManager.clearPerGameOverrides()
-        _uiState.value = _uiState.value.copy(gameSettingsProfileActive = false, gamepadBindingsByPad = emptyMap())
+        _uiState.value = _uiState.value.copy(
+            gameSettingsProfileActive = false,
+            gamepadBindingsByPad = emptyMap(),
+            ps2GunProfileActive = false
+        )
         viewModelScope.launch {
             val settings = preferences.settingsSnapshot.first()
             val frameGeneration = frameGenerationManager.snapshot()
@@ -4841,6 +4857,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             currentGameTitle = "",
             currentGameSubtitle = "",
             currentGameCoverArtPath = null,
+            ps2GunProfileActive = false,
             gameSettingsProfileActive = false
         )
         currentGameSource = ""
