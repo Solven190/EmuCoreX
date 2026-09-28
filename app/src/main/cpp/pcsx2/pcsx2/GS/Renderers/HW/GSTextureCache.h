@@ -485,6 +485,27 @@ protected:
 	// Returns scaled texture size.
 	static GSVector2i ScaleRenderTargetSize(const GSVector2i& sz, float scale);
 
+	/// Converts one native coordinate to the device grid. Native pixel n owns device pixels
+	/// [ceil(n * scale), ceil((n + 1) * scale)), which is where the rasteriser puts it, so the
+	/// conversion ceils. Also the device size of a texture whose native size is `native`, since
+	/// that is a span starting at 0.
+	static int ScaleNativeToDevice(int native, float scale);
+
+	/// The device length of the native span [start, start + length): the difference of its two
+	/// edges' device positions. Not ScaleNativeToDevice(length), which is the length of a span
+	/// starting at native 0; at a fractional scale the two differ by up to a device pixel.
+	static int ScaleNativeSpanToDevice(int start, int length, float scale);
+
+	/// The device rectangles a native w x h move from (sx, sy) to (dx, dy) copies between. Each
+	/// starts at its native corner's first owned device pixel; both have the same size, the
+	/// smaller of the two owned spans per axis, because a copy cannot stretch.
+	struct DeviceMove
+	{
+		GSVector4i src;
+		GSVector4i dst;
+	};
+	static DeviceMove ScaleMoveToDevice(int sx, int sy, int dx, int dy, int w, int h, float scale);
+
 	/// Expands a target when the block pointer for a display framebuffer is within another target, but the read offset
 	/// plus the height is larger than the current size of the target.
 	void ScaleTargetForDisplay(Target* t, const GIFRegTEX0& dispfb, int real_w, int real_h);
