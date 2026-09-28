@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - master
       - develop
     paths-ignore:
       - '**.md'
@@ -13,6 +14,7 @@ on:
   pull_request:
     branches:
       - main
+      - master
   workflow_dispatch:
     inputs:
       build_type:
@@ -35,7 +37,7 @@ env:
 
 jobs:
   build:
-    name: Build APK (${{ env.BUILD_TYPE }})
+    name: Build APK (${{ github.event.inputs.build_type || 'release' }})
     runs-on: ubuntu-24.04
     timeout-minutes: 90
 
