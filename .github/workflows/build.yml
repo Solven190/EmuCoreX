@@ -1,6 +1,20 @@
 name: EmuCoreX Build
 
 on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  pull_request:
+    branches:
+      - main
+      - master
   workflow_dispatch:
     inputs:
       build_type:
@@ -19,10 +33,11 @@ env:
   NDK_VERSION: "27.0.12077973"
   CMAKE_VERSION: "3.22.1"
   GRADLE_OPTS: "-Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4g"
+  BUILD_TYPE: ${{ github.event_name == 'pull_request' && 'debug' || github.event.inputs.build_type || 'release' }}
 
 jobs:
   build:
-    name: Build APK (${{ github.event.inputs.build_type }})
+    name: Build APK (${{ env.BUILD_TYPE }})
     runs-on: ubuntu-24.04
     timeout-minutes: 90
 
@@ -53,7 +68,7 @@ jobs:
           echo "$SDK/platform-tools" >> "$GITHUB_PATH"
           echo "Android SDK root: $SDK"
 
-      - name: Accept Android SDK 
+      - name: Accept Android SDK Licenses
         run: |
           yes | sdkmanager --licenses > /dev/null || true
 
@@ -101,9 +116,9 @@ jobs:
         with:
           path: |
             app/.cxx
-          key: cxx-${{ runner.os }}-${{ github.event.inputs.build_type }}-${{ hashFiles('app/src/main/cpp/**/CMakeLists.txt') }}
+          key: cxx-${{ runner.os }}-${{ env.BUILD_TYPE }}-${{ hashFiles('app/src/main/cpp/**/CMakeLists.txt') }}
           restore-keys: |
-            cxx-${{ runner.os }}-${{ github.event.inputs.build_type }}-
+            cxx-${{ runner.os }}-${{ env.BUILD_TYPE }}-
 
       - name: Make gradlew Executable
         run: chmod +x gradlew
@@ -157,7 +172,7 @@ jobs:
         id: find_apk
         run: |
           BUILD_START=$(date +%s)
-          ./gradlew :app:assemble${{ github.event.inputs.build_type == 'release' && 'Release' || 'Debug' }} \
+          ./gradlew :app:assemble${{ env.BUILD_TYPE == 'release' && 'Release' || 'Debug' }} \
             --build-cache --stacktrace --no-daemon
           BUILD_END=$(date +%s)
           echo "build_seconds=$((BUILD_END - BUILD_START))" >> "$GITHUB_OUTPUT"
@@ -171,7 +186,7 @@ jobs:
           echo "Built APK: $APK_PATH"
 
       - name: Sign APK
-        if: ${{ github.event.inputs.build_type == 'release' }}
+        if: ${{ env.BUILD_TYPE == 'release' }}
         run: |
           KEYSTORE=~/.android/release.keystore
           mkdir -p ~/.android
@@ -195,7 +210,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: EmucoreX-${{ github.event.inputs.build_type }}-${{ github.run_number }}
+          name: EmucoreX-${{ env.BUILD_TYPE }}-${{ github.run_number }}
           path: app/build/outputs/apk/**/*.apk
           retention-days: 30
           if-no-files-found: error
@@ -208,7 +223,9 @@ jobs:
             echo ""
             echo "| Field | Value |"
             echo "|-------|-------|"
-            echo "| Build type | \`${{ github.event.inputs.build_type }}\` |"
+            echo "| Trigger | \`${{ github.event_name }}\` |"
+            echo "| Build type | \`${{ env.BUILD_TYPE }}\` |"
+            echo "| Branch | \`${{ github.ref_name }}\` |"
             echo "| APK path | \`${{ steps.find_apk.outputs.apk_path }}\` |"
             echo "| Build duration | ${{ steps.find_apk.outputs.build_seconds }} seconds |"
             echo "| Run number | ${{ github.run_number }} |"
