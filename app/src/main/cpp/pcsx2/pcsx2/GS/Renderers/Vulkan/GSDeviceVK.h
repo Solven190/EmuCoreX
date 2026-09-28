@@ -4,6 +4,7 @@
 #pragma once
 
 #include "GS/Renderers/Common/GSDevice.h"
+#include "GS/Renderers/Common/GSStreamRingMemoryPolicy.h"
 #include "GS/GSVector.h"
 #include "GS/Renderers/Vulkan/GSTextureVK.h"
 #include "GS/Renderers/Vulkan/VKLoader.h"
@@ -142,6 +143,13 @@ public:
 	// commands can be retreived by calling GetCurrentFenceCounter().
 	u64 GetCompletedFenceCounter() const { return m_completed_fence_counter; }
 
+	// Polls the submitted command buffers' fences without blocking and retires every one that has
+	// signalled, advancing GetCompletedFenceCounter().
+	void ScanForCommandBufferCompletion();
+
+	// Which memory the six stream rings are allocated from (GSStreamRingMemoryPolicy.h).
+	__fi const GSStreamRingMemoryDecision& GetStreamRingMemory() const { return m_stream_ring_memory; }
+
 	// Gets the fence that will be signaled when the currently executing command buffer is
 	// queued and executed. Do not wait for this fence before the buffer is executed.
 	u64 GetCurrentFenceCounter() const { return m_frame_resources[m_current_frame].fence_counter; }
@@ -158,6 +166,10 @@ public:
 	void WaitForFenceCounter(u64 fence_counter);
 
 	void WaitForGPUIdle();
+
+	// A stream ring replaced its buffer (VKStreamBuffer::Grow). Rebinds whatever refers to it by
+	// handle, from the command buffer being recorded on.
+	void OnStreamRingReplaced(const VKStreamBuffer& ring);
 
 private:
 	// Helper method to create a Vulkan instance.
@@ -220,7 +232,6 @@ private:
 
 	void CommandBufferCompleted(u32 index);
 	void ActivateCommandBuffer(u32 index);
-	void ScanForCommandBufferCompletion();
 	void WaitForCommandBufferCompletion(u32 index);
 
 	bool InitSpinResources();
@@ -374,6 +385,8 @@ private:
 	VkPhysicalDeviceProperties m_device_properties = {};
 	VkPhysicalDeviceDriverPropertiesKHR m_device_driver_properties = {};
 	OptionalExtensions m_optional_extensions = {};
+
+	GSStreamRingMemoryDecision m_stream_ring_memory;
 
 	u32 m_max_framebuffer_width = 0;
 	u32 m_max_framebuffer_height = 0;
@@ -615,6 +628,7 @@ private:
 	bool CheckFeatures();
 	bool CreateNullTexture();
 	bool CreateBuffers();
+	void FlushStreamRingWrites();
 	bool CreatePipelineLayouts();
 	bool CreateRenderPasses();
 
@@ -844,6 +858,7 @@ private:
 
 	void InitializeState();
 	bool CreatePersistentDescriptorSets();
+	VkDescriptorSet CreateTFXUBODescriptorSet();
 
 	void SetInitialState(VkCommandBuffer cmdbuf);
 	void ApplyBaseState(u32 flags, VkCommandBuffer cmdbuf);
