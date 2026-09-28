@@ -151,6 +151,7 @@ data class SettingsSnapshot(
     val vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
     val vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
     val enableGameFixes: Boolean = true,
+    val autoGsHardwareFixes: Boolean = true,
     val enableEeTimingHack: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
@@ -168,6 +169,7 @@ data class SettingsSnapshot(
     val trilinearFiltering: Int = GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
     val blendingAccuracy: Int = GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
     val texturePreloading: Int = GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
+    val hwRov: Boolean = false,
     val enableFxaa: Boolean = false,
     val sgsrMode: Int = 0,
     val casMode: Int = 0,
@@ -373,7 +375,7 @@ class AppPreferences(private val context: Context) {
             "enableFastBoot", "eeCycleRate", "eeCycleSkip", "enableEeRecompiler",
             "enableIopRecompiler", "enableVu0Recompiler", "enableVu1Recompiler", "enableFastmem",
             "eeFpuRoundMode", "vu0RoundMode", "vu1RoundMode", "eeFpuClampingMode",
-            "vu0ClampingMode", "vu1ClampingMode", "enableGameFixes", "enableEeTimingHack",
+            "vu0ClampingMode", "vu1ClampingMode", "enableGameFixes", "autoGsHardwareFixes", "enableEeTimingHack",
             "enableWaitLoopSpeedhack", "enableIntcStatSpeedhack", "enableVuFlagHack",
             "enableInstantVu1", "enableMtvu", "enableThreadPinning", "enableFastCdvd",
             "hwDownloadMode", "frameSkip", "skipDuplicateFrames", "lowLatencyMode", "textureFiltering",
@@ -382,7 +384,7 @@ class AppPreferences(private val context: Context) {
             "textureDumpingEnabled", "enableFxaa", "sgsrMode", "casMode", "casSharpness",
             "tvShader", "enableWidescreenPatches", "enableNoInterlacingPatches",
             "deinterlaceMode", "dithering", "antiBlur", "anisotropicFiltering",
-            "enableHwMipmapping", "cpuSpriteRenderSize", "cpuSpriteRenderLevel",
+            "enableHwMipmapping", "hwRov", "cpuSpriteRenderSize", "cpuSpriteRenderLevel",
             "softwareClutRender", "gpuTargetClutMode", "skipDrawStart", "skipDrawEnd",
             "autoFlushHardware", "cpuFramebufferConversion", "disableDepthConversion",
             "disableSafeFeatures", "disableRenderFixes", "preloadFrameData",
@@ -693,6 +695,8 @@ class AppPreferences(private val context: Context) {
         private val VU0_CLAMPING_MODE = intPreferencesKey("vu0_clamping_mode")
         private val VU1_CLAMPING_MODE = intPreferencesKey("vu1_clamping_mode")
         private val ENABLE_GAME_FIXES = booleanPreferencesKey("enable_game_fixes")
+        private val AUTO_GS_HARDWARE_FIXES = booleanPreferencesKey("auto_gs_hardware_fixes")
+        private val HW_ROV = booleanPreferencesKey("hw_rov")
         private val ENABLE_EE_TIMING_HACK = booleanPreferencesKey("enable_ee_timing_hack")
         private val ENABLE_WAIT_LOOP_SPEEDHACK = booleanPreferencesKey("enable_wait_loop_speedhack")
         private val ENABLE_INTC_STAT_SPEEDHACK = booleanPreferencesKey("enable_intc_stat_speedhack")
@@ -1865,6 +1869,7 @@ class AppPreferences(private val context: Context) {
                 vu0ClampingMode = sanitizeClampingMode(prefs[VU0_CLAMPING_MODE], DEFAULT_VU0_CLAMPING_MODE),
                 vu1ClampingMode = sanitizeClampingMode(prefs[VU1_CLAMPING_MODE], DEFAULT_VU1_CLAMPING_MODE),
                 enableGameFixes = prefs[ENABLE_GAME_FIXES] ?: true,
+                autoGsHardwareFixes = prefs[AUTO_GS_HARDWARE_FIXES] ?: true,
                 enableEeTimingHack = prefs[ENABLE_EE_TIMING_HACK] ?: false,
                 enableWaitLoopSpeedhack = prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true,
                 enableIntcStatSpeedhack = prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true,
@@ -1922,6 +1927,7 @@ class AppPreferences(private val context: Context) {
                     prefs[ANISOTROPIC_FILTERING] ?: GsHackDefaults.ANISOTROPIC_FILTERING_DEFAULT
                 ),
                 enableHwMipmapping = prefs[ENABLE_HW_MIPMAPPING] ?: GsHackDefaults.HW_MIPMAPPING_DEFAULT,
+                hwRov = prefs[HW_ROV] ?: false,
                 cpuSpriteRenderSize = prefs[CPU_SPRITE_RENDER_SIZE] ?: GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
                 cpuSpriteRenderLevel = prefs[CPU_SPRITE_RENDER_LEVEL] ?: GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT,
                 softwareClutRender = prefs[SOFTWARE_CLUT_RENDER] ?: GsHackDefaults.SOFTWARE_CLUT_RENDER_DEFAULT,
@@ -3012,6 +3018,14 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[ENABLE_GAME_FIXES] = enabled }
     }
 
+    val autoGsHardwareFixes: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[AUTO_GS_HARDWARE_FIXES] ?: true
+    }
+
+    suspend fun setAutoGsHardwareFixes(enabled: Boolean) {
+        context.dataStore.edit { it[AUTO_GS_HARDWARE_FIXES] = enabled }
+    }
+
     val enableEeTimingHack: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[ENABLE_EE_TIMING_HACK] ?: false
     }
@@ -3334,6 +3348,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setEnableHwMipmapping(enabled: Boolean) {
         context.dataStore.edit { it[ENABLE_HW_MIPMAPPING] = enabled }
+    }
+
+    val hwRov: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[HW_ROV] ?: false
+    }
+
+    suspend fun setHwRov(enabled: Boolean) {
+        context.dataStore.edit { it[HW_ROV] = enabled }
     }
 
     val cpuSpriteRenderSize: Flow<Int> = context.dataStore.data.map { prefs ->
@@ -4205,6 +4227,7 @@ class AppPreferences(private val context: Context) {
             put("vu0ClampingMode", sanitizeClampingMode(prefs[VU0_CLAMPING_MODE], DEFAULT_VU0_CLAMPING_MODE))
             put("vu1ClampingMode", sanitizeClampingMode(prefs[VU1_CLAMPING_MODE], DEFAULT_VU1_CLAMPING_MODE))
             put("enableGameFixes", prefs[ENABLE_GAME_FIXES] ?: true)
+            put("autoGsHardwareFixes", prefs[AUTO_GS_HARDWARE_FIXES] ?: true)
             put("enableEeTimingHack", prefs[ENABLE_EE_TIMING_HACK] ?: false)
             put("enableWaitLoopSpeedhack", prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true)
             put("enableIntcStatSpeedhack", prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true)
@@ -4257,6 +4280,7 @@ class AppPreferences(private val context: Context) {
                 prefs[ANISOTROPIC_FILTERING] ?: GsHackDefaults.ANISOTROPIC_FILTERING_DEFAULT
             ))
             put("enableHwMipmapping", prefs[ENABLE_HW_MIPMAPPING] ?: GsHackDefaults.HW_MIPMAPPING_DEFAULT)
+            put("hwRov", prefs[HW_ROV] ?: false)
             put("cpuSpriteRenderSize", prefs[CPU_SPRITE_RENDER_SIZE] ?: GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT)
             put("cpuSpriteRenderLevel", prefs[CPU_SPRITE_RENDER_LEVEL] ?: GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT)
             put("softwareClutRender", prefs[SOFTWARE_CLUT_RENDER] ?: GsHackDefaults.SOFTWARE_CLUT_RENDER_DEFAULT)
@@ -4650,6 +4674,7 @@ class AppPreferences(private val context: Context) {
             prefs[VU0_CLAMPING_MODE] = sanitizeClampingMode(json.optInt("vu0ClampingMode", legacyVuClampingMode), DEFAULT_VU0_CLAMPING_MODE)
             prefs[VU1_CLAMPING_MODE] = sanitizeClampingMode(json.optInt("vu1ClampingMode", DEFAULT_VU1_CLAMPING_MODE), DEFAULT_VU1_CLAMPING_MODE)
             prefs[ENABLE_GAME_FIXES] = json.optBoolean("enableGameFixes", true)
+            prefs[AUTO_GS_HARDWARE_FIXES] = json.optBoolean("autoGsHardwareFixes", true)
             prefs[ENABLE_EE_TIMING_HACK] = json.optBoolean("enableEeTimingHack", false)
             prefs[ENABLE_WAIT_LOOP_SPEEDHACK] = json.optBoolean("enableWaitLoopSpeedhack", true)
             prefs[ENABLE_INTC_STAT_SPEEDHACK] = json.optBoolean("enableIntcStatSpeedhack", true)
@@ -4705,6 +4730,7 @@ class AppPreferences(private val context: Context) {
                 json.optInt("anisotropicFiltering", GsHackDefaults.ANISOTROPIC_FILTERING_DEFAULT)
             )
             prefs[ENABLE_HW_MIPMAPPING] = json.optBoolean("enableHwMipmapping", GsHackDefaults.HW_MIPMAPPING_DEFAULT)
+            prefs[HW_ROV] = json.optBoolean("hwRov", false)
             prefs[CPU_SPRITE_RENDER_SIZE] = json.optInt("cpuSpriteRenderSize", GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT).coerceIn(0, 10)
             prefs[CPU_SPRITE_RENDER_LEVEL] = json.optInt("cpuSpriteRenderLevel", GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT).coerceIn(0, 2)
             prefs[SOFTWARE_CLUT_RENDER] = json.optInt("softwareClutRender", GsHackDefaults.SOFTWARE_CLUT_RENDER_DEFAULT).coerceIn(0, 2)

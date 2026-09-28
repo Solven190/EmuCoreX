@@ -26299,6 +26299,8 @@ SLES-54309:
 SLES-54310:
   name: "Open Season"
   region: "PAL-M4"
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   gsHWFixes:
     halfPixelOffset: 4 # Aligns post effects.
 SLES-54311:
@@ -26310,6 +26312,8 @@ SLES-54313:
 SLES-54316:
   name: "Open Season - Rebelles de la Foret"
   region: "PAL-F"
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   gsHWFixes:
     halfPixelOffset: 4 # Aligns post effects.
 SLES-54317:
@@ -73351,6 +73355,8 @@ SLUS-21467:
   name: "Open Season"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   gsHWFixes:
     halfPixelOffset: 4 # Aligns post effects.
 SLUS-21469:

@@ -1285,6 +1285,12 @@
     <string name="profile_name_updated">تم تحديث اسم العرض.</string>
     <string name="profile_signed_out">تم تسجيل الخروج.</string>
     <string name="profile_done">تم.</string>
+    <string name="settings_auto_gs_hw_fixes">إصلاحات رسومات GameDB</string>
+    <string name="settings_auto_gs_hw_fixes_desc">تطبيق إصلاحات عتاد GS التلقائية من GameDB.</string>
+    <string name="settings_help_auto_gs_hw_fixes">يطبّق إصلاحات عتاد GS التلقائية من GameDB، مثل تصحيح رفع الدقة والدمج والنقوش. قد يؤدي تعطيله إلى تسريع بعض الألعاب لكنه قد يسبب عيوبا في الرسومات. تحل الإصلاحات اليدوية محل هذه الإصلاحات التلقائية.</string>
+    <string name="settings_hw_rov">ترتيب عرض الراستر (ROV)</string>
+    <string name="settings_hw_rov_desc">دمج دقيق عبر تشابك shader الأجزاء (Vulkan).</string>
+    <string name="settings_help_hw_rov">يستخدم Rasterizer Order Views لدمج دقيق في Vulkan. معطّل افتراضيا على الهواتف لأن وحدات GPU من نوع tiler تفقد الأداء ولا تدعمه معظم التعريفات.</string>
     <string name="settings_game_fixes">إصلاحات GameDB</string>
     <string name="settings_game_fixes_desc">تطبيق إصلاحات التوافق من GameDB.</string>
     <string name="settings_help_game_fixes">يستخدم إصلاحات التوافق من GameDB للألعاب المعروفة، بما في ذلك التجاوزات التلقائية لوضع التقييد (clamp) والتقريب (round). قم بتعطيل هذا فقط عندما تحتاج لعبة معينة إلى إعدادات التقييد اليدوية بدلاً من قيم GameDB؛ أعد تشغيل اللعبة للتطبيق.</string>

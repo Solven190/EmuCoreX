@@ -323,6 +323,12 @@
     <string name="settings_jit_mtvu_note">Jika Anda menonaktifkan rekompiler VU1, matikan juga MTVU di bawah ini. MTVU hanya masuk akal dengan rekompilasi VU1 diaktifkan.</string>
     <string name="settings_cpu_float_modes">Mode Floating Point</string>
     <string name="settings_cpu_float_modes_note">Penimpaan kompatibilitas untuk game tertentu. Biarkan pengaturan default kecuali ada judul yang diketahui memerlukan Round Mode atau Mode Clamping yang berbeda; mulai ulang game untuk menerapkan perubahan.</string>
+    <string name="settings_auto_gs_hw_fixes">Perbaikan Grafis GameDB</string>
+    <string name="settings_auto_gs_hw_fixes_desc">Terapkan perbaikan perangkat keras GS otomatis dari GameDB.</string>
+    <string name="settings_help_auto_gs_hw_fixes">Menerapkan perbaikan perangkat keras GS otomatis dari GameDB, seperti koreksi upscaling, blending, dan tekstur. Menonaktifkannya dapat mempercepat sebagian game, tetapi dapat menyebabkan gangguan grafis. Perbaikan perangkat keras manual menggantikan perbaikan otomatis ini.</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">Blending akurat melalui interlock fragment shader (Vulkan).</string>
+    <string name="settings_help_hw_rov">Menggunakan Rasterizer Order Views untuk blending akurat di Vulkan. Nonaktif secara default di perangkat seluler karena GPU tiler kehilangan performa dan banyak driver tidak mendukungnya.</string>
     <string name="settings_game_fixes">GameDB Fixes</string>
     <string name="settings_game_fixes_desc">Terapkan perbaikan kompatibilitas dari GameDB.</string>
     <string name="settings_help_game_fixes">Menggunakan perbaikan kompatibilitas GameDB untuk game yang diketahui, termasuk mode penjepitan (clamp) dan pembulatan (round) otomatis. Nonaktifkan ini hanya saat game tertentu memerlukan pengaturan penjepitan manual Anda sebagai pengganti nilai GameDB; mulai ulang game untuk menerapkannya.</string>

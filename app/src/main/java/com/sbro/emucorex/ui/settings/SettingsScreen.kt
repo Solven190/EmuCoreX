@@ -1746,6 +1746,15 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_hw_mipmapping),
                             onResetToDefault = { viewModel.setEnableHwMipmapping(defaults.enableHwMipmapping) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.GraphicEq,
+                            title = stringResource(R.string.settings_hw_rov),
+                            subtitle = stringResource(R.string.settings_hw_rov_desc),
+                            checked = uiState.hwRov,
+                            onCheckedChange = viewModel::setHwRov,
+                            helpText = stringResource(R.string.settings_help_hw_rov),
+                            onResetToDefault = { viewModel.setHwRov(defaults.hwRov) }
+                        )
                     }
                     SettingsSection(title = stringResource(R.string.emulation_screen_tab)) {
                         SliderItem(
@@ -2875,6 +2884,15 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setEnableGameFixes,
                             helpText = stringResource(R.string.settings_help_game_fixes),
                             onResetToDefault = { viewModel.setEnableGameFixes(defaults.enableGameFixes) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.settings_auto_gs_hw_fixes),
+                            subtitle = stringResource(R.string.settings_auto_gs_hw_fixes_desc),
+                            checked = uiState.autoGsHardwareFixes,
+                            onCheckedChange = viewModel::setAutoGsHardwareFixes,
+                            helpText = stringResource(R.string.settings_help_auto_gs_hw_fixes),
+                            onResetToDefault = { viewModel.setAutoGsHardwareFixes(defaults.autoGsHardwareFixes) }
                         )
                         ToggleItem(
                             icon = Icons.Rounded.Schedule,
@@ -5606,6 +5624,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Graphics, R.string.settings_cas),
         entry(SettingsTab.Graphics, R.string.settings_tv_shader),
         entry(SettingsTab.Graphics, R.string.settings_hw_mipmapping),
+        entry(SettingsTab.Graphics, R.string.settings_hw_rov),
         entry(SettingsTab.Graphics, R.string.settings_shadeboost),
         entry(SettingsTab.Audio, R.string.settings_audio_volume),
         entry(SettingsTab.Audio, R.string.settings_audio_fast_forward_volume),
@@ -5680,6 +5699,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Emulation, R.string.settings_enable_vu1_recompiler),
         entry(SettingsTab.Emulation, R.string.settings_enable_fastmem),
         entry(SettingsTab.Emulation, R.string.settings_game_fixes),
+        entry(SettingsTab.Emulation, R.string.settings_auto_gs_hw_fixes),
         entry(SettingsTab.Emulation, R.string.settings_ee_timing_hack),
         entry(SettingsTab.Emulation, R.string.settings_ee_fpu_round_mode),
         entry(SettingsTab.Emulation, R.string.settings_vu0_round_mode),

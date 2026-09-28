@@ -192,6 +192,7 @@ data class SettingsUiState(
     val vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
     val vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
     val enableGameFixes: Boolean = true,
+    val autoGsHardwareFixes: Boolean = true,
     val enableEeTimingHack: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
@@ -226,6 +227,7 @@ data class SettingsUiState(
     val dithering: Int = GsHackDefaults.DITHERING_DEFAULT,
     val anisotropicFiltering: Int = 0,
     val enableHwMipmapping: Boolean = GsHackDefaults.HW_MIPMAPPING_DEFAULT,
+    val hwRov: Boolean = false,
     val antiBlur: Boolean = GsHackDefaults.ANTI_BLUR_DEFAULT,
     val cpuSpriteRenderSize: Int = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
     val cpuSpriteRenderLevel: Int = GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT,
@@ -504,6 +506,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             vu0ClampingMode = snapshot.vu0ClampingMode,
             vu1ClampingMode = snapshot.vu1ClampingMode,
             enableGameFixes = snapshot.enableGameFixes,
+            autoGsHardwareFixes = snapshot.autoGsHardwareFixes,
             enableEeTimingHack = snapshot.enableEeTimingHack,
             enableWaitLoopSpeedhack = snapshot.enableWaitLoopSpeedhack,
             enableIntcStatSpeedhack = snapshot.enableIntcStatSpeedhack,
@@ -538,6 +541,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             dithering = snapshot.dithering,
             anisotropicFiltering = snapshot.anisotropicFiltering,
             enableHwMipmapping = snapshot.enableHwMipmapping,
+            hwRov = snapshot.hwRov,
             antiBlur = snapshot.antiBlur,
             cpuSpriteRenderSize = snapshot.cpuSpriteRenderSize,
             cpuSpriteRenderLevel = snapshot.cpuSpriteRenderLevel,
@@ -1541,6 +1545,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setAutoGsHardwareFixes(enabled: Boolean) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            preferences.setAutoGsHardwareFixes(enabled)
+            refreshManualHardwareFixes(_uiState.value.copy(autoGsHardwareFixes = enabled))
+        }
+    }
+
     fun setEnableEeTimingHack(enabled: Boolean) {
         viewModelScope.launch {
             markPerformancePresetCustom()
@@ -1911,6 +1923,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setHwRov(enabled: Boolean) {
+        viewModelScope.launch {
+            markPerformancePresetCustom()
+            preferences.setHwRov(enabled)
+            EmulatorBridge.setSetting("EmuCore/GS", "HWROV", "bool", enabled.toString())
+        }
+    }
+
     fun setAntiBlur(enabled: Boolean) {
         viewModelScope.launch {
             markPerformancePresetCustom()
@@ -2168,37 +2188,39 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private fun manualHardwareFixesEnabled(state: SettingsUiState): Boolean = GsHackDefaults.shouldEnableManualHardwareFixes(
+        cpuSpriteRenderSize = state.cpuSpriteRenderSize,
+        cpuSpriteRenderLevel = state.cpuSpriteRenderLevel,
+        softwareClutRender = state.softwareClutRender,
+        gpuTargetClutMode = state.gpuTargetClutMode,
+        skipDrawStart = state.skipDrawStart,
+        skipDrawEnd = state.skipDrawEnd,
+        autoFlushHardware = state.autoFlushHardware,
+        cpuFramebufferConversion = state.cpuFramebufferConversion,
+        disableDepthConversion = state.disableDepthConversion,
+        disableSafeFeatures = state.disableSafeFeatures,
+        disableRenderFixes = state.disableRenderFixes,
+        preloadFrameData = state.preloadFrameData,
+        disablePartialInvalidation = state.disablePartialInvalidation,
+        textureInsideRt = state.textureInsideRt,
+        readTargetsOnClose = state.readTargetsOnClose,
+        estimateTextureRegion = state.estimateTextureRegion,
+        gpuPaletteConversion = state.gpuPaletteConversion,
+        halfPixelOffset = state.halfPixelOffset,
+        nativeScaling = state.nativeScaling,
+        roundSprite = state.roundSprite,
+        bilinearUpscale = state.bilinearUpscale,
+        textureOffsetX = state.textureOffsetX,
+        textureOffsetY = state.textureOffsetY,
+        alignSprite = state.alignSprite,
+        mergeSprite = state.mergeSprite,
+        forceEvenSpritePosition = state.forceEvenSpritePosition,
+        nativePaletteDraw = state.nativePaletteDraw
+    )
+
     private suspend fun refreshManualHardwareFixes(state: SettingsUiState = _uiState.value) {
-        val enabled = GsHackDefaults.shouldEnableManualHardwareFixes(
-            cpuSpriteRenderSize = state.cpuSpriteRenderSize,
-            cpuSpriteRenderLevel = state.cpuSpriteRenderLevel,
-            softwareClutRender = state.softwareClutRender,
-            gpuTargetClutMode = state.gpuTargetClutMode,
-            skipDrawStart = state.skipDrawStart,
-            skipDrawEnd = state.skipDrawEnd,
-            autoFlushHardware = state.autoFlushHardware,
-            cpuFramebufferConversion = state.cpuFramebufferConversion,
-            disableDepthConversion = state.disableDepthConversion,
-            disableSafeFeatures = state.disableSafeFeatures,
-            disableRenderFixes = state.disableRenderFixes,
-            preloadFrameData = state.preloadFrameData,
-            disablePartialInvalidation = state.disablePartialInvalidation,
-            textureInsideRt = state.textureInsideRt,
-            readTargetsOnClose = state.readTargetsOnClose,
-            estimateTextureRegion = state.estimateTextureRegion,
-            gpuPaletteConversion = state.gpuPaletteConversion,
-            halfPixelOffset = state.halfPixelOffset,
-            nativeScaling = state.nativeScaling,
-            roundSprite = state.roundSprite,
-            bilinearUpscale = state.bilinearUpscale,
-            textureOffsetX = state.textureOffsetX,
-            textureOffsetY = state.textureOffsetY,
-            alignSprite = state.alignSprite,
-            mergeSprite = state.mergeSprite,
-            forceEvenSpritePosition = state.forceEvenSpritePosition,
-            nativePaletteDraw = state.nativePaletteDraw
-        )
-        EmulatorBridge.setSetting("EmuCore/GS", "UserHacks", "bool", enabled.toString())
+        val manual = manualHardwareFixesEnabled(state)
+        EmulatorBridge.setSetting("EmuCore/GS", "UserHacks", "bool", (manual || !state.autoGsHardwareFixes).toString())
     }
 
     // Overlay
@@ -2293,6 +2315,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 vu0ClampingMode = _uiState.value.vu0ClampingMode,
                 vu1ClampingMode = _uiState.value.vu1ClampingMode,
                 enableGameFixes = _uiState.value.enableGameFixes,
+                autoGsHardwareFixes = _uiState.value.autoGsHardwareFixes,
                 eeTimingHack = _uiState.value.enableEeTimingHack,
                 waitLoopSpeedhack = _uiState.value.enableWaitLoopSpeedhack,
                 intcStatSpeedhack = _uiState.value.enableIntcStatSpeedhack,
@@ -2320,6 +2343,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 dithering = _uiState.value.dithering,
                 anisotropicFiltering = _uiState.value.anisotropicFiltering,
                 enableHwMipmapping = _uiState.value.enableHwMipmapping,
+                hwRov = _uiState.value.hwRov,
                 antiBlur = _uiState.value.antiBlur,
                 cpuSpriteRenderSize = _uiState.value.cpuSpriteRenderSize,
                 cpuSpriteRenderLevel = _uiState.value.cpuSpriteRenderLevel,

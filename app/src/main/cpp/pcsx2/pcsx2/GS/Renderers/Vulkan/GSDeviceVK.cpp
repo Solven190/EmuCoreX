@@ -70,6 +70,15 @@ enum : u32
 	VERTEX_UNIFORM_BUFFER_SIZE = 8 * 1024 * 1024,
 	FRAGMENT_UNIFORM_BUFFER_SIZE = 8 * 1024 * 1024,
 	TEXTURE_BUFFER_SIZE = 64 * 1024 * 1024,
+
+	// The vertex ring starts at VERTEX_BUFFER_SIZE and doubles, up to this, only when a frame's
+	// vertices would otherwise make the GS thread wait for the GPU (GSStreamRingGrowth.h). A title
+	// whose frames fit never pays for more.
+	VERTEX_BUFFER_MAX_SIZE = 64 * 1024 * 1024,
+
+	// How many persistent TFX UBO sets can be alive at once: the current one plus one retiring per
+	// vertex-ring growth, since each growth rebinds the ring by handle.
+	MAX_TFX_UBO_DESCRIPTOR_SETS = 2,
 };
 
 static const char* GetVulkanVendorHint(u32 vendor_id)
@@ -1565,6 +1574,12 @@ void GSDeviceVK::SubmitCommandBuffer(VKSwapChain* present_swap_chain)
 		submit_info.pSignalSemaphores = &m_spin_resources[m_current_frame].semaphore;
 	}
 
+	// The last point at which the CPU's writes into the six stream rings can still be made visible
+	// to the GPU: nothing recorded into a command buffer executes until it is submitted, so every
+	// draw, copy and descriptor read of a ring in this submission reads memory that is cleaned
+	// here first. On a coherent ring each of these six calls returns on a compare.
+	FlushStreamRingWrites();
+
 	res = vkQueueSubmit(m_graphics_queue, 1, &submit_info, resources.fence);
 	if (res != VK_SUCCESS)
 	{
@@ -2411,7 +2426,17 @@ bool GSDeviceVK::AllocatePreinitializedGPUBuffer(u32 size, VkBuffer* gpu_buffer,
 	const VkBufferCopy buf_copy = {0u, 0u, size};
 	fill_callback(cpu_ai.pMappedData);
 	vmaFlushAllocation(m_allocator, cpu_allocation, 0, size);
-	vkCmdCopyBuffer(GetCurrentInitCommandBuffer(), cpu_buffer, *gpu_buffer, 1, &buf_copy);
+	const VkCommandBuffer cmdbuf = GetCurrentInitCommandBuffer();
+	vkCmdCopyBuffer(cmdbuf, cpu_buffer, *gpu_buffer, 1, &buf_copy);
+
+	// The init buffer is submitted ahead of the draw buffer in the same vkQueueSubmit, which orders
+	// nothing on its own: the first draw that binds this index buffer could read it before the copy
+	// lands. Synchronization validation reports it on the first frame.
+	const VkBufferMemoryBarrier barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, nullptr,
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_INDEX_READ_BIT, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+		*gpu_buffer, 0, size};
+	vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr,
+		1, &barrier, 0, nullptr);
 	DeferBufferDestruction(cpu_buffer, cpu_allocation);
 	return true;
 }
@@ -2786,12 +2811,16 @@ GSDevice::PresentResult GSDeviceVK::BeginPresent(bool frame_skip)
 		vkCmdEndQuery(m_current_command_buffer, m_pipeline_statistics_query_pool, m_current_frame);
 	}
 
+	// SUBOPTIMAL is a success: the image is acquired and presentable. Adreno returns it when the
+	// compositor changes state (the touch overlay redrawing), and rebuilding the swap chain for it
+	// blanks the window. Rebuilding would not clear it either, since preTransform stays identity.
+	// Real size changes arrive as a host resize, an Android surface change, or OUT_OF_DATE.
 	VkResult res = m_resize_requested ? VK_ERROR_OUT_OF_DATE_KHR : m_swap_chain->AcquireNextImage();
-	if (res != VK_SUCCESS)
+	if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
 	{
 		m_swap_chain->ReleaseCurrentImage();
 
-		if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR)
+		if (res == VK_ERROR_OUT_OF_DATE_KHR)
 		{
 			ResizeWindow(0, 0, m_window_info.surface_scale);
 			ImGuiManager::WindowResized();
@@ -3178,6 +3207,30 @@ bool GSDeviceVK::CheckFeatures()
 	{
 		m_features.stencil_buffer = false;
 		m_depth_format = VK_FORMAT_D32_SFLOAT;
+	}
+
+	// Which memory the six stream rings get. Decided here, with the other device-shaped decisions,
+	// because the rings are allocated once at device init and the choice cannot be revisited
+	// afterwards. The policy reads the memory-type table; a cached road is opt-in per measured
+	// driver rule, and with no rule the answer is VMA's own write-combined selection.
+	{
+		VkPhysicalDeviceMemoryProperties memory_properties = {};
+		vkGetPhysicalDeviceMemoryProperties(m_physical_device, &memory_properties);
+
+		static_assert(GS_MEMORY_PROPERTY_DEVICE_LOCAL == VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		static_assert(GS_MEMORY_PROPERTY_HOST_VISIBLE == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		static_assert(GS_MEMORY_PROPERTY_HOST_COHERENT == VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		static_assert(GS_MEMORY_PROPERTY_HOST_CACHED == VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+
+		u32 type_flags[VK_MAX_MEMORY_TYPES] = {};
+		for (u32 i = 0; i < memory_properties.memoryTypeCount; i++)
+			type_flags[i] = static_cast<u32>(memory_properties.memoryTypes[i].propertyFlags);
+
+		GSStreamRingMemoryInputs inputs;
+		inputs.type_flags = type_flags;
+		inputs.type_count = memory_properties.memoryTypeCount;
+		inputs.prefer_cached_over_write_combined = false;
+		m_stream_ring_memory = GSDecideStreamRingMemory(inputs);
 	}
 
 	// whether we can do point/line expand depends on the range of the device
@@ -4624,39 +4677,51 @@ bool GSDeviceVK::CreateNullTexture()
 
 bool GSDeviceVK::CreateBuffers()
 {
+	// With vertex expansion the whole ring is bound as one storage buffer, so it cannot outgrow
+	// the device's storage-buffer range.
+	u32 vertex_max_size = VERTEX_BUFFER_MAX_SIZE;
+	if (m_features.vs_expand)
+	{
+		vertex_max_size = static_cast<u32>(std::min<u64>(vertex_max_size, m_device_properties.limits.maxStorageBufferRange));
+		vertex_max_size = std::max<u32>(vertex_max_size, VERTEX_BUFFER_SIZE);
+	}
+
 	if (!m_vertex_stream_buffer.Create(
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (m_features.vs_expand ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0),
-			VERTEX_BUFFER_SIZE))
+			VERTEX_BUFFER_SIZE, "vertex", vertex_max_size))
 	{
 		Host::ReportErrorAsync("GS", "Failed to allocate vertex buffer");
 		return false;
 	}
 
-	if (!m_index_stream_buffer.Create(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, INDEX_BUFFER_SIZE))
+	if (!m_index_stream_buffer.Create(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, INDEX_BUFFER_SIZE, "index"))
 	{
 		Host::ReportErrorAsync("GS", "Failed to allocate index buffer");
 		return false;
 	}
 
-	if (!m_expand_index_stream_buffer.Create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, m_features.aa1 ? INDEX_BUFFER_SIZE : 4))
+	if (!m_expand_index_stream_buffer.Create(
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, m_features.aa1 ? INDEX_BUFFER_SIZE : 4, "expand-index"))
 	{
 		Host::ReportErrorAsync("GS", "Failed to allocate expansion index buffer (VS resource)");
 		return false;
 	}
 
-	if (!m_vertex_uniform_stream_buffer.Create(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VERTEX_UNIFORM_BUFFER_SIZE))
+	if (!m_vertex_uniform_stream_buffer.Create(
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VERTEX_UNIFORM_BUFFER_SIZE, "vertex-uniform"))
 	{
 		Host::ReportErrorAsync("GS", "Failed to allocate vertex uniform buffer");
 		return false;
 	}
 
-	if (!m_fragment_uniform_stream_buffer.Create(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, FRAGMENT_UNIFORM_BUFFER_SIZE))
+	if (!m_fragment_uniform_stream_buffer.Create(
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, FRAGMENT_UNIFORM_BUFFER_SIZE, "fragment-uniform"))
 	{
 		Host::ReportErrorAsync("GS", "Failed to allocate fragment uniform buffer");
 		return false;
 	}
 
-	if (!m_texture_stream_buffer.Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, TEXTURE_BUFFER_SIZE))
+	if (!m_texture_stream_buffer.Create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, TEXTURE_BUFFER_SIZE, "texture"))
 	{
 		Host::ReportErrorAsync("GS", "Failed to allocate texture upload buffer");
 		return false;
@@ -5415,7 +5480,7 @@ void GSDeviceVK::RenderImGui()
 void GSDeviceVK::RenderBlankFrame()
 {
 	VkResult res = m_swap_chain->AcquireNextImage();
-	if (res != VK_SUCCESS)
+	if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
 	{
 		Console.Error("VK: Failed to acquire image for blank frame present");
 		return;
@@ -6362,30 +6427,70 @@ void GSDeviceVK::InitializeState()
 
 bool GSDeviceVK::CreatePersistentDescriptorSets()
 {
+	m_tfx_ubo_descriptor_set = CreateTFXUBODescriptorSet();
+	return (m_tfx_ubo_descriptor_set != VK_NULL_HANDLE);
+}
+
+VkDescriptorSet GSDeviceVK::CreateTFXUBODescriptorSet()
+{
 	const VkDevice dev = m_device;
 	Vulkan::DescriptorSetUpdateBuilder dsub;
 
-	// Allocate UBO descriptor sets for TFX.
-	m_tfx_ubo_descriptor_set = AllocatePersistentDescriptorSet(m_tfx_ubo_ds_layout);
-	if (m_tfx_ubo_descriptor_set == VK_NULL_HANDLE)
-		return false;
-	dsub.AddBufferDescriptorWrite(m_tfx_ubo_descriptor_set, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+	const VkDescriptorSet set = AllocatePersistentDescriptorSet(m_tfx_ubo_ds_layout);
+	if (set == VK_NULL_HANDLE)
+		return VK_NULL_HANDLE;
+	dsub.AddBufferDescriptorWrite(set, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
 		m_vertex_uniform_stream_buffer.GetBuffer(), 0, sizeof(GSHWDrawConfig::VSConstantBuffer));
-	dsub.AddBufferDescriptorWrite(m_tfx_ubo_descriptor_set, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+	dsub.AddBufferDescriptorWrite(set, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
 		m_fragment_uniform_stream_buffer.GetBuffer(), 0, sizeof(GSHWDrawConfig::PSConstantBuffer));
 	if (m_features.vs_expand)
 	{
-		dsub.AddBufferDescriptorWrite(m_tfx_ubo_descriptor_set, 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			m_vertex_stream_buffer.GetBuffer(), 0, VERTEX_BUFFER_SIZE);
+		dsub.AddBufferDescriptorWrite(set, 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			m_vertex_stream_buffer.GetBuffer(), 0, m_vertex_stream_buffer.GetCurrentSize());
 	}
 	if (m_features.aa1)
 	{
-		dsub.AddBufferDescriptorWrite(m_tfx_ubo_descriptor_set, 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		dsub.AddBufferDescriptorWrite(set, 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			m_expand_index_stream_buffer.GetBuffer(), 0, INDEX_BUFFER_SIZE);
 	}
 	dsub.Update(dev);
-	Vulkan::SetObjectName(dev, m_tfx_ubo_descriptor_set, "Persistent TFX UBO set");
-	return true;
+	Vulkan::SetObjectName(dev, set, "Persistent TFX UBO set");
+	return set;
+}
+
+void GSDeviceVK::OnStreamRingReplaced(const VKStreamBuffer& ring)
+{
+	// Only the vertex ring is created with room to grow.
+	pxAssert(&ring == &m_vertex_stream_buffer);
+
+	// Draws already recorded keep the old buffer, which retires with this command buffer. Later
+	// draws, in this command buffer and every one after it, bind the new one.
+	SetInitialState(m_current_command_buffer);
+
+	if (m_features.vs_expand)
+	{
+		// The persistent set is in use by recorded and in-flight command buffers, so it cannot be
+		// rewritten in place: build a new one and free the old one when this command buffer retires.
+		const VkDescriptorSet old_set = m_tfx_ubo_descriptor_set;
+		m_tfx_ubo_descriptor_set = CreateTFXUBODescriptorSet();
+		if (m_tfx_ubo_descriptor_set == VK_NULL_HANDLE)
+			pxFailRel("Failed to allocate the TFX UBO descriptor set for the grown vertex ring");
+		m_frame_resources[m_current_frame].cleanup_resources.push_back(
+			[this, old_set]() { FreePersistentDescriptorSet(old_set); });
+		m_dirty_flags |= DIRTY_FLAG_TFX_UBO;
+	}
+}
+
+void GSDeviceVK::FlushStreamRingWrites()
+{
+	// All six, not just the ones this submission is known to have touched: a ring that was not
+	// written has nothing pending and costs a compare.
+	m_vertex_stream_buffer.FlushPendingWrites();
+	m_index_stream_buffer.FlushPendingWrites();
+	m_expand_index_stream_buffer.FlushPendingWrites();
+	m_vertex_uniform_stream_buffer.FlushPendingWrites();
+	m_fragment_uniform_stream_buffer.FlushPendingWrites();
+	m_texture_stream_buffer.FlushPendingWrites();
 }
 
 GSDeviceVK::WaitType GSDeviceVK::GetWaitType(bool wait, bool spin)

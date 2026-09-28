@@ -323,6 +323,12 @@
     <string name="settings_jit_mtvu_note">اگر کامپایلر مجدد VU1 را غیرفعال کردید، MTVU را نیز در زیر خاموش کنید. MTVU فقط با فعال بودن کامپایل مجدد VU1 منطقی است.</string>
     <string name="settings_cpu_float_modes">حالت‌های ممیز شناور</string>
     <string name="settings_cpu_float_modes_note">تغییرات سازگاری برای بازی‌های خاص. مقادیر پیش‌فرض را رها کنید مگر اینکه مشخص شود یک بازی به حالت گرد کردن (Round Mode) یا حالت محدودسازی (Clamping) متفاوتی نیاز دارد؛ برای اعمال تغییرات بازی را ری‌استارت کنید.</string>
+    <string name="settings_auto_gs_hw_fixes">اصلاح‌های گرافیکی GameDB</string>
+    <string name="settings_auto_gs_hw_fixes_desc">اعمال اصلاح‌های خودکار سخت‌افزار GS از GameDB.</string>
+    <string name="settings_help_auto_gs_hw_fixes">اصلاح‌های خودکار سخت‌افزار GS را از GameDB اعمال می‌کند، مانند اصلاح مقیاس‌دهی، ترکیب و بافت‌ها. غیرفعال‌کردن آن ممکن است برخی بازی‌ها را سریع‌تر کند اما می‌تواند نقص‌های گرافیکی ایجاد کند. اصلاح‌های دستی سخت‌افزار جایگزین این اصلاح‌های خودکار می‌شوند.</string>
+    <string name="settings_hw_rov">نمای ترتیب رسترکننده</string>
+    <string name="settings_hw_rov_desc">ترکیب دقیق از طریق قفل shader قطعه (Vulkan).</string>
+    <string name="settings_help_hw_rov">از Rasterizer Order Views برای ترکیب دقیق در Vulkan استفاده می‌کند. به‌صورت پیش‌فرض در موبایل غیرفعال است چون GPUهای کاشی‌کاری عملکرد را از دست می‌دهند و بسیاری از درایورها از آن پشتیبانی نمی‌کنند.</string>
     <string name="settings_game_fixes">اصلاحات GameDB</string>
     <string name="settings_game_fixes_desc">اعمال اصلاحات سازگاری از GameDB.</string>
     <string name="settings_help_game_fixes">از اصلاحات سازگاری GameDB برای بازی‌های شناخته شده استفاده می‌کند، شامل گرد کردن خودکار و حالت‌های محدودسازی. این را فقط زمانی غیرفعال کنید که یک بازی خاص به تنظیمات دستی شما به جای مقادیر GameDB نیاز داشته باشد؛ برای اعمال، بازی را ری‌استارت کنید.</string>

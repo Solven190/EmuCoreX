@@ -1285,6 +1285,12 @@
     <string name="profile_name_updated">表示名が更新されました。</string>
     <string name="profile_signed_out">サインアウトしました。</string>
     <string name="profile_done">完了。</string>
+    <string name="settings_auto_gs_hw_fixes">GameDB グラフィック修正</string>
+    <string name="settings_auto_gs_hw_fixes_desc">GameDB の自動 GS ハードウェア修正を適用します。</string>
+    <string name="settings_help_auto_gs_hw_fixes">GameDB の自動 GS ハードウェア修正（アップスケーリング、ブレンド、テクスチャ補正など）を適用します。無効にすると一部のゲームは速くなりますが、グラフィックの不具合が発生することがあります。手動ハードウェア修正はこれらの自動修正に置き換わります。</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">フラグメントシェーダーインターロックによる正確なブレンド（Vulkan）。</string>
+    <string name="settings_help_hw_rov">Vulkan で正確なブレンドのために Rasterizer Order Views を使用します。タイル GPU では性能が低下し、多くのドライバーが対応していないため、モバイルでは既定で無効です。</string>
     <string name="settings_game_fixes">GameDB修正</string>
     <string name="settings_game_fixes_desc">GameDBからの互換性修正を適用します。</string>
     <string name="settings_help_game_fixes">既知のゲームにGameDBの互換性修正（クランプおよび丸めモードの自動上書きを含む）を使用します。特定のゲームがGameDBの値ではなく手動のクランプ設定を必要とする場合にのみ、これを無効にしてください。変更を適用するにはゲームを再起動します。</string>

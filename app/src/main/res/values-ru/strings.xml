@@ -1287,6 +1287,12 @@
     <string name="profile_name_updated">Отображаемое имя обновлено.</string>
     <string name="profile_signed_out">Выход выполнен.</string>
     <string name="profile_done">Готово.</string>
+    <string name="settings_auto_gs_hw_fixes">Графические исправления GameDB</string>
+    <string name="settings_auto_gs_hw_fixes_desc">Применять автоматические исправления GS-оборудования из GameDB.</string>
+    <string name="settings_help_auto_gs_hw_fixes">Применяет автоматические исправления GS-оборудования из GameDB: масштабирование, смешивание, текстуры. Отключение может ускорить некоторые игры, но вызвать графические артефакты. Ручные исправления заменяют эти автоматические.</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">Точное смешивание через interlock фрагментного шейдера (Vulkan).</string>
+    <string name="settings_help_hw_rov">Использует Rasterizer Order Views для точного смешивания в Vulkan. По умолчанию отключено на мобильных: тайловые GPU теряют производительность, и многие драйверы это не поддерживают.</string>
     <string name="settings_game_fixes">Исправления GameDB</string>
     <string name="settings_game_fixes_desc">Применить исправления совместимости из GameDB.</string>
     <string name="settings_help_game_fixes">Использует исправления совместимости GameDB для известных игр, включая автоматическое переопределение режимов клэмпинга и округления. Отключайте это только в том случае, если конкретной игре требуются ваши ручные настройки клэмпинга вместо значений GameDB; перезапустите игру для применения.</string>

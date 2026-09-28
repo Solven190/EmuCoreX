@@ -2480,6 +2480,28 @@ GSVector2i GSTextureCache::ScaleRenderTargetSize(const GSVector2i& sz, float sca
 		static_cast<int>(std::ceil(static_cast<float>(sz.y) * scale)));
 }
 
+int GSTextureCache::ScaleNativeToDevice(int native, float scale)
+{
+	return static_cast<int>(std::ceil(static_cast<float>(native) * scale));
+}
+
+int GSTextureCache::ScaleNativeSpanToDevice(int start, int length, float scale)
+{
+	return ScaleNativeToDevice(start + length, scale) - ScaleNativeToDevice(start, scale);
+}
+
+GSTextureCache::DeviceMove GSTextureCache::ScaleMoveToDevice(int sx, int sy, int dx, int dy, int w, int h, float scale)
+{
+	const int scaled_sx = ScaleNativeToDevice(sx, scale);
+	const int scaled_sy = ScaleNativeToDevice(sy, scale);
+	const int scaled_dx = ScaleNativeToDevice(dx, scale);
+	const int scaled_dy = ScaleNativeToDevice(dy, scale);
+	const int scaled_w = std::min(ScaleNativeSpanToDevice(sx, w, scale), ScaleNativeSpanToDevice(dx, w, scale));
+	const int scaled_h = std::min(ScaleNativeSpanToDevice(sy, h, scale), ScaleNativeSpanToDevice(dy, h, scale));
+	return {GSVector4i(scaled_sx, scaled_sy, scaled_sx + scaled_w, scaled_sy + scaled_h),
+		GSVector4i(scaled_dx, scaled_dy, scaled_dx + scaled_w, scaled_dy + scaled_h)};
+}
+
 void GSTextureCache::CombineAlignedInsideTargets(Target* target, GSTextureCache::Source* src)
 {
 	// Don't combine targets if Tex in RT is off, it will just fail to find them and make a new one, causing a loop of copies.
@@ -4007,7 +4029,11 @@ bool GSTextureCache::PreloadTarget(GIFRegTEX0 TEX0, const GSVector2i& size, cons
 					if (((!hw_clear && (preserve_target || preload)) || dst_rect_scale.rintersect(draw_rect).rempty()) && dst->GetScale() == old_dst->GetScale())
 					{
 						int copy_width = ((old_dst->m_texture->GetWidth()) > (dst->m_texture->GetWidth()) ? (dst->m_texture->GetWidth()) : old_dst->m_texture->GetWidth()) - dst_offset_scaled_width;
-						int copy_height = (texture_height - dst_offset_height) * old_dst->m_scale;
+						// The old target's rows from native 0 land at native dst_offset_height in the new
+						// one; copy what both of those native spans own on the device grid, as a move does.
+						const int copy_rows = texture_height - dst_offset_height;
+						int copy_height = std::min(ScaleNativeSpanToDevice(0, copy_rows, old_dst->m_scale),
+							ScaleNativeSpanToDevice(dst_offset_height, copy_rows, dst->m_scale));
 
 						GL_INS("TC: RT double buffer copy from FBP 0x%x, %dx%d => %d,%d", old_dst->m_TEX0.TBP0, copy_width, copy_height, 0, dst_offset_scaled_height);
 
@@ -5555,14 +5581,19 @@ bool GSTextureCache::Move(u32 SBP, u32 SBW, u32 SPSM, int sx, int sy, u32 DBP, u
 		req_resize = true;
 	}
 
-	// Scale coordinates.
+	// Scale coordinates. Each offset names the first device pixel its native pixel owns, and the
+	// extent is what both native rects own on the device grid (see ScaleMoveToDevice). An extent of
+	// ceil(w * scale) is the span of a rect starting at native 0; at a fractional scale a rect
+	// starting elsewhere can own one pixel fewer, and the extra pixel pushed a one-row scroll of a
+	// full target one row past the texture and onto the CPU path.
 	const float scale = src->m_scale;
-	const int scaled_sx = static_cast<int>(sx * scale);
-	const int scaled_sy = static_cast<int>(sy * scale);
-	const int scaled_dx = static_cast<int>(dx * scale);
-	const int scaled_dy = static_cast<int>(dy * scale);
-	const int scaled_w = static_cast<int>(w * scale);
-	const int scaled_h = static_cast<int>(h * scale);
+	const DeviceMove device_move = ScaleMoveToDevice(sx, sy, dx, dy, w, h, scale);
+	const int scaled_sx = device_move.src.x;
+	const int scaled_sy = device_move.src.y;
+	const int scaled_dx = device_move.dst.x;
+	const int scaled_dy = device_move.dst.y;
+	const int scaled_w = device_move.src.width();
+	const int scaled_h = device_move.src.height();
 
 	// The source isn't in our texture, otherwise it could falsely expand the texture causing a misdetection later, which then renders black.
 	if ((scaled_sx + scaled_w) > src->m_texture->GetWidth() || (scaled_sy + scaled_h) > src->m_texture->GetHeight())
@@ -5570,7 +5601,7 @@ bool GSTextureCache::Move(u32 SBP, u32 SBW, u32 SPSM, int sx, int sy, u32 DBP, u
 
 	if (req_resize)
 	{
-		const GSVector2i target_size = GetTargetSize(DBP, DBW, DPSM, Common::AlignUpPow2(dx + w, 64), dx + h);
+		const GSVector2i target_size = GetTargetSize(DBP, DBW, DPSM, Common::AlignUpPow2(dx + w, 64), dy + h);
 		dst->ResizeTexture(std::max(dst->m_unscaled_size.x, target_size.x), std::max(dst->m_unscaled_size.y, target_size.y));
 	}
 	// We don't want to copy "old" data that the game has overwritten with writes,
@@ -5584,23 +5615,31 @@ bool GSTextureCache::Move(u32 SBP, u32 SBW, u32 SPSM, int sx, int sy, u32 DBP, u
 	// Invalidate any opposite targets.
 	g_texture_cache->InvalidateVideoMemType(GSTextureCache::DepthStencil - dst->m_type, dst->m_TEX0.TBP0);
 
-	// Expand the target when we used a more conservative size.
+	// Expand the target when we used a more conservative size. Width grows too, as long as the
+	// move stays inside the destination's buffer width: a small target the game later moves a
+	// wider block into would otherwise send the move to the CPU, behind a synchronous readback.
+	const int required_dw = scaled_dx + scaled_w;
 	const int required_dh = scaled_dy + scaled_h;
-	if ((scaled_dx + scaled_w) <= dst->m_texture->GetWidth() && required_dh > dst->m_texture->GetHeight())
+	const bool grow_w = required_dw > dst->m_texture->GetWidth() && (dx + w) <= static_cast<int>(DBW * 64);
+	if ((required_dw <= dst->m_texture->GetWidth() || grow_w) &&
+		(grow_w || required_dh > dst->m_texture->GetHeight()))
 	{
-		int new_height = dy + h;
+		int new_height = std::max(dy + h, dst->m_unscaled_size.y);
 		if (new_height > GSRendererHW::MAX_FRAMEBUFFER_HEIGHT)
 			return false;
 
 		// Align height to page size, that way we don't do too many small resizes (Dark Cloud).
 		new_height = Common::AlignUpPow2(new_height, static_cast<unsigned>(GSLocalMemory::m_psm[DPSM].bs.y));
+		const int new_width = grow_w ?
+			std::max(dst->m_unscaled_size.x, Common::AlignUpPow2(dx + w, static_cast<unsigned>(GSLocalMemory::m_psm[DPSM].pgs.x))) :
+			dst->m_unscaled_size.x;
 
 		// We don't recycle the old texture here, because the height cache will track the new size,
 		// so the old size won't get created again.
-		GL_INS("TC: Resize %dx%d target to %dx%d for move", dst->m_unscaled_size.x, dst->m_unscaled_size.y, dst->m_unscaled_size.x, new_height);
-		GetTargetSize(DBP, DBW, DPSM, 0, new_height);
+		GL_INS("TC: Resize %dx%d target to %dx%d for move", dst->m_unscaled_size.x, dst->m_unscaled_size.y, new_width, new_height);
+		GetTargetSize(DBP, DBW, DPSM, grow_w ? new_width : 0, new_height);
 
-		if (!dst->ResizeTexture(dst->m_unscaled_size.x, new_height, false))
+		if (!dst->ResizeTexture(new_width, new_height, false))
 		{
 			// Resize failed, probably ran out of VRAM, better luck next time. Fall back to CPU.
 			// We injected the new height into the cache, so hopefully won't happen again.
@@ -6255,10 +6294,10 @@ GSTextureCache::Source* GSTextureCache::CreateSource(const GIFRegTEX0& TEX0, con
 	if (dst && (x_offset != 0 || y_offset != 0) && (TEX0.PSM != PSMT8 || channel_shuffle))
 	{
 		const float scale = dst->m_scale;
-		const int x = static_cast<int>(scale * x_offset);
-		const int y = static_cast<int>(scale * y_offset);
-		const int w = static_cast<int>(std::ceil(scale * tw));
-		const int h = static_cast<int>(std::ceil(scale * th));
+		const int x = ScaleNativeToDevice(x_offset, scale);
+		const int y = ScaleNativeToDevice(y_offset, scale);
+		const int w = ScaleNativeSpanToDevice(x_offset, tw, scale);
+		const int h = ScaleNativeSpanToDevice(y_offset, th, scale);
 
 		const GSVector4i read_rect = GSVector4i(x_offset, y_offset, x_offset + tw, y_offset + th);
 		// Do this first as we could be adding in alpha from an upgraded 24bit target. if the rect intersects a dirty area.
@@ -7365,8 +7404,8 @@ GSTextureCache::Target* GSTextureCache::Target::Create(GIFRegTEX0 TEX0, int w, i
 {
 	pxAssert(type == RenderTarget || type == DepthStencil);
 
-	const int scaled_w = static_cast<int>(std::ceil(static_cast<float>(w) * scale));
-	const int scaled_h = static_cast<int>(std::ceil(static_cast<float>(h) * scale));
+	const int scaled_w = ScaleNativeToDevice(w, scale);
+	const int scaled_h = ScaleNativeToDevice(h, scale);
 	GSTexture::Usage usage = type == RenderTarget ? GSTexture::FeedbackTarget : g_gs_device->GetDepthStencilUsage();
 	GSTexture::Format format = type == RenderTarget ? GSTexture::Format::Color : GSTexture::Format::DepthStencil;
 	GSTexture* texture = g_gs_device->FetchSurface(usage, scaled_w, scaled_h, 1, format, clear, PreferReusedLabelledTexture());

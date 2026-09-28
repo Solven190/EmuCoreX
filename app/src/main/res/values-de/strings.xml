@@ -1287,6 +1287,12 @@
     <string name="profile_name_updated">Anzeigename aktualisiert.</string>
     <string name="profile_signed_out">Abgemeldet.</string>
     <string name="profile_done">Fertig.</string>
+    <string name="settings_auto_gs_hw_fixes">GameDB-Grafikfixes</string>
+    <string name="settings_auto_gs_hw_fixes_desc">Automatische GS-Hardware-Fixes aus der GameDB anwenden.</string>
+    <string name="settings_help_auto_gs_hw_fixes">Wendet die automatischen GS-Hardware-Fixes der GameDB an, z. B. Upscaling-, Blending- und Texturkorrekturen. Deaktivieren kann einige Spiele beschleunigen, aber Grafikfehler verursachen. Manuelle Hardware-Fixes ersetzen diese automatischen Fixes.</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">Genaues Blending über Fragment-Shader-Interlock (Vulkan).</string>
+    <string name="settings_help_hw_rov">Verwendet Rasterizer Order Views für genaues Blending unter Vulkan. Auf Mobilgeräten standardmäßig deaktiviert, da Tiler-GPUs Leistung verlieren und viele Treiber es nicht unterstützen.</string>
     <string name="settings_game_fixes">GameDB-Fixes</string>
     <string name="settings_game_fixes_desc">Kompatibilitäts-Fixes aus der GameDB anwenden.</string>
     <string name="settings_help_game_fixes">Verwendet GameDB-Kompatibilitäts-Fixes für bekannte Spiele, einschließlich automatischer Überschreibungen für Clamping- und Rundungsmodi. Deaktiviere dies nur, wenn ein bestimmtes Spiel deine manuellen Clamping-Einstellungen anstelle der GameDB-Werte benötigt. Starte das Spiel neu, um Änderungen anzuwenden.</string>

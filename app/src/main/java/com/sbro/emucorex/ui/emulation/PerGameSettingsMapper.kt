@@ -110,6 +110,7 @@ import kotlin.time.Duration.Companion.milliseconds
             enableFastBoot = pick("enableFastBoot", enableFastBoot) { enableFastBoot },
             enableCheats = pick("enableCheats", enableCheats) { enableCheats },
             enableGameFixes = pick("enableGameFixes", enableGameFixes) { enableGameFixes },
+            autoGsHardwareFixes = pick("autoGsHardwareFixes", autoGsHardwareFixes) { autoGsHardwareFixes },
             eeTimingHack = pick("enableEeTimingHack", eeTimingHack) { enableEeTimingHack },
             eeFpuRoundMode = pick("eeFpuRoundMode", eeFpuRoundMode) { eeFpuRoundMode },
             vu0RoundMode = pick("vu0RoundMode", vu0RoundMode) { vu0RoundMode },
