@@ -25451,12 +25451,16 @@ SLES-54002:
   name: "FlatOut 2"
   region: "PAL-M5"
   compat: 5
+  clampModes:
+    eeClampMode: 3 # Full EE/FPU clamping.
   gsHWFixes:
     halfPixelOffset: 2 # Corrects most vertical lines.
 SLES-54003:
   name: "FlatOut 2"
   region: "PAL-G"
   compat: 5
+  clampModes:
+    eeClampMode: 3 # Full EE/FPU clamping.
   gsHWFixes:
     halfPixelOffset: 2 # Corrects most vertical lines.
 SLES-54004:
@@ -33821,6 +33825,8 @@ SLKA-25401:
   name: "FlatOut 2" # No listed Korean name on ReDump
   region: "NTSC-K"
   compat: 5
+  clampModes:
+    eeClampMode: 3 # Full EE/FPU clamping.
   gsHWFixes:
     halfPixelOffset: 2 # Corrects most vertical lines.
 SLKA-25402:
@@ -51442,6 +51448,8 @@ SLPM-66591:
   name-en: "FlatOut 2 GTR - Ganbare Tobidase Racing"
   region: "NTSC-J"
   compat: 5
+  clampModes:
+    eeClampMode: 3 # Full EE/FPU clamping.
   gsHWFixes:
     halfPixelOffset: 2 # Corrects most vertical lines.
 SLPM-66592:
@@ -71802,6 +71810,8 @@ SLUS-21251:
   name: "FlatOut 2"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    eeClampMode: 3 # Full EE/FPU clamping.
   gsHWFixes:
     halfPixelOffset: 2 # Corrects most vertical lines.
 SLUS-21252:
