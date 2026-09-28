@@ -2074,34 +2074,39 @@ private fun SettingsContent(
                                 }
                             )
                         }
-                        if (uiState.gyroMode == AppPreferences.GYRO_MODE_LIGHT_GUN) {
-                            ChoiceSection(
-                                title = stringResource(R.string.settings_light_gun_aim),
-                                options = lightGunAimOptions(),
-                                selectedValue = lightGunAim,
-                                onSelect = viewModel::setLightGunAim,
-                                onResetToDefault = {
-                                    viewModel.setLightGunAim(defaults.lightGunAim)
-                                }
-                            )
-                            ToggleItem(
-                                icon = Icons.Rounded.MyLocation,
-                                title = stringResource(R.string.settings_light_gun_cursor),
-                                subtitle = stringResource(R.string.settings_light_gun_cursor_desc),
-                                checked = lightGunCursorEnabled,
-                                onCheckedChange = viewModel::setLightGunCursorEnabled,
-                                helpText = stringResource(R.string.settings_help_light_gun_cursor),
-                                onResetToDefault = {
-                                    viewModel.setLightGunCursorEnabled(true)
-                                }
-                            )
-                        }
-                        if (uiState.gyroMode != AppPreferences.GYRO_MODE_OFF &&
+                        // Arcade manifests and GunCon2 ports activate the gun independently
+                        // of the phone sensor, so keep aim and cursor settings available.
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_light_gun_aim),
+                            options = lightGunAimOptions(),
+                            selectedValue = lightGunAim,
+                            onSelect = viewModel::setLightGunAim,
+                            onResetToDefault = {
+                                viewModel.setLightGunAim(defaults.lightGunAim)
+                            }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.MyLocation,
+                            title = stringResource(R.string.settings_light_gun_cursor),
+                            subtitle = stringResource(R.string.settings_light_gun_cursor_desc),
+                            checked = lightGunCursorEnabled,
+                            onCheckedChange = viewModel::setLightGunCursorEnabled,
+                            helpText = stringResource(R.string.settings_help_light_gun_cursor),
+                            onResetToDefault = {
+                                viewModel.setLightGunCursorEnabled(true)
+                            }
+                        )
+                        if ((uiState.gyroMode == AppPreferences.GYRO_MODE_AIM ||
+                            uiState.gyroMode == AppPreferences.GYRO_MODE_STEERING ||
+                            (uiState.gyroMode == AppPreferences.GYRO_MODE_LIGHT_GUN &&
+                                lightGunAim == AppPreferences.LIGHT_GUN_AIM_GYRO)) &&
                             !AndroidGyroscopeInput.isModeAvailable(context, uiState.gyroMode)
                         ) {
                             SettingsInlineNote(text = stringResource(R.string.settings_gyro_unavailable))
                         }
-                        if (uiState.gyroMode != AppPreferences.GYRO_MODE_OFF) {
+                        if (uiState.gyroMode != AppPreferences.GYRO_MODE_OFF &&
+                            (uiState.gyroMode != AppPreferences.GYRO_MODE_LIGHT_GUN ||
+                                lightGunAim == AppPreferences.LIGHT_GUN_AIM_GYRO)) {
                             SliderItem(
                                 icon = Icons.Rounded.ScreenRotation,
                                 title = stringResource(R.string.settings_gyro_sensitivity),

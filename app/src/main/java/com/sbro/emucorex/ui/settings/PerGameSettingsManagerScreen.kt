@@ -1429,39 +1429,38 @@ private fun GameSettingsTabContent(
                             }
                         )
                     }
-                    if (draft.gyroMode == AppPreferences.GYRO_MODE_LIGHT_GUN) {
-                        SelectionRow(
-                            title = stringResource(R.string.settings_light_gun_aim),
-                            options = lightGunAimOptions(),
-                            selectedValue = draft.lightGunAim
-                                ?: defaultProfile.lightGunAim
-                                ?: AppPreferences.DEFAULT_LIGHT_GUN_AIM,
-                            onSelected = { onDraftChange(draft.copy(lightGunAim = it)) },
-                            onResetToDefault = {
-                                onDraftChange(draft.copy(lightGunAim = defaultProfile.lightGunAim))
-                            }
-                        )
-                        ToggleRow(
-                            title = stringResource(R.string.settings_light_gun_cursor),
-                            checked = draft.lightGunCursorEnabled
-                                ?: defaultProfile.lightGunCursorEnabled
-                                ?: true,
-                            onCheckedChange = { onDraftChange(draft.copy(lightGunCursorEnabled = it)) },
-                            helpText = stringResource(R.string.settings_help_light_gun_cursor),
-                            onResetToDefault = {
-                                onDraftChange(
-                                    draft.copy(
-                                        lightGunCursorEnabled = defaultProfile.lightGunCursorEnabled
-                                    )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_light_gun_aim),
+                        options = lightGunAimOptions(),
+                        selectedValue = draft.lightGunAim
+                            ?: defaultProfile.lightGunAim
+                            ?: AppPreferences.DEFAULT_LIGHT_GUN_AIM,
+                        onSelected = { onDraftChange(draft.copy(lightGunAim = it)) },
+                        onResetToDefault = {
+                            onDraftChange(draft.copy(lightGunAim = defaultProfile.lightGunAim))
+                        }
+                    )
+                    ToggleRow(
+                        title = stringResource(R.string.settings_light_gun_cursor),
+                        checked = draft.lightGunCursorEnabled
+                            ?: defaultProfile.lightGunCursorEnabled
+                            ?: true,
+                        onCheckedChange = { onDraftChange(draft.copy(lightGunCursorEnabled = it)) },
+                        helpText = stringResource(R.string.settings_help_light_gun_cursor),
+                        onResetToDefault = {
+                            onDraftChange(
+                                draft.copy(
+                                    lightGunCursorEnabled = defaultProfile.lightGunCursorEnabled
                                 )
-                            }
-                        )
-                    }
+                            )
+                        }
+                    )
                     if (draft.gyroMode != AppPreferences.GYRO_MODE_OFF) {
                         SliderRow(stringResource(R.string.settings_gyro_sensitivity), draft.gyroSensitivity.toFloat(), "${draft.gyroSensitivity}%", 25f..300f, 10, { onDraftChange(draft.copy(gyroSensitivity = it.roundToInt())) }, helpText = stringResource(R.string.settings_help_gyro_sensitivity), onResetToDefault = { onDraftChange(draft.copy(gyroSensitivity = defaultProfile.gyroSensitivity)) })
                         SliderRow(stringResource(R.string.settings_gyro_smoothing), draft.gyroSmoothing.toFloat(), "${draft.gyroSmoothing}%", 0f..90f, 8, { onDraftChange(draft.copy(gyroSmoothing = it.roundToInt())) }, helpText = stringResource(R.string.settings_help_gyro_smoothing), onResetToDefault = { onDraftChange(draft.copy(gyroSmoothing = defaultProfile.gyroSmoothing)) })
                         ToggleRow(stringResource(R.string.settings_gyro_invert_x), draft.gyroInvertX, { onDraftChange(draft.copy(gyroInvertX = it)) }, onResetToDefault = { onDraftChange(draft.copy(gyroInvertX = defaultProfile.gyroInvertX)) })
-                        if (draft.gyroMode == AppPreferences.GYRO_MODE_AIM) {
+                        if (draft.gyroMode == AppPreferences.GYRO_MODE_AIM ||
+                            draft.gyroMode == AppPreferences.GYRO_MODE_LIGHT_GUN) {
                             ToggleRow(stringResource(R.string.settings_gyro_invert_y), draft.gyroInvertY, { onDraftChange(draft.copy(gyroInvertY = it)) }, onResetToDefault = { onDraftChange(draft.copy(gyroInvertY = defaultProfile.gyroInvertY)) })
                         }
                     }
@@ -2102,34 +2101,32 @@ private fun GameSettingsEditorDialog(
                                     }
                                 )
                             }
-                            if (draft.gyroMode == AppPreferences.GYRO_MODE_LIGHT_GUN) {
-                                SelectionRow(
-                                    title = stringResource(R.string.settings_light_gun_aim),
-                                    options = lightGunAimOptions(),
-                                    selectedValue = draft.lightGunAim
-                                        ?: defaultProfile.lightGunAim
-                                        ?: AppPreferences.DEFAULT_LIGHT_GUN_AIM,
-                                    onSelected = { draft = draft.copy(lightGunAim = it) },
-                                    onResetToDefault = {
-                                        draft = draft.copy(lightGunAim = defaultProfile.lightGunAim)
-                                    }
-                                )
-                                ToggleRow(
-                                    title = stringResource(R.string.settings_light_gun_cursor),
-                                    checked = draft.lightGunCursorEnabled
-                                        ?: defaultProfile.lightGunCursorEnabled
-                                        ?: true,
-                                    onCheckedChange = {
-                                        draft = draft.copy(lightGunCursorEnabled = it)
-                                    },
-                                    helpText = stringResource(R.string.settings_help_light_gun_cursor),
-                                    onResetToDefault = {
-                                        draft = draft.copy(
-                                            lightGunCursorEnabled = defaultProfile.lightGunCursorEnabled
-                                        )
-                                    }
-                                )
-                            }
+                            SelectionRow(
+                                title = stringResource(R.string.settings_light_gun_aim),
+                                options = lightGunAimOptions(),
+                                selectedValue = draft.lightGunAim
+                                    ?: defaultProfile.lightGunAim
+                                    ?: AppPreferences.DEFAULT_LIGHT_GUN_AIM,
+                                onSelected = { draft = draft.copy(lightGunAim = it) },
+                                onResetToDefault = {
+                                    draft = draft.copy(lightGunAim = defaultProfile.lightGunAim)
+                                }
+                            )
+                            ToggleRow(
+                                title = stringResource(R.string.settings_light_gun_cursor),
+                                checked = draft.lightGunCursorEnabled
+                                    ?: defaultProfile.lightGunCursorEnabled
+                                    ?: true,
+                                onCheckedChange = {
+                                    draft = draft.copy(lightGunCursorEnabled = it)
+                                },
+                                helpText = stringResource(R.string.settings_help_light_gun_cursor),
+                                onResetToDefault = {
+                                    draft = draft.copy(
+                                        lightGunCursorEnabled = defaultProfile.lightGunCursorEnabled
+                                    )
+                                }
+                            )
                             if (draft.gyroMode != AppPreferences.GYRO_MODE_OFF) {
                                 SliderRow(stringResource(R.string.settings_gyro_sensitivity), draft.gyroSensitivity.toFloat(), "${draft.gyroSensitivity}%", 25f..300f, 10, { draft = draft.copy(gyroSensitivity = it.roundToInt()) }, helpText = stringResource(R.string.settings_help_gyro_sensitivity), onResetToDefault = { draft = draft.copy(gyroSensitivity = defaultProfile.gyroSensitivity) })
                                 SliderRow(stringResource(R.string.settings_gyro_smoothing), draft.gyroSmoothing.toFloat(), "${draft.gyroSmoothing}%", 0f..90f, 8, { draft = draft.copy(gyroSmoothing = it.roundToInt()) }, helpText = stringResource(R.string.settings_help_gyro_smoothing), onResetToDefault = { draft = draft.copy(gyroSmoothing = defaultProfile.gyroSmoothing) })

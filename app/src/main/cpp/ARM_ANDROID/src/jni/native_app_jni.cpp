@@ -17,6 +17,7 @@
 #include "pcsx2/Host.h"
 #include "pcsx2/JitProfiler.h"
 #include "pcsx2/VMManager.h"
+#include "pcsx2/DEV9/ACJV.h"
 #include "pcsx2/DEV9/InternetLinkAdapter.h"
 #include "pcsx2/ps2/BiosTools.h"
 
@@ -573,6 +574,14 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_sbro_emucorex_core_NativeApp_po
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setPadPressureModifierAmount(JNIEnv*, jclass, jint amount_percent) { AndroidRuntime::Instance().SetPadPressureModifierAmount(amount_percent); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_onHostKeyEvent(JNIEnv*, jclass, jint key_code, jboolean pressed) { AndroidRuntime::Instance().OnHostKeyEvent(key_code, pressed == JNI_TRUE); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_onHostMousePosition(JNIEnv*, jclass, jfloat x, jfloat y) { AndroidRuntime::Instance().OnHostMousePosition(x, y); }
+extern "C" JNIEXPORT jint JNICALL Java_com_sbro_emucorex_core_NativeApp_getArcadeInputMode(JNIEnv*, jclass)
+{
+	if (!VMManager::HasValidVM())
+		return -1;
+	if (ACJV::GetGameId().empty())
+		return 0;
+	return ACJV::GetMode() == JVS_MODE::LIGHTGUN ? 2 : 1;
+}
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_onHostMouseButton(JNIEnv*, jclass, jint button, jboolean pressed) { AndroidRuntime::Instance().OnHostMouseButton(button, pressed == JNI_TRUE); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_onHostMouseWheel(JNIEnv*, jclass, jfloat horizontal, jfloat vertical) { AndroidRuntime::Instance().OnHostMouseWheel(horizontal, vertical); }
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_resetKeyStatus(JNIEnv*, jclass) { AndroidRuntime::Instance().ResetKeyStatus(); }

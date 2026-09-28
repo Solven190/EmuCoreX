@@ -1,6 +1,7 @@
 package com.sbro.emucorex.core
 
 import android.view.KeyEvent
+import com.sbro.emucorex.data.GamepadBindingRules
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -206,6 +207,150 @@ class GamepadManagerTest {
             "r2",
             GamepadManager.resolveMappedActionIdForTriggerAxis("r2", emptyMap())
         )
+    }
+
+    @Test
+    fun gunBindingUsesTheSameButtonOnlyInGunMode() {
+        val bindings = mapOf("gun_trigger" to KeyEvent.KEYCODE_BUTTON_X)
+        GamepadManager.setLightGunModeActive(false)
+        try {
+            assertEquals(
+                "square",
+                GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_X, bindings)
+            )
+            GamepadManager.setLightGunModeActive(true)
+            assertEquals(
+                "gun_trigger",
+                GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_X, bindings)
+            )
+        } finally {
+            GamepadManager.setLightGunModeActive(false)
+        }
+    }
+
+    @Test
+    fun assigningGunButtonKeepsExistingCustomPs2Binding() {
+        val bindings = GamepadBindingRules.assign(
+            mapOf("square" to KeyEvent.KEYCODE_BUTTON_B),
+            "gun_trigger",
+            KeyEvent.KEYCODE_BUTTON_B
+        )
+        assertEquals(KeyEvent.KEYCODE_BUTTON_B, bindings["square"])
+        GamepadManager.setLightGunModeActive(false)
+        try {
+            assertEquals("square", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_B, bindings))
+            GamepadManager.setLightGunModeActive(true)
+            assertEquals("gun_trigger", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_B, bindings))
+        } finally {
+            GamepadManager.setLightGunModeActive(false)
+        }
+    }
+
+    @Test
+    fun gameBindingsOverrideOnlyTheirOwnActions() {
+        val global = mapOf(0 to mapOf(
+            "square" to KeyEvent.KEYCODE_BUTTON_X,
+            "gun_pedal" to KeyEvent.KEYCODE_BUTTON_L1
+        ))
+        val game = mapOf(0 to mapOf("gun_trigger" to KeyEvent.KEYCODE_BUTTON_X))
+        val effective = GamepadBindingRules.merge(global, game).getValue(0)
+
+        assertEquals(KeyEvent.KEYCODE_BUTTON_X, effective["square"])
+        assertEquals(KeyEvent.KEYCODE_BUTTON_X, effective["gun_trigger"])
+        assertEquals(KeyEvent.KEYCODE_BUTTON_L1, effective["gun_pedal"])
+        assertEquals(global, GamepadBindingRules.merge(global, emptyMap()))
+    }
+
+    @Test
+    fun gunBindingOnAnalogTriggerDoesNotStealPs2Trigger() {
+        val bindings = mapOf("gun_trigger" to KeyEvent.KEYCODE_BUTTON_R2)
+        GamepadManager.setLightGunModeActive(false)
+        try {
+            assertEquals("r2", GamepadManager.resolveMappedActionIdForTriggerAxis("r2", bindings))
+            GamepadManager.setLightGunModeActive(true)
+            assertEquals("gun_trigger", GamepadManager.resolveMappedActionIdForTriggerAxis("r2", bindings))
+        } finally {
+            GamepadManager.setLightGunModeActive(false)
+        }
+    }
+
+    @Test
+    fun arcadeCoinBindingDoesNotStealFightingButtonInPs2Games() {
+        val bindings = mapOf("coin" to KeyEvent.KEYCODE_BUTTON_X)
+        GamepadManager.setArcadeModeActive(false)
+        try {
+            assertEquals("square", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_X, bindings))
+            GamepadManager.setArcadeModeActive(true)
+            assertEquals("coin", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_X, bindings))
+        } finally {
+            GamepadManager.setArcadeModeActive(false)
+        }
+    }
+
+    @Test
+    fun gunArcadeFighterAndPs2ContextsKeepTheirOwnAssignments() {
+        val bindings = GamepadBindingRules.assign(
+            mapOf("square" to KeyEvent.KEYCODE_BUTTON_X),
+            "gun_trigger", KeyEvent.KEYCODE_BUTTON_X
+        )
+        GamepadManager.setArcadeModeActive(true)
+        GamepadManager.setLightGunModeActive(true)
+        try {
+            assertEquals("gun_trigger", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_X, bindings))
+            GamepadManager.setLightGunModeActive(false)
+            assertEquals("square", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_X, bindings))
+            GamepadManager.setArcadeModeActive(false)
+            assertEquals("square", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_X, bindings))
+        } finally {
+            GamepadManager.setLightGunModeActive(false)
+            GamepadManager.setArcadeModeActive(false)
+        }
+    }
+
+    @Test
+    fun perGameGunRemapSurvivesSwitchBackToRegularPs2Controls() {
+        val global = mapOf(0 to mapOf(
+            "square" to KeyEvent.KEYCODE_BUTTON_X,
+            "gun_trigger" to KeyEvent.KEYCODE_BUTTON_X,
+            "gun_pedal" to KeyEvent.KEYCODE_BUTTON_L1
+        ))
+        val perGame = mapOf(0 to mapOf("gun_trigger" to KeyEvent.KEYCODE_BUTTON_B))
+        val bindings = GamepadBindingRules.merge(global, perGame).getValue(0)
+
+        GamepadManager.setArcadeModeActive(true)
+        GamepadManager.setLightGunModeActive(true)
+        try {
+            assertEquals("gun_trigger", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_B, bindings))
+            assertEquals("gun_pedal", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_L1, bindings))
+            assertEquals("square", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_X, bindings))
+
+            GamepadManager.setLightGunModeActive(false)
+            GamepadManager.setArcadeModeActive(false)
+            assertEquals("square", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_X, bindings))
+            assertEquals("circle", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_B, bindings))
+            assertEquals("l1", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_L1, bindings))
+        } finally {
+            GamepadManager.setLightGunModeActive(false)
+            GamepadManager.setArcadeModeActive(false)
+        }
+    }
+
+    @Test
+    fun perGamePs2RemapDoesNotEraseGlobalGunBinding() {
+        val global = mapOf(0 to mapOf("gun_trigger" to KeyEvent.KEYCODE_BUTTON_X))
+        val perGame = mapOf(0 to mapOf("square" to KeyEvent.KEYCODE_BUTTON_B))
+        val bindings = GamepadBindingRules.merge(global, perGame).getValue(0)
+
+        GamepadManager.setLightGunModeActive(false)
+        try {
+            assertEquals("square", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_B, bindings))
+            assertNull(GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_X, bindings))
+            GamepadManager.setLightGunModeActive(true)
+            assertEquals("gun_trigger", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_X, bindings))
+            assertEquals("square", GamepadManager.resolveMappedActionIdForKeyCode(KeyEvent.KEYCODE_BUTTON_B, bindings))
+        } finally {
+            GamepadManager.setLightGunModeActive(false)
+        }
     }
 
     @Test

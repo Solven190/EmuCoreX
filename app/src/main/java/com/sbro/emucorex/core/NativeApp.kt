@@ -338,6 +338,8 @@ object NativeApp {
     @JvmStatic external fun setPadPressureModifierAmount(amountPercent: Int)
     @JvmStatic external fun onHostKeyEvent(keyCode: Int, pressed: Boolean)
     @JvmStatic external fun onHostMousePosition(x: Float, y: Float)
+    /** -1 = no running VM, 0 = PS2, 1 = arcade, 2 = arcade light gun. */
+    @JvmStatic external fun getArcadeInputMode(): Int
     @JvmStatic external fun onHostMouseButton(button: Int, pressed: Boolean)
     @JvmStatic external fun onHostMouseWheel(deltaX: Float, deltaY: Float)
     @JvmStatic external fun resetKeyStatus()

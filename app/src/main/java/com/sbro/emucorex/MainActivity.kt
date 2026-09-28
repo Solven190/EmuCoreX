@@ -345,6 +345,7 @@ open class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (GamepadManager.handleMotionBindingCapture(event)) return true
         if (GamepadManager.isEmulationInputEnabled() && handleMouseMotionEvent(event)) return true
         return super.dispatchGenericMotionEvent(event)
     }
