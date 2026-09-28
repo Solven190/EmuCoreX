@@ -386,6 +386,12 @@
     <string name="opcode_fam_vu_lower_gif">Lower: GIF transfers (XGKICK)</string>
     <string name="settings_cpu_float_modes">Floating Point Modes</string>
     <string name="settings_cpu_float_modes_note">Compatibility overrides for specific games. Leave the defaults unless a title is known to need a different Round Mode or Clamping mode; restart the game to apply changes.</string>
+    <string name="settings_auto_gs_hw_fixes">GameDB Graphics Fixes</string>
+    <string name="settings_auto_gs_hw_fixes_desc">Apply automatic GS hardware fixes from the GameDB.</string>
+    <string name="settings_help_auto_gs_hw_fixes">Applies the GameDB\'s automatic GS hardware fixes, such as upscaling, blending and texture corrections. Disabling this may speed up some games but can cause graphical glitches. Manual hardware fixes replace these automatic fixes.</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">Accurate blending through fragment-shader interlock (Vulkan).</string>
+    <string name="settings_help_hw_rov">Uses Rasterizer Order Views for accurate blending on Vulkan. Disabled by default on mobile because tiler GPUs lose performance and many drivers do not support it.</string>
     <string name="settings_game_fixes">GameDB Fixes</string>
     <string name="settings_game_fixes_desc">Apply compatibility fixes from the GameDB.</string>
     <string name="settings_help_game_fixes">Uses GameDB compatibility fixes for known games, including automatic clamp and round mode overrides. Disable this only when a specific game needs your manual clamping settings instead of the GameDB values; restart the game to apply.</string>

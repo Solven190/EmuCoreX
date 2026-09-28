@@ -333,6 +333,12 @@
     <string name="settings_jit_mtvu_note">Jeśli wyłączysz rekompilator VU1, wyłącz także MTVU poniżej. MTVU ma sens tylko przy włączonej rekompilacji VU1.</string>
     <string name="settings_cpu_float_modes">Tryby zmiennoprzecinkowe</string>
     <string name="settings_cpu_float_modes_note">Niestandardowe poprawki dla konkretnych gier. Zostaw wartości domyślne, chyba że wiadomo, że tytuł potrzebuje innego trybu zaokrąglania lub ograniczania (Clamping); zrestartuj grę, aby zastosować zmiany.</string>
+    <string name="settings_auto_gs_hw_fixes">Poprawki grafiki GameDB</string>
+    <string name="settings_auto_gs_hw_fixes_desc">Zastosuj automatyczne poprawki sprzętowe GS z GameDB.</string>
+    <string name="settings_help_auto_gs_hw_fixes">Stosuje automatyczne poprawki sprzętowe GS z GameDB, takie jak korekty skalowania, mieszania i tekstur. Wyłączenie może przyspieszyć niektóre gry, ale może powodować błędy grafiki. Ręczne poprawki sprzętowe zastępują te automatyczne.</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">Dokładne mieszanie przez interlock fragment shadera (Vulkan).</string>
+    <string name="settings_help_hw_rov">Używa Rasterizer Order Views do dokładnego mieszania w Vulkanie. Domyślnie wyłączone na urządzeniach mobilnych, ponieważ GPU kafelkowe tracą wydajność, a wiele sterowników tego nie obsługuje.</string>
     <string name="settings_game_fixes">Poprawki GameDB</string>
     <string name="settings_game_fixes_desc">Zastosuj poprawki kompatybilności z bazy GameDB.</string>
     <string name="settings_help_game_fixes">Wykorzystuje poprawki kompatybilności GameDB dla znanych gier, w tym automatyczne nadpisywanie trybu ograniczania (Clamping) i zaokrąglania. Wyłącz to tylko wtedy, gdy konkretna gra potrzebuje Twoich ręcznych ustawień ograniczania zamiast wartości GameDB; zrestartuj grę, aby zastosować.</string>

@@ -1285,6 +1285,12 @@
     <string name="profile_name_updated">표시 이름이 업데이트되었습니다.</string>
     <string name="profile_signed_out">로그아웃되었습니다.</string>
     <string name="profile_done">완료.</string>
+    <string name="settings_auto_gs_hw_fixes">GameDB 그래픽 수정</string>
+    <string name="settings_auto_gs_hw_fixes_desc">GameDB의 자동 GS 하드웨어 수정을 적용합니다.</string>
+    <string name="settings_help_auto_gs_hw_fixes">GameDB의 자동 GS 하드웨어 수정(업스케일링, 블렌딩, 텍스처 보정 등)을 적용합니다. 비활성화하면 일부 게임이 빨라질 수 있지만 그래픽 깨짐이 발생할 수 있습니다. 수동 하드웨어 수정은 이러한 자동 수정을 대체합니다.</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">프래그먼트 셰이더 인터록을 통한 정확한 블렌딩(Vulkan).</string>
+    <string name="settings_help_hw_rov">Vulkan에서 정확한 블렌딩을 위해 Rasterizer Order Views를 사용합니다. 타일러 GPU는 성능이 떨어지고 많은 드라이버가 지원하지 않아 모바일에서는 기본적으로 꺼져 있습니다.</string>
     <string name="settings_game_fixes">GameDB 수정 사항</string>
     <string name="settings_game_fixes_desc">GameDB의 호환성 수정 사항을 적용합니다.</string>
     <string name="settings_help_game_fixes">알려진 게임에 대해 자동 클램프 및 반올림 모드 재정의를 포함하여 GameDB 호환성 수정 사항을 사용합니다. 특정 게임이 GameDB 값 대신 수동 클램핑 설정을 필요로 할 때만 이 옵션을 비활성화하세요. 적용하려면 게임을 다시 시작합니다.</string>

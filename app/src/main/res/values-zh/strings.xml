@@ -1287,6 +1287,12 @@
     <string name="profile_name_updated">显示名称已更新。</string>
     <string name="profile_signed_out">已登出。</string>
     <string name="profile_done">完成。</string>
+    <string name="settings_auto_gs_hw_fixes">GameDB 图形修复</string>
+    <string name="settings_auto_gs_hw_fixes_desc">应用 GameDB 中的自动 GS 硬件修复。</string>
+    <string name="settings_help_auto_gs_hw_fixes">应用 GameDB 的自动 GS 硬件修复，例如放大、混合和纹理修正。关闭后可能加快部分游戏，但可能导致图形异常。手动硬件修复会取代这些自动修复。</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">通过片段着色器互锁实现精确混合（Vulkan）。</string>
+    <string name="settings_help_hw_rov">使用 Rasterizer Order Views 在 Vulkan 中实现精确混合。移动端默认关闭，因为分块 GPU 会损失性能，且许多驱动不支持。</string>
     <string name="settings_game_fixes">GameDB 修复</string>
     <string name="settings_game_fixes_desc">应用 GameDB 中的兼容性修复。</string>
     <string name="settings_help_game_fixes">对已知游戏使用 GameDB 兼容性修复，包括自动覆盖钳位和舍入模式。仅当特定游戏需要您的手动钳位设置而不是 GameDB 值时，才禁用此选项；重新启动游戏以应用。</string>

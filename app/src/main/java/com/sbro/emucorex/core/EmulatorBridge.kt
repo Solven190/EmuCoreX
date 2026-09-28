@@ -343,6 +343,7 @@ object EmulatorBridge {
         vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
         vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
         enableGameFixes: Boolean = true,
+        autoGsHardwareFixes: Boolean = true,
         eeTimingHack: Boolean = false,
         enableFastmem: Boolean = true,
         waitLoopSpeedhack: Boolean = true,
@@ -386,6 +387,7 @@ object EmulatorBridge {
         dithering: Int = GsHackDefaults.DITHERING_DEFAULT,
         anisotropicFiltering: Int = 0,
         enableHwMipmapping: Boolean = GsHackDefaults.HW_MIPMAPPING_DEFAULT,
+        hwRov: Boolean = false,
         antiBlur: Boolean = GsHackDefaults.ANTI_BLUR_DEFAULT,
         widescreenPatches: Boolean = false,
         noInterlacingPatches: Boolean = false,
@@ -508,7 +510,7 @@ object EmulatorBridge {
             "android jit: requested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack mtvu:$mtvu instantVu1:$instantVu1} direct={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler mtvu:$directMtvu instantVu1:$instantVu1 fastmem:$enableFastmem} round={ee:$directEeFpuRoundMode vu0:$directVu0RoundMode vu1:$directVu1RoundMode} clamp={ee:$directEeFpuClampingMode vu0:$directVu0ClampingMode vu1:$directVu1ClampingMode}"
         )
         NativeApp.logCrashBreadcrumb(
-            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode directJit={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler mtvu:$directMtvu instantVu1:$instantVu1 fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack fastBoot:$enableFastBoot fastCdvd:$fastCdvd} round={ee:$directEeFpuRoundMode vu0:$directVu0RoundMode vu1:$directVu1RoundMode} clamp={ee:$directEeFpuClampingMode vu0:$directVu0ClampingMode vu1:$directVu1ClampingMode} gameFixes={auto:$enableGameFixes eeTiming:$eeTimingHack} jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
+            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode directJit={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler mtvu:$directMtvu instantVu1:$instantVu1 fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack fastBoot:$enableFastBoot fastCdvd:$fastCdvd} round={ee:$directEeFpuRoundMode vu0:$directVu0RoundMode vu1:$directVu1RoundMode} clamp={ee:$directEeFpuClampingMode vu0:$directVu0ClampingMode vu1:$directVu1ClampingMode} gameFixes={auto:$enableGameFixes gs:$autoGsHardwareFixes eeTiming:$eeTimingHack} jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
         )
         val prefs = AppPreferences(context)
         val opcodeSettings = prefs.settingsSnapshot.first()
@@ -690,10 +692,11 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/GS", "ShadeBoost_Gamma", "int", shadeBoostGamma.toString()))
                 add(settingOp("EmuCore/GS", "MaxAnisotropy", "int", anisotropicFiltering.toString()))
                 add(settingOp("EmuCore/GS", "hw_mipmap", "bool", enableHwMipmapping.toString()))
+                add(settingOp("EmuCore/GS", "HWROV", "bool", hwRov.toString()))
                 add(settingOp("EmuCore/GS", "pcrtc_antiblur", "bool", antiBlur.toString()))
                 add(settingOp("EmuCore", "EnableWideScreenPatches", "bool", widescreenPatches.toString()))
                 add(settingOp("EmuCore", "EnableNoInterlacingPatches", "bool", noInterlacingPatches.toString()))
-                add(settingOp("EmuCore/GS", "UserHacks", "bool", manualHardwareFixes.toString()))
+                add(settingOp("EmuCore/GS", "UserHacks", "bool", (manualHardwareFixes || !autoGsHardwareFixes).toString()))
                 if (manualHardwareFixes) {
                     // Leave per-game GameIndex GS fixes as the only hack layer unless manual fixes are explicitly active.
                     add(settingOp("EmuCore/GS", "UserHacks_CPUSpriteRenderBW", "int", cpuSpriteRenderSize.toString()))

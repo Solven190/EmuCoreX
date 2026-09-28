@@ -1287,6 +1287,12 @@
     <string name="profile_name_updated">Nombre actualizado.</string>
     <string name="profile_signed_out">Sesión cerrada.</string>
     <string name="profile_done">Hecho.</string>
+    <string name="settings_auto_gs_hw_fixes">Arreglos gráficos de GameDB</string>
+    <string name="settings_auto_gs_hw_fixes_desc">Aplicar arreglos automáticos de hardware GS de GameDB.</string>
+    <string name="settings_help_auto_gs_hw_fixes">Aplica los arreglos automáticos de hardware GS de GameDB, como correcciones de escalado, mezcla y texturas. Desactivarlo puede acelerar algunos juegos, pero puede causar fallos gráficos. Los arreglos manuales de hardware sustituyen a estos arreglos automáticos.</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">Mezcla precisa mediante interbloqueo de fragment shader (Vulkan).</string>
+    <string name="settings_help_hw_rov">Usa Rasterizer Order Views para una mezcla precisa en Vulkan. Desactivado por defecto en móviles porque las GPU tiler pierden rendimiento y muchos controladores no lo admiten.</string>
     <string name="settings_game_fixes">Correcciones de GameDB</string>
     <string name="settings_game_fixes_desc">Aplicar correcciones de compatibilidad de la GameDB.</string>
     <string name="settings_help_game_fixes">Utiliza las correcciones de compatibilidad de GameDB para juegos conocidos, incluidas las anulaciones automáticas del modo de redondeo y clamping. Desactívalo solo cuando un juego específico necesite tus ajustes manuales de clamping en lugar de los valores de GameDB; reinicia el juego para aplicar.</string>

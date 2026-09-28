@@ -1285,6 +1285,12 @@
     <string name="profile_name_updated">Görünen ad güncellendi.</string>
     <string name="profile_signed_out">Çıkış yapıldı.</string>
     <string name="profile_done">Bitti.</string>
+    <string name="settings_auto_gs_hw_fixes">GameDB Grafik Düzeltmeleri</string>
+    <string name="settings_auto_gs_hw_fixes_desc">GameDB\'den otomatik GS donanım düzeltmelerini uygula.</string>
+    <string name="settings_help_auto_gs_hw_fixes">GameDB\'nin otomatik GS donanım düzeltmelerini uygular; ölçekleme, harmanlama ve doku düzeltmeleri gibi. Kapatmak bazı oyunları hızlandırabilir ama grafik bozulmalarına yol açabilir. Elle yapılan donanım düzeltmeleri bu otomatik düzeltmelerin yerini alır.</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">Parça gölgelendirici kilidiyle doğru harmanlama (Vulkan).</string>
+    <string name="settings_help_hw_rov">Vulkan\'da doğru harmanlama için Rasterizer Order Views kullanır. Döşemeli GPU\'lar performans kaybettiği ve birçok sürücü desteklemediği için mobilde varsayılan olarak kapalıdır.</string>
     <string name="settings_game_fixes">GameDB Düzeltmeleri</string>
     <string name="settings_game_fixes_desc">GameDB\'den uyumluluk düzeltmelerini uygula.</string>
     <string name="settings_help_game_fixes">Bilinen oyunlar için otomatik sınırlama (clamp) ve yuvarlama modu geçersiz kılmaları dahil olmak üzere GameDB uyumluluk düzeltmelerini kullanır. Bunu yalnızca belirli bir oyunun GameDB değerleri yerine manuel sınırlama ayarlarınıza ihtiyacı olduğunda devre dışı bırakın; uygulamak için oyunu yeniden başlatın.</string>

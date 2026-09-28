@@ -335,6 +335,12 @@
     <string name="settings_jit_mtvu_note">Pokud zakážete VU1 rekompilátor, vypněte níže také MTVU. MTVU má smysl pouze se zapnutou VU1 rekompilací.</string>
     <string name="settings_cpu_float_modes">Režimy plovoucí desetinné čárky</string>
     <string name="settings_cpu_float_modes_note">Přepisování kompatibility pro konkrétní hry. Ponechte výchozí hodnoty, pokud není známo, že titul vyžaduje jiný režim zaokrouhlování (Round Mode) nebo režim omezování (Clamping); pro uplatnění změn hru restartujte.</string>
+    <string name="settings_auto_gs_hw_fixes">Grafické opravy GameDB</string>
+    <string name="settings_auto_gs_hw_fixes_desc">Použít automatické opravy GS hardwaru z GameDB.</string>
+    <string name="settings_help_auto_gs_hw_fixes">Použije automatické opravy GS hardwaru z GameDB, jako jsou korekce upscalingu, prolnutí a textur. Vypnutím můžete některé hry zrychlit, ale mohou se objevit grafické chyby. Ruční opravy hardwaru tyto automatické opravy nahradí.</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">Přesné prolínání přes zámek fragment shaderu (Vulkan).</string>
+    <string name="settings_help_hw_rov">Používá Rasterizer Order Views pro přesné prolínání ve Vulkanu. Na mobilu je vypnuto, protože dlaždicové GPU ztrácejí výkon a mnoho ovladačů to nepodporuje.</string>
     <string name="settings_game_fixes">Opravy z GameDB</string>
     <string name="settings_game_fixes_desc">Aplikovat opravy kompatibility z GameDB.</string>
     <string name="settings_help_game_fixes">Používá opravy kompatibility z GameDB pro známé hry, včetně automatických přepisů režimů ořezání (clamp) a zaokrouhlování. Zakažte to pouze tehdy, když konkrétní hra potřebuje vaše ruční nastavení namísto hodnot GameDB; pro uplatnění hru restartujte.</string>

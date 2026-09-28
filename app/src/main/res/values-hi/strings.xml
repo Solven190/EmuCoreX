@@ -1285,6 +1285,12 @@
     <string name="profile_name_updated">प्रदर्शन नाम अपडेट किया गया।</string>
     <string name="profile_signed_out">साइन आउट किया गया।</string>
     <string name="profile_done">हो गया।</string>
+    <string name="settings_auto_gs_hw_fixes">GameDB ग्राफ़िक्स फ़िक्स</string>
+    <string name="settings_auto_gs_hw_fixes_desc">GameDB से स्वचालित GS हार्डवेयर फ़िक्स लागू करें।</string>
+    <string name="settings_help_auto_gs_hw_fixes">GameDB के स्वचालित GS हार्डवेयर फ़िक्स लागू करता है, जैसे अपस्केलिंग, ब्लेंडिंग और टेक्सचर सुधार। इसे बंद करने से कुछ गेम तेज़ हो सकते हैं, लेकिन ग्राफ़िकल खराबी हो सकती है। मैनुअल हार्डवेयर फ़िक्स इन स्वचालित फ़िक्स की जगह लेते हैं।</string>
+    <string name="settings_hw_rov">Rasterizer Order Views</string>
+    <string name="settings_hw_rov_desc">फ़्रैगमेंट शेडर इंटरलॉक से सटीक ब्लेंडिंग (Vulkan)।</string>
+    <string name="settings_help_hw_rov">Vulkan में सटीक ब्लेंडिंग के लिए Rasterizer Order Views का उपयोग करता है। मोबाइल पर डिफ़ॉल्ट रूप से बंद, क्योंकि टाइलर GPU प्रदर्शन खोते हैं और कई ड्राइवर इसका समर्थन नहीं करते।</string>
     <string name="settings_game_fixes">GameDB फ़िक्सेस</string>
     <string name="settings_game_fixes_desc">GameDB से संगतता फ़िक्सेस लागू करें।</string>
     <string name="settings_help_game_fixes">ज्ञात गेम्स के लिए GameDB संगतता फ़िक्सेस का उपयोग करता है, जिसमें स्वचालित क्लैंप और राउंड मोड ओवरराइड शामिल हैं। इसे केवल तभी अक्षम करें जब किसी विशिष्ट गेम को GameDB मानों के बजाय आपकी मैन्युअल क्लैम्पिंग सेटिंग्स की आवश्यकता हो; लागू करने के लिए गेम को पुनरारंभ करें。</string>
