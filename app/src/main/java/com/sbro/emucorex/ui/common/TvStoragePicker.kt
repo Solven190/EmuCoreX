@@ -15,6 +15,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -29,8 +30,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -38,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.StorageAccess
@@ -74,7 +80,14 @@ fun TvStoragePickerHost(
     val firstSourceFocusRequester = remember { FocusRequester() }
     val unavailableMessage = stringResource(R.string.tv_storage_picker_unavailable)
     val invalidSelectionMessage = stringResource(R.string.tv_storage_picker_invalid_selection)
+    val storeUnavailableMessage = stringResource(R.string.tv_storage_picker_store_unavailable)
     val scope = rememberCoroutineScope()
+    // Many Android TV boxes ship without DocumentsUI, so the system has no folder picker at all.
+    // Asking the user to choose a storage volume first would only lead to a dead end, therefore the
+    // file-manager prompt replaces the volume chooser until a compatible picker is installed.
+    var showFileManagerPrompt by remember(request) {
+        mutableStateOf(!TvStorageAccess.isPickerAvailable(context))
+    }
 
     fun handlePickedTree(uri: Uri?, onAccepted: (Uri) -> Unit) {
         if (uri == null) {
@@ -111,20 +124,39 @@ fun TvStoragePickerHost(
             request = request,
             volume = source.volume
         )
-        if (intent == null) {
-            Toast.makeText(context, unavailableMessage, Toast.LENGTH_LONG).show()
-            return
-        }
-        val launched = runCatching {
-            when (request) {
-                TvStorageRequest.BIOS_FILE -> biosLauncher.launch(intent)
-                TvStorageRequest.GAME_FOLDER -> folderLauncher.launch(intent)
+        val launchResult = intent?.let { pickerIntent ->
+            runCatching {
+                when (request) {
+                    TvStorageRequest.BIOS_FILE -> biosLauncher.launch(pickerIntent)
+                    TvStorageRequest.GAME_FOLDER -> folderLauncher.launch(pickerIntent)
+                }
             }
-        }.isSuccess
-        if (!launched) {
-            Toast.makeText(context, unavailableMessage, Toast.LENGTH_LONG).show()
-            return
         }
+        if (launchResult == null || launchResult.isFailure) {
+            launchResult?.exceptionOrNull()?.let { error ->
+                Log.w("TvStoragePicker", "Unable to launch storage picker: $intent", error)
+            }
+            showFileManagerPrompt = true
+        }
+    }
+
+    if (showFileManagerPrompt) {
+        FileManagerRequiredDialog(
+            onDismiss = onDismiss,
+            onInstall = {
+                if (!TvStorageAccess.openFileManagerStorePage(context)) {
+                    Toast.makeText(context, storeUnavailableMessage, Toast.LENGTH_LONG).show()
+                }
+            },
+            onRetry = {
+                if (TvStorageAccess.isPickerAvailable(context)) {
+                    showFileManagerPrompt = false
+                } else {
+                    Toast.makeText(context, unavailableMessage, Toast.LENGTH_LONG).show()
+                }
+            }
+        )
+        return
     }
 
     LaunchedEffect(request, sources) {
@@ -204,6 +236,43 @@ private data class TvStorageSource(
     val volume: StorageVolume?
 )
 
+@Composable
+private fun FileManagerRequiredDialog(
+    onDismiss: () -> Unit,
+    onInstall: () -> Unit,
+    onRetry: () -> Unit
+) {
+    AppAlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Rounded.FolderOpen,
+                contentDescription = null
+            )
+        },
+        title = { Text(stringResource(R.string.tv_storage_picker_install_title)) },
+        text = { Text(stringResource(R.string.tv_storage_picker_install_message)) },
+        confirmButton = {
+            TextButton(onClick = onInstall) {
+                Text(stringResource(R.string.tv_storage_picker_install_confirm))
+            }
+        },
+        dismissButton = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onRetry) {
+                    Text(stringResource(R.string.tv_storage_picker_install_retry))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        }
+    )
+}
+
 private object TvStorageAccess {
     private const val TAG = "TvStoragePicker"
 
@@ -232,15 +301,7 @@ private object TvStorageAccess {
         request: TvStorageRequest,
         volume: StorageVolume?
     ): Intent? {
-        val candidates = buildList {
-            if (volume != null) {
-                runCatching { volume.createOpenDocumentTreeIntent() }.getOrNull()?.let(::add)
-            }
-            add(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE))
-            knownTreePickerComponents(context).forEach { component ->
-                add(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).setComponent(component))
-            }
-        }.map { intent -> intent.withPickerFlags() }
+        val candidates = pickerCandidates(context, volume)
 
         candidates.firstOrNull { hasCompatiblePicker(context, it) }?.let { intent ->
             val resolved = intent.component
@@ -263,6 +324,48 @@ private object TvStorageAccess {
         }
         Log.w(TAG, "No compatible storage picker found on this device")
         return null
+    }
+
+    /** True when at least one app can answer a folder-picking intent on this device. */
+    fun isPickerAvailable(context: Context): Boolean {
+        return pickerCandidates(context, volume = null).any { hasCompatiblePicker(context, it) } ||
+            findAnExplorerDocumentActivity(context) != null
+    }
+
+    /**
+     * Opens the Play Store listing of the file manager recommended for TV boxes without a system
+     * picker. Returns false when neither the store nor a browser can handle the link.
+     */
+    fun openFileManagerStorePage(context: Context): Boolean {
+        val storeLinks = listOf(
+            "market://details?id=$ANEXPLORER_PACKAGE",
+            "https://play.google.com/store/apps/details?id=$ANEXPLORER_PACKAGE"
+        )
+        for (link in storeLinks) {
+            val intent = Intent(Intent.ACTION_VIEW, link.toUri())
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val resolvable = runCatching {
+                intent.resolveActivity(context.packageManager) != null
+            }.getOrDefault(false)
+            if (!resolvable) continue
+            if (runCatching { context.startActivity(intent) }.isSuccess) return true
+        }
+        return false
+    }
+
+    private fun pickerCandidates(context: Context, volume: StorageVolume?): List<Intent> {
+        val baseIntent = volume
+            ?.let { runCatching { it.createOpenDocumentTreeIntent() }.getOrNull() }
+            ?: Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+        return buildList {
+            // Known pickers go before the bare intent: on Android TV the framework documents stub
+            // still answers OPEN_DOCUMENT_TREE, which would otherwise make the system chooser
+            // appear next to the real file manager.
+            knownTreePickerComponents(context).forEach { component ->
+                add(Intent(baseIntent).setComponent(component))
+            }
+            add(baseIntent)
+        }.map { intent -> intent.withPickerFlags() }
     }
 
     /**
@@ -302,12 +405,15 @@ private object TvStorageAccess {
             .queryIntentActivities(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), 0)
             .mapNotNull { resolveInfo ->
                 val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
-                if (activityInfo.exported && activityInfo.packageName in KNOWN_PICKER_PACKAGES) {
-                    ComponentName(activityInfo.packageName, activityInfo.name)
+                val rank = KNOWN_PICKER_PACKAGES.indexOf(activityInfo.packageName)
+                if (activityInfo.exported && rank >= 0) {
+                    rank to ComponentName(activityInfo.packageName, activityInfo.name)
                 } else {
                     null
                 }
             }
+            .sortedBy { (rank, _) -> rank }
+            .map { (_, component) -> component }
     }
 
     @Suppress("DEPRECATION")
@@ -339,7 +445,7 @@ private object TvStorageAccess {
 
     private const val TV_FRAMEWORK_STUB_PACKAGE = "com.android.tv.frameworkpackagestubs"
     private const val ANEXPLORER_PACKAGE = "dev.dworks.apps.anexplorer"
-    private val KNOWN_PICKER_PACKAGES = setOf(
+    private val KNOWN_PICKER_PACKAGES = listOf(
         "com.android.documentsui",
         "com.google.android.documentsui",
         ANEXPLORER_PACKAGE

@@ -76,6 +76,7 @@ class MemoryCardRepository(
     }
 
     fun listCards(): List<MemoryCardInfo> {
+        if (!NativeApp.hasNativeCore) return emptyList()
         syncNativeMemoryCardDirectory()
         return NativeApp.parseMemoryCardList(NativeApp.listMemoryCards()).map {
             MemoryCardInfo(
@@ -92,6 +93,7 @@ class MemoryCardRepository(
     }
 
     fun createPs2Card(name: String, sizeMb: Int): Boolean {
+        if (!NativeApp.hasNativeCore) return false
         syncNativeMemoryCardDirectory()
         val normalized = buildUniqueCardName(name)
         val resolvedSizeMb = sizeMb.toSupportedPs2CardSizeMb()
@@ -103,6 +105,7 @@ class MemoryCardRepository(
     }
 
     fun createFolderCard(name: String): Boolean {
+        if (!NativeApp.hasNativeCore) return false
         syncNativeMemoryCardDirectory()
         val normalized = buildUniqueCardName(name)
         return NativeApp.createMemoryCard(
@@ -350,6 +353,7 @@ class MemoryCardRepository(
     }
 
     private fun createStandardDefaultCard(cardName: String): Boolean {
+        if (!NativeApp.hasNativeCore) return false
         return NativeApp.createMemoryCard(
             cardName,
             STANDARD_DEFAULT_MEMORY_CARD_SPEC.type,
