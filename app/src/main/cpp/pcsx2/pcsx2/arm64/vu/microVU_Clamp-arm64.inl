@@ -180,10 +180,21 @@ static __fi void mVU_clamp2Vector_oaknut(mV, int reg, bool bClampE)
 
 static __fi void mVUUpperClampVu1MaddLaneResult_oaknut(int reg, bool scalar)
 {
-	if (scalar)
+	if (CHECK_VU_OVERFLOW(1))
+	{
+		if (scalar)
+			mVUClamp1ScalarBits_oaknut(reg);
+		else
+			mVUClamp1VectorBits_oaknut(reg);
+	}
+	else if (scalar)
+	{
 		mVUClampDenormalScalarBits_oaknut(reg);
+	}
 	else
+	{
 		mVUClampDenormalVectorBits_oaknut(reg);
+	}
 }
 
 static __fi void mVUUpperClampAccLaneFs_oaknut(mV, int reg, bool scalar)
@@ -211,7 +222,7 @@ static __fi void mVUUpperClampAccLaneFs_oaknut(mV, int reg, bool scalar)
 static __fi void mVUUpperClampVu1XyzwMsubResult_oaknut(mV, int reg)
 {
 	if (CHECK_VU_OVERFLOW(mVU.index))
-		mVUClamp1VectorFast_oaknut(reg);
+		mVUClamp1VectorBits_oaknut(reg);
 	else
 		mVUClampDenormalVectorBits_oaknut(reg);
 }

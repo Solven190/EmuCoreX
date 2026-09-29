@@ -733,14 +733,19 @@ void VectorsTests()
         const char* name;
         bool vu0Overflow;
         bool vu1Overflow;
+        bool vu0ExtraOverflow;
+        bool vu1ExtraOverflow;
         bool vu0SignOverflow;
         bool vu1SignOverflow;
+        bool checkGolden;
     };
     const ClampProfile profiles[] = {
-        {"default", true, false, false, false},
-        {"clamp-off", false, false, false, false},
-        {"clamp-on", true, true, false, false},
-        {"sign-preserve", true, true, true, true},
+        {"default", true, false, false, false, false, false, true},
+        {"clamp-off", false, false, false, false, false, false, true},
+        {"clamp-on", true, true, false, false, false, false, true},
+        {"extra", true, true, true, true, false, false, false},
+        {"sign-preserve", true, true, false, false, true, true, true},
+        {"full", true, true, true, true, true, true, false},
     };
     const auto savedClamp = EmuConfig.Cpu.Recompiler;
     for (u32 vu = 0; vu < 2; ++vu)
@@ -749,6 +754,8 @@ void VectorsTests()
         {
             EmuConfig.Cpu.Recompiler.vu0Overflow = profile.vu0Overflow;
             EmuConfig.Cpu.Recompiler.vu1Overflow = profile.vu1Overflow;
+            EmuConfig.Cpu.Recompiler.vu0ExtraOverflow = profile.vu0ExtraOverflow;
+            EmuConfig.Cpu.Recompiler.vu1ExtraOverflow = profile.vu1ExtraOverflow;
             EmuConfig.Cpu.Recompiler.vu0SignOverflow = profile.vu0SignOverflow;
             EmuConfig.Cpu.Recompiler.vu1SignOverflow = profile.vu1SignOverflow;
             for (const GoldenVector& vector : vectors)
@@ -787,12 +794,18 @@ void VectorsTests()
                 const u32 interpBits = vector.expectQ ? interp.regs.VI[REG_Q].UL : interp.regs.VF[3].UL[3];
                 const u32 jitBits = vector.expectQ ? jit.regs.VI[REG_Q].UL : jit.regs.VF[3].UL[3];
                 char name[128];
-                std::snprintf(name, sizeof(name), "VU%u %s golden interp %s", vu, profile.name, vector.name);
-                CheckBits(interpBits == vector.expected, interpBits, vector.expected, name);
+                if (profile.checkGolden)
+                {
+                    std::snprintf(name, sizeof(name), "VU%u %s golden interp %s", vu, profile.name, vector.name);
+                    CheckBits(interpBits == vector.expected, interpBits, vector.expected, name);
+                }
                 std::snprintf(name, sizeof(name), "VU%u %s JIT vs interpreter %s", vu, profile.name, vector.name);
                 Compare(interp, jit, name);
-                std::snprintf(name, sizeof(name), "VU%u %s golden JIT %s", vu, profile.name, vector.name);
-                CheckBits(jitBits == vector.expected, jitBits, vector.expected, name);
+                if (profile.checkGolden)
+                {
+                    std::snprintf(name, sizeof(name), "VU%u %s golden JIT %s", vu, profile.name, vector.name);
+                    CheckBits(jitBits == vector.expected, jitBits, vector.expected, name);
+                }
             }
         }
     }

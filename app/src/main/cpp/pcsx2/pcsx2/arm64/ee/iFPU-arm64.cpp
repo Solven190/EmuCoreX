@@ -66,7 +66,7 @@ namespace DOUBLE
 #define FPUflagSU 0x00000008
 
 // Add/Sub opcodes produce the same results as the ps2
-#define FPU_CORRECT_ADD_SUB CHECK_FPU_OVERFLOW
+#define FPU_CORRECT_ADD_SUB (CHECK_FPU_OVERFLOW && CHECK_FPU_CORRECT_ADD_SUB)
 
 //alignas(16) static const u32 s_neg[4] = {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff};
 //alignas(16) static const u32 s_pos[4] = {0x7fffffff, 0xffffffff, 0xffffffff, 0xffffffff};

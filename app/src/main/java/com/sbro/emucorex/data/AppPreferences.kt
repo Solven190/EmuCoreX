@@ -547,7 +547,7 @@ class AppPreferences(private val context: Context) {
         const val DEFAULT_VU_ROUND_MODE = FLOAT_ROUND_CHOP
         const val DEFAULT_EE_FPU_CLAMPING_MODE = CLAMPING_NORMAL
         const val DEFAULT_VU0_CLAMPING_MODE = CLAMPING_NORMAL
-        const val DEFAULT_VU1_CLAMPING_MODE = CLAMPING_NONE
+        const val DEFAULT_VU1_CLAMPING_MODE = CLAMPING_NORMAL
 
         fun defaultOverlayControlLayouts(stickScale: Int = OVERLAY_CONTROL_SCALE_DEFAULT): Map<String, OverlayControlLayout> = mapOf(
             "l2" to OverlayControlLayout(),
@@ -1522,6 +1522,17 @@ class AppPreferences(private val context: Context) {
 
     suspend fun cleanupLegacyClampingPreferencesIfNeeded() {
         context.dataStore.edit { prefs ->
+            val legacyMappings = listOf(
+                booleanPreferencesKey("enable_ee_clamping") to EE_FPU_CLAMPING_MODE,
+                booleanPreferencesKey("enable_vu0_clamping") to VU0_CLAMPING_MODE,
+                booleanPreferencesKey("enable_vu1_clamping") to VU1_CLAMPING_MODE
+            )
+            legacyMappings.forEach { (legacyKey, destinationKey) ->
+                if (prefs[legacyKey] == false && prefs[destinationKey] == null) {
+                    prefs[destinationKey] = CLAMPING_NONE
+                }
+                prefs.remove(legacyKey)
+            }
             LEGACY_CLAMPING_PREF_KEYS.forEach(prefs::remove)
         }
     }

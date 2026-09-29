@@ -664,7 +664,8 @@ struct Pcsx2Config
 		bool
 			fpuOverflow : 1,
 			fpuExtraOverflow : 1,
-			fpuFullMode : 1;
+			fpuFullMode : 1,
+			fpuCorrectAddSub : 1;
 
 		bool
 			EnableEECache : 1;
@@ -1600,6 +1601,7 @@ namespace EmuFolders
 #define CHECK_FPU_EXTRA_OVERFLOW (EmuConfig.Cpu.Recompiler.fpuExtraOverflow) // If enabled, Operands are checked for infinities before being used in the FPU recs
 #define CHECK_FPU_EXTRA_FLAGS 1 // Always enabled now // Sets D/I flags on FPU instructions
 #define CHECK_FPU_FULL (EmuConfig.Cpu.Recompiler.fpuFullMode)
+#define CHECK_FPU_CORRECT_ADD_SUB (EmuConfig.Cpu.Recompiler.fpuCorrectAddSub)
 
 //------------ EE Recompiler defines - Comment to disable a recompiler ---------------
 
