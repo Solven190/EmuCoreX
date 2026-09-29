@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -319,16 +320,20 @@ fun DiscordScreen(onBackClick: () -> Unit) {
                             modifier = Modifier
                                 .size(54.dp)
                                 .clip(neonShape(15.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)),
+                                .background(
+                                    if (preview.coverUrl.isBlank()) {
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+                                    } else {
+                                        Color.Transparent
+                                    }
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             if (preview.coverUrl.isNotBlank()) {
                                 AsyncImage(
                                     model = preview.coverUrl,
                                     contentDescription = preview.details,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(3.dp),
+                                    modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Fit
                                 )
                             } else {

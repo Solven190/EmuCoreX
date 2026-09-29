@@ -791,24 +791,15 @@ private fun SaveEntryCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                Surface(
+                GameCoverArt(
+                    coverPath = previewPath,
+                    fallbackTitle = entry.gameTitle,
                     modifier = Modifier
                         .width(116.dp)
-                        .height(86.dp),
-                    shape = neonShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp
-                ) {
-                    GameCoverArt(
-                        coverPath = previewPath,
-                        fallbackTitle = entry.gameTitle,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(neonShape(14.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                }
+                        .height(86.dp)
+                        .clip(neonShape(14.dp)),
+                    contentScale = ContentScale.Crop
+                )
 
                 Column(
                     modifier = Modifier

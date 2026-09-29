@@ -109,6 +109,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -141,12 +143,14 @@ import com.sbro.emucorex.data.GameItem
 import com.sbro.emucorex.data.HomeBackgroundRepository
 import com.sbro.emucorex.data.HomeBackgroundType
 import com.sbro.emucorex.ui.common.GameCoverArt
+import com.sbro.emucorex.ui.common.GameCoverAspectRatio
 import com.sbro.emucorex.ui.common.PremiumLoadingAnimation
 import com.sbro.emucorex.ui.common.ProSupportOptionsDialog
 import com.sbro.emucorex.ui.common.RequestFocusOnResume
 import com.sbro.emucorex.ui.common.TvStoragePickerHost
 import com.sbro.emucorex.ui.common.TvStorageRequest
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
+import com.sbro.emucorex.ui.common.isGenerated3dCover
 import com.sbro.emucorex.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import com.sbro.emucorex.ui.common.safeLaunch
@@ -1474,7 +1478,7 @@ private fun RecentGameCard(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (isPressed) 0.95f else 1f, tween(100))
     var showMenu by remember(game.path) { mutableStateOf(false) }
-    val coverContentScale = if (game.serial?.startsWith("NM") == true) ContentScale.Fit else ContentScale.Crop
+    val is3dCover = isGenerated3dCover(game.coverArtPath)
 
     Box(
         modifier = modifier
@@ -1491,34 +1495,35 @@ private fun RecentGameCard(
                     onLongClick = { showMenu = true }
                 )
                 .gamepadFocusableCard(
-                    shape = neonShape(16.dp),
+                    showIdleBorder = !is3dCover,
+                    shape = if (is3dCover) RectangleShape else neonShape(16.dp),
                     interactionSource = interactionSource,
                     addFocusTarget = false
                 ),
-            shape = neonShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
+            shape = if (is3dCover) RectangleShape else neonShape(16.dp),
+            color = if (is3dCover) Color.Transparent else MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
             shadowElevation = 0.dp
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(2f / 3f)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    .aspectRatio(GameCoverAspectRatio)
+                    .background(if (is3dCover) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
             ) {
                 if (showCenteredTitlePlaceholder) {
                     GridCoverPlaceholder(
                         modifier = Modifier.fillMaxSize(),
                         title = game.title,
                         titleMaxLines = if (compact) 3 else 4,
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Fit
                     )
                 } else {
                     GameCoverArt(
                         coverPath = game.coverArtPath,
                         fallbackTitle = game.title,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = coverContentScale
+                        contentScale = ContentScale.Fit
                     )
                 }
             }
@@ -1594,7 +1599,7 @@ private fun GameCard(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (isPressed) 0.96f else 1f, tween(100))
     var showMenu by remember(game.path) { mutableStateOf(false) }
-    val coverContentScale = if (game.serial?.startsWith("NM") == true) ContentScale.Fit else ContentScale.Crop
+    val is3dCover = isGenerated3dCover(game.coverArtPath)
     val isLightTheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val gridCardBorder = if (isLightTheme) {
         BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.34f))
@@ -1615,35 +1620,36 @@ private fun GameCard(
                 onLongClick = { showMenu = true }
             )
             .gamepadFocusableCard(
-                shape = neonShape(16.dp),
+                showIdleBorder = !is3dCover,
+                shape = if (is3dCover) RectangleShape else neonShape(16.dp),
                 interactionSource = interactionSource,
                 addFocusTarget = false
             ),
-        shape = neonShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
+        shape = if (is3dCover) RectangleShape else neonShape(16.dp),
+        color = if (is3dCover) Color.Transparent else MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
-        border = gridCardBorder
+        border = if (is3dCover) null else gridCardBorder
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(2f / 3f)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                .aspectRatio(GameCoverAspectRatio)
+                .background(if (is3dCover) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
         ) {
             if (showCenteredTitlePlaceholder) {
                 GridCoverPlaceholder(
                     modifier = Modifier.fillMaxSize(),
                     title = game.title,
                     titleMaxLines = 4,
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Fit
                 )
             } else {
                 GameCoverArt(
                     coverPath = game.coverArtPath,
                     fallbackTitle = game.title,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = coverContentScale
+                    contentScale = ContentScale.Fit
                 )
             }
         }
@@ -1719,6 +1725,7 @@ private fun GameListCard(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (isPressed) 0.985f else 1f, tween(100))
     var showMenu by remember(game.path) { mutableStateOf(false) }
+    val is3dCover = isGenerated3dCover(game.coverArtPath)
 
     Box(modifier = modifier.fillMaxWidth()) {
         Surface(
@@ -1753,15 +1760,14 @@ private fun GameListCard(
                 Box(
                     modifier = Modifier
                         .width(52.dp)
-                        .aspectRatio(2f / 3f)
-                        .clip(neonShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        .aspectRatio(GameCoverAspectRatio)
+                        .clip(if (is3dCover) RectangleShape else neonShape(10.dp))
                 ) {
                     GameCoverArt(
                         coverPath = game.coverArtPath,
                         fallbackTitle = game.title,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.FillHeight
+                        contentScale = ContentScale.Fit
                     )
                 }
             }

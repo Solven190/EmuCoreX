@@ -225,7 +225,6 @@ fun GameDetailScreen(
                         .widthIn(max = heroMaxWidth)
                         .aspectRatio(2f / 3f)
                         .clip(neonShape(28.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                 ) {
                     GameCoverArt(
                         coverPath = heroImage,

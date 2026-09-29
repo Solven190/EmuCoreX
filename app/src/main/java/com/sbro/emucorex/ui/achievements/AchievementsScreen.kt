@@ -1695,7 +1695,13 @@ private fun LibraryAchievementGameCard(item: LibraryAchievementGame, onClick: ()
                 modifier = Modifier
                     .size(72.dp)
                     .clip(neonShape(18.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+                    .background(
+                        if (imagePath.isNullOrBlank()) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                        } else {
+                            Color.Transparent
+                        }
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 BitmapPathImage(
