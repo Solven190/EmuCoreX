@@ -2789,4 +2789,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">پایینی: خط لوله DIV/SQRT/RSQRT</string>
     <string name="opcode_fam_vu_lower_efu">پایینی: توابع مقدماتی (ESADD و …)</string>
     <string name="opcode_fam_vu_lower_gif">پایینی: انتقال‌های GIF (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">درایورهای سازگار ابتدا نمایش داده می‌شوند. برای جزئیات روی کارت درایور ضربه بزنید.</string>
+    <string name="settings_gpu_driver_compatibility_mali">سازگاری Mali</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">سازگاری Xclipse</string>
+    <string name="settings_gpu_driver_compatibility_generic">سازگاری GPU</string>
+    <string name="settings_gpu_driver_other_family_generic">خانواده GPU متفاوت</string>
+    <string name="settings_help_gpu_driver_generic">به شما امکان می‌دهد یک بسته درایور GPU سفارشی (مانند PanVK برای Mali یا Vortek برای Xclipse) را جایگزین درایور پیش‌فرض سیستم کنید. درایورهای سفارشی می‌توانند عملکرد را به‌طور قابل‌توجهی بهبود دهند یا مشکلات گرافیکی برخی بازی‌ها را روی دستگاه‌های سازگار Mali و Xclipse برطرف کنند. در صورت بروز کرش، به درایور سیستم برگردید.</string>
 </resources>

@@ -2778,4 +2778,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">سفلي: خط أنابيب DIV/SQRT/RSQRT</string>
     <string name="opcode_fam_vu_lower_efu">سفلي: الدوال الأولية (ESADD, …)</string>
     <string name="opcode_fam_vu_lower_gif">سفلي: عمليات نقل GIF (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">يتم عرض برامج التشغيل المتوافقة أولاً. اضغط على بطاقة برنامج التشغيل لعرض التفاصيل.</string>
+    <string name="settings_gpu_driver_compatibility_mali">توافق Mali</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">توافق Xclipse</string>
+    <string name="settings_gpu_driver_compatibility_generic">توافق GPU</string>
+    <string name="settings_gpu_driver_other_family_generic">عائلة GPU مختلفة</string>
+    <string name="settings_help_gpu_driver_generic">يتيح لك اختيار حزمة برنامج تشغيل GPU مخصصة (مثل PanVK لأجهزة Mali أو Vortek لأجهزة Xclipse) لاستبدال برنامج التشغيل الافتراضي. يمكن أن تحسن برامج التشغيل المخصصة الأداء بشكل كبير أو إصلاح مشاكل رسومية في بعض الألعاب على أجهزة Mali وXclipse المدعومة. إذا واجهت أعطالاً، ارجع إلى برنامج تشغيل النظام.</string>
 </resources>

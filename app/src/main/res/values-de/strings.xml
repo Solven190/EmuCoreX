@@ -2776,4 +2776,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">Lower: DIV/SQRT/RSQRT-Pipeline</string>
     <string name="opcode_fam_vu_lower_efu">Lower: Elementarfunktionen (ESADD, …)</string>
     <string name="opcode_fam_vu_lower_gif">Lower: GIF-Übertragungen (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">Kompatible Treiber werden zuerst angezeigt. Tippe auf eine Treiberkarte für Details.</string>
+    <string name="settings_gpu_driver_compatibility_mali">Mali-Kompatibilität</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">Xclipse-Kompatibilität</string>
+    <string name="settings_gpu_driver_compatibility_generic">GPU-Kompatibilität</string>
+    <string name="settings_gpu_driver_other_family_generic">Andere GPU-Familie</string>
+    <string name="settings_help_gpu_driver_generic">Ermöglicht die Auswahl eines benutzerdefinierten GPU-Treiberpakets (z. B. PanVK für Mali oder Vortek für Xclipse) als Ersatz für den Standardsystemtreiber. Benutzerdefinierte Treiber können die Leistung deutlich verbessern oder Grafikfehler in bestimmten Spielen auf unterstützten Mali- und Xclipse-Geräten beheben. Bei Abstürzen zum Systemtreiber zurückkehren.</string>
 </resources>

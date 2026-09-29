@@ -2791,4 +2791,10 @@
     <string name="texture_opt_unsupported">This device does not support ASTC. Choose no conversion.</string>
     <string name="texture_opt_paused_hint">Progress is saved. Resume when you are ready.</string>
     <string name="texture_opt_original_required">To change compression, import the original pack again. Already compressed textures are not compressed a second time.</string>
+    <string name="settings_gpu_driver_device_hint_generic">Compatible drivers are shown first. Tap a driver card for details.</string>
+    <string name="settings_gpu_driver_compatibility_mali">Mali compatibility</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">Xclipse compatibility</string>
+    <string name="settings_gpu_driver_compatibility_generic">GPU compatibility</string>
+    <string name="settings_gpu_driver_other_family_generic">Different GPU family</string>
+    <string name="settings_help_gpu_driver_generic">Allows you to select a custom GPU driver package (like PanVK for Mali or Vortek for Xclipse) to replace the default system driver. Custom drivers can significantly improve performance or fix visual glitches in certain games on supported Mali and Xclipse devices. If you experience crashes, revert to the System driver.</string>
 </resources>

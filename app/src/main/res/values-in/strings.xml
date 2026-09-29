@@ -2788,4 +2788,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">Bawah: pipeline DIV/SQRT/RSQRT</string>
     <string name="opcode_fam_vu_lower_efu">Bawah: fungsi elementer (ESADD, …)</string>
     <string name="opcode_fam_vu_lower_gif">Bawah: transfer GIF (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">Driver yang kompatibel ditampilkan lebih dulu. Ketuk kartu driver untuk detailnya.</string>
+    <string name="settings_gpu_driver_compatibility_mali">Kompatibilitas Mali</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">Kompatibilitas Xclipse</string>
+    <string name="settings_gpu_driver_compatibility_generic">Kompatibilitas GPU</string>
+    <string name="settings_gpu_driver_other_family_generic">Keluarga GPU berbeda</string>
+    <string name="settings_help_gpu_driver_generic">Memungkinkan Anda memilih paket driver GPU kustom (seperti PanVK untuk Mali atau Vortek untuk Xclipse) untuk menggantikan driver sistem bawaan. Driver kustom dapat meningkatkan performa secara signifikan atau memperbaiki masalah grafis di game tertentu pada perangkat Mali dan Xclipse yang didukung. Jika terjadi crash, kembali ke driver sistem.</string>
 </resources>

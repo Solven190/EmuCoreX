@@ -2,19 +2,18 @@ package com.sbro.emucorex.core
 
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.provider.OpenableColumns
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.util.Locale
 import java.util.zip.ZipInputStream
 
 data class InstalledGpuDriver(
     val name: String,
     val mainLibrary: String,
     val mainLibraryPath: String,
-    val isUsable: Boolean
+    val isUsable: Boolean,
+    val vendor: GpuDriverVendor = GpuDriverVendor.UNKNOWN
 )
 
 class GpuDriverManager(private val context: Context) {
@@ -31,28 +30,31 @@ class GpuDriverManager(private val context: Context) {
                 if (mainLibraryFile.isFile) {
                     ensureDriverLibraryPermissions(mainLibraryFile)
                 }
+                val vendor = GpuDriverCompatibility.installedDriverVendor(mainLibraryFile)
                 InstalledGpuDriver(
                     name = driverDir.name,
                     mainLibrary = mainLibrary,
                     mainLibraryPath = mainLibraryFile.absolutePath,
-                    isUsable = isValidDriverLibrary(mainLibraryFile)
+                    isUsable = isValidDriverLibrary(mainLibraryFile) &&
+                        GpuDriverCompatibility.isVendorCompatible(vendor),
+                    vendor = vendor
                 )
             }
             .sortedBy { it.name.lowercase() }
     }
 
-    fun installFromArchive(uri: Uri): String {
+    fun installFromArchive(uri: Uri, expectedVendor: GpuDriverVendor? = null): String {
         val archiveName = queryDisplayName(uri)
             ?: uri.lastPathSegment
             ?: "custom-driver.zip"
         val input = context.contentResolver.openInputStream(uri)
             ?: error("Could not open archive")
-        return input.use { installFromArchive(it, archiveName) }
+        return input.use { installFromArchive(it, archiveName, expectedVendor) }
     }
 
-    fun installFromArchive(file: File): String {
+    fun installFromArchive(file: File, expectedVendor: GpuDriverVendor? = null): String {
         file.inputStream().use { input ->
-            return installFromArchive(input, file.name)
+            return installFromArchive(input, file.name, expectedVendor)
         }
     }
 
@@ -67,14 +69,14 @@ class GpuDriverManager(private val context: Context) {
     }
 
     fun resolveUsableDriverPath(preferredPath: String?): String? {
-        if (!GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()) {
+        if (!GpuDriverCompatibility.supportsCustomDrivers()) {
             return null
         }
 
         preferredPath
             ?.takeIf { it.isNotBlank() }
             ?.let(::File)
-            ?.takeIf(::isValidDriverLibrary)
+            ?.takeIf { isValidDriverLibrary(it) && isVendorCompatible(it) }
             ?.let { file ->
                 ensureDriverLibraryPermissions(file)
                 return file.absolutePath
@@ -85,7 +87,19 @@ class GpuDriverManager(private val context: Context) {
             ?.mainLibraryPath
     }
 
-    private fun installFromArchive(input: InputStream, archiveName: String): String {
+    fun isVendorCompatible(libraryFile: File): Boolean =
+        GpuDriverCompatibility.isVendorCompatible(GpuDriverCompatibility.installedDriverVendor(libraryFile))
+
+    fun isVendorCompatible(libraryPath: String?): Boolean {
+        val file = libraryPath?.takeIf { it.isNotBlank() }?.let(::File) ?: return false
+        return isVendorCompatible(file)
+    }
+
+    private fun installFromArchive(
+        input: InputStream,
+        archiveName: String,
+        expectedVendor: GpuDriverVendor? = null
+    ): String {
         val driverName = archiveName.substringBeforeLast('.').ifBlank { "custom-driver" }
         val targetDir = File(driversRoot(), driverName)
 
@@ -128,12 +142,30 @@ class GpuDriverManager(private val context: Context) {
         // A corrupt or truncated .so would only explode later as a native
         // crash inside the third-party driver (e.g. Turnip SIGSEGV in
         // strncmp). Reject it here while we can still report a clean error.
-        if (!isValidDriverLibrary(File(targetDir, selectedDriver))) {
+        val driverLibrary = File(targetDir, selectedDriver)
+        if (!isValidDriverLibrary(driverLibrary)) {
             targetDir.deleteRecursively()
             error("Archive contains a corrupt Vulkan driver file")
         }
 
+        // Refuse cross-vendor packages outright: an Adreno Turnip pack must
+        // not install on a Mali device and a PanVK pack must not install on an
+        // Adreno device. The catalog `gpu` field is trusted when the caller
+        // supplies it; local imports are classified from ELF markers.
+        val detectedVendor = expectedVendor
+            ?.takeIf { it != GpuDriverVendor.UNKNOWN }
+            ?: GpuDriverCompatibility.vendorOfDriverLibrary(driverLibrary)
+        val deviceVendor = GpuDriverCompatibility.deviceVendor()
+        if (!GpuDriverCompatibility.isVendorCompatible(detectedVendor, deviceVendor)) {
+            targetDir.deleteRecursively()
+            error(
+                "This driver is for ${detectedVendor.displayName} GPUs and cannot be used on this " +
+                    "${deviceVendor.displayName} device"
+            )
+        }
+
         File(targetDir, "driver_name.txt").writeText("$selectedDriver\n")
+        GpuDriverCompatibility.writeInstalledDriverVendor(driverLibrary, detectedVendor)
         return driverName
     }
 
@@ -192,62 +224,5 @@ internal fun isValidDriverLibrary(file: File): Boolean {
         }
     } catch (_: Exception) {
         false
-    }
-}
-
-object GpuDriverCompatibility {
-    fun supportsAdrenoToolsCustomDrivers(): Boolean {
-        val deviceInfo = buildList {
-            add(Build.BOARD)
-            add(Build.BRAND)
-            add(Build.DEVICE)
-            add(Build.HARDWARE)
-            add(Build.MANUFACTURER)
-            add(Build.MODEL)
-            add(Build.PRODUCT)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                add(Build.SOC_MANUFACTURER)
-                add(Build.SOC_MODEL)
-            }
-        }
-            .joinToString(" ")
-            .lowercase(Locale.US)
-
-        val qualcommSignals = listOf(
-            "adreno",
-            "qcom",
-            "qualcomm",
-            "qti",
-            "snapdragon",
-            "msm",
-            "sdm",
-            "sm8",
-            "sm7",
-            "sm6",
-            "kalama",
-            "lahaina",
-            "taro",
-            "waipio"
-        )
-        if (qualcommSignals.any { it in deviceInfo }) {
-            return true
-        }
-
-        val knownNonAdrenoSignals = listOf(
-            "mediatek",
-            "mtk",
-            "dimensity",
-            "helio",
-            "exynos",
-            "mali",
-            "kirin",
-            "hisilicon",
-            "tensor",
-            "unisoc",
-            "spreadtrum",
-            "powervr",
-            "imgtec"
-        )
-        return knownNonAdrenoSignals.none { it in deviceInfo } && Regex("""\bsm[0-9]{3,4}\b""").containsMatchIn(deviceInfo)
     }
 }

@@ -1442,7 +1442,7 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_renderer),
                             onResetToDefault = { viewModel.setRenderer(defaults.renderer) }
                         )
-                        if (GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers() && !GpuHardwareProfiles.isMediaTekHardware()) {
+                        if (GpuDriverCompatibility.supportsCustomDrivers()) {
                             val activeDriverName = uiState.customDriverPath
                                 ?.takeIf { uiState.gpuDriverType == 1 }
                                 ?.let { java.io.File(it).parentFile?.name ?: java.io.File(it).name }
@@ -5610,8 +5610,8 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.General, R.string.settings_show_home_search),
         entry(SettingsTab.General, R.string.settings_prefer_english_game_titles),
         entry(SettingsTab.Graphics, R.string.settings_renderer),
-        if (GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()) entry(SettingsTab.Graphics, R.string.settings_gpu_driver) else null,
-        if (GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()) entry(SettingsTab.Graphics, R.string.settings_gpu_driver_manager_title) else null,
+        if (GpuDriverCompatibility.supportsCustomDrivers()) entry(SettingsTab.Graphics, R.string.settings_gpu_driver) else null,
+        if (GpuDriverCompatibility.supportsCustomDrivers()) entry(SettingsTab.Graphics, R.string.settings_gpu_driver_manager_title) else null,
         entry(SettingsTab.Graphics, R.string.settings_upscale),
         entry(SettingsTab.Graphics, R.string.settings_aspect_ratio),
         entry(SettingsTab.Graphics, R.string.settings_bilinear_filtering),

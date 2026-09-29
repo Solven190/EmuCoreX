@@ -2773,4 +2773,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">로워: DIV/SQRT/RSQRT 파이프라인</string>
     <string name="opcode_fam_vu_lower_efu">로워: 초등 함수 (ESADD 등)</string>
     <string name="opcode_fam_vu_lower_gif">로워: GIF 전송 (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">호환되는 드라이버가 먼저 표시됩니다. 자세한 내용은 드라이버 카드를 탭하세요.</string>
+    <string name="settings_gpu_driver_compatibility_mali">Mali 호환성</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">Xclipse 호환성</string>
+    <string name="settings_gpu_driver_compatibility_generic">GPU 호환성</string>
+    <string name="settings_gpu_driver_other_family_generic">다른 GPU 제품군</string>
+    <string name="settings_help_gpu_driver_generic">기본 시스템 드라이버 대신 사용자 지정 GPU 드라이버 패키지(Mali용 PanVK, Xclipse용 Vortek 등)를 선택할 수 있습니다. 지원되는 Mali, Xclipse 기기에서는 일부 게임의 성능이 크게 향상되거나 그래픽 문제가 해결될 수 있습니다. 충돌이 발생하면 시스템 드라이버로 되돌리세요.</string>
 </resources>

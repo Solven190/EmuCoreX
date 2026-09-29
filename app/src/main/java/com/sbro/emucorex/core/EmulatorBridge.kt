@@ -123,6 +123,12 @@ object EmulatorBridge {
         // adrenotools/dlopen and crashing inside a third-party Vulkan binary.
         val file = File(path)
         if (!file.isFile || file.length() <= 0L) return ""
+        // A driver built for another GPU vendor must never be loaded: an
+        // Adreno Turnip pack on a Mali device (or the reverse) crashes inside
+        // the third-party driver.
+        if (!GpuDriverCompatibility.isVendorCompatible(GpuDriverCompatibility.installedDriverVendor(file))) {
+            return ""
+        }
         file.setReadable(true, true)
         file.setWritable(true, true)
         file.setExecutable(true, true)
@@ -482,22 +488,23 @@ object EmulatorBridge {
         )
 
         val normalizedGpuHardwareProfile = GpuHardwareProfiles.normalize(gpuHardwareProfile)
-        val customDriverSupported = GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers() && !GpuHardwareProfiles.isMediatekProfile(normalizedGpuHardwareProfile)
-        val effectiveGpuDriverType = if (gpuDriverType == 1 && customDriverSupported) 1 else 0
+        val customDriverSupported = GpuDriverCompatibility.supportsCustomDrivers()
+        val requestedGpuDriverType = if (gpuDriverType == 1 && customDriverSupported) 1 else 0
         val effectiveMediatekAngleOpenGl = shouldUseMediatekAngleOpenGl(
             requested = mediatekAngleOpenGl,
             gpuHardwareProfile = normalizedGpuHardwareProfile,
             renderer = resolvedRenderer
         )
-        NativeApp.setCrashContextString("emu_renderer_name", rendererName(resolvedRenderer))
-        NativeApp.setCrashContextString("emu_gpu_driver_mode", if (effectiveGpuDriverType == 1) "custom" else "system")
-        NativeApp.setCrashContextString("emu_gpu_profile", GpuHardwareProfiles.familyName(normalizedGpuHardwareProfile))
-        NativeApp.setCrashContextBool("emu_mediatek_angle_opengl", effectiveMediatekAngleOpenGl)
-        val resolvedCustomDriverPath = if (effectiveGpuDriverType == 1) {
+        val resolvedCustomDriverPath = if (requestedGpuDriverType == 1) {
             prepareCustomDriverLibrary(customDriverPath.orEmpty())
         } else {
             ""
         }
+        val effectiveGpuDriverType = if (resolvedCustomDriverPath.isNotEmpty()) 1 else 0
+        NativeApp.setCrashContextString("emu_renderer_name", rendererName(resolvedRenderer))
+        NativeApp.setCrashContextString("emu_gpu_driver_mode", if (effectiveGpuDriverType == 1) "custom" else "system")
+        NativeApp.setCrashContextString("emu_gpu_profile", GpuHardwareProfiles.familyName(normalizedGpuHardwareProfile))
+        NativeApp.setCrashContextBool("emu_mediatek_angle_opengl", effectiveMediatekAngleOpenGl)
         val directMtvu = mtvu && enableVu1Recompiler
         val directEeFpuRoundMode = sanitizeFloatRoundMode(eeFpuRoundMode, AppPreferences.DEFAULT_EE_FPU_ROUND_MODE)
         val directVu0RoundMode = sanitizeFloatRoundMode(vu0RoundMode, AppPreferences.DEFAULT_VU_ROUND_MODE)
@@ -1253,7 +1260,7 @@ object EmulatorBridge {
     }
 
     suspend fun setCustomDriverPath(path: String) {
-        val resolvedPath = if (GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()) {
+        val resolvedPath = if (GpuDriverCompatibility.supportsCustomDrivers()) {
             prepareCustomDriverLibrary(path)
         } else {
             ""

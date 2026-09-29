@@ -2773,4 +2773,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">ロワー: DIV/SQRT/RSQRT パイプライン</string>
     <string name="opcode_fam_vu_lower_efu">ロワー: 初等関数 (ESADD など)</string>
     <string name="opcode_fam_vu_lower_gif">ロワー: GIF 転送 (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">互換性のあるドライバーが先に表示されます。詳細はドライバーカードをタップしてください。</string>
+    <string name="settings_gpu_driver_compatibility_mali">Mali 互換性</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">Xclipse 互換性</string>
+    <string name="settings_gpu_driver_compatibility_generic">GPU 互換性</string>
+    <string name="settings_gpu_driver_other_family_generic">別のGPUファミリー</string>
+    <string name="settings_help_gpu_driver_generic">既定のシステムドライバーの代わりにカスタムGPUドライバーパッケージ（Mali向けPanVKやXclipse向けVortekなど）を選択できます。対応するMali、Xclipseデバイスでは、一部のゲームで性能が大幅に向上したり、グラフィックの不具合が修正されたりします。クラッシュする場合はシステムドライバーに戻してください。</string>
 </resources>

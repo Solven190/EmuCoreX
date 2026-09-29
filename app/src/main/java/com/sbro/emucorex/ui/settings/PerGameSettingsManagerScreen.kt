@@ -48,6 +48,7 @@ import androidx.compose.material.icons.rounded.Save
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.GpuDriverCompatibility
 import com.sbro.emucorex.core.GpuDriverManager
+import com.sbro.emucorex.core.GpuDriverVendor
 import com.sbro.emucorex.core.FrameGenerationManager
 import com.sbro.emucorex.core.GpuHardwareProfiles
 import com.sbro.emucorex.core.RendererDefaults
@@ -2924,8 +2925,7 @@ private fun GpuBackendProfileControls(
 ) {
     val context = LocalContext.current
     val supportsCustomDrivers = remember {
-        GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers() &&
-            !GpuHardwareProfiles.isMediaTekHardware()
+        GpuDriverCompatibility.supportsCustomDrivers()
     }
     val angleOpenGlSupported = remember {
         GpuHardwareProfiles.isMediatekProfile(GpuHardwareProfiles.detectHardwareProfile())
@@ -2983,7 +2983,13 @@ private fun GpuBackendProfileControls(
                     )
                 )
             },
-            helpText = stringResource(R.string.settings_help_gpu_driver),
+            helpText = stringResource(
+                if (GpuDriverCompatibility.deviceVendor() == GpuDriverVendor.ADRENO) {
+                    R.string.settings_help_gpu_driver
+                } else {
+                    R.string.settings_help_gpu_driver_generic
+                }
+            ),
             onResetToDefault = {
                 onDraftChange(
                     draft.copy(

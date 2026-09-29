@@ -2775,4 +2775,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">下位：DIV/SQRT/RSQRT 流水线</string>
     <string name="opcode_fam_vu_lower_efu">下位：初等函数 (ESADD 等)</string>
     <string name="opcode_fam_vu_lower_gif">下位：GIF 传输 (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">相容的驅動程式會優先顯示。點擊驅動程式卡片以查看詳細資料。</string>
+    <string name="settings_gpu_driver_compatibility_mali">Mali 相容性</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">Xclipse 相容性</string>
+    <string name="settings_gpu_driver_compatibility_generic">GPU 相容性</string>
+    <string name="settings_gpu_driver_other_family_generic">不同的 GPU 系列</string>
+    <string name="settings_help_gpu_driver_generic">可選擇自訂 GPU 驅動程式套件（例如 Mali 的 PanVK 或 Xclipse 的 Vortek）來取代預設系統驅動程式。在支援的 Mali 與 Xclipse 裝置上，自訂驅動程式可大幅提升效能或修正某些遊戲的圖形問題。若發生當機，請切換回系統驅動程式。</string>
 </resources>

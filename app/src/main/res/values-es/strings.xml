@@ -2776,4 +2776,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">Inferior: canalización DIV/SQRT/RSQRT</string>
     <string name="opcode_fam_vu_lower_efu">Inferior: funciones elementales (ESADD, …)</string>
     <string name="opcode_fam_vu_lower_gif">Inferior: transferencias GIF (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">Los controladores compatibles se muestran primero. Toca una tarjeta de controlador para ver los detalles.</string>
+    <string name="settings_gpu_driver_compatibility_mali">Compatibilidad con Mali</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">Compatibilidad con Xclipse</string>
+    <string name="settings_gpu_driver_compatibility_generic">Compatibilidad de GPU</string>
+    <string name="settings_gpu_driver_other_family_generic">Familia de GPU diferente</string>
+    <string name="settings_help_gpu_driver_generic">Permite seleccionar un paquete de controlador de GPU personalizado (como PanVK para Mali o Vortek para Xclipse) para reemplazar el controlador del sistema predeterminado. Los controladores personalizados pueden mejorar notablemente el rendimiento o corregir fallos gráficos en algunos juegos en dispositivos Mali y Xclipse compatibles. Si sufres bloqueos, vuelve al controlador del sistema.</string>
 </resources>
