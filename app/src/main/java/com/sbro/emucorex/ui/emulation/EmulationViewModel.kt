@@ -211,7 +211,7 @@ data class EmulationUiState(
     val upscale: Float = 1f,
     val aspectRatio: Int = 1,
     val localMultiplayerMode: Int = AppPreferences.LOCAL_MULTIPLAYER_OFF,
-    val displayCrop: DisplayCrop = DisplayCrop.None,
+    val displayCrop: DisplayCrop = DisplayCrop.ThinEdges,
     val performancePreset: Int = PerformancePresets.CUSTOM,
     val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
@@ -1319,7 +1319,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         
         viewModelScope.launch {
             while (isActive) {
-                delay(1_000.milliseconds)
+                delay(250.milliseconds)
                 pollNativePerformanceMetrics()
             }
         }
@@ -1811,6 +1811,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 
                 finalLaunchPath = launchPath
                 Log.i(TAG, "Prepared launch path=$launchPath originalPath=$path bootBios=$bootToBios")
+                // Whether a per-game profile exists gates the light-gun context; the effective
+                // gyro mode itself comes from the runtime snapshot applied below.
+                var hasPerGameProfile = false
                 if (bootToBios) {
                     currentGameTitle = "PlayStation 2 BIOS"
                     currentGamePath = null
@@ -1848,6 +1851,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 } else {
                     val safePath = path.orEmpty()
                     val existingProfile = currentGamePath?.let(perGameSettingsRepository::get)
+                    hasPerGameProfile = existingProfile != null
                     currentTouchControlsLayoutProfile = existingProfile?.touchControlsLayout
                     currentCustomTouchControlsProfile = existingProfile?.customTouchControls
                     val metadata = EmulatorBridge.getGameMetadata(safePath)
@@ -1873,10 +1877,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         currentGameTitle = currentGameTitle,
                         currentGameSubtitle = currentGameSubtitle(),
                         currentGameCoverArtPath = currentGameCoverArtPath,
-                        ps2GunProfileActive = existingProfile?.let {
-                            it.gyroMode == AppPreferences.GYRO_MODE_LIGHT_GUN &&
-                                (it.providedKeys == null || "gyroMode" in it.providedKeys)
-                        } ?: false,
                         gameSettingsProfileActive = existingProfile != null
                     )
                     syncCurrentGameProfileMetadata()
@@ -1916,6 +1916,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 val overlaySnapshot = preferences.overlayLayoutSnapshot.first()
 
                 val runtimeState = _uiState.value.copy(
+                    ps2GunProfileActive = isPerGameGunProfileActive(hasPerGameProfile, liveRuntime.gyroMode),
                     showFps = liveRuntime.showFps,
                     fpsOverlayMode = liveRuntime.fpsOverlayMode,
                     confirmSaveLoadActions = liveRuntime.confirmSaveLoadActions,

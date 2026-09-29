@@ -1005,6 +1005,9 @@ void AndroidRuntime::ResetPadState(int pad_index)
 	const u32 controller = static_cast<u32>(std::clamp(pad_index, 0, static_cast<int>(Pad::NUM_CONTROLLER_PORTS - 1)));
 	s_pending_pad_events[controller].store(0, std::memory_order_release);
 	s_pending_arcade_buttons[controller].store(0, std::memory_order_release);
+	// The CPU-thread mirror must be cleared too, or the next press of an arcade/gun button
+	// looks unchanged to the poll and is swallowed until the button is released again.
+	s_applied_arcade_buttons[controller] = 0;
 	s_pending_coin_edges[controller].store(0, std::memory_order_release);
 	s_pending_service_edges[controller].store(0, std::memory_order_release);
 	for (u32 i = 0; i < PadDualshock2::LENGTH; i++)

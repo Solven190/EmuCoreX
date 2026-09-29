@@ -24,4 +24,20 @@ class LightGunControlPolicyTest {
         assertTrue(usesLightGunControls(0, AppPreferences.USB_DEVICE_GUNCON2, AppPreferences.USB_DEVICE_NONE, true))
         assertTrue(usesLightGunControls(0, AppPreferences.USB_DEVICE_NONE, AppPreferences.USB_DEVICE_GUNCON2, true))
     }
+
+    @Test
+    fun perGameGunProfileFollowsTheEffectiveGyroMode() {
+        assertTrue(isPerGameGunProfileActive(true, AppPreferences.GYRO_MODE_LIGHT_GUN))
+        assertFalse(isPerGameGunProfileActive(false, AppPreferences.GYRO_MODE_LIGHT_GUN))
+        assertFalse(isPerGameGunProfileActive(true, AppPreferences.GYRO_MODE_OFF))
+        assertFalse(isPerGameGunProfileActive(true, AppPreferences.GYRO_MODE_AIM))
+    }
+
+    @Test
+    fun lightGunGyroModeStaysProvidedEvenWhenItMatchesTheGlobalMode() {
+        assertTrue(perGameGyroModeIsProvided(AppPreferences.GYRO_MODE_LIGHT_GUN, AppPreferences.GYRO_MODE_LIGHT_GUN))
+        assertTrue(perGameGyroModeIsProvided(AppPreferences.GYRO_MODE_LIGHT_GUN, AppPreferences.GYRO_MODE_OFF))
+        assertTrue(perGameGyroModeIsProvided(AppPreferences.GYRO_MODE_AIM, AppPreferences.GYRO_MODE_OFF))
+        assertFalse(perGameGyroModeIsProvided(AppPreferences.GYRO_MODE_OFF, AppPreferences.GYRO_MODE_OFF))
+    }
 }

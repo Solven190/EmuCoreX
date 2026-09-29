@@ -430,6 +430,14 @@ import kotlin.time.Duration.Companion.milliseconds
             forceEvenSpritePosition = forceEvenSpritePosition,
             nativePaletteDraw = nativePaletteDraw
     )
+    /**
+     * Whether the per-game profile should carry its gyro mode as a provided key. Light Gun is
+     * always provided: the gun controls activate from the profile's effective gyro mode, and a
+     * value-diff alone drops the choice whenever it equals the global setting.
+     */
+    internal fun perGameGyroModeIsProvided(gyroMode: Int, globalGyroMode: Int): Boolean =
+        gyroMode == AppPreferences.GYRO_MODE_LIGHT_GUN || gyroMode != globalGyroMode
+
     internal suspend fun EmulationUiState.buildPerGameProvidedKeys(
         profile: PerGameSettings,
         preferences: AppPreferences,
@@ -473,7 +481,7 @@ import kotlin.time.Duration.Companion.milliseconds
             if (touchHapticsPreset != settings.touchHapticsPreset) add("touchHapticsPreset")
             if (profile.touchControlVisualStyle != null) add("touchControlVisualStyle")
             if (profile.touchControlPressEffect != null) add("touchControlPressEffect")
-            if (gyroMode != settings.gyroMode) add("gyroMode")
+            if (perGameGyroModeIsProvided(gyroMode, settings.gyroMode)) add("gyroMode")
             if (gyroSensitivity != settings.gyroSensitivity) add("gyroSensitivity")
             if (gyroSmoothing != settings.gyroSmoothing) add("gyroSmoothing")
             if (gyroInvertX != settings.gyroInvertX) add("gyroInvertX")
