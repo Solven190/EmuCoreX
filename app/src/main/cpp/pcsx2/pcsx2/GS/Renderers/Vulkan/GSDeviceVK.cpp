@@ -8,6 +8,7 @@
 #include "GS/Renderers/Vulkan/GSDeviceVK.h"
 #include "GS/Renderers/Vulkan/GSLsfg.h"
 #include "GS/Renderers/Vulkan/VKBuilders.h"
+#include "GS/Renderers/Vulkan/VKLoader.h"
 #include "GS/Renderers/Vulkan/VKShaderCache.h"
 #include "GS/Renderers/Vulkan/VKSwapChain.h"
 #include "GS/Renderers/Common/GSDevice.h"
@@ -212,6 +213,12 @@ VkInstance GSDeviceVK::CreateVulkanInstance(const WindowInfo& wi, OptionalExtens
 		LOG_VULKAN_ERROR(res, "vkCreateInstance failed: ");
 		return nullptr;
 	}
+
+#ifdef __ANDROID__
+	// The Android Vulkan loader loads the ICD while creating the instance, so
+	// this is the first moment the custom driver load outcome is final.
+	Vulkan::CheckCustomDriverLoadStatus();
+#endif
 
 	return instance;
 }

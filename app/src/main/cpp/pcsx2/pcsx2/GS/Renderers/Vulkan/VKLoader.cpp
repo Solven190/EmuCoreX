@@ -8,6 +8,8 @@
 #include "common/DynamicLibrary.h"
 #include "common/Error.h"
 #include "pcsx2/Config.h"
+#include "Host.h"
+#include "IconsFontAwesome.h"
 #include "GS/GS.h"
 
 #include <cstdarg>
@@ -16,6 +18,7 @@
 #include <cstring>
 #include <string>
 #ifdef __ANDROID__
+#include <filesystem>
 #include <sys/stat.h>
 #endif
 
@@ -51,6 +54,12 @@ void Vulkan::ResetVulkanLibraryFunctionPointers()
 static DynamicLibrary s_vulkan_library;
 
 #ifdef __ANDROID__
+// A custom driver was requested for this process. The ICD itself is loaded
+// lazily by the Android Vulkan loader on first instance creation, so the load
+// outcome can only be checked after vkCreateInstance (CheckCustomDriverLoadStatus).
+static bool s_custom_driver_requested = false;
+static std::string s_custom_driver_name;
+
 static const char* BasenameForLog(const std::string& path)
 {
 	const size_t last_separator = path.find_last_of("/\\");
@@ -97,9 +106,33 @@ static bool LoadVulkanLibraryWithAdrenoTools(const std::string& custom_driver_pa
 		}
 	}
 
+	// Vortek-style Xclipse packs ship a Vulkan layer JSON next to the ICD. The
+	// loader only discovers it if the driver directory is in VK_LAYER_PATH.
+	bool has_layer_json = false;
+	{
+		std::error_code dir_error;
+		for (const auto& entry : std::filesystem::directory_iterator(custom_driver_dir, dir_error))
+		{
+			const std::string filename = entry.path().filename().string();
+			if (filename.rfind("VkLayer_", 0) == 0 && entry.path().extension() == ".json")
+			{
+				has_layer_json = true;
+				break;
+			}
+		}
+	}
+	if (has_layer_json)
+	{
+		const char* existing_layer_path = getenv("VK_LAYER_PATH");
+		std::string layer_path = custom_driver_dir;
+		if (existing_layer_path && *existing_layer_path)
+			layer_path = std::string(existing_layer_path) + ":" + layer_path;
+		setenv("VK_LAYER_PATH", layer_path.c_str(), 1);
+	}
+
 	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
-		"Vulkan custom driver: adrenotools open driver=%s hookDir=%s",
-		custom_driver_name.c_str(), hook_lib_dir);
+		"Vulkan custom driver: adrenotools open driver=%s hookDir=%s layer=%s",
+		custom_driver_name.c_str(), hook_lib_dir, has_layer_json ? "yes" : "no");
 	void* handle = adrenotools_open_libvulkan(
 		RTLD_NOW,
 		ADRENOTOOLS_DRIVER_CUSTOM,
@@ -111,6 +144,7 @@ static bool LoadVulkanLibraryWithAdrenoTools(const std::string& custom_driver_pa
 		nullptr);
 	if (!handle)
 	{
+		unsetenv("VK_LAYER_PATH");
 		__android_log_print(ANDROID_LOG_ERROR, "EmuCoreX",
 			"Vulkan custom driver: adrenotools failed driver=%s", custom_driver_name.c_str());
 		Error::SetStringFmt(error, "adrenotools failed to open custom Vulkan driver {}", custom_driver_path);
@@ -118,12 +152,39 @@ static bool LoadVulkanLibraryWithAdrenoTools(const std::string& custom_driver_pa
 	}
 
 	s_vulkan_library.Adopt(handle);
+	// The hook chain is in place, but the Android Vulkan loader loads the ICD
+	// lazily on first instance creation. The real outcome is reported by
+	// CheckCustomDriverLoadStatus() right after vkCreateInstance.
 	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
-		"Vulkan custom driver: adrenotools loaded driver=%s", custom_driver_name.c_str());
-	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
-		"Adreno GS path custom driver successfully loaded: %s", custom_driver_name.c_str());
-	Console.WriteLn(Color_StrongGreen, "Vulkan: Loaded custom driver with adrenotools: %s", custom_driver_name.c_str());
+		"Vulkan custom driver: adrenotools handshake driver=%s", custom_driver_name.c_str());
 	return true;
+}
+
+void Vulkan::CheckCustomDriverLoadStatus()
+{
+#ifdef __ANDROID__
+	if (!s_custom_driver_requested)
+		return;
+
+	if (adrenotools_custom_driver_library_loaded())
+	{
+		__android_log_print(ANDROID_LOG_INFO, "EmuCoreX",
+			"Vulkan custom driver: loaded driver=%s", s_custom_driver_name.c_str());
+		Console.WriteLn(Color_StrongGreen, "Vulkan: Loaded custom GPU driver: %s", s_custom_driver_name.c_str());
+		return;
+	}
+
+	// The hook falls back to the system loader when the custom driver dlopen
+	// fails (e.g. a missing dependency). Rendering still works on the system
+	// driver, but the player must be told the selection had no effect.
+	unsetenv("VK_LAYER_PATH");
+	__android_log_print(ANDROID_LOG_ERROR, "EmuCoreX",
+		"Vulkan custom driver: fell back to system driver, driver=%s", s_custom_driver_name.c_str());
+	Console.Error("Vulkan: Custom driver '%s' could not be loaded; using the system driver",
+		s_custom_driver_name.c_str());
+	Host::AddIconOSDMessage("CustomGpuDriverFallback", ICON_FA_TRIANGLE_EXCLAMATION,
+		"Custom GPU driver could not be loaded. Using the system driver.", Host::OSD_ERROR_DURATION);
+#endif
 }
 #endif
 
@@ -145,6 +206,14 @@ bool Vulkan::LoadVulkanLibrary(Error* error)
 		custom_driver_path = emucorex::android::AndroidRuntime::Instance().GetSetting("EmuCoreX", "CustomDriverPath");
 	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX", "Vulkan loader entry customDriver=%s",
 		custom_driver_path.empty() ? "<none>" : BasenameForLog(custom_driver_path));
+
+	s_custom_driver_requested = !custom_driver_path.empty();
+	s_custom_driver_name = custom_driver_path.empty() ? std::string() : BasenameForLog(custom_driver_path);
+
+	// A stale layer path from a previous pack must not leak into the system
+	// driver or into a different driver. LoadVulkanLibraryWithAdrenoTools
+	// re-adds it when the selected pack actually ships a layer.
+	unsetenv("VK_LAYER_PATH");
 
 	if (!custom_driver_path.empty())
 	{

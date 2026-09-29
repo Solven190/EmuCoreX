@@ -75,6 +75,7 @@ import com.sbro.emucorex.core.GpuDriverCatalogRepository
 import com.sbro.emucorex.core.GpuDriverManager
 import com.sbro.emucorex.core.InstalledGpuDriver
 import com.sbro.emucorex.core.RemoteGpuDriver
+import com.sbro.emucorex.core.vendor
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -2522,7 +2523,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                         gpuDriverDownloads = _uiState.value.gpuDriverDownloads + (driver.id to progress)
                     )
                 }
-                val driverName = gpuDriverManager.installFromArchive(archive)
+                val driverName = gpuDriverManager.installFromArchive(archive, driver.vendor)
                 if (activate) selectGpuDriverInternal(driverName)
                 driverName
             }
@@ -2539,6 +2540,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun useSystemGpuDriver() {
         viewModelScope.launch {
             preferences.setGpuDriverType(0)
+            preferences.setCustomDriverPath(null)
             EmulatorBridge.setCustomDriverPath("")
         }
     }
@@ -2565,6 +2567,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private suspend fun selectGpuDriverInternal(driverName: String) {
         val driverPath = gpuDriverManager.readMainLibraryPath(driverName) ?: error("Driver is not installed")
+        if (!gpuDriverManager.isVendorCompatible(driverPath)) {
+            error("This driver is not compatible with this device's GPU")
+        }
         preferences.setCustomDriverPath(driverPath)
         preferences.setGpuDriverType(1)
         EmulatorBridge.setCustomDriverPath(driverPath)

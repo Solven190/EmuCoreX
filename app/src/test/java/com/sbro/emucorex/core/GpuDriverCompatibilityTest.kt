@@ -1,8 +1,10 @@
 package com.sbro.emucorex.core
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class GpuDriverCompatibilityTest {
     @Test
@@ -36,6 +38,78 @@ class GpuDriverCompatibilityTest {
         assertEquals(GpuDriverMatch.COMPATIBLE, GpuDriverRecommendations.match(limited, gen5))
         assertEquals(GpuDriverMatch.OTHER_FAMILY, GpuDriverRecommendations.match(a7, elite))
         assertTrue(GpuDriverRecommendations.supportedFamilies(broad.gpu).contains(AdrenoFamily.A7XX))
+    }
+
+    @Test
+    fun `classifies device vendors from build strings`() {
+        assertEquals(
+            GpuDriverVendor.ADRENO,
+            GpuDriverCompatibility.deviceVendor("Qualcomm Technologies, Inc SM8650 for arm64")
+        )
+        assertEquals(GpuDriverVendor.MALI, GpuDriverCompatibility.deviceVendor("MediaTek MT6989"))
+        assertEquals(GpuDriverVendor.MALI, GpuDriverCompatibility.deviceVendor("samsung exynos 1380 mali-g68"))
+        assertEquals(
+            GpuDriverVendor.XCLIPSE,
+            GpuDriverCompatibility.deviceVendor("samsung exynos 2400 xclipse 940")
+        )
+        assertEquals(GpuDriverVendor.POWERVR, GpuDriverCompatibility.deviceVendor("IMG PowerVR GE8320"))
+        assertEquals(GpuDriverVendor.UNKNOWN, GpuDriverCompatibility.deviceVendor("generic board"))
+    }
+
+    @Test
+    fun `classifies catalog gpu strings`() {
+        assertEquals(GpuDriverVendor.ADRENO, GpuDriverCompatibility.vendorOfCatalogGpu("Adreno 6xx/7xx"))
+        assertEquals(GpuDriverVendor.MALI, GpuDriverCompatibility.vendorOfCatalogGpu("Mali PanVK (Valhall)"))
+        assertEquals(GpuDriverVendor.MALI, GpuDriverCompatibility.vendorOfCatalogGpu("Panfrost"))
+        assertEquals(GpuDriverVendor.XCLIPSE, GpuDriverCompatibility.vendorOfCatalogGpu("Xclipse (Exynos 2400)"))
+        assertEquals(GpuDriverVendor.POWERVR, GpuDriverCompatibility.vendorOfCatalogGpu("PowerVR"))
+        assertEquals(GpuDriverVendor.UNKNOWN, GpuDriverCompatibility.vendorOfCatalogGpu(""))
+    }
+
+    @Test
+    fun `detects vendor markers inside driver libraries`() {
+        val turnip = File.createTempFile("turnip", ".so")
+        val panvk = File.createTempFile("panvk", ".so")
+        val xclipse = File.createTempFile("xclipse", ".so")
+        try {
+            turnip.writeBytes("libvulkan_freedreno.so tu_clear".toByteArray())
+            assertEquals(GpuDriverVendor.ADRENO, GpuDriverCompatibility.vendorOfDriverLibrary(turnip))
+
+            // PanVK packs ship under the freedreno name; ELF markers must win.
+            panvk.writeBytes("../src/panfrost/vulkan/panvk_v10_device.c".toByteArray())
+            assertEquals(GpuDriverVendor.MALI, GpuDriverCompatibility.vendorOfDriverLibrary(panvk))
+
+            xclipse.writeBytes("libVkLayer_VortekXclipse.so".toByteArray())
+            assertEquals(GpuDriverVendor.XCLIPSE, GpuDriverCompatibility.vendorOfDriverLibrary(xclipse))
+        } finally {
+            turnip.delete()
+            panvk.delete()
+            xclipse.delete()
+        }
+    }
+
+    @Test
+    fun `refuses cross vendor driver and device pairs`() {
+        assertTrue(GpuDriverCompatibility.isVendorCompatible(GpuDriverVendor.MALI, GpuDriverVendor.MALI))
+        assertTrue(GpuDriverCompatibility.isVendorCompatible(GpuDriverVendor.UNKNOWN, GpuDriverVendor.ADRENO))
+        assertFalse(GpuDriverCompatibility.isVendorCompatible(GpuDriverVendor.MALI, GpuDriverVendor.ADRENO))
+        assertFalse(GpuDriverCompatibility.isVendorCompatible(GpuDriverVendor.ADRENO, GpuDriverVendor.MALI))
+        assertFalse(GpuDriverCompatibility.isVendorCompatible(GpuDriverVendor.XCLIPSE, GpuDriverVendor.MALI))
+    }
+
+    @Test
+    fun `matches non Adreno packages only against their own vendor`() {
+        val mali = driver(gpu = "Mali PanVK (Valhall)")
+        assertEquals(GpuDriverMatch.COMPATIBLE, GpuDriverRecommendations.match(mali, null, GpuDriverVendor.MALI))
+        assertEquals(GpuDriverMatch.OTHER_FAMILY, GpuDriverRecommendations.match(mali, null, GpuDriverVendor.ADRENO))
+        assertEquals(GpuDriverMatch.UNKNOWN, GpuDriverRecommendations.match(mali, null, null))
+
+        val adreno = driver(gpu = "Adreno 6xx/7xx")
+        val elite = GpuDriverRecommendations.profileForSoc("Snapdragon 8 Elite")
+        assertEquals(
+            GpuDriverMatch.OTHER_FAMILY,
+            GpuDriverRecommendations.match(adreno, elite, GpuDriverVendor.MALI)
+        )
     }
 
     private fun driver(gpu: String) = RemoteGpuDriver(

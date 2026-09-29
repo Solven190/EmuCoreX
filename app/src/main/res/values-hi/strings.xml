@@ -2774,4 +2774,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">लोअर: DIV/SQRT/RSQRT पाइपलाइन</string>
     <string name="opcode_fam_vu_lower_efu">लोअर: मूल फ़ंक्शन (ESADD, …)</string>
     <string name="opcode_fam_vu_lower_gif">लोअर: GIF ट्रांसफ़र (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">संगत ड्राइवर पहले दिखाए जाते हैं। विवरण के लिए ड्राइवर कार्ड पर टैप करें।</string>
+    <string name="settings_gpu_driver_compatibility_mali">Mali संगतता</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">Xclipse संगतता</string>
+    <string name="settings_gpu_driver_compatibility_generic">GPU संगतता</string>
+    <string name="settings_gpu_driver_other_family_generic">भिन्न GPU फ़ैमिली</string>
+    <string name="settings_help_gpu_driver_generic">आपको डिफ़ॉल्ट सिस्टम ड्राइवर की जगह कस्टम GPU ड्राइवर पैकेज (जैसे Mali के लिए PanVK या Xclipse के लिए Vortek) चुनने देता है। कस्टम ड्राइवर समर्थित Mali और Xclipse डिवाइस पर कुछ गेम्स में प्रदर्शन काफ़ी सुधार सकते हैं या ग्राफ़िक समस्याएँ ठीक कर सकते हैं। क्रैश होने पर सिस्टम ड्राइवर पर लौटें।</string>
 </resources>

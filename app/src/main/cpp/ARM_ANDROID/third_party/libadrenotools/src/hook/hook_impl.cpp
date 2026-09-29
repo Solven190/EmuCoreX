@@ -132,6 +132,9 @@ __attribute__((visibility("default"))) void *hook_android_dlopen_ext(const char 
             return fallback();
         }
 
+        if (hook_params->customDriverLoaded)
+            *hook_params->customDriverLoaded = true;
+
         return handle;
     } else {
         LOGI("hook_android_dlopen_ext: loading default driver: %s", filename);

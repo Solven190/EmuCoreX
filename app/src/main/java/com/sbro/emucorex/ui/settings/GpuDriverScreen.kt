@@ -77,10 +77,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.AdrenoFamily
 import com.sbro.emucorex.core.InstalledGpuDriver
+import com.sbro.emucorex.core.GpuDriverCompatibility
 import com.sbro.emucorex.core.GpuDriverRecommendations
 import com.sbro.emucorex.core.GpuDriverMatch
+import com.sbro.emucorex.core.GpuDriverVendor
 import com.sbro.emucorex.core.RemoteGpuDriver
 import com.sbro.emucorex.core.SnapdragonGpuProfile
+import com.sbro.emucorex.core.vendor
 import com.sbro.emucorex.ui.common.ScreenTopBar
 import com.sbro.emucorex.ui.common.appScreenTopPadding
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
@@ -104,7 +107,13 @@ fun GpuDriverScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val perGameMode = onSelectDriverForGame != null
-    val activeDriverPath = if (perGameMode) selectedDriverPathOverride else uiState.customDriverPath
+    val activeDriverPath = if (perGameMode) {
+        selectedDriverPathOverride
+    } else {
+        // A stale path must not keep a driver looking applied after the user
+        // switched back to the system driver (gpuDriverType resets to 0).
+        uiState.customDriverPath?.takeIf { uiState.gpuDriverType == 1 }
+    }
     val activeRenderer = rendererOverride ?: uiState.renderer
     val selectedDriver = remember(uiState.installedGpuDrivers, activeDriverPath) {
         uiState.installedGpuDrivers.firstOrNull { it.mainLibraryPath == activeDriverPath }
@@ -120,13 +129,33 @@ fun GpuDriverScreen(
     var sourceFilter by rememberSaveable { mutableStateOf(GPU_DRIVER_FILTER_ALL) }
     var expandedDriverId by rememberSaveable { mutableStateOf<String?>(null) }
     val deviceProfile = remember { GpuDriverRecommendations.currentDeviceProfile() }
+    val deviceVendor = remember { GpuDriverCompatibility.deviceVendor() }
+    val deviceSummary = remember { GpuDriverCompatibility.currentDevice() }
+    val isAdrenoDevice = deviceVendor == GpuDriverVendor.ADRENO
+    val deviceHintRes = if (isAdrenoDevice) {
+        R.string.settings_gpu_driver_device_hint
+    } else {
+        R.string.settings_gpu_driver_device_hint_generic
+    }
+    val compatibilityTitleRes = when (deviceVendor) {
+        GpuDriverVendor.ADRENO -> R.string.settings_gpu_driver_compatibility
+        GpuDriverVendor.MALI -> R.string.settings_gpu_driver_compatibility_mali
+        GpuDriverVendor.XCLIPSE -> R.string.settings_gpu_driver_compatibility_xclipse
+        else -> R.string.settings_gpu_driver_compatibility_generic
+    }
+    val otherFamilyLabelRes = if (isAdrenoDevice) {
+        R.string.settings_gpu_driver_other_family
+    } else {
+        R.string.settings_gpu_driver_other_family_generic
+    }
     val remoteDrivers = uiState.remoteGpuDrivers
         .filter { driver ->
-            driver.matchesSearch(searchQuery) &&
+            GpuDriverCompatibility.isVendorCompatible(driver.vendor, deviceVendor) &&
+                driver.matchesSearch(searchQuery) &&
                 (variantFilter == GPU_DRIVER_FILTER_ALL || driver.variant.equals(variantFilter, ignoreCase = true)) &&
                 (sourceFilter == GPU_DRIVER_FILTER_ALL || driver.sourceLabel().equals(sourceFilter, ignoreCase = true))
         }
-        .sortedByDescending { driver -> driver.recommendationRank(deviceProfile) }
+        .sortedByDescending { driver -> driver.recommendationRank(deviceProfile, deviceVendor) }
     val variantFilters = buildList {
         add(GPU_DRIVER_FILTER_ALL)
         addAll(uiState.remoteGpuDrivers.map { it.variant }.filter { it.isNotBlank() }.distinct().sorted())
@@ -190,10 +219,12 @@ fun GpuDriverScreen(
                 }
             )
         }
-        deviceProfile?.let { profile ->
-            item {
-                DeviceCompatibilityCard(profile = profile)
-            }
+        item {
+            DeviceCompatibilityCard(
+                socName = deviceSummary.socName,
+                gpuName = deviceSummary.gpuName,
+                hintRes = deviceHintRes
+            )
         }
         if (uiState.installedGpuDrivers.isNotEmpty()) {
             item {
@@ -298,7 +329,9 @@ fun GpuDriverScreen(
             val downloadingProgress = uiState.gpuDriverDownloads[driver.id]
             RemoteDriverRow(
                 driver = driver,
-                match = GpuDriverRecommendations.match(driver, deviceProfile),
+                match = GpuDriverRecommendations.match(driver, deviceProfile, deviceVendor),
+                compatibilityTitleRes = compatibilityTitleRes,
+                otherFamilyLabelRes = otherFamilyLabelRes,
                 expanded = expandedDriverId == driver.id,
                 installedDriver = installedDriver,
                 selected = installedDriver?.mainLibraryPath == activeDriverPath,
@@ -642,6 +675,8 @@ private fun InstalledDriverRow(
 private fun RemoteDriverRow(
     driver: RemoteGpuDriver,
     match: GpuDriverMatch,
+    compatibilityTitleRes: Int,
+    otherFamilyLabelRes: Int,
     expanded: Boolean,
     installedDriver: InstalledGpuDriver?,
     selected: Boolean,
@@ -689,7 +724,8 @@ private fun RemoteDriverRow(
                         DriverBadgeRow(
                             recommended = driver.recommended,
                             downloaded = installedDriver != null,
-                            match = match
+                            match = match,
+                            otherFamilyLabelRes = otherFamilyLabelRes
                         )
                         Text(
                             text = listOf(driver.gpu, driver.variant).filter { it.isNotBlank() }.joinToString(" / "),
@@ -699,7 +735,7 @@ private fun RemoteDriverRow(
                     }
                     Icon(
                         imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        contentDescription = stringResource(R.string.settings_gpu_driver_compatibility),
+                        contentDescription = stringResource(compatibilityTitleRes),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -758,7 +794,7 @@ private fun RemoteDriverRow(
                         )
                     }
                     Text(
-                        text = stringResource(R.string.settings_gpu_driver_compatibility),
+                        text = stringResource(compatibilityTitleRes),
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -801,7 +837,7 @@ private fun RemoteDriverRow(
 }
 
 @Composable
-private fun DeviceCompatibilityCard(profile: SnapdragonGpuProfile) {
+private fun DeviceCompatibilityCard(socName: String, gpuName: String, hintRes: Int) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = neonShape(18.dp),
@@ -812,16 +848,12 @@ private fun DeviceCompatibilityCard(profile: SnapdragonGpuProfile) {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = stringResource(
-                    R.string.settings_gpu_driver_detected_device,
-                    profile.socName,
-                    profile.adrenoName
-                ),
+                text = stringResource(R.string.settings_gpu_driver_detected_device, socName, gpuName),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
-                text = stringResource(R.string.settings_gpu_driver_device_hint),
+                text = stringResource(hintRes),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
             )
@@ -866,7 +898,8 @@ private fun CompactOutlinedActionButton(
 private fun DriverBadgeRow(
     recommended: Boolean,
     downloaded: Boolean,
-    match: GpuDriverMatch = GpuDriverMatch.UNKNOWN
+    match: GpuDriverMatch = GpuDriverMatch.UNKNOWN,
+    otherFamilyLabelRes: Int = R.string.settings_gpu_driver_other_family
 ) {
     if (!recommended && !downloaded && match == GpuDriverMatch.UNKNOWN) return
     FlowRow(
@@ -883,7 +916,7 @@ private fun DriverBadgeRow(
             )
         } else if (match == GpuDriverMatch.OTHER_FAMILY) {
             DriverBadge(
-                text = stringResource(R.string.settings_gpu_driver_other_family),
+                text = stringResource(otherFamilyLabelRes),
                 color = MaterialTheme.colorScheme.error
             )
         } else if (recommended) {
@@ -901,8 +934,11 @@ private fun DriverBadgeRow(
     }
 }
 
-private fun RemoteGpuDriver.recommendationRank(profile: SnapdragonGpuProfile?): Int =
-    when (GpuDriverRecommendations.match(this, profile)) {
+private fun RemoteGpuDriver.recommendationRank(
+    profile: SnapdragonGpuProfile?,
+    deviceVendor: GpuDriverVendor? = null
+): Int =
+    when (GpuDriverRecommendations.match(this, profile, deviceVendor)) {
         GpuDriverMatch.COMPATIBLE -> if (recommended) 3 else 2
         GpuDriverMatch.UNKNOWN -> if (recommended) 1 else 0
         GpuDriverMatch.OTHER_FAMILY -> -1

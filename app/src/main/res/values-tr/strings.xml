@@ -2774,4 +2774,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">Alt: DIV/SQRT/RSQRT hattı</string>
     <string name="opcode_fam_vu_lower_efu">Alt: temel fonksiyonlar (ESADD, …)</string>
     <string name="opcode_fam_vu_lower_gif">Alt: GIF aktarımları (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">Uyumlu sürücüler önce gösterilir. Ayrıntılar için bir sürücü kartına dokunun.</string>
+    <string name="settings_gpu_driver_compatibility_mali">Mali uyumluluğu</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">Xclipse uyumluluğu</string>
+    <string name="settings_gpu_driver_compatibility_generic">GPU uyumluluğu</string>
+    <string name="settings_gpu_driver_other_family_generic">Farklı GPU ailesi</string>
+    <string name="settings_help_gpu_driver_generic">Varsayılan sistem sürücüsünün yerine özel bir GPU sürücü paketi (Mali için PanVK veya Xclipse için Vortek gibi) seçmenizi sağlar. Özel sürücüler, desteklenen Mali ve Xclipse cihazlarda bazı oyunlarda performansı önemli ölçüde artırabilir veya grafik sorunlarını düzeltebilir. Çökme yaşarsanız sistem sürücüsüne dönün.</string>
 </resources>

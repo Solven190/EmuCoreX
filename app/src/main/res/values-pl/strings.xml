@@ -2796,4 +2796,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">Dolne: potok DIV/SQRT/RSQRT</string>
     <string name="opcode_fam_vu_lower_efu">Dolne: funkcje elementarne (ESADD, …)</string>
     <string name="opcode_fam_vu_lower_gif">Dolne: transfery GIF (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">Zgodne sterowniki są wyświetlane jako pierwsze. Dotknij karty sterownika, aby zobaczyć szczegóły.</string>
+    <string name="settings_gpu_driver_compatibility_mali">Zgodność z Mali</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">Zgodność z Xclipse</string>
+    <string name="settings_gpu_driver_compatibility_generic">Zgodność GPU</string>
+    <string name="settings_gpu_driver_other_family_generic">Inna rodzina GPU</string>
+    <string name="settings_help_gpu_driver_generic">Umożliwia wybór niestandardowego pakietu sterownika GPU (np. PanVK dla Mali lub Vortek dla Xclipse) zamiast domyślnego sterownika systemowego. Niestandardowe sterowniki mogą znacznie poprawić wydajność lub naprawić błędy graficzne w niektórych grach na obsługiwanych urządzeniach Mali i Xclipse. W razie awarii wróć do sterownika systemowego.</string>
 </resources>

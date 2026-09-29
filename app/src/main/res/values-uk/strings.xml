@@ -2778,4 +2778,10 @@
     <string name="opcode_fam_vu_lower_divsqrt">Нижні: конвеєр DIV/SQRT/RSQRT</string>
     <string name="opcode_fam_vu_lower_efu">Нижні: елементарні функції (ESADD, …)</string>
     <string name="opcode_fam_vu_lower_gif">Нижні: передачі GIF (XGKICK)</string>
+    <string name="settings_gpu_driver_device_hint_generic">Сумісні драйвери показано першими. Натисніть картку драйвера, щоб переглянути подробиці.</string>
+    <string name="settings_gpu_driver_compatibility_mali">Сумісність з Mali</string>
+    <string name="settings_gpu_driver_compatibility_xclipse">Сумісність з Xclipse</string>
+    <string name="settings_gpu_driver_compatibility_generic">Сумісність GPU</string>
+    <string name="settings_gpu_driver_other_family_generic">Інша родина GPU</string>
+    <string name="settings_help_gpu_driver_generic">Дозволяє вибрати сторонній пакет драйвера GPU (наприклад, PanVK для Mali або Vortek для Xclipse) замість стандартного системного драйвера. Сторонні драйвери можуть суттєво підвищити продуктивність або виправити графічні дефекти в деяких іграх на підтримуваних пристроях Mali та Xclipse. Якщо трапляються збої, поверніться до системного драйвера.</string>
 </resources>
