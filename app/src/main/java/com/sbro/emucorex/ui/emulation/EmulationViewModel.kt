@@ -638,6 +638,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun syncNativePerformanceOverlayState(state: EmulationUiState) {
+        if (!NativeApp.hasNativeCore) return
         val detailed = state.showFps && state.fpsOverlayMode != FPS_OVERLAY_MODE_SIMPLE
         NativeApp.setPerformanceMetricsEnabled(
             visible = state.showFps,
@@ -663,7 +664,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             strengthPercent = state.touchHapticsStrength,
             preset = state.touchHapticsPreset
         )
-        NativeApp.setPadPressureModifierAmount(state.pressureModifierAmount.coerceIn(1, 100))
+        if (NativeApp.hasNativeCore) {
+            NativeApp.setPadPressureModifierAmount(state.pressureModifierAmount.coerceIn(1, 100))
+        }
     }
 
     private fun isRetroAchievementsHardcoreRestricted(): Boolean {
@@ -1492,6 +1495,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun pollNativePerformanceMetrics() {
+        if (!NativeApp.hasNativeCore) return
         val state = _uiState.value
         if (!state.isRunning || isShuttingDown || state.isPaused || !state.showFps) return
         val raw = NativeApp.getPerformanceMetricsSnapshot().orEmpty()
@@ -1542,6 +1546,22 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             TAG,
             "startEmulation requested path=$path bootBios=$bootToBios bootSmoke=$bootSmokeProbe autotest=$autotestMode"
         )
+        if (!NativeApp.hasNativeCore) {
+            Log.e(TAG, "startEmulation rejected: native library is not loaded")
+            _uiState.value = _uiState.value.copy(
+                isRunning = false,
+                isStarting = false,
+                statusMessage = null,
+                toastMessage = "launch_failed"
+            )
+            viewModelScope.launch {
+                delay(2500.milliseconds)
+                if (_uiState.value.toastMessage == "launch_failed") {
+                    _uiState.value = _uiState.value.copy(toastMessage = null)
+                }
+            }
+            return
+        }
         if (_uiState.value.isStarting) {
             Log.w(TAG, "startEmulation skipped because another start is in progress")
             return
@@ -3363,7 +3383,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setEnableWidescreenPatches(enabled)
             }
             EmulatorBridge.setSetting("EmuCore", "EnableWideScreenPatches", "bool", enabled.toString())
-            NativeApp.reloadPatches()
+            if (NativeApp.hasNativeCore) {
+                NativeApp.reloadPatches()
+            }
             updateCrashContext()
         }
     }
@@ -3376,7 +3398,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setEnableNoInterlacingPatches(enabled)
             }
             EmulatorBridge.setSetting("EmuCore", "EnableNoInterlacingPatches", "bool", enabled.toString())
-            NativeApp.reloadPatches()
+            if (NativeApp.hasNativeCore) {
+                NativeApp.reloadPatches()
+            }
             updateCrashContext()
         }
     }
@@ -4886,7 +4910,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     override fun onCleared() {
         DiscordIntegration.clearGame()
         androidGamePerformance.update(AndroidGamePhase.Idle)
-        NativeApp.setPerformanceMetricsEnabled(visible = false, detailed = false, gpuTiming = false)
+        if (NativeApp.hasNativeCore) {
+            NativeApp.setPerformanceMetricsEnabled(visible = false, detailed = false, gpuTiming = false)
+        }
         fastForwardRequested = false
         runCatching {
             kotlinx.coroutines.runBlocking(Dispatchers.IO) {

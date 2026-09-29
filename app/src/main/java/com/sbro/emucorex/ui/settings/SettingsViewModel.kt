@@ -1879,7 +1879,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             markPerformancePresetCustom()
             preferences.setEnableWidescreenPatches(enabled)
             EmulatorBridge.setSetting("EmuCore", "EnableWideScreenPatches", "bool", enabled.toString())
-            NativeApp.reloadPatches()
+            if (NativeApp.hasNativeCore) {
+                NativeApp.reloadPatches()
+            }
         }
     }
 
@@ -1888,7 +1890,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             markPerformancePresetCustom()
             preferences.setEnableNoInterlacingPatches(enabled)
             EmulatorBridge.setSetting("EmuCore", "EnableNoInterlacingPatches", "bool", enabled.toString())
-            NativeApp.reloadPatches()
+            if (NativeApp.hasNativeCore) {
+                NativeApp.reloadPatches()
+            }
         }
     }
 
