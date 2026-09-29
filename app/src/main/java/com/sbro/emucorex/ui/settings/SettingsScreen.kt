@@ -1542,7 +1542,7 @@ private fun SettingsContent(
                                 }
                             },
                             helpText = stringResource(R.string.settings_help_display_crop),
-                            onResetToDefault = { viewModel.setDisplayCrop(DisplayCrop.None) }
+                            onResetToDefault = { viewModel.setDisplayCrop(DisplayCrop.ThinEdges) }
                         )
                         listOf(
                             Triple(R.string.settings_display_crop_left, crop.left) { value: Int -> crop.copy(left = value) },

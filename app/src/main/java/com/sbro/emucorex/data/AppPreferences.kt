@@ -91,7 +91,7 @@ data class SettingsSnapshot(
     val renderer: Int = RendererDefaults.defaultForHardware(),
     val upscaleMultiplier: Float = 1f,
     val aspectRatio: Int = 1,
-    val displayCrop: DisplayCrop = DisplayCrop.None,
+    val displayCrop: DisplayCrop = DisplayCrop.ThinEdges,
     val shaderChainEnabled: Boolean = false,
     val shaderChainPreset: String = "",
     val audioVolume: Int = AudioDefaults.VOLUME_DEFAULT,
@@ -2207,10 +2207,10 @@ class AppPreferences(private val context: Context) {
     }
 
     private fun readDisplayCrop(prefs: Preferences): DisplayCrop = DisplayCrop(
-        left = prefs[DISPLAY_CROP_LEFT] ?: 0,
-        top = prefs[DISPLAY_CROP_TOP] ?: 0,
-        right = prefs[DISPLAY_CROP_RIGHT] ?: 0,
-        bottom = prefs[DISPLAY_CROP_BOTTOM] ?: 0
+        left = prefs[DISPLAY_CROP_LEFT] ?: DisplayCrop.ThinEdges.left,
+        top = prefs[DISPLAY_CROP_TOP] ?: DisplayCrop.ThinEdges.top,
+        right = prefs[DISPLAY_CROP_RIGHT] ?: DisplayCrop.ThinEdges.right,
+        bottom = prefs[DISPLAY_CROP_BOTTOM] ?: DisplayCrop.ThinEdges.bottom
     ).sanitized()
 
     val autoProgressiveScan: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -4520,10 +4520,10 @@ class AppPreferences(private val context: Context) {
             languageTag?.let { prefs[LANGUAGE_TAG] = it } ?: prefs.remove(LANGUAGE_TAG)
             prefs[ASPECT_RATIO] = normalizeAspectRatioPreference(json.optInt("aspectRatio", 1))
             DisplayCrop(
-                left = json.optInt("displayCropLeft", 0),
-                top = json.optInt("displayCropTop", 0),
-                right = json.optInt("displayCropRight", 0),
-                bottom = json.optInt("displayCropBottom", 0)
+                left = json.optInt("displayCropLeft", DisplayCrop.ThinEdges.left),
+                top = json.optInt("displayCropTop", DisplayCrop.ThinEdges.top),
+                right = json.optInt("displayCropRight", DisplayCrop.ThinEdges.right),
+                bottom = json.optInt("displayCropBottom", DisplayCrop.ThinEdges.bottom)
             ).sanitized().let { crop ->
                 prefs[DISPLAY_CROP_LEFT] = crop.left
                 prefs[DISPLAY_CROP_TOP] = crop.top

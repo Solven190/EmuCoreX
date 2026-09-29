@@ -132,7 +132,7 @@ data class SettingsUiState(
     val upscaleMultiplier: Float = 1f,
     val aspectRatio: Int = 1,
     val localMultiplayerMode: Int = AppPreferences.LOCAL_MULTIPLAYER_OFF,
-    val displayCrop: DisplayCrop = DisplayCrop.None,
+    val displayCrop: DisplayCrop = DisplayCrop.ThinEdges,
     val audioVolume: Int = AudioDefaults.VOLUME_DEFAULT,
     val audioFastForwardVolume: Int = AudioDefaults.VOLUME_DEFAULT,
     val audioMuted: Boolean = false,

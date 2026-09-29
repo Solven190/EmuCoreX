@@ -211,7 +211,7 @@ data class EmulationUiState(
     val upscale: Float = 1f,
     val aspectRatio: Int = 1,
     val localMultiplayerMode: Int = AppPreferences.LOCAL_MULTIPLAYER_OFF,
-    val displayCrop: DisplayCrop = DisplayCrop.None,
+    val displayCrop: DisplayCrop = DisplayCrop.ThinEdges,
     val performancePreset: Int = PerformancePresets.CUSTOM,
     val enableInstantVu1: Boolean = true,
     val enableMtvu: Boolean = true,
