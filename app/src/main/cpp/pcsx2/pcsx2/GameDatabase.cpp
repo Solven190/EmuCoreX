@@ -169,26 +169,40 @@ void GameDatabase::parseAndInsert(const std::string_view serial, const ryml::Nod
 		{
 			int eeVal = -1;
 			node["clampModes"]["eeClampMode"] >> eeVal;
-			gameEntry.eeClampMode = static_cast<GameDatabaseSchema::ClampMode>(eeVal);
+			if (eeVal >= 0 && eeVal <= 3)
+				gameEntry.eeClampMode = static_cast<GameDatabaseSchema::ClampMode>(eeVal);
+			else
+				Console.Error(fmt::format("GameDB: Invalid EE/FPU clamp mode '{}', specified for serial: '{}'.", eeVal, serial));
 		}
 		if (node["clampModes"].has_child("vuClampMode"))
 		{
 			int vuVal = -1;
 			node["clampModes"]["vuClampMode"] >> vuVal;
-			gameEntry.vu0ClampMode = static_cast<GameDatabaseSchema::ClampMode>(vuVal);
-			gameEntry.vu1ClampMode = static_cast<GameDatabaseSchema::ClampMode>(vuVal);
+			if (vuVal >= 0 && vuVal <= 3)
+			{
+				gameEntry.vu0ClampMode = static_cast<GameDatabaseSchema::ClampMode>(vuVal);
+				gameEntry.vu1ClampMode = static_cast<GameDatabaseSchema::ClampMode>(vuVal);
+			}
+			else
+				Console.Error(fmt::format("GameDB: Invalid VU clamp mode '{}', specified for serial: '{}'.", vuVal, serial));
 		}
 		if (node["clampModes"].has_child("vu0ClampMode"))
 		{
 			int vuVal = -1;
 			node["clampModes"]["vu0ClampMode"] >> vuVal;
-			gameEntry.vu0ClampMode = static_cast<GameDatabaseSchema::ClampMode>(vuVal);
+			if (vuVal >= 0 && vuVal <= 3)
+				gameEntry.vu0ClampMode = static_cast<GameDatabaseSchema::ClampMode>(vuVal);
+			else
+				Console.Error(fmt::format("GameDB: Invalid VU0 clamp mode '{}', specified for serial: '{}'.", vuVal, serial));
 		}
 		if (node["clampModes"].has_child("vu1ClampMode"))
 		{
 			int vuVal = -1;
 			node["clampModes"]["vu1ClampMode"] >> vuVal;
-			gameEntry.vu1ClampMode = static_cast<GameDatabaseSchema::ClampMode>(vuVal);
+			if (vuVal >= 0 && vuVal <= 3)
+				gameEntry.vu1ClampMode = static_cast<GameDatabaseSchema::ClampMode>(vuVal);
+			else
+				Console.Error(fmt::format("GameDB: Invalid VU1 clamp mode '{}', specified for serial: '{}'.", vuVal, serial));
 		}
 	}
 

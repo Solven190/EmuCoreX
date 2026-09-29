@@ -3868,7 +3868,7 @@ void VMManager::WarnAboutUnsafeSettings()
 			TRANSLATE_SV("VMManager", "VU1 Round Mode is not set to default, this may break some games."));
 	}
 	if (!EmuConfig.Cpu.Recompiler.vu0Overflow || EmuConfig.Cpu.Recompiler.vu0ExtraOverflow ||
-		EmuConfig.Cpu.Recompiler.vu0SignOverflow || EmuConfig.Cpu.Recompiler.vu1Overflow ||
+		EmuConfig.Cpu.Recompiler.vu0SignOverflow || !EmuConfig.Cpu.Recompiler.vu1Overflow ||
 		EmuConfig.Cpu.Recompiler.vu1ExtraOverflow || EmuConfig.Cpu.Recompiler.vu1SignOverflow)
 	{
 		append(ICON_PF_MICROCHIP,

@@ -400,7 +400,7 @@ static __fi void mVU_EFUvuDoubleSS_oaknut(int reg)
 	oakAsm->B(done);
 
 	oakAsm->l(check_overflow);
-	if (CHECK_VU_OVERFLOW(0))
+	if (CHECK_VU_OVERFLOW(1))
 	{
 		oakAsm->MOV(OAK_WSCRATCH, 0x7f800000);
 		oakAsm->CMP(OAK_WSCRATCH2, OAK_WSCRATCH);
@@ -417,7 +417,7 @@ static __fi void mVU_EFUvuDoubleSS_oaknut(int reg)
 
 static __fi void mVU_EFUvuDoublePS_oaknut(int reg, int t1, int t2)
 {
-	mVUClampVuDoubleVectorBits_oaknut(reg, t1, t2, CHECK_VU_OVERFLOW(0));
+	mVUClampVuDoubleVectorBits_oaknut(reg, t1, t2, CHECK_VU_OVERFLOW(1));
 }
 
 static __fi void mVU_EFUreciprocalOrZero_oaknut(mV, int PQ, int one, int t1)

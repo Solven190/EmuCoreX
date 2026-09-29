@@ -218,6 +218,7 @@ object EmulatorBridge {
                             val type = op.fields.getOrNull(2) ?: return@forEach
                             val value = op.fields.getOrNull(3) ?: return@forEach
                             NativeApp.setSetting(section, key, type, value)
+                            settingsCache["$section:$key"] = value
                         }
                         "upscale" -> {
                             val value = op.fields.firstOrNull()?.toFloatOrNull() ?: return@forEach

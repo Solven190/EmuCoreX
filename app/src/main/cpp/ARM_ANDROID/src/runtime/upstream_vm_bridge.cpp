@@ -294,7 +294,7 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 	si.SetIntValue("EmuCoreX/CPU", "VU0ClampMode",
 		GetIntSetting(config.settings, "EmuCoreX/CPU", "VU0ClampMode", 1));
 	si.SetIntValue("EmuCoreX/CPU", "VU1ClampMode",
-		GetIntSetting(config.settings, "EmuCoreX/CPU", "VU1ClampMode", 0));
+		GetIntSetting(config.settings, "EmuCoreX/CPU", "VU1ClampMode", 1));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "fpuOverflow",
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "fpuOverflow", true));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "fpuExtraOverflow",
@@ -308,7 +308,7 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu0SignOverflow",
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu0SignOverflow", false));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu1Overflow",
-		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu1Overflow", false));
+		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu1Overflow", true));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu1ExtraOverflow",
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "vu1ExtraOverflow", false));
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "vu1SignOverflow",
