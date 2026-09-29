@@ -7919,6 +7919,8 @@ SCKA-20090:
   name-en: "God Hand"
   region: "NTSC-K"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   gsHWFixes:
     halfPixelOffset: 2 # Depth of field effect aligned properly + Shifts buildings correctly.
     nativeScaling: 2 # Fixes post effects.
@@ -27073,6 +27075,8 @@ SLES-54490:
   name: "God Hand"
   region: "PAL-M5"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   gsHWFixes:
     halfPixelOffset: 2 # Depth of field effect aligned properly + Shifts buildings correctly.
     nativeScaling: 2 # Fixes post effects.
@@ -51171,6 +51175,8 @@ SLPM-66550:
   name-en: "God Hand"
   region: "NTSC-J"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   gsHWFixes:
     halfPixelOffset: 2 # Depth of field effect aligned properly + Shifts buildings correctly.
     nativeScaling: 2 # Fixes post effects.
@@ -54848,6 +54854,8 @@ SLPM-74241:
   name-sort: "GOD HAND [PlayStation2 the Best]"
   name-en: "God Hand [PlayStation2 the Best]"
   region: "NTSC-J"
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   gsHWFixes:
     halfPixelOffset: 2 # Depth of field effect aligned properly + Shifts buildings correctly.
     nativeScaling: 2 # Fixes post effects.
@@ -73618,6 +73626,8 @@ SLUS-21503:
   name: "God Hand"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   gsHWFixes:
     halfPixelOffset: 2 # Depth of field effect aligned properly + Shifts buildings correctly.
     nativeScaling: 2 # Fixes post effects.
