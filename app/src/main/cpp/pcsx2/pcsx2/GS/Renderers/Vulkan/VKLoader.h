@@ -99,4 +99,9 @@ namespace Vulkan
 	bool LoadVulkanDeviceFunctions(VkDevice device);
 	void UnloadVulkanLibrary();
 	void ResetVulkanLibraryFunctionPointers();
+
+	/// Called once the Vulkan instance exists, i.e. after the (possibly
+	/// custom) ICD has actually been loaded by the loader. Reports whether the
+	/// requested custom driver is really in use or the system driver was used.
+	void CheckCustomDriverLoadStatus();
 } // namespace Vulkan
