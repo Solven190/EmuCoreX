@@ -469,6 +469,7 @@ Pcsx2Config::RecompilerOptions::RecompilerOptions()
 	fpuOverflow = true;
 	//fpuExtraOverflow = false;
 	//fpuFullMode = false;
+	fpuCorrectAddSub = true;
 }
 
 void Pcsx2Config::RecompilerOptions::ApplySanityCheck()
@@ -546,6 +547,7 @@ void Pcsx2Config::RecompilerOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapBitBool(fpuOverflow);
 	SettingsWrapBitBool(fpuExtraOverflow);
 	SettingsWrapBitBool(fpuFullMode);
+	SettingsWrapBitBool(fpuCorrectAddSub);
 }
 
 u32 Pcsx2Config::RecompilerOptions::GetEEClampMode() const

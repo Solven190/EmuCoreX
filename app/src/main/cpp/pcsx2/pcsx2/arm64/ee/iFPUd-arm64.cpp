@@ -41,7 +41,7 @@ using namespace x86Emitter;
 #define FPU_FLAGS_ID 1
 
 // Add/Sub opcodes produce the same results as the ps2
-#define FPU_CORRECT_ADD_SUB CHECK_FPU_OVERFLOW
+#define FPU_CORRECT_ADD_SUB (CHECK_FPU_OVERFLOW && CHECK_FPU_CORRECT_ADD_SUB)
 
 #ifdef FPU_RECOMPILE
 
@@ -136,6 +136,13 @@ static void fpuDoubleSetAccFlag_emit_oaknut()
 static void fpuDoubleLoadFpcr_emit_oaknut(OakMemOperand mem)
 {
 	oakLoad64(OAK_XSCRATCH, mem);
+	oakAsm->MSR(oak::SystemReg::FPCR, OAK_XSCRATCH);
+	oakAsm->ISB();
+}
+
+static void fpuDoubleSetFpcr_emit_oaknut(u64 fpcr)
+{
+	oakAsm->MOV(OAK_XSCRATCH, fpcr);
 	oakAsm->MSR(oak::SystemReg::FPCR, OAK_XSCRATCH);
 	oakAsm->ISB();
 }
@@ -263,7 +270,7 @@ void ToDouble(int reg)
 	// Special conversion for when IEEE sees the value in reg as an INF/NaN
 	oakAsm->SUB(regQ.S4(), regQ.S4(), fpuDoubleLoadConstQ_emit_oaknut(OAK_CPU(mVUss4.s_const.one_exp), regQ).S4());
 	oakAsm->FCVT(oakDRegister(reg), oakSRegister(reg));
-	oakAsm->FADD(regQ.D2(), regQ.D2(), fpuDoubleLoadConstQ_emit_oaknut(OAK_CPU(mVUss4.s_const.dbl_one_exp), regQ).D2());
+	oakAsm->ADD(regQ.D2(), regQ.D2(), fpuDoubleLoadConstQ_emit_oaknut(OAK_CPU(mVUss4.s_const.dbl_one_exp), regQ).D2());
 
 //	x86SetJ8(end);
 	oakAsm->l(end);
@@ -365,7 +372,7 @@ void ToPS2FPU_Full(int reg, bool flags, int absreg, bool acc, bool addsub)
 			//IEEE either clears them (FtZ) or returns the denormalized result.
 			//not thoroughly tested : other operations such as MUL and DIV seem to clear all mantissa bits?
 			oakAsm->MOV(regAbs.B16(), regQ.B16());
-			oakAsm->SHL(regQ.S4(), regQ.S4(), 12);
+			oakAsm->SHL(regQ.D2(), regQ.D2(), 12);
 			oakAsm->USHR(regQ.D2(), regQ.D2(), 41);
 			oakAsm->USHR(regAbs.D2(), regAbs.D2(), 63);
 			oakAsm->SHL(regAbs.S4(), regAbs.S4(), 31);
@@ -1401,7 +1408,7 @@ void recSQRT_S_xmm(int info)
 		// Set roundmode to nearest if it isn't already
 		roundmode_nearest = EmuConfig.Cpu.FPUFPCR;
 		roundmode_nearest.SetRoundMode(FPRoundMode::Nearest);
-		fpuDoubleLoadFpcr_emit_oaknut(OAK_CPU(Cpu.FPUFPCR.bitmask));
+		fpuDoubleSetFpcr_emit_oaknut(roundmode_nearest.bitmask);
 		roundmodeFlag = 1;
 	}
 
@@ -1546,7 +1553,7 @@ static void recRSQRT_S_emit_oaknut(int info)
 		// Set roundmode to nearest if it isn't already
 		roundmode_nearest = EmuConfig.Cpu.FPUFPCR;
 		roundmode_nearest.SetRoundMode(FPRoundMode::Nearest);
-		fpuDoubleLoadFpcr_emit_oaknut(OAK_CPU(Cpu.FPUFPCR.bitmask));
+		fpuDoubleSetFpcr_emit_oaknut(roundmode_nearest.bitmask);
 		roundmodeFlag = true;
 	}
 
