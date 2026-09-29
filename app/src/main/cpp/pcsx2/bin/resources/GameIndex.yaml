@@ -7963,6 +7963,8 @@ SCKA-20096:
   name: "반야드"
   name-en: "Nickelodeon Barnyard"
   region: "NTSC-K"
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   speedHacks:
     instantVU1: 0 # Significantly improves game speed.
   gsHWFixes:
@@ -26610,6 +26612,8 @@ SLES-54374:
 SLES-54376:
   name: "Nickelodeon Barnyard"
   region: "PAL-E"
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   speedHacks:
     instantVU1: 0 # Significantly improves game speed.
   gsHWFixes:
@@ -26620,6 +26624,8 @@ SLES-54376:
 SLES-54377:
   name: "Nick - Der tierisch verrückte Bauernhof"
   region: "PAL-G"
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   speedHacks:
     instantVU1: 0 # Significantly improves game speed.
   gsHWFixes:
@@ -26630,6 +26636,8 @@ SLES-54377:
 SLES-54378:
   name: "Nickelodeon Barnyard"
   region: "PAL-M4"
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   speedHacks:
     instantVU1: 0 # Significantly improves game speed.
   gsHWFixes:
@@ -72021,6 +72029,8 @@ SLUS-21277:
   name: "Nickelodeon Barnyard"
   region: "NTSC-U"
   compat: 5
+  clampModes:
+    vu1ClampMode: 1 # Normal VU1 clamping.
   speedHacks:
     instantVU1: 0 # Significantly improves game speed.
   gsHWFixes:
