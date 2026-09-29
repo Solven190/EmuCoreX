@@ -206,6 +206,7 @@ import com.sbro.emucorex.ui.common.composeShape
 import com.sbro.emucorex.ui.common.BitmapPathImage
 import com.sbro.emucorex.ui.common.EmulationSideArtworkOverlay
 import com.sbro.emucorex.ui.common.GameCoverArt
+import com.sbro.emucorex.ui.common.GameCoverAspectRatio
 import com.sbro.emucorex.ui.common.ProvideGamepadMenuAction
 import com.sbro.emucorex.ui.common.ProvideGamepadShoulderActions
 import com.sbro.emucorex.ui.common.ProvideGamepadUiNavigation
@@ -3574,15 +3575,14 @@ private fun EmulationSidebarMenu(
                         Box(
                             modifier = Modifier
                                 .width(74.dp)
-                                .aspectRatio(2f / 3f)
+                                .aspectRatio(GameCoverAspectRatio)
                                 .clip(neonShape(14.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                         ) {
                             GameCoverArt(
                                 coverPath = uiState.currentGameCoverArtPath,
                                 fallbackTitle = gameTitle,
                                 modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.FillHeight
+                                contentScale = ContentScale.Fit
                             )
                         }
                         Column(

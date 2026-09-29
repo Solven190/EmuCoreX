@@ -703,20 +703,14 @@ private fun GamePickerCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Surface(
-                modifier = Modifier.size(64.dp),
-                shape = neonShape(16.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.26f)
-            ) {
-                GameCoverArt(
-                    coverPath = game.coverArtPath,
-                    fallbackTitle = game.title,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(neonShape(16.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
+            GameCoverArt(
+                coverPath = game.coverArtPath,
+                fallbackTitle = game.title,
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(neonShape(16.dp)),
+                contentScale = ContentScale.Crop
+            )
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -1728,26 +1722,15 @@ private fun GameSettingsProfileCard(
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Surface(
+                GameCoverArt(
+                    coverPath = coverPath,
+                    fallbackTitle = profile.gameTitle,
                     modifier = Modifier
                         .width(66.dp)
-                        .height(90.dp),
-                    shape = neonShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.26f),
-                    border = BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    )
-                ) {
-                    GameCoverArt(
-                        coverPath = coverPath,
-                        fallbackTitle = profile.gameTitle,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(neonShape(16.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                }
+                        .height(90.dp)
+                        .clip(neonShape(16.dp)),
+                    contentScale = ContentScale.Crop
+                )
 
                 Column(
                     modifier = Modifier.weight(1f),

@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +41,20 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import com.sbro.emucorex.ui.theme.neon.neonShape
+
+/** Portrait box-art canvas; images retain their original proportions within it. */
+val LocalGameCoverAspectRatio = staticCompositionLocalOf { 2f / 3f }
+val GameCoverAspectRatio: Float
+    @Composable get() = LocalGameCoverAspectRatio.current
+
+internal fun isGenerated3dCover(coverPath: String?): Boolean =
+    coverPath?.replace('\\', '/')?.let { path ->
+        val localCache3d = path.contains("/game-covers/") &&
+            (path.endsWith("_3d.png") || path.endsWith("_3d.jpg"))
+        val remote3d = path.contains("/covers/3d/") &&
+            (path.endsWith(".png") || path.endsWith(".jpg"))
+        localCache3d || remote3d
+    } == true
 
 private val imageLoadingSemaphore = Semaphore(4)
 @Composable
@@ -198,11 +213,24 @@ private fun loadBitmap(context: android.content.Context, coverPath: String?): Bi
         val decodeOptions = BitmapFactory.Options().apply {
             this.inSampleSize = inSampleSize
             this.inJustDecodeBounds = false
-            this.inPreferredConfig = Bitmap.Config.RGB_565
+            this.inPreferredConfig = Bitmap.Config.ARGB_8888
         }
-        
+
         openStream()?.use { stream ->
             BitmapFactory.decodeStream(stream, null, decodeOptions)
+        }?.let { decoded ->
+            // Only our generated 3D cases have the known faint outer shadow; flat,
+            // custom and catalogue images retain their complete original canvas.
+            if (!isGenerated3dCover(coverPath) || !decoded.hasAlpha()) return@let decoded
+            val pixels = IntArray(decoded.width * decoded.height)
+            decoded.getPixels(pixels, 0, decoded.width, 0, 0, decoded.width, decoded.height)
+            val bounds = opaqueCoverBounds(pixels, decoded.width, decoded.height) ?: return@let decoded
+            if (bounds.left == 0 && bounds.top == 0 &&
+                bounds.width == decoded.width && bounds.height == decoded.height
+            ) {
+                return@let decoded
+            }
+            Bitmap.createBitmap(decoded, bounds.left, bounds.top, bounds.width, bounds.height)
         }
     }.getOrElse { e ->
         Log.w("GameCoverArt", "Failed to load cover from $coverPath: ${e.message}")

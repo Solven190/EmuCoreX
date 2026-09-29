@@ -113,7 +113,7 @@ private fun loadBitmapFromUrl(url: String): Bitmap? {
 
 private fun bitmapOptions(): BitmapFactory.Options {
     return BitmapFactory.Options().apply {
-        inPreferredConfig = Bitmap.Config.RGB_565
+        inPreferredConfig = Bitmap.Config.ARGB_8888
     }
 }
 

@@ -508,7 +508,6 @@ private fun CatalogGameCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(2f / 3f)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
             ) {
                 GameCoverArt(
                     coverPath = game.coverUrl,

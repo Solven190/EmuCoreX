@@ -50,6 +50,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
@@ -71,8 +72,10 @@ import com.sbro.emucorex.core.LocalTvUiEnvironment
 import com.sbro.emucorex.data.CustomGameCoverRepository
 import com.sbro.emucorex.data.GameItem
 import com.sbro.emucorex.ui.common.GameCoverArt
+import com.sbro.emucorex.ui.common.GameCoverAspectRatio
 import com.sbro.emucorex.ui.common.RequestFocusOnResume
 import com.sbro.emucorex.ui.common.gamepadFocusableCard
+import com.sbro.emucorex.ui.common.isGenerated3dCover
 import com.sbro.emucorex.ui.common.rememberDebouncedClick
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
@@ -493,8 +496,8 @@ private fun ShelfCoverCard(
     val debouncedClick = rememberDebouncedClick(onClick = onClick)
     val interactionSource = remember { MutableInteractionSource() }
     val showMenu = remember(game.path) { mutableStateOf(false) }
-    val shape = neonShape(24.dp)
-    val coverAspectRatio = 2f / 3f
+    val shape = if (isGenerated3dCover(game.coverArtPath)) RectangleShape else neonShape(24.dp)
+    val coverAspectRatio = GameCoverAspectRatio
     val horizontalCoverPadding = if (isActive) 6.dp else 8.dp
     val verticalCoverPadding = if (isActive) 6.dp else 4.dp
     val shelfCoverPath = rememberShelfCoverPath(game, isCoverArtDisabled)
@@ -546,6 +549,7 @@ private fun ShelfCoverCard(
                 onLongClick = { showMenu.value = true }
             )
             .gamepadFocusableCard(
+                showIdleBorder = false,
                 shape = shape,
                 interactionSource = interactionSource,
                 addFocusTarget = false
