@@ -8,7 +8,7 @@ class AudioDefaultsTest {
     fun defaultsMatchAndroidFrontendPolicy() {
         assertEquals(100, AudioDefaults.VOLUME_DEFAULT)
         assertEquals(100, AudioDefaults.BUFFER_MS_DEFAULT)
-        assertEquals(50, AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT)
+        assertEquals(80, AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT)
         assertEquals(AudioDefaults.INTERPOLATION_GAUSSIAN, AudioDefaults.INTERPOLATION_DEFAULT)
         assertEquals(AudioDefaults.SYNC_TIME_STRETCH, AudioDefaults.SYNC_DEFAULT)
         assertEquals(false, AudioDefaults.LIGHTWEIGHT_SPU2_DEFAULT)

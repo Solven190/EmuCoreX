@@ -29,9 +29,11 @@ object AudioDefaults {
     const val BUFFER_MS_MIN = 10
     const val BUFFER_MS_MAX = 500
 
-    // 50 ms is a stable shared-mode AAudio baseline for slower Android devices. Users can
-    // still lower it explicitly; the separate 100 ms time-stretch buffer is unchanged.
-    const val OUTPUT_LATENCY_MS_DEFAULT = 50
+    // The output latency sets the AAudio buffer size directly. 80 ms leaves headroom for the
+    // CPU bursts that otherwise underrun the callback on slower devices, while the added delay
+    // stays unnoticeable for most games. Users can still lower it explicitly; the separate
+    // 100 ms time-stretch buffer is unchanged.
+    const val OUTPUT_LATENCY_MS_DEFAULT = 80
     const val OUTPUT_LATENCY_MS_MIN = 1
     const val OUTPUT_LATENCY_MS_MAX = 500
     const val MINIMAL_OUTPUT_LATENCY_DEFAULT = false
