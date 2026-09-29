@@ -822,7 +822,7 @@ static void ApplyManualCpuModeOverrides(Pcsx2Config& config, SettingsInterface& 
 
 	const int ee_clamp_mode = GetClampedCpuModeSetting(si, "EmuCoreX/CPU", "EEClampMode", 1);
 	const int vu0_clamp_mode = GetClampedCpuModeSetting(si, "EmuCoreX/CPU", "VU0ClampMode", 1);
-	const int vu1_clamp_mode = GetClampedCpuModeSetting(si, "EmuCoreX/CPU", "VU1ClampMode", 0);
+	const int vu1_clamp_mode = GetClampedCpuModeSetting(si, "EmuCoreX/CPU", "VU1ClampMode", 1);
 	config.Cpu.Recompiler.SetEEClampMode(static_cast<u32>(ee_clamp_mode));
 	config.Cpu.Recompiler.vu0Overflow = (vu0_clamp_mode >= 1);
 	config.Cpu.Recompiler.vu0ExtraOverflow = (vu0_clamp_mode >= 2);

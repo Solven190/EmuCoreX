@@ -1247,7 +1247,7 @@
     <string name="settings_help_vu1_round_mode">控制 Vector Unit 1 的浮点舍入，该单元大量用于变换、几何体、动画和效果。“截断” (Chop) 向零截断，是兼容 PS2 的正常默认设置。仅当游戏存在已知的 VU1 精度问题（例如破损的模型、糟糕的特效或场景数学问题）时，才尝试其他模式。重新启动游戏以应用。</string>
     <string name="settings_help_ee_fpu_clamping">控制 EE/FPU 溢出钳位精度。“无”禁用溢出钳位，“正常”启用标准溢出钳位并匹配默认值，“额外”添加更严格的溢出处理，“完全”启用最严格的 EE/FPU 钳位行为。更高的模式可以修复特定游戏中的 CPU 浮点边缘情况问题，但在已经正常工作的游戏中可能会降低性能或改变行为。重新启动以应用。</string>
     <string name="settings_help_vu0_clamping">控制 Vector Unit 0 的溢出钳位。“无”禁用 VU0 溢出钳位，“正常”启用标准钳位并匹配当前的 VU0 默认值，“额外”添加更严格的溢出处理，“额外+符号”还钳制与符号相关的溢出行为。仅对于特别需要更严格的 VU0 数学的游戏才提高此值。重新启动游戏以应用。</string>
-    <string name="settings_help_vu1_clamping">控制 Vector Unit 1 的溢出钳位。“无”禁用 VU1 溢出钳位。“正常”启用标准钳位，“额外”添加更严格的溢出处理，“额外+符号”还钳制与符号相关的行为。更高的模式可以帮助修复几何图形或效果破损的游戏，但可能会降低不需要它们的游戏的速度或影响其兼容性。重新启动游戏以应用。</string>
+    <string name="settings_help_vu1_clamping">控制 Vector Unit 1 的溢出钳位。在此核心中，“正常”是 Android 的默认值。“无”禁用 VU1 溢出钳位，“额外”添加更严格的溢出处理，“额外+符号”还钳制与符号相关的行为。更高的模式可以帮助修复几何图形或效果破损的游戏，但可能会降低不需要它们的游戏的速度或影响其兼容性。重新启动游戏以应用。</string>
     <string name="detail_comment_placeholder">写评论</string>
     <string name="detail_comment_post">发表评论</string>
     <string name="profile_title">个人资料</string>

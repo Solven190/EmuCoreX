@@ -547,7 +547,7 @@ class AppPreferences(private val context: Context) {
         const val DEFAULT_VU_ROUND_MODE = FLOAT_ROUND_CHOP
         const val DEFAULT_EE_FPU_CLAMPING_MODE = CLAMPING_NORMAL
         const val DEFAULT_VU0_CLAMPING_MODE = CLAMPING_NORMAL
-        const val DEFAULT_VU1_CLAMPING_MODE = CLAMPING_NONE
+        const val DEFAULT_VU1_CLAMPING_MODE = CLAMPING_NORMAL
 
         fun defaultOverlayControlLayouts(stickScale: Int = OVERLAY_CONTROL_SCALE_DEFAULT): Map<String, OverlayControlLayout> = mapOf(
             "l2" to OverlayControlLayout(),
