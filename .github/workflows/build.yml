@@ -29,11 +29,20 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NDK_VERSION: "27.0.12077973"
   CMAKE_VERSION: "3.22.1"
   GRADLE_OPTS: "-Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4g"
   BUILD_TYPE: ${{ github.event_name == 'pull_request' && 'debug' || github.event.inputs.build_type || 'release' }}
+  CCACHE_BASEDIR: ${{ github.workspace }}
+  CCACHE_MAXSIZE: "2G"
+  CCACHE_COMPRESS: "1"
+  CMAKE_C_COMPILER_LAUNCHER: ccache
+  CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
 jobs:
   build:
@@ -68,20 +77,8 @@ jobs:
           echo "$SDK/platform-tools" >> "$GITHUB_PATH"
           echo "Android SDK root: $SDK"
 
-      - name: Accept Android SDK Licenses
-        run: |
-          yes | sdkmanager --licenses > /dev/null || true
-
       - name: Setup Rust Target
         run: rustup target add aarch64-linux-android
-
-      - name: Cache Gradle Wrapper
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/wrapper
-          key: gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-wrapper-
 
       - name: Cache NDK + CMake
         id: cache-ndk
@@ -98,6 +95,23 @@ jobs:
         if: steps.cache-ndk.outputs.cache-hit != 'true'
         run: |
           sdkmanager --install "ndk;${{ env.NDK_VERSION }}" "cmake;${{ env.CMAKE_VERSION }}"
+
+      - name: Setup ccache
+        run: |
+          if ! command -v ccache > /dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ccache
+          fi
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/.ccache"
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ env.BUILD_TYPE }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ env.BUILD_TYPE }}-
 
       - name: Normalize PCSX2
         run: |
@@ -116,9 +130,9 @@ jobs:
         with:
           path: |
             app/.cxx
-          key: cxx-${{ runner.os }}-${{ env.BUILD_TYPE }}-${{ hashFiles('app/src/main/cpp/**/CMakeLists.txt') }}
+          key: cxx-v2-${{ runner.os }}-${{ env.BUILD_TYPE }}-${{ hashFiles('app/src/main/cpp/**/CMakeLists.txt') }}
           restore-keys: |
-            cxx-${{ runner.os }}-${{ env.BUILD_TYPE }}-
+            cxx-v2-${{ runner.os }}-${{ env.BUILD_TYPE }}-
 
       - name: Make gradlew Executable
         run: chmod +x gradlew
@@ -171,9 +185,10 @@ jobs:
       - name: Build APK
         id: find_apk
         run: |
+          ccache --zero-stats || true
           BUILD_START=$(date +%s)
           ./gradlew :app:assemble${{ env.BUILD_TYPE == 'release' && 'Release' || 'Debug' }} \
-            --build-cache --stacktrace --no-daemon
+            --stacktrace --no-daemon
           BUILD_END=$(date +%s)
           echo "build_seconds=$((BUILD_END - BUILD_START))" >> "$GITHUB_OUTPUT"
 
@@ -184,6 +199,10 @@ jobs:
           fi
           echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
           echo "Built APK: $APK_PATH"
+
+      - name: ccache Stats
+        if: always()
+        run: ccache --show-stats || true
 
       - name: Sign APK
         if: ${{ env.BUILD_TYPE == 'release' }}
