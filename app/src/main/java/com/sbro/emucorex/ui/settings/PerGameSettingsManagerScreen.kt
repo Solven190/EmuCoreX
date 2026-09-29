@@ -2908,7 +2908,8 @@ private fun GpuBackendProfileControls(
 ) {
     val context = LocalContext.current
     val supportsCustomDrivers = remember {
-        GpuDriverCompatibility.supportsCustomDrivers()
+        GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers() &&
+            !GpuHardwareProfiles.isMediaTekHardware()
     }
     val angleOpenGlSupported = remember {
         GpuHardwareProfiles.isMediatekProfile(GpuHardwareProfiles.detectHardwareProfile())
