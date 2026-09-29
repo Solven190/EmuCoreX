@@ -448,7 +448,7 @@ void Host::OnPerformanceMetricsUpdated()
 		return;
 
 	const auto now = std::chrono::steady_clock::now();
-	if (now - s_last_metrics_dispatch < std::chrono::seconds(1))
+	if (now - s_last_metrics_dispatch < std::chrono::milliseconds(250))
 		return;
 	s_last_metrics_dispatch = now;
 

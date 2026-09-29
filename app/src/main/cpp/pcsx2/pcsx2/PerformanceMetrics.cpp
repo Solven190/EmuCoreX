@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
 // SPDX-License-Identifier: GPL-3.0+
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <vector>
@@ -16,7 +17,8 @@
 #include "MTVU.h"
 #include "VMManager.h"
 
-static const float UPDATE_INTERVAL = 1.0f;
+// A half-second window keeps the overlay responsive after a hitch without becoming noisy.
+static const float UPDATE_INTERVAL = 0.5f;
 
 static float s_fps = 0.0f;
 static float s_internal_fps = 0.0f;
@@ -217,10 +219,13 @@ void PerformanceMetrics::Update(bool gs_register_write, bool fb_blit, bool is_sk
 		std::exchange(s_average_frame_time_accumulator, 0.0f);
 	s_maximum_frame_time = std::exchange(s_maximum_frame_time_accumulator, 0.0f);
 	s_frame_time_samples_since_last_update = 0;
+	// A short window can contain no presented frame at all (frame skipping, present throttle);
+	// guard the averages so the overlay never shows a division by zero.
+	const float unskipped_frames = static_cast<float>(std::max(s_unskipped_frames_since_last_update, 1u));
 	s_fps = static_cast<float>(s_frames_since_last_update) / time;
-	s_average_gpu_time = s_accumulated_gpu_time / static_cast<float>(s_unskipped_frames_since_last_update);
-	s_average_gpu_vs_invocations = static_cast<double>(s_accumulated_gpu_vs_invocations) / static_cast<double>(s_unskipped_frames_since_last_update);
-	s_average_gpu_ps_invocations = static_cast<double>(s_accumulated_gpu_ps_invocations) / static_cast<double>(s_unskipped_frames_since_last_update);
+	s_average_gpu_time = s_accumulated_gpu_time / unskipped_frames;
+	s_average_gpu_vs_invocations = static_cast<double>(s_accumulated_gpu_vs_invocations) / static_cast<double>(unskipped_frames);
+	s_average_gpu_ps_invocations = static_cast<double>(s_accumulated_gpu_ps_invocations) / static_cast<double>(unskipped_frames);
 	s_gpu_usage = s_accumulated_gpu_time / (time * 10.0f);
 	s_accumulated_gpu_time = 0.0f;
 	s_accumulated_gpu_vs_invocations = 0;
