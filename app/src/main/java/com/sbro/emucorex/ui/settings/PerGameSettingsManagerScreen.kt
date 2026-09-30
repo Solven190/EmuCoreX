@@ -870,6 +870,26 @@ private fun GameSettingsTabContent(
     LaunchedEffect(memoryCardRepository) {
         memoryCards = withContext(Dispatchers.IO) { memoryCardRepository.listCards() }
     }
+    val scope = rememberCoroutineScope()
+    var isCreatingCard by remember { mutableStateOf(false) }
+    val createCardLabel = stringResource(R.string.per_game_memory_card_create)
+    val createCardFailedMessage = stringResource(R.string.memory_card_create_failed)
+
+    fun createDedicatedCard(assign: (String) -> Unit) {
+        if (isCreatingCard) return
+        scope.launch {
+            isCreatingCard = true
+            val baseName = draft.gameSerial?.takeIf { it.isNotBlank() } ?: draft.gameTitle
+            val created = withContext(Dispatchers.IO) { memoryCardRepository.ensureGameCard(baseName) }
+            if (created != null) {
+                memoryCards = withContext(Dispatchers.IO) { memoryCardRepository.listCards() }
+                assign(created)
+            } else {
+                Toast.makeText(context, createCardFailedMessage, Toast.LENGTH_SHORT).show()
+            }
+            isCreatingCard = false
+        }
+    }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -1080,7 +1100,11 @@ private fun GameSettingsTabContent(
                         cards = memoryCards,
                         selectedCardName = draft.memoryCardSlot1,
                         excludedCardName = draft.memoryCardSlot2,
+                        createCardLabel = createCardLabel,
                         helpText = stringResource(R.string.settings_help_per_game_memory_cards),
+                        onCreateDedicatedCard = {
+                            createDedicatedCard { name -> onDraftChange(draft.copy(memoryCardSlot1 = name)) }
+                        },
                         onSelected = { onDraftChange(draft.copy(memoryCardSlot1 = it)) }
                     )
                     MemoryCardSlotSelectionRow(
@@ -1088,7 +1112,11 @@ private fun GameSettingsTabContent(
                         cards = memoryCards,
                         selectedCardName = draft.memoryCardSlot2,
                         excludedCardName = draft.memoryCardSlot1,
+                        createCardLabel = createCardLabel,
                         helpText = stringResource(R.string.settings_help_per_game_memory_cards),
+                        onCreateDedicatedCard = {
+                            createDedicatedCard { name -> onDraftChange(draft.copy(memoryCardSlot2 = name)) }
+                        },
                         onSelected = { onDraftChange(draft.copy(memoryCardSlot2 = it)) }
                     )
                 }
@@ -1843,6 +1871,10 @@ private fun GameSettingsEditorDialog(
     LaunchedEffect(memoryCardRepository) {
         memoryCards = withContext(Dispatchers.IO) { memoryCardRepository.listCards() }
     }
+    val scope = rememberCoroutineScope()
+    var isCreatingCard by remember { mutableStateOf(false) }
+    val createCardLabel = stringResource(R.string.per_game_memory_card_create)
+    val createCardFailedMessage = stringResource(R.string.memory_card_create_failed)
     val settingsSnapshot by preferences.settingsSnapshot.collectAsState(initial = SettingsSnapshot())
     val frameGenerationForDefault = remember(context, settingsSnapshot) {
         FrameGenerationManager(context).snapshot()
@@ -1872,6 +1904,23 @@ private fun GameSettingsEditorDialog(
     }
     var draft by remember(editableProfile) { mutableStateOf(editableProfile) }
     var hasUserChange by remember(editableProfile) { mutableStateOf(false) }
+
+    fun createDedicatedCard(assign: (String) -> Unit) {
+        if (isCreatingCard) return
+        scope.launch {
+            isCreatingCard = true
+            val baseName = draft.gameSerial?.takeIf { it.isNotBlank() } ?: draft.gameTitle
+            val created = withContext(Dispatchers.IO) { memoryCardRepository.ensureGameCard(baseName) }
+            if (created != null) {
+                memoryCards = withContext(Dispatchers.IO) { memoryCardRepository.listCards() }
+                assign(created)
+            } else {
+                Toast.makeText(context, createCardFailedMessage, Toast.LENGTH_SHORT).show()
+            }
+            isCreatingCard = false
+        }
+    }
+
     val containerSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     val windowWidth = with(density) { containerSize.width.toDp() }
@@ -2003,7 +2052,11 @@ private fun GameSettingsEditorDialog(
                                 cards = memoryCards,
                                 selectedCardName = draft.memoryCardSlot1,
                                 excludedCardName = draft.memoryCardSlot2,
+                                createCardLabel = createCardLabel,
                                 helpText = stringResource(R.string.settings_help_per_game_memory_cards),
+                                onCreateDedicatedCard = {
+                                    createDedicatedCard { name -> draft = draft.copy(memoryCardSlot1 = name) }
+                                },
                                 onSelected = { draft = draft.copy(memoryCardSlot1 = it) }
                             )
                             MemoryCardSlotSelectionRow(
@@ -2011,7 +2064,11 @@ private fun GameSettingsEditorDialog(
                                 cards = memoryCards,
                                 selectedCardName = draft.memoryCardSlot2,
                                 excludedCardName = draft.memoryCardSlot1,
+                                createCardLabel = createCardLabel,
                                 helpText = stringResource(R.string.settings_help_per_game_memory_cards),
+                                onCreateDedicatedCard = {
+                                    createDedicatedCard { name -> draft = draft.copy(memoryCardSlot2 = name) }
+                                },
                                 onSelected = { draft = draft.copy(memoryCardSlot2 = it) }
                             )
                         }
@@ -4298,6 +4355,7 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
 
 private const val GLOBAL_MEMORY_CARD_OPTION = -1
 private const val NONE_MEMORY_CARD_OPTION = 0
+private const val CREATE_MEMORY_CARD_OPTION = -2
 
 @Composable
 private fun MemoryCardSlotSelectionRow(
@@ -4305,12 +4363,14 @@ private fun MemoryCardSlotSelectionRow(
     cards: List<MemoryCardInfo>,
     selectedCardName: String?,
     excludedCardName: String?,
+    createCardLabel: String,
     helpText: String? = null,
+    onCreateDedicatedCard: () -> Unit,
     onSelected: (String?) -> Unit
 ) {
     val useGlobalLabel = stringResource(R.string.settings_use_global)
     val noneLabel = stringResource(R.string.memory_card_slot_empty)
-    val options = remember(cards, excludedCardName, useGlobalLabel, noneLabel) {
+    val options = remember(cards, excludedCardName, useGlobalLabel, noneLabel, createCardLabel) {
         buildList {
             add(GLOBAL_MEMORY_CARD_OPTION to useGlobalLabel)
             add(NONE_MEMORY_CARD_OPTION to noneLabel)
@@ -4319,6 +4379,7 @@ private fun MemoryCardSlotSelectionRow(
                     add(index + 1 to card.name)
                 }
             }
+            add(CREATE_MEMORY_CARD_OPTION to createCardLabel)
         }
     }
     val selectedValue = when {
@@ -4333,13 +4394,17 @@ private fun MemoryCardSlotSelectionRow(
         selectedValue = selectedValue,
         helpText = helpText,
         onSelected = { value ->
-            onSelected(
-                when {
-                    value == GLOBAL_MEMORY_CARD_OPTION -> null
-                    value == NONE_MEMORY_CARD_OPTION -> ""
-                    else -> cards.getOrNull(value - 1)?.name
-                }
-            )
+            if (value == CREATE_MEMORY_CARD_OPTION) {
+                onCreateDedicatedCard()
+            } else {
+                onSelected(
+                    when {
+                        value == GLOBAL_MEMORY_CARD_OPTION -> null
+                        value == NONE_MEMORY_CARD_OPTION -> ""
+                        else -> cards.getOrNull(value - 1)?.name
+                    }
+                )
+            }
         },
         onResetToDefault = { onSelected(null) }
     )

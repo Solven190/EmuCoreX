@@ -115,6 +115,18 @@ class MemoryCardRepository(
         )
     }
 
+    fun ensureGameCard(baseName: String): String? {
+        if (!NativeApp.hasNativeCore) return null
+        syncNativeMemoryCardDirectory()
+        val normalized = normalizeName(baseName.take(GAME_CARD_NAME_MAX_LENGTH))
+        if (File(memoryCardsDir(), normalized).exists()) {
+            return normalized
+        }
+        return normalized.takeIf {
+            NativeApp.createMemoryCard(it, MEMORY_CARD_TYPE_FOLDER, MEMORY_CARD_FILE_TYPE_UNKNOWN)
+        }
+    }
+
     fun importCard(uri: Uri, displayName: String? = null): Boolean {
         val resolvedName = displayName
             ?.takeIf { it.isNotBlank() }
@@ -397,6 +409,7 @@ private const val MEMORY_CARD_FILE_TYPE_UNKNOWN = 0
 internal const val MEMORY_CARD_FILE_TYPE_PS2_8_MB = 1
 private const val DEFAULT_CARD_SLOT_1 = "Mcd001.ps2"
 private const val DEFAULT_CARD_SLOT_2 = "Mcd002.ps2"
+private const val GAME_CARD_NAME_MAX_LENGTH = 48
 
 internal data class MemoryCardCreationSpec(
     val type: Int,
