@@ -119,25 +119,10 @@ class MemoryCardRepository(
         if (!NativeApp.hasNativeCore) return null
         syncNativeMemoryCardDirectory()
         val normalized = normalizeName(baseName.take(GAME_CARD_NAME_MAX_LENGTH))
-        val existing = File(memoryCardsDir(), normalized)
-        if (existing.isFile) {
+        if (File(memoryCardsDir(), normalized).isFile) {
             return normalized
         }
-        if (existing.exists()) {
-            val preserved = File(
-                memoryCardsDir(),
-                buildUniqueCardName("${normalized.removeSuffix(".ps2")} Folder")
-            )
-            if (!existing.renameTo(preserved)) {
-                return createGameFileCard(buildUniqueCardName(normalized))
-            }
-            val created = createGameFileCard(normalized)
-            if (created == null) {
-                preserved.renameTo(existing)
-            }
-            return created
-        }
-        return createGameFileCard(normalized)
+        return createGameFileCard(buildUniqueCardName(normalized))
     }
 
     private fun createGameFileCard(cardName: String): String? =
