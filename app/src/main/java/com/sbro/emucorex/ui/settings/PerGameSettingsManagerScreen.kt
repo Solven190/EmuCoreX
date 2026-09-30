@@ -112,6 +112,8 @@ import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.GameLibraryCacheRepository
 import com.sbro.emucorex.data.GameItem
 import com.sbro.emucorex.data.GameRepository
+import com.sbro.emucorex.data.MemoryCardInfo
+import com.sbro.emucorex.data.MemoryCardRepository
 import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.RetroArchShaderPreset
@@ -144,7 +146,8 @@ private enum class GameSettingsManagerTab {
     Graphics,
     System,
     Controls,
-    Fixes
+    Fixes,
+    MemoryCards
 }
 
 private val GameSettingsSectionContentPadding = 16.dp
@@ -777,6 +780,7 @@ private fun GameSettingsManagerTabRow(
                             GameSettingsManagerTab.System -> stringResource(R.string.game_settings_manager_tab_system)
                             GameSettingsManagerTab.Controls -> stringResource(R.string.settings_controls_tab)
                             GameSettingsManagerTab.Fixes -> stringResource(R.string.settings_fixes_tab)
+                            GameSettingsManagerTab.MemoryCards -> stringResource(R.string.game_settings_manager_tab_memory_cards)
                         }
                     )
                 }
@@ -859,6 +863,33 @@ private fun GameSettingsTabContent(
     onDraftChange: (PerGameSettings) -> Unit
 ) {
     val nativeUpscaleLabel = stringResource(R.string.settings_upscale_native)
+    val context = LocalContext.current
+    val preferences = remember(context) { AppPreferences(context) }
+    val memoryCardRepository = remember(context, preferences) { MemoryCardRepository(context, preferences) }
+    var memoryCards by remember { mutableStateOf(emptyList<MemoryCardInfo>()) }
+    LaunchedEffect(memoryCardRepository) {
+        memoryCards = withContext(Dispatchers.IO) { memoryCardRepository.listCards() }
+    }
+    val scope = rememberCoroutineScope()
+    var isCreatingCard by remember { mutableStateOf(false) }
+    val createCardLabel = stringResource(R.string.per_game_memory_card_create)
+    val createCardFailedMessage = stringResource(R.string.memory_card_create_failed)
+
+    fun createDedicatedCard(assign: (String) -> Unit) {
+        if (isCreatingCard) return
+        scope.launch {
+            isCreatingCard = true
+            val baseName = draft.gameSerial?.takeIf { it.isNotBlank() } ?: draft.gameTitle
+            val created = withContext(Dispatchers.IO) { memoryCardRepository.ensureGameCard(baseName) }
+            if (created != null) {
+                memoryCards = withContext(Dispatchers.IO) { memoryCardRepository.listCards() }
+                assign(created)
+            } else {
+                Toast.makeText(context, createCardFailedMessage, Toast.LENGTH_SHORT).show()
+            }
+            isCreatingCard = false
+        }
+    }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -1054,6 +1085,39 @@ private fun GameSettingsTabContent(
                         draft = draft,
                         defaultProfile = defaultProfile,
                         onDraftChange = onDraftChange
+                    )
+                }
+            }
+            GameSettingsManagerTab.MemoryCards -> {
+                EditorSection(title = stringResource(R.string.per_game_memory_cards_title)) {
+                    Text(
+                        text = stringResource(R.string.per_game_memory_cards_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    MemoryCardSlotSelectionRow(
+                        title = stringResource(R.string.memory_card_slot_1),
+                        cards = memoryCards,
+                        selectedCardName = draft.memoryCardSlot1,
+                        excludedCardName = draft.memoryCardSlot2,
+                        createCardLabel = createCardLabel,
+                        helpText = stringResource(R.string.settings_help_per_game_memory_cards),
+                        onCreateDedicatedCard = {
+                            createDedicatedCard { name -> onDraftChange(draft.copy(memoryCardSlot1 = name)) }
+                        },
+                        onSelected = { onDraftChange(draft.copy(memoryCardSlot1 = it)) }
+                    )
+                    MemoryCardSlotSelectionRow(
+                        title = stringResource(R.string.memory_card_slot_2),
+                        cards = memoryCards,
+                        selectedCardName = draft.memoryCardSlot2,
+                        excludedCardName = draft.memoryCardSlot1,
+                        createCardLabel = createCardLabel,
+                        helpText = stringResource(R.string.settings_help_per_game_memory_cards),
+                        onCreateDedicatedCard = {
+                            createDedicatedCard { name -> onDraftChange(draft.copy(memoryCardSlot2 = name)) }
+                        },
+                        onSelected = { onDraftChange(draft.copy(memoryCardSlot2 = it)) }
                     )
                 }
             }
@@ -1802,6 +1866,15 @@ private fun GameSettingsEditorDialog(
 ) {
     val context = LocalContext.current
     val preferences = remember(context) { AppPreferences(context) }
+    val memoryCardRepository = remember(context, preferences) { MemoryCardRepository(context, preferences) }
+    var memoryCards by remember { mutableStateOf(emptyList<MemoryCardInfo>()) }
+    LaunchedEffect(memoryCardRepository) {
+        memoryCards = withContext(Dispatchers.IO) { memoryCardRepository.listCards() }
+    }
+    val scope = rememberCoroutineScope()
+    var isCreatingCard by remember { mutableStateOf(false) }
+    val createCardLabel = stringResource(R.string.per_game_memory_card_create)
+    val createCardFailedMessage = stringResource(R.string.memory_card_create_failed)
     val settingsSnapshot by preferences.settingsSnapshot.collectAsState(initial = SettingsSnapshot())
     val frameGenerationForDefault = remember(context, settingsSnapshot) {
         FrameGenerationManager(context).snapshot()
@@ -1831,6 +1904,23 @@ private fun GameSettingsEditorDialog(
     }
     var draft by remember(editableProfile) { mutableStateOf(editableProfile) }
     var hasUserChange by remember(editableProfile) { mutableStateOf(false) }
+
+    fun createDedicatedCard(assign: (String) -> Unit) {
+        if (isCreatingCard) return
+        scope.launch {
+            isCreatingCard = true
+            val baseName = draft.gameSerial?.takeIf { it.isNotBlank() } ?: draft.gameTitle
+            val created = withContext(Dispatchers.IO) { memoryCardRepository.ensureGameCard(baseName) }
+            if (created != null) {
+                memoryCards = withContext(Dispatchers.IO) { memoryCardRepository.listCards() }
+                assign(created)
+            } else {
+                Toast.makeText(context, createCardFailedMessage, Toast.LENGTH_SHORT).show()
+            }
+            isCreatingCard = false
+        }
+    }
+
     val containerSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     val windowWidth = with(density) { containerSize.width.toDp() }
@@ -1949,6 +2039,37 @@ private fun GameSettingsEditorDialog(
                                 onResetToDefault = {
                                     draft = draft.copy(localMultiplayerMode = defaultProfile.localMultiplayerMode)
                                 }
+                            )
+                        }
+                        EditorSection(title = stringResource(R.string.per_game_memory_cards_title)) {
+                            Text(
+                                text = stringResource(R.string.per_game_memory_cards_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            MemoryCardSlotSelectionRow(
+                                title = stringResource(R.string.memory_card_slot_1),
+                                cards = memoryCards,
+                                selectedCardName = draft.memoryCardSlot1,
+                                excludedCardName = draft.memoryCardSlot2,
+                                createCardLabel = createCardLabel,
+                                helpText = stringResource(R.string.settings_help_per_game_memory_cards),
+                                onCreateDedicatedCard = {
+                                    createDedicatedCard { name -> draft = draft.copy(memoryCardSlot1 = name) }
+                                },
+                                onSelected = { draft = draft.copy(memoryCardSlot1 = it) }
+                            )
+                            MemoryCardSlotSelectionRow(
+                                title = stringResource(R.string.memory_card_slot_2),
+                                cards = memoryCards,
+                                selectedCardName = draft.memoryCardSlot2,
+                                excludedCardName = draft.memoryCardSlot1,
+                                createCardLabel = createCardLabel,
+                                helpText = stringResource(R.string.settings_help_per_game_memory_cards),
+                                onCreateDedicatedCard = {
+                                    createDedicatedCard { name -> draft = draft.copy(memoryCardSlot2 = name) }
+                                },
+                                onSelected = { draft = draft.copy(memoryCardSlot2 = it) }
                             )
                         }
                         EditorSection(title = stringResource(R.string.settings_customization_touch_controls_section)) {
@@ -3391,6 +3512,7 @@ private fun GameSettingsManagerTab.title(): String = when (this) {
     GameSettingsManagerTab.System -> stringResource(R.string.game_settings_manager_tab_system)
     GameSettingsManagerTab.Controls -> stringResource(R.string.settings_controls_tab)
     GameSettingsManagerTab.Fixes -> stringResource(R.string.settings_fixes_tab)
+    GameSettingsManagerTab.MemoryCards -> stringResource(R.string.game_settings_manager_tab_memory_cards)
 }
 
 @Composable
@@ -4231,6 +4353,63 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
     )
 }
 
+private const val GLOBAL_MEMORY_CARD_OPTION = -1
+private const val NONE_MEMORY_CARD_OPTION = 0
+private const val CREATE_MEMORY_CARD_OPTION = -2
+
+@Composable
+private fun MemoryCardSlotSelectionRow(
+    title: String,
+    cards: List<MemoryCardInfo>,
+    selectedCardName: String?,
+    excludedCardName: String?,
+    createCardLabel: String,
+    helpText: String? = null,
+    onCreateDedicatedCard: () -> Unit,
+    onSelected: (String?) -> Unit
+) {
+    val useGlobalLabel = stringResource(R.string.settings_use_global)
+    val noneLabel = stringResource(R.string.memory_card_slot_empty)
+    val options = remember(cards, excludedCardName, useGlobalLabel, noneLabel, createCardLabel) {
+        buildList {
+            add(GLOBAL_MEMORY_CARD_OPTION to useGlobalLabel)
+            add(NONE_MEMORY_CARD_OPTION to noneLabel)
+            cards.forEachIndexed { index, card ->
+                if (!card.name.equals(excludedCardName, ignoreCase = true)) {
+                    add(index + 1 to card.name)
+                }
+            }
+            add(CREATE_MEMORY_CARD_OPTION to createCardLabel)
+        }
+    }
+    val selectedValue = when {
+        selectedCardName == null -> GLOBAL_MEMORY_CARD_OPTION
+        selectedCardName.isEmpty() -> NONE_MEMORY_CARD_OPTION
+        else -> cards.indexOfFirst { it.name.equals(selectedCardName, ignoreCase = true) }
+            .takeIf { it >= 0 }?.plus(1) ?: GLOBAL_MEMORY_CARD_OPTION
+    }
+    SelectionRow(
+        title = title,
+        options = options,
+        selectedValue = selectedValue,
+        helpText = helpText,
+        onSelected = { value ->
+            if (value == CREATE_MEMORY_CARD_OPTION) {
+                onCreateDedicatedCard()
+            } else {
+                onSelected(
+                    when {
+                        value == GLOBAL_MEMORY_CARD_OPTION -> null
+                        value == NONE_MEMORY_CARD_OPTION -> ""
+                        else -> cards.getOrNull(value - 1)?.name
+                    }
+                )
+            }
+        },
+        onResetToDefault = { onSelected(null) }
+    )
+}
+
 private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): PerGameSettings {
     val keys = providedKeys ?: return copy(providedKeys = null)
     fun <T> pick(key: String, current: T, fallback: T): T = if (key in keys) current else fallback
@@ -4241,6 +4420,8 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         renderer = pick("renderer", renderer, defaultProfile.renderer),
         gpuDriverType = pick("gpuDriverType", gpuDriverType, defaultProfile.gpuDriverType),
         customDriverPath = pick("customDriverPath", customDriverPath, defaultProfile.customDriverPath),
+        memoryCardSlot1 = pick("memoryCardSlot1", memoryCardSlot1, defaultProfile.memoryCardSlot1),
+        memoryCardSlot2 = pick("memoryCardSlot2", memoryCardSlot2, defaultProfile.memoryCardSlot2),
         frameGenerationEnabled = pick("frameGenerationEnabled", frameGenerationEnabled, defaultProfile.frameGenerationEnabled),
         frameGenerationMultiplier = pick("frameGenerationMultiplier", frameGenerationMultiplier, defaultProfile.frameGenerationMultiplier),
         frameGenerationPerformance = pick("frameGenerationPerformance", frameGenerationPerformance, defaultProfile.frameGenerationPerformance),

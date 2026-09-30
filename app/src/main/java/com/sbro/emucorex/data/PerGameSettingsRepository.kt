@@ -17,6 +17,8 @@ data class PerGameSettings(
     val renderer: Int = EmulatorBridge.AUTO_RENDERER,
     val gpuDriverType: Int = 0,
     val customDriverPath: String? = null,
+    val memoryCardSlot1: String? = null,
+    val memoryCardSlot2: String? = null,
     val frameGenerationEnabled: Boolean = false,
     val frameGenerationMultiplier: Int = 2,
     val frameGenerationPerformance: Boolean = true,
@@ -290,6 +292,8 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         renderer = optInt("renderer", RendererDefaults.AUTO).let(::sanitizeRendererValue),
         gpuDriverType = optInt("gpuDriverType", 0).let { if (it == 1) 1 else 0 },
         customDriverPath = optString("customDriverPath").takeIf { it.isNotBlank() },
+        memoryCardSlot1 = optionalCardOverride("memoryCardSlot1"),
+        memoryCardSlot2 = optionalCardOverride("memoryCardSlot2"),
         frameGenerationEnabled = optBoolean("frameGenerationEnabled", false),
         frameGenerationMultiplier = optInt("frameGenerationMultiplier", 2).coerceIn(2, 4),
         frameGenerationPerformance = optBoolean("frameGenerationPerformance", true),
@@ -530,6 +534,8 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("renderer")) put("renderer", sanitizeRendererValue(renderer))
         if (shouldWrite("gpuDriverType")) put("gpuDriverType", if (gpuDriverType == 1) 1 else 0)
         if (shouldWrite("customDriverPath")) put("customDriverPath", customDriverPath)
+        if (shouldWrite("memoryCardSlot1")) memoryCardSlot1?.let { put("memoryCardSlot1", it) }
+        if (shouldWrite("memoryCardSlot2")) memoryCardSlot2?.let { put("memoryCardSlot2", it) }
         if (shouldWrite("frameGenerationEnabled")) put("frameGenerationEnabled", frameGenerationEnabled)
         if (shouldWrite("frameGenerationMultiplier")) put("frameGenerationMultiplier", frameGenerationMultiplier.coerceIn(2, 4))
         if (shouldWrite("frameGenerationPerformance")) put("frameGenerationPerformance", frameGenerationPerformance)
@@ -889,4 +895,38 @@ private fun encodeGamepadBindingsPerGameJson(bindingsByPad: Map<Int, Map<String,
             )
         }
     }
+}
+
+private fun JSONObject.optionalCardOverride(key: String): String? =
+    if (has(key) && !isNull(key)) optString(key) else null
+
+/**
+ * Resolves a per-game memory card override.
+ *
+ * `null` means "follow the global assignment", an empty string means "no card in this slot",
+ * and any other value is a memory card file name.
+ */
+internal fun resolvePerGameMemoryCardOverride(
+    providedKeys: Set<String>?,
+    key: String,
+    globalCard: String?,
+    override: String?
+): String? {
+    if (providedKeys != null && key !in providedKeys) return globalCard
+    return when {
+        override == null -> globalCard
+        override.isEmpty() -> null
+        else -> override
+    }
+}
+
+/** Keeps a selected card while its file still exists; stale names fall back to the global card. */
+internal fun validatePerGameMemoryCardName(
+    selected: String?,
+    fallback: String?,
+    availableCards: Set<String>
+): String? = when {
+    selected == null -> null
+    selected in availableCards -> selected
+    else -> fallback
 }
