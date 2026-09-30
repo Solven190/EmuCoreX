@@ -606,6 +606,8 @@ class AppPreferences(private val context: Context) {
         private val HIDDEN_GAME_MENU_SECTIONS = stringPreferencesKey("hidden_game_menu_sections")
         private val PRO_UNLOCKED = booleanPreferencesKey("pro_unlocked")
         private val WELCOME_DIALOG_SHOWN = booleanPreferencesKey("welcome_dialog_shown")
+        private val LAST_CORE_BINARY_FINGERPRINT =
+            stringPreferencesKey("last_core_binary_fingerprint")
         private val MEDIATEK_SETTINGS_NOTICE_SHOWN =
             booleanPreferencesKey("mediatek_settings_notice_shown")
         private val IN_APP_REVIEW_QUALIFYING_SESSION_COUNT =
@@ -1233,6 +1235,20 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setWelcomeDialogShown(shown: Boolean) {
         context.dataStore.edit { prefs -> prefs[WELCOME_DIALOG_SHOWN] = shown }
+    }
+
+    val lastCoreBinaryFingerprint: Flow<String?> = context.dataStore.data
+        .map { prefs -> prefs[LAST_CORE_BINARY_FINGERPRINT] }
+        .distinctUntilChanged()
+
+    suspend fun setLastCoreBinaryFingerprint(fingerprint: String?) {
+        context.dataStore.edit { prefs ->
+            if (fingerprint.isNullOrBlank()) {
+                prefs.remove(LAST_CORE_BINARY_FINGERPRINT)
+            } else {
+                prefs[LAST_CORE_BINARY_FINGERPRINT] = fingerprint
+            }
+        }
     }
 
     suspend fun markMediatekSettingsNoticeShown() {
