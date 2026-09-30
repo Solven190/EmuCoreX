@@ -19,6 +19,7 @@ data class PerGameSettings(
     val customDriverPath: String? = null,
     val memoryCardSlot1: String? = null,
     val memoryCardSlot2: String? = null,
+    val dedicatedMemoryCards: List<String> = emptyList(),
     val frameGenerationEnabled: Boolean = false,
     val frameGenerationMultiplier: Int = 2,
     val frameGenerationPerformance: Boolean = true,
@@ -294,6 +295,14 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         customDriverPath = optString("customDriverPath").takeIf { it.isNotBlank() },
         memoryCardSlot1 = optionalCardOverride("memoryCardSlot1"),
         memoryCardSlot2 = optionalCardOverride("memoryCardSlot2"),
+        dedicatedMemoryCards = optJSONArray("dedicatedMemoryCards")?.let { array ->
+            buildList {
+                for (index in 0 until array.length()) {
+                    val name = array.optString(index)
+                    if (name.isNotBlank()) add(name)
+                }
+            }
+        }.orEmpty(),
         frameGenerationEnabled = optBoolean("frameGenerationEnabled", false),
         frameGenerationMultiplier = optInt("frameGenerationMultiplier", 2).coerceIn(2, 4),
         frameGenerationPerformance = optBoolean("frameGenerationPerformance", true),
@@ -536,6 +545,9 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("customDriverPath")) put("customDriverPath", customDriverPath)
         if (shouldWrite("memoryCardSlot1")) memoryCardSlot1?.let { put("memoryCardSlot1", it) }
         if (shouldWrite("memoryCardSlot2")) memoryCardSlot2?.let { put("memoryCardSlot2", it) }
+        if (shouldWrite("dedicatedMemoryCards") && dedicatedMemoryCards.isNotEmpty()) {
+            put("dedicatedMemoryCards", JSONArray().apply { dedicatedMemoryCards.forEach { put(it) } })
+        }
         if (shouldWrite("frameGenerationEnabled")) put("frameGenerationEnabled", frameGenerationEnabled)
         if (shouldWrite("frameGenerationMultiplier")) put("frameGenerationMultiplier", frameGenerationMultiplier.coerceIn(2, 4))
         if (shouldWrite("frameGenerationPerformance")) put("frameGenerationPerformance", frameGenerationPerformance)

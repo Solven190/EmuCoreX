@@ -523,6 +523,13 @@ fun PerGameSettingsManagerScreen(
                     val maxUpscaleMultiplier = remember(draft.renderer) {
                         EmulatorBridge.getMaxUpscaleMultiplier(normalizeManagerRenderer(draft.renderer))
                     }
+                    val foreignDedicatedCardNames = remember(profiles, game.path) {
+                        profiles.asSequence()
+                            .filter { it.gameKey != game.path }
+                            .flatMap { it.dedicatedMemoryCards.asSequence() }
+                            .map { it.lowercase() }
+                            .toSet()
+                    }
 
                     LaunchedEffect(draft) {
                         if (hasUserChange) {
@@ -536,6 +543,7 @@ fun PerGameSettingsManagerScreen(
                         game = game,
                         draft = draft,
                         defaultProfile = defaultProfile,
+                        foreignDedicatedCardNames = foreignDedicatedCardNames,
                         selectedTab = selectedTab,
                         maxUpscaleMultiplier = maxUpscaleMultiplier,
                         shaderPresets = shaderPresets,
@@ -794,6 +802,7 @@ private fun GameSettingsManagerEditorPanel(
     game: GameItem,
     draft: PerGameSettings,
     defaultProfile: PerGameSettings,
+    foreignDedicatedCardNames: Set<String>,
     selectedTab: GameSettingsManagerTab,
     maxUpscaleMultiplier: Int,
     shaderPresets: List<RetroArchShaderPreset>,
@@ -843,6 +852,7 @@ private fun GameSettingsManagerEditorPanel(
         GameSettingsTabContent(
             draft = draft,
             defaultProfile = defaultProfile,
+            foreignDedicatedCardNames = foreignDedicatedCardNames,
             selectedTab = selectedTab,
             maxUpscaleMultiplier = maxUpscaleMultiplier,
             shaderPresets = shaderPresets,
@@ -856,6 +866,7 @@ private fun GameSettingsManagerEditorPanel(
 private fun GameSettingsTabContent(
     draft: PerGameSettings,
     defaultProfile: PerGameSettings,
+    foreignDedicatedCardNames: Set<String>,
     selectedTab: GameSettingsManagerTab,
     maxUpscaleMultiplier: Int,
     shaderPresets: List<RetroArchShaderPreset>,
@@ -874,6 +885,11 @@ private fun GameSettingsTabContent(
     var isCreatingCard by remember { mutableStateOf(false) }
     val createCardLabel = stringResource(R.string.per_game_memory_card_create)
     val createCardFailedMessage = stringResource(R.string.memory_card_create_failed)
+    val canCreateDedicatedCard = remember(draft.dedicatedMemoryCards, memoryCards) {
+        draft.dedicatedMemoryCards.none { dedicated ->
+            memoryCards.any { it.name.equals(dedicated, ignoreCase = true) }
+        }
+    }
 
     fun createDedicatedCard(assign: (String) -> Unit) {
         if (isCreatingCard) return
@@ -1100,10 +1116,23 @@ private fun GameSettingsTabContent(
                         cards = memoryCards,
                         selectedCardName = draft.memoryCardSlot1,
                         excludedCardName = draft.memoryCardSlot2,
+                        hiddenCardNames = foreignDedicatedCardNames,
                         createCardLabel = createCardLabel,
+                        showCreateCardOption = canCreateDedicatedCard,
                         helpText = stringResource(R.string.settings_help_per_game_memory_cards),
                         onCreateDedicatedCard = {
-                            createDedicatedCard { name -> onDraftChange(draft.copy(memoryCardSlot1 = name)) }
+                            createDedicatedCard { name ->
+                                if (name.equals(draft.memoryCardSlot2, ignoreCase = true)) {
+                                    return@createDedicatedCard
+                                }
+                                onDraftChange(
+                                    draft.copy(
+                                        memoryCardSlot1 = name,
+                                        dedicatedMemoryCards = (draft.dedicatedMemoryCards + name)
+                                            .distinctBy { it.lowercase() }
+                                    )
+                                )
+                            }
                         },
                         onSelected = { onDraftChange(draft.copy(memoryCardSlot1 = it)) }
                     )
@@ -1112,10 +1141,23 @@ private fun GameSettingsTabContent(
                         cards = memoryCards,
                         selectedCardName = draft.memoryCardSlot2,
                         excludedCardName = draft.memoryCardSlot1,
+                        hiddenCardNames = foreignDedicatedCardNames,
                         createCardLabel = createCardLabel,
+                        showCreateCardOption = canCreateDedicatedCard,
                         helpText = stringResource(R.string.settings_help_per_game_memory_cards),
                         onCreateDedicatedCard = {
-                            createDedicatedCard { name -> onDraftChange(draft.copy(memoryCardSlot2 = name)) }
+                            createDedicatedCard { name ->
+                                if (name.equals(draft.memoryCardSlot1, ignoreCase = true)) {
+                                    return@createDedicatedCard
+                                }
+                                onDraftChange(
+                                    draft.copy(
+                                        memoryCardSlot2 = name,
+                                        dedicatedMemoryCards = (draft.dedicatedMemoryCards + name)
+                                            .distinctBy { it.lowercase() }
+                                    )
+                                )
+                            }
                         },
                         onSelected = { onDraftChange(draft.copy(memoryCardSlot2 = it)) }
                     )
@@ -1734,9 +1776,21 @@ fun PerGameSettingsQuickEditorDialog(
         )
         repository.get(game.path) ?: withLsfg
     }
+    var foreignDedicatedCardNames by remember(game.path) { mutableStateOf(emptySet<String>()) }
+    LaunchedEffect(game.path) {
+        foreignDedicatedCardNames = withContext(Dispatchers.IO) {
+            repository.getAll()
+                .asSequence()
+                .filter { it.gameKey != game.path }
+                .flatMap { it.dedicatedMemoryCards.asSequence() }
+                .map { it.lowercase() }
+                .toSet()
+        }
+    }
 
     GameSettingsEditorDialog(
         profile = initialProfile,
+        foreignDedicatedCardNames = foreignDedicatedCardNames,
         onDismiss = onDismiss,
         onSave = { updated ->
             repository.save(updated)
@@ -1861,6 +1915,7 @@ private fun GameSettingsProfileCard(
 @Composable
 private fun GameSettingsEditorDialog(
     profile: PerGameSettings,
+    foreignDedicatedCardNames: Set<String>,
     onDismiss: () -> Unit,
     onSave: (PerGameSettings) -> Unit
 ) {
@@ -1918,6 +1973,12 @@ private fun GameSettingsEditorDialog(
                 Toast.makeText(context, createCardFailedMessage, Toast.LENGTH_SHORT).show()
             }
             isCreatingCard = false
+        }
+    }
+
+    val canCreateDedicatedCard = remember(draft.dedicatedMemoryCards, memoryCards) {
+        draft.dedicatedMemoryCards.none { dedicated ->
+            memoryCards.any { it.name.equals(dedicated, ignoreCase = true) }
         }
     }
 
@@ -2052,10 +2113,21 @@ private fun GameSettingsEditorDialog(
                                 cards = memoryCards,
                                 selectedCardName = draft.memoryCardSlot1,
                                 excludedCardName = draft.memoryCardSlot2,
+                                hiddenCardNames = foreignDedicatedCardNames,
                                 createCardLabel = createCardLabel,
+                                showCreateCardOption = canCreateDedicatedCard,
                                 helpText = stringResource(R.string.settings_help_per_game_memory_cards),
                                 onCreateDedicatedCard = {
-                                    createDedicatedCard { name -> draft = draft.copy(memoryCardSlot1 = name) }
+                                    createDedicatedCard { name ->
+                                        if (name.equals(draft.memoryCardSlot2, ignoreCase = true)) {
+                                            return@createDedicatedCard
+                                        }
+                                        draft = draft.copy(
+                                            memoryCardSlot1 = name,
+                                            dedicatedMemoryCards = (draft.dedicatedMemoryCards + name)
+                                                .distinctBy { it.lowercase() }
+                                        )
+                                    }
                                 },
                                 onSelected = { draft = draft.copy(memoryCardSlot1 = it) }
                             )
@@ -2064,10 +2136,21 @@ private fun GameSettingsEditorDialog(
                                 cards = memoryCards,
                                 selectedCardName = draft.memoryCardSlot2,
                                 excludedCardName = draft.memoryCardSlot1,
+                                hiddenCardNames = foreignDedicatedCardNames,
                                 createCardLabel = createCardLabel,
+                                showCreateCardOption = canCreateDedicatedCard,
                                 helpText = stringResource(R.string.settings_help_per_game_memory_cards),
                                 onCreateDedicatedCard = {
-                                    createDedicatedCard { name -> draft = draft.copy(memoryCardSlot2 = name) }
+                                    createDedicatedCard { name ->
+                                        if (name.equals(draft.memoryCardSlot1, ignoreCase = true)) {
+                                            return@createDedicatedCard
+                                        }
+                                        draft = draft.copy(
+                                            memoryCardSlot2 = name,
+                                            dedicatedMemoryCards = (draft.dedicatedMemoryCards + name)
+                                                .distinctBy { it.lowercase() }
+                                        )
+                                    }
                                 },
                                 onSelected = { draft = draft.copy(memoryCardSlot2 = it) }
                             )
@@ -3166,7 +3249,8 @@ private fun SelectionRow(
     selectedValue: Int,
     onSelected: (Int) -> Unit,
     helpText: String? = null,
-    onResetToDefault: (() -> Unit)? = null
+    onResetToDefault: (() -> Unit)? = null,
+    alwaysScroll: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val context = LocalContext.current
@@ -3197,7 +3281,7 @@ private fun SelectionRow(
                 SettingHelpButton(title = title, description = it)
             }
         }
-        if (options.size > 3) {
+        if (alwaysScroll || options.size > 3) {
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4363,23 +4447,38 @@ private fun MemoryCardSlotSelectionRow(
     cards: List<MemoryCardInfo>,
     selectedCardName: String?,
     excludedCardName: String?,
+    hiddenCardNames: Set<String>,
     createCardLabel: String,
+    showCreateCardOption: Boolean,
     helpText: String? = null,
     onCreateDedicatedCard: () -> Unit,
     onSelected: (String?) -> Unit
 ) {
     val useGlobalLabel = stringResource(R.string.settings_use_global)
     val noneLabel = stringResource(R.string.memory_card_slot_empty)
-    val options = remember(cards, excludedCardName, useGlobalLabel, noneLabel, createCardLabel) {
+    val options = remember(
+        cards,
+        excludedCardName,
+        hiddenCardNames,
+        selectedCardName,
+        showCreateCardOption,
+        useGlobalLabel,
+        noneLabel,
+        createCardLabel
+    ) {
         buildList {
             add(GLOBAL_MEMORY_CARD_OPTION to useGlobalLabel)
             add(NONE_MEMORY_CARD_OPTION to noneLabel)
             cards.forEachIndexed { index, card ->
-                if (!card.name.equals(excludedCardName, ignoreCase = true)) {
+                val isHidden = card.name.lowercase() in hiddenCardNames
+                val isSelected = card.name.equals(selectedCardName, ignoreCase = true)
+                if (!card.name.equals(excludedCardName, ignoreCase = true) && (!isHidden || isSelected)) {
                     add(index + 1 to card.name)
                 }
             }
-            add(CREATE_MEMORY_CARD_OPTION to createCardLabel)
+            if (showCreateCardOption) {
+                add(CREATE_MEMORY_CARD_OPTION to createCardLabel)
+            }
         }
     }
     val selectedValue = when {
@@ -4406,7 +4505,8 @@ private fun MemoryCardSlotSelectionRow(
                 )
             }
         },
-        onResetToDefault = { onSelected(null) }
+        onResetToDefault = { onSelected(null) },
+        alwaysScroll = true
     )
 }
 
@@ -4422,6 +4522,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         customDriverPath = pick("customDriverPath", customDriverPath, defaultProfile.customDriverPath),
         memoryCardSlot1 = pick("memoryCardSlot1", memoryCardSlot1, defaultProfile.memoryCardSlot1),
         memoryCardSlot2 = pick("memoryCardSlot2", memoryCardSlot2, defaultProfile.memoryCardSlot2),
+        dedicatedMemoryCards = pick("dedicatedMemoryCards", dedicatedMemoryCards, defaultProfile.dedicatedMemoryCards),
         frameGenerationEnabled = pick("frameGenerationEnabled", frameGenerationEnabled, defaultProfile.frameGenerationEnabled),
         frameGenerationMultiplier = pick("frameGenerationMultiplier", frameGenerationMultiplier, defaultProfile.frameGenerationMultiplier),
         frameGenerationPerformance = pick("frameGenerationPerformance", frameGenerationPerformance, defaultProfile.frameGenerationPerformance),
