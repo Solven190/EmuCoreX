@@ -102,6 +102,10 @@ private val PER_GAME_MEMORY_CARD_KEYS = setOf(
     "memoryCardSlot2"
 )
 
+private val PER_GAME_DEDICATED_CARD_KEYS = setOf(
+    "dedicatedMemoryCards"
+)
+
 private fun buildPerformanceOverlayHeader(application: Application): String {
     val packageInfo = runCatching {
         application.packageManager.getPackageInfo(application.packageName, 0)
@@ -4004,6 +4008,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 existingProfile.providedKeys == null -> PER_GAME_MEMORY_CARD_KEYS
                 else -> existingProfile.providedKeys.intersect(PER_GAME_MEMORY_CARD_KEYS)
             }
+            val dedicatedCardOverrideKeys = when {
+                existingProfile == null -> emptySet()
+                existingProfile.providedKeys == null -> PER_GAME_DEDICATED_CARD_KEYS
+                else -> existingProfile.providedKeys.intersect(PER_GAME_DEDICATED_CARD_KEYS)
+            }
             val visualOverrideKeys = buildSet {
                 if (visualStyleOverride != null) add("touchControlVisualStyle")
                 if (pressEffectOverride != null) add("touchControlPressEffect")
@@ -4015,6 +4024,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     addAll(visualOverrideKeys)
                     addAll(driverOverrideKeys)
                     addAll(memoryCardOverrideKeys)
+                    addAll(dedicatedCardOverrideKeys)
                     if (touchControlsLayout != null) add(PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY)
                     if (customTouchControls != null) add(PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY)
                 }
@@ -4029,6 +4039,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     customDriverPath = existingProfile?.customDriverPath ?: runtimeProfile.customDriverPath,
                     memoryCardSlot1 = existingProfile?.memoryCardSlot1 ?: runtimeProfile.memoryCardSlot1,
                     memoryCardSlot2 = existingProfile?.memoryCardSlot2 ?: runtimeProfile.memoryCardSlot2,
+                    dedicatedMemoryCards = existingProfile?.dedicatedMemoryCards ?: runtimeProfile.dedicatedMemoryCards,
                     mediatekAngleOpenGl = existingProfile?.mediatekAngleOpenGl ?: runtimeProfile.mediatekAngleOpenGl,
                     shaderChainOverrideEnabled = existingProfile?.shaderChainOverrideEnabled,
                     shaderChainPreset = existingProfile?.shaderChainPreset.orEmpty(),
