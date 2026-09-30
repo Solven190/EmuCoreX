@@ -2806,4 +2806,7 @@
     <string name="core_update_reset_action">بازنشانی تنظیمات شبیه‌ساز</string>
     <string name="core_update_reset_keep">حفظ تنظیمات</string>
     <string name="per_game_memory_cards_title">کارت‌های حافظه</string>
+    <string name="game_settings_manager_tab_memory_cards">کارت‌های حافظه</string>
+    <string name="per_game_memory_cards_desc">انتخاب کنید این بازی از کدام کارت‌های حافظه استفاده کند. «استفاده از تنظیمات سراسری» کارت‌های تعیین‌شده در مدیر کارت حافظه را نگه می‌دارد و «اختصاص داده نشده» بازی را با شکاف خالی اجرا می‌کند. تغییرات در اجرای بعدی بازی اعمال می‌شود.</string>
+    <string name="settings_help_per_game_memory_cards">انتخاب هر بازی فقط بر همین بازی اثر می‌گذارد و در پروفایل آن ذخیره می‌شود. اگر کارت انتخاب‌شده حذف یا تغییرنام شود، بازی به تخصیص سراسری بازمی‌گردد.</string>
 </resources>

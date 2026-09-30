@@ -146,7 +146,8 @@ private enum class GameSettingsManagerTab {
     Graphics,
     System,
     Controls,
-    Fixes
+    Fixes,
+    MemoryCards
 }
 
 private val GameSettingsSectionContentPadding = 16.dp
@@ -779,6 +780,7 @@ private fun GameSettingsManagerTabRow(
                             GameSettingsManagerTab.System -> stringResource(R.string.game_settings_manager_tab_system)
                             GameSettingsManagerTab.Controls -> stringResource(R.string.settings_controls_tab)
                             GameSettingsManagerTab.Fixes -> stringResource(R.string.settings_fixes_tab)
+                            GameSettingsManagerTab.MemoryCards -> stringResource(R.string.game_settings_manager_tab_memory_cards)
                         }
                     )
                 }
@@ -926,22 +928,6 @@ private fun GameSettingsTabContent(
                         }
                     )
                 }
-                EditorSection(title = stringResource(R.string.per_game_memory_cards_title)) {
-                    MemoryCardSlotSelectionRow(
-                        title = stringResource(R.string.memory_card_slot_1),
-                        cards = memoryCards,
-                        selectedCardName = draft.memoryCardSlot1,
-                        excludedCardName = draft.memoryCardSlot2,
-                        onSelected = { onDraftChange(draft.copy(memoryCardSlot1 = it)) }
-                    )
-                    MemoryCardSlotSelectionRow(
-                        title = stringResource(R.string.memory_card_slot_2),
-                        cards = memoryCards,
-                        selectedCardName = draft.memoryCardSlot2,
-                        excludedCardName = draft.memoryCardSlot1,
-                        onSelected = { onDraftChange(draft.copy(memoryCardSlot2 = it)) }
-                    )
-                }
                 EditorSection(title = stringResource(R.string.game_settings_manager_section_graphics)) {
                     SelectionRow(
                         title = stringResource(R.string.settings_bilinear_filtering),
@@ -1079,6 +1065,31 @@ private fun GameSettingsTabContent(
                         draft = draft,
                         defaultProfile = defaultProfile,
                         onDraftChange = onDraftChange
+                    )
+                }
+            }
+            GameSettingsManagerTab.MemoryCards -> {
+                EditorSection(title = stringResource(R.string.per_game_memory_cards_title)) {
+                    Text(
+                        text = stringResource(R.string.per_game_memory_cards_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    MemoryCardSlotSelectionRow(
+                        title = stringResource(R.string.memory_card_slot_1),
+                        cards = memoryCards,
+                        selectedCardName = draft.memoryCardSlot1,
+                        excludedCardName = draft.memoryCardSlot2,
+                        helpText = stringResource(R.string.settings_help_per_game_memory_cards),
+                        onSelected = { onDraftChange(draft.copy(memoryCardSlot1 = it)) }
+                    )
+                    MemoryCardSlotSelectionRow(
+                        title = stringResource(R.string.memory_card_slot_2),
+                        cards = memoryCards,
+                        selectedCardName = draft.memoryCardSlot2,
+                        excludedCardName = draft.memoryCardSlot1,
+                        helpText = stringResource(R.string.settings_help_per_game_memory_cards),
+                        onSelected = { onDraftChange(draft.copy(memoryCardSlot2 = it)) }
                     )
                 }
             }
@@ -1982,11 +1993,17 @@ private fun GameSettingsEditorDialog(
                             )
                         }
                         EditorSection(title = stringResource(R.string.per_game_memory_cards_title)) {
+                            Text(
+                                text = stringResource(R.string.per_game_memory_cards_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             MemoryCardSlotSelectionRow(
                                 title = stringResource(R.string.memory_card_slot_1),
                                 cards = memoryCards,
                                 selectedCardName = draft.memoryCardSlot1,
                                 excludedCardName = draft.memoryCardSlot2,
+                                helpText = stringResource(R.string.settings_help_per_game_memory_cards),
                                 onSelected = { draft = draft.copy(memoryCardSlot1 = it) }
                             )
                             MemoryCardSlotSelectionRow(
@@ -1994,6 +2011,7 @@ private fun GameSettingsEditorDialog(
                                 cards = memoryCards,
                                 selectedCardName = draft.memoryCardSlot2,
                                 excludedCardName = draft.memoryCardSlot1,
+                                helpText = stringResource(R.string.settings_help_per_game_memory_cards),
                                 onSelected = { draft = draft.copy(memoryCardSlot2 = it) }
                             )
                         }
@@ -3437,6 +3455,7 @@ private fun GameSettingsManagerTab.title(): String = when (this) {
     GameSettingsManagerTab.System -> stringResource(R.string.game_settings_manager_tab_system)
     GameSettingsManagerTab.Controls -> stringResource(R.string.settings_controls_tab)
     GameSettingsManagerTab.Fixes -> stringResource(R.string.settings_fixes_tab)
+    GameSettingsManagerTab.MemoryCards -> stringResource(R.string.game_settings_manager_tab_memory_cards)
 }
 
 @Composable
@@ -4286,6 +4305,7 @@ private fun MemoryCardSlotSelectionRow(
     cards: List<MemoryCardInfo>,
     selectedCardName: String?,
     excludedCardName: String?,
+    helpText: String? = null,
     onSelected: (String?) -> Unit
 ) {
     val useGlobalLabel = stringResource(R.string.settings_use_global)
@@ -4311,6 +4331,7 @@ private fun MemoryCardSlotSelectionRow(
         title = title,
         options = options,
         selectedValue = selectedValue,
+        helpText = helpText,
         onSelected = { value ->
             onSelected(
                 when {
@@ -4319,7 +4340,8 @@ private fun MemoryCardSlotSelectionRow(
                     else -> cards.getOrNull(value - 1)?.name
                 }
             )
-        }
+        },
+        onResetToDefault = { onSelected(null) }
     )
 }
 

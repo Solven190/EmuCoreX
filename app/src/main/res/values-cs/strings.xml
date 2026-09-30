@@ -2811,4 +2811,7 @@
     <string name="core_update_reset_action">Resetovat nastavení emulátoru</string>
     <string name="core_update_reset_keep">Ponechat nastavení</string>
     <string name="per_game_memory_cards_title">Paměťové karty</string>
+    <string name="game_settings_manager_tab_memory_cards">Paměťové karty</string>
+    <string name="per_game_memory_cards_desc">Vyberte, které paměťové karty tato hra používá. „Použít globální“ zachová karty přiřazené ve správci paměťových karet, „Nepřiřazeno“ spustí hru s prázdným slotem. Změny se použijí při příštím spuštění hry.</string>
+    <string name="settings_help_per_game_memory_cards">Volba pro konkrétní hru ovlivní pouze tuto hru a uloží se do jejího profilu. Pokud je vybraná karta smazána nebo přejmenována, hra se vrátí ke globálnímu přiřazení.</string>
 </resources>

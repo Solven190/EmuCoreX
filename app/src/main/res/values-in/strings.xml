@@ -2805,4 +2805,7 @@
     <string name="core_update_reset_action">Reset pengaturan emulator</string>
     <string name="core_update_reset_keep">Pertahankan pengaturan</string>
     <string name="per_game_memory_cards_title">Kartu memori</string>
+    <string name="game_settings_manager_tab_memory_cards">Kartu memori</string>
+    <string name="per_game_memory_cards_desc">Pilih kartu memori yang digunakan game ini. “Gunakan global” mempertahankan kartu yang ditetapkan di pengelola kartu memori; “Tidak ditetapkan” memulai game dengan slot kosong. Perubahan berlaku saat game dijalankan berikutnya.</string>
+    <string name="settings_help_per_game_memory_cards">Pilihan per game hanya memengaruhi game ini dan disimpan di profilnya. Jika kartu yang dipilih dihapus atau diganti namanya, game kembali ke penetapan global.</string>
 </resources>

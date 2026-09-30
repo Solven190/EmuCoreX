@@ -2793,4 +2793,7 @@
     <string name="core_update_reset_action">Réinitialiser les paramètres de l’émulateur</string>
     <string name="core_update_reset_keep">Conserver les paramètres</string>
     <string name="per_game_memory_cards_title">Cartes mémoire</string>
+    <string name="game_settings_manager_tab_memory_cards">Cartes mémoire</string>
+    <string name="per_game_memory_cards_desc">Choisissez les cartes mémoire utilisées par ce jeu. « Utiliser les paramètres globaux » conserve les cartes assignées dans le gestionnaire de cartes mémoire ; « Non attribué » démarre le jeu avec un emplacement vide. Les changements s\'appliquent au prochain démarrage du jeu.</string>
+    <string name="settings_help_per_game_memory_cards">Le choix par jeu ne concerne que ce jeu et est enregistré dans son profil. Si la carte sélectionnée est supprimée ou renommée, le jeu revient à l\'assignation globale.</string>
 </resources>

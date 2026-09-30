@@ -2790,4 +2790,7 @@
     <string name="core_update_reset_action">エミュレーター設定をリセット</string>
     <string name="core_update_reset_keep">設定を保持</string>
     <string name="per_game_memory_cards_title">メモリーカード</string>
+    <string name="game_settings_manager_tab_memory_cards">メモリーカード</string>
+    <string name="per_game_memory_cards_desc">このゲームが使用するメモリーカードを選択します。「グローバル設定を使用」はメモリーカードマネージャーで割り当てたカードを維持し、「未割り当て」は空のスロットでゲームを起動します。変更は次回のゲーム起動時に適用されます。</string>
+    <string name="settings_help_per_game_memory_cards">ゲームごとの選択はこのゲームにのみ適用され、そのプロファイルに保存されます。選択したカードが削除または名前変更された場合、ゲームはグローバル設定に戻ります。</string>
 </resources>

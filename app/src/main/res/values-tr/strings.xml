@@ -2791,4 +2791,7 @@
     <string name="core_update_reset_action">Emülatör ayarlarını sıfırla</string>
     <string name="core_update_reset_keep">Ayarları koru</string>
     <string name="per_game_memory_cards_title">Hafıza kartları</string>
+    <string name="game_settings_manager_tab_memory_cards">Hafıza kartları</string>
+    <string name="per_game_memory_cards_desc">Bu oyunun hangi hafıza kartlarını kullanacağını seçin. “Global ayarları kullan” hafıza kartı yöneticisinde atanan kartları korur; “Atanmadı” oyunu boş bir yuva ile başlatır. Değişiklikler oyunun bir sonraki açılışında uygulanır.</string>
+    <string name="settings_help_per_game_memory_cards">Oyun başına seçim yalnızca bu oyunu etkiler ve profilinde saklanır. Seçilen kart silinir veya adı değiştirilirse oyun global atamaya geri döner.</string>
 </resources>
