@@ -43,6 +43,7 @@ import com.sbro.emucorex.data.MemoryCardRepository
 import com.sbro.emucorex.data.OverlayLayoutSnapshot
 import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
+import com.sbro.emucorex.data.resolvePerGameMemoryCardOverride
 import com.sbro.emucorex.data.resolveShaderChain
 import com.sbro.emucorex.data.toggleStick
 import com.sbro.emucorex.data.TouchControlsLayoutProfile
@@ -94,10 +95,24 @@ import kotlin.time.Duration.Companion.milliseconds
             val keys = profile.providedKeys
             return if (keys == null || key in keys) profile.value() else current
         }
+        val resolvedMemoryCardSlot1 = resolvePerGameMemoryCardOverride(
+            profile.providedKeys,
+            "memoryCardSlot1",
+            memoryCardSlot1,
+            profile.memoryCardSlot1
+        )
+        val resolvedMemoryCardSlot2 = resolvePerGameMemoryCardOverride(
+            profile.providedKeys,
+            "memoryCardSlot2",
+            memoryCardSlot2,
+            profile.memoryCardSlot2
+        )
         return copy(
             renderer = pick("renderer", renderer) { renderer },
             gpuDriverType = pick("gpuDriverType", gpuDriverType) { gpuDriverType },
             customDriverPath = pick("customDriverPath", customDriverPath) { customDriverPath },
+            memoryCardSlot1 = resolvedMemoryCardSlot1,
+            memoryCardSlot2 = resolvedMemoryCardSlot2,
             mediatekAngleOpenGl = pick("mediatekAngleOpenGl", mediatekAngleOpenGl) { mediatekAngleOpenGl },
             upscaleMultiplier = pick("upscaleMultiplier", upscaleMultiplier) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },

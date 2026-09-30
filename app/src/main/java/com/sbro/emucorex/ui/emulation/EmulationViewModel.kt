@@ -45,6 +45,7 @@ import com.sbro.emucorex.data.PerGameSettings
 import com.sbro.emucorex.data.PerGameSettingsRepository
 import com.sbro.emucorex.data.resolveShaderChain
 import com.sbro.emucorex.data.toggleStick
+import com.sbro.emucorex.data.validatePerGameMemoryCardName
 import com.sbro.emucorex.data.TouchControlsLayoutProfile
 import com.sbro.emucorex.data.PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY
 import com.sbro.emucorex.data.PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY
@@ -94,6 +95,11 @@ private val PER_GAME_GPU_DRIVER_KEYS = setOf(
     "gpuDriverType",
     "customDriverPath",
     "mediatekAngleOpenGl"
+)
+
+private val PER_GAME_MEMORY_CARD_KEYS = setOf(
+    "memoryCardSlot1",
+    "memoryCardSlot2"
 )
 
 private fun buildPerformanceOverlayHeader(application: Application): String {
@@ -3993,6 +3999,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 existingProfile.providedKeys == null -> PER_GAME_GPU_DRIVER_KEYS
                 else -> existingProfile.providedKeys.intersect(PER_GAME_GPU_DRIVER_KEYS)
             }
+            val memoryCardOverrideKeys = when {
+                existingProfile == null -> emptySet()
+                existingProfile.providedKeys == null -> PER_GAME_MEMORY_CARD_KEYS
+                else -> existingProfile.providedKeys.intersect(PER_GAME_MEMORY_CARD_KEYS)
+            }
             val visualOverrideKeys = buildSet {
                 if (visualStyleOverride != null) add("touchControlVisualStyle")
                 if (pressEffectOverride != null) add("touchControlPressEffect")
@@ -4003,6 +4014,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     addAll(runtimeProfile.providedKeys)
                     addAll(visualOverrideKeys)
                     addAll(driverOverrideKeys)
+                    addAll(memoryCardOverrideKeys)
                     if (touchControlsLayout != null) add(PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY)
                     if (customTouchControls != null) add(PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY)
                 }
@@ -4015,6 +4027,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     touchControlPressEffect = pressEffectOverride,
                     gpuDriverType = existingProfile?.gpuDriverType ?: runtimeProfile.gpuDriverType,
                     customDriverPath = existingProfile?.customDriverPath ?: runtimeProfile.customDriverPath,
+                    memoryCardSlot1 = existingProfile?.memoryCardSlot1 ?: runtimeProfile.memoryCardSlot1,
+                    memoryCardSlot2 = existingProfile?.memoryCardSlot2 ?: runtimeProfile.memoryCardSlot2,
                     mediatekAngleOpenGl = existingProfile?.mediatekAngleOpenGl ?: runtimeProfile.mediatekAngleOpenGl,
                     shaderChainOverrideEnabled = existingProfile?.shaderChainOverrideEnabled,
                     shaderChainPreset = existingProfile?.shaderChainPreset.orEmpty(),
@@ -4247,13 +4261,28 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             dev9LocalLinkPeerId = settings.dev9LocalLinkPeerId,
             dev9LocalLinkRoomCode = settings.dev9LocalLinkRoomCode
         ).applyProfile(profile)
-        val mergedDriverPath = if (mergedConfig.gpuDriverType == 1) {
-            GpuDriverManager(getApplication()).resolveUsableDriverPath(mergedConfig.customDriverPath)
+        val availableCardNames = memoryCardRepository.listCards().mapTo(HashSet()) { it.name }
+        val validatedMemoryCardSlot1 = validatePerGameMemoryCardName(
+            selected = mergedConfig.memoryCardSlot1,
+            fallback = ensuredAssignments.slot1,
+            availableCards = availableCardNames
+        )
+        val validatedMemoryCardSlot2 = validatePerGameMemoryCardName(
+            selected = mergedConfig.memoryCardSlot2,
+            fallback = ensuredAssignments.slot2,
+            availableCards = availableCardNames
+        ).takeUnless { it.equals(validatedMemoryCardSlot1, ignoreCase = true) }
+        val mergedConfigWithCards = mergedConfig.copy(
+            memoryCardSlot1 = validatedMemoryCardSlot1,
+            memoryCardSlot2 = validatedMemoryCardSlot2
+        )
+        val mergedDriverPath = if (mergedConfigWithCards.gpuDriverType == 1) {
+            GpuDriverManager(getApplication()).resolveUsableDriverPath(mergedConfigWithCards.customDriverPath)
         } else {
             null
         }
-        return mergedConfig.copy(
-            gpuDriverType = if (mergedConfig.gpuDriverType == 1 && !mergedDriverPath.isNullOrBlank()) 1 else 0,
+        return mergedConfigWithCards.copy(
+            gpuDriverType = if (mergedConfigWithCards.gpuDriverType == 1 && !mergedDriverPath.isNullOrBlank()) 1 else 0,
             customDriverPath = mergedDriverPath
         )
     }
