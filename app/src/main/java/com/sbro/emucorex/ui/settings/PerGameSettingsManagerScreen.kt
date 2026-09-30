@@ -885,6 +885,11 @@ private fun GameSettingsTabContent(
     var isCreatingCard by remember { mutableStateOf(false) }
     val createCardLabel = stringResource(R.string.per_game_memory_card_create)
     val createCardFailedMessage = stringResource(R.string.memory_card_create_failed)
+    val canCreateDedicatedCard = remember(draft.dedicatedMemoryCards, memoryCards) {
+        draft.dedicatedMemoryCards.none { dedicated ->
+            memoryCards.any { it.name.equals(dedicated, ignoreCase = true) }
+        }
+    }
 
     fun createDedicatedCard(assign: (String) -> Unit) {
         if (isCreatingCard) return
@@ -1113,9 +1118,13 @@ private fun GameSettingsTabContent(
                         excludedCardName = draft.memoryCardSlot2,
                         hiddenCardNames = foreignDedicatedCardNames,
                         createCardLabel = createCardLabel,
+                        showCreateCardOption = canCreateDedicatedCard,
                         helpText = stringResource(R.string.settings_help_per_game_memory_cards),
                         onCreateDedicatedCard = {
                             createDedicatedCard { name ->
+                                if (name.equals(draft.memoryCardSlot2, ignoreCase = true)) {
+                                    return@createDedicatedCard
+                                }
                                 onDraftChange(
                                     draft.copy(
                                         memoryCardSlot1 = name,
@@ -1134,9 +1143,13 @@ private fun GameSettingsTabContent(
                         excludedCardName = draft.memoryCardSlot1,
                         hiddenCardNames = foreignDedicatedCardNames,
                         createCardLabel = createCardLabel,
+                        showCreateCardOption = canCreateDedicatedCard,
                         helpText = stringResource(R.string.settings_help_per_game_memory_cards),
                         onCreateDedicatedCard = {
                             createDedicatedCard { name ->
+                                if (name.equals(draft.memoryCardSlot1, ignoreCase = true)) {
+                                    return@createDedicatedCard
+                                }
                                 onDraftChange(
                                     draft.copy(
                                         memoryCardSlot2 = name,
@@ -1963,6 +1976,12 @@ private fun GameSettingsEditorDialog(
         }
     }
 
+    val canCreateDedicatedCard = remember(draft.dedicatedMemoryCards, memoryCards) {
+        draft.dedicatedMemoryCards.none { dedicated ->
+            memoryCards.any { it.name.equals(dedicated, ignoreCase = true) }
+        }
+    }
+
     val containerSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     val windowWidth = with(density) { containerSize.width.toDp() }
@@ -2096,9 +2115,13 @@ private fun GameSettingsEditorDialog(
                                 excludedCardName = draft.memoryCardSlot2,
                                 hiddenCardNames = foreignDedicatedCardNames,
                                 createCardLabel = createCardLabel,
+                                showCreateCardOption = canCreateDedicatedCard,
                                 helpText = stringResource(R.string.settings_help_per_game_memory_cards),
                                 onCreateDedicatedCard = {
                                     createDedicatedCard { name ->
+                                        if (name.equals(draft.memoryCardSlot2, ignoreCase = true)) {
+                                            return@createDedicatedCard
+                                        }
                                         draft = draft.copy(
                                             memoryCardSlot1 = name,
                                             dedicatedMemoryCards = (draft.dedicatedMemoryCards + name)
@@ -2115,9 +2138,13 @@ private fun GameSettingsEditorDialog(
                                 excludedCardName = draft.memoryCardSlot1,
                                 hiddenCardNames = foreignDedicatedCardNames,
                                 createCardLabel = createCardLabel,
+                                showCreateCardOption = canCreateDedicatedCard,
                                 helpText = stringResource(R.string.settings_help_per_game_memory_cards),
                                 onCreateDedicatedCard = {
                                     createDedicatedCard { name ->
+                                        if (name.equals(draft.memoryCardSlot1, ignoreCase = true)) {
+                                            return@createDedicatedCard
+                                        }
                                         draft = draft.copy(
                                             memoryCardSlot2 = name,
                                             dedicatedMemoryCards = (draft.dedicatedMemoryCards + name)
@@ -4422,13 +4449,23 @@ private fun MemoryCardSlotSelectionRow(
     excludedCardName: String?,
     hiddenCardNames: Set<String>,
     createCardLabel: String,
+    showCreateCardOption: Boolean,
     helpText: String? = null,
     onCreateDedicatedCard: () -> Unit,
     onSelected: (String?) -> Unit
 ) {
     val useGlobalLabel = stringResource(R.string.settings_use_global)
     val noneLabel = stringResource(R.string.memory_card_slot_empty)
-    val options = remember(cards, excludedCardName, hiddenCardNames, selectedCardName, useGlobalLabel, noneLabel, createCardLabel) {
+    val options = remember(
+        cards,
+        excludedCardName,
+        hiddenCardNames,
+        selectedCardName,
+        showCreateCardOption,
+        useGlobalLabel,
+        noneLabel,
+        createCardLabel
+    ) {
         buildList {
             add(GLOBAL_MEMORY_CARD_OPTION to useGlobalLabel)
             add(NONE_MEMORY_CARD_OPTION to noneLabel)
@@ -4439,7 +4476,9 @@ private fun MemoryCardSlotSelectionRow(
                     add(index + 1 to card.name)
                 }
             }
-            add(CREATE_MEMORY_CARD_OPTION to createCardLabel)
+            if (showCreateCardOption) {
+                add(CREATE_MEMORY_CARD_OPTION to createCardLabel)
+            }
         }
     }
     val selectedValue = when {
