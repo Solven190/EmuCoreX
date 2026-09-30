@@ -2784,4 +2784,10 @@
     <string name="settings_gpu_driver_compatibility_generic">GPU 互換性</string>
     <string name="settings_gpu_driver_other_family_generic">別のGPUファミリー</string>
     <string name="settings_help_gpu_driver_generic">既定のシステムドライバーの代わりにカスタムGPUドライバーパッケージ（Mali向けPanVKやXclipse向けVortekなど）を選択できます。対応するMali、Xclipseデバイスでは、一部のゲームで性能が大幅に向上したり、グラフィックの不具合が修正されたりします。クラッシュする場合はシステムドライバーに戻してください。</string>
+    <string name="core_update_reset_title">新しいエミュレーターコア</string>
+    <string name="core_update_reset_body">この更新にはエミュレーターコアの変更が含まれます。不具合を防ぐため、キャッシュと設定をリセットしてください。</string>
+    <string name="core_update_reset_kept">BIOS、ゲームフォルダー、操作設定、セーブデータ、メモリーカード、カバーは保持されます。</string>
+    <string name="core_update_reset_action">エミュレーター設定をリセット</string>
+    <string name="core_update_reset_keep">設定を保持</string>
+    <string name="per_game_memory_cards_title">メモリーカード</string>
 </resources>
