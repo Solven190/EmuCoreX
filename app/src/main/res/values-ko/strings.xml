@@ -1222,7 +1222,7 @@
     <string name="emulation_transport_fast_forward">빨리 감기</string>
     <string name="settings_racing_mode">레이싱 모드</string>
     <string name="settings_racing_mode_desc">액션 및 숄더 버튼을 탭하여 길게 누른 상태로 만들고, 다시 탭하여 해제합니다.</string>
-    <string name="settings_sticky_buttons">고정 버튼</string>
+    <string name="settings_sticky_buttons">누름 고정 버튼</string>
     <string name="settings_sticky_buttons_desc">선택한 버튼을 누르면 눌린 상태로 유지되고, 다시 누르면 해제됩니다.</string>
     <string name="settings_help_sticky_buttons">길게 누르는 대신 탭으로 눌린 상태를 전환할 오버레이 버튼을 선택할 수 있습니다. 얼굴 버튼을 사용하는 동안 R1, R2 또는 다른 버튼을 눌린 상태로 유지하려는 슈팅 및 호러 게임에 유용합니다.</string>
     <string name="settings_help_racing_mode">터치 액션 버튼과 숄더 버튼을 한 번 탭하여 눌림 상태를 전환할 수 있게 합니다. 이는 가속을 계속 누르고 있어야 하는 레이싱 게임에 유용하며, Start, Select, 스틱 및 D-패드는 정상적인 동작을 유지합니다.</string>
@@ -1336,6 +1336,11 @@
     <string name="welcome_title">EmuCoreX에 오신 것을 환영합니다</string>
     <string name="welcome_primary">Pro 받기</string>
     <string name="welcome_secondary">계속</string>
+    <string name="hardware_warning_title">기기가 너무 느릴 수 있습니다</string>
+    <string name="hardware_warning_body">이 기기는 PS2 에뮬레이션 권장 하드웨어보다 낮아 게임이 느리거나 끊길 수 있습니다. 오류가 아니며, 해상도를 낮추거나 성능 설정을 사용해 보세요.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">낮은 평점이나 부정적인 리뷰를 남기기 전에 최소 Snapdragon 855, Dimensity 1000, Exynos 2200 또는 Tensor G2가 탑재된 다른 기기에서 EmuCoreX를 확인해 주세요.</string>
+    <string name="hardware_warning_continue">확인</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Crimson 테마</string>
     <string name="pro_price_loading">가격 불러오는 중</string>

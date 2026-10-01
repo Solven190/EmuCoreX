@@ -240,6 +240,11 @@
     <string name="welcome_body">EmuCoreX adalah proyek baru yang sedang dalam pengembangan aktif, dan kami butuh dukungan Anda! Dengan mendapatkan versi Pro, Anda secara langsung mendukung para pembuatnya, dan sebagai bonus, Anda membuka kunci tema eksklusif Crimson dan ikon aplikasi Emas.</string>
     <string name="welcome_primary">Dapatkan Pro</string>
     <string name="welcome_secondary">Lanjutkan</string>
+    <string name="hardware_warning_title">Perangkat mungkin terlalu lambat</string>
+    <string name="hardware_warning_body">Perangkat ini di bawah perangkat keras yang disarankan untuk emulasi PS2, jadi game bisa berjalan lambat atau tersendat. Ini bukan kesalahan — coba turunkan resolusi atau gunakan pengaturan performa.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Sebelum memberi rating rendah atau ulasan negatif, coba EmuCoreX di perangkat lain dengan setidaknya Snapdragon 855, Dimensity 1000, Exynos 2200, atau Tensor G2.</string>
+    <string name="hardware_warning_continue">Mengerti</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Tema Crimson</string>
     <string name="pro_price_loading">Memuat harga</string>
@@ -840,7 +845,7 @@
     <string name="settings_overlay_opacity">Opasitas Hamparan</string>
     <string name="settings_racing_mode">Mode balap</string>
     <string name="settings_racing_mode_desc">Ketuk tombol aksi dan bahu untuk menahannya, lalu ketuk lagi untuk melepaskan.</string>
-    <string name="settings_sticky_buttons">Tombol lengket</string>
+    <string name="settings_sticky_buttons">Tombol tahan</string>
     <string name="settings_sticky_buttons_desc">Ketuk tombol yang dipilih untuk menahannya, lalu ketuk lagi untuk melepaskannya.</string>
     <string name="settings_help_sticky_buttons">Memungkinkan Anda memilih tombol overlay yang mengalihkan status ditekan dengan ketukan alih-alih harus ditahan. Berguna untuk game tembak-menembak dan horor yang ingin R1, R2, atau tombol lain tetap ditekan saat Anda menggunakan tombol muka.</string>
     <string name="settings_left_stick_sensitivity">Sensitivitas Stik Kiri</string>

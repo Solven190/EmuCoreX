@@ -4392,6 +4392,8 @@ private fun EmulationSidebarMenu(
                             options = eeCycleRateLiveOptions(),
                             currentValue = uiState.eeCycleRate,
                             onValueChange = onSetEeCycleRate,
+                            allowWrap = false,
+                            horizontalScrolling = true,
                             helpText = stringResource(R.string.settings_help_ee_cycle_rate),
                             onResetToDefault = { onSetEeCycleRate(globalDefaults.eeCycleRate) }
                         )
@@ -4401,6 +4403,8 @@ private fun EmulationSidebarMenu(
                             options = eeCycleSkipLiveOptions(),
                             currentValue = uiState.eeCycleSkip,
                             onValueChange = onSetEeCycleSkip,
+                            allowWrap = false,
+                            horizontalScrolling = true,
                             helpText = stringResource(R.string.settings_help_ee_cycle_skip),
                             onResetToDefault = { onSetEeCycleSkip(globalDefaults.eeCycleSkip) }
                         )
@@ -4783,6 +4787,8 @@ private fun EmulationSidebarMenu(
                             ),
                             currentValue = uiState.hwDownloadMode,
                             onValueChange = onSetHwDownloadMode,
+                            allowWrap = false,
+                            horizontalScrolling = true,
                             helpText = stringResource(R.string.settings_help_hw_download_mode),
                             onResetToDefault = { onSetHwDownloadMode(globalDefaults.hwDownloadMode) }
                         )

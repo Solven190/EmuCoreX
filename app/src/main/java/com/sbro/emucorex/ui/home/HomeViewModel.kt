@@ -8,7 +8,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sbro.emucorex.core.BiosValidator
 import com.sbro.emucorex.core.CoreBinaryFingerprint
+import com.sbro.emucorex.core.DeviceGpuInfoProvider
 import com.sbro.emucorex.core.EmulatorBridge
+import com.sbro.emucorex.core.HardwareWarningPolicy
 import com.sbro.emucorex.core.SetupValidator
 import com.sbro.emucorex.core.ProProductOffer
 import com.sbro.emucorex.core.ProPurchaseManager
@@ -38,6 +40,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -88,6 +91,8 @@ data class HomeUiState(
     val isCoverArtDisabled: Boolean = true,
     val showWelcomeDialog: Boolean = false,
     val showCoreResetDialog: Boolean = false,
+    val showHardwareWarning: Boolean = false,
+    val hardwareWarningGpu: String = "",
     val isProUnlocked: Boolean = false,
     val proPrice: String? = null,
     val proProducts: List<ProProductOffer> = emptyList(),
@@ -189,6 +194,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             preferences.welcomeDialogShown.distinctUntilChanged().collect { shown ->
                 _uiState.value = _uiState.value.copy(showWelcomeDialog = !shown)
             }
+        }
+        viewModelScope.launch {
+            combine(
+                preferences.hardwareWarningShown.distinctUntilChanged(),
+                DeviceGpuInfoProvider.snapshot
+            ) { shown, snapshot -> shown to snapshot }
+                .collect { (shown, snapshot) ->
+                    val resolved = snapshot ?: return@collect
+                    val shouldShow = HardwareWarningPolicy.shouldShow(resolved.tier, shown)
+                    _uiState.value = _uiState.value.copy(
+                        showHardwareWarning = shouldShow,
+                        hardwareWarningGpu = resolved.model?.displayName.orEmpty()
+                    )
+                }
         }
         viewModelScope.launch {
             val context = getApplication<Application>()
@@ -757,6 +776,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
         fun dismissWelcomeDialog() {
         viewModelScope.launch { preferences.setWelcomeDialogShown(true) }
+    }
+
+    fun dismissHardwareWarning() {
+        viewModelScope.launch { preferences.setHardwareWarningShown(true) }
     }
 
     fun resetGeneratedCoreState() {

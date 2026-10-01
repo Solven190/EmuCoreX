@@ -1224,7 +1224,7 @@
     <string name="emulation_transport_fast_forward">Avance rápido</string>
     <string name="settings_racing_mode">Modo carrera</string>
     <string name="settings_racing_mode_desc">Toca los botones de acción y los gatillos para mantenerlos pulsados, y vuelve a tocarlos para soltarlos.</string>
-    <string name="settings_sticky_buttons">Botones fijados</string>
+    <string name="settings_sticky_buttons">Botones con bloqueo</string>
     <string name="settings_sticky_buttons_desc">Toca un botón seleccionado para mantenerlo y vuelve a tocar para soltarlo.</string>
     <string name="settings_help_sticky_buttons">Permite elegir botones de la superposición que alternan su estado pulsado con un toque en lugar de mantenerlos. Útil para juegos de disparos y terror que quieren mantener R1, R2 u otros botones pulsados mientras usas los botones frontales.</string>
     <string name="settings_help_racing_mode">Hace que los botones de acción táctiles y los gatillos alternen su estado de pulsación con un toque. Esto es útil para los juegos de carreras donde la aceleración debe mantenerse pulsada, mientras que Start, Select, los joysticks y la cruceta (D-pad) mantienen su comportamiento normal.</string>
@@ -1338,6 +1338,11 @@
     <string name="welcome_title">Bienvenido a EmuCoreX</string>
     <string name="welcome_primary">Obtener Pro</string>
     <string name="welcome_secondary">Continuar</string>
+    <string name="hardware_warning_title">El dispositivo puede ser demasiado lento</string>
+    <string name="hardware_warning_body">Este dispositivo está por debajo del hardware recomendado para la emulación de PS2, por lo que los juegos pueden ir lentos o con tirones. No es un error: prueba a bajar la resolución o a usar los ajustes de rendimiento.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Antes de dejar una mala puntuación o una reseña negativa, prueba EmuCoreX en otro dispositivo con al menos Snapdragon 855, Dimensity 1000, Exynos 2200 o Tensor G2.</string>
+    <string name="hardware_warning_continue">Entendido</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Tema Crimson</string>
     <string name="pro_price_loading">Cargando precio</string>

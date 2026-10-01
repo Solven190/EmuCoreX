@@ -1224,7 +1224,7 @@
     <string name="emulation_transport_fast_forward">Vorspulen</string>
     <string name="settings_racing_mode">Rennmodus</string>
     <string name="settings_racing_mode_desc">Tippe auf Aktions- und Schultertasten, um sie gedrückt zu halten, und tippe erneut, um sie loszulassen.</string>
-    <string name="settings_sticky_buttons">Fixierte Tasten</string>
+    <string name="settings_sticky_buttons">Tasten mit Fixierung</string>
     <string name="settings_sticky_buttons_desc">Tippe auf eine ausgewählte Taste, um sie zu halten, und tippe erneut, um sie loszulassen.</string>
     <string name="settings_help_sticky_buttons">Ermöglicht die Auswahl von Overlay-Tasten, die ihren gedrückten Zustand per Tippen umschalten, statt gehalten werden zu müssen. Nützlich für Shooter und Horror-Spiele, bei denen R1, R2 oder andere Tasten gedrückt bleiben sollen, während du die Gesichtstasten benutzt.</string>
     <string name="settings_help_racing_mode">Bewirkt, dass Touch-Aktionstasten und Schultertasten ihren gedrückten Zustand durch Antippen umschalten. Dies ist nützlich für Rennspiele, bei denen die Beschleunigung gehalten werden muss, während Start, Select, Sticks und das Steuerkreuz ihr normales Verhalten beibehalten.</string>
@@ -1338,6 +1338,11 @@
     <string name="welcome_title">Willkommen bei EmuCoreX</string>
     <string name="welcome_primary">Pro holen</string>
     <string name="welcome_secondary">Weiter</string>
+    <string name="hardware_warning_title">Gerät möglicherweise zu langsam</string>
+    <string name="hardware_warning_body">Dieses Gerät liegt unter der empfohlenen Hardware für PS2-Emulation, daher können Spiele langsam laufen oder ruckeln. Das ist kein Fehler – versuche, die Auflösung zu senken oder die Leistungseinstellungen zu verwenden.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Bevor du eine schlechte Bewertung abgibst, teste EmuCoreX auf einem anderen Gerät mit mindestens Snapdragon 855, Dimensity 1000, Exynos 2200 oder Tensor G2.</string>
+    <string name="hardware_warning_continue">Verstanden</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Crimson-Design</string>
     <string name="pro_price_loading">Preis wird geladen</string>

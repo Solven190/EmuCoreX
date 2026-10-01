@@ -1222,7 +1222,7 @@
     <string name="emulation_transport_fast_forward">تقديم سريع</string>
     <string name="settings_racing_mode">وضع السباق</string>
     <string name="settings_racing_mode_desc">انقر على أزرار الإجراءات وأزرار الكتف للاستمرار في الضغط عليها، ثم انقر مرة أخرى للتحرير.</string>
-    <string name="settings_sticky_buttons">أزرار مثبتة</string>
+    <string name="settings_sticky_buttons">أزرار التثبيت</string>
     <string name="settings_sticky_buttons_desc">انقر على الزر المحدد لتثبيته، ثم انقر مرة أخرى لتحريره.</string>
     <string name="settings_help_sticky_buttons">يتيح لك اختيار أزرار الواجهة التي تبدّل حالة الضغط بلمسة واحدة بدلاً من الاستمرار في الضغط. مفيد لألعاب التصويب والرعب التي تريد إبقاء R1 أو R2 أو أزرار أخرى مضغوطة أثناء استخدام أزرار الوجه.</string>
     <string name="settings_help_racing_mode">يجعل أزرار الإجراءات التي تعمل باللمس وأزرار الكتف تبدل حالة الضغط عليها بنقرة واحدة. هذا مفيد لألعاب السباق حيث يجب أن يظل التسارع مضغوطًا، بينما تحافظ أزرار Start و Select وعصا التحكم ولوحة الاتجاهات (D-pad) على سلوكها الطبيعي.</string>
@@ -1336,6 +1336,11 @@
     <string name="welcome_title">مرحبًا بك في EmuCoreX</string>
     <string name="welcome_primary">احصل على Pro</string>
     <string name="welcome_secondary">متابعة</string>
+    <string name="hardware_warning_title">قد يكون الجهاز بطيئًا جدًا</string>
+    <string name="hardware_warning_body">هذا الجهاز أقل من المتطلبات الموصى بها لمحاكاة PS2، لذا قد تعمل الألعاب ببطء أو تتقطع. هذا ليس خطأً — جرّب خفض الدقة أو استخدام إعدادات الأداء.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">قبل ترك تقييم منخفض أو مراجعة سلبية، جرّب EmuCoreX على جهاز آخر بمعالج Snapdragon 855 أو Dimensity 1000 أو Exynos 2200 أو Tensor G2 على الأقل.</string>
+    <string name="hardware_warning_continue">فهمت</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">سمة Crimson</string>
     <string name="pro_price_loading">جاري تحميل السعر</string>

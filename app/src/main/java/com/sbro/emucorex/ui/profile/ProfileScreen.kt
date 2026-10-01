@@ -1383,7 +1383,7 @@ private fun ProfileDevicesDialog(
                         Text(device.displayName, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
                         if (device.isCurrent) Text(stringResource(R.string.profile_device_current), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     }
-                    Text(listOf(device.soc, device.gpuFamily, device.androidVersion).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(listOf(device.soc, device.gpuModel.ifBlank { device.gpuFamily }, device.androidVersion).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         OutlinedButton(
                             shape = neonButtonShape(),
@@ -1486,7 +1486,7 @@ private fun PublicDeviceDialog(device: PublicPlayerDevice, onDismiss: () -> Unit
     ProfileFeatureDialog(title = device.displayName, onDismiss = onDismiss) {
         listOf(
             R.string.profile_device_soc to device.soc,
-            R.string.profile_device_gpu to device.gpuFamily,
+            R.string.profile_device_gpu to device.gpuModel.ifBlank { device.gpuFamily },
             R.string.profile_device_ram to if (device.ramMb > 0) "${device.ramMb / 1024} GB" else "—",
             R.string.profile_device_android to device.androidVersion,
             R.string.profile_device_app_core to "${device.appVersion} · ${device.coreVersion}"

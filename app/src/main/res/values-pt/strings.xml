@@ -1224,7 +1224,7 @@
     <string name="emulation_transport_fast_forward">Avanço rápido</string>
     <string name="settings_racing_mode">Modo corrida</string>
     <string name="settings_racing_mode_desc">Toque nos botões de ação e de ombro para mantê-los pressionados e toque novamente para soltar.</string>
-    <string name="settings_sticky_buttons">Botões fixos</string>
+    <string name="settings_sticky_buttons">Botões com fixação</string>
     <string name="settings_sticky_buttons_desc">Toque num botão selecionado para o manter, e toque novamente para o soltar.</string>
     <string name="settings_help_sticky_buttons">Permite escolher botões da sobreposição que alternam o estado premido com um toque em vez de exigir que sejam mantidos. Útil para jogos de tiro e terror que querem manter R1, R2 ou outros botões premidos enquanto usas os botões frontais.</string>
     <string name="settings_help_racing_mode">Faz com que os botões de ação de toque e os botões de ombro alternem seu estado de pressionados com um toque. Isso é útil para jogos de corrida onde a aceleração precisa ser mantida pressionada, enquanto Start, Select, os analógicos e o D-pad mantêm o comportamento normal.</string>
@@ -1338,6 +1338,11 @@
     <string name="welcome_title">Bem-vindo ao EmuCoreX</string>
     <string name="welcome_primary">Obter Pro</string>
     <string name="welcome_secondary">Continuar</string>
+    <string name="hardware_warning_title">O dispositivo pode ser demasiado lento</string>
+    <string name="hardware_warning_body">Este dispositivo está abaixo do hardware recomendado para emulação de PS2, por isso os jogos podem ficar lentos ou com engasgos. Não é um erro — tente reduzir a resolução ou usar as configurações de desempenho.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Antes de deixar uma avaliação baixa ou uma crítica negativa, teste o EmuCoreX em outro dispositivo com pelo menos Snapdragon 855, Dimensity 1000, Exynos 2200 ou Tensor G2.</string>
+    <string name="hardware_warning_continue">Entendi</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Tema Crimson</string>
     <string name="pro_price_loading">A carregar preço</string>

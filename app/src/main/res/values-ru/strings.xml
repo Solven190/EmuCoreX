@@ -1224,7 +1224,7 @@
     <string name="emulation_transport_fast_forward">Ускорение</string>
     <string name="settings_racing_mode">Гоночный режим</string>
     <string name="settings_racing_mode_desc">Коснитесь кнопок действий и триггеров (шифтов), чтобы удерживать их нажатыми, и коснитесь снова, чтобы отпустить.</string>
-    <string name="settings_sticky_buttons">Фиксируемые кнопки</string>
+    <string name="settings_sticky_buttons">Кнопки с фиксацией</string>
     <string name="settings_sticky_buttons_desc">Коснитесь выбранной кнопки, чтобы удерживать её, и коснитесь снова, чтобы отпустить.</string>
     <string name="settings_help_sticky_buttons">Позволяет выбрать кнопки оверлея, которые переключают нажатие одним касанием вместо удержания. Удобно для шутеров и хорроров, где R1, R2 или другие кнопки должны оставаться нажатыми, пока вы используете лицевые кнопки.</string>
     <string name="settings_help_racing_mode">Позволяет кнопкам действий на сенсорном экране и триггерам переключать состояние нажатия одним касанием. Это полезно для гоночных игр, где нужно постоянно удерживать газ, в то время как Start, Select, стики и крестовина (D-pad) работают как обычно.</string>
@@ -1338,6 +1338,11 @@
     <string name="welcome_title">Добро пожаловать в EmuCoreX</string>
     <string name="welcome_primary">Получить Pro</string>
     <string name="welcome_secondary">Продолжить</string>
+    <string name="hardware_warning_title">Устройство может быть слишком слабым</string>
+    <string name="hardware_warning_body">Это устройство слабее рекомендованных требований для эмуляции PS2, поэтому игры могут работать медленно или с подтормаживаниями. Это не ошибка — попробуйте снизить разрешение или использовать настройки производительности.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Прежде чем ставить низкую оценку или негативный отзыв, проверьте EmuCoreX на другом устройстве с как минимум Snapdragon 855, Dimensity 1000, Exynos 2200 или Tensor G2.</string>
+    <string name="hardware_warning_continue">Понятно</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Тема Crimson</string>
     <string name="pro_price_loading">Загрузка цены</string>

@@ -138,11 +138,21 @@ object GpuDriverRecommendations {
         listOf("855") to ("640" to AdrenoFamily.A6XX),
         listOf("845") to ("630" to AdrenoFamily.A6XX),
         listOf("7 gen 1") to ("644" to AdrenoFamily.A6XX),
-        listOf("780g", "778g") to ("642" to AdrenoFamily.A6XX),
+        listOf("780g") to ("642" to AdrenoFamily.A6XX),
+        listOf("778g") to ("642L" to AdrenoFamily.A6XX),
         listOf("765") to ("620" to AdrenoFamily.A6XX),
         listOf("750g") to ("619" to AdrenoFamily.A6XX),
         listOf("730", "720g") to ("618" to AdrenoFamily.A6XX),
-        listOf("695", "690", "680", "665", "662") to ("6xx" to AdrenoFamily.A6XX)
+        listOf("4s gen 2", "4 gen 2") to ("613" to AdrenoFamily.A6XX),
+        listOf("4 gen 1", "695") to ("619" to AdrenoFamily.A6XX),
+        listOf("690") to ("619L" to AdrenoFamily.A6XX),
+        listOf("480") to ("619" to AdrenoFamily.A6XX),
+        listOf("460") to ("610" to AdrenoFamily.A6XX),
+        listOf("685", "680", "665", "662") to ("610" to AdrenoFamily.A6XX),
+        listOf("675", "678") to ("612" to AdrenoFamily.A6XX),
+        listOf("670") to ("615" to AdrenoFamily.A6XX),
+        listOf("660") to ("512" to AdrenoFamily.A6XX),
+        listOf("636") to ("509" to AdrenoFamily.A6XX)
     )
 
     private val EXPLICIT_ADRENO_MODEL = Regex("8xx\\s*\\(([^)]+)\\)", RegexOption.IGNORE_CASE)
@@ -226,7 +236,8 @@ object GpuDriverCompatibility {
         val socName = MobileSocNameMapper.currentDeviceName()
             .takeIf { it.isNotBlank() }
             ?: socLabel().ifBlank { vendor.displayName }
-        val gpuName = when (vendor) {
+        val catalogModel = SocGpuCatalog.forSoc(socName)
+        val gpuName = catalogModel?.displayName ?: when (vendor) {
             GpuDriverVendor.ADRENO ->
                 GpuDriverRecommendations.currentDeviceProfile()?.adrenoName ?: vendor.displayName
             else -> vendor.displayName

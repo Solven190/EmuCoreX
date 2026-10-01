@@ -240,6 +240,11 @@
     <string name="welcome_body">EmuCoreX یک پروژه جدید در حال توسعه فعال است و ما به حمایت شما نیاز داریم! با دریافت نسخه Pro، مستقیماً از سازندگان حمایت می‌کنید و به عنوان پاداش، تم انحصاری Crimson و آیکون طلایی برنامه را باز می‌کنید.</string>
     <string name="welcome_primary">دریافت Pro</string>
     <string name="welcome_secondary">ادامه</string>
+    <string name="hardware_warning_title">ممکن است دستگاه بیش از حد کند باشد</string>
+    <string name="hardware_warning_body">این دستگاه پایین‌تر از سخت‌افزار توصیه‌شده برای شبیه‌سازی PS2 است، بنابراین بازی‌ها ممکن است کند اجرا شوند یا تکان بخورند. این خطا نیست — کاهش رزولوشن یا استفاده از تنظیمات عملکرد را امتحان کنید.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">پیش از ثبت امتیاز پایین یا نظر منفی، EmuCoreX را روی دستگاه دیگری با حداقل Snapdragon 855، Dimensity 1000، Exynos 2200 یا Tensor G2 امتحان کنید.</string>
+    <string name="hardware_warning_continue">متوجه شدم</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">تم Crimson</string>
     <string name="pro_price_loading">در حال بارگذاری قیمت</string>
@@ -840,7 +845,7 @@
     <string name="settings_overlay_opacity">شفافیت روکش</string>
     <string name="settings_racing_mode">حالت مسابقه</string>
     <string name="settings_racing_mode_desc">برای نگه داشتن دکمه‌های اکشن و شانه‌ها ضربه بزنید، و برای رها کردن دوباره ضربه بزنید.</string>
-    <string name="settings_sticky_buttons">دکمه‌های چسبان</string>
+    <string name="settings_sticky_buttons">دکمه‌های ثابت</string>
     <string name="settings_sticky_buttons_desc">برای نگه‌داشتن دکمه انتخاب‌شده روی آن بزنید و برای رها کردن دوباره بزنید.</string>
     <string name="settings_help_sticky_buttons">به شما امکان می‌دهد دکمه‌های روکش را انتخاب کنید که به‌جای نگه‌داشتن، با یک ضربه وضعیت فشرده را تغییر می‌دهند. برای بازی‌های تیراندازی و ترسناک که می‌خواهند R1، R2 یا دکمه‌های دیگر هنگام استفاده از دکمه‌های چهره فشرده بمانند مفید است.</string>
     <string name="settings_left_stick_sensitivity">حساسیت استیک چپ</string>

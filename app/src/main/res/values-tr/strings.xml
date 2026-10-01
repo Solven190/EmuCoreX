@@ -1222,7 +1222,7 @@
     <string name="emulation_transport_fast_forward">İleri sar</string>
     <string name="settings_racing_mode">Yarış modu</string>
     <string name="settings_racing_mode_desc">Basılı tutmak için eylem ve omuz düğmelerine dokunun, ardından bırakmak için tekrar dokunun.</string>
-    <string name="settings_sticky_buttons">Sabit tuşlar</string>
+    <string name="settings_sticky_buttons">Basılı kalan tuşlar</string>
     <string name="settings_sticky_buttons_desc">Seçili bir tuşa dokunarak basılı tutun, bırakmak için tekrar dokunun.</string>
     <string name="settings_help_sticky_buttons">Basılı tutmak yerine dokunuşla basılı durumunu değiştiren kaplama tuşlarını seçmenizi sağlar. R1, R2 veya diğer tuşların yüz tuşlarını kullanırken basılı kalmasını isteyen nişancı ve korku oyunları için kullanışlıdır.</string>
     <string name="settings_help_racing_mode">Dokunmatik eylem düğmelerinin ve omuz düğmelerinin tek bir dokunuşla basılı duruma geçmesini sağlar. Bu, hızlanmanın basılı tutulması gereken yarış oyunları için yararlıyken Start, Select, çubuklar ve D-pad normal davranışını korur.</string>
@@ -1336,6 +1336,11 @@
     <string name="welcome_title">EmuCoreX\'e Hoş Geldiniz</string>
     <string name="welcome_primary">Pro Al</string>
     <string name="welcome_secondary">Devam Et</string>
+    <string name="hardware_warning_title">Cihaz çok yavaş olabilir</string>
+    <string name="hardware_warning_body">Bu cihaz PS2 emülasyonu için önerilen donanımın altında, bu nedenle oyunlar yavaş çalışabilir veya takılabilir. Bu bir hata değil — çözünürlüğü düşürmeyi veya performans ayarlarını kullanmayı deneyin.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Düşük puan veya olumsuz yorum bırakmadan önce EmuCoreX\'i en az Snapdragon 855, Dimensity 1000, Exynos 2200 veya Tensor G2\'li başka bir cihazda deneyin.</string>
+    <string name="hardware_warning_continue">Anladım</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Crimson teması</string>
     <string name="pro_price_loading">Fiyat yükleniyor</string>

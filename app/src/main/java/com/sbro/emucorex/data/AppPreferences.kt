@@ -607,6 +607,7 @@ class AppPreferences(private val context: Context) {
         private val HIDDEN_GAME_MENU_SECTIONS = stringPreferencesKey("hidden_game_menu_sections")
         private val PRO_UNLOCKED = booleanPreferencesKey("pro_unlocked")
         private val WELCOME_DIALOG_SHOWN = booleanPreferencesKey("welcome_dialog_shown")
+        private val HARDWARE_WARNING_SHOWN = booleanPreferencesKey("hardware_warning_shown")
         private val LAST_CORE_BINARY_FINGERPRINT =
             stringPreferencesKey("last_core_binary_fingerprint")
         private val MEDIATEK_SETTINGS_NOTICE_SHOWN =
@@ -1222,6 +1223,10 @@ class AppPreferences(private val context: Context) {
         .map { prefs -> prefs[WELCOME_DIALOG_SHOWN] ?: false }
         .distinctUntilChanged()
 
+    val hardwareWarningShown: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[HARDWARE_WARNING_SHOWN] ?: false }
+        .distinctUntilChanged()
+
     val mediatekSettingsNoticeShown: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[MEDIATEK_SETTINGS_NOTICE_SHOWN] ?: false }
         .distinctUntilChanged()
@@ -1237,6 +1242,10 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setWelcomeDialogShown(shown: Boolean) {
         context.dataStore.edit { prefs -> prefs[WELCOME_DIALOG_SHOWN] = shown }
+    }
+
+    suspend fun setHardwareWarningShown(shown: Boolean) {
+        context.dataStore.edit { prefs -> prefs[HARDWARE_WARNING_SHOWN] = shown }
     }
 
     val lastCoreBinaryFingerprint: Flow<String?> = context.dataStore.data

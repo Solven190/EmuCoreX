@@ -1464,6 +1464,7 @@ private fun GameSettingsTabContent(
                     StickyButtonsSelector(
                         selected = draft.stickyButtons,
                         onSelectionChange = { onDraftChange(draft.copy(stickyButtons = it)) },
+                        modifier = Modifier.sectionContentFullBleed(GameSettingsSectionContentPadding),
                         helpText = stringResource(R.string.settings_help_sticky_buttons),
                         onResetToDefault = {
                             onDraftChange(draft.copy(stickyButtons = defaultProfile.stickyButtons))
@@ -2229,6 +2230,7 @@ private fun GameSettingsEditorDialog(
                             StickyButtonsSelector(
                                 selected = draft.stickyButtons,
                                 onSelectionChange = { draft = draft.copy(stickyButtons = it) },
+                                modifier = Modifier.sectionContentFullBleed(GameSettingsSectionContentPadding),
                                 helpText = stringResource(R.string.settings_help_sticky_buttons),
                                 onResetToDefault = {
                                     draft = draft.copy(stickyButtons = defaultProfile.stickyButtons)
@@ -2905,7 +2907,8 @@ private fun GameSettingsEditorDialog(
                                 selectedValue = draft.textureInsideRt,
                                 onSelected = { draft = draft.copy(textureInsideRt = it) },
                                 helpText = stringResource(R.string.settings_help_texture_inside_rt),
-                                onResetToDefault = { draft = draft.copy(textureInsideRt = defaultProfile.textureInsideRt) }
+                                onResetToDefault = { draft = draft.copy(textureInsideRt = defaultProfile.textureInsideRt) },
+                                alwaysScroll = true
                             )
                             ToggleRow(
                                 title = stringResource(R.string.settings_read_targets_on_close),
@@ -3862,7 +3865,8 @@ private fun HardwareFixesRows(
             selectedValue = draft.textureInsideRt,
             onSelected = { onDraftChange(draft.copy(textureInsideRt = it)) },
             helpText = stringResource(R.string.settings_help_texture_inside_rt),
-            onResetToDefault = { onDraftChange(draft.copy(textureInsideRt = defaultProfile.textureInsideRt)) }
+            onResetToDefault = { onDraftChange(draft.copy(textureInsideRt = defaultProfile.textureInsideRt)) },
+            alwaysScroll = true
         )
         ToggleRow(
             title = stringResource(R.string.settings_read_targets_on_close),

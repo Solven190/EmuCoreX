@@ -246,6 +246,11 @@
     <string name="welcome_body">EmuCoreX is a new project in active development, and we need your support! By getting the Pro version, you directly support the creators, and as a bonus, you unlock the exclusive Crimson theme and Gold app icon.</string>
     <string name="welcome_primary">Get Pro</string>
     <string name="welcome_secondary">Continue</string>
+    <string name="hardware_warning_title">Device may be too slow</string>
+    <string name="hardware_warning_body">This device is below the recommended hardware for PS2 emulation, so games may run slowly or stutter. This is not an error — try lowering the resolution or using the performance settings.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Before leaving a low rating or a negative review, check EmuCoreX on another device with at least a Snapdragon 855, Dimensity 1000, Exynos 2200 or Tensor G2.</string>
+    <string name="hardware_warning_continue">Got it</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Crimson theme</string>
     <string name="pro_price_loading">Loading price</string>
