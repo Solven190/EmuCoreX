@@ -207,6 +207,7 @@ import kotlin.time.Duration.Companion.milliseconds
             showFps = pick("showFps", showFps) { showFps },
             fpsOverlayMode = pick("fpsOverlayMode", fpsOverlayMode) { fpsOverlayMode },
             racingMode = pick("racingMode", racingMode) { racingMode },
+            stickyButtons = pick("stickyButtons", stickyButtons) { stickyButtons },
             touchscreenRightStick = pick("touchscreenRightStick", touchscreenRightStick) { touchscreenRightStick },
             touchscreenRightStickSensitivity = pick(
                 "touchscreenRightStickSensitivity",
@@ -362,6 +363,7 @@ import kotlin.time.Duration.Companion.milliseconds
             lowLatencyMode = lowLatencyMode,
             frameLimitEnabled = frameLimitEnabled,
             racingMode = racingMode,
+            stickyButtons = stickyButtons,
             touchscreenRightStick = touchscreenRightStick,
             touchscreenRightStickSensitivity = touchscreenRightStickSensitivity,
             touchHaptics = touchHaptics,
@@ -487,6 +489,7 @@ import kotlin.time.Duration.Companion.milliseconds
             if (lowLatencyMode != settings.lowLatencyMode) add("lowLatencyMode")
             if (frameLimitEnabled != settings.frameLimitEnabled) add("frameLimitEnabled")
             if (racingMode != settings.racingMode) add("racingMode")
+            if (stickyButtons != settings.stickyButtons) add("stickyButtons")
             if (touchscreenRightStick != settings.touchscreenRightStick) add("touchscreenRightStick")
             if (touchscreenRightStickSensitivity != settings.touchscreenRightStickSensitivity) {
                 add("touchscreenRightStickSensitivity")

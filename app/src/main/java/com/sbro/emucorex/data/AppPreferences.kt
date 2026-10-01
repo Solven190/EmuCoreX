@@ -219,6 +219,7 @@ data class SettingsSnapshot(
     val overlayOpacity: Int = AppPreferences.DEFAULT_OVERLAY_OPACITY,
     val overlayShow: Boolean = true,
     val racingMode: Boolean = false,
+    val stickyButtons: Set<String> = emptySet(),
     val touchscreenRightStick: Boolean = AppPreferences.DEFAULT_TOUCHSCREEN_RIGHT_STICK,
     val touchscreenRightStickSensitivity: Int = AppPreferences.DEFAULT_TOUCHSCREEN_RIGHT_STICK_SENSITIVITY,
     val touchHaptics: Boolean = false,
@@ -361,7 +362,7 @@ class AppPreferences(private val context: Context) {
             "padVibrationStrength", "padVibrationFallback", "showFps", "fpsOverlayMode",
             "fpsOverlayCorner", "fpsOverlayScale", "fpsOverlayMetrics", "confirmSaveLoadActions",
             "backButtonExitsGame", "compactControls", "keepScreenOn", "overlayScale",
-            "overlayOpacity", "overlayShow", "racingMode", "touchscreenRightStick",
+            "overlayOpacity", "overlayShow", "racingMode", "stickyButtons", "touchscreenRightStick",
             "touchscreenRightStickSensitivity", "touchHaptics", "touchHapticsPreset", "stickToggleTarget",
             "touchHapticsStrength", "gyroMode", "gyroSensitivity", "gyroSmoothing",
             "gyroInvertX", "gyroInvertY", "gyroStickTarget", "lightGunAim",
@@ -673,6 +674,7 @@ class AppPreferences(private val context: Context) {
         private val OVERLAY_OPACITY = intPreferencesKey("overlay_opacity")
         private val OVERLAY_SHOW = booleanPreferencesKey("overlay_show")
         private val RACING_MODE = booleanPreferencesKey("racing_mode")
+        private val STICKY_BUTTONS = stringSetPreferencesKey("sticky_buttons")
         private val TOUCHSCREEN_RIGHT_STICK = booleanPreferencesKey("touchscreen_right_stick")
         private val TOUCHSCREEN_RIGHT_STICK_SENSITIVITY = intPreferencesKey("touchscreen_right_stick_sensitivity")
         // Extended emulator settings
@@ -1990,6 +1992,7 @@ class AppPreferences(private val context: Context) {
                     .coerceIn(OVERLAY_OPACITY_MIN, OVERLAY_OPACITY_MAX),
                 overlayShow = prefs[OVERLAY_SHOW] ?: true,
                 racingMode = prefs[RACING_MODE] ?: false,
+                stickyButtons = prefs[STICKY_BUTTONS] ?: emptySet(),
                 touchscreenRightStick = prefs[TOUCHSCREEN_RIGHT_STICK] ?: DEFAULT_TOUCHSCREEN_RIGHT_STICK,
                 touchscreenRightStickSensitivity = (prefs[TOUCHSCREEN_RIGHT_STICK_SENSITIVITY]
                     ?: DEFAULT_TOUCHSCREEN_RIGHT_STICK_SENSITIVITY).coerceIn(
@@ -2734,6 +2737,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setRacingMode(enabled: Boolean) {
         context.dataStore.edit { it[RACING_MODE] = enabled }
+    }
+
+    val stickyButtons: Flow<Set<String>> = context.dataStore.data.map { prefs ->
+        prefs[STICKY_BUTTONS] ?: emptySet()
+    }
+
+    suspend fun setStickyButtons(buttons: Set<String>) {
+        context.dataStore.edit { it[STICKY_BUTTONS] = buttons }
     }
 
     val touchscreenRightStick: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -4170,6 +4181,7 @@ class AppPreferences(private val context: Context) {
             )
             put("overlayShow", prefs[OVERLAY_SHOW] ?: true)
             put("racingMode", prefs[RACING_MODE] ?: false)
+            put("stickyButtons", JSONArray((prefs[STICKY_BUTTONS] ?: emptySet()).sorted()))
             put(
                 "touchscreenRightStick",
                 prefs[TOUCHSCREEN_RIGHT_STICK] ?: DEFAULT_TOUCHSCREEN_RIGHT_STICK
@@ -4612,6 +4624,11 @@ class AppPreferences(private val context: Context) {
                 .coerceIn(OVERLAY_OPACITY_MIN, OVERLAY_OPACITY_MAX)
             prefs[OVERLAY_SHOW] = json.optBoolean("overlayShow", true)
             prefs[RACING_MODE] = json.optBoolean("racingMode", false)
+            prefs[STICKY_BUTTONS] = json.optJSONArray("stickyButtons")?.let { array ->
+                (0 until array.length()).mapNotNull { index ->
+                    (array.opt(index) as? String)?.takeIf { it.isNotBlank() }
+                }.toSet()
+            } ?: emptySet()
             prefs[TOUCHSCREEN_RIGHT_STICK] = json.optBoolean(
                 "touchscreenRightStick",
                 DEFAULT_TOUCHSCREEN_RIGHT_STICK
