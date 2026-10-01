@@ -170,6 +170,7 @@ data class EmulationUiState(
     val invertLeftStickHorizontal: Boolean = false,
     val invertRightStickHorizontal: Boolean = false,
     val racingMode: Boolean = false,
+    val stickyButtons: Set<String> = emptySet(),
     val touchscreenRightStick: Boolean = AppPreferences.DEFAULT_TOUCHSCREEN_RIGHT_STICK,
     val touchscreenRightStickSensitivity: Int = AppPreferences.DEFAULT_TOUCHSCREEN_RIGHT_STICK_SENSITIVITY,
     val touchHaptics: Boolean = false,
@@ -466,6 +467,7 @@ internal data class LiveRuntimeSnapshot(
     val frameLimitEnabled: Boolean,
     val fastForwardSpeed: Float,
     val racingMode: Boolean,
+    val stickyButtons: Set<String>,
     val touchscreenRightStick: Boolean,
     val touchscreenRightStickSensitivity: Int,
     val touchHaptics: Boolean,
@@ -1264,6 +1266,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         viewModelScope.launch {
+            preferences.stickyButtons.collect { buttons ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(stickyButtons = buttons) }
+            }
+        }
+        viewModelScope.launch {
             preferences.touchscreenRightStick.collect { enabled ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(touchscreenRightStick = enabled) }
             }
@@ -2026,6 +2033,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     frameLimitEnabled = liveRuntime.frameLimitEnabled,
                     fastForwardSpeed = liveRuntime.fastForwardSpeed,
                     racingMode = liveRuntime.racingMode,
+                    stickyButtons = liveRuntime.stickyButtons,
                     touchscreenRightStick = liveRuntime.touchscreenRightStick,
                     touchscreenRightStickSensitivity = liveRuntime.touchscreenRightStickSensitivity,
                     touchHaptics = liveRuntime.touchHaptics,
@@ -4334,6 +4342,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             frameLimitEnabled = settings.frameLimitEnabled,
             fastForwardSpeed = settings.fastForwardSpeed,
             racingMode = settings.racingMode,
+            stickyButtons = settings.stickyButtons,
             touchscreenRightStick = settings.touchscreenRightStick,
             touchscreenRightStickSensitivity = settings.touchscreenRightStickSensitivity,
             touchHaptics = settings.touchHaptics,

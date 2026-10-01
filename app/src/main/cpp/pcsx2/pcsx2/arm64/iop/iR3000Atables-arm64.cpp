@@ -1224,19 +1224,6 @@ PSXRECOMPILE_CONSTCODE3_PENALTY(DIVU, 1, psxInstCycles_Div);
 
 // TLB loadstore functions
 
-static u8* rpsxGetConstantAddressOperand(bool store)
-{
-#if 0
-	if (!PSX_IS_CONST1(_Rs_))
-		return nullptr;
-
-	const u32 addr = g_psxConstRegs[_Rs_];
-	return store ? iopVirtMemW<u8>(addr) : const_cast<u8*>(iopVirtMemR<u8>(addr));
-#else
-	return nullptr;
-#endif
-}
-
 static int rpsxPrepareAddressOperand_emit_oaknut()
 {
 	int rs;
@@ -1662,15 +1649,6 @@ static void rpsxSW_emit_oaknut()
 	_freeX86reg(addr_temp);
 }
 
-static void rpsxSWConstantAddress_emit_oaknut(u8* ptr, int rt)
-{
-	const oak::XReg addr = (rt == OAK_XSCRATCH.index()) ? OAK_XSCRATCH2 : OAK_XSCRATCH;
-	recBeginOaknutEmit();
-	oakMoveAddressToReg(addr, ptr);
-	oakAsm->STR(oakWRegister(rt), addr);
-	recEndOaknutEmit();
-}
-
 static int rpsxPrepareUnalignedLoadSource_emit_oaknut()
 {
 	return _Rt_ ? _allocX86reg(X86TYPE_PSX, _Rt_, MODE_READ) : -1;
@@ -1940,14 +1918,6 @@ static void rpsxSH()
 
 static void rpsxSW()
 {
-	u8* ptr = rpsxGetConstantAddressOperand(true);
-	if (ptr)
-	{
-		const int rt = _allocX86reg(X86TYPE_PSX, _Rt_, MODE_READ);
-		rpsxSWConstantAddress_emit_oaknut(ptr, rt);
-		return;
-	}
-
 	rpsxSW_emit_oaknut();
 }
 
@@ -2729,9 +2699,7 @@ static void rpsxBGTZ()
 }
 
 static void rpsxMFC0_emit_oaknut();
-static void rpsxCFC0_emit_oaknut();
 static void rpsxMTC0_emit_oaknut();
-static void rpsxCTC0_emit_oaknut();
 static void rpsxRFE_emit_oaknut();
 
 static void rpsxMFC0()
@@ -2753,19 +2721,7 @@ static void rpsxMFC0_emit_oaknut()
 
 static void rpsxCFC0()
 {
-	rpsxCFC0_emit_oaknut();
-}
-
-static void rpsxCFC0_emit_oaknut()
-{
-	// Rt = Cop0->Rd
-	if (!_Rt_)
-		return;
-
-	const int rt = _allocX86reg(X86TYPE_PSX, _Rt_, MODE_WRITE);
-	recBeginOaknutEmit();
-	oakLoad32(oakWRegister(rt), {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.CP0.r[_Rd_]))});
-	recEndOaknutEmit();
+	rpsxMFC0();
 }
 
 static void rpsxMTC0()
@@ -2794,26 +2750,7 @@ static void rpsxMTC0_emit_oaknut()
 
 static void rpsxCTC0()
 {
-	rpsxCTC0_emit_oaknut();
-}
-
-static void rpsxCTC0_emit_oaknut()
-{
-	// Cop0->Rd = Rt
-	if (PSX_IS_CONST1(_Rt_))
-	{
-		recBeginOaknutEmit();
-		oakAsm->MOV(OAK_WSCRATCH, g_psxConstRegs[_Rt_]);
-		oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.CP0.r[_Rd_]))});
-		recEndOaknutEmit();
-	}
-	else
-	{
-		const int rt = _allocX86reg(X86TYPE_PSX, _Rt_, MODE_READ);
-		recBeginOaknutEmit();
-		oakStore32(oakWRegister(rt), {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.CP0.r[_Rd_]))});
-		recEndOaknutEmit();
-	}
+	rpsxMTC0();
 }
 
 static void rpsxRFE()

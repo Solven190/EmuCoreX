@@ -1705,6 +1705,7 @@ fun EmulationScreen(
                     centerOffset = uiState.centerOffset,
                     controlLayouts = uiState.controlLayouts,
                     racingMode = uiState.racingMode,
+                    stickyButtons = uiState.stickyButtons,
                     stickToggleTarget = uiState.stickToggleTarget,
                     lightGunAimSource = if (lightGunInputContext) uiState.lightGunAim
                         else AppPreferences.LIGHT_GUN_AIM_GYRO,
@@ -2467,6 +2468,7 @@ private fun LocalMultiplayerTouchZone(
             centerOffset = uiState.centerOffset,
             controlLayouts = uiState.controlLayouts,
             racingMode = uiState.racingMode,
+            stickyButtons = uiState.stickyButtons,
             stickToggleTarget = uiState.stickToggleTarget,
             onToggleSelectedStick = onToggleSelectedStick,
             onFastForwardHoldChange = onFastForwardHoldChange,
@@ -2526,6 +2528,7 @@ private fun OnScreenControls(
     centerOffset: Pair<Float, Float>,
     controlLayouts: Map<String, OverlayControlLayout>,
     racingMode: Boolean,
+    stickyButtons: Set<String> = emptySet(),
     stickToggleTarget: Int = AppPreferences.DEFAULT_STICK_TOGGLE_TARGET,
     lightGunAimSource: Int = AppPreferences.DEFAULT_LIGHT_GUN_AIM,
     onLightGunStickAim: ((Float, Float) -> Unit)? = null,
@@ -2732,7 +2735,8 @@ private fun OnScreenControls(
                         null
                     },
                     onClick = if (spec.id == "left_input_toggle") onToggleSelectedStick else null,
-                    tapToHold = racingMode && isRacingTapToHoldButton(spec.id),
+                    tapToHold = (racingMode && isRacingTapToHoldButton(spec.id)) ||
+                        spec.id in stickyButtons,
                     longPressDelayMs = if (spec.id == "start") TRANSPORT_HOLD_DELAY_MS else 0L,
                     onLongPressChange = if (spec.id == "start") onFastForwardHoldChange else null
                 )

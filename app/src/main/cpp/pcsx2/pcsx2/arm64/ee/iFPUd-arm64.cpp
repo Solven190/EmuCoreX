@@ -862,15 +862,6 @@ static void recDIV_S_flags_emit_oaknut(int regd, int regt)
 	_freeXMMreg(t1reg);
 }
 
-static void recDIV_S_no_flags_emit_oaknut(int regd, int regt)
-{
-	ToDouble(regd); ToDouble(regt);
-
-	oakAsm->FDIV(oakDRegister(regd), oakDRegister(regd), oakDRegister(regt));
-
-	ToPS2FPU(regd, false, regt, false);
-}
-
 alignas(16) static FPControlRegister roundmode_nearest;
 
 static void recDIV_S_emit_oaknut(int info)
@@ -883,10 +874,7 @@ static void recDIV_S_emit_oaknut(int info)
 
 	ALLOC_S(sreg); ALLOC_T(treg);
 
-	if (FPU_FLAGS_ID)
-		recDIV_S_flags_emit_oaknut(sreg, treg);
-	else
-		recDIV_S_no_flags_emit_oaknut(sreg, treg);
+	recDIV_S_flags_emit_oaknut(sreg, treg);
 
 	oakAsm->MOV(oakQRegister(EEREC_D).Selem()[0], oakQRegister(sreg).Selem()[0]);
 

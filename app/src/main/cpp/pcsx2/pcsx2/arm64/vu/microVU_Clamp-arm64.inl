@@ -20,22 +20,20 @@ static __fi void mVUUpperClamp1VectorIf_oaknut(mV, int reg, bool bClampE, bool c
 	}
 }
 
-static __fi void mVUUpperClamp1Vector_oaknut(mV, int reg, bool bClampE)
-{
-	mVUUpperClamp1VectorIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
-}
-
 static __fi void mVUUpperClamp2VectorIf_oaknut(mV, int reg, bool bClampE, bool canClamp, bool limits_ready = false)
 {
-	// Operand conversion must mirror vuDouble(): exponent-255 values become
-	// signed 0x7f7fffff, and only the bitwise clamp reproduces that sign.
-	// FMINNM/FMAXNM remains in use for result clamps, where the NaN sign is
-	// intentionally not preserved.
-	const bool shouldClamp = ((!clampE && (CHECK_VU_SIGN_OVERFLOW(mVU.index) || CHECK_VU_OVERFLOW(mVU.index))) ||
-		(clampE && bClampE)) &&
+	// x86 mVUclamp2 parity: only the preserve-sign mode uses the bitwise
+	// integer clamp. Every other mode falls through to mVUclamp1's
+	// FMINNM/FMAXNM clamp, which folds NaNs to +max instead of keeping the
+	// sign. Modes 1 and 2 therefore match the upstream fast path, while the
+	// interpreter's sign-preserving conversion stays reachable through mode 3.
+	const bool signClamp = ((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) ||
+		(clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
 		canClamp;
-	if (shouldClamp)
+	if (signClamp)
 		mVUClamp1VectorBits_oaknut(reg, limits_ready);
+	else
+		mVUUpperClamp1VectorIf_oaknut(mVU, reg, bClampE, canClamp, limits_ready);
 }
 
 static __fi void mVUUpperClamp2Vector_oaknut(mV, int reg, bool bClampE)
@@ -65,17 +63,14 @@ static __fi void mVUUpperClamp1ScalarIf_oaknut(mV, int reg, bool bClampE, bool c
 	}
 }
 
-static __fi void mVUUpperClamp1Scalar_oaknut(mV, int reg, bool bClampE)
-{
-	mVUUpperClamp1ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
-}
-
 static __fi void mVUUpperClamp2ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
 {
-	// See mVUUpperClamp2VectorIf_oaknut: this is an operand clamp and must
-	// match vuDouble() exponent-255 sign conversion.
-	if (((!clampE && (CHECK_VU_SIGN_OVERFLOW(mVU.index) || CHECK_VU_OVERFLOW(mVU.index))) || (clampE && bClampE)) &&
-		canClamp)
+	// See mVUUpperClamp2VectorIf_oaknut: x86 mVUclamp2 parity, bitwise only in
+	// preserve-sign mode and mVUclamp1 otherwise.
+	const bool signClamp = ((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) ||
+		(clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
+		canClamp;
+	if (signClamp)
 	{
 		// These masks intentionally preserve Y/Z/W. An adjacent LDP copy matched
 		// 27,165,824 vectors, but showed no stable gain and was often slower.
@@ -85,6 +80,8 @@ static __fi void mVUUpperClamp2ScalarIf_oaknut(mV, int reg, bool bClampE, bool c
 		oakLoad128(OAK_QSCRATCH3, mVUClampOakSs4Mem(offsetof(mVU_SSE4, sse4_minvals[0][0])));
 		oakAsm->UMIN(reg_q.S4(), reg_q.S4(), OAK_QSCRATCH3.S4());
 	}
+	else
+		mVUUpperClamp1ScalarIf_oaknut(mVU, reg, bClampE, canClamp);
 }
 
 static __fi void mVUUpperClamp2Scalar_oaknut(mV, int reg, bool bClampE)
@@ -97,7 +94,7 @@ static __fi void mVUUpperClamp3Scalar_oaknut(mV, int reg)
 	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
 	if (clampE && canClamp)
 		mVUUpperClamp2ScalarIf_oaknut(mVU, reg, true, true);
-	else if (isVU0 && canClamp)
+	else if (isVU0 && canClamp && !EmuConfig.Cpu.VU0FPCR.GetDenormalsAreZero())
 		mVUClampDenormalScalarBits_oaknut(reg);
 }
 
@@ -106,7 +103,7 @@ static __fi void mVUUpperClamp4Scalar_oaknut(mV, int reg)
 	const bool canClamp = mVU.regAlloc->checkVFClamp(reg);
 	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && canClamp)
 		mVUUpperClamp1ScalarIf_oaknut(mVU, reg, true, true);
-	else if (isVU0 && canClamp)
+	else if (isVU0 && canClamp && !EmuConfig.Cpu.VU0FPCR.GetDenormalsAreZero())
 		mVUClampDenormalScalarBits_oaknut(reg);
 }
 
@@ -137,17 +134,14 @@ static __fi void mVU_clamp1Vector_oaknut(mV, int reg, bool bClampE)
 
 static __fi void mVU_clamp2ScalarIf_oaknut(mV, int reg, bool bClampE, bool canClamp)
 {
-	// Lower operand clamp: bitwise sign-preserving form for vuDouble parity.
-	if (((!clampE && (CHECK_VU_SIGN_OVERFLOW(mVU.index) || CHECK_VU_OVERFLOW(mVU.index))) || (clampE && bClampE)) &&
-		canClamp)
-	{
+	// Lower operand clamp: x86 mVUclamp2 parity, see the upper wrapper.
+	const bool signClamp = ((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) ||
+		(clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) &&
+		canClamp;
+	if (signClamp)
 		mVUClamp1ScalarBits_oaknut(reg);
-	}
-}
-
-static __fi void mVU_clamp2Scalar_oaknut(mV, int reg, bool bClampE)
-{
-	mVU_clamp2ScalarIf_oaknut(mVU, reg, bClampE, mVU.regAlloc->checkVFClamp(reg));
+	else
+		mVU_clamp1ScalarIf_oaknut(mVU, reg, bClampE, canClamp);
 }
 
 static __fi void mVU_clamp3Scalar_oaknut(mV, int reg)
@@ -164,15 +158,7 @@ static __fi void mVU_clamp4Scalar_oaknut(mV, int reg)
 		mVU_clamp1ScalarIf_oaknut(mVU, reg, true, true);
 }
 
-static __fi void mVU_clamp2Vector_oaknut(mV, int reg, bool bClampE)
-{
-	// Lower operand clamp: bitwise sign-preserving form for vuDouble parity.
-	if (((!clampE && (CHECK_VU_SIGN_OVERFLOW(mVU.index) || CHECK_VU_OVERFLOW(mVU.index))) || (clampE && bClampE)) &&
-		mVU.regAlloc->checkVFClamp(reg))
-	{
-		mVUClamp1VectorBits_oaknut(reg);
-	}
-}
+
 
 //------------------------------------------------------------------
 // Opcode-specific clamp fixups

@@ -356,17 +356,6 @@ static constexpr oak::WReg OAK_EDX = oak::util::W2;
 static constexpr oak::WReg OAK_EBX = oak::util::W3;
 static constexpr oak::WReg OAK_EEX = oak::util::W4;
 
-static bool iopOakIsCallerSaved(int id)
-{
-#if defined(__ANDROID__)
-	return id <= 15;
-#elif defined(_WIN32)
-	return id <= 2 || (id >= 8 && id <= 11);
-#else
-	return id <= 2 || id == 6 || id == 7 || (id >= 8 && id <= 11);
-#endif
-}
-
 void _psxFlushConstReg(int reg)
 {
 	if (PSX_IS_CONST1(reg) && !(g_psxFlushedConstReg & (1 << reg)))
@@ -459,7 +448,7 @@ void _psxFlushCall(int flushtype)
 		if (!x86regs[i].inuse)
 			continue;
 
-		if (iopOakIsCallerSaved(i) ||
+		if (oakIsCallerSaved(i) ||
 			((flushtype & FLUSH_FREE_NONTEMP_X86) && x86regs[i].type != X86TYPE_TEMP) ||
 			((flushtype & FLUSH_FREE_TEMP_X86) && x86regs[i].type == X86TYPE_TEMP))
 		{
