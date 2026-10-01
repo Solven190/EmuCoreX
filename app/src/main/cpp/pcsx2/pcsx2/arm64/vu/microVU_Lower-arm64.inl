@@ -440,22 +440,6 @@ static __fi void mVU_EFUreciprocalOrZero_oaknut(mV, int PQ, int one, int t1)
 	oakAsm->l(done);
 }
 
-static __fi void mVU_EFUsqrtNonnegative_oaknut(int PQ, int Fs)
-{
-	oak::Label negative;
-	oak::Label done;
-
-	oakAsm->FCMP(oakSRegister(Fs), 0.0);
-	oakAsm->B(oak::util::LT, negative);
-	oakAsm->FSQRT(oakSRegister(PQ), oakSRegister(Fs));
-	oakAsm->B(done);
-
-	oakAsm->l(negative);
-	oakAsm->MOV(oakQRegister(PQ).Selem()[0], oakQRegister(Fs).Selem()[0]);
-
-	oakAsm->l(done);
-}
-
 static __fi void mVU_EFUsqrtNonnegativeDouble_oaknut(int PQ)
 {
 	oak::Label negative;
@@ -471,23 +455,6 @@ static __fi void mVU_EFUsqrtNonnegativeDouble_oaknut(int PQ)
 	oakAsm->B(done);
 
 	oakAsm->l(negative);
-	oakAsm->l(done);
-}
-
-static __fi void mVU_EFUrsqrtNonnegativeOrZero_oaknut(mV, int PQ, int Fs, int t1)
-{
-	oak::Label negative;
-	oak::Label done;
-
-	oakAsm->FCMP(oakSRegister(Fs), 0.0);
-	oakAsm->B(oak::util::LT, negative);
-	oakAsm->FSQRT(oakSRegister(PQ), oakSRegister(Fs));
-	mVU_EFUreciprocalOrZero_oaknut(mVU, PQ, Fs, t1);
-	oakAsm->B(done);
-
-	oakAsm->l(negative);
-	oakAsm->MOV(oakQRegister(PQ).Selem()[0], oakQRegister(Fs).Selem()[0]);
-
 	oakAsm->l(done);
 }
 

@@ -71,26 +71,6 @@ namespace DOUBLE
 //alignas(16) static const u32 s_neg[4] = {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff};
 //alignas(16) static const u32 s_pos[4] = {0x7fffffff, 0xffffffff, 0xffffffff, 0xffffffff};
 
-#define REC_FPUBRANCH(f) \
-	void f(); \
-	void rec##f() \
-	{ \
-		iFlushCall(FLUSH_INTERPRETER); \
-		recBeginOaknutEmit(); \
-		oakEmitCall(reinterpret_cast<const void*>((uptr)R5900::Interpreter::OpcodeImpl::COP1::f)); \
-		recEndOaknutEmit(); \
-		g_branch = 2; \
-	}
-
-#define REC_FPUFUNC(f) \
-	void f(); \
-	void rec##f() \
-	{ \
-		iFlushCall(FLUSH_INTERPRETER); \
-		recBeginOaknutEmit(); \
-		oakEmitCall(reinterpret_cast<const void*>((uptr)R5900::Interpreter::OpcodeImpl::COP1::f)); \
-		recEndOaknutEmit(); \
-	}
 //------------------------------------------------------------------
 
 //------------------------------------------------------------------
@@ -98,14 +78,6 @@ namespace DOUBLE
 //------------------------------------------------------------------
 
 // Those opcode are marked as special ! But I don't understand why we can't run them in the interpreter
-#ifndef FPU_RECOMPILE
-
-REC_FPUFUNC(CFC1);
-REC_FPUFUNC(CTC1);
-REC_FPUFUNC(MFC1);
-REC_FPUFUNC(MTC1);
-
-#else
 
 //------------------------------------------------------------------
 // CFC1 / CTC1
@@ -325,42 +297,8 @@ void recMTC1()
 {
 	recMTC1_emit_oaknut();
 }
-#endif
 //------------------------------------------------------------------
 
-
-#ifndef FPU_RECOMPILE // If FPU_RECOMPILE is not defined, then use the interpreter opcodes. (CFC1, CTC1, MFC1, and MTC1 are special because they work specifically with the EE rec so they're defined above)
-
-REC_FPUFUNC(ABS_S);
-REC_FPUFUNC(ADD_S);
-REC_FPUFUNC(ADDA_S);
-REC_FPUBRANCH(BC1F);
-REC_FPUBRANCH(BC1T);
-REC_FPUBRANCH(BC1FL);
-REC_FPUBRANCH(BC1TL);
-REC_FPUFUNC(C_EQ);
-REC_FPUFUNC(C_F);
-REC_FPUFUNC(C_LE);
-REC_FPUFUNC(C_LT);
-REC_FPUFUNC(CVT_S);
-REC_FPUFUNC(CVT_W);
-REC_FPUFUNC(DIV_S);
-REC_FPUFUNC(MAX_S);
-REC_FPUFUNC(MIN_S);
-REC_FPUFUNC(MADD_S);
-REC_FPUFUNC(MADDA_S);
-REC_FPUFUNC(MOV_S);
-REC_FPUFUNC(MSUB_S);
-REC_FPUFUNC(MSUBA_S);
-REC_FPUFUNC(MUL_S);
-REC_FPUFUNC(MULA_S);
-REC_FPUFUNC(NEG_S);
-REC_FPUFUNC(SUB_S);
-REC_FPUFUNC(SUBA_S);
-REC_FPUFUNC(SQRT_S);
-REC_FPUFUNC(RSQRT_S);
-
-#else // FPU_RECOMPILE
 
 //------------------------------------------------------------------
 // ABS XMM
@@ -398,15 +336,6 @@ static void recFpuLoadScalarOperand_emit_oaknut(int dst, int fpu_reg, int cached
 	{
 		oakLoad32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, fpuRegs.fpr[fpu_reg].UL))});
 		oakAsm->FMOV(oakSRegister(dst), OAK_WSCRATCH2);
-	}
-}
-
-static void recFpuDropCachedOperandNoWriteback(int fpu_reg)
-{
-	for (u32 i = 0; i < iREGCNT_XMM; i++)
-	{
-		if (xmmregs[i].inuse && xmmregs[i].type == XMMTYPE_FPREG && xmmregs[i].reg == fpu_reg)
-			_freeXMMregWithoutWriteback(i);
 	}
 }
 
@@ -1712,8 +1641,6 @@ void recRSQRT_S_xmm(int info)
 }
 
 FPURECOMPILE_CONSTCODE(RSQRT_S, XMMINFO_WRITED | XMMINFO_READS | XMMINFO_READT);
-
-#endif // FPU_RECOMPILE
 
 } // namespace COP1
 } // namespace OpcodeImpl
