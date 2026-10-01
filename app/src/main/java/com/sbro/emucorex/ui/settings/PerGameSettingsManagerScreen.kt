@@ -3300,7 +3300,7 @@ private fun SelectionRow(
                 SettingHelpButton(title = title, description = it)
             }
         }
-        if (alwaysScroll || options.size > 3) {
+        if (alwaysScroll || options.size > 2) {
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
