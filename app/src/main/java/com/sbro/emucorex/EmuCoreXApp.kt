@@ -4,6 +4,7 @@ import android.app.Application
 import com.sbro.emucorex.core.AppAnalytics
 import com.sbro.emucorex.core.AppIconManager
 import com.sbro.emucorex.core.CrashLogger
+import com.sbro.emucorex.core.DeviceGpuInfoProvider
 import com.sbro.emucorex.core.EmulatorBridge
 import com.sbro.emucorex.core.utils.RetroAchievementsStateManager
 import com.sbro.emucorex.data.AppPreferences
@@ -37,6 +38,15 @@ class EmuCoreXApp : Application() {
             }
         }
         AppAnalytics.initialize(this)
+        applicationScope.launch {
+            try {
+                DeviceGpuInfoProvider.preload(this@EmuCoreXApp)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                android.util.Log.w("DeviceGpu", "GPU profile preload failed", error)
+            }
+        }
         AppIconManager.applyProIcon(this, AppPreferences(this).getProUnlockedSync())
         EmulatorBridge.initializeOnce(this)
         RetroAchievementsStateManager.initialize()

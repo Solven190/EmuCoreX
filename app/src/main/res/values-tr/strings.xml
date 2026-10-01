@@ -443,6 +443,9 @@
     <string name="settings_help_gamepad_mode">Tek bir fiziksel kontrolcünün dokunmatik kontrollerle nasıl etkileşime girmesi gerektiğini seçin. Dokunmatiği değiştir (Replace touch), bir gamepad\'in hemen 1. Oyuncu olmasını sağlarken, Dokunmatik + Gamepad (Touch + Gamepad) dokunmatiği 1. Oyuncuda tutar ve tek gamepad\'i 2. Oyuncuya taşır. Aynı anda iki fiziksel kontrolcü bağlanırsa, her zaman 1. Oyuncu ve 2. Oyuncu olurlar.</string>
     <string name="settings_help_auto_gamepad">Bağlı bir kontrolcü algılandığında otomatik olarak ona geçer. Dokunmatik kontroller ile bir gamepad arasında sık sık geçiş yapıyorsanız açık tutun; yalnızca mevcut giriş düzenini sabit tutmak istiyorsanız kapatın.</string>
     <string name="settings_help_keep_screen_on">Oyun sırasında Android\'in ekranı karartmasını veya kilitlemesini önler. Uzun seanslar ve ara sahneleri olan oyunlar için faydalıdır, ancak uygulamayı açık bırakırsanız biraz daha fazla pil kullanır.</string>
+    <string name="settings_respect_display_cutout">Kamera çentiğini dikkate al</string>
+    <string name="settings_respect_display_cutout_desc">Oyun görüntüsünü kamera çentiğinin dışında tut.</string>
+    <string name="settings_help_respect_display_cutout">Emülasyon görüntüsünün kamera çentiğinin (notch veya delik) altına girmemesi için kenar boşluğu ekler. Çentik görüntüyü kapattığında yatay modda kullanışlıdır. Yalnızca emülasyonu etkiler; uygulamanın geri kalanı çentikleri zaten dikkate alır.</string>
     <string name="settings_help_pad_vibration">Desteklenen oyunların kontrolcü titreşimini tetiklemesine izin verir. Yarış, dövüş ve darbe ağırlıklı oyunlarda faydalı geri bildirim ekler, ancak pili daha hızlı tüketebilir ve bazı kablosuz gamepad\'ler zayıf veya hafif gecikmeli titreşebilir.</string>
     <string name="settings_help_pad_vibration_strength">Oyun titreşimini Android\'e gönderilmeden önce ölçeklendirir. Gürültülü el konsolu motorları için düşürün veya bir kontrolcü çok zayıf hissettirdiğinde yükseltin.</string>
     <string name="settings_help_pad_vibration_test">Bağlı kontrolcüye, ardından etkinleştirildiğinde telefona veya el konsolu geri dönüşüne (fallback) doğrudan bir Android titreşim isteği gönderir.</string>
@@ -1222,7 +1225,7 @@
     <string name="emulation_transport_fast_forward">İleri sar</string>
     <string name="settings_racing_mode">Yarış modu</string>
     <string name="settings_racing_mode_desc">Basılı tutmak için eylem ve omuz düğmelerine dokunun, ardından bırakmak için tekrar dokunun.</string>
-    <string name="settings_sticky_buttons">Sabit tuşlar</string>
+    <string name="settings_sticky_buttons">Basılı kalan tuşlar</string>
     <string name="settings_sticky_buttons_desc">Seçili bir tuşa dokunarak basılı tutun, bırakmak için tekrar dokunun.</string>
     <string name="settings_help_sticky_buttons">Basılı tutmak yerine dokunuşla basılı durumunu değiştiren kaplama tuşlarını seçmenizi sağlar. R1, R2 veya diğer tuşların yüz tuşlarını kullanırken basılı kalmasını isteyen nişancı ve korku oyunları için kullanışlıdır.</string>
     <string name="settings_help_racing_mode">Dokunmatik eylem düğmelerinin ve omuz düğmelerinin tek bir dokunuşla basılı duruma geçmesini sağlar. Bu, hızlanmanın basılı tutulması gereken yarış oyunları için yararlıyken Start, Select, çubuklar ve D-pad normal davranışını korur.</string>
@@ -1336,6 +1339,11 @@
     <string name="welcome_title">EmuCoreX\'e Hoş Geldiniz</string>
     <string name="welcome_primary">Pro Al</string>
     <string name="welcome_secondary">Devam Et</string>
+    <string name="hardware_warning_title">Cihaz çok yavaş olabilir</string>
+    <string name="hardware_warning_body">Bu cihaz PS2 emülasyonu için önerilen donanımın altında, bu nedenle oyunlar yavaş çalışabilir veya takılabilir. Bu bir hata değil — çözünürlüğü düşürmeyi veya performans ayarlarını kullanmayı deneyin.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Düşük puan veya olumsuz yorum bırakmadan önce EmuCoreX\'i en az Snapdragon 855, Dimensity 1000, Exynos 2200 veya Tensor G2\'li başka bir cihazda deneyin.</string>
+    <string name="hardware_warning_continue">Anladım</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Crimson teması</string>
     <string name="pro_price_loading">Fiyat yükleniyor</string>

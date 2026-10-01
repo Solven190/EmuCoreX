@@ -240,6 +240,11 @@
     <string name="welcome_body">EmuCoreX adalah proyek baru yang sedang dalam pengembangan aktif, dan kami butuh dukungan Anda! Dengan mendapatkan versi Pro, Anda secara langsung mendukung para pembuatnya, dan sebagai bonus, Anda membuka kunci tema eksklusif Crimson dan ikon aplikasi Emas.</string>
     <string name="welcome_primary">Dapatkan Pro</string>
     <string name="welcome_secondary">Lanjutkan</string>
+    <string name="hardware_warning_title">Perangkat mungkin terlalu lambat</string>
+    <string name="hardware_warning_body">Perangkat ini di bawah perangkat keras yang disarankan untuk emulasi PS2, jadi game bisa berjalan lambat atau tersendat. Ini bukan kesalahan — coba turunkan resolusi atau gunakan pengaturan performa.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Sebelum memberi rating rendah atau ulasan negatif, coba EmuCoreX di perangkat lain dengan setidaknya Snapdragon 855, Dimensity 1000, Exynos 2200, atau Tensor G2.</string>
+    <string name="hardware_warning_continue">Mengerti</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Tema Crimson</string>
     <string name="pro_price_loading">Memuat harga</string>
@@ -667,6 +672,9 @@
     <string name="settings_help_gamepad_mode">Pilih bagaimana satu pengontrol fisik tunggal harus berinteraksi dengan kontrol sentuh. Ganti Sentuh membuat satu gamepad mengambil Pemain 1 secara otomatis, sementara Sentuh + Gamepad mempertahankan sentuhan pada Pemain 1 dan memindahkan satu gamepad ke Pemain 2. Jika dua pengontrol fisik tersambung pada saat yang sama, mereka selalu menjadi Pemain 1 dan Pemain 2.</string>
     <string name="settings_help_auto_gamepad">Beralih secara otomatis ke pengontrol yang tersambung saat terdeteksi. Biarkan tetap aktif jika Anda sering berpindah antara kontrol sentuh dan pad; matikan hanya jika Anda ingin mempertahankan tata letak masukan saat ini.</string>
     <string name="settings_help_keep_screen_on">Mencegah Android meredupkan atau mengunci layar saat bermain. Berguna untuk sesi panjang dan game dengan cutscene, tetapi akan menggunakan lebih banyak baterai jika Anda membiarkan aplikasi terbuka.</string>
+    <string name="settings_respect_display_cutout">Perhitungkan cutout kamera</string>
+    <string name="settings_respect_display_cutout_desc">Jauhkan gambar game dari area cutout kamera.</string>
+    <string name="settings_help_respect_display_cutout">Menambahkan margin di sekitar gambar emulasi agar tidak tergambar di bawah cutout kamera (notch atau punch-hole). Berguna dalam mode lanskap saat cutout menutupi gambar. Hanya memengaruhi emulasi; bagian aplikasi lain sudah memperhitungkan cutout.</string>
     <string name="settings_help_pad_vibration">Memungkinkan game yang didukung memicu gemuruh (rumble) pengontrol. Ini menambahkan umpan balik yang berguna di game balap, pertarungan, dan game penuh dampak fisik, tetapi dapat menguras baterai lebih cepat dan beberapa pad nirkabel mungkin bergetar lemah atau dengan sedikit penundaan.</string>
     <string name="settings_help_pad_vibration_strength">Menskala gemuruh game sebelum dikirim ke Android. Turunkan untuk motor genggam yang bising, atau naikkan bila getaran pengontrol terasa terlalu lemah.</string>
     <string name="settings_help_pad_vibration_test">Mengirim permintaan getaran Android langsung ke pengontrol yang terhubung terlebih dahulu, lalu ke ponsel atau genggam fallback saat diaktifkan.</string>
@@ -840,7 +848,7 @@
     <string name="settings_overlay_opacity">Opasitas Hamparan</string>
     <string name="settings_racing_mode">Mode balap</string>
     <string name="settings_racing_mode_desc">Ketuk tombol aksi dan bahu untuk menahannya, lalu ketuk lagi untuk melepaskan.</string>
-    <string name="settings_sticky_buttons">Tombol lengket</string>
+    <string name="settings_sticky_buttons">Tombol tahan</string>
     <string name="settings_sticky_buttons_desc">Ketuk tombol yang dipilih untuk menahannya, lalu ketuk lagi untuk melepaskannya.</string>
     <string name="settings_help_sticky_buttons">Memungkinkan Anda memilih tombol overlay yang mengalihkan status ditekan dengan ketukan alih-alih harus ditahan. Berguna untuk game tembak-menembak dan horor yang ingin R1, R2, atau tombol lain tetap ditekan saat Anda menggunakan tombol muka.</string>
     <string name="settings_left_stick_sensitivity">Sensitivitas Stik Kiri</string>

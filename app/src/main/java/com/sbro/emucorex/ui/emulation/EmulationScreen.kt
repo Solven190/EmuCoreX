@@ -630,6 +630,11 @@ fun EmulationScreen(
         uri?.let(viewModel::swapDisc)
     }
     val rootCutoutPadding = WindowInsets.displayCutout.asPaddingValues()
+    val gameCutoutPadding = if (globalDefaults.respectDisplayCutout) {
+        rootCutoutPadding
+    } else {
+        PaddingValues(0.dp)
+    }
     val rootNavPadding = WindowInsets.navigationBars.asPaddingValues()
     val overlayLeftSafeInset = maxOf(
         rootCutoutPadding.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
@@ -1284,6 +1289,7 @@ fun EmulationScreen(
             },
             modifier = Modifier
                 .fillMaxSize()
+                .padding(gameCutoutPadding)
                 .pointerInteropFilter { event ->
                     if (!showControlsEditor && !uiState.showMenu && event.actionMasked == MotionEvent.ACTION_DOWN) {
                         val timestamp = event.eventTime
@@ -4349,6 +4355,8 @@ private fun EmulationSidebarMenu(
                             options = fpsOverlayCornerLiveOptions(),
                             currentValue = uiState.fpsOverlayCorner,
                             onValueChange = onSetFpsOverlayCorner,
+                            allowWrap = false,
+                            horizontalScrolling = true,
                             helpText = stringResource(R.string.settings_help_fps_overlay_position),
                             onResetToDefault = { onSetFpsOverlayCorner(globalDefaults.fpsOverlayCorner) }
                         )
@@ -4392,6 +4400,8 @@ private fun EmulationSidebarMenu(
                             options = eeCycleRateLiveOptions(),
                             currentValue = uiState.eeCycleRate,
                             onValueChange = onSetEeCycleRate,
+                            allowWrap = false,
+                            horizontalScrolling = true,
                             helpText = stringResource(R.string.settings_help_ee_cycle_rate),
                             onResetToDefault = { onSetEeCycleRate(globalDefaults.eeCycleRate) }
                         )
@@ -4401,6 +4411,8 @@ private fun EmulationSidebarMenu(
                             options = eeCycleSkipLiveOptions(),
                             currentValue = uiState.eeCycleSkip,
                             onValueChange = onSetEeCycleSkip,
+                            allowWrap = false,
+                            horizontalScrolling = true,
                             helpText = stringResource(R.string.settings_help_ee_cycle_skip),
                             onResetToDefault = { onSetEeCycleSkip(globalDefaults.eeCycleSkip) }
                         )
@@ -4783,6 +4795,8 @@ private fun EmulationSidebarMenu(
                             ),
                             currentValue = uiState.hwDownloadMode,
                             onValueChange = onSetHwDownloadMode,
+                            allowWrap = false,
+                            horizontalScrolling = true,
                             helpText = stringResource(R.string.settings_help_hw_download_mode),
                             onResetToDefault = { onSetHwDownloadMode(globalDefaults.hwDownloadMode) }
                         )

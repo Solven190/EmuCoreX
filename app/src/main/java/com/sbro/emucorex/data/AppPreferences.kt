@@ -117,6 +117,7 @@ data class SettingsSnapshot(
     val backButtonExitsGame: Boolean = false,
     val compactControls: Boolean = true,
     val keepScreenOn: Boolean = true,
+    val respectDisplayCutout: Boolean = false,
     val showRecentGames: Boolean = true,
     val showHomeSearch: Boolean = false,
     val showDebugOptions: Boolean = false,
@@ -607,6 +608,7 @@ class AppPreferences(private val context: Context) {
         private val HIDDEN_GAME_MENU_SECTIONS = stringPreferencesKey("hidden_game_menu_sections")
         private val PRO_UNLOCKED = booleanPreferencesKey("pro_unlocked")
         private val WELCOME_DIALOG_SHOWN = booleanPreferencesKey("welcome_dialog_shown")
+        private val HARDWARE_WARNING_SHOWN = booleanPreferencesKey("hardware_warning_shown")
         private val LAST_CORE_BINARY_FINGERPRINT =
             stringPreferencesKey("last_core_binary_fingerprint")
         private val MEDIATEK_SETTINGS_NOTICE_SHOWN =
@@ -661,6 +663,7 @@ class AppPreferences(private val context: Context) {
         private val BACK_BUTTON_EXITS_GAME = booleanPreferencesKey("back_button_exits_game")
         private val COMPACT_CONTROLS = booleanPreferencesKey("compact_controls")
         private val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        private val RESPECT_DISPLAY_CUTOUT = booleanPreferencesKey("respect_display_cutout")
         private val SHOW_RECENT_GAMES = booleanPreferencesKey("show_recent_games")
         private val SHOW_HOME_SEARCH = booleanPreferencesKey("show_home_search")
         private val SHOW_DEBUG_OPTIONS = booleanPreferencesKey("show_debug_options")
@@ -1222,6 +1225,10 @@ class AppPreferences(private val context: Context) {
         .map { prefs -> prefs[WELCOME_DIALOG_SHOWN] ?: false }
         .distinctUntilChanged()
 
+    val hardwareWarningShown: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[HARDWARE_WARNING_SHOWN] ?: false }
+        .distinctUntilChanged()
+
     val mediatekSettingsNoticeShown: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[MEDIATEK_SETTINGS_NOTICE_SHOWN] ?: false }
         .distinctUntilChanged()
@@ -1237,6 +1244,10 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setWelcomeDialogShown(shown: Boolean) {
         context.dataStore.edit { prefs -> prefs[WELCOME_DIALOG_SHOWN] = shown }
+    }
+
+    suspend fun setHardwareWarningShown(shown: Boolean) {
+        context.dataStore.edit { prefs -> prefs[HARDWARE_WARNING_SHOWN] = shown }
     }
 
     val lastCoreBinaryFingerprint: Flow<String?> = context.dataStore.data
@@ -1860,6 +1871,7 @@ class AppPreferences(private val context: Context) {
                 backButtonExitsGame = prefs[BACK_BUTTON_EXITS_GAME] ?: false,
                 compactControls = prefs[COMPACT_CONTROLS] ?: true,
                 keepScreenOn = prefs[KEEP_SCREEN_ON] ?: true,
+                respectDisplayCutout = prefs[RESPECT_DISPLAY_CUTOUT] ?: false,
                 showRecentGames = prefs[SHOW_RECENT_GAMES] ?: true,
                 showHomeSearch = prefs[SHOW_HOME_SEARCH] ?: false,
                 showDebugOptions = prefs[SHOW_DEBUG_OPTIONS] ?: false,
@@ -2462,6 +2474,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setKeepScreenOn(enabled: Boolean) {
         context.dataStore.edit { it[KEEP_SCREEN_ON] = enabled }
+    }
+
+    val respectDisplayCutout: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[RESPECT_DISPLAY_CUTOUT] ?: false
+    }
+
+    suspend fun setRespectDisplayCutout(enabled: Boolean) {
+        context.dataStore.edit { it[RESPECT_DISPLAY_CUTOUT] = enabled }
     }
 
     val showRecentGames: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -4166,6 +4186,7 @@ class AppPreferences(private val context: Context) {
             put("backButtonExitsGame", prefs[BACK_BUTTON_EXITS_GAME] ?: false)
             put("compactControls", prefs[COMPACT_CONTROLS] ?: true)
             put("keepScreenOn", prefs[KEEP_SCREEN_ON] ?: true)
+            put("respectDisplayCutout", prefs[RESPECT_DISPLAY_CUTOUT] ?: false)
             put("showRecentGames", prefs[SHOW_RECENT_GAMES] ?: true)
             put("showHomeSearch", prefs[SHOW_HOME_SEARCH] ?: false)
             put("showDebugOptions", prefs[SHOW_DEBUG_OPTIONS] ?: false)
@@ -4607,6 +4628,7 @@ class AppPreferences(private val context: Context) {
             prefs[BACK_BUTTON_EXITS_GAME] = json.optBoolean("backButtonExitsGame", false)
             prefs[COMPACT_CONTROLS] = json.optBoolean("compactControls", true)
             prefs[KEEP_SCREEN_ON] = json.optBoolean("keepScreenOn", true)
+            prefs[RESPECT_DISPLAY_CUTOUT] = json.optBoolean("respectDisplayCutout", false)
             prefs[SHOW_RECENT_GAMES] = json.optBoolean("showRecentGames", true)
             prefs[SHOW_HOME_SEARCH] = json.optBoolean("showHomeSearch", false)
             prefs[SHOW_DEBUG_OPTIONS] = json.optBoolean("showDebugOptions", false)

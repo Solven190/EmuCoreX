@@ -725,6 +725,9 @@
     <string name="settings_help_content_description">Afficher les détails des paramètres</string>
     <string name="settings_help_auto_gamepad">Bascule automatiquement vers une manette connectée lorsqu\'elle est détectée. Laissez cette option activée si vous passez souvent des commandes tactiles à une manette ; désactivez-la uniquement si vous souhaitez conserver la disposition de saisie actuelle.</string>
     <string name="settings_help_keep_screen_on">Empêche Android d\'assombrir ou de verrouiller l\'écran pendant le jeu. Utile pour les longues sessions et les jeux avec des cinématiques, mais cela consommera un peu plus de batterie si vous laissez l\'application ouverte.</string>
+    <string name="settings_respect_display_cutout">Respecter l\'encoche de la caméra</string>
+    <string name="settings_respect_display_cutout_desc">Garder l\'image du jeu hors de la zone de l\'encoche.</string>
+    <string name="settings_help_respect_display_cutout">Ajoute une marge autour de l\'image d\'émulation pour qu\'elle ne passe pas sous l\'encoche de la caméra (notch ou poinçon). Utile en mode paysage lorsque l\'encoche recouvre l\'image. N\'affecte que l\'émulation ; le reste de l\'application respecte déjà les encoches.</string>
     <string name="settings_help_pad_vibration">Permet aux jeux compatibles de déclencher les vibrations de la manette. Cela ajoute un retour utile dans les jeux de course, de combat et à fort impact, mais cela peut vider la batterie plus rapidement et certaines manettes sans fil peuvent vibrer faiblement ou avec un léger retard.</string>
     <string name="settings_help_recent_games">Affiche une ligne d\'accès rapide pour les jeux auxquels vous avez joué en dernier. Pratique si vous naviguez souvent entre quelques titres ; désactivez-le si vous souhaitez un écran d\'accueil plus épuré.</string>
     <string name="settings_help_home_search">Affiche la barre de recherche de la bibliothèque directement sur l\'écran d\'accueil. Laissez-la activée pour les grandes bibliothèques ; désactivez-la si vous préférez une mise en page plus claire et que vous effectuez rarement des recherches par nom.</string>
@@ -1224,7 +1227,7 @@
     <string name="emulation_transport_fast_forward">Avance rapide</string>
     <string name="settings_racing_mode">Mode course</string>
     <string name="settings_racing_mode_desc">Touchez les boutons d\'action et les gâchettes pour les maintenir enfoncés, puis touchez-les à nouveau pour les relâcher.</string>
-    <string name="settings_sticky_buttons">Boutons maintenus</string>
+    <string name="settings_sticky_buttons">Boutons à verrouillage</string>
     <string name="settings_sticky_buttons_desc">Touchez un bouton sélectionné pour le maintenir, puis touchez à nouveau pour le relâcher.</string>
     <string name="settings_help_sticky_buttons">Permet de choisir des boutons de l\'overlay qui basculent leur état enfoncé d\'un simple toucher au lieu d\'un maintien. Utile pour les jeux de tir et d\'horreur qui veulent garder R1, R2 ou d\'autres boutons enfoncés pendant que vous utilisez les boutons de façade.</string>
     <string name="settings_help_racing_mode">Permet aux boutons d\'action tactiles et aux gâchettes de basculer leur état enfoncé d\'une simple pression. Cela est utile pour les jeux de course où l\'accélération doit être maintenue, tandis que Start, Select, les joysticks et la croix directionnelle conservent leur comportement normal.</string>
@@ -1338,6 +1341,11 @@
     <string name="welcome_title">Bienvenue sur EmuCoreX</string>
     <string name="welcome_primary">Obtenir Pro</string>
     <string name="welcome_secondary">Continuer</string>
+    <string name="hardware_warning_title">L\'appareil est peut-être trop lent</string>
+    <string name="hardware_warning_body">Cet appareil est en dessous du matériel recommandé pour l\'émulation PS2, les jeux peuvent donc être lents ou saccadés. Ce n\'est pas une erreur — essayez de réduire la résolution ou d\'utiliser les réglages de performance.</string>
+    <string name="hardware_warning_gpu">GPU : %1$s</string>
+    <string name="hardware_warning_recommended">Avant de laisser une note faible ou un avis négatif, testez EmuCoreX sur un autre appareil avec au moins un Snapdragon 855, Dimensity 1000, Exynos 2200 ou Tensor G2.</string>
+    <string name="hardware_warning_continue">Compris</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Thème Crimson</string>
     <string name="pro_price_loading">Chargement du prix</string>

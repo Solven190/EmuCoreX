@@ -246,6 +246,11 @@
     <string name="welcome_body">EmuCoreX je nový projekt v aktivním vývoji a potřebujeme vaši podporu! Získáním verze Pro přímo podpoříte tvůrce, a jako bonus se vám odemkne exkluzivní motiv Crimson a Zlatá ikona aplikace.</string>
     <string name="welcome_primary">Získat Pro</string>
     <string name="welcome_secondary">Pokračovat</string>
+    <string name="hardware_warning_title">Zařízení může být příliš pomalé</string>
+    <string name="hardware_warning_body">Toto zařízení je pod doporučenými požadavky pro emulaci PS2, takže hry mohou běžet pomalu nebo se zasekávat. Není to chyba — zkuste snížit rozlišení nebo použít nastavení výkonu.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Než dáte nízké hodnocení nebo negativní recenzi, vyzkoušejte EmuCoreX na jiném zařízení s alespoň Snapdragon 855, Dimensity 1000, Exynos 2200 nebo Tensor G2.</string>
+    <string name="hardware_warning_continue">Rozumím</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Motiv Crimson</string>
     <string name="pro_price_loading">Načítání ceny</string>
@@ -703,6 +708,9 @@
     <string name="settings_help_gamepad_mode">Vyberte, jak má jediný fyzický ovladač interagovat s dotykovým ovládáním. Volba \"Nahradit dotyk\" přiřadí gamepad okamžitě Hráči 1, zatímco \"Dotyk + Gamepad\" ponechá dotykové ovládání Hráči 1 a přesune jediný gamepad na Hráče 2. Pokud jsou připojeny dva fyzické ovladače současně, stanou se vždy Hráčem 1 a Hráčem 2.</string>
     <string name="settings_help_auto_gamepad">Automaticky přepne na připojený ovladač, jakmile je detekován. Ponechte zapnuté, pokud často střídáte dotykové ovládání a ovladač; vypněte, pouze pokud chcete zachovat aktuální rozložení ovládání fixní.</string>
     <string name="settings_help_keep_screen_on">Zabraňuje systému Android ve ztmavení nebo uzamčení obrazovky během hraní. Užitečné pro dlouhé sezení a hry se spoustou cutscén, ale spotřebuje o něco více baterie, pokud necháte aplikaci otevřenou.</string>
+    <string name="settings_respect_display_cutout">Respektovat výřez fotoaparátu</string>
+    <string name="settings_respect_display_cutout_desc">Udržet obraz hry mimo oblast výřezu.</string>
+    <string name="settings_help_respect_display_cutout">Přidá okraj kolem obrazu emulace, aby se nevykresloval pod výřezem fotoaparátu (notch nebo otvor). Hodí se na šířku, když výřez zakrývá obraz. Ovlivňuje pouze emulaci – zbytek aplikace už výřezy respektuje.</string>
     <string name="settings_help_pad_vibration">Umožňuje podporovaným hrám spouštět vibrace ovladače. Přidává užitečnou zpětnou vazbu v závodních, bojových a akčních hrách, ale může rychleji vybíjet baterii a některé bezdrátové ovladače mohou vibrovat slabě nebo s mírným zpožděním.</string>
     <string name="settings_help_pad_vibration_strength">Upravuje sílu herních vibrací předtím, než jsou odeslány do Androidu. Snižte ji u hlučných motorků v handheldech, nebo zvyšte, pokud se vám vibrace ovladače zdají příliš slabé.</string>
     <string name="settings_help_pad_vibration_test">Nejprve odešle přímý požadavek Androidu na vibrace připojenému ovladači a poté na záložní vibrace telefonu nebo handheldu, pokud jsou povoleny.</string>
@@ -898,7 +906,7 @@
     <string name="settings_overlay_opacity">Neprůhlednost překrytí</string>
     <string name="settings_racing_mode">Závodní režim</string>
     <string name="settings_racing_mode_desc">Klepnutím na akční a postranní tlačítka je podržíte, dalším klepnutím je uvolníte.</string>
-    <string name="settings_sticky_buttons">Přilepená tlačítka</string>
+    <string name="settings_sticky_buttons">Tlačítka s fixací</string>
     <string name="settings_sticky_buttons_desc">Klepněte na vybrané tlačítko pro jeho podržení a klepnutím znovu jej uvolníte.</string>
     <string name="settings_help_sticky_buttons">Umožňuje vybrat tlačítka překryvu, která přepínají stisknutí klepnutím místo držení. Hodí se pro střílečky a horory, které chtějí držet R1, R2 nebo jiná tlačítka stisknutá, zatímco používáte přední tlačítka.</string>
     <string name="settings_left_stick_sensitivity">Citlivost levé páčky</string>

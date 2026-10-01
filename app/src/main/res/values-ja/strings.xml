@@ -443,6 +443,9 @@
     <string name="settings_help_gamepad_mode">1つの物理コントローラーとタッチコントロールのやり取りの方法を選択します。「タッチを置換」にすると、1つのゲームパッドがすぐにプレイヤー1になります。「タッチ + ゲームパッド」にすると、タッチがプレイヤー1に残り、単一のゲームパッドがプレイヤー2に移動します。2つの物理コントローラーが同時に接続されている場合は、常にプレイヤー1とプレイヤー2になります。</string>
     <string name="settings_help_auto_gamepad">コントローラーが検出されたときに、自動的に切り替えます。タッチコントロールとパッドを頻繁に行き来する場合はオンのままにし、現在の入力レイアウトを固定したい場合にのみオフにしてください。</string>
     <string name="settings_help_keep_screen_on">プレイ中にAndroidが画面を暗くしたりロックしたりするのを防ぎます。長時間のセッションやカットシーンのあるゲームに役立ちますが、アプリを開いたままにするとバッテリーを少し多く消費します。</string>
+    <string name="settings_respect_display_cutout">カメラの切り欠きを考慮</string>
+    <string name="settings_respect_display_cutout_desc">ゲーム映像をカメラ切り欠き領域の外側に保ちます。</string>
+    <string name="settings_help_respect_display_cutout">エミュレーション映像がカメラの切り欠き（ノッチやパンチホール）の下に描画されないよう余白を追加します。切り欠きが映像に重なる横向き時に便利です。影響するのはエミュレーションのみで、アプリの他の画面は既に切り欠きを考慮しています。</string>
     <string name="settings_help_pad_vibration">サポートされているゲームでコントローラーの振動をトリガーできるようにします。レーシング、戦闘、衝撃の強いゲームに役立つフィードバックを追加しますが、バッテリーの消耗が早くなる可能性があり、一部のワイヤレスパッドは弱く、またはわずかな遅延で振動する場合があります。</string>
     <string name="settings_help_pad_vibration_strength">Androidに送信される前にゲームの振動をスケーリングします。ノイズの多いハンドヘルドモーターの場合は下げ、コントローラーが弱すぎると感じる場合は上げます。</string>
     <string name="settings_help_pad_vibration_test">有効になっている場合、最初に接続されたコントローラーに直接Androidの振動リクエストを送信し、次に電話またはハンドヘルドのフォールバックに送信します。</string>
@@ -1222,7 +1225,7 @@
     <string name="emulation_transport_fast_forward">早送り</string>
     <string name="settings_racing_mode">レーシングモード</string>
     <string name="settings_racing_mode_desc">アクションボタンとショルダーボタンをタップしてホールド状態にし、もう一度タップして解除します。</string>
-    <string name="settings_sticky_buttons">固定ボタン</string>
+    <string name="settings_sticky_buttons">押しっぱなしボタン</string>
     <string name="settings_sticky_buttons_desc">選択したボタンをタップすると押しっぱなしになり、もう一度タップすると離します。</string>
     <string name="settings_help_sticky_buttons">押し続ける代わりにタップで押下状態を切り替えるオーバーレイボタンを選べます。顔ボタンを使っている間、R1やR2などを押しっぱなしにしたいシューティングやホラーゲームに便利です。</string>
     <string name="settings_help_racing_mode">タッチアクションボタンとショルダーボタンをタップするだけで、押された状態を切り替えられるようにします。これは、Start、Select、スティック、方向キーは通常の動作を維持しつつ、アクセルを踏みっぱなしにする必要があるレースゲームに便利です。</string>
@@ -1336,6 +1339,11 @@
     <string name="welcome_title">EmuCoreXへようこそ</string>
     <string name="welcome_primary">Proを入手</string>
     <string name="welcome_secondary">続行</string>
+    <string name="hardware_warning_title">このデバイスは遅すぎる可能性があります</string>
+    <string name="hardware_warning_body">このデバイスはPS2エミュレーションの推奨ハードウェアを下回っているため、ゲームが遅くなったりカクついたりする場合があります。これはエラーではありません。解像度を下げるか、パフォーマンス設定をお試しください。</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">低い評価や否定的なレビューを投稿する前に、少なくとも Snapdragon 855、Dimensity 1000、Exynos 2200、Tensor G2 を搭載した別の端末で EmuCoreX をお試しください。</string>
+    <string name="hardware_warning_continue">了解</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Crimsonテーマ</string>
     <string name="pro_price_loading">価格を読み込み中</string>

@@ -725,6 +725,9 @@
     <string name="settings_help_content_description">Einstellungsdetails anzeigen</string>
     <string name="settings_help_auto_gamepad">Wechselt automatisch zu einem verbundenen Controller, wenn einer erkannt wird. Lass es eingeschaltet, wenn du oft zwischen Touch-Steuerung und Gamepad wechselst; schalte es nur aus, wenn du das aktuelle Eingabelayout beibehalten möchtest.</string>
     <string name="settings_help_keep_screen_on">Verhindert, dass Android den Bildschirm während des Spielens dimmt oder sperrt. Nützlich für lange Sitzungen und Spiele mit Zwischensequenzen, verbraucht aber etwas mehr Akku, wenn du die App geöffnet lässt.</string>
+    <string name="settings_respect_display_cutout">Kameraussparung berücksichtigen</string>
+    <string name="settings_respect_display_cutout_desc">Spielbild außerhalb der Kameraussparung halten.</string>
+    <string name="settings_help_respect_display_cutout">Fügt einen Rand um das Emulationsbild hinzu, damit es nicht unter der Kameraussparung (Notch oder Loch) gerendert wird. Nützlich im Querformat, wenn die Aussparung das Bild überdeckt. Betrifft nur die Emulation – der Rest der App berücksichtigt Aussparungen bereits.</string>
     <string name="settings_help_pad_vibration">Lässt unterstützte Spiele Controller-Vibrationen (Rumble) auslösen. Es fügt in Renn-, Kampf- und actionreichen Spielen nützliches Feedback hinzu, kann aber den Akku schneller entladen und einige kabellose Gamepads vibrieren möglicherweise schwach oder mit leichter Verzögerung.</string>
     <string name="settings_help_recent_games">Zeigt eine Schnellzugriffsleiste für die Spiele, die du zuletzt gespielt hast. Gut, wenn du oft zwischen ein paar Titeln hin und her wechselst; schalte es aus, wenn du einen aufgeräumteren Startbildschirm möchtest.</string>
     <string name="settings_help_home_search">Zeigt die Suchleiste für die Bibliothek direkt auf dem Startbildschirm. Lass es für große Bibliotheken eingeschaltet; schalte es aus, wenn du ein saubereres Layout bevorzugst und selten nach Namen suchst.</string>
@@ -1224,7 +1227,7 @@
     <string name="emulation_transport_fast_forward">Vorspulen</string>
     <string name="settings_racing_mode">Rennmodus</string>
     <string name="settings_racing_mode_desc">Tippe auf Aktions- und Schultertasten, um sie gedrückt zu halten, und tippe erneut, um sie loszulassen.</string>
-    <string name="settings_sticky_buttons">Fixierte Tasten</string>
+    <string name="settings_sticky_buttons">Tasten mit Fixierung</string>
     <string name="settings_sticky_buttons_desc">Tippe auf eine ausgewählte Taste, um sie zu halten, und tippe erneut, um sie loszulassen.</string>
     <string name="settings_help_sticky_buttons">Ermöglicht die Auswahl von Overlay-Tasten, die ihren gedrückten Zustand per Tippen umschalten, statt gehalten werden zu müssen. Nützlich für Shooter und Horror-Spiele, bei denen R1, R2 oder andere Tasten gedrückt bleiben sollen, während du die Gesichtstasten benutzt.</string>
     <string name="settings_help_racing_mode">Bewirkt, dass Touch-Aktionstasten und Schultertasten ihren gedrückten Zustand durch Antippen umschalten. Dies ist nützlich für Rennspiele, bei denen die Beschleunigung gehalten werden muss, während Start, Select, Sticks und das Steuerkreuz ihr normales Verhalten beibehalten.</string>
@@ -1338,6 +1341,11 @@
     <string name="welcome_title">Willkommen bei EmuCoreX</string>
     <string name="welcome_primary">Pro holen</string>
     <string name="welcome_secondary">Weiter</string>
+    <string name="hardware_warning_title">Gerät möglicherweise zu langsam</string>
+    <string name="hardware_warning_body">Dieses Gerät liegt unter der empfohlenen Hardware für PS2-Emulation, daher können Spiele langsam laufen oder ruckeln. Das ist kein Fehler – versuche, die Auflösung zu senken oder die Leistungseinstellungen zu verwenden.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Bevor du eine schlechte Bewertung abgibst, teste EmuCoreX auf einem anderen Gerät mit mindestens Snapdragon 855, Dimensity 1000, Exynos 2200 oder Tensor G2.</string>
+    <string name="hardware_warning_continue">Verstanden</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Crimson-Design</string>
     <string name="pro_price_loading">Preis wird geladen</string>

@@ -18,6 +18,16 @@ class GpuDriverCompatibilityTest {
     }
 
     @Test
+    fun `maps budget Snapdragon models exactly instead of a broad family token`() {
+        assertEquals("Adreno 619", GpuDriverRecommendations.profileForSoc("Snapdragon 695")?.adrenoName)
+        assertEquals("Adreno 619L", GpuDriverRecommendations.profileForSoc("Snapdragon 690")?.adrenoName)
+        assertEquals("Adreno 610", GpuDriverRecommendations.profileForSoc("Snapdragon 680 series")?.adrenoName)
+        assertEquals("Adreno 610", GpuDriverRecommendations.profileForSoc("Snapdragon 665")?.adrenoName)
+        assertEquals("Adreno 613", GpuDriverRecommendations.profileForSoc("Snapdragon 4 Gen 2")?.adrenoName)
+        assertEquals("Adreno 642L", GpuDriverRecommendations.profileForSoc("Snapdragon 778G series")?.adrenoName)
+    }
+
+    @Test
     fun `does not produce a recommendation for a non Snapdragon device`() {
         assertEquals(null, GpuDriverRecommendations.profileForSoc("Dimensity 9400"))
         // Qualcomm markets G-series GPUs as A11/A12/A21/A32/A33. Do not guess that these

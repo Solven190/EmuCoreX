@@ -774,6 +774,9 @@
     <string name="settings_help_content_description">Показати деталі налаштування</string>
     <string name="settings_help_auto_gamepad">Автоматично перемикається на підключений контролер при його виявленні. Залиште ввімкненим, якщо ви часто перемикаєтеся між сенсорним керуванням і геймпадом; вимкніть, тільки якщо хочете зафіксувати поточну розкладку керування.</string>
     <string name="settings_help_keep_screen_on">Запобігає затемненню або блокуванню екрана Android під час гри. Корисно для тривалих сесій та ігор з катсценами, але витрачає трохи більше заряду батареї, якщо залишити програму відкритою.</string>
+    <string name="settings_respect_display_cutout">Враховувати виріз під камеру</string>
+    <string name="settings_respect_display_cutout_desc">Тримати ігрове зображення поза зоною вирізу камери.</string>
+    <string name="settings_help_respect_display_cutout">Додає відступ навколо зображення емуляції, щоб воно не заходило під виріз камери (notch або отвір). Зручно в ландшафтному режимі, коли виріз перекриває картинку. Впливає лише на емуляцію — решта застосунку вже враховує вирізи.</string>
     <string name="settings_help_pad_vibration">Дозволяє підтримуваним іграм викликати вібрацію контролера. Це додає корисний зворотний зв\'язок у перегонах, боях та іграх із сильними ударами, але може швидше розряджати батарею, а деякі бездротові геймпади можуть вібрувати слабко або з невеликою затримкою.</string>
     <string name="settings_help_recent_games">Показує рядок швидкого доступу до ігор, у які ви грали востаннє. Зручно, якщо ви часто перемикаєтеся між кількома іграми; вимкніть, якщо хочете, щоб головний екран був чистішим.</string>
     <string name="settings_help_home_search">Показує панель пошуку по бібліотеці прямо на головному екрані. Залиште ввімкненою для великих бібліотек; вимкніть, якщо віддаєте перевагу чистішому макету і рідко шукаєте за назвою.</string>
@@ -1252,7 +1255,7 @@
     <string name="emulation_transport_fast_forward">Прискорення</string>
     <string name="settings_racing_mode">Гоночний режим</string>
     <string name="settings_racing_mode_desc">Торкніться кнопок дій та тригерів (шифтів), щоб утримувати їх натиснутими, і торкніться знову, щоб відпустити.</string>
-    <string name="settings_sticky_buttons">Залипкі кнопки</string>
+    <string name="settings_sticky_buttons">Кнопки з фіксацією</string>
     <string name="settings_sticky_buttons_desc">Торкніться вибраної кнопки, щоб утримувати її, і торкніться знову, щоб відпустити.</string>
     <string name="settings_help_sticky_buttons">Дозволяє вибрати кнопки оверлея, які перемикають натискання одним дотиком замість утримання. Зручно для шутерів і хорорів, де R1, R2 чи інші кнопки мають лишатися натиснутими, поки ви користуєтесь лицьовими кнопками.</string>
     <string name="settings_help_racing_mode">Дозволяє сенсорним кнопкам дій і тригерам перемикати стан натискання одним дотиком. Це корисно для гоночних ігор, де потрібно постійно утримувати газ, тоді як Start, Select, стіки та хрестовина (D-pad) працюють як зазвичай.</string>
@@ -1366,6 +1369,11 @@
     <string name="welcome_title">Ласкаво просимо до EmuCoreX</string>
     <string name="welcome_primary">Отримати Pro</string>
     <string name="welcome_secondary">Продовжити</string>
+    <string name="hardware_warning_title">Пристрій може бути занадто слабким</string>
+    <string name="hardware_warning_body">Цей пристрій слабший за рекомендовані вимоги для емуляції PS2, тому ігри можуть працювати повільно або з підвисаннями. Це не помилка — спробуйте знизити роздільну здатність або скористатися налаштуваннями продуктивності.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Перш ніж ставити низьку оцінку чи негативний відгук, перевірте EmuCoreX на іншому пристрої з щонайменше Snapdragon 855, Dimensity 1000, Exynos 2200 або Tensor G2.</string>
+    <string name="hardware_warning_continue">Зрозуміло</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Тема Crimson</string>
     <string name="pro_price_loading">Завантаження ціни</string>

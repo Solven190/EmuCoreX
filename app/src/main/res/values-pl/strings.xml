@@ -246,6 +246,11 @@
     <string name="welcome_body">EmuCoreX to nowy projekt w aktywnym rozwoju i potrzebujemy Twojego wsparcia! Kupując wersję Pro, bezpośrednio wspierasz twórców, a jako bonus odblokowujesz ekskluzywny motyw Crimson i Złotą ikonę aplikacji.</string>
     <string name="welcome_primary">Kup Pro</string>
     <string name="welcome_secondary">Kontynuuj</string>
+    <string name="hardware_warning_title">Urządzenie może być zbyt wolne</string>
+    <string name="hardware_warning_body">To urządzenie jest poniżej zalecanych wymagań dla emulacji PS2, więc gry mogą działać wolno lub się zacinać. To nie błąd — spróbuj zmniejszyć rozdzielczość lub użyć ustawień wydajności.</string>
+    <string name="hardware_warning_gpu">GPU: %1$s</string>
+    <string name="hardware_warning_recommended">Zanim wystawisz niską ocenę lub negatywną opinię, sprawdź EmuCoreX na innym urządzeniu z co najmniej Snapdragon 855, Dimensity 1000, Exynos 2200 lub Tensor G2.</string>
+    <string name="hardware_warning_continue">Rozumiem</string>
     <string name="pro_title">EmuCoreX Pro</string>
     <string name="pro_theme_name">Motyw Crimson</string>
     <string name="pro_price_loading">Wczytywanie ceny</string>
@@ -701,6 +706,9 @@
     <string name="settings_help_gamepad_mode">Wybierz, jak pojedynczy fizyczny kontroler powinien współpracować ze sterowaniem dotykowym. \"Zastąp dotyk\" sprawia, że jeden gamepad od razu przejmuje rolę Gracza 1, natomiast \"Dotyk + Gamepad\" zachowuje dotyk dla Gracza 1, a pojedynczy pad zostaje przypisany do Gracza 2. Jeśli podłączone są dwa fizyczne kontrolery jednocześnie, zawsze stają się one Graczem 1 i Graczem 2.</string>
     <string name="settings_help_auto_gamepad">Automatycznie przełącza na podłączony kontroler po jego wykryciu. Zostaw włączone, jeśli często przechodzisz między sterowaniem dotykowym a padem; wyłącz tylko wtedy, gdy chcesz zachować na sztywno bieżący układ sterowania.</string>
     <string name="settings_help_keep_screen_on">Zapobiega przyciemnianiu lub blokowaniu ekranu Androida podczas gry. Przydatne przy długich sesjach i grach z przerywnikami filmowymi, ale zużyje nieco więcej baterii, jeśli zostawisz włączoną aplikację.</string>
+    <string name="settings_respect_display_cutout">Uwzględniaj wycięcie aparatu</string>
+    <string name="settings_respect_display_cutout_desc">Trzymaj obraz gry poza obszarem wycięcia.</string>
+    <string name="settings_help_respect_display_cutout">Dodaje margines wokół obrazu emulacji, aby nie był rysowany pod wycięciem aparatu (notch lub otwór). Przydatne w poziomie, gdy wycięcie zasłania obraz. Dotyczy tylko emulacji — reszta aplikacji już uwzględnia wycięcia.</string>
     <string name="settings_help_pad_vibration">Pozwala obsługiwanym grom na wyzwalanie wibracji kontrolera (rumble). Dodaje to przydatne odczucia w wyścigach, walkach i grach opartych na uderzeniach, ale może szybciej rozładować baterię, a niektóre pady bezprzewodowe mogą wibrować słabo lub z lekkim opóźnieniem.</string>
     <string name="settings_help_pad_vibration_strength">Skaluje wibracje z gry przed ich wysłaniem do Androida. Zmniejsz tę wartość dla głośnych silniczków konsol przenośnych lub zwiększ, jeśli wibracje na kontrolerze są za słabe.</string>
     <string name="settings_help_pad_vibration_test">Wysyła bezpośrednie żądanie wibracji Androida najpierw do podłączonego kontrolera, a następnie do telefonu lub konsoli (jeśli wibracje zastępcze są włączone).</string>
@@ -896,7 +904,7 @@
     <string name="settings_overlay_opacity">Krycie nakładki</string>
     <string name="settings_racing_mode">Tryb wyścigowy</string>
     <string name="settings_racing_mode_desc">Dotknij przycisków akcji lub bocznych, aby zachować je jako wciśnięte, a następnie dotknij ponownie, aby je puścić.</string>
-    <string name="settings_sticky_buttons">Przyciski przytrzymywane</string>
+    <string name="settings_sticky_buttons">Przyciski z blokadą</string>
     <string name="settings_sticky_buttons_desc">Dotknij wybranego przycisku, aby go przytrzymać, i dotknij ponownie, aby go zwolnić.</string>
     <string name="settings_help_sticky_buttons">Pozwala wybrać przyciski nakładki, które przełączają stan wciśnięcia dotknięciem zamiast wymagać przytrzymania. Przydatne w strzelankach i grach grozy, w których R1, R2 lub inne przyciski mają pozostać wciśnięte, gdy używasz przycisków przednich.</string>
     <string name="settings_left_stick_sensitivity">Czułość lewej gałki</string>

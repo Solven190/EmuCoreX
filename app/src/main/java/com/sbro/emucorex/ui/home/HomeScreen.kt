@@ -78,6 +78,7 @@ import androidx.compose.material.icons.rounded.ViewCarousel
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.ViewModule
+import androidx.compose.material.icons.rounded.Warning
 import com.sbro.emucorex.ui.common.AppAlertDialog as AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -729,9 +730,17 @@ fun HomeScreen(
         onShowAll = viewModel::showAllHiddenGames,
         onDismiss = { showHiddenGames = false }
     )
-    val canShowWelcomeDialog = !uiState.isBootstrapping &&
+    val canPresentDialogs = !uiState.isBootstrapping &&
         !uiState.isLoading &&
-        !uiState.isRefreshing
+        !uiState.isRefreshing &&
+        !isShelfView &&
+        !showWelcomeSupportOptions
+    val activeDialog = HomeDialogPolicy.activeDialog(
+        canPresent = canPresentDialogs,
+        welcomePending = uiState.showWelcomeDialog,
+        coreResetPending = uiState.showCoreResetDialog,
+        hardwareWarningPending = uiState.showHardwareWarning
+    )
     if (showWelcomeSupportOptions && supportOffers.isNotEmpty()) {
         ProSupportOptionsDialog(
             offers = supportOffers,
@@ -746,13 +755,8 @@ fun HomeScreen(
             onDismiss = { showWelcomeSupportOptions = false }
         )
     }
-    if (
-        uiState.showWelcomeDialog &&
-        canShowWelcomeDialog &&
-        !isShelfView &&
-        !showWelcomeSupportOptions
-    ) {
-        WelcomeProDialog(
+    when (activeDialog) {
+        HomeActiveDialog.WELCOME -> WelcomeProDialog(
             isProUnlocked = uiState.isProUnlocked,
             proPrice = uiState.proPrice,
             isProductLoading = uiState.isProProductLoading,
@@ -768,18 +772,15 @@ fun HomeScreen(
                 null
             }
         )
-    }
-
-    if (
-        uiState.showCoreResetDialog &&
-        !uiState.showWelcomeDialog &&
-        canShowWelcomeDialog &&
-        !isShelfView
-    ) {
-        CoreUpdateResetDialog(
+        HomeActiveDialog.CORE_RESET -> CoreUpdateResetDialog(
             onReset = viewModel::resetGeneratedCoreState,
             onKeep = viewModel::dismissCoreResetPrompt
         )
+        HomeActiveDialog.HARDWARE_WARNING -> HardwareWarningDialog(
+            gpuName = uiState.hardwareWarningGpu,
+            onDismiss = viewModel::dismissHardwareWarning
+        )
+        HomeActiveDialog.NONE -> Unit
     }
 
 }
@@ -881,6 +882,53 @@ private fun WelcomeProDialog(
         }
     )
 }
+@Composable
+private fun HardwareWarningDialog(
+    gpuName: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        showEyebrow = false,
+        showIconContainer = false,
+        icon = {
+            Icon(
+                imageVector = Icons.Rounded.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(40.dp)
+            )
+        },
+        title = { Text(text = stringResource(R.string.hardware_warning_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(R.string.hardware_warning_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (gpuName.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.hardware_warning_gpu, gpuName),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.hardware_warning_recommended),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(shape = neonButtonShape(), onClick = onDismiss) {
+                Text(text = stringResource(R.string.hardware_warning_continue))
+            }
+        }
+    )
+}
+
 @Composable
 private fun CoreUpdateResetDialog(
     onReset: () -> Unit,
