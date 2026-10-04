@@ -1,7 +1,7 @@
 # EmuCoreX
 
 [![License: GPL v3+](https://img.shields.io/badge/License-GPLv3%2B-blue.svg)](LICENSE)
-[![Get EmuCoreX on Google Play](https://img.shields.io/badge/Google_Play-Get_EmuCoreX-414141?logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=com.sbro.emucorex)
+[![Get EmuCoreX on Google Play](https://img.shields.io/badge/Google_Play-100K%2B_Downloads-414141?logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=com.sbro.emucorex)
 [![Support EmuCoreX on Patreon](https://img.shields.io/badge/Patreon-Support%20EmuCoreX-ff424d?logo=patreon&logoColor=white)](https://www.patreon.com/c/emucore/membership)
 [![Join the EmuCoreX Discord](https://img.shields.io/badge/Discord-Join%20our%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/c5EBeNRpz2)
 
@@ -141,7 +141,7 @@ EmuCoreX builds on the open-source PCSX2 project together with its own Android i
 
 If you want to support ongoing development:
 
-- Google Play: https://play.google.com/store/apps/details?id=com.sbro.emucorex
+- Google Play: https://play.google.com/store/apps/details?id=com.sbro.emucorex (100K+ downloads)
 - Website: https://emucorex.web.app/
 - Patreon: https://www.patreon.com/c/emucore/membership
 - Discord: https://discord.gg/c5EBeNRpz2

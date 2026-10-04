@@ -50,6 +50,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -66,6 +67,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Leaderboard
+import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
@@ -127,9 +129,11 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
+import com.sbro.emucorex.data.GameTopPeriod
 import com.sbro.emucorex.data.PlayerActivityDay
 import com.sbro.emucorex.data.PlayerGamePlayStat
 import com.sbro.emucorex.data.PlayerLeaderboardEntry
+import com.sbro.emucorex.data.TopGameStat
 import com.sbro.emucorex.data.PlayerProfile
 import com.sbro.emucorex.data.PlayerRankInsights
 import com.sbro.emucorex.data.CloudEmulatorProfile
@@ -162,6 +166,7 @@ private enum class ProfileTab {
     Games,
     Achievements,
     Leaderboard,
+    TopGames,
     Stats
 }
 
@@ -185,6 +190,7 @@ fun ProfileScreen(
     val selectedTab = rememberSaveable { mutableIntStateOf(0) }
     // Preserve scroll position for leaderboard/top-1000 list when navigating to a profile and back
     val mainListState = rememberLazyListState()
+    val ownGamesByKey = remember(uiState.games) { uiState.games.associateBy { it.gameKey } }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     var showProCustomization by rememberSaveable { mutableStateOf(false) }
     var showDevices by rememberSaveable { mutableStateOf(false) }
@@ -273,6 +279,15 @@ fun ProfileScreen(
             isLoading = uiState.isFeatureActionLoading,
             onUnblock = viewModel::unblockPlayer,
             onDismiss = { showBlockedPlayers = false }
+        )
+    }
+
+    uiState.deviceStatsGame?.let { game ->
+        TopGameDevicesDialog(
+            game = game,
+            stats = uiState.deviceStats,
+            isLoading = uiState.isDeviceStatsLoading,
+            onDismiss = viewModel::dismissDeviceStats
         )
     }
 
@@ -505,6 +520,53 @@ fun ProfileScreen(
                                 }
                             }
 
+                            ProfileTab.TopGames -> {
+                                item {
+                                    RevealOnEnter(revealKey = "top-games-header-${uiState.account?.uid}") {
+                                        ProfileTopGamesHeader(
+                                            period = uiState.topGamesPeriod,
+                                            totalGames = uiState.topGamesTotalGames,
+                                            totalPlayTimeMs = uiState.topGamesTotalPlayTimeMs,
+                                            totalPlayers = uiState.topGamesTotalPlayers,
+                                            updatedAtMs = uiState.topGamesUpdatedAtMs,
+                                            isLoading = uiState.isTopGamesLoading,
+                                            query = uiState.topGamesQuery,
+                                            onPeriodChange = viewModel::selectTopGamesPeriod,
+                                            onQueryChange = viewModel::updateTopGamesQuery,
+                                            onRefresh = { viewModel.refreshTopGames(forceRefresh = true) }
+                                        )
+                                    }
+                                }
+                                item {
+                                    RevealOnEnter(revealKey = "top-games-controls") {
+                                        TopGamesSortRow(
+                                            sort = uiState.topGamesSort,
+                                            onSortChange = viewModel::updateTopGamesSort
+                                        )
+                                    }
+                                }
+                                val visibleTopGames = sortedTopGames(
+                                    entries = uiState.topGames,
+                                    sort = uiState.topGamesSort,
+                                    query = uiState.topGamesQuery
+                                )
+                                if (uiState.isTopGamesLoading && uiState.topGames.isEmpty()) {
+                                    items(6, key = { "top-games-skeleton-$it" }) { TopGameStatSkeletonRow() }
+                                } else if (visibleTopGames.isEmpty()) {
+                                    item { EmptyProfileState(text = stringResource(R.string.profile_top_games_empty)) }
+                                } else {
+                                    itemsIndexed(visibleTopGames, key = { _, game -> game.key }) { index, game ->
+                                        TopGameStatRow(
+                                            game = game,
+                                            rank = index + 1,
+                                            ownStat = ownGamesByKey[game.key],
+                                            onDevicesClick = { viewModel.openDeviceStats(game) },
+                                            onClick = { viewModel.openTopGameDetails(game, onOpenGameDetails) }
+                                        )
+                                    }
+                                }
+                            }
+
                             ProfileTab.Stats -> {
                                 item {
                                     RevealOnEnter(revealKey = "profile-stats-${uiState.account?.uid}") {
@@ -548,6 +610,10 @@ private fun ProfileBottomNav(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(selectedIndex, tabs.size) {
+        listState.animateScrollToItem(selectedIndex.coerceIn(0, tabs.lastIndex))
+    }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = neonShape(28.dp),
@@ -555,20 +621,21 @@ private fun ProfileBottomNav(
         tonalElevation = 4.dp,
         border = profileCardBorder()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        LazyRow(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            tabs.forEachIndexed { index, tab ->
+            items(tabs.size) { index ->
+                val tab = tabs[index]
                 val selected = selectedIndex == index
                 val interactionSource = remember(tab) { MutableInteractionSource() }
                 Surface(
                     onClick = { onSelect(index) },
                     modifier = Modifier
-                        .weight(1f)
+                        .width(60.dp)
                         .height(56.dp)
                         .tvGamepadFocusableCard(
                             shape = neonShape(22.dp),
@@ -1904,25 +1971,25 @@ private fun EditProfileNameDialog(
 @Composable
 private fun ProBadge(accent: Color, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier.widthIn(min = 58.dp),
-        shape = neonShape(10.dp),
+        modifier = modifier.widthIn(min = 66.dp),
+        shape = neonShape(11.dp),
         color = accent.copy(alpha = 0.2f),
         border = BorderStroke(1.dp, accent.copy(alpha = 0.72f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = Icons.Rounded.WorkspacePremium,
                 contentDescription = null,
                 tint = accent,
-                modifier = Modifier.size(14.dp)
+                modifier = Modifier.size(16.dp)
             )
             Text(
                 text = stringResource(R.string.profile_pro_badge),
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
                 color = accent,
                 maxLines = 1,
                 softWrap = false
@@ -1963,9 +2030,13 @@ private fun FavoriteGamesShowcase(
                     GameCoverArt(
                         coverPath = game.coverArtPath,
                         fallbackTitle = game.title,
+                        showTitleWhileLoading = false,
+                        shimmerWhileLoading = false,
+                        decodeWidth = 220,
+                        decodeHeight = 320,
                         modifier = Modifier
-                            .size(width = 48.dp, height = 68.dp)
-                            .clip(neonShape(9.dp)),
+                            .size(width = 56.dp, height = 82.dp)
+                            .clip(neonShape(6.dp)),
                         contentScale = ContentScale.Crop
                     )
                     Column(modifier = Modifier.weight(1f)) {
@@ -2310,9 +2381,13 @@ private fun ProShowcaseGameChoice(
             GameCoverArt(
                 coverPath = game.coverArtPath,
                 fallbackTitle = game.title,
+                showTitleWhileLoading = false,
+                shimmerWhileLoading = false,
+                decodeWidth = 180,
+                decodeHeight = 260,
                 modifier = Modifier
                     .size(width = 42.dp, height = 58.dp)
-                    .clip(neonShape(10.dp)),
+                    .clip(neonShape(6.dp)),
                 contentScale = ContentScale.Crop
             )
             Column(modifier = Modifier.weight(1f)) {
@@ -2790,44 +2865,56 @@ private fun GamePlayStatRow(
     onClick: (() -> Unit)? = null
 ) {
     val content: @Composable () -> Unit = {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            GameCoverArt(
-                coverPath = game.coverArtPath,
-                fallbackTitle = game.title,
-                modifier = Modifier
-                    .size(width = 54.dp, height = 78.dp)
-                    .clip(neonShape(10.dp)),
-                contentScale = ContentScale.Crop
-            )
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(
-                    text = game.title,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+        Box {
+            Row(
+                modifier = Modifier.padding(
+                    start = 14.dp,
+                    top = 14.dp,
+                    end = 14.dp,
+                    bottom = 50.dp
+                ),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                GameCoverArt(
+                    coverPath = game.coverArtPath,
+                    fallbackTitle = game.title,
+                    showTitleWhileLoading = false,
+                    shimmerWhileLoading = false,
+                    decodeWidth = 300,
+                    decodeHeight = 450,
+                    modifier = Modifier
+                        .size(width = 84.dp, height = 118.dp)
+                        .clip(neonShape(6.dp)),
+                    contentScale = ContentScale.Crop
                 )
-                Text(
-                    text = stringResource(R.string.profile_game_sessions_format, game.sessions),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                game.lastPlayedAtMs?.let { lastPlayed ->
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = stringResource(R.string.profile_game_last_played_format, formatDate(lastPlayed)),
-                        style = MaterialTheme.typography.labelSmall,
+                        text = game.title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = stringResource(R.string.profile_game_sessions_format, game.sessions),
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    game.lastPlayedAtMs?.let { lastPlayed ->
+                        Text(
+                            text = stringResource(R.string.profile_game_last_played_format, formatDate(lastPlayed)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
-            Text(
-                text = formatDuration(game.totalPlayTimeMs),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
+            TopGameTimeBadge(
+                text = formatTopDuration(game.totalPlayTimeMs),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 14.dp, bottom = 12.dp)
             )
         }
     }
@@ -2835,7 +2922,7 @@ private fun GamePlayStatRow(
         Surface(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
-            shape = neonShape(18.dp),
+            shape = neonShape(20.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 1.dp,
             border = profileCardBorder(alpha = 0.48f),
@@ -2844,7 +2931,7 @@ private fun GamePlayStatRow(
     } else {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = neonShape(18.dp),
+            shape = neonShape(20.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 1.dp,
             border = profileCardBorder(alpha = 0.48f),
@@ -2857,49 +2944,57 @@ private fun GamePlayStatRow(
 private fun GamePlayStatSkeletonRow() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = neonShape(18.dp),
+        shape = neonShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
         border = profileCardBorder(alpha = 0.48f)
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            SkeletonBlock(
-                modifier = Modifier
-                    .size(width = 54.dp, height = 78.dp)
-                    .clip(neonShape(10.dp))
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+        Box {
+            Row(
+                modifier = Modifier.padding(
+                    start = 14.dp,
+                    top = 14.dp,
+                    end = 14.dp,
+                    bottom = 50.dp
+                ),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.Top
             ) {
                 SkeletonBlock(
                     modifier = Modifier
-                        .fillMaxWidth(0.82f)
-                        .height(18.dp)
-                        .clip(neonShape(8.dp))
-                )
-                SkeletonBlock(
-                    modifier = Modifier
-                        .fillMaxWidth(0.46f)
-                        .height(14.dp)
-                        .clip(neonShape(7.dp))
-                )
-                SkeletonBlock(
-                    modifier = Modifier
-                        .fillMaxWidth(0.58f)
-                        .height(12.dp)
+                        .size(width = 84.dp, height = 118.dp)
                         .clip(neonShape(6.dp))
                 )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .height(18.dp)
+                            .clip(neonShape(8.dp))
+                    )
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .fillMaxWidth(0.68f)
+                            .height(18.dp)
+                            .clip(neonShape(8.dp))
+                    )
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .fillMaxWidth(0.5f)
+                            .height(14.dp)
+                            .clip(neonShape(7.dp))
+                    )
+                }
             }
             SkeletonBlock(
                 modifier = Modifier
-                    .width(44.dp)
-                    .height(18.dp)
-                    .clip(neonShape(8.dp))
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 14.dp, bottom = 12.dp)
+                    .size(width = 66.dp, height = 28.dp)
+                    .clip(neonShape(999.dp))
             )
         }
     }
@@ -2909,51 +3004,63 @@ private fun GamePlayStatSkeletonRow() {
 private fun LeaderboardRowSkeleton() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = neonShape(24.dp),
+        shape = neonShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
         border = profileCardBorder(alpha = 0.5f)
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
-            SkeletonBlock(
-                Modifier
-                    .size(width = 62.dp, height = 38.dp)
-                    .clip(neonShape(18.dp))
-            )
-            SkeletonBlock(Modifier.size(52.dp).clip(CircleShape))
+            SkeletonBlock(Modifier.size(88.dp).clip(CircleShape))
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+                modifier = Modifier
+                    .weight(1f)
+                    .height(112.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                SkeletonBlock(
-                    Modifier
-                        .fillMaxWidth(0.78f)
-                        .height(20.dp)
-                        .clip(neonShape(9.dp))
-                )
-                SkeletonBlock(
-                    Modifier
-                        .fillMaxWidth(0.58f)
-                        .height(14.dp)
-                        .clip(neonShape(7.dp))
-                )
-                SkeletonBlock(
-                    Modifier
-                        .fillMaxWidth(0.4f)
-                        .height(14.dp)
-                        .clip(neonShape(7.dp))
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SkeletonBlock(
+                            Modifier
+                                .width(28.dp)
+                                .height(20.dp)
+                                .clip(neonShape(8.dp))
+                        )
+                        SkeletonBlock(
+                            Modifier
+                                .fillMaxWidth(0.62f)
+                                .height(20.dp)
+                                .clip(neonShape(9.dp))
+                        )
+                    }
+                    SkeletonBlock(
+                        Modifier
+                            .fillMaxWidth(0.58f)
+                            .height(14.dp)
+                            .clip(neonShape(7.dp))
+                    )
+                    SkeletonBlock(
+                        Modifier
+                            .width(88.dp)
+                            .height(24.dp)
+                            .clip(neonShape(999.dp))
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    SkeletonBlock(
+                        Modifier
+                            .width(72.dp)
+                            .height(28.dp)
+                            .clip(neonShape(999.dp))
+                    )
+                }
             }
-            SkeletonBlock(
-                Modifier
-                    .width(66.dp)
-                    .height(21.dp)
-                    .clip(neonShape(9.dp))
-            )
         }
     }
 }
@@ -3085,10 +3192,14 @@ private fun RecentGamesCard(
                             GameCoverArt(
                                 coverPath = game.coverArtPath,
                                 fallbackTitle = game.title,
+                                showTitleWhileLoading = false,
+                                shimmerWhileLoading = false,
+                                decodeWidth = 320,
+                                decodeHeight = 460,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(136.dp)
-                                    .clip(neonShape(16.dp)),
+                                    .clip(neonShape(5.dp)),
                                 contentScale = ContentScale.Crop
                             )
                         }
@@ -3139,7 +3250,7 @@ private fun RecentGamesSkeletonCard() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(136.dp)
-                                .clip(neonShape(16.dp))
+                                .clip(neonShape(5.dp))
                         )
                         SkeletonBlock(
                             modifier = Modifier
@@ -3171,7 +3282,7 @@ private fun LeaderboardRow(
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = neonShape(24.dp),
+        shape = neonShape(18.dp),
         color = if (isCurrentUser) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
         border = if (isCurrentUser) {
@@ -3180,27 +3291,15 @@ private fun LeaderboardRow(
             profileCardBorder(alpha = 0.5f)
         }
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (entry.isProMember) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    ProBadge(proAccent)
-                }
-            }
+        Box {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                RankBadge(rank = entry.rank)
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(88.dp)
                         .clip(CircleShape)
                         .background(
                             if (entry.isProMember) proAccent.copy(alpha = 0.72f)
@@ -3220,76 +3319,79 @@ private fun LeaderboardRow(
                                 imageVector = Icons.Rounded.Person,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(25.dp)
+                                modifier = Modifier.size(40.dp)
                             )
                         }
                     )
                 }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = entry.displayName,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    entry.playerTag.takeIf { it.isNotBlank() }?.let { tag ->
-                        Text(
-                            text = tag,
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = if (entry.isProMember) proAccent else MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(112.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = entry.rank?.let { "#$it" } ?: "—",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = if (entry.rank != null && entry.rank <= 3) {
+                                    colorForRank(entry.rank)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                }
+                            )
+                            Text(
+                                text = entry.displayName,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = if (entry.isProMember) 74.dp else 0.dp),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        entry.playerTag.takeIf { it.isNotBlank() }?.let { tag ->
+                            Text(
+                                text = tag,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = if (entry.isProMember) proAccent else MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        TopGameMetaPill(
+                            icon = Icons.Rounded.SportsEsports,
+                            text = stringResource(R.string.profile_leaderboard_games_format, entry.gamesPlayed)
                         )
                     }
-                    Text(
-                        text = stringResource(R.string.profile_leaderboard_games_format, entry.gamesPlayed),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TopGameTimeBadge(text = formatTopDuration(entry.totalPlayTimeMs))
+                    }
                 }
-                Text(
-                    text = formatDuration(entry.totalPlayTimeMs),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary
+            }
+            if (entry.isProMember) {
+                ProBadge(
+                    accent = proAccent,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
                 )
             }
         }
     }
 }
 
-@Composable
-private fun RankBadge(rank: Int?) {
-    val topRank = rank != null && rank <= 3
-    Surface(
-        shape = neonShape(18.dp),
-        color = if (topRank) colorForRank(rank).copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (topRank) {
-                Icon(
-                    imageVector = Icons.Rounded.EmojiEvents,
-                    contentDescription = null,
-                    tint = colorForRank(rank),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Text(
-                text = rank?.let { "#$it" } ?: "—",
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = if (topRank) colorForRank(rank) else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
 
 @Composable
-private fun SkeletonBlock(modifier: Modifier = Modifier) {
+internal fun SkeletonBlock(modifier: Modifier = Modifier) {
     Box(modifier = modifier.shimmer())
 }
 
@@ -3298,7 +3400,7 @@ private fun RevealOnEnter(
     revealKey: Any,
     content: @Composable () -> Unit
 ) {
-    var visible by remember(revealKey) { mutableStateOf(false) }
+    var visible by rememberSaveable(revealKey) { mutableStateOf(false) }
     LaunchedEffect(revealKey) { visible = true }
     AnimatedVisibility(
         visible = visible,
@@ -3309,7 +3411,7 @@ private fun RevealOnEnter(
 }
 
 @Composable
-private fun EmptyProfileState(text: String) {
+internal fun EmptyProfileState(text: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = neonShape(18.dp),
@@ -3356,6 +3458,7 @@ private fun ProfileTab.titleRes(): Int = when (this) {
     ProfileTab.Games -> R.string.profile_tab_games
     ProfileTab.Achievements -> R.string.profile_tab_achievements
     ProfileTab.Leaderboard -> R.string.profile_tab_leaderboard
+    ProfileTab.TopGames -> R.string.profile_tab_top_games
     ProfileTab.Stats -> R.string.profile_tab_stats
 }
 
@@ -3364,6 +3467,7 @@ private fun ProfileTab.icon() = when (this) {
     ProfileTab.Games -> Icons.Rounded.SportsEsports
     ProfileTab.Achievements -> Icons.Rounded.EmojiEvents
     ProfileTab.Leaderboard -> Icons.Rounded.Leaderboard
+    ProfileTab.TopGames -> Icons.Rounded.LocalFireDepartment
     ProfileTab.Stats -> Icons.Rounded.BarChart
 }
 

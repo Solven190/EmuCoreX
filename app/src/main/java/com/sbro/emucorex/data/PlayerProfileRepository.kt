@@ -126,6 +126,7 @@ class PlayerProfileRepository(context: Context) {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
     private val coverArtRepository = CoverArtRepository(appContext)
+    private val gameStatsRepository = GameStatsRepository(appContext)
 
     fun observeAuthState(): Flow<PlayerAccount?> = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
@@ -434,8 +435,10 @@ class PlayerProfileRepository(context: Context) {
         val activityRefs = activityGroups.mapValues { (day, _) ->
             userRef.collection(ACTIVITY_COLLECTION).document(day)
         }
+        val pendingStats = ArrayList<GameStatsDelta>(validEntries.size)
 
         firestore.runTransaction { transaction ->
+            pendingStats.clear()
             val snapshot = transaction.get(userRef)
             val activitySnapshots = activityRefs.mapValues { (_, reference) -> transaction.get(reference) }
             val existingGames = snapshot.getGamesMap().toMutableMap()
@@ -453,6 +456,17 @@ class PlayerProfileRepository(context: Context) {
                 }
                 existingGames[gameKey] = nextGame
                 changedGames[gameKey] = nextGame
+                if (entry.serial?.isNotBlank() == true && isValidGameStatKey(gameKey)) {
+                    pendingStats += GameStatsDelta(
+                        key = gameKey,
+                        serial = entry.serial,
+                        title = cleanTitle,
+                        durationMs = entry.durationMs,
+                        sessions = entry.sessionCount,
+                        lastPlayedAtMs = entry.lastPlayedAtMs,
+                        firstPlay = existingGame.longValue(GAME_TOTAL_MS) == 0L
+                    )
+                }
             }
 
             val totalPlayTimeMs = (snapshot.getLong(FIELD_TOTAL_PLAY_TIME_MS) ?: 0L) + validEntries.sumOf { it.second.durationMs }
@@ -538,6 +552,11 @@ class PlayerProfileRepository(context: Context) {
                 )
             }
         }.await()
+        // Global game stats are additive and must never make play-time persistence fail.
+        if (pendingStats.isNotEmpty()) {
+            runCatching { gameStatsRepository.recordDeltas(pendingStats) }
+                .onFailure { error -> Log.w(TAG, "Global game stats sync failed", error) }
+        }
         // Achievement sync is additive and must never make play-time persistence fail.
         runCatching { EmuAchievementRepository(appContext).evaluateCurrentProfile() }
     }

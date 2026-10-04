@@ -141,6 +141,33 @@ class Ps2CatalogRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Fast serial/title match for bulk stat enrichment: identity index and exact
+     * title only, never the fuzzy scan used by [findBestMatchId].
+     */
+    fun findCatalogMatchId(serial: String?, title: String?): Long? {
+        if (!ensureDatabaseReady()) return null
+        findSerialMatchId(serial)?.let { return it }
+        val normalizedTitle = title
+            ?.let(::normalizeIdentityTitle)
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        loadIdentityIndex().titleToIgdb[normalizedTitle]?.let { return it }
+        val db = getDatabase() ?: return null
+        return findExactTitleId(db, listOf(normalizedTitle))
+    }
+
+    fun getCoverUrl(igdbId: Long): String? {
+        if (!ensureDatabaseReady()) return null
+        val db = getDatabase() ?: return null
+        return db.rawQuery(
+            "SELECT cover_url FROM games WHERE igdb_id = ? LIMIT 1",
+            arrayOf(igdbId.toString())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) toHighResImageUrl(cursor.getStringOrNull(0)) else null
+        }
+    }
+
     fun findBestMatchId(serial: String?, title: String?): Long? {
         if (!ensureDatabaseReady()) return null
         val compatibility = compatibilityRepository.findBest(serial, title)
@@ -179,6 +206,23 @@ class Ps2CatalogRepository(private val context: Context) {
 
         Log.w(TAG, "No catalog match for serial=$serial title=$title")
         return null
+    }
+
+    /**
+     * Lightweight serial-only lookup used by global game stats grouping.
+     * Avoids the compatibility repository and fuzzy title matching of [findBestMatchId].
+     */
+    fun findSerialMatchId(serial: String?): Long? {
+        if (!ensureDatabaseReady()) return null
+        val normalized = serial
+            ?.normalizeSerialForMatch()
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        loadIdentityIndex().serialToIgdb[normalized]?.let { id ->
+            return id
+        }
+        val db = getDatabase() ?: return null
+        return findIdByDatabaseSerial(db, listOf(normalized))
     }
 
     private fun loadIdentityIndex(): CatalogIdentityIndex {

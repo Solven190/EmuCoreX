@@ -25,6 +25,8 @@ app/google-services.json
 /firebase-tests/
 /firestore-debug.log
 /migrate-player-profiles.mjs
+/backfill-game-stats.mjs
+/functions/
 
 # Build outputs
 build/
