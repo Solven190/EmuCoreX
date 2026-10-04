@@ -2,6 +2,7 @@ package com.sbro.emucorex.ui.profile
 
 import android.app.Activity
 import android.app.Application
+import android.util.Log
 import com.google.firebase.firestore.DocumentSnapshot
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,9 +21,13 @@ import com.sbro.emucorex.data.CloudEmulatorProfile
 import com.sbro.emucorex.data.CloudEmulatorSettingsRepository
 import com.sbro.emucorex.data.EmuAchievementRepository
 import com.sbro.emucorex.data.EmuAchievementState
+import com.sbro.emucorex.data.GameDeviceStat
+import com.sbro.emucorex.data.GameStatsRepository
+import com.sbro.emucorex.data.GameTopPeriod
 import com.sbro.emucorex.data.ProfileFeedEvent
 import com.sbro.emucorex.data.ProfileFriendship
 import com.sbro.emucorex.data.ProfileSocialRepository
+import com.sbro.emucorex.data.TopGameStat
 import com.sbro.emucorex.data.ps2.Ps2CatalogRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
@@ -35,11 +40,31 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
+enum class TopGamesSort {
+    PlayTime,
+    Players,
+    Sessions,
+    Recent
+}
+
 data class ProfileUiState(
     val account: PlayerAccount? = null,
     val profile: PlayerProfile? = null,
     val viewedProfile: PlayerProfile? = null,
     val games: List<PlayerGamePlayStat> = emptyList(),
+    val topGames: List<TopGameStat> = emptyList(),
+    val topGamesPeriod: GameTopPeriod = GameTopPeriod.AllTime,
+    val topGamesSort: TopGamesSort = TopGamesSort.PlayTime,
+    val topGamesQuery: String = "",
+    val isTopGamesLoading: Boolean = false,
+    val hasLoadedTopGames: Boolean = false,
+    val topGamesUpdatedAtMs: Long = 0L,
+    val topGamesTotalGames: Int = 0,
+    val topGamesTotalPlayTimeMs: Long = 0L,
+    val topGamesTotalPlayers: Int = 0,
+    val deviceStatsGame: TopGameStat? = null,
+    val deviceStats: List<GameDeviceStat> = emptyList(),
+    val isDeviceStatsLoading: Boolean = false,
     val leaderboard: List<PlayerLeaderboardEntry> = emptyList(),
     val searchResults: List<PlayerLeaderboardEntry> = emptyList(),
     val leaderboardSearchQuery: String = "",
@@ -77,6 +102,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val repository = PlayerProfileRepository(application)
     private val proPurchaseManager = ProPurchaseManager.getInstance(application)
     private val catalogRepository = Ps2CatalogRepository(application)
+    private val gameStatsRepository = GameStatsRepository(application)
     private val deviceRepository = ProfileDeviceRepository(application)
     private val cloudSettingsRepository = CloudEmulatorSettingsRepository(application)
     private val achievementRepository = EmuAchievementRepository(application)
@@ -86,6 +112,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     private var profileJob: Job? = null
     private var viewedProfileJob: Job? = null
+    private var topGamesJob: Job? = null
     private var searchJob: Job? = null
     private var rankJob: Job? = null
     private var devicesJob: Job? = null
@@ -101,6 +128,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             repository.observeAuthState().collect { account ->
                 profileJob?.cancel()
                 viewedProfileJob?.cancel()
+                topGamesJob?.cancel()
                 searchJob?.cancel()
                 rankJob?.cancel()
                 devicesJob?.cancel()
@@ -116,6 +144,19 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         profile = null,
                         viewedProfile = null,
                         games = emptyList(),
+                        topGames = emptyList(),
+                        topGamesPeriod = GameTopPeriod.AllTime,
+                        topGamesSort = TopGamesSort.PlayTime,
+                        topGamesQuery = "",
+                        isTopGamesLoading = false,
+                        hasLoadedTopGames = false,
+                        topGamesUpdatedAtMs = 0L,
+                        topGamesTotalGames = 0,
+                        topGamesTotalPlayTimeMs = 0L,
+                        topGamesTotalPlayers = 0,
+                        deviceStatsGame = null,
+                        deviceStats = emptyList(),
+                        isDeviceStatsLoading = false,
                         leaderboard = emptyList(),
                         searchResults = emptyList(),
                         leaderboardSearchQuery = "",
@@ -216,7 +257,138 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         when (tabName) {
             "Achievements" -> if (!_uiState.value.hasLoadedAchievements) refreshAchievements()
             "Leaderboard" -> if (!_uiState.value.hasLoadedLeaderboard) refreshLeaderboard()
+            "TopGames" -> if (!_uiState.value.hasLoadedTopGames) refreshTopGames()
             "Stats" -> if (!_uiState.value.hasLoadedActivity) loadActivity()
+        }
+    }
+
+    fun refreshTopGames(forceRefresh: Boolean = false) {
+        topGamesJob?.cancel()
+        val period = _uiState.value.topGamesPeriod
+        _uiState.update { it.copy(isTopGamesLoading = true, errorMessage = null) }
+        topGamesJob = viewModelScope.launch {
+            runCatching { gameStatsRepository.loadTopGames(period, forceRefresh = forceRefresh) }
+                .onSuccess { snapshot ->
+                    if (_uiState.value.topGamesPeriod == snapshot.period) {
+                        _uiState.update {
+                            it.copy(
+                                topGames = snapshot.entries,
+                                topGamesUpdatedAtMs = snapshot.updatedAtMs,
+                                topGamesTotalGames = snapshot.totalGames,
+                                topGamesTotalPlayTimeMs = snapshot.totalPlayTimeMs,
+                                topGamesTotalPlayers = snapshot.totalPlayers,
+                                isTopGamesLoading = false,
+                                hasLoadedTopGames = true
+                            )
+                        }
+                    }
+                }
+                .onFailure { error ->
+                    Log.w("ProfileViewModel", "Top games load failed", error)
+                    _uiState.update {
+                        it.copy(
+                            isTopGamesLoading = false,
+                            hasLoadedTopGames = true,
+                            errorMessage = getApplication<Application>().getString(R.string.profile_top_games_load_failed)
+                        )
+                    }
+                }
+        }
+    }
+
+    fun selectTopGamesPeriod(period: GameTopPeriod) {
+        if (_uiState.value.topGamesPeriod == period) return
+        _uiState.update {
+            it.copy(
+                topGamesPeriod = period,
+                topGames = emptyList(),
+                topGamesUpdatedAtMs = 0L,
+                topGamesTotalGames = 0,
+                topGamesTotalPlayTimeMs = 0L,
+                topGamesTotalPlayers = 0,
+                isTopGamesLoading = false,
+                hasLoadedTopGames = false
+            )
+        }
+        refreshTopGames()
+    }
+
+    fun updateTopGamesSort(sort: TopGamesSort) {
+        _uiState.update { it.copy(topGamesSort = sort) }
+    }
+
+    fun updateTopGamesQuery(query: String) {
+        _uiState.update { it.copy(topGamesQuery = query.take(48)) }
+    }
+
+    fun openTopGameDetails(game: TopGameStat, onOpen: (Long) -> Unit) {
+        val knownCatalogId = game.igdbId
+        if (knownCatalogId != null) {
+            onOpen(knownCatalogId)
+            return
+        }
+        viewModelScope.launch {
+            val catalogId = withContext(Dispatchers.IO) {
+                runCatching {
+                    catalogRepository.findBestMatchId(serial = game.serial, title = game.title)
+                }.getOrNull()
+            }
+            if (catalogId != null) {
+                onOpen(catalogId)
+            } else {
+                _uiState.update {
+                    it.copy(errorMessage = getApplication<Application>().getString(R.string.profile_catalog_game_not_found, game.title))
+                }
+            }
+        }
+    }
+
+    fun openDeviceStats(game: TopGameStat) {
+        _uiState.update {
+            it.copy(
+                deviceStatsGame = game,
+                deviceStats = emptyList(),
+                isDeviceStatsLoading = true,
+                errorMessage = null
+            )
+        }
+        viewModelScope.launch {
+            runCatching {
+                gameStatsRepository.loadDeviceStats(game.groupKeys.ifEmpty { listOf(game.key) })
+            }
+                .onSuccess { stats ->
+                    _uiState.update { state ->
+                        if (state.deviceStatsGame?.key == game.key) {
+                            state.copy(deviceStats = stats, isDeviceStatsLoading = false)
+                        } else {
+                            state
+                        }
+                    }
+                }
+                .onFailure { error ->
+                    Log.w("ProfileViewModel", "Device stats load failed", error)
+                    _uiState.update { state ->
+                        if (state.deviceStatsGame?.key == game.key) {
+                            state.copy(
+                                isDeviceStatsLoading = false,
+                                errorMessage = getApplication<Application>()
+                                    .getString(R.string.profile_game_devices_load_failed)
+                            )
+                        } else {
+                            state
+                        }
+                    }
+                }
+        }
+    }
+
+    fun dismissDeviceStats() {
+        _uiState.update {
+            it.copy(
+                deviceStatsGame = null,
+                deviceStats = emptyList(),
+                isDeviceStatsLoading = false
+            )
         }
     }
 
