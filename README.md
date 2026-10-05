@@ -9,25 +9,6 @@ EmuCoreX is a PlayStation 2 library, launcher, and emulator frontend for Android
 
 Official website: https://emucorex.web.app/
 
-![Status](https://img.shields.io/badge/Status-Early%20Development%20%2F%20Unstable-red)
-
-> [!WARNING]
-> EmuCoreX is currently in the early stages of development. Expect instability, visual issues, performance drops, random slowdowns, and occasional crashes depending on the game, device, renderer, and driver stack.
->
-> The current Android focus is mid-range and high-end phones. Budget devices are not optimized yet.
->
-> At this stage, optimization work is mainly focused on Snapdragon devices. MediaTek optimization is still incomplete and may improve later.
->
-> If you are using a MediaTek device, try the OpenGL renderer first. If that is still unstable or too slow for a specific game, try Software rendering as a fallback.
->
-> Minimum recommended specifications as of July 2026:
-> - Chipset: Snapdragon 855 or a similarly powerful MediaTek chipset, such as Dimensity 900 or Dimensity 1080
-> - Memory: at least 4 GB of RAM, with 6 GB recommended for more stable emulation
->
-> These are practical starting points, not guarantees. Cooling, GPU drivers, RAM bandwidth, renderer choice, and the game itself still matter a lot.
->
-> Not all games work correctly yet. Compatibility, fixes, and performance optimization are still in active development.
-
 ## Highlights
 
 - PCSX2-based emulation core adapted by EmuCoreX for Android
@@ -40,6 +21,11 @@ Official website: https://emucorex.web.app/
 - Advanced graphics and GS hack controls, including device-safe defaults for MediaTek
 - Physical gamepad remapping and gamepad-aware UI flows
 - A shared desktop application for Windows, Linux, and macOS with a native Qt Quick interface
+
+## Recommended Specifications
+
+- **Chipset:** Snapdragon 855 or a comparably powerful MediaTek chipset, such as Dimensity 900 or Dimensity 1080
+- **Memory:** at least 4 GB of RAM; 6 GB is recommended for more stable emulation
 
 ## Screenshots
 
@@ -87,14 +73,14 @@ This repository contains the Android app and the in-development Windows, Linux, 
 
 ## Current App Scope
 
-EmuCoreX version `0.3.8` currently targets Android with:
+EmuCoreX version `0.4.7` currently targets Android with:
 
 - `minSdk 29`
 - `targetSdk 37`
 - package id `com.sbro.emucorex`
-- version `0.3.8`
+- version `0.4.7`
 
-Desktop version `0.3.8` is in development for Windows, Linux, and macOS on x64 and ARM64. Public desktop binaries are not available yet.
+Desktop version `0.4.7` is in development for Windows, Linux, and macOS on x64 and ARM64. Public desktop binaries are not available yet.
 
 ## Building Locally
 
