@@ -2841,4 +2841,17 @@
     <string name="settings_help_per_game_memory_cards">Die Auswahl gilt nur für dieses Spiel und wird in seinem Profil gespeichert. Wird die gewählte Karte gelöscht oder umbenannt, greift wieder die globale Zuweisung.</string>
     <string name="per_game_memory_card_create">Karte für dieses Spiel erstellen</string>
     <string name="core_update_reset_done">Einstellungen zurückgesetzt</string>
+    <string name="settings_game_serial_editing">Spieleseriennummer bearbeiten</string>
+    <string name="settings_game_serial_editing_desc">Fügt dem Langdruck-Menü eines Spiels die Aktion „Seriennummer ändern“ hinzu.</string>
+    <string name="settings_help_game_serial_editing">Hilfreich bei gepatchten oder übersetzten Discs, deren tatsächliche Seriennummer von der auf dem Cover abweicht. Die gewählte Seriennummer wird für jedes Spiel gespeichert und für Cover, GameDB, Cheats und Speicherstände verwendet.</string>
+    <string name="home_game_menu_change_serial">Seriennummer ändern</string>
+    <string name="game_serial_dialog_title">Spieleseriennummer ändern</string>
+    <string name="game_serial_dialog_message">Lege die Seriennummer fest, die dieses Spiel verwenden soll. Sie wird für dieses Spiel gespeichert und bestimmt Cover-Downloads, die GameDB-Zuordnung und die Spielinformationen in der Bibliothek.</string>
+    <string name="game_serial_dialog_current">Erkannte Seriennummer: %1$s</string>
+    <string name="game_serial_dialog_hint">Beispiel: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">Gib eine gültige Seriennummer ein: 4 Buchstaben und 5 Ziffern (SCES-12345 oder SCES12345).</string>
+    <string name="game_serial_dialog_clear_hint">Feld leeren und speichern, um die von der Disc erkannte Seriennummer zu verwenden.</string>
+    <string name="game_serial_dialog_save">Speichern</string>
+    <string name="game_serial_dialog_cancel">Abbrechen</string>
+    <string name="game_serial_dialog_saved">Seriennummer des Spiels aktualisiert</string>
 </resources>

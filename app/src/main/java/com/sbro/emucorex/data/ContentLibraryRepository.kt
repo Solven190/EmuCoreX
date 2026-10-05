@@ -27,7 +27,9 @@ class ContentLibraryRepository(context: Context) {
 
     fun resolveIdentity(game: GameItem): SelectedGameIdentity {
         val metadata = runCatching { EmulatorBridge.getGameMetadata(game.path) }.getOrNull()
-        val serial = metadata?.serial?.normalizeGameSerial() ?: game.serial?.normalizeGameSerial()
+        val serial = preferences.getGameSerialOverrideSync(game.path)?.normalizeGameSerial()
+            ?: metadata?.serial?.normalizeGameSerial()
+            ?: game.serial?.normalizeGameSerial()
         val crc = metadata?.serialWithCrc
             ?.let(CRC_PATTERN::find)
             ?.value

@@ -2840,4 +2840,17 @@
     <string name="settings_help_per_game_memory_cards">按游戏的选择仅影响此游戏，并保存在其配置中。如果所选记忆卡被删除或重命名，游戏将回退到全局分配。</string>
     <string name="per_game_memory_card_create">为此游戏创建记忆卡</string>
     <string name="core_update_reset_done">设置已重置</string>
+    <string name="settings_game_serial_editing">编辑游戏序列号</string>
+    <string name="settings_game_serial_editing_desc">在游戏长按菜单中添加“更改序列号”操作。</string>
+    <string name="settings_help_game_serial_editing">适用于真实序列号与封面印刷不同的修改版或汉化版光盘。所选序列号会按游戏记住，并用于封面、GameDB、金手指和存档。</string>
+    <string name="home_game_menu_change_serial">更改序列号</string>
+    <string name="game_serial_dialog_title">更改游戏序列号</string>
+    <string name="game_serial_dialog_message">设置此游戏应使用的序列号。它将按游戏记住，并影响封面下载、GameDB 匹配以及库中显示的游戏信息。</string>
+    <string name="game_serial_dialog_current">检测到的序列号：%1$s</string>
+    <string name="game_serial_dialog_hint">例如：SCES-12345</string>
+    <string name="game_serial_dialog_invalid">请输入有效的序列号：4 个字母和 5 位数字（SCES-12345 或 SCES12345）。</string>
+    <string name="game_serial_dialog_clear_hint">清空输入框并保存即可恢复从光盘检测到的序列号。</string>
+    <string name="game_serial_dialog_save">保存</string>
+    <string name="game_serial_dialog_cancel">取消</string>
+    <string name="game_serial_dialog_saved">游戏序列号已更新</string>
 </resources>

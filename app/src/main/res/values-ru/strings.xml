@@ -2843,4 +2843,17 @@
     <string name="settings_help_per_game_memory_cards">Выбор для конкретной игры влияет только на неё и сохраняется в её профиле. Если выбранная карта удалена или переименована, игра возвращается к глобальному назначению.</string>
     <string name="per_game_memory_card_create">Создать карту для этой игры</string>
     <string name="core_update_reset_done">Настройки сброшены</string>
+    <string name="settings_game_serial_editing">Изменение серийного номера</string>
+    <string name="settings_game_serial_editing_desc">Добавляет действие «Изменить серийный номер» в меню долгого нажатия на игру.</string>
+    <string name="settings_help_game_serial_editing">Пригодится для пропатченных или переведённых дисков, у которых настоящий серийный номер отличается от указанного на обложке. Выбранный номер запоминается для каждой игры и используется для обложек, GameDB, читов и сохранений.</string>
+    <string name="home_game_menu_change_serial">Изменить серийный номер</string>
+    <string name="game_serial_dialog_title">Смена серийного номера</string>
+    <string name="game_serial_dialog_message">Укажите серийный номер, который должна использовать эта игра. Он запомнится для неё и повлияет на загрузку обложки, поиск в GameDB и отображение информации об игре в библиотеке.</string>
+    <string name="game_serial_dialog_current">Определённый серийный номер: %1$s</string>
+    <string name="game_serial_dialog_hint">Например: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">Введите корректный серийный номер: 4 буквы и 5 цифр (SCES-12345 или SCES12345).</string>
+    <string name="game_serial_dialog_clear_hint">Очистите поле и сохраните, чтобы вернуть номер, определённый с диска.</string>
+    <string name="game_serial_dialog_save">Сохранить</string>
+    <string name="game_serial_dialog_cancel">Отмена</string>
+    <string name="game_serial_dialog_saved">Серийный номер игры обновлён</string>
 </resources>

@@ -2859,4 +2859,17 @@
     <string name="settings_help_per_game_memory_cards">Volba pro konkrétní hru ovlivní pouze tuto hru a uloží se do jejího profilu. Pokud je vybraná karta smazána nebo přejmenována, hra se vrátí ke globálnímu přiřazení.</string>
     <string name="per_game_memory_card_create">Vytvořit kartu pro tuto hru</string>
     <string name="core_update_reset_done">Nastavení bylo obnoveno</string>
+    <string name="settings_game_serial_editing">Upravit sériové číslo</string>
+    <string name="settings_game_serial_editing_desc">Přidá akci „Změnit sériové číslo“ do nabídky po dlouhém stisku hry.</string>
+    <string name="settings_help_game_serial_editing">Užitečné pro upravené nebo přeložené disky, jejichž skutečné sériové číslo se liší od čísla na obalu. Zvolené číslo se u každé hry pamatuje a používá se pro obaly, GameDB, cheaty a uložené pozice.</string>
+    <string name="home_game_menu_change_serial">Změnit sériové číslo</string>
+    <string name="game_serial_dialog_title">Změna sériového čísla hry</string>
+    <string name="game_serial_dialog_message">Nastavte sériové číslo, které má tato hra používat. U hry se zapamatuje a ovlivní stahování obalu, vyhledávání v GameDB i informace zobrazené v knihovně.</string>
+    <string name="game_serial_dialog_current">Zjištěné sériové číslo: %1$s</string>
+    <string name="game_serial_dialog_hint">Příklad: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">Zadejte platné sériové číslo: 4 písmena a 5 číslic (SCES-12345 nebo SCES12345).</string>
+    <string name="game_serial_dialog_clear_hint">Vymažte pole a uložte pro obnovení čísla zjištěného z disku.</string>
+    <string name="game_serial_dialog_save">Uložit</string>
+    <string name="game_serial_dialog_cancel">Zrušit</string>
+    <string name="game_serial_dialog_saved">Sériové číslo hry bylo aktualizováno</string>
 </resources>

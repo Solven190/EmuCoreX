@@ -2856,4 +2856,17 @@
     <string name="settings_help_per_game_memory_cards">The per-game choice only affects this game and is saved in its profile. If the selected card is deleted or renamed, the game falls back to the global assignment.</string>
     <string name="per_game_memory_card_create">Create a card for this game</string>
     <string name="core_update_reset_done">Settings have been reset</string>
+    <string name="settings_game_serial_editing">Edit game serial</string>
+    <string name="settings_game_serial_editing_desc">Adds a “Change serial” action to the game long-press menu.</string>
+    <string name="settings_help_game_serial_editing">Useful for patched or translated discs whose real serial differs from the one printed on the cover. The chosen serial is remembered for each game and is used for covers, GameDB, cheats and save states.</string>
+    <string name="home_game_menu_change_serial">Change serial</string>
+    <string name="game_serial_dialog_title">Change game serial</string>
+    <string name="game_serial_dialog_message">Set the serial this game should use. It is remembered for this game and drives cover downloads, GameDB matching and the game info shown in the library.</string>
+    <string name="game_serial_dialog_current">Detected serial: %1$s</string>
+    <string name="game_serial_dialog_hint">Example: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">Enter a valid serial: 4 letters and 5 digits (SCES-12345 or SCES12345).</string>
+    <string name="game_serial_dialog_clear_hint">Clear the field and save to use the serial detected from the disc.</string>
+    <string name="game_serial_dialog_save">Save</string>
+    <string name="game_serial_dialog_cancel">Cancel</string>
+    <string name="game_serial_dialog_saved">Game serial updated</string>
 </resources>

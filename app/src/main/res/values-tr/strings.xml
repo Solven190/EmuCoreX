@@ -2839,4 +2839,17 @@
     <string name="settings_help_per_game_memory_cards">Oyun başına seçim yalnızca bu oyunu etkiler ve profilinde saklanır. Seçilen kart silinir veya adı değiştirilirse oyun global atamaya geri döner.</string>
     <string name="per_game_memory_card_create">Bu oyun için kart oluştur</string>
     <string name="core_update_reset_done">Ayarlar sıfırlandı</string>
+    <string name="settings_game_serial_editing">Oyun seri numarasını düzenle</string>
+    <string name="settings_game_serial_editing_desc">Oyunun uzun basma menüsüne «Seri numarasını değiştir» eylemini ekler.</string>
+    <string name="settings_help_game_serial_editing">Gerçek seri numarası kapağındakinden farklı olan yamalı veya çevrilmiş diskler için kullanışlıdır. Seçilen numara her oyun için hatırlanır; kapaklar, GameDB, hileler ve kayıtlar için kullanılır.</string>
+    <string name="home_game_menu_change_serial">Seri numarasını değiştir</string>
+    <string name="game_serial_dialog_title">Oyun seri numarasını değiştir</string>
+    <string name="game_serial_dialog_message">Bu oyunun kullanacağı seri numarasını ayarlayın. Oyun için hatırlanır; kapak indirme, GameDB eşleşmesi ve kitaplıkta gösterilen oyun bilgilerini etkiler.</string>
+    <string name="game_serial_dialog_current">Algılanan seri numarası: %1$s</string>
+    <string name="game_serial_dialog_hint">Örnek: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">Geçerli bir seri numarası girin: 4 harf ve 5 rakam (SCES-12345 veya SCES12345).</string>
+    <string name="game_serial_dialog_clear_hint">Diskten algılanan numaraya dönmek için alanı temizleyip kaydedin.</string>
+    <string name="game_serial_dialog_save">Kaydet</string>
+    <string name="game_serial_dialog_cancel">İptal</string>
+    <string name="game_serial_dialog_saved">Oyun seri numarası güncellendi</string>
 </resources>

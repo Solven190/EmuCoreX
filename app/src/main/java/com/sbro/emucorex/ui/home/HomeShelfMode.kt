@@ -102,7 +102,8 @@ internal fun HomeShelfMode(
     onLongClickOpenGameDb: (GameItem) -> Unit,
     onLongClickHide: (GameItem) -> Unit,
     onShowHiddenGames: (() -> Unit)?,
-    onLongClickCustomCover: (GameItem) -> Unit
+    onLongClickCustomCover: (GameItem) -> Unit,
+    onLongClickChangeSerial: ((GameItem) -> Unit)? = null
 ) {
     if (games.isEmpty()) {
         Column(modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -274,6 +275,9 @@ internal fun HomeShelfMode(
                                 onLongClickHide = { onLongClickHide(game) },
                                 onShowHiddenGames = onShowHiddenGames,
                                 onLongClickCustomCover = { onLongClickCustomCover(game) },
+                                onLongClickChangeSerial = onLongClickChangeSerial?.let { action ->
+                                    { action(game) }
+                                },
                                 onNavigateLeft = {
                                     if (page > 0 && !pagerState.isScrollInProgress) {
                                         scope.launch { pagerState.animateScrollToPage(page - 1) }
@@ -490,6 +494,7 @@ private fun ShelfCoverCard(
     onLongClickHide: () -> Unit,
     onShowHiddenGames: (() -> Unit)?,
     onLongClickCustomCover: () -> Unit,
+    onLongClickChangeSerial: (() -> Unit)?,
     onNavigateLeft: () -> Unit,
     onNavigateRight: () -> Unit
 ) {
@@ -590,7 +595,8 @@ private fun ShelfCoverCard(
         onOpenGameDb = { dismissMenu(onLongClickOpenGameDb) },
         onCustomCover = { dismissMenu(onLongClickCustomCover) },
         onHide = { dismissMenu(onLongClickHide) },
-        onShowHiddenGames = onShowHiddenGames?.let { action -> { dismissMenu(action) } }
+        onShowHiddenGames = onShowHiddenGames?.let { action -> { dismissMenu(action) } },
+        onChangeSerial = onLongClickChangeSerial?.let { action -> { dismissMenu(action) } }
     )
 }
 

@@ -372,6 +372,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppPreferences.ORIENTATION_LOCK_AUTO)
     val emulationAllowsBothOrientations: StateFlow<Boolean> = preferences.emulationAllowsBothOrientations
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val gameSerialEditingEnabled: StateFlow<Boolean> = preferences.gameSerialEditingEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     private var mediatekCompatibilityNoticeChecked = false
 
     init {
@@ -2263,6 +2265,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     fun setEmulationAllowsBothOrientations(enabled: Boolean) {
         viewModelScope.launch { preferences.setEmulationAllowsBothOrientations(enabled) }
+    }
+
+    fun setGameSerialEditingEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferences.setGameSerialEditingEnabled(enabled) }
     }
     fun setGamepadStickDeadzone(value: Int) { viewModelScope.launch { preferences.setGamepadStickDeadzone(value) } }
     fun setGamepadLeftStickSensitivity(value: Int) { viewModelScope.launch { preferences.setGamepadLeftStickSensitivity(value) } }

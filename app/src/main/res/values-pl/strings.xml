@@ -2861,4 +2861,17 @@
     <string name="settings_help_per_game_memory_cards">Wybór dla gry dotyczy tylko tej gry i jest zapisywany w jej profilu. Jeśli wybrana karta zostanie usunięta lub zmieniona nazwa, gra wróci do przypisania globalnego.</string>
     <string name="per_game_memory_card_create">Utwórz kartę dla tej gry</string>
     <string name="core_update_reset_done">Ustawienia zresetowane</string>
+    <string name="settings_game_serial_editing">Edytuj numer seryjny</string>
+    <string name="settings_game_serial_editing_desc">Dodaje akcję „Zmień numer seryjny” do menu po długim naciśnięciu gry.</string>
+    <string name="settings_help_game_serial_editing">Przydatne przy zmodyfikowanych lub przetłumaczonych płytach, których prawdziwy numer seryjny różni się od wydrukowanego na okładce. Wybrany numer jest zapamiętywany dla każdej gry i używany do okładek, GameDB, kodów i zapisów.</string>
+    <string name="home_game_menu_change_serial">Zmień numer seryjny</string>
+    <string name="game_serial_dialog_title">Zmiana numeru seryjnego gry</string>
+    <string name="game_serial_dialog_message">Ustaw numer seryjny, którego ma używać ta gra. Zostanie zapamiętany dla tej gry i wpłynie na pobieranie okładki, wyszukiwanie w GameDB oraz informacje wyświetlane w bibliotece.</string>
+    <string name="game_serial_dialog_current">Wykryty numer seryjny: %1$s</string>
+    <string name="game_serial_dialog_hint">Przykład: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">Wprowadź prawidłowy numer seryjny: 4 litery i 5 cyfr (SCES-12345 lub SCES12345).</string>
+    <string name="game_serial_dialog_clear_hint">Wyczyść pole i zapisz, aby przywrócić numer wykryty z płyty.</string>
+    <string name="game_serial_dialog_save">Zapisz</string>
+    <string name="game_serial_dialog_cancel">Anuluj</string>
+    <string name="game_serial_dialog_saved">Zaktualizowano numer seryjny gry</string>
 </resources>

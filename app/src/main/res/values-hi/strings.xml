@@ -2839,4 +2839,17 @@
     <string name="settings_help_per_game_memory_cards">प्रति-गेम चयन केवल इस गेम पर लागू होता है और इसकी प्रोफ़ाइल में सहेजा जाता है। यदि चुना गया कार्ड हटा या नाम बदला गया हो, तो गेम ग्लोबल असाइनमेंट पर वापस चला जाता है।</string>
     <string name="per_game_memory_card_create">इस गेम के लिए कार्ड बनाएँ</string>
     <string name="core_update_reset_done">सेटिंग्स रीसेट हो गईं</string>
+    <string name="settings_game_serial_editing">गेम सीरियल संपादित करें</string>
+    <string name="settings_game_serial_editing_desc">गेम के लॉन्ग-प्रेस मेनू में «सीरियल बदलें» विकल्प जोड़ता है।</string>
+    <string name="settings_help_game_serial_editing">पैच किए गए या अनूदित डिस्क के लिए उपयोगी है जिनका असली सीरियल कवर पर छपे सीरियल से अलग होता है। चुना गया सीरियल हर गेम के लिए याद रखा जाता है और कवर, GameDB, चीट्स और सेव के लिए उपयोग होता है।</string>
+    <string name="home_game_menu_change_serial">सीरियल बदलें</string>
+    <string name="game_serial_dialog_title">गेम सीरियल बदलें</string>
+    <string name="game_serial_dialog_message">यह गेम जिस सीरियल का उपयोग करे, वह सेट करें। यह गेम के लिए याद रखा जाएगा और कवर डाउनलोड, GameDB मिलान और लाइब्रेरी में दिखाई जाने वाली जानकारी को प्रभावित करेगा।</string>
+    <string name="game_serial_dialog_current">पहचाना गया सीरियल: %1$s</string>
+    <string name="game_serial_dialog_hint">उदाहरण: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">मान्य सीरियल दर्ज करें: 4 अक्षर और 5 अंक (SCES-12345 या SCES12345)।</string>
+    <string name="game_serial_dialog_clear_hint">डिस्क से पहचाना गया सीरियल बहाल करने के लिए फ़ील्ड खाली करें और सेव करें।</string>
+    <string name="game_serial_dialog_save">सेव करें</string>
+    <string name="game_serial_dialog_cancel">रद्द करें</string>
+    <string name="game_serial_dialog_saved">गेम सीरियल अपडेट हुआ</string>
 </resources>

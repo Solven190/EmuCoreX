@@ -2841,4 +2841,17 @@
     <string name="settings_help_per_game_memory_cards">La elección por juego solo afecta a este juego y se guarda en su perfil. Si la tarjeta seleccionada se elimina o se renombra, el juego vuelve a la asignación global.</string>
     <string name="per_game_memory_card_create">Crear una tarjeta para este juego</string>
     <string name="core_update_reset_done">Ajustes restablecidos</string>
+    <string name="settings_game_serial_editing">Editar número de serie</string>
+    <string name="settings_game_serial_editing_desc">Añade la acción «Cambiar número de serie» al menú de pulsación larga del juego.</string>
+    <string name="settings_help_game_serial_editing">Útil para discos parcheados o traducidos cuyo número de serie real difiere del impreso en la carátula. El número elegido se recuerda para cada juego y se usa para carátulas, GameDB, trucos y partidas guardadas.</string>
+    <string name="home_game_menu_change_serial">Cambiar número de serie</string>
+    <string name="game_serial_dialog_title">Cambiar el número de serie del juego</string>
+    <string name="game_serial_dialog_message">Define el número de serie que debe usar este juego. Se recordará para este juego y determina la descarga de la carátula, la búsqueda en GameDB y la información que se muestra en la biblioteca.</string>
+    <string name="game_serial_dialog_current">Número de serie detectado: %1$s</string>
+    <string name="game_serial_dialog_hint">Ejemplo: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">Introduce un número de serie válido: 4 letras y 5 dígitos (SCES-12345 o SCES12345).</string>
+    <string name="game_serial_dialog_clear_hint">Vacía el campo y guarda para volver al número detectado en el disco.</string>
+    <string name="game_serial_dialog_save">Guardar</string>
+    <string name="game_serial_dialog_cancel">Cancelar</string>
+    <string name="game_serial_dialog_saved">Número de serie del juego actualizado</string>
 </resources>
