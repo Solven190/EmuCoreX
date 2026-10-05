@@ -2173,7 +2173,8 @@ internal fun GameCardContextMenu(
         if (onChangeSerial != null) GameContextMenuItem(
             text = stringResource(R.string.home_game_menu_change_serial),
             icon = Icons.Rounded.Numbers,
-            onClick = onChangeSerial
+            onClick = onChangeSerial,
+            maxLines = 2
         )
         GameContextMenuDivider()
         GameContextMenuItem(
@@ -2205,7 +2206,8 @@ private fun GameContextMenuItem(
     text: String,
     icon: ImageVector,
     onClick: () -> Unit,
-    emphasized: Boolean = false
+    emphasized: Boolean = false,
+    maxLines: Int = 1
 ) {
     DropdownMenuItem(
         text = {
@@ -2215,7 +2217,7 @@ private fun GameContextMenuItem(
                     fontWeight = if (emphasized) FontWeight.SemiBold else FontWeight.Medium
                 ),
                 color = if (emphasized) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
+                maxLines = maxLines,
                 overflow = TextOverflow.Ellipsis
             )
         },
