@@ -519,13 +519,21 @@ static void mVUupdateFlags_oaknut(mV, int reg, int regT1in = VU_HOST_NO_XMM, int
 		oakAsm->CBZ(temp_w, no_overflow);
 		if (sFLAG.doFlag)
 		{
-			oakAsm->MOV(OAK_WSCRATCH, sFLAG.doNonSticky ? 0x820000 : 0x800000);
-			oakAsm->ORR(status_w, status_w, OAK_WSCRATCH);
+			if (sFLAG.doNonSticky)
+			{
+				oakAsm->MOV(OAK_WSCRATCH, 0x820000);
+				oakAsm->ORR(status_w, status_w, OAK_WSCRATCH);
+			}
+			else
+			{
+				// Single-bit logical immediate: no scratch materialization.
+				oakAsm->ORR(status_w, status_w, 0x800000);
+			}
 		}
 		if (mFLAG.doFlag)
 		{
-			oakAsm->LSL(temp_w, temp_w, 12 + foldShift);
-			oakAsm->ORR(mac_w, mac_w, temp_w);
+			// Fold the lane shift into the ORR instead of shifting in place.
+			oakAsm->ORR(mac_w, mac_w, temp_w, oak::util::LSL, static_cast<unsigned>(12 + foldShift));
 		}
 		oakAsm->l(no_overflow);
 	}
@@ -542,14 +550,10 @@ static void mVUupdateFlags_oaknut(mV, int reg, int regT1in = VU_HOST_NO_XMM, int
 	if (sFLAG.doFlag)
 	{
 		recBeginOaknutEmit();
-		oakAsm->MOV(OAK_WSCRATCH, 0xff);
-		oakAsm->AND(mac_w, mac_w, OAK_WSCRATCH);
+		oakAsm->AND(mac_w, mac_w, 0xff);
 		oakAsm->ORR(status_w, status_w, mac_w);
 		if (sFLAG.doNonSticky)
-		{
-			oakAsm->LSL(mac_w, mac_w, 8);
-			oakAsm->ORR(status_w, status_w, mac_w);
-		}
+			oakAsm->ORR(status_w, status_w, mac_w, oak::util::LSL, 8);
 		recEndOaknutEmit();
 	}
 }
