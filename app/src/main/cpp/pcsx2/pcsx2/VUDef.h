@@ -331,6 +331,9 @@ struct mVU_SSE4
     };
     ////
     u32 mac_mask[4] = {1, 2, 4, 8};
+    // Per-lane spread weights for the ARM64 PMOVMSKB equivalent: bit i of
+    // the compare result vector maps to bit 2i (positive) / 2i+1 (negative).
+    u32 clip_mask[4] = {1, 4, 16, 64};
 };
 
 #endif //PCSX2_VUDEF_H

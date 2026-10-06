@@ -3904,45 +3904,6 @@ static void mVU_ABS_emit(mP)
 }
 
 // CLIP Opcode
-static void mVU_CLIP_pblendw55_oaknut(const oak::QReg& dst, const oak::QReg& src)
-{
-	oakAsm->MOV(OAK_QSCRATCH.B16(), dst.B16());
-	oakAsm->MOV(OAK_WSCRATCH, 0xffff0000);
-	oakAsm->DUP(dst.S4(), OAK_WSCRATCH);
-	oakAsm->BSL(dst.B16(), OAK_QSCRATCH.B16(), src.B16());
-}
-
-static void mVU_CLIP_packsswb_self_oaknut(const oak::QReg& reg)
-{
-	oakAsm->MOV(OAK_QSCRATCH.B16(), reg.B16());
-	oakAsm->SQXTN(oakDRegister(reg.index()).B8(), OAK_QSCRATCH.H8());
-	oakAsm->SQXTN2(reg.B16(), OAK_QSCRATCH.H8());
-}
-
-static void mVU_CLIP_movemask6_oaknut(const oak::WReg& dst, const oak::QReg& src)
-{
-	oakAsm->UMOV(OAK_WSCRATCH2, src.Selem()[0]);
-	oakAsm->LSR(dst, OAK_WSCRATCH2, 7);
-	oakAsm->AND(dst, dst, 0x1);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH2, 14);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x2);
-	oakAsm->ORR(dst, dst, OAK_WSCRATCH);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH2, 21);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x4);
-	oakAsm->ORR(dst, dst, OAK_WSCRATCH);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH2, 28);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x8);
-	oakAsm->ORR(dst, dst, OAK_WSCRATCH);
-
-	oakAsm->UMOV(OAK_WSCRATCH2, src.Selem()[1]);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH2, 3);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x10);
-	oakAsm->ORR(dst, dst, OAK_WSCRATCH);
-	oakAsm->LSR(OAK_WSCRATCH, OAK_WSCRATCH2, 10);
-	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x20);
-	oakAsm->ORR(dst, dst, OAK_WSCRATCH);
-}
-
 static void mVU_CLIP_direct_emit_oaknut(mP)
 {
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, 0xf);
@@ -3983,9 +3944,19 @@ static void mVU_CLIP_direct_emit_oaknut(mP)
 	oakAsm->EOR(fs_q.B16(), fs_q.B16(), t1_q.B16());
 	oakAsm->CMGT(t1_q.S4(), t1_q.S4(), ft_q.S4());
 	oakAsm->CMGT(fs_q.S4(), fs_q.S4(), ft_q.S4());
-	mVU_CLIP_pblendw55_oaknut(fs_q, t1_q);
-	mVU_CLIP_packsswb_self_oaknut(fs_q);
-	mVU_CLIP_movemask6_oaknut(mask_w, fs_q);
+	// PMOVMSKB equivalent: per-lane spread weights map the 0/all-ones compare
+	// results to the VU clip layout (bit 2i = +axis, bit 2i+1 = -axis). The
+	// negative weights are the positive ones shifted by one, and the upper
+	// lanes stay masked off exactly as the old 0x3f truncation did.
+	oakLoad128(OAK_QSCRATCH3, mVUUpperOakSs4Mem(offsetof(mVU_SSE4, clip_mask)));
+	oakAsm->SHL(OAK_QSCRATCH2.S4(), OAK_QSCRATCH3.S4(), 1);
+	oakAsm->AND(t1_q.B16(), t1_q.B16(), OAK_QSCRATCH3.B16());
+	oakAsm->AND(fs_q.B16(), fs_q.B16(), OAK_QSCRATCH2.B16());
+	oakAsm->ADDV(OAK_SSCRATCH, t1_q.S4());
+	oakAsm->ADDV(OAK_SSCRATCH2, fs_q.S4());
+	oakAsm->FMOV(mask_w, OAK_SSCRATCH);
+	oakAsm->FMOV(OAK_WSCRATCH, OAK_SSCRATCH2);
+	oakAsm->ORR(mask_w, mask_w, OAK_WSCRATCH);
 	oakAsm->AND(mask_w, mask_w, 0x3f);
 	oakAsm->AND(clip_w, clip_w, 0xffffff);
 	oakAsm->ORR(clip_w, clip_w, mask_w);
