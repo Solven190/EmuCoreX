@@ -6,6 +6,7 @@
 #include "JitProfiler.h"
 #include "ir/Ir.h"
 #include "arm64/ee/EeIrLifter-arm64.h"
+#include "arm64/ee/EeIrLower-arm64.h"
 #include "R3000A.h"
 #include "R5900.h"
 #include "VUmicro.h"
@@ -2134,6 +2135,140 @@ void DivEdgeTests()
     }
 }
 
+void RunEEIrCase(const char* name, const std::vector<u32>& program)
+{
+    const EESnapshot interp = RunEEProgram(false, program, false);
+
+    ir::Function fn;
+    u32 end = 0;
+    std::string error;
+    if (!EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(EE_TEST_PC)),
+            {EE_TEST_PC, static_cast<u32>(program.size())}, fn, &end, &error))
+    {
+        std::printf("EEIR lift failed %s: %s\n", name, error.c_str());
+        Check(false, name);
+        return;
+    }
+
+    EeIr::LowerOutput out;
+    if (!EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+    {
+        std::printf("EEIR lower failed %s: %s\n", name, error.c_str());
+        Check(false, name);
+        return;
+    }
+
+    // Re-create the interpreter's initial state; the program and the scratch
+    // pattern were already written to guest memory by RunEEProgram.
+    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+    std::memset(&fpuRegs, 0, sizeof(fpuRegs));
+    std::memset(&VU0.VF, 0, sizeof(VU0.VF));
+    std::memset(&VU0.VI, 0, sizeof(VU0.VI));
+    std::memset(&VU0.ACC, 0, sizeof(VU0.ACC));
+    VU0.q.UL = VU0.p.UL = 0;
+    VU0.macflag = VU0.statusflag = VU0.clipflag = 0;
+    for (u32 i = 0; i < EE_SCRATCH_SIZE; ++i)
+        memWrite8(EE_TEST_SCRATCH + i, static_cast<u8>(i * 13 + 7));
+    cpuRegs.pc = EE_TEST_PC;
+    cpuRegs.cycle = 0;
+    cpuRegs.branch = 0;
+    cpuRegs.nextEventCycle = 0x7fffffffu;
+    EEsCycle = 0;
+    EEoCycle = 0;
+
+    reinterpret_cast<void (*)()>(out.entry)();
+
+    EESnapshot ir_result;
+    CaptureEE(ir_result);
+
+    bool same = CpuDiff(name, "GPR", interp.gpr, ir_result.gpr, sizeof(interp.gpr));
+    same &= CpuDiff(name, "HI", &interp.hi, &ir_result.hi, sizeof(interp.hi));
+    same &= CpuDiff(name, "LO", &interp.lo, &ir_result.lo, sizeof(interp.lo));
+    same &= CpuDiff(name, "scratch", interp.scratch, ir_result.scratch, sizeof(interp.scratch));
+    Check(same, name);
+}
+
+void EEIrExecutionTests()
+{
+    {
+        auto code = EEValueSetup();
+        code.push_back(MipsR(8, 16, 8, 0, 0x20));  // add t0, t0, s0
+        code.push_back(MipsR(9, 11, 10, 0, 0x23)); // subu t2, t1, t3
+        code.push_back(MipsR(10, 13, 12, 0, 0x24)); // and t4, t2, t5
+        code.push_back(MipsR(12, 17, 14, 0, 0x25)); // or t6, t4, s1
+        code.push_back(MipsR(17, 8, 16, 0, 0x26)); // xor s0, s1, t0
+        code.push_back(MipsR(16, 10, 17, 0, 0x27)); // nor s1, s0, t2
+        code.push_back(MipsR(8, 9, 15, 0, 0x2a));  // slt t7, t0, t1
+        code.push_back(MipsR(9, 8, 15, 0, 0x2b));  // sltu t7, t1, t0
+        code.push_back(MipsR(9, 0, 8, 0, 0x0a));   // movz t0, t1, zero
+        code.push_back(MipsR(11, 13, 10, 0, 0x0b)); // movn t2, t3, t5
+        RunEEIrCase("ir alu_logic", code);
+    }
+
+    {
+        auto code = EEValueSetup();
+        code.push_back(MipsI(0x09, 8, 15, 0xfffb));  // addiu t7, t0, -5
+        code.push_back(MipsI(0x08, 15, 15, 0x1234)); // addi t7, t7, 0x1234
+        code.push_back(MipsI(0x0a, 8, 18, 0));       // slti s2, t0, 0
+        code.push_back(MipsI(0x0b, 11, 19, 0xffff)); // sltiu s3, t3, 0xffff
+        code.push_back(MipsI(0x0c, 9, 20, 0xff00));  // andi s4, t1, 0xff00
+        code.push_back(MipsI(0x0d, 10, 21, 0x8000)); // ori s5, t2, 0x8000
+        code.push_back(MipsI(0x0e, 12, 22, 0xffff)); // xori s6, t4, 0xffff
+        code.push_back(MipsI(0x0f, 0, 23, 0xdead));  // lui s7, 0xdead
+        RunEEIrCase("ir immediates", code);
+    }
+
+    {
+        auto code = EEValueSetup();
+        code.push_back(MipsR(0, 8, 15, 3, 0x00));  // sll t7, t0, 3
+        code.push_back(MipsR(0, 9, 15, 5, 0x02));  // srl t7, t1, 5
+        code.push_back(MipsR(0, 9, 15, 4, 0x03));  // sra t7, t1, 4
+        code.push_back(MipsR(13, 8, 15, 0, 0x04)); // sllv t7, t0, t5
+        code.push_back(MipsR(13, 9, 15, 0, 0x06)); // srlv t7, t1, t5
+        code.push_back(MipsR(13, 9, 15, 0, 0x07)); // srav t7, t1, t5
+        RunEEIrCase("ir shifts", code);
+    }
+
+    {
+        auto code = EEValueSetup();
+        code.push_back(MipsR(8, 9, 0, 0, 0x18));   // mult t0, t1
+        code.push_back(MipsR(0, 0, 16, 0, 0x12));  // mflo s0
+        code.push_back(MipsR(0, 0, 17, 0, 0x10));  // mfhi s1
+        code.push_back(MipsR(10, 11, 0, 0, 0x19)); // multu t2, t3
+        code.push_back(MipsR(0, 0, 18, 0, 0x12));  // mflo s2
+        code.push_back(MipsR(0, 0, 19, 0, 0x10));  // mfhi s3
+        code.push_back(MipsR(9, 13, 0, 0, 0x1a));  // div t1, t5
+        code.push_back(MipsR(0, 0, 20, 0, 0x12));  // mflo s4
+        code.push_back(MipsR(0, 0, 21, 0, 0x10));  // mfhi s5
+        code.push_back(MipsR(9, 0, 0, 0, 0x1a));   // div t1, zero
+        code.push_back(MipsR(0, 0, 22, 0, 0x12));  // mflo s6
+        code.push_back(MipsR(0, 0, 23, 0, 0x10));  // mfhi s7
+        code.push_back(MipsR(10, 11, 0, 0, 0x1b)); // divu t2, t3
+        code.push_back(MipsR(0, 0, 15, 0, 0x12));  // mflo t7
+        code.push_back(MipsR(0, 0, 8, 0, 0x10));   // mfhi t0
+        code.push_back(MipsI(0x0f, 0, 15, 0x8000)); // lui t7, 0x8000
+        code.push_back(MipsR(15, 11, 0, 0, 0x1a)); // div t7, t3 (-1)
+        code.push_back(MipsR(0, 0, 16, 0, 0x12));  // mflo s0
+        code.push_back(MipsR(0, 0, 17, 0, 0x10));  // mfhi s1
+        RunEEIrCase("ir multdiv", code);
+    }
+
+    {
+        auto code = EEScratchSetup();
+        code.push_back(MipsI(0x23, 22, 12, 32)); // lw t4, 32(s6)
+        code.push_back(MipsI(0x20, 22, 13, 32)); // lb t5, 32(s6)
+        code.push_back(MipsI(0x24, 22, 14, 35)); // lbu t6, 35(s6)
+        code.push_back(MipsI(0x21, 22, 15, 32)); // lh t7, 32(s6)
+        code.push_back(MipsI(0x29, 22, 10, 40)); // sh t2, 40(s6)
+        code.push_back(MipsI(0x25, 22, 16, 40)); // lhu s0, 40(s6)
+        code.push_back(MipsI(0x28, 22, 11, 44)); // sb t3, 44(s6)
+        code.push_back(MipsI(0x24, 22, 17, 44)); // lbu s1, 44(s6)
+        code.push_back(MipsI(0x20, 22, 18, 44)); // lb s2, 44(s6)
+        code.push_back(MipsI(0x23, 22, 19, 40)); // lw s3, 40(s6)
+        RunEEIrCase("ir memory", code);
+    }
+}
+
 void EETests()
 {
     EmuCoreXOracleSetSkipEvents(1);
@@ -2272,6 +2407,7 @@ void EETests()
     EECoverageCop2Spec2();
     EECoverageMmi();
     EECoverageExceptions();
+    EEIrExecutionTests();
 }
 
 void RunIOPCase(const char* name, const std::vector<u32>& code, s32 eeCycles = -1, bool forceGteInterpreter = false)
