@@ -4754,24 +4754,6 @@ private fun EmulationSidebarMenu(
                             helpText = stringResource(R.string.settings_help_display_crop),
                             onResetToDefault = { onSetDisplayCrop(globalDefaults.displayCrop) }
                         )
-                        val pixelsUnit = stringResource(R.string.settings_display_crop_pixels_unit)
-                        listOf(
-                            Triple(R.string.settings_display_crop_left, crop.left) { value: Int -> crop.copy(left = value) },
-                            Triple(R.string.settings_display_crop_top, crop.top) { value: Int -> crop.copy(top = value) },
-                            Triple(R.string.settings_display_crop_right, crop.right) { value: Int -> crop.copy(right = value) },
-                            Triple(R.string.settings_display_crop_bottom, crop.bottom) { value: Int -> crop.copy(bottom = value) }
-                        ).forEach { (titleRes, pixels, update) ->
-                            LiveSliderRow(
-                                title = stringResource(titleRes),
-                                valueLabelForValue = { "$it $pixelsUnit" },
-                                value = pixels.toFloat(),
-                                range = DisplayCrop.MIN_PIXELS.toFloat()..DisplayCrop.MAX_PIXELS.toFloat(),
-                                steps = DisplayCrop.MAX_PIXELS - DisplayCrop.MIN_PIXELS - 1,
-                                onValueChange = { onSetDisplayCrop(update(it.roundToInt())) },
-                                onResetToDefault = { onSetDisplayCrop(update(0)) }
-                            )
-                        }
-
                                     }
 
                                     GameMenuSectionId.GRAPHICS_RENDERING -> {

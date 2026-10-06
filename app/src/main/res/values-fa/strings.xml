@@ -2854,4 +2854,17 @@
     <string name="settings_help_per_game_memory_cards">انتخاب هر بازی فقط بر همین بازی اثر می‌گذارد و در پروفایل آن ذخیره می‌شود. اگر کارت انتخاب‌شده حذف یا تغییرنام شود، بازی به تخصیص سراسری بازمی‌گردد.</string>
     <string name="per_game_memory_card_create">ایجاد کارت برای این بازی</string>
     <string name="core_update_reset_done">تنظیمات بازنشانی شد</string>
+    <string name="settings_game_serial_editing">ویرایش شماره سریال بازی</string>
+    <string name="settings_game_serial_editing_desc">گزینه «تغییر شماره سریال» را به منوی فشار طولانی بازی اضافه می‌کند.</string>
+    <string name="settings_help_game_serial_editing">برای دیسک‌های وصله‌شده یا ترجمه‌شده که شماره سریال واقعی آن‌ها با شماره روی جلد متفاوت است مفید است. شماره انتخاب‌شده برای هر بازی ذخیره می‌شود و برای جلدها، GameDB، تقلب‌ها و ذخیره‌ها استفاده می‌گردد.</string>
+    <string name="home_game_menu_change_serial">تغییر شماره سریال</string>
+    <string name="game_serial_dialog_title">تغییر شماره سریال بازی</string>
+    <string name="game_serial_dialog_message">شماره سریالی را که این بازی باید استفاده کند تعیین کنید. برای این بازی ذخیره می‌شود و بر دانلود جلد، جست‌وجوی GameDB و اطلاعات نمایش‌داده‌شده در کتابخانه اثر می‌گذارد.</string>
+    <string name="game_serial_dialog_current">شماره سریال شناسایی‌شده: %1$s</string>
+    <string name="game_serial_dialog_hint">مثال: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">یک شماره سریال معتبر وارد کنید: ۴ حرف و ۵ رقم (SCES-12345 یا SCES12345).</string>
+    <string name="game_serial_dialog_clear_hint">فیلد را پاک کنید و ذخیره کنید تا شماره شناسایی‌شده از دیسک بازگردد.</string>
+    <string name="game_serial_dialog_save">ذخیره</string>
+    <string name="game_serial_dialog_cancel">لغو</string>
+    <string name="game_serial_dialog_saved">شماره سریال بازی به‌روزرسانی شد</string>
 </resources>

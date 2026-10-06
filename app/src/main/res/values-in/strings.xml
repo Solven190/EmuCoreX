@@ -2853,4 +2853,17 @@
     <string name="settings_help_per_game_memory_cards">Pilihan per game hanya memengaruhi game ini dan disimpan di profilnya. Jika kartu yang dipilih dihapus atau diganti namanya, game kembali ke penetapan global.</string>
     <string name="per_game_memory_card_create">Buat kartu untuk game ini</string>
     <string name="core_update_reset_done">Pengaturan diatur ulang</string>
+    <string name="settings_game_serial_editing">Edit nomor seri game</string>
+    <string name="settings_game_serial_editing_desc">Menambahkan aksi «Ubah nomor seri» ke menu tekan lama game.</string>
+    <string name="settings_help_game_serial_editing">Berguna untuk disk yang dipatch atau diterjemahkan yang nomor seri aslinya berbeda dari yang tercetak di sampul. Nomor yang dipilih diingat untuk setiap game dan digunakan untuk sampul, GameDB, cheat, dan save.</string>
+    <string name="home_game_menu_change_serial">Ubah nomor seri</string>
+    <string name="game_serial_dialog_title">Ubah nomor seri game</string>
+    <string name="game_serial_dialog_message">Tetapkan nomor seri yang harus digunakan game ini. Nomor ini diingat untuk game ini dan memengaruhi unduhan sampul, pencocokan GameDB, serta info game yang ditampilkan di pustaka.</string>
+    <string name="game_serial_dialog_current">Nomor seri terdeteksi: %1$s</string>
+    <string name="game_serial_dialog_hint">Contoh: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">Masukkan nomor seri yang valid: 4 huruf dan 5 angka (SCES-12345 atau SCES12345).</string>
+    <string name="game_serial_dialog_clear_hint">Kosongkan kolom dan simpan untuk memakai nomor seri yang terdeteksi dari disk.</string>
+    <string name="game_serial_dialog_save">Simpan</string>
+    <string name="game_serial_dialog_cancel">Batal</string>
+    <string name="game_serial_dialog_saved">Nomor seri game diperbarui</string>
 </resources>

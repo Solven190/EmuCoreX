@@ -2843,4 +2843,17 @@
     <string name="settings_help_per_game_memory_cards">ينطبق اختيار كل لعبة على هذه اللعبة فقط ويُحفظ في ملفها الشخصي. إذا حُذفت البطاقة المحددة أو أُعيدت تسميتها، تعود اللعبة إلى التعيين العام.</string>
     <string name="per_game_memory_card_create">إنشاء بطاقة لهذه اللعبة</string>
     <string name="core_update_reset_done">تمت إعادة تعيين الإعدادات</string>
+    <string name="settings_game_serial_editing">تحرير الرقم التسلسلي للعبة</string>
+    <string name="settings_game_serial_editing_desc">يضيف إجراء «تغيير الرقم التسلسلي» إلى قائمة الضغط المطوّل على اللعبة.</string>
+    <string name="settings_help_game_serial_editing">مفيد للأقراص المعدّلة أو المترجمة التي يختلف رقمها التسلسلي الحقيقي عن المطبوع على الغلاف. يُحفظ الرقم المختار لكل لعبة ويُستخدم للأغلفة وGameDB والغش وحالات الحفظ.</string>
+    <string name="home_game_menu_change_serial">تغيير الرقم التسلسلي</string>
+    <string name="game_serial_dialog_title">تغيير الرقم التسلسلي للعبة</string>
+    <string name="game_serial_dialog_message">حدّد الرقم التسلسلي الذي يجب أن تستخدمه هذه اللعبة. سيُحفظ لها ويؤثر على تنزيل الغلاف ومطابقة GameDB ومعلومات اللعبة المعروضة في المكتبة.</string>
+    <string name="game_serial_dialog_current">الرقم التسلسلي المكتشف: %1$s</string>
+    <string name="game_serial_dialog_hint">مثال: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">أدخل رقمًا تسلسليًا صالحًا: 4 أحرف و5 أرقام (SCES-12345 أو SCES12345).</string>
+    <string name="game_serial_dialog_clear_hint">امسح الحقل واحفظ للعودة إلى الرقم المكتشف من القرص.</string>
+    <string name="game_serial_dialog_save">حفظ</string>
+    <string name="game_serial_dialog_cancel">إلغاء</string>
+    <string name="game_serial_dialog_saved">تم تحديث الرقم التسلسلي للعبة</string>
 </resources>

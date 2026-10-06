@@ -28,8 +28,10 @@ import com.sbro.emucorex.data.GameItem
 import com.sbro.emucorex.data.GameLibraryCacheRepository
 import com.sbro.emucorex.data.GameLibraryCacheSnapshot
 import com.sbro.emucorex.data.GameRepository
+import com.sbro.emucorex.data.GameSerialFormat
 import com.sbro.emucorex.data.RecentGameEntry
 import com.sbro.emucorex.data.decideCoreUpdateResetAction
+import com.sbro.emucorex.data.pcsx2.Pcsx2CompatibilityRepository
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
@@ -38,11 +40,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
 import kotlinx.coroutines.sync.Mutex
@@ -70,6 +74,7 @@ data class HomeUiState(
     val recentGames: List<GameItem> = emptyList(),
     val hiddenGames: List<GameItem> = emptyList(),
     val visibilityMessageResId: Int? = null,
+    val serialMessageResId: Int? = null,
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val isBootstrapping: Boolean = true,
@@ -147,6 +152,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    val gameSerialEditingEnabled: StateFlow<Boolean> = preferences.gameSerialEditingEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     init {
         viewModelScope.launch {
@@ -442,6 +450,55 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             libraryCacheRepository.save(rootPath, allGames, preferEnglishGameTitles)
         }
         return true
+    }
+
+    fun clearSerialMessage() {
+        _uiState.value = _uiState.value.copy(serialMessageResId = null)
+    }
+
+    /**
+     * Saves (or clears) the manual serial override for [game] and refreshes its library metadata,
+     * cover and GameDB compatibility from the resulting serial.
+     */
+    fun updateGameSerial(game: GameItem, serial: String?) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            val updated = withContext(Dispatchers.IO) {
+                val requested = serial?.let(GameSerialFormat::normalize)
+                val detected = EmulatorBridge.getGameMetadata(game.path)
+                val detectedSerial = detected.serial
+                val override = requested?.takeIf { !it.equals(detectedSerial, ignoreCase = true) }
+                preferences.setGameSerialOverride(game.path, override)
+
+                val effectiveSerial = override ?: detectedSerial
+                val cleanTitle = EmulatorBridge.cleanGameDisplayTitle(detected.title, game.fileName)
+                val compatibility = Pcsx2CompatibilityRepository(context).findBest(effectiveSerial, cleanTitle)
+                val resolvedSerial = effectiveSerial ?: compatibility?.serial
+                val coverRepository = CoverArtRepository(context)
+                val customCoverRepository = CustomGameCoverRepository(context)
+                game.copy(
+                    title = compatibility?.title ?: cleanTitle,
+                    serial = resolvedSerial,
+                    pcsx2Compatibility = compatibility,
+                    coverArtPath = customCoverRepository.findCustomCoverPath(game.path)
+                        ?: coverRepository.findCachedCoverPath(resolvedSerial)
+                        ?: game.coverArtPath?.takeIf {
+                            !coverRepository.isManagedCoverCachePath(it) && !it.startsWith("http")
+                        }
+                )
+            }
+            synchronized(this@HomeViewModel) {
+                allGames = allGames.map { current ->
+                    if (current.path == game.path) updated else current
+                }
+            }
+            publishVisibleGames()
+            _uiState.value = _uiState.value.copy(serialMessageResId = R.string.game_serial_dialog_saved)
+            currentLibraryRoot?.let { rootPath ->
+                libraryCacheRepository.save(rootPath, allGames, preferEnglishGameTitles)
+            }
+            syncMissingCovers()
+        }
     }
 
     fun updateSearchQuery(query: String) {

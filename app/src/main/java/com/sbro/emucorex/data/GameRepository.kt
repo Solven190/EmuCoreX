@@ -67,7 +67,9 @@ class GameRepository {
     ): List<GameItem> {
         val dir = File(path)
         if (!dir.exists() || !dir.isDirectory) return emptyList()
-        return scanLocalDirectory(dir, context, cachedGamesByPath, shouldAbort).sortedBy { it.title.lowercase() }
+        val serialOverrides = AppPreferences(context).getGameSerialOverridesSync()
+        return scanLocalDirectory(dir, context, cachedGamesByPath, serialOverrides, shouldAbort)
+            .sortedBy { it.title.lowercase() }
     }
 
     fun scanDirectoryFromUri(uri: Uri, context: Context): List<GameItem> {
@@ -83,12 +85,14 @@ class GameRepository {
         if (!DocumentsContract.isTreeUri(uri)) {
             return emptyList()
         }
+        val serialOverrides = AppPreferences(context).getGameSerialOverridesSync()
         return runCatching {
             val docFile = DocumentFile.fromTreeUri(context, uri) ?: return@runCatching emptyList()
             scanDocumentFile(
                 docFile,
                 context,
                 cachedGamesByPath,
+                serialOverrides,
                 shouldAbort,
                 depth = 0,
                 budget = DocumentScanBudget()
@@ -131,6 +135,7 @@ class GameRepository {
         dir: File,
         context: Context,
         cachedGamesByPath: Map<String, GameItem>,
+        serialOverrides: Map<String, String>,
         shouldAbort: () -> Boolean
     ): List<GameItem> {
         val items = mutableListOf<GameItem>()
@@ -147,7 +152,9 @@ class GameRepository {
             if (shouldAbort()) return items
             when {
                 file.isDirectory && normalizeBaseName(file.name) !in COVER_DIRECTORY_NAMES -> {
-                    items.addAll(scanLocalDirectory(file, context, cachedGamesByPath, shouldAbort))
+                    items.addAll(
+                        scanLocalDirectory(file, context, cachedGamesByPath, serialOverrides, shouldAbort)
+                    )
                 }
 
                 file.isFile && file.extension.lowercase() in SUPPORTED_EXTENSIONS -> {
@@ -157,11 +164,13 @@ class GameRepository {
                         return@forEach
                     }
                     val cachedGame = cachedGamesByPath[file.absolutePath]
+                    val serialOverride = serialOverrides[file.absolutePath]
                     val canReuseCachedMetadata = cachedGame != null &&
                         cachedGame.fileSize == file.length() &&
                         cachedGame.lastModified == file.lastModified() &&
                         cachedGame.fileName == file.name &&
-                        !cachedGame.serial.isNullOrBlank()
+                        !cachedGame.serial.isNullOrBlank() &&
+                        (serialOverride == null || cachedGame.serial.equals(serialOverride, ignoreCase = true))
                     val metadata = if (canReuseCachedMetadata) {
                         com.sbro.emucorex.core.GameMetadata(cachedGame.title, cachedGame.serial)
                     } else {
@@ -172,8 +181,9 @@ class GameRepository {
                     }
 
                     val cleanTitle = EmulatorBridge.cleanGameDisplayTitle(metadata.title, file.name)
-                    val compatibility = compatibilityRepository.findBest(metadata.serial, cleanTitle)
-                    val serial = metadata.serial ?: compatibility?.serial
+                    val effectiveSerial = serialOverride ?: metadata.serial
+                    val compatibility = compatibilityRepository.findBest(effectiveSerial, cleanTitle)
+                    val serial = effectiveSerial ?: compatibility?.serial
                     val title = compatibility?.title ?: cleanTitle
                     items += GameItem(
                         title = title,
@@ -200,6 +210,7 @@ class GameRepository {
         docFile: DocumentFile,
         context: Context,
         cachedGamesByPath: Map<String, GameItem>,
+        serialOverrides: Map<String, String>,
         shouldAbort: () -> Boolean,
         depth: Int,
         budget: DocumentScanBudget
@@ -231,6 +242,7 @@ class GameRepository {
                                 file,
                                 context,
                                 cachedGamesByPath,
+                                serialOverrides,
                                 shouldAbort,
                                 depth + 1,
                                 budget
@@ -247,11 +259,13 @@ class GameRepository {
                     val lastModified = runCatching { file.lastModified() }.getOrDefault(0L)
 
                     val cachedGame = cachedGamesByPath[uriPath]
+                    val serialOverride = serialOverrides[uriPath]
                     val canReuseCachedMetadata = cachedGame != null &&
                         cachedGame.fileSize == fileSize &&
                         cachedGame.lastModified == lastModified &&
                         cachedGame.fileName == name &&
-                        !cachedGame.serial.isNullOrBlank()
+                        !cachedGame.serial.isNullOrBlank() &&
+                        (serialOverride == null || cachedGame.serial.equals(serialOverride, ignoreCase = true))
                     val metadata = if (canReuseCachedMetadata) {
                         com.sbro.emucorex.core.GameMetadata(cachedGame.title, cachedGame.serial)
                     } else {
@@ -263,8 +277,9 @@ class GameRepository {
                     }
 
                     val cleanTitle = cleanScannedTitle(metadata.title, name)
-                    val compatibility = compatibilityRepository.findBest(metadata.serial, cleanTitle)
-                    val serial = metadata.serial ?: compatibility?.serial
+                    val effectiveSerial = serialOverride ?: metadata.serial
+                    val compatibility = compatibilityRepository.findBest(effectiveSerial, cleanTitle)
+                    val serial = effectiveSerial ?: compatibility?.serial
                     val title = compatibility?.title ?: cleanTitle
                     items += GameItem(
                         title = title,

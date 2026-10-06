@@ -4,6 +4,8 @@
 #include "Memory.h"
 #include "OpcodeFamilies.h"
 #include "JitProfiler.h"
+#include "ir/Ir.h"
+#include "arm64/ee/EeIrLifter-arm64.h"
 #include "R3000A.h"
 #include "R5900.h"
 #include "VUmicro.h"
@@ -115,6 +117,8 @@ void CheckBits(bool pass, u32 actual, u32 expected, const char* name)
 void ClassifierTests()
 {
     Check(JitProfiler::TestSampleRangeSelection(), "profiler nested opcode range selection");
+    Check(ir::RunSelfTests(), "IR core self-tests");
+    Check(EeIr::RunSelfTests(), "EE IR lifter self-tests");
     // Exercise the real GS parser at every QWC boundary, including completion
     // of a PACKED loop that started in an earlier Transfer call.
     struct PacketState final : GSState

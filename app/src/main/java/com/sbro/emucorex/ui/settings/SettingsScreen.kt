@@ -79,6 +79,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Newspaper
+import androidx.compose.material.icons.rounded.Numbers
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhoneAndroid
@@ -1221,6 +1222,7 @@ private fun SettingsContent(
     val lightGunCursorEnabled by viewModel.lightGunCursorEnabled.collectAsState()
     val orientationLock by viewModel.orientationLock.collectAsState()
     val emulationAllowsBothOrientations by viewModel.emulationAllowsBothOrientations.collectAsState()
+    val gameSerialEditingEnabled by viewModel.gameSerialEditingEnabled.collectAsState()
     val defaults = remember { SettingsSnapshot() }
     val overlayDefaults = remember { OverlayLayoutSnapshot() }
     val searchEntries = rememberSettingsSearchEntries()
@@ -1418,6 +1420,15 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setPreferEnglishGameTitles,
                             helpText = stringResource(R.string.settings_help_prefer_english_game_titles),
                             onResetToDefault = { viewModel.setPreferEnglishGameTitles(defaults.preferEnglishGameTitles) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Numbers,
+                            title = stringResource(R.string.settings_game_serial_editing),
+                            subtitle = stringResource(R.string.settings_game_serial_editing_desc),
+                            checked = gameSerialEditingEnabled,
+                            onCheckedChange = viewModel::setGameSerialEditingEnabled,
+                            helpText = stringResource(R.string.settings_help_game_serial_editing),
+                            onResetToDefault = { viewModel.setGameSerialEditingEnabled(false) }
                         )
                     }
                 }
@@ -5628,6 +5639,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.General, R.string.settings_show_recent_games),
         entry(SettingsTab.General, R.string.settings_show_home_search),
         entry(SettingsTab.General, R.string.settings_prefer_english_game_titles),
+        entry(SettingsTab.General, R.string.settings_game_serial_editing),
         entry(SettingsTab.Graphics, R.string.settings_renderer),
         if (GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()) entry(SettingsTab.Graphics, R.string.settings_gpu_driver) else null,
         if (GpuDriverCompatibility.supportsAdrenoToolsCustomDrivers()) entry(SettingsTab.Graphics, R.string.settings_gpu_driver_manager_title) else null,

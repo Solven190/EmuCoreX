@@ -65,6 +65,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Numbers
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Restore
@@ -187,6 +188,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val gameSerialEditingEnabled by viewModel.gameSerialEditingEnabled.collectAsState()
     var showHiddenGames by rememberSaveable { mutableStateOf(false) }
     val onShowHiddenGames: (() -> Unit)? = if (uiState.hiddenGames.isNotEmpty()) {
         { showHiddenGames = true }
@@ -336,6 +338,12 @@ fun HomeScreen(
     )
     var pendingCustomCoverGame by remember { mutableStateOf<GameItem?>(null) }
     var gameAwaitingPickerLaunch by remember { mutableStateOf<GameItem?>(null) }
+    var serialDialogGame by remember { mutableStateOf<GameItem?>(null) }
+    val requestSerialChange: ((GameItem) -> Unit)? = if (gameSerialEditingEnabled) {
+        { game -> serialDialogGame = game }
+    } else {
+        null
+    }
     val customCoverAppliedMessage = stringResource(R.string.home_game_menu_custom_cover_applied)
     val customCoverFailedMessage = stringResource(R.string.home_game_menu_custom_cover_failed)
     val customCoverPicker = rememberLauncherForActivityResult(
@@ -373,6 +381,13 @@ fun HomeScreen(
         visibilityMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
             viewModel.clearVisibilityMessage()
+        }
+    }
+    val serialMessage = uiState.serialMessageResId?.let { stringResource(it) }
+    LaunchedEffect(serialMessage) {
+        serialMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearSerialMessage()
         }
     }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -510,7 +525,8 @@ fun HomeScreen(
                         onShowHiddenGames = onShowHiddenGames,
                         onLongClickCustomCover = { game ->
                             gameAwaitingPickerLaunch = game
-                        }
+                        },
+                        onLongClickChangeSerial = requestSerialChange
                     )
                 } else {
                     val columns = if (isListView) GridCells.Fixed(1) else GridCells.Adaptive(minSize = minCellSize)
@@ -624,6 +640,9 @@ fun HomeScreen(
                                                         onLongClickCustomCover = {
                                                             gameAwaitingPickerLaunch = game
                                                         },
+                                                        onLongClickChangeSerial = requestSerialChange?.let { action ->
+                                                            { action(game) }
+                                                        },
                                                         compact = isLandscape,
                                                         coverScale = uiState.homeGridScale
                                                     )
@@ -675,6 +694,9 @@ fun HomeScreen(
                                                                 onShowHiddenGames = onShowHiddenGames,
                                                                 onLongClickCustomCover = {
                                                                     gameAwaitingPickerLaunch = game
+                                                                },
+                                                                onLongClickChangeSerial = requestSerialChange?.let { action ->
+                                                                    { action(game) }
                                                                 }
                                                             )
                                                         } else {
@@ -693,6 +715,9 @@ fun HomeScreen(
                                                                 onShowHiddenGames = onShowHiddenGames,
                                                                 onLongClickCustomCover = {
                                                                     gameAwaitingPickerLaunch = game
+                                                                },
+                                                                onLongClickChangeSerial = requestSerialChange?.let { action ->
+                                                                    { action(game) }
                                                                 }
                                                             )
                                                         }
@@ -730,6 +755,16 @@ fun HomeScreen(
         onShowAll = viewModel::showAllHiddenGames,
         onDismiss = { showHiddenGames = false }
     )
+    serialDialogGame?.let { game ->
+        GameSerialDialog(
+            game = game,
+            onDismiss = { serialDialogGame = null },
+            onConfirm = { serial ->
+                serialDialogGame = null
+                viewModel.updateGameSerial(game, serial)
+            }
+        )
+    }
     val canPresentDialogs = !uiState.isBootstrapping &&
         !uiState.isLoading &&
         !uiState.isRefreshing &&
@@ -1585,6 +1620,7 @@ private fun RecentGameCard(
     onLongClickHide: () -> Unit,
     onShowHiddenGames: (() -> Unit)?,
     onLongClickCustomCover: () -> Unit,
+    onLongClickChangeSerial: (() -> Unit)?,
     compact: Boolean,
     coverScale: Float
 ) {
@@ -1686,6 +1722,9 @@ private fun RecentGameCard(
                 onCustomCover = {
                     showMenu = false
                     onLongClickCustomCover()
+                },
+                onChangeSerial = onLongClickChangeSerial?.let { action ->
+                    { showMenu = false; action() }
                 }
             )
         }
@@ -1707,7 +1746,8 @@ private fun GameCard(
     onLongClickOpenGameDb: () -> Unit,
     onLongClickHide: () -> Unit,
     onShowHiddenGames: (() -> Unit)?,
-    onLongClickCustomCover: () -> Unit
+    onLongClickCustomCover: () -> Unit,
+    onLongClickChangeSerial: (() -> Unit)?
 ) {
     val debouncedClick = rememberDebouncedClick(onClick = onClick)
     val interactionSource = remember { MutableInteractionSource() }
@@ -1812,6 +1852,9 @@ private fun GameCard(
                 onCustomCover = {
                     showMenu = false
                     onLongClickCustomCover()
+                },
+                onChangeSerial = onLongClickChangeSerial?.let { action ->
+                    { showMenu = false; action() }
                 }
             )
         }
@@ -1833,7 +1876,8 @@ private fun GameListCard(
     onLongClickOpenGameDb: () -> Unit,
     onLongClickHide: () -> Unit,
     onShowHiddenGames: (() -> Unit)?,
-    onLongClickCustomCover: () -> Unit
+    onLongClickCustomCover: () -> Unit,
+    onLongClickChangeSerial: (() -> Unit)?
 ) {
     val debouncedClick = rememberDebouncedClick(onClick = onClick)
     val interactionSource = remember { MutableInteractionSource() }
@@ -1961,6 +2005,9 @@ private fun GameListCard(
                 onCustomCover = {
                     showMenu = false
                     onLongClickCustomCover()
+                },
+                onChangeSerial = onLongClickChangeSerial?.let { action ->
+                    { showMenu = false; action() }
                 }
             )
         }
@@ -2082,7 +2129,8 @@ internal fun GameCardContextMenu(
     onOpenGameDb: () -> Unit,
     onCustomCover: () -> Unit,
     onHide: () -> Unit,
-    onShowHiddenGames: (() -> Unit)?
+    onShowHiddenGames: (() -> Unit)?,
+    onChangeSerial: (() -> Unit)?
 ) {
     DropdownMenu(
         expanded = expanded,
@@ -2122,6 +2170,12 @@ internal fun GameCardContextMenu(
             icon = Icons.Rounded.Search,
             onClick = onOpenGameDb
         )
+        if (onChangeSerial != null) GameContextMenuItem(
+            text = stringResource(R.string.home_game_menu_change_serial),
+            icon = Icons.Rounded.Numbers,
+            onClick = onChangeSerial,
+            maxLines = 2
+        )
         GameContextMenuDivider()
         GameContextMenuItem(
             text = stringResource(R.string.home_game_menu_shortcut),
@@ -2152,7 +2206,8 @@ private fun GameContextMenuItem(
     text: String,
     icon: ImageVector,
     onClick: () -> Unit,
-    emphasized: Boolean = false
+    emphasized: Boolean = false,
+    maxLines: Int = 1
 ) {
     DropdownMenuItem(
         text = {
@@ -2162,7 +2217,7 @@ private fun GameContextMenuItem(
                     fontWeight = if (emphasized) FontWeight.SemiBold else FontWeight.Medium
                 ),
                 color = if (emphasized) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
+                maxLines = maxLines,
                 overflow = TextOverflow.Ellipsis
             )
         },

@@ -1891,7 +1891,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     hasPerGameProfile = existingProfile != null
                     currentTouchControlsLayoutProfile = existingProfile?.touchControlsLayout
                     currentCustomTouchControlsProfile = existingProfile?.customTouchControls
-                    val metadata = EmulatorBridge.getGameMetadata(safePath)
+                    val detectedMetadata = EmulatorBridge.getGameMetadata(safePath)
+                    val serialOverride = preferences.getGameSerialOverrideSync(safePath)
+                    val metadata = if (serialOverride != null) {
+                        detectedMetadata.copy(serial = serialOverride)
+                    } else {
+                        detectedMetadata
+                    }
                     currentGameTitle = compatibilityRepository.findBySerial(metadata.serial)?.title
                         ?: EmulatorBridge.cleanGameDisplayTitle(metadata.title, safePath)
                     currentGameSerial = metadata.serial.orEmpty()

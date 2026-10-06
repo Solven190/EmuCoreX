@@ -668,6 +668,8 @@ class AppPreferences(private val context: Context) {
         private val SHOW_HOME_SEARCH = booleanPreferencesKey("show_home_search")
         private val SHOW_DEBUG_OPTIONS = booleanPreferencesKey("show_debug_options")
         private val PREFER_ENGLISH_GAME_TITLES = booleanPreferencesKey("prefer_english_game_titles")
+        private val GAME_SERIAL_EDITING_ENABLED = booleanPreferencesKey("game_serial_editing_enabled")
+        private val GAME_SERIAL_OVERRIDES = stringPreferencesKey("game_serial_overrides")
         private val RECENT_GAMES = stringPreferencesKey("recent_games")
         private val HOME_LIBRARY_VIEW_MODE = intPreferencesKey("home_library_view_mode")
         private val HIDDEN_GAME_PATHS = stringSetPreferencesKey("hidden_game_paths")
@@ -3813,6 +3815,63 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[EMULATION_ALLOWS_BOTH_ORIENTATIONS] = enabled }
     }
 
+    // Manual game serial overrides (keyed by game path)
+    val gameSerialEditingEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[GAME_SERIAL_EDITING_ENABLED] ?: false
+    }
+
+    suspend fun setGameSerialEditingEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[GAME_SERIAL_EDITING_ENABLED] = enabled }
+    }
+
+    val gameSerialOverrides: Flow<Map<String, String>> = context.dataStore.data.map { prefs ->
+        decodeGameSerialOverrides(prefs[GAME_SERIAL_OVERRIDES])
+    }
+
+    fun getGameSerialOverridesSync(): Map<String, String> = kotlinx.coroutines.runBlocking {
+        context.dataStore.data
+            .map { prefs -> decodeGameSerialOverrides(prefs[GAME_SERIAL_OVERRIDES]) }
+            .first()
+    }
+
+    fun getGameSerialOverrideSync(gamePath: String): String? {
+        if (gamePath.isBlank()) return null
+        return getGameSerialOverridesSync()[gamePath]
+    }
+
+    suspend fun setGameSerialOverride(gamePath: String, serial: String?) {
+        if (gamePath.isBlank()) return
+        context.dataStore.edit { prefs ->
+            val overrides = decodeGameSerialOverrides(prefs[GAME_SERIAL_OVERRIDES]).toMutableMap()
+            val normalized = serial?.trim()?.takeIf { it.isNotBlank() }
+            if (normalized == null) {
+                overrides.remove(gamePath)
+            } else {
+                overrides[gamePath] = normalized
+            }
+            prefs[GAME_SERIAL_OVERRIDES] = encodeGameSerialOverrides(overrides)
+        }
+    }
+
+    private fun decodeGameSerialOverrides(raw: String?): Map<String, String> {
+        if (raw.isNullOrBlank()) return emptyMap()
+        return runCatching {
+            val json = JSONObject(raw)
+            buildMap {
+                json.keys().forEach { key ->
+                    val value = json.optString(key).trim()
+                    if (key.isNotBlank() && value.isNotBlank()) put(key, value)
+                }
+            }
+        }.getOrDefault(emptyMap())
+    }
+
+    private fun encodeGameSerialOverrides(overrides: Map<String, String>): String {
+        return JSONObject().apply {
+            overrides.toSortedMap().forEach { (path, serial) -> put(path, serial) }
+        }.toString()
+    }
+
     // Custom Layout Offsets
     private fun parseOffsetStr(raw: String?, default: Pair<Float, Float> = 0f to 0f): Pair<Float, Float> {
         if (raw.isNullOrBlank()) return default
@@ -4191,6 +4250,11 @@ class AppPreferences(private val context: Context) {
             put("showHomeSearch", prefs[SHOW_HOME_SEARCH] ?: false)
             put("showDebugOptions", prefs[SHOW_DEBUG_OPTIONS] ?: false)
             put("preferEnglishGameTitles", prefs[PREFER_ENGLISH_GAME_TITLES] ?: false)
+            put("gameSerialEditingEnabled", prefs[GAME_SERIAL_EDITING_ENABLED] ?: false)
+            put(
+                "gameSerialOverrides",
+                JSONObject(encodeGameSerialOverrides(decodeGameSerialOverrides(prefs[GAME_SERIAL_OVERRIDES])))
+            )
             put("recentGames", prefs[RECENT_GAMES] ?: "[]")
             put("homeLibraryViewMode", prefs[HOME_LIBRARY_VIEW_MODE] ?: 0)
             put("hiddenGamePaths", JSONArray(prefs[HIDDEN_GAME_PATHS].orEmpty().sorted()))
@@ -4633,6 +4697,16 @@ class AppPreferences(private val context: Context) {
             prefs[SHOW_HOME_SEARCH] = json.optBoolean("showHomeSearch", false)
             prefs[SHOW_DEBUG_OPTIONS] = json.optBoolean("showDebugOptions", false)
             prefs[PREFER_ENGLISH_GAME_TITLES] = json.optBoolean("preferEnglishGameTitles", false)
+            prefs[GAME_SERIAL_EDITING_ENABLED] = json.optBoolean("gameSerialEditingEnabled", false)
+            json.optJSONObject("gameSerialOverrides")?.let { overrides ->
+                val restored = buildMap {
+                    overrides.keys().forEach { key ->
+                        val value = overrides.optString(key).trim()
+                        if (key.isNotBlank() && value.isNotBlank()) put(key, value)
+                    }
+                }
+                prefs[GAME_SERIAL_OVERRIDES] = encodeGameSerialOverrides(restored)
+            }
             prefs[RECENT_GAMES] = json.optString("recentGames", "[]")
             prefs[HOME_LIBRARY_VIEW_MODE] = json.optInt("homeLibraryViewMode", 0).coerceIn(0, 2)
             // Older backups do not contain this preference; keep the current local choices.

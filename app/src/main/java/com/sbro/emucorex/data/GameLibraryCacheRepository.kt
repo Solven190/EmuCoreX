@@ -24,6 +24,7 @@ class GameLibraryCacheRepository(context: Context) {
 
     private val appContext = context.applicationContext
     private val compatibilityRepository = Pcsx2CompatibilityRepository(appContext)
+    private val preferences = AppPreferences(appContext)
     private val cacheFile = File(appContext.filesDir, "library/game_library_cache.json")
     private val lock = Any()
 
@@ -49,11 +50,13 @@ class GameLibraryCacheRepository(context: Context) {
                 }
 
                 val games = libraryObject.optJSONArray("games") ?: JSONArray()
+                val serialOverrides = preferences.getGameSerialOverridesSync()
                 val parsedGames = buildList {
                     for (index in 0 until games.length()) {
                         val game = games.optJSONObject(index) ?: continue
-                        val serial = game.optString("serial").takeIf { it.isNotBlank() }
                         val path = game.optString("path")
+                        val serial = serialOverrides[path]
+                            ?: game.optString("serial").takeIf { it.isNotBlank() }
                         val fileName = sanitizeCachedFileName(path, game.optString("file_name"))
                         val title = sanitizeCachedTitle(
                             path = path,

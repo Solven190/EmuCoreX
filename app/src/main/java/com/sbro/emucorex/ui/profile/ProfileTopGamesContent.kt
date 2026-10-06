@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -727,36 +726,30 @@ internal fun TopGameDevicesDialog(
                         )
                     }
                 }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 190.dp)
-                ) {
-                    when {
-                        isLoading -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            repeat(3) {
-                                SkeletonBlock(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(76.dp)
-                                        .clip(neonShape(16.dp))
-                                )
-                            }
+                when {
+                    isLoading -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        repeat(3) {
+                            SkeletonBlock(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(112.dp)
+                                    .clip(neonShape(16.dp))
+                            )
                         }
-                        stats.isEmpty() -> Text(
-                            text = stringResource(R.string.profile_game_devices_empty),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        else -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            val maxPlayTimeMs = stats.maxOf { it.totalPlayTimeMs }.coerceAtLeast(1L)
-                            stats.take(5).forEach { stat ->
-                                DeviceStatRow(
-                                    stat = stat,
-                                    maxPlayTimeMs = maxPlayTimeMs,
-                                    isCurrent = stat.deviceKey == currentDeviceKey
-                                )
-                            }
+                    }
+                    stats.isEmpty() -> Text(
+                        text = stringResource(R.string.profile_game_devices_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    else -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        val maxPlayTimeMs = stats.maxOf { it.totalPlayTimeMs }.coerceAtLeast(1L)
+                        stats.take(5).forEach { stat ->
+                            DeviceStatRow(
+                                stat = stat,
+                                maxPlayTimeMs = maxPlayTimeMs,
+                                isCurrent = stat.deviceKey == currentDeviceKey
+                            )
                         }
                     }
                 }
@@ -810,32 +803,13 @@ private fun DeviceStatRow(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = stat.soc.ifBlank { stat.deviceKey },
-                            modifier = Modifier.weight(1f, fill = false),
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (isCurrent) {
-                            Surface(
-                                shape = RoundedCornerShape(999.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.profile_game_devices_your_device),
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
+                    Text(
+                        text = stat.soc.ifBlank { stat.deviceKey },
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     val details = listOfNotNull(
                         stat.gpu?.takeIf { it.isNotBlank() },
                         if (stat.ramMb > 0) {
@@ -848,23 +822,52 @@ private fun DeviceStatRow(
                         Text(
                             text = details,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (isCurrent) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.profile_game_devices_your_device),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = formatTopDuration(stat.totalPlayTimeMs),
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1
                     )
                     Text(
                         text = stringResource(R.string.profile_game_sessions_format, stat.sessions),
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .weight(1f, fill = false),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

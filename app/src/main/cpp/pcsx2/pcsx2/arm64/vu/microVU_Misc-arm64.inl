@@ -232,27 +232,33 @@ static __fi void mVUEmitVectorConstant32_oaknut(const oak::QReg& dst, u32 value)
 
 static __fi void mVUEmitExponentVector_oaknut(const oak::QReg& dst)
 {
-	mVUEmitVectorConstant32_oaknut(dst, 0x7f800000u);
+	oakLoad128(dst, mVUIrOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, mVUss4)) +
+		static_cast<s64>(offsetof(mVU_SSE4, exponent_vec))));
 }
 
 static __fi void mVUEmitSignbitVector_oaknut(const oak::QReg& dst)
 {
-	mVUEmitVectorConstant32_oaknut(dst, 0x80000000u);
+	oakLoad128(dst, mVUIrOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, mVUss4)) +
+		static_cast<s64>(offsetof(mVU_SSE4, signbit_vec))));
 }
 
 static __fi void mVUEmitMaxvalsVector_oaknut(const oak::QReg& dst)
 {
-	mVUEmitVectorConstant32_oaknut(dst, 0x7f7fffffu);
+	// sse4_maxvals[1] is the all-lane 0x7f7fffff form.
+	oakLoad128(dst, mVUIrOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, mVUss4)) +
+		static_cast<s64>(offsetof(mVU_SSE4, sse4_maxvals[1]))));
 }
 
 static __fi void mVUEmitAbsclipVector_oaknut(const oak::QReg& dst)
 {
-	mVUEmitVectorConstant32_oaknut(dst, 0x7fffffffu);
+	oakLoad128(dst, mVUIrOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, mVUss4)) +
+		static_cast<s64>(offsetof(mVU_SSE4, absclip_vec))));
 }
 
 static __fi void mVUEmitI32MaxFVector_oaknut(const oak::QReg& dst)
 {
-	mVUEmitVectorConstant32_oaknut(dst, 0x4effffffu);
+	oakLoad128(dst, mVUIrOakCpuMem(static_cast<s64>(offsetof(cpuRegistersPack, mVUss4)) +
+		static_cast<s64>(offsetof(mVU_SSE4, i32maxf_vec))));
 }
 
 static __fi void mVULoadClampLimits_oaknut(const oak::QReg& min_dst, const oak::QReg& max_dst)

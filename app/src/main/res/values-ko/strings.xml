@@ -2838,4 +2838,17 @@
     <string name="settings_help_per_game_memory_cards">게임별 선택은 이 게임에만 적용되며 프로필에 저장됩니다. 선택한 카드가 삭제되거나 이름이 바뀌면 게임은 글로벌 할당으로 돌아갑니다.</string>
     <string name="per_game_memory_card_create">이 게임용 카드 만들기</string>
     <string name="core_update_reset_done">설정이 초기화되었습니다</string>
+    <string name="settings_game_serial_editing">게임 시리얼 번호 편집</string>
+    <string name="settings_game_serial_editing_desc">게임 길게 누르기 메뉴에 «시리얼 번호 변경» 동작을 추가합니다.</string>
+    <string name="settings_help_game_serial_editing">실제 시리얼 번호가 커버에 인쇄된 번호와 다른 패치 또는 번역 디스크에 유용합니다. 선택한 번호는 게임별로 기억되며 커버, GameDB, 치트, 세이브에 사용됩니다.</string>
+    <string name="home_game_menu_change_serial">시리얼 번호 변경</string>
+    <string name="game_serial_dialog_title">게임 시리얼 번호 변경</string>
+    <string name="game_serial_dialog_message">이 게임이 사용할 시리얼 번호를 설정하세요. 게임별로 기억되며 커버 다운로드, GameDB 매칭, 라이브러리에 표시되는 게임 정보에 반영됩니다.</string>
+    <string name="game_serial_dialog_current">감지된 시리얼 번호: %1$s</string>
+    <string name="game_serial_dialog_hint">예: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">올바른 시리얼 번호를 입력하세요: 문자 4자 + 숫자 5자리 (SCES-12345 또는 SCES12345).</string>
+    <string name="game_serial_dialog_clear_hint">필드를 비우고 저장하면 디스크에서 감지된 번호로 돌아갑니다.</string>
+    <string name="game_serial_dialog_save">저장</string>
+    <string name="game_serial_dialog_cancel">취소</string>
+    <string name="game_serial_dialog_saved">게임 시리얼 번호가 업데이트되었습니다</string>
 </resources>

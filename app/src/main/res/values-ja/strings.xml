@@ -2838,4 +2838,17 @@
     <string name="settings_help_per_game_memory_cards">ゲームごとの選択はこのゲームにのみ適用され、そのプロファイルに保存されます。選択したカードが削除または名前変更された場合、ゲームはグローバル設定に戻ります。</string>
     <string name="per_game_memory_card_create">このゲーム用のカードを作成</string>
     <string name="core_update_reset_done">設定をリセットしました</string>
+    <string name="settings_game_serial_editing">ゲームのシリアル番号を編集</string>
+    <string name="settings_game_serial_editing_desc">ゲームの長押しメニューに「シリアル番号を変更」を追加します。</string>
+    <string name="settings_help_game_serial_editing">パッチや翻訳を適用したディスクで、実際のシリアル番号がパッケージ表記と異なる場合に便利です。選んだ番号はゲームごとに保存され、カバー、GameDB、チート、セーブに使用されます。</string>
+    <string name="home_game_menu_change_serial">シリアル番号を変更</string>
+    <string name="game_serial_dialog_title">ゲームのシリアル番号を変更</string>
+    <string name="game_serial_dialog_message">このゲームで使用するシリアル番号を設定します。ゲームごとに記憶され、カバーのダウンロード、GameDBの照合、ライブラリに表示されるゲーム情報に反映されます。</string>
+    <string name="game_serial_dialog_current">検出されたシリアル番号: %1$s</string>
+    <string name="game_serial_dialog_hint">例: SCES-12345</string>
+    <string name="game_serial_dialog_invalid">有効なシリアル番号を入力してください: 英字4文字+数字5桁 (SCES-12345 または SCES12345)。</string>
+    <string name="game_serial_dialog_clear_hint">欄を空にして保存すると、ディスクから検出された番号に戻ります。</string>
+    <string name="game_serial_dialog_save">保存</string>
+    <string name="game_serial_dialog_cancel">キャンセル</string>
+    <string name="game_serial_dialog_saved">ゲームのシリアル番号を更新しました</string>
 </resources>
