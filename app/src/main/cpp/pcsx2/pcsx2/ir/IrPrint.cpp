@@ -82,6 +82,8 @@ namespace ir
 					return;
 				case Op::Jump:
 				case Op::Branch:
+				case Op::Resume:
+				case Op::BranchIndirect:
 					if (inst.imm)
 					{
 						std::snprintf(buffer, sizeof(buffer), "guest=0x%08x", static_cast<u32>(inst.imm));

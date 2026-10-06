@@ -72,6 +72,9 @@ namespace ir
 	X(Sext16,       Unary,       1, 1, Any,  false) \
 	X(Zext8,        Unary,       1, 1, Any,  false) \
 	X(Zext16,       Unary,       1, 1, Any,  false) \
+	X(Sext32,       Unary,       1, 1, I64,  false) \
+	X(Zext32,       Unary,       1, 1, I64,  false) \
+	X(Trunc32,      Unary,       1, 1, I32,  false) \
 	X(Bswap,        Unary,       1, 1, Any,  false) \
 	X(Add,          Binary,      2, 2, Any,  false) \
 	X(Sub,          Binary,      2, 2, Any,  false) \
@@ -128,8 +131,10 @@ namespace ir
 	X(WriteVi,      StateWrite,  1, 1, Void, false) \
 	X(ReadAcc,      StateRead,   0, 0, V4F32, false) \
 	X(WriteAcc,     StateWrite,  1, 1, Void, false) \
-	X(ReadHiLo,     StateRead,   0, 0, I64,  false) \
-	X(WriteHiLo,    StateWrite,  1, 1, Void, false) \
+	X(ReadHi,       StateRead,   0, 0, I32,  false) \
+	X(WriteHi,      StateWrite,  1, 1, Void, false) \
+	X(ReadLo,       StateRead,   0, 0, I32,  false) \
+	X(WriteLo,      StateWrite,  1, 1, Void, false) \
 	X(ReadFlags,    StateRead,   0, 0, Flags, false) \
 	X(WriteFlags,   StateWrite,  1, 1, Void, false) \
 	/* Control */ \
@@ -137,6 +142,7 @@ namespace ir
 	X(Branch,       Control,     3, 3, Void, true) \
 	X(BranchIndirect, Control,   1, 1, Void, true) \
 	X(CheckEvents,  Control,     1, 1, Void, true) \
+	X(Resume,       Control,     0, 0, Void, true) \
 	X(Return,       Control,     0, 0, Void, true) \
 	X(Trap,         Control,     0, 0, Void, true) \
 	X(AddCycles,    Cycle,       0, 0, Void, false) \
@@ -339,6 +345,11 @@ namespace ir
 		void SetBlock(u32 id) { m_block = id; }
 		u32 CurrentBlock() const { return m_block; }
 
+		// Guest PC attached to subsequent instructions until changed. When 0,
+		// instructions inherit the current block's start address.
+		void SetGuestPc(u32 pc) { m_pc = pc; }
+		void SetBlockEnd(u32 guest_end);
+
 		u32 Emit(Op op, Type type, std::initializer_list<u32> args, u64 imm = 0, u16 aux = 0, u32 guest_pc = 0);
 		u32 Emit0(Op op, Type type = Type::Void);
 		u32 Emit1(Op op, Type type, u32 a, u64 imm = 0, u16 aux = 0);
@@ -357,6 +368,7 @@ namespace ir
 		u32 Branch(u32 cond, u32 taken, u32 not_taken, u32 guest_target = 0);
 		u32 BranchIndirect(u32 address);
 		u32 CheckEvents(u32 fallthrough_block);
+		u32 Resume(u32 guest_pc);
 		u32 Return();
 		u32 Trap();
 
@@ -367,6 +379,7 @@ namespace ir
 
 		Function* m_fn;
 		u32 m_block = 0;
+		u32 m_pc = 0;
 	};
 
 	// ------------------------------------------------------------------

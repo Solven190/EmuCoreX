@@ -1021,6 +1021,10 @@ set(pcsx2WindowsSources
 
 # JIT recompiler sources
 set(pcsx2JitSources
+	ir/Ir.cpp
+	ir/IrPrint.cpp
+	ir/IrVerify.cpp
+	arm64/ee/EeIrLifter-arm64.cpp
 	arm64/ee/BaseblockEx-arm64.cpp
 	arm64/ee/iCOP0-arm64.cpp
 	arm64/ee/iCore-arm64.cpp
@@ -1047,6 +1051,8 @@ set(pcsx2JitSources
 
 # JIT recompiler headers
 set(pcsx2JitHeaders
+	ir/Ir.h
+	arm64/ee/EeIrLifter-arm64.h
 	arm64/ee/BaseblockEx-arm64.h
 	arm64/ee/iCOP0-arm64.h
 	arm64/ee/iCore-arm64.h

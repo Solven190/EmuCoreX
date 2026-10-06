@@ -128,7 +128,15 @@ namespace ir
 		if (m_fn->entry == 0)
 			m_fn->entry = static_cast<u32>(m_fn->blocks.size());
 		m_block = static_cast<u32>(m_fn->blocks.size());
+		m_pc = 0;
 		return m_block;
+	}
+
+	void Builder::SetBlockEnd(u32 guest_end)
+	{
+		if (m_block == 0)
+			return;
+		m_fn->blocks[m_block - 1].guest_end = guest_end;
 	}
 
 	u32 Builder::Emit(Op op, Type type, std::initializer_list<u32> args, u64 imm, u16 aux, u32 guest_pc)
@@ -153,7 +161,7 @@ namespace ir
 		inst.type = type;
 		inst.imm = imm;
 		inst.aux = aux;
-		inst.guest_pc = guest_pc ? guest_pc : block.guest_start;
+		inst.guest_pc = guest_pc ? guest_pc : (m_pc ? m_pc : block.guest_start);
 		inst.num_args = static_cast<u8>(args.size());
 		u32 index = 0;
 		for (const u32 arg : args)
@@ -243,6 +251,11 @@ namespace ir
 	u32 Builder::CheckEvents(u32 fallthrough_block)
 	{
 		return Emit(Op::CheckEvents, Type::Void, {fallthrough_block});
+	}
+
+	u32 Builder::Resume(u32 guest_pc)
+	{
+		return Emit(Op::Resume, Type::Void, {}, guest_pc);
 	}
 
 	u32 Builder::Return()
