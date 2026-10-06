@@ -1346,7 +1346,9 @@ static void mVU_MADD_cop2_emit_oaknut(mP)
 	oakAsm->MOV(oakQRegister(Fs).B16(), oakQRegister(ACC).B16());
 	if (_XYZW_SS2)
 		mVUUpperPshufd_oaknut(Fs, Fs, shuffleSS(_X_Y_Z_W));
-	mVUUpperVuDoubleVector_oaknut(mVU, Fs, t1, t2);
+	// The SS2 shuffle above clobbers Q30 (maxvals); without it the values
+	// loaded by PrepareVuDoubleMaxvals are still live and must not be rebuilt.
+	mVUUpperVuDoubleVector_oaknut(mVU, Fs, t1, t2, !_XYZW_SS2);
 	if (_XYZW_SS)
 	{
 		oakAsm->FMUL(OAK_SSCRATCH, oakSRegister(tempFs), oakQRegister(Ft).Selem()[0]);
