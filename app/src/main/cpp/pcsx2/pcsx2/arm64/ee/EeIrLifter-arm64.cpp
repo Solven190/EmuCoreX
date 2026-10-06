@@ -558,22 +558,13 @@ namespace EeIr
 			u32 end = 0;
 			std::string error;
 			if (!LiftBlock(code, {0x00100000, 4}, fn, &end, &error))
-			{
-				std::printf("EE IR case 1 lift failed: %s\n", error.c_str());
 				return false;
-			}
 			if (end != 0x0010000c || !ir::Verify(fn, &error))
-			{
-				std::printf("EE IR case 1 failed: end=0x%08x error=%s\n", end, error.c_str());
 				return false;
-			}
 			const std::string dump = ir::Dump(fn);
 			if (dump.find("CmpEq") == std::string::npos || dump.find("Branch") == std::string::npos ||
 				dump.find("Resume") == std::string::npos || dump.find("Add") == std::string::npos)
-			{
-				std::printf("EE IR case 1 dump mismatch\n%s\n", dump.c_str());
 				return false;
-			}
 		}
 
 		// jal writes the link register and exits at the target.

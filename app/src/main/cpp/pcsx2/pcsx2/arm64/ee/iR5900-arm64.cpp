@@ -24,7 +24,6 @@
 
 #if defined(__ANDROID__)
 #include <sys/system_properties.h>
-#include <android/log.h>
 #endif
 
 #include "common/AlignedMalloc.h"
@@ -2437,16 +2436,6 @@ static bool EeIrEnabled()
 		return false;
 #endif
 	}();
-	static bool s_logged = false;
-	if (!s_logged)
-	{
-		s_logged = true;
-#if defined(__ANDROID__)
-		__android_log_print(ANDROID_LOG_INFO, "EmuCoreX", "EE IR code path %s", s_enabled ? "enabled" : "disabled");
-#else
-		Console.WriteLn("EE IR code path %s", s_enabled ? "enabled" : "disabled");
-#endif
-	}
 	return s_enabled;
 }
 
