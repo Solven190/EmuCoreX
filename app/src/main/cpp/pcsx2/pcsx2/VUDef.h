@@ -334,6 +334,12 @@ struct mVU_SSE4
     // Per-lane spread weights for the ARM64 PMOVMSKB equivalent: bit i of
     // the compare result vector maps to bit 2i (positive) / 2i+1 (negative).
     u32 clip_mask[4] = {1, 4, 16, 64};
+    // Ready-made vector constants for the ARM64 emitters: loading these from
+    // the globals pack is one LDR instead of a MOV+DUP pair per use.
+    u32 exponent_vec[4] = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000};
+    u32 signbit_vec[4] = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
+    u32 absclip_vec[4] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
+    u32 i32maxf_vec[4] = {0x4effffff, 0x4effffff, 0x4effffff, 0x4effffff};
 };
 
 #endif //PCSX2_VUDEF_H
