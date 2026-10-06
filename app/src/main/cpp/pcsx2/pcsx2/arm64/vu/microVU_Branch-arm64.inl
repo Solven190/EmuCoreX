@@ -80,6 +80,27 @@ static __fi void mVUBranchEmitJmp_oaknut(const void* fn)
 	recEndOaknutEmit();
 }
 
+static __fi void mVUBranchLinkBlock_emit_oaknut(const void* target)
+{
+	// A compiled block target is known at compile time and the VU code cache
+	// fits in the +/-128 MiB range of a direct B, so link with one branch
+	// instead of materializing the full pointer and branching through it.
+	const s64 displacement = static_cast<s64>(reinterpret_cast<intptr_t>(target) -
+		reinterpret_cast<intptr_t>(oakGetCurrentCodePointer()));
+	if (displacement >= -(1ll << 27) && displacement < (1ll << 27))
+	{
+		recBeginOaknutEmit();
+		u8* const site = oakGetCurrentCodePointer();
+		oakAsm->NOP();
+		oakEmitJmpPtr(site, target, false);
+		recEndOaknutEmit();
+	}
+	else
+	{
+		mVUBranchEmitJmp_oaknut(target);
+	}
+}
+
 static __fi void mVUBranchEmitBrT1_oaknut()
 {
 	recBeginOaknutEmit();
@@ -690,7 +711,7 @@ void normBranchCompile(microVU& mVU, u32 branchPC)
 	blockCreate(branchPC_8);
 	pBlock = mVUblocks[branchPC_8]->search(mVU, (microRegInfo*)&mVUregs);
 	if (pBlock) {
-		mVUBranchEmitJmp_oaknut(pBlock->x86ptrStart);
+		mVUBranchLinkBlock_emit_oaknut(pBlock->x86ptrStart);
     }
 	else {
         mVUcompile(mVU, branchPC, (uptr)&mVUregs);

@@ -405,16 +405,23 @@ __fi void mVUsetupFlags(mV, microFlagCycles& mFC)
 	{
 		int bMac[4];
 		sortFlag(mFC.xMac, bMac, mFC.cycles);
-		mVUFlagsShuffleStoredFlag_emit_oaknut(mVU,
-			static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].macFlag)), shuffleMac);
+		// An already aligned flag ring needs no stored-flag permutation.
+		if (bMac[0] != 0 || bMac[1] != 1 || bMac[2] != 2 || bMac[3] != 3)
+		{
+			mVUFlagsShuffleStoredFlag_emit_oaknut(mVU,
+				static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].macFlag)), shuffleMac);
+		}
 	}
 
 	if (doCFlagInsts && __Clip)
 	{
 		int bClip[4];
 		sortFlag(mFC.xClip, bClip, mFC.cycles);
-		mVUFlagsShuffleStoredFlag_emit_oaknut(mVU,
-			static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].clipFlag)), shuffleClip);
+		if (bClip[0] != 0 || bClip[1] != 1 || bClip[2] != 2 || bClip[3] != 3)
+		{
+			mVUFlagsShuffleStoredFlag_emit_oaknut(mVU,
+				static_cast<s64>(offsetof(vuRegistersPack, microVU[mVU.index].clipFlag)), shuffleClip);
+		}
 	}
 }
 
