@@ -2254,6 +2254,16 @@ void EEIrExecutionTests()
     }
 
     {
+        // R5900 mult/multu also write LO into Rd when Rd is nonzero.
+        auto code = EEValueSetup();
+        code.push_back(MipsR(8, 9, 18, 0, 0x18));   // mult s2, t0, t1
+        code.push_back(MipsR(10, 11, 19, 0, 0x19)); // multu s3, t2, t3
+        code.push_back(MipsR(0, 0, 16, 0, 0x12));   // mflo s0
+        code.push_back(MipsR(0, 0, 17, 0, 0x10));   // mfhi s1
+        RunEEIrCase("ir mult_rd", code);
+    }
+
+    {
         auto code = EEScratchSetup();
         code.push_back(MipsI(0x23, 22, 12, 32)); // lw t4, 32(s6)
         code.push_back(MipsI(0x20, 22, 13, 32)); // lb t5, 32(s6)

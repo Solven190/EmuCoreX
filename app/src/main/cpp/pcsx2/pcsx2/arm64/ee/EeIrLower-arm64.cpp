@@ -53,15 +53,89 @@ namespace EeIr
 			u32 EeIrDivUHi(u32 a, u32 b) { return (b != 0) ? a % b : a; }
 		}
 
+		bool IsSupportedOp(ir::Op op)
+		{
+			switch (op)
+			{
+				case ir::Op::Nop:
+				case ir::Op::ConstI32:
+				case ir::Op::ConstF32:
+				case ir::Op::ConstI64:
+				case ir::Op::Copy:
+				case ir::Op::Undef:
+				case ir::Op::Select:
+				case ir::Op::Not:
+				case ir::Op::Neg:
+				case ir::Op::Sext8:
+				case ir::Op::Sext16:
+				case ir::Op::Zext8:
+				case ir::Op::Zext16:
+				case ir::Op::Sext32:
+				case ir::Op::Zext32:
+				case ir::Op::Trunc32:
+				case ir::Op::Add:
+				case ir::Op::Sub:
+				case ir::Op::And:
+				case ir::Op::Or:
+				case ir::Op::Xor:
+				case ir::Op::MinS:
+				case ir::Op::MinU:
+				case ir::Op::MaxS:
+				case ir::Op::MaxU:
+				case ir::Op::Mul:
+				case ir::Op::Shl:
+				case ir::Op::ShrU:
+				case ir::Op::ShrS:
+				case ir::Op::CmpEq:
+				case ir::Op::CmpNe:
+				case ir::Op::CmpLtS:
+				case ir::Op::CmpLtU:
+				case ir::Op::CmpLeS:
+				case ir::Op::CmpLeU:
+				case ir::Op::CmpGtS:
+				case ir::Op::CmpGtU:
+				case ir::Op::CmpGeS:
+				case ir::Op::CmpGeU:
+				case ir::Op::DivS:
+				case ir::Op::RemS:
+				case ir::Op::DivU:
+				case ir::Op::RemU:
+				case ir::Op::Load8U:
+				case ir::Op::Load8S:
+				case ir::Op::Load16U:
+				case ir::Op::Load16S:
+				case ir::Op::Load32:
+				case ir::Op::Load64:
+				case ir::Op::Store8:
+				case ir::Op::Store16:
+				case ir::Op::Store32:
+				case ir::Op::Store64:
+				case ir::Op::ReadGpr:
+				case ir::Op::WriteGpr:
+				case ir::Op::ReadHi:
+				case ir::Op::ReadLo:
+				case ir::Op::WriteHi:
+				case ir::Op::WriteLo:
+				case ir::Op::AddCycles:
+					return true;
+				default:
+					return false;
+			}
+		}
+
 		class Lowerer
 		{
 		public:
-			explicit Lowerer(ir::Function& fn)
+			Lowerer(ir::Function& fn, const LowerOptions& options)
 				: m_fn(fn)
+				, m_inline(options.inline_body)
 			{
 			}
 
 			bool Run(u8* code, size_t capacity, LowerOutput* out, std::string* error);
+
+			oak::XReg FrameBase() const { return m_inline ? oak::util::X20 : oak::util::X28; }
+			oak::XReg GuestBase() const { return m_inline ? oak::util::X27 : oak::util::X19; }
 
 		private:
 			static constexpr u32 kSaveArea = 32; // X19/X30 pair + X28 frame pointer
@@ -70,22 +144,22 @@ namespace EeIr
 
 			void Load32(u32 value, const oak::WReg& dst)
 			{
-				oakLoad32(dst, {oak::util::X28, static_cast<s64>(Slot(value))});
+				oakLoad32(dst, {FrameBase(), static_cast<s64>(Slot(value))});
 			}
 
 			void Load64(u32 value, const oak::XReg& dst)
 			{
-				oakLoad64(dst, {oak::util::X28, static_cast<s64>(Slot(value))});
+				oakLoad64(dst, {FrameBase(), static_cast<s64>(Slot(value))});
 			}
 
 			void Store32(u32 value, const oak::WReg& src)
 			{
-				oakStore32(src, {oak::util::X28, static_cast<s64>(Slot(value))});
+				oakStore32(src, {FrameBase(), static_cast<s64>(Slot(value))});
 			}
 
 			void Store64(u32 value, const oak::XReg& src)
 			{
-				oakStore64(src, {oak::util::X28, static_cast<s64>(Slot(value))});
+				oakStore64(src, {FrameBase(), static_cast<s64>(Slot(value))});
 			}
 
 			static s64 GprOffset(u32 reg)
@@ -106,6 +180,7 @@ namespace EeIr
 			ir::Function& m_fn;
 			std::vector<oak::Label> m_labels;
 			u32 m_frame = 0;
+			bool m_inline = false;
 		};
 
 		bool Lowerer::Fail(std::string* error, const char* what)
@@ -123,20 +198,34 @@ namespace EeIr
 		{
 			recBeginOaknutEmit();
 			oakAsm->SUB(oak::util::SP, oak::util::SP, m_frame);
-			oakAsm->STP(oak::util::X19, oak::util::X30, oak::util::SP, oak::SOffset<10, 3>(0));
-			oakAsm->STP(oak::util::X28, oak::util::XZR, oak::util::SP, oak::SOffset<10, 3>(16));
-			oakAsm->MOV(oak::util::X28, oak::util::SP);
-			oakMoveAddressToReg(oak::util::X19, &g_cpuRegistersPack);
+			if (m_inline)
+			{
+				oakAsm->MOV(oak::util::X20, oak::util::SP);
+			}
+			else
+			{
+				oakAsm->STP(oak::util::X19, oak::util::X30, oak::util::SP, oak::SOffset<10, 3>(0));
+				oakAsm->STP(oak::util::X28, oak::util::XZR, oak::util::SP, oak::SOffset<10, 3>(16));
+				oakAsm->MOV(oak::util::X28, oak::util::SP);
+				oakMoveAddressToReg(oak::util::X19, &g_cpuRegistersPack);
+			}
 			recEndOaknutEmit();
 		}
 
 		void Lowerer::EmitEpilogue()
 		{
 			recBeginOaknutEmit();
-			oakAsm->LDP(oak::util::X28, oak::util::XZR, oak::util::SP, oak::SOffset<10, 3>(16));
-			oakAsm->LDP(oak::util::X19, oak::util::X30, oak::util::SP, oak::SOffset<10, 3>(0));
-			oakAsm->ADD(oak::util::SP, oak::util::SP, m_frame);
-			oakAsm->RET();
+			if (m_inline)
+			{
+				oakAsm->ADD(oak::util::SP, oak::util::SP, m_frame);
+			}
+			else
+			{
+				oakAsm->LDP(oak::util::X28, oak::util::XZR, oak::util::SP, oak::SOffset<10, 3>(16));
+				oakAsm->LDP(oak::util::X19, oak::util::X30, oak::util::SP, oak::SOffset<10, 3>(0));
+				oakAsm->ADD(oak::util::SP, oak::util::SP, m_frame);
+				oakAsm->RET();
+			}
 			recEndOaknutEmit();
 		}
 
@@ -144,11 +233,32 @@ namespace EeIr
 		{
 			if (!ir::Verify(m_fn, error))
 				return false;
+			if (m_inline && m_fn.blocks.size() != 1)
+				return Fail(error, "inline mode requires a single block");
 
 			const u32 value_count = static_cast<u32>(m_fn.value_types.size());
 			m_frame = (kSaveArea + value_count * 8 + 15u) & ~15u;
 			if (m_frame > 0x3f00)
 				return Fail(error, "stack frame too large");
+
+			if (m_inline)
+			{
+				// Emit into the caller's active Oaknut block. The caller is
+				// responsible for the code buffer and for the block tail that
+				// follows the fall-through.
+				EmitPrologue();
+				for (const ir::Block& block : m_fn.blocks)
+				{
+					for (const ir::Inst& inst : block.insts)
+					{
+						if (!EmitInst(inst, error))
+							return false;
+					}
+				}
+				out->entry = nullptr;
+				out->host_size = 0;
+				return true;
+			}
 
 			oakSetAsmPtr(code, capacity);
 			u8* const start = oakStartBlock();
@@ -175,6 +285,13 @@ namespace EeIr
 		bool Lowerer::EmitInst(const ir::Inst& inst, std::string* error)
 		{
 			const u32* a = inst.args;
+
+			if (m_inline && (inst.op == ir::Op::Jump || inst.op == ir::Op::Branch ||
+					inst.op == ir::Op::BranchIndirect || inst.op == ir::Op::Trap ||
+					inst.op == ir::Op::CheckEvents))
+			{
+				return Fail(error, "inline mode supports straight-line blocks only");
+			}
 
 			auto load_a = [&]() { Load32(a[0], oak::util::W0); };
 			auto load_b = [&]() { Load32(a[1], oak::util::W1); };
@@ -539,23 +656,25 @@ namespace EeIr
 
 				case ir::Op::ReadGpr:
 					recBeginOaknutEmit();
-					oakLoad32(oak::util::W0, {oak::util::X19, GprOffset(static_cast<u32>(inst.imm))});
+					oakLoad32(oak::util::W0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
 					store_r();
 					recEndOaknutEmit();
 					return true;
 
 				case ir::Op::WriteGpr:
+					if (inst.imm == 0)
+						return true; // $0 is hardwired to zero
 					recBeginOaknutEmit();
 					load_a();
 					oakAsm->SXTW(oak::util::X0, oak::util::W0);
-					oakStore64(oak::util::X0, {oak::util::X19, GprOffset(static_cast<u32>(inst.imm))});
+					oakStore64(oak::util::X0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
 					recEndOaknutEmit();
 					return true;
 
 				case ir::Op::ReadHi:
 				case ir::Op::ReadLo:
 					recBeginOaknutEmit();
-					oakLoad32(oak::util::W0, {oak::util::X19, (inst.op == ir::Op::ReadHi) ? HiOffset() : LoOffset()});
+					oakLoad32(oak::util::W0, {GuestBase(), (inst.op == ir::Op::ReadHi) ? HiOffset() : LoOffset()});
 					store_r();
 					recEndOaknutEmit();
 					return true;
@@ -565,7 +684,7 @@ namespace EeIr
 					recBeginOaknutEmit();
 					load_a();
 					oakAsm->SXTW(oak::util::X0, oak::util::W0);
-					oakStore64(oak::util::X0, {oak::util::X19, (inst.op == ir::Op::WriteHi) ? HiOffset() : LoOffset()});
+					oakStore64(oak::util::X0, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset() : LoOffset()});
 					recEndOaknutEmit();
 					return true;
 
@@ -593,7 +712,7 @@ namespace EeIr
 				case ir::Op::BranchIndirect:
 					recBeginOaknutEmit();
 					load_a();
-					oakStore32(oak::util::W0, {oak::util::X19, PcOffset()});
+					oakStore32(oak::util::W0, {GuestBase(), PcOffset()});
 					EmitEpilogue();
 					recEndOaknutEmit();
 					return true;
@@ -611,11 +730,54 @@ namespace EeIr
 		}
 	} // namespace
 
-	bool LowerBlock(ir::Function& fn, u8* code, size_t capacity, LowerOutput* out, std::string* error)
+	bool CanLower(const ir::Function& fn, bool inline_body, std::string* error)
+	{
+		for (const ir::Block& block : fn.blocks)
+		{
+			for (const ir::Inst& inst : block.insts)
+			{
+				switch (inst.op)
+				{
+					case ir::Op::Jump:
+					case ir::Op::Branch:
+					case ir::Op::BranchIndirect:
+					case ir::Op::Trap:
+					case ir::Op::CheckEvents:
+						if (inline_body)
+						{
+							if (error)
+								*error = "inline mode supports straight-line blocks only";
+							return false;
+						}
+						break;
+					case ir::Op::Resume:
+					case ir::Op::Return:
+						break;
+					default:
+						if (!IsSupportedOp(inst.op))
+						{
+							if (error)
+								*error = std::string("unsupported IR op ") + ir::OpName(inst.op);
+							return false;
+						}
+						break;
+				}
+			}
+		}
+		return true;
+	}
+
+	bool LowerBlock(ir::Function& fn, const LowerOptions& options, u8* code, size_t capacity,
+		LowerOutput* out, std::string* error)
 	{
 		out->entry = nullptr;
 		out->host_size = 0;
-		Lowerer lowerer(fn);
+		Lowerer lowerer(fn, options);
 		return lowerer.Run(code, capacity, out, error);
+	}
+
+	bool LowerBlock(ir::Function& fn, u8* code, size_t capacity, LowerOutput* out, std::string* error)
+	{
+		return LowerBlock(fn, LowerOptions{}, code, capacity, out, error);
 	}
 } // namespace EeIr

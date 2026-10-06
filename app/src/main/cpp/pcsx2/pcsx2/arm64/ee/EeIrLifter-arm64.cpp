@@ -192,6 +192,10 @@ namespace EeIr
 					const u32 hi = m_b.Emit1(ir::Op::Trunc32, ir::Type::I32, hi64);
 					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
 					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
+					// R5900 quirk: mult/multu also write LO into Rd when Rd != 0.
+					const u32 rd = Rd(word);
+					if (rd != 0)
+						WriteGpr(rd, lo);
 					return true;
 				}
 				case 0x1A: // div

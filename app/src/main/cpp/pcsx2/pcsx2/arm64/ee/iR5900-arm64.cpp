@@ -17,8 +17,15 @@
 #include "arm64/ee/BaseblockEx-arm64.h"
 #include "arm64/ee/iR5900-arm64.h"
 #include "arm64/ee/iR5900Analysis-arm64.h"
+#include "arm64/ee/EeIrLifter-arm64.h"
+#include "arm64/ee/EeIrLower-arm64.h"
 #include "JitProfiler.h"
 #include "HangTrace.h"
+
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+#include <android/log.h>
+#endif
 
 #include "common/AlignedMalloc.h"
 #include "common/FastJmp.h"
@@ -2418,6 +2425,84 @@ static u8* recShortBlockLink_emit_oaknut(u32 next_pc, u32 scaled_cycles)
 	return link_patch;
 }
 
+// Enables the IR code path at runtime. The debug property is read once per
+// process so A/B runs only need `adb shell setprop debug.emucorex.ee_ir 1`.
+static bool EeIrEnabled()
+{
+	static const bool s_enabled = []() {
+#if defined(__ANDROID__)
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir", value) > 0 && value[0] == '1';
+#else
+		return false;
+#endif
+	}();
+	static bool s_logged = false;
+	if (!s_logged)
+	{
+		s_logged = true;
+#if defined(__ANDROID__)
+		__android_log_print(ANDROID_LOG_INFO, "EmuCoreX", "EE IR code path %s", s_enabled ? "enabled" : "disabled");
+#else
+		Console.WriteLn("EE IR code path %s", s_enabled ? "enabled" : "disabled");
+#endif
+	}
+	return s_enabled;
+}
+
+// Compiles one straight-line block through the shared IR. Returns false when
+// the block needs the legacy recompiler (unsupported opcode, control flow,
+// different block boundary, ...). Nothing is emitted before CanLower passes,
+// so a false return leaves the code buffer untouched.
+static bool TryCompileEeIrBlock(const u32 startpc)
+{
+	const u32 insts = (s_nEndBlock - startpc) >> 2;
+	if (insts == 0 || insts > 4096)
+		return false;
+
+	ir::Function fn;
+	u32 end = 0;
+	std::string error;
+	if (!EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(startpc)), {startpc, insts}, fn, &end, &error))
+		return false;
+
+	if (end != s_nEndBlock || fn.blocks.size() != 1)
+		return false;
+
+	const ir::Block& block = fn.blocks.front();
+	if (block.insts.empty() || block.insts.back().op != ir::Op::Resume)
+		return false;
+
+	// Only true fall-through blocks are supported for now: a Resume with a
+	// different target (jal/j) needs the block tail to link to the target, not
+	// to the fall-through pc.
+	if (block.insts.back().imm != s_nEndBlock)
+		return false;
+
+	if (!EeIr::CanLower(fn, true, &error))
+		return false;
+
+	// Cycle accounting must match the legacy loop exactly.
+	for (u32 cycle_pc = startpc; cycle_pc < s_nEndBlock; cycle_pc += 4)
+	{
+		cpuRegs.code = *reinterpret_cast<const u32*>(PSM(cycle_pc));
+		const OPCODE& opcode = GetCurrentInstruction();
+		if (cpuRegs.code == 0)
+			s_nBlockCycles += 9 * (2 - ((cpuRegs.CP0.n.Config >> 18) & 0x1));
+		else
+			s_nBlockCycles += opcode.cycles * (2 - ((cpuRegs.CP0.n.Config >> 18) & 0x1));
+	}
+
+	EeIr::LowerOutput out;
+	if (!EeIr::LowerBlock(fn, {true}, nullptr, 0, &out, &error))
+	{
+		Console.Warning("EE IR: %s", error.c_str());
+		return false;
+	}
+
+	return true;
+}
+
 static void recRecompile(const u32 startpc)
 {
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
@@ -2852,9 +2937,19 @@ StartRecomp:
 	{
 		// Finally: Generate ARM64 recompiled code!
 		g_pCurInstInfo = s_pInstCache;
-		while (!g_branch && pc < s_nEndBlock)
+		bool ir_compiled = false;
+		if (EeIrEnabled())
 		{
-			recompileNextInstruction(false, false); // For the love of recursion, batman!
+			ir_compiled = TryCompileEeIrBlock(startpc);
+			if (ir_compiled)
+				pc = s_nEndBlock;
+		}
+		if (!ir_compiled)
+		{
+			while (!g_branch && pc < s_nEndBlock)
+			{
+				recompileNextInstruction(false, false); // For the love of recursion, batman!
+			}
 		}
 	}
 
