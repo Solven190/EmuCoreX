@@ -110,6 +110,11 @@
     <string name="emulation_load_failed">Kayıt durumu yüklenemedi.</string>
     <string name="emulation_fps">FPS: %s</string>
     <string name="emulation_bios_missing">Önce bir BIOS dosyası ekleyin.</string>
+    <string name="emulation_patches_title">Yamalar etkin</string>
+    <string name="emulation_patches_widescreen">Geniş ekran yamaları</string>
+    <string name="emulation_patches_no_interlacing">Taramalı olmayan yamalar</string>
+    <string name="emulation_patches_cheats">Hileler</string>
+    <string name="emulation_patches_user_count">Kullanıcı yamaları: %1$d</string>
     <string name="emulation_launch_failed">Bu oyun açılamıyor.</string>
     <string name="emulation_launch_path_error">Bu dosya açılamıyor.</string>
     <string name="emulation_session_restored_unavailable">Önceki emülasyon oturumu arka planda kapatıldı. Oyunu kütüphanenizden tekrar başlatın.</string>
@@ -446,6 +451,13 @@
     <string name="settings_respect_display_cutout">Kamera çentiğini dikkate al</string>
     <string name="settings_respect_display_cutout_desc">Oyun görüntüsünü kamera çentiğinin dışında tut.</string>
     <string name="settings_help_respect_display_cutout">Emülasyon görüntüsünün kamera çentiğinin (notch veya delik) altına girmemesi için kenar boşluğu ekler. Çentik görüntüyü kapattığında yatay modda kullanışlıdır. Yalnızca emülasyonu etkiler; uygulamanın geri kalanı çentikleri zaten dikkate alır.</string>
+    <string name="settings_show_patch_messages">Yama mesajlarını göster</string>
+    <string name="settings_show_patch_messages_desc">Oyun yamaları uygulandığında kısa mesaj göster.</string>
+    <string name="controls_editor_reset_selected">Seçili öğeyi sıfırla</string>
+    <string name="controls_editor_show_grid">Kılavuzu göster</string>
+    <string name="controls_editor_snap_grid">Kılavuza yapıştır</string>
+    <string name="controls_editor_group_scale_value">Grup ölçeği %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Oyun başlarken etkin yama seçeneklerini ve bulunan kullanıcı yaması sayısını kısa bir bildirimle gösterir.</string>
     <string name="settings_help_pad_vibration">Desteklenen oyunların kontrolcü titreşimini tetiklemesine izin verir. Yarış, dövüş ve darbe ağırlıklı oyunlarda faydalı geri bildirim ekler, ancak pili daha hızlı tüketebilir ve bazı kablosuz gamepad\'ler zayıf veya hafif gecikmeli titreşebilir.</string>
     <string name="settings_help_pad_vibration_strength">Oyun titreşimini Android\'e gönderilmeden önce ölçeklendirir. Gürültülü el konsolu motorları için düşürün veya bir kontrolcü çok zayıf hissettirdiğinde yükseltin.</string>
     <string name="settings_help_pad_vibration_test">Bağlı kontrolcüye, ardından etkinleştirildiğinde telefona veya el konsolu geri dönüşüne (fallback) doğrudan bir Android titreşim isteği gönderir.</string>
@@ -1819,6 +1831,7 @@
     <string name="settings_fps_overlay_metrics">Görünür istatistikler</string>
     <string name="settings_help_fps_overlay_metrics">Ayrıntılı istatistik katmanında gösterilecek değerleri seçin. Bu, metrik toplamayı veya emülasyon performansını etkilemez.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Sürüm</string>
     <string name="settings_fps_metric_vps">VPS</string>
     <string name="settings_fps_metric_speed">Hız</string>
     <string name="settings_fps_metric_target">Hedef</string>
@@ -1951,7 +1964,7 @@
     <string name="settings_stick_toggle_right">Sağ çubuk</string>
     <string name="settings_stick_toggle_left">Sol çubuk</string>
     <string name="settings_stick_toggle_button">Çubuğu değiştir</string>
-    <string name="settings_help_stick_toggle_target">Select ile Start arasındaki düğmenin ekranda hangi çubuğu değiştireceğini seçin. Sağ: sağ çubuğu gizler veya gösterir. Sol: sol çubuk ile yön tuşları arasında geçiş yapar. Fiziksel kontrolcüler etkilenmez.</string>
+    <string name="settings_help_stick_toggle_target">Select ile Start arasındaki düğmenin hangi ekran çubuğunu yön tuşlarına dönüştüreceğini seçin. Seçilen çubuk geçici olarak yön tuşlarıyla değiştirilir. Fiziksel kontrolcüler etkilenmez.</string>
     <string name="settings_touchscreen_right_stick">Dokunmatik ekranda sağ çubuk</string>
     <string name="settings_touchscreen_right_stick_desc">Sanal sağ çubuğu kontrol etmek için ekranın boş bir alanında parmağınızı kaydırın.</string>
     <string name="settings_help_touchscreen_right_stick">Oyun ekranının kullanılmayan alanlarındaki sürükleme hareketlerini sanal sağ çubuğun eksenlerine eşleyerek görünür çubuğa dokunmadan kamerayı hareket ettirmenizi sağlar. Dokunmatik düğmeler ve görünür çubuklar normal şekilde çalışmaya devam eder.</string>

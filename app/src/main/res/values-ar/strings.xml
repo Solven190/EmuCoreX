@@ -110,6 +110,11 @@
     <string name="emulation_load_failed">فشل في تحميل حالة الحفظ.</string>
     <string name="emulation_fps">معدل الإطارات (FPS): %s</string>
     <string name="emulation_bios_missing">أضف ملف BIOS أولاً.</string>
+    <string name="emulation_patches_title">التصحيحات نشطة</string>
+    <string name="emulation_patches_widescreen">تصحيحات الشاشة العريضة</string>
+    <string name="emulation_patches_no_interlacing">تصحيحات إزالة التشابك</string>
+    <string name="emulation_patches_cheats">الغش</string>
+    <string name="emulation_patches_user_count">تصحيحات المستخدم: %1$d</string>
     <string name="emulation_launch_failed">تعذر فتح هذه اللعبة.</string>
     <string name="emulation_launch_path_error">تعذر فتح هذا الملف.</string>
     <string name="emulation_session_restored_unavailable">تم إغلاق جلسة المحاكاة السابقة في الخلفية. قم بتشغيل اللعبة مرة أخرى من مكتبتك.</string>
@@ -446,6 +451,13 @@
     <string name="settings_respect_display_cutout">مراعاة فتحة الكاميرا</string>
     <string name="settings_respect_display_cutout_desc">إبقاء صورة اللعبة بعيدًا عن منطقة فتحة الكاميرا.</string>
     <string name="settings_help_respect_display_cutout">يضيف هامشًا حول صورة المحاكاة حتى لا تُرسم أسفل فتحة الكاميرا (notch أو الثقب). مفيد في الوضع الأفقي عندما تغطي الفتحة الصورة. يؤثر على المحاكاة فقط؛ بقية التطبيق يراعي الفتحات بالفعل.</string>
+    <string name="settings_show_patch_messages">إظهار رسائل التصحيحات</string>
+    <string name="settings_show_patch_messages_desc">عرض رسالة قصيرة عند تطبيق تصحيحات اللعبة.</string>
+    <string name="controls_editor_reset_selected">إعادة تعيين العنصر المحدد</string>
+    <string name="controls_editor_show_grid">إظهار الشبكة</string>
+    <string name="controls_editor_snap_grid">الالتقاط إلى الشبكة</string>
+    <string name="controls_editor_group_scale_value">مقياس المجموعة %1$d%%</string>
+    <string name="settings_help_show_patch_messages">يعرض إشعارًا قصيرًا عند بدء اللعبة يسرد خيارات التصحيحات النشطة وعدد تصحيحات المستخدم التي عُثر عليها لهذه اللعبة.</string>
     <string name="settings_help_pad_vibration">يسمح للألعاب المدعومة بتشغيل اهتزاز وحدة التحكم. يضيف ردود فعل مفيدة في ألعاب السباق والقتال والألعاب ذات التأثيرات القوية، ولكنه قد يستنزف البطارية بشكل أسرع وقد تهتز بعض الوحدات اللاسلكية بشكل ضعيف أو بتأخير طفيف.</string>
     <string name="settings_help_pad_vibration_strength">تغيير مقياس اهتزاز اللعبة قبل إرساله إلى Android. قم بخفضه لمحركات الأجهزة المحمولة المزعجة، أو ارفعه عندما تبدو وحدة التحكم ضعيفة جدًا.</string>
     <string name="settings_help_pad_vibration_test">يرسل طلب اهتزاز مباشر من Android إلى وحدة التحكم المتصلة أولاً، ثم إلى الهاتف أو الجهاز المحمول كبديل عند التفعيل.</string>
@@ -1823,6 +1835,7 @@
     <string name="settings_fps_overlay_metrics">الإحصائيات المرئية</string>
     <string name="settings_help_fps_overlay_metrics">اختر القيم التي تظهر في طبقة الإحصائيات التفصيلية. لا يؤثر هذا على جمع المقاييس أو أداء المحاكاة.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">الإصدار</string>
     <string name="settings_fps_metric_vps">VPS</string>
     <string name="settings_fps_metric_speed">السرعة</string>
     <string name="settings_fps_metric_target">الهدف</string>
@@ -1955,7 +1968,7 @@
     <string name="settings_stick_toggle_right">العصا اليمنى</string>
     <string name="settings_stick_toggle_left">العصا اليسرى</string>
     <string name="settings_stick_toggle_button">تبديل العصا</string>
-    <string name="settings_help_stick_toggle_target">اختر عصا التحكم على الشاشة التي يبدّلها الزر بين Select وStart. اليمنى: إخفاء العصا اليمنى أو إظهارها. اليسرى: التبديل بين العصا اليسرى وأزرار الاتجاهات. لا يؤثر ذلك على وحدات التحكم الفعلية.</string>
+    <string name="settings_help_stick_toggle_target">اختر عصا التحكم على الشاشة التي يحوّلها الزر بين Select وStart إلى أزرار اتجاهات. تُستبدل العصا المختارة مؤقتًا بأزرار الاتجاهات. لا يؤثر ذلك على وحدات التحكم الفعلية.</string>
     <string name="settings_touchscreen_right_stick">العصا اليمنى عبر شاشة اللمس</string>
     <string name="settings_touchscreen_right_stick_desc">اسحب على مساحة فارغة من الشاشة للتحكم بالعصا اليمنى الافتراضية.</string>
     <string name="settings_help_touchscreen_right_stick">يربط إيماءات السحب في المناطق غير المستخدمة من شاشة اللعبة بمحاور العصا اليمنى الافتراضية، مما يتيح تحريك الكاميرا دون لمس العصا الظاهرة. تظل أزرار اللمس والعصي الظاهرة تعمل كالمعتاد.</string>

@@ -127,6 +127,61 @@ class MemoryCardRepositoryTest {
         assertFalse(preserved.exists())
     }
 
+    @Test
+    fun `moving the first default card to slot two fills slot one with the other default card`() {
+        val resolved = resolveMemoryCardAssignments(
+            current = MemoryCardAssignments(slot1 = null, slot2 = "Mcd001.ps2"),
+            existingNames = setOf("Mcd001.ps2", "Mcd002.ps2")
+        )
+
+        assertEquals("Mcd002.ps2", resolved.slot1)
+        assertEquals("Mcd001.ps2", resolved.slot2)
+    }
+
+    @Test
+    fun `resolved swapped assignments stay stable on the next refresh`() {
+        val resolved = resolveMemoryCardAssignments(
+            current = MemoryCardAssignments(slot1 = "Mcd002.ps2", slot2 = "Mcd001.ps2"),
+            existingNames = setOf("Mcd001.ps2", "Mcd002.ps2")
+        )
+
+        assertEquals("Mcd002.ps2", resolved.slot1)
+        assertEquals("Mcd001.ps2", resolved.slot2)
+    }
+
+    @Test
+    fun `clearing slot two keeps slot one and fills the free slot with the default`() {
+        val resolved = resolveMemoryCardAssignments(
+            current = MemoryCardAssignments(slot1 = "Mcd001.ps2", slot2 = null),
+            existingNames = setOf("Mcd001.ps2", "Mcd002.ps2", "Custom.ps2")
+        )
+
+        assertEquals("Mcd001.ps2", resolved.slot1)
+        assertEquals("Mcd002.ps2", resolved.slot2)
+    }
+
+    @Test
+    fun `custom card assignments are preserved when both are valid`() {
+        val resolved = resolveMemoryCardAssignments(
+            current = MemoryCardAssignments(slot1 = "Custom.ps2", slot2 = "Mcd001.ps2"),
+            existingNames = setOf("Mcd001.ps2", "Mcd002.ps2", "Custom.ps2")
+        )
+
+        assertEquals("Custom.ps2", resolved.slot1)
+        assertEquals("Mcd001.ps2", resolved.slot2)
+    }
+
+    @Test
+    fun `missing card is replaced without duplicating the other slot`() {
+        val resolved = resolveMemoryCardAssignments(
+            current = MemoryCardAssignments(slot1 = "Deleted.ps2", slot2 = "Mcd001.ps2"),
+            existingNames = setOf("Mcd001.ps2", "Mcd002.ps2")
+        )
+
+        assertEquals("Mcd002.ps2", resolved.slot1)
+        assertEquals("Mcd001.ps2", resolved.slot2)
+    }
+
     private fun memoryCard(
         name: String,
         path: File,

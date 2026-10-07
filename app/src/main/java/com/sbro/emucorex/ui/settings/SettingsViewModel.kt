@@ -360,6 +360,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     // Kept outside SettingsUiState: that data class is at the JVM 255-argument limit.
+    val showPatchMessages: StateFlow<Boolean> = preferences.showPatchMessages
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val gyroStickTarget: StateFlow<Int> = preferences.gyroStickTarget
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppPreferences.DEFAULT_GYRO_STICK_TARGET)
     val lightGunAim: StateFlow<Int> = preferences.lightGunAim
@@ -1198,6 +1200,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setShowFps(enabled: Boolean) { viewModelScope.launch { preferences.setShowFps(enabled) } }
+
+    fun setShowPatchMessages(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setShowPatchMessages(enabled)
+        }
+    }
     fun setAudioVolume(value: Int) {
         viewModelScope.launch {
             val normalized = AudioDefaults.coerceVolume(value)

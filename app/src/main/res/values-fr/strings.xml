@@ -78,6 +78,11 @@
     <string name="emulation_load_failed">Impossible de charger la sauvegarde.</string>
     <string name="emulation_fps">FPS : %s</string>
     <string name="emulation_bios_missing">Ajoutez d\'abord un fichier BIOS.</string>
+    <string name="emulation_patches_title">Patchs actifs</string>
+    <string name="emulation_patches_widescreen">Patchs écran large</string>
+    <string name="emulation_patches_no_interlacing">Patchs sans entrelacement</string>
+    <string name="emulation_patches_cheats">Codes</string>
+    <string name="emulation_patches_user_count">Patchs utilisateur : %1$d</string>
     <string name="emulation_launch_failed">Impossible d\'ouvrir ce jeu.</string>
     <string name="emulation_launch_path_error">Impossible d\'ouvrir ce fichier.</string>
     <string name="emulation_show_controls">Afficher les contrôles</string>
@@ -728,6 +733,13 @@
     <string name="settings_respect_display_cutout">Respecter l\'encoche de la caméra</string>
     <string name="settings_respect_display_cutout_desc">Garder l\'image du jeu hors de la zone de l\'encoche.</string>
     <string name="settings_help_respect_display_cutout">Ajoute une marge autour de l\'image d\'émulation pour qu\'elle ne passe pas sous l\'encoche de la caméra (notch ou poinçon). Utile en mode paysage lorsque l\'encoche recouvre l\'image. N\'affecte que l\'émulation ; le reste de l\'application respecte déjà les encoches.</string>
+    <string name="settings_show_patch_messages">Afficher les messages de patchs</string>
+    <string name="settings_show_patch_messages_desc">Affiche un court message lors de l\'application des patchs.</string>
+    <string name="controls_editor_reset_selected">Réinitialiser l\'élément sélectionné</string>
+    <string name="controls_editor_show_grid">Afficher la grille</string>
+    <string name="controls_editor_snap_grid">Aligner sur la grille</string>
+    <string name="controls_editor_group_scale_value">Échelle du groupe %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Affiche un court avis au lancement du jeu avec les options de patchs actives et le nombre de patchs utilisateur trouvés.</string>
     <string name="settings_help_pad_vibration">Permet aux jeux compatibles de déclencher les vibrations de la manette. Cela ajoute un retour utile dans les jeux de course, de combat et à fort impact, mais cela peut vider la batterie plus rapidement et certaines manettes sans fil peuvent vibrer faiblement ou avec un léger retard.</string>
     <string name="settings_help_recent_games">Affiche une ligne d\'accès rapide pour les jeux auxquels vous avez joué en dernier. Pratique si vous naviguez souvent entre quelques titres ; désactivez-le si vous souhaitez un écran d\'accueil plus épuré.</string>
     <string name="settings_help_home_search">Affiche la barre de recherche de la bibliothèque directement sur l\'écran d\'accueil. Laissez-la activée pour les grandes bibliothèques ; désactivez-la si vous préférez une mise en page plus claire et que vous effectuez rarement des recherches par nom.</string>
@@ -1821,6 +1833,7 @@
     <string name="settings_fps_overlay_metrics">Statistiques visibles</string>
     <string name="settings_help_fps_overlay_metrics">Choisissez les valeurs affichées dans la superposition de statistiques détaillées. Cela n\'affecte ni la collecte des métriques ni les performances d\'émulation.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Version</string>
     <string name="settings_fps_metric_vps">VPS</string>
     <string name="settings_fps_metric_speed">Vitesse</string>
     <string name="settings_fps_metric_target">Cible</string>
@@ -1953,7 +1966,7 @@
     <string name="settings_stick_toggle_right">Stick droit</string>
     <string name="settings_stick_toggle_left">Stick gauche</string>
     <string name="settings_stick_toggle_button">Basculer le stick</string>
-    <string name="settings_help_stick_toggle_target">Choisissez le stick à l’écran contrôlé par le bouton entre Select et Start. Droit : masquer ou afficher le stick droit. Gauche : alterner entre le stick gauche et la croix directionnelle. Les manettes physiques ne sont pas affectées.</string>
+    <string name="settings_help_stick_toggle_target">Choisissez le stick à l’écran que le bouton entre Select et Start remplace par une croix directionnelle. Le stick choisi est temporairement remplacé par une croix. Les manettes physiques ne sont pas affectées.</string>
     <string name="settings_touchscreen_right_stick">Stick droit sur l’écran tactile</string>
     <string name="settings_touchscreen_right_stick_desc">Faites glisser le doigt sur une zone libre de l’écran pour contrôler le stick droit virtuel.</string>
     <string name="settings_help_touchscreen_right_stick">Associe les gestes de glissement dans les zones inutilisées de l’écran de jeu aux axes du stick droit virtuel, afin de déplacer la caméra sans toucher le stick visible. Les boutons tactiles et les sticks visibles conservent leur fonctionnement normal.</string>

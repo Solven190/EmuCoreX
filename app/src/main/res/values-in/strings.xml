@@ -121,6 +121,11 @@
     <string name="emulation_hardcore_action_blocked">Tindakan ini dinonaktifkan saat Mode Hardcore RetroAchievements aktif.</string>
     <string name="emulation_fps">FPS: %s</string>
     <string name="emulation_bios_missing">Tambahkan file BIOS terlebih dahulu.</string>
+    <string name="emulation_patches_title">Patch aktif</string>
+    <string name="emulation_patches_widescreen">Patch layar lebar</string>
+    <string name="emulation_patches_no_interlacing">Patch tanpa interlacing</string>
+    <string name="emulation_patches_cheats">Cheat</string>
+    <string name="emulation_patches_user_count">Patch pengguna: %1$d</string>
     <string name="emulation_launch_failed">Tidak dapat membuka game ini.</string>
     <string name="emulation_launch_path_error">Tidak dapat membuka file ini.</string>
     <string name="emulation_session_restored_unavailable">Sesi emulasi sebelumnya ditutup di latar belakang. Luncurkan game lagi dari pustaka Anda.</string>
@@ -675,6 +680,13 @@
     <string name="settings_respect_display_cutout">Perhitungkan cutout kamera</string>
     <string name="settings_respect_display_cutout_desc">Jauhkan gambar game dari area cutout kamera.</string>
     <string name="settings_help_respect_display_cutout">Menambahkan margin di sekitar gambar emulasi agar tidak tergambar di bawah cutout kamera (notch atau punch-hole). Berguna dalam mode lanskap saat cutout menutupi gambar. Hanya memengaruhi emulasi; bagian aplikasi lain sudah memperhitungkan cutout.</string>
+    <string name="settings_show_patch_messages">Tampilkan pesan patch</string>
+    <string name="settings_show_patch_messages_desc">Tampilkan pesan singkat saat patch game diterapkan.</string>
+    <string name="controls_editor_reset_selected">Atur ulang elemen terpilih</string>
+    <string name="controls_editor_show_grid">Tampilkan kisi</string>
+    <string name="controls_editor_snap_grid">Snap ke kisi</string>
+    <string name="controls_editor_group_scale_value">Skala grup %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Menampilkan pemberitahuan singkat saat game dimulai berisi opsi patch aktif dan jumlah patch pengguna yang ditemukan.</string>
     <string name="settings_help_pad_vibration">Memungkinkan game yang didukung memicu gemuruh (rumble) pengontrol. Ini menambahkan umpan balik yang berguna di game balap, pertarungan, dan game penuh dampak fisik, tetapi dapat menguras baterai lebih cepat dan beberapa pad nirkabel mungkin bergetar lemah atau dengan sedikit penundaan.</string>
     <string name="settings_help_pad_vibration_strength">Menskala gemuruh game sebelum dikirim ke Android. Turunkan untuk motor genggam yang bising, atau naikkan bila getaran pengontrol terasa terlalu lemah.</string>
     <string name="settings_help_pad_vibration_test">Mengirim permintaan getaran Android langsung ke pengontrol yang terhubung terlebih dahulu, lalu ke ponsel atau genggam fallback saat diaktifkan.</string>
@@ -1833,6 +1845,7 @@
     <string name="settings_fps_overlay_metrics">Statistik yang terlihat</string>
     <string name="settings_help_fps_overlay_metrics">Pilih nilai individual yang disertakan dalam hamparan statistik mendetail. Hal ini tidak memengaruhi pengumpulan metrik atau performa emulasi.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Versi</string>
     <string name="settings_fps_metric_vps">VPS</string>
     <string name="settings_fps_metric_speed">Kecepatan</string>
     <string name="settings_fps_metric_target">Target</string>
@@ -1965,7 +1978,7 @@
     <string name="settings_stick_toggle_right">Stik kanan</string>
     <string name="settings_stick_toggle_left">Stik kiri</string>
     <string name="settings_stick_toggle_button">Alihkan stik</string>
-    <string name="settings_help_stick_toggle_target">Pilih stik di layar yang dikendalikan tombol di antara Select dan Start. Kanan: sembunyikan atau tampilkan stik kanan. Kiri: beralih antara stik kiri dan D-pad. Pengontrol fisik tidak terpengaruh.</string>
+    <string name="settings_help_stick_toggle_target">Pilih stik di layar yang diubah tombol di antara Select dan Start menjadi D-pad. Stik yang dipilih sementara digantikan oleh D-pad. Pengontrol fisik tidak terpengaruh.</string>
     <string name="settings_touchscreen_right_stick">Stik kanan di layar sentuh</string>
     <string name="settings_touchscreen_right_stick_desc">Usap area layar yang kosong untuk mengontrol stik kanan virtual.</string>
     <string name="settings_help_touchscreen_right_stick">Memetakan gerakan seret di area layar permainan yang tidak terpakai ke sumbu stik kanan virtual, sehingga kamera dapat digerakkan tanpa menyentuh stik yang terlihat. Tombol sentuh dan stik yang terlihat tetap berfungsi seperti biasa.</string>

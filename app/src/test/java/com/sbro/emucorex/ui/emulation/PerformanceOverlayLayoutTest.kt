@@ -130,7 +130,7 @@ class PerformanceOverlayLayoutTest {
     }
 
     @Test
-    fun hostHardwareMetricsAreOptInAndHeaderCannotBeMaskedOut() {
+    fun hostHardwareMetricsAreOptInAndVersionHeaderIsOptional() {
         val layout = buildPerformanceOverlayLayout(
             fullSnapshot,
             PerformanceOverlayMetrics.HOST_CPU or PerformanceOverlayMetrics.HOST_GPU,
@@ -139,13 +139,22 @@ class PerformanceOverlayLayoutTest {
 
         assertEquals(
             listOf(
-                "EmuCoreX-0.2.6|119|v2.8.0",
                 "CPU:Snapdragon 8 Gen 3|31.5%",
                 "GPU:Adreno 750|82.4%(13.73ms)"
             ),
             layout.mainLines
         )
         assertTrue(layout.bottomLines.isEmpty())
+    }
+
+    @Test
+    fun versionHeaderIsShownOnlyWhenVersionMetricIsSelected() {
+        val header = "EmuCoreX-0.2.6 | 119 | v2.8.0"
+        val shown = buildPerformanceOverlayLayout(fullSnapshot, PerformanceOverlayMetrics.VERSION, header)
+        val hidden = buildPerformanceOverlayLayout(fullSnapshot, PerformanceOverlayMetrics.SPEED, header)
+
+        assertEquals(listOf("EmuCoreX-0.2.6|119|v2.8.0"), shown.mainLines)
+        assertEquals(listOf("Speed:100%"), hidden.mainLines)
     }
 
     @Test
