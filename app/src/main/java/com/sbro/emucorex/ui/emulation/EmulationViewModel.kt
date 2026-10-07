@@ -304,8 +304,7 @@ data class EmulationUiState(
     val autoLoadOnStart: Boolean = false,
     val autoSaveLastModified: Long = 0L,
     val isAutoSaveInProgress: Boolean = false,
-    val activePlayTimeMs: Long = 0L,
-    val showDebugOptions: Boolean = false
+    val activePlayTimeMs: Long = 0L
 )
 
 internal data class EmulationLaunchConfig(
@@ -812,11 +811,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 val updated = _uiState.value.copy(fpsOverlayMetrics = metrics)
                 _uiState.value = updated
                 syncNativePerformanceOverlayState(updated)
-            }
-        }
-        viewModelScope.launch {
-            preferences.showDebugOptions.collect { enabled ->
-                _uiState.value = _uiState.value.copy(showDebugOptions = enabled)
             }
         }
         viewModelScope.launch {

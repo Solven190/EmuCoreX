@@ -2427,25 +2427,27 @@ static u8* recShortBlockLink_emit_oaknut(u32 next_pc, u32 scaled_cycles)
 
 // Enables the IR code path at runtime. The debug property is read once per
 // process so A/B runs only need `adb shell setprop debug.emucorex.ee_ir 1`.
+// The IR is still under development: it is compiled into debug builds only and
+// can never activate in a release build.
 static bool EeIrEnabled()
 {
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 	static const bool s_enabled = []() {
-#if defined(__ANDROID__)
 		char value[PROP_VALUE_MAX] = {};
 		const bool enabled = __system_property_get("debug.emucorex.ee_ir", value) > 0 && value[0] == '1';
 		__android_log_print(ANDROID_LOG_INFO, "EEIR", "enabled=%u property=debug.emucorex.ee_ir", enabled ? 1u : 0u);
 		return enabled;
-#else
-		return false;
-#endif
 	}();
 	return s_enabled;
+#else
+	return false;
+#endif
 }
 
 // Debug aid: restrict the IR path to a physical PC range for bisection.
 static bool EeIrInRange(u32 phys)
 {
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 	static const u32 s_min = []() {
 		char value[PROP_VALUE_MAX] = {};
 		return __system_property_get("debug.emucorex.ee_ir_min", value) > 0 ? static_cast<u32>(strtoul(value, nullptr, 16)) : 0u;
@@ -2461,6 +2463,7 @@ static bool EeIrInRange(u32 phys)
 	(void)s_logged;
 	return phys >= s_min && phys < s_max;
 #else
+	(void)phys;
 	return true;
 #endif
 }

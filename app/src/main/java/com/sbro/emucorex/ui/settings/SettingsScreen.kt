@@ -1414,15 +1414,6 @@ private fun SettingsContent(
                             onResetToDefault = { viewModel.setShowHomeSearch(defaults.showHomeSearch) }
                         )
                         ToggleItem(
-                            icon = Icons.Rounded.SettingsSuggest,
-                            title = stringResource(R.string.settings_show_debug_options),
-                            subtitle = stringResource(R.string.settings_show_debug_options_desc),
-                            checked = uiState.showDebugOptions,
-                            onCheckedChange = viewModel::setShowDebugOptions,
-                            helpText = stringResource(R.string.settings_help_debug_options),
-                            onResetToDefault = { viewModel.setShowDebugOptions(defaults.showDebugOptions) }
-                        )
-                        ToggleItem(
                             icon = Icons.Rounded.Language,
                             title = stringResource(R.string.settings_prefer_english_game_titles),
                             subtitle = stringResource(R.string.settings_prefer_english_game_titles_desc),

@@ -666,8 +666,6 @@
     <string name="settings_show_recent_games_desc">نمایش بخش بازی‌های اخیراً انجام شده در صفحه اصلی.</string>
     <string name="settings_show_home_search">نمایش جستجوی خانه</string>
     <string name="settings_show_home_search_desc">نمایش نوار جستجو در صفحه اصلی.</string>
-    <string name="settings_show_debug_options">گزینه‌های اشکال‌زدایی (Debug)</string>
-    <string name="settings_show_debug_options_desc">نمایش ابزارهای پروفایل توسعه‌دهنده در منوی داخل بازی.</string>
     <string name="settings_prefer_english_game_titles">ترجیح عناوین انگلیسی بازی‌ها</string>
     <string name="settings_prefer_english_game_titles_desc">استفاده از نام‌های انگلیسی از پایگاه داده بازی PCSX2 در صورت موجود بودن.</string>
     <string name="settings_help_content_description">نمایش جزئیات تنظیمات</string>
@@ -697,7 +695,6 @@
     <string name="settings_help_auto_progressive_scan">نگه داشتن مثلث + ضربدر را به مدت چند ثانیه پس از اجرا شبیه‌سازی می‌کند.</string>
     <string name="settings_help_recent_games">ردیفی با دسترسی سریع برای بازی‌هایی که آخرین بار انجام داده‌اید نشان می‌دهد.</string>
     <string name="settings_help_home_search">نوار جستجوی کتابخانه را مستقیماً در صفحه اصلی نشان می‌دهد.</string>
-    <string name="settings_help_debug_options">کنترل‌های تشخیصی اضافی را در منوی داخل بازی نشان می‌دهد.</string>
     <string name="settings_help_prefer_english_game_titles">از عناوین انگلیسی از پایگاه داده GameIndex مربوط به PCSX2 استفاده می‌کند.</string>
     <string name="settings_help_bios_path">EmuCoreX را به فایل تصویر BIOS PS2 شما هدایت می‌کند.</string>
     <string name="settings_help_game_path">پوشه کتابخانه‌ای را که EmuCoreX برای بازی‌ها اسکن می‌کند، انتخاب می‌کند.</string>

@@ -1131,9 +1131,6 @@
     <string name="onboarding_emulator_folder_title">اختيار مجلد المحاكي</string>
     <string name="onboarding_emulator_folder_desc">حدد مكان حفظ بطاقات الذاكرة وحالات الحفظ والشفرات والتصحيحات والسجلات.</string>
     <string name="settings_help_emulator_data_path">يحدد أين يحفظ EmuCoreX ملفات تشغيل المحاكي مثل بطاقات الذاكرة وحالات الحفظ والشفرات والتصحيحات والسجلات. اتركه على المجلد الافتراضي ما لم تكن تريد الاحتفاظ ببيانات المحاكي في موقع مشترك أو يُدار يدوياً.</string>
-    <string name="settings_help_debug_options">يُظهر عناصر تحكم تشخيصية إضافية في قائمة اللعبة، بما في ذلك أداة تحليل JIT ومسجل تتبع التعليق. أبقِ هذا مغلقاً للعب العادي.</string>
-    <string name="settings_show_debug_options">خيارات تصحيح الأخطاء</string>
-    <string name="settings_show_debug_options_desc">إظهار أدوات تحليل المطورين في قائمة اللعبة.</string>
     <string name="settings_emulator_data_path">مجلد المحاكي</string>
     <string name="settings_emulator_data_path_desc">حدد أين يتم تخزين ملفات المحاكي.</string>
     <string name="settings_emulator_data_path_default">المجلد الافتراضي</string>

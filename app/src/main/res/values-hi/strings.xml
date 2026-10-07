@@ -1131,9 +1131,6 @@
     <string name="onboarding_emulator_folder_title">एमुलेटर फ़ोल्डर चुनें</string>
     <string name="onboarding_emulator_folder_desc">चुनें कि मेमोरी कार्ड, सेव स्टेट्स, चीट्स, पैच और लॉग्स कहाँ स्टोर किए जाएँ。</string>
     <string name="settings_help_emulator_data_path">चुनता है कि EmuCoreX एमुलेटर रनटाइम फ़ाइलें जैसे कि मेमोरी कार्ड, सेव स्टेट्स, चीट्स, पैच और लॉग्स को कहाँ स्टोर करता है। इसे डिफ़ॉल्ट फ़ोल्डर पर छोड़ दें जब तक कि आप एमुलेटर डेटा को साझा या मैन्युअल रूप से प्रबंधित स्थान पर नहीं रखना चाहते हैं。</string>
-    <string name="settings_help_debug_options">इन-गेम मेनू में अतिरिक्त डायग्नोस्टिक नियंत्रण दिखाता है, जिसमें JIT प्रोफ़ाइलर और हैंग ट्रेस रिकॉर्डर शामिल हैं। सामान्य खेल के लिए इसे बंद रखें。</string>
-    <string name="settings_show_debug_options">डीबग विकल्प</string>
-    <string name="settings_show_debug_options_desc">इन-गेम मेनू में डेवलपर प्रोफ़ाइलिंग टूल दिखाएं。</string>
     <string name="settings_emulator_data_path">एमुलेटर फ़ोल्डर</string>
     <string name="settings_emulator_data_path_desc">चुनें कि एमुलेटर फ़ाइलें कहाँ संग्रहीत हैं。</string>
     <string name="settings_emulator_data_path_default">डिफ़ॉल्ट फ़ोल्डर</string>

@@ -702,8 +702,6 @@
     <string name="settings_show_recent_games_desc">Zobrazit sekci nedávno hraných her na domovské obrazovce.</string>
     <string name="settings_show_home_search">Zobrazit vyhledávání na domovské obrazovce</string>
     <string name="settings_show_home_search_desc">Zobrazit vyhledávací pole na domovské obrazovce.</string>
-    <string name="settings_show_debug_options">Možnosti ladění (Debug)</string>
-    <string name="settings_show_debug_options_desc">Zobrazit vývojářské profilovací nástroje v herním menu.</string>
     <string name="settings_prefer_english_game_titles">Preferovat anglické názvy her</string>
     <string name="settings_prefer_english_game_titles_desc">Používat anglické názvy z databáze her PCSX2, pokud jsou k dispozici.</string>
     <string name="settings_help_content_description">Zobrazit podrobnosti nastavení</string>
@@ -733,7 +731,6 @@
     <string name="settings_help_auto_progressive_scan">Simuluje podržení Trojúhelníku + Křížku po dobu několika sekund po spuštění. Použijte to u her, které zobrazují výzvu k zapnutí progresivního skenování (nebo 480p) pouze tehdy, když se toto kombo drží během bootování.</string>
     <string name="settings_help_recent_games">Zobrazí řádek pro rychlý přístup k naposledy hraným hrám. Užitečné, pokud často střídáte několik titulů; vypněte, pokud chcete mít čistší domovskou obrazovku.</string>
     <string name="settings_help_home_search">Zobrazí vyhledávací pole knihovny přímo na domovské obrazovce. Ponechte zapnuté pro velké knihovny; vypněte, pokud preferujete čistší vzhled a zřídka vyhledáváte podle jména.</string>
-    <string name="settings_help_debug_options">Zobrazí v herním menu další diagnostické ovládací prvky, včetně JIT profileru a nástroje pro záznam zamrznutí (hang trace). Pro normální hraní ponechte vypnuté.</string>
     <string name="settings_help_prefer_english_game_titles">Používá anglické názvy z databáze GameIndex emulátoru PCSX2 pro hry, které mají výchozí japonské nebo jiné regionální názvy. To pomáhá hlavně k tomu, aby se dovezené vydání v knihovně četla jasněji. Hry bez anglického názvu v databázi si zachovají své normální jméno.</string>
     <string name="settings_help_bios_path">Nasměruje EmuCoreX na soubor obrazu BIOSu PS2. Nejlepší volbou je čistý dump z vaší vlastní konzole. Aplikace očekává hlavní obraz BIOSu, obvykle soubor .bin nebo .rom, a jakékoli vygenerované soubory NVRAM/MEC ukládá vedle importované kopie.</string>
     <string name="settings_help_game_path">Přidává složky do knihovny her. EmuCoreX rekurzivně prohledá každou vybranou složku a sloučí výsledky bez duplicitních cest k souborům. Klepnutím na složku v seznamu ji odeberete. Podporované obrazy zahrnují .iso, .bin, .img, .mdf, .gz, .cso, .zso, .chd a .elf.</string>

@@ -1133,9 +1133,6 @@
     <string name="onboarding_emulator_folder_title">Escolher pasta do emulador</string>
     <string name="onboarding_emulator_folder_desc">Selecione onde cartões de memória, save states, cheats, patches e logs são armazenados.</string>
     <string name="settings_help_emulator_data_path">Seleciona onde o EmuCoreX armazena arquivos de tempo de execução do emulador, como cartões de memória, save states, cheats, patches e logs. Deixe na pasta padrão, a menos que você queira manter os dados do emulador em um local compartilhado ou gerenciado manualmente.</string>
-    <string name="settings_help_debug_options">Mostra controles de diagnóstico extras no menu do jogo, incluindo o perfilador JIT e o gravador de rastreamento de travamento. Mantenha isso desligado para jogar normalmente.</string>
-    <string name="settings_show_debug_options">Opções de depuração</string>
-    <string name="settings_show_debug_options_desc">Mostrar ferramentas de perfil de desenvolvedor no menu do jogo.</string>
     <string name="settings_emulator_data_path">Pasta do Emulador</string>
     <string name="settings_emulator_data_path_desc">Selecione onde os arquivos do emulador são armazenados.</string>
     <string name="settings_emulator_data_path_default">Pasta padrão</string>

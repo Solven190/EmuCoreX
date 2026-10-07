@@ -1133,9 +1133,6 @@
     <string name="onboarding_emulator_folder_title">Emulator-Ordner auswählen</string>
     <string name="onboarding_emulator_folder_desc">Wählen Sie aus, wo Speicherkarten, Speicherstände, Cheats, Patches und Protokolle gespeichert werden.</string>
     <string name="settings_help_emulator_data_path">Wählt aus, wo EmuCoreX Emulator-Laufzeitdateien wie Speicherkarten, Speicherstände, Cheats, Patches und Protokolle speichert. Belassen Sie es auf dem Standardordner, es sei denn, Sie möchten Emulator-Daten an einem freigegebenen oder manuell verwalteten Speicherort aufbewahren.</string>
-    <string name="settings_help_debug_options">Zeigt zusätzliche Diagnosewerkzeuge im In-Game-Menü an, einschließlich JIT-Profiler und Hänger-Trace-Rekorder. Für normales Spielen deaktiviert lassen.</string>
-    <string name="settings_show_debug_options">Debug-Optionen</string>
-    <string name="settings_show_debug_options_desc">Entwickler-Profiling-Tools im In-Game-Menü anzeigen.</string>
     <string name="settings_emulator_data_path">Emulator-Ordner</string>
     <string name="settings_emulator_data_path_desc">Wählen Sie aus, wo Emulator-Dateien gespeichert werden.</string>
     <string name="settings_emulator_data_path_default">Standardordner</string>

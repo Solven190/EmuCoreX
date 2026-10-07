@@ -1133,9 +1133,6 @@
     <string name="onboarding_emulator_folder_title">Выберите папку эмулятора</string>
     <string name="onboarding_emulator_folder_desc">Выберите, где будут храниться карты памяти, сохранения, читы, патчи и журналы.</string>
     <string name="settings_help_emulator_data_path">Выбирает, где EmuCoreX хранит файлы эмулятора, такие как карты памяти, сохранения (save states), читы, патчи и логи. Оставьте значение по умолчанию, если не хотите хранить данные эмулятора в общей или управляемой вручную папке.</string>
-    <string name="settings_help_debug_options">Показывает дополнительные элементы управления диагностикой во внутриигровом меню, включая профайлер JIT и запись трассировки зависаний. Держите это выключенным для обычной игры.</string>
-    <string name="settings_show_debug_options">Настройки отладки</string>
-    <string name="settings_show_debug_options_desc">Показывать инструменты профилирования разработчика во внутриигровом меню.</string>
     <string name="settings_emulator_data_path">Папка эмулятора</string>
     <string name="settings_emulator_data_path_desc">Выберите, где хранятся файлы эмулятора.</string>
     <string name="settings_emulator_data_path_default">Папка по умолчанию</string>
