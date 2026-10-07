@@ -9,6 +9,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <optional>
 #include <vector>
 
 namespace EeIr
@@ -134,6 +135,7 @@ namespace EeIr
 				, m_inline(options.inline_body)
 				, m_hooks(options.hooks)
 				, m_capture_exit(options.capture_exit_pc)
+				, m_materialize_constants(options.materialize_constants)
 			{
 			}
 
@@ -145,16 +147,22 @@ namespace EeIr
 		private:
 			static constexpr u32 kSaveArea = 32; // X19/X30 pair + X28 frame pointer
 
-			u32 Slot(u32 value) const { return kSaveArea + (value - 1) * 8; }
+			u32 Slot(u32 value) const { return m_slots[value]; }
 
 			void Load32(u32 value, const oak::WReg& dst)
 			{
-				oakLoad32(dst, {FrameBase(), static_cast<s64>(Slot(value))});
+				if (m_constants[value])
+					oakAsm->MOV(dst, static_cast<u32>(*m_constants[value]));
+				else
+					oakLoad32(dst, {FrameBase(), static_cast<s64>(Slot(value))});
 			}
 
 			void Load64(u32 value, const oak::XReg& dst)
 			{
-				oakLoad64(dst, {FrameBase(), static_cast<s64>(Slot(value))});
+				if (m_constants[value])
+					oakAsm->MOV(dst, *m_constants[value]);
+				else
+					oakLoad64(dst, {FrameBase(), static_cast<s64>(Slot(value))});
 			}
 
 			void Store32(u32 value, const oak::WReg& src)
@@ -189,6 +197,9 @@ namespace EeIr
 			bool m_inline = false;
 			const LowerHooks* m_hooks = nullptr;
 			bool m_capture_exit = false;
+			bool m_materialize_constants = true;
+			std::vector<std::optional<u64>> m_constants;
+			std::vector<u32> m_slots;
 		};
 
 		bool Lowerer::Fail(std::string* error, const char* what)
@@ -270,9 +281,32 @@ namespace EeIr
 				return false;
 
 			const u32 value_count = static_cast<u32>(m_fn.value_types.size());
-			m_frame = (kSaveArea + value_count * 8 + 15u) & ~15u;
+			m_constants.resize(value_count);
+			m_slots.resize(value_count);
+			if (m_materialize_constants)
+			{
+				for (const ir::Block& block : m_fn.blocks)
+				{
+					for (const ir::Inst& inst : block.insts)
+					{
+						if (inst.op == ir::Op::ConstI32 || inst.op == ir::Op::ConstI64)
+							m_constants[inst.value] = inst.imm;
+					}
+				}
+			}
+			u32 next_slot = kSaveArea;
+			for (u32 value = 1; value < value_count; ++value)
+			{
+				if (!m_constants[value])
+				{
+					m_slots[value] = next_slot;
+					next_slot += 8;
+				}
+			}
+			m_frame = (next_slot + 15u) & ~15u;
 			if (m_frame > 0x3f00)
 				return Fail(error, "stack frame too large");
+			out->frame_size = m_frame;
 
 			if (m_inline)
 			{
@@ -291,6 +325,7 @@ namespace EeIr
 				// Emit into the caller's active Oaknut block. The caller is
 				// responsible for the code buffer and for the exit hooks.
 				m_labels.resize(m_fn.blocks.size());
+				u8* const start = oakGetCurrentCodePointer();
 				EmitPrologue();
 				for (const ir::Block& block : m_fn.blocks)
 				{
@@ -302,7 +337,7 @@ namespace EeIr
 					}
 				}
 				out->entry = nullptr;
-				out->host_size = 0;
+				out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
 				return true;
 			}
 
@@ -331,6 +366,8 @@ namespace EeIr
 		bool Lowerer::EmitInst(const ir::Inst& inst, std::string* error)
 		{
 			const u32* a = inst.args;
+			if (inst.value && m_constants[inst.value])
+				return true;
 
 			if (m_inline && (inst.op == ir::Op::Trap || inst.op == ir::Op::CheckEvents ||
 					inst.op == ir::Op::Return))
@@ -502,7 +539,10 @@ namespace EeIr
 					if (wide)
 					{
 						Load64(a[0], oak::util::X0);
-						Load64(a[1], oak::util::X1);
+						if (m_fn.ValueType(a[1]) == ir::Type::I32)
+							Load32(a[1], oak::util::W1);
+						else
+							Load64(a[1], oak::util::X1);
 					}
 					else
 					{
@@ -586,7 +626,10 @@ namespace EeIr
 					if (wide)
 					{
 						Load64(a[0], oak::util::X0);
-						Load64(a[1], oak::util::X1);
+						if (m_fn.ValueType(a[1]) == ir::Type::I32)
+							Load32(a[1], oak::util::W1);
+						else
+							Load64(a[1], oak::util::X1);
 						if (inst.op == ir::Op::Shl)
 							oakAsm->LSLV(oak::util::X0, oak::util::X0, oak::util::X1);
 						else if (inst.op == ir::Op::ShrU)
@@ -947,6 +990,7 @@ namespace EeIr
 	{
 		out->entry = nullptr;
 		out->host_size = 0;
+		out->frame_size = 0;
 		Lowerer lowerer(fn, options);
 		return lowerer.Run(code, capacity, out, error);
 	}

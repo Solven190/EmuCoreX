@@ -2140,10 +2140,14 @@ void DivEdgeTests()
     }
 }
 
+u64 eeir_baseline_bytes = 0;
+u64 eeir_optimized_bytes = 0;
+u64 eeir_baseline_frames = 0;
+u64 eeir_optimized_frames = 0;
+
 void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* initial_gpr = nullptr)
 {
     const EESnapshot interp = RunEEProgram(false, program, false, initial_gpr);
-
     ir::Function fn;
     u32 end = 0;
     std::string error;
@@ -2155,50 +2159,98 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
         return;
     }
 
-    EeIr::LowerOutput out;
-    if (!EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+    bool same = true;
+    for (bool optimize : {false, true})
     {
-        std::printf("EEIR lower failed %s: %s\n", name, error.c_str());
-        Check(false, name);
-        return;
+        EeIr::LowerOptions options;
+        options.materialize_constants = optimize;
+        EeIr::LowerOutput out;
+        if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+        {
+            std::printf("EEIR lower failed %s optimize=%d: %s\n", name, optimize, error.c_str());
+            Check(false, name);
+            return;
+        }
+        (optimize ? eeir_optimized_bytes : eeir_baseline_bytes) += out.host_size;
+        (optimize ? eeir_optimized_frames : eeir_baseline_frames) += out.frame_size;
+
+        // Both lowering modes and the interpreter start with the same state,
+        // including memory modified by a preceding store in this test.
+        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+        std::memset(&fpuRegs, 0, sizeof(fpuRegs));
+        std::memset(&VU0.VF, 0, sizeof(VU0.VF));
+        std::memset(&VU0.VI, 0, sizeof(VU0.VI));
+        std::memset(&VU0.ACC, 0, sizeof(VU0.ACC));
+        VU0.q.UL = VU0.p.UL = 0;
+        VU0.macflag = VU0.statusflag = VU0.clipflag = 0;
+        for (u32 i = 0; i < EE_SCRATCH_SIZE; ++i)
+            memWrite8(EE_TEST_SCRATCH + i, static_cast<u8>(i * 13 + 7));
+        cpuRegs.pc = EE_TEST_PC;
+        cpuRegs.nextEventCycle = 0x7fffffffu;
+        EEsCycle = 0;
+        EEoCycle = 0;
+        if (initial_gpr)
+            for (u32 r = 1; r < 32; ++r)
+                cpuRegs.GPR.r[r].UD[0] = initial_gpr[r];
+        reinterpret_cast<void (*)()>(out.entry)();
+        EESnapshot result;
+        CaptureEE(result);
+        same &= CpuDiff(name, "GPR", interp.gpr, result.gpr, sizeof(interp.gpr));
+        same &= CpuDiff(name, "HI", &interp.hi, &result.hi, sizeof(interp.hi));
+        same &= CpuDiff(name, "LO", &interp.lo, &result.lo, sizeof(interp.lo));
+        same &= CpuDiff(name, "scratch", interp.scratch, result.scratch, sizeof(interp.scratch));
     }
-
-    // Re-create the interpreter's initial state; the program and the scratch
-    // pattern were already written to guest memory by RunEEProgram.
-    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
-    std::memset(&fpuRegs, 0, sizeof(fpuRegs));
-    std::memset(&VU0.VF, 0, sizeof(VU0.VF));
-    std::memset(&VU0.VI, 0, sizeof(VU0.VI));
-    std::memset(&VU0.ACC, 0, sizeof(VU0.ACC));
-    VU0.q.UL = VU0.p.UL = 0;
-    VU0.macflag = VU0.statusflag = VU0.clipflag = 0;
-    for (u32 i = 0; i < EE_SCRATCH_SIZE; ++i)
-        memWrite8(EE_TEST_SCRATCH + i, static_cast<u8>(i * 13 + 7));
-    cpuRegs.pc = EE_TEST_PC;
-    cpuRegs.cycle = 0;
-    cpuRegs.branch = 0;
-    cpuRegs.nextEventCycle = 0x7fffffffu;
-    EEsCycle = 0;
-    EEoCycle = 0;
-
-    if (initial_gpr)
-        for (u32 r = 1; r < 32; ++r)
-            cpuRegs.GPR.r[r].UD[0] = initial_gpr[r];
-
-    reinterpret_cast<void (*)()>(out.entry)();
-
-    EESnapshot ir_result;
-    CaptureEE(ir_result);
-
-    bool same = CpuDiff(name, "GPR", interp.gpr, ir_result.gpr, sizeof(interp.gpr));
-    same &= CpuDiff(name, "HI", &interp.hi, &ir_result.hi, sizeof(interp.hi));
-    same &= CpuDiff(name, "LO", &interp.lo, &ir_result.lo, sizeof(interp.lo));
-    same &= CpuDiff(name, "scratch", interp.scratch, ir_result.scratch, sizeof(interp.scratch));
     Check(same, name);
 }
 
 void EEIrExecutionTests()
 {
+    {
+        constexpr u64 edges[] = {0, 1, 0x7fffffffull, 0x80000000ull,
+            0x7fffffffffffffffull, 0x8000000000000000ull, 0xffffffffffffffffull};
+        for (u64 edge : edges)
+        {
+            u64 initial[32] = {};
+            initial[8] = edge;
+            initial[9] = 0x123456789abcdef0ull;
+            for (u32 shift : {0u, 1u, 31u, 32u, 63u, 64u, 127u})
+            {
+                initial[10] = shift;
+                std::vector<u32> code = {
+                    MipsI(0x19, 8, 11, 0xffff),
+                    MipsR(8, 9, 12, 0, 0x2d), MipsR(8, 9, 13, 0, 0x2f),
+                    MipsR(10, 8, 14, 0, 0x14), MipsR(10, 8, 15, 0, 0x16),
+                    MipsR(10, 8, 16, 0, 0x17),
+                    MipsR(0, 8, 17, shift & 31, 0x38),
+                    MipsR(0, 8, 18, shift & 31, 0x3a),
+                    MipsR(0, 8, 19, shift & 31, 0x3b),
+                    MipsR(0, 8, 20, shift & 31, 0x3c),
+                    MipsR(0, 8, 21, shift & 31, 0x3e),
+                    MipsR(0, 8, 22, shift & 31, 0x3f)
+                };
+                char name[96];
+                std::snprintf(name, sizeof(name), "ir 64-bit arithmetic edge=%016llx shift=%u",
+                    static_cast<unsigned long long>(edge), shift);
+                RunEEIrCase(name, code, initial);
+                const auto interp = RunEEProgram(false, code, false, initial);
+                const auto jit = RunEEProgram(true, code, false, initial);
+                CompareEE(interp, jit, name);
+            }
+        }
+        u64 initial[32] = {};
+        initial[8] = 0xfedcba9880000000ull;
+        initial[22] = EE_TEST_SCRATCH;
+        const std::vector<u32> code = {
+            MipsI(0x3f, 22, 8, 32), MipsI(0x37, 22, 9, 32),
+            MipsI(0x27, 22, 10, 32), MipsI(0x23, 22, 11, 32),
+            MipsI(0x37, 22, 0, 32), MipsI(0x3f, 22, 0, 40)
+        };
+        RunEEIrCase("ir ld sd lwu", code, initial);
+        const auto interp = RunEEProgram(false, code, false, initial);
+        const auto jit = RunEEProgram(true, code, false, initial);
+        CompareEE(interp, jit, "ir ld sd lwu integrated");
+    }
+
     {
         // Exercise the integrated IR tails as well as standalone lowering.
         // Positive 64-bit values may have a negative low word, and values
@@ -2396,6 +2448,14 @@ void EEIrExecutionTests()
         code.push_back(MipsI(0x23, 22, 19, 40)); // lw s3, 40(s6)
         RunEEIrCase("ir memory", code);
     }
+    std::printf("EEIR constants code_bytes baseline=%llu optimized=%llu frame_bytes baseline=%llu optimized=%llu\n",
+        static_cast<unsigned long long>(eeir_baseline_bytes),
+        static_cast<unsigned long long>(eeir_optimized_bytes),
+        static_cast<unsigned long long>(eeir_baseline_frames),
+        static_cast<unsigned long long>(eeir_optimized_frames));
+    Check(eeir_optimized_bytes < eeir_baseline_bytes && eeir_optimized_frames < eeir_baseline_frames,
+        "ir constants reduce emitted code and spill frames");
+
 }
 
 void EEGameCodeTests()
@@ -2446,12 +2506,14 @@ void EEGameCodeTests()
         return false;
     };
 
-    auto step_interp_until = [&](u32 target_pc, u32 max_steps) -> EESnapshot {
-        u32 guard = max_steps;
+    auto step_interp_until = [&](u32 target_pc, u32 max_steps, u32 min_steps) -> EESnapshot {
+        u32 steps = 0;
         do
         {
             EmuCoreXOracleEESteps(1);
-        } while (cpuRegs.pc != target_pc && guard-- > 0 && pc_in_executable_ram(cpuRegs.pc));
+            ++steps;
+        } while ((steps < min_steps || cpuRegs.pc != target_pc) &&
+            steps < max_steps && pc_in_executable_ram(cpuRegs.pc));
         EESnapshot out;
         CaptureEE(out);
         return out;
@@ -2613,7 +2675,11 @@ void EEGameCodeTests()
         bool replay_truncated = false;
         for (const BlockRec& rec : recs)
         {
-            const EESnapshot b = step_interp_until(rec.exit_pc, rec.n * 2 + 64);
+            // Taken branches execute their delay slot inside one interpreter
+            // step. An exit target can also occur earlier inside the block;
+            // reaching that address before the branch is not a block exit.
+            const u32 min_steps = rec.ir ? std::max(1u, rec.n - 1) : 1u;
+            const EESnapshot b = step_interp_until(rec.exit_pc, rec.n * 2 + 64, min_steps);
             if (b.cp0[12] & 0x2 || b.pc != rec.exit_pc)
             {
                 replay_truncated = true;

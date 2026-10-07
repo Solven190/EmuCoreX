@@ -23,6 +23,7 @@
 #include "HangTrace.h"
 
 #if defined(__ANDROID__)
+#include <android/log.h>
 #include <sys/system_properties.h>
 #endif
 
@@ -2431,7 +2432,9 @@ static bool EeIrEnabled()
 	static const bool s_enabled = []() {
 #if defined(__ANDROID__)
 		char value[PROP_VALUE_MAX] = {};
-		return __system_property_get("debug.emucorex.ee_ir", value) > 0 && value[0] == '1';
+		const bool enabled = __system_property_get("debug.emucorex.ee_ir", value) > 0 && value[0] == '1';
+		__android_log_print(ANDROID_LOG_INFO, "EEIR", "enabled=%u property=debug.emucorex.ee_ir", enabled ? 1u : 0u);
+		return enabled;
 #else
 		return false;
 #endif
@@ -2451,6 +2454,11 @@ static bool EeIrInRange(u32 phys)
 		char value[PROP_VALUE_MAX] = {};
 		return __system_property_get("debug.emucorex.ee_ir_max", value) > 0 ? static_cast<u32>(strtoul(value, nullptr, 16)) : 0xffffffffu;
 	}();
+	static const bool s_logged = []() {
+		__android_log_print(ANDROID_LOG_INFO, "EEIR", "physical_pc_range=[%08x,%08x)", s_min, s_max);
+		return true;
+	}();
+	(void)s_logged;
 	return phys >= s_min && phys < s_max;
 #else
 	return true;
@@ -2557,6 +2565,25 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		Console.Warning("EE IR: %s", error.c_str());
 		return false;
 	}
+#if defined(__ANDROID__)
+	// Process-local compilation counts prove that the enabled path is used,
+	// without instrumenting every execution of a hot guest block.
+	static u64 compiled_blocks = 0;
+	static u64 guest_instructions = 0;
+	static u64 native_bytes = 0;
+	++compiled_blocks;
+	guest_instructions += insts;
+	native_bytes += out.host_size;
+	if ((compiled_blocks <= 1024 && (compiled_blocks & (compiled_blocks - 1)) == 0) ||
+		(compiled_blocks % 4096) == 0)
+	{
+		__android_log_print(ANDROID_LOG_INFO, "EEIR",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x",
+			static_cast<unsigned long long>(compiled_blocks),
+			static_cast<unsigned long long>(guest_instructions),
+			static_cast<unsigned long long>(native_bytes), startpc);
+	}
+#endif
 
 	return true;
 }

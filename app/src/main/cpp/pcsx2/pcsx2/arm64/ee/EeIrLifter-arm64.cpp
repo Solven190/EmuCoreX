@@ -37,7 +37,6 @@ namespace EeIr
 			Lifter(const u32* code, const LiftOptions& options, ir::Function& fn)
 				: m_code(code)
 				, m_opts(options)
-				, m_fn(fn)
 				, m_b(fn)
 			{
 			}
@@ -45,8 +44,8 @@ namespace EeIr
 			bool Run(u32* end_pc, std::string* error);
 
 		private:
-			u32 ReadGpr(u32 index) { return m_b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, index); }
-			u32 ReadGprWide(u32 index) { return m_b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, index); }
+			u32 ReadGpr(u32 index) { return index == 0 ? m_b.ConstI32(0) : m_b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, index); }
+			u32 ReadGprWide(u32 index) { return index == 0 ? m_b.ConstI64(0) : m_b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, index); }
 			void WriteGpr(u32 index, u32 value) { m_b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, index); }
 			// Full 64-bit write, no sign extension: jal/jalr link registers are
 			// zero-extended on the R5900 (the interpreter stores a u32).
@@ -79,7 +78,6 @@ namespace EeIr
 
 			const u32* m_code;
 			LiftOptions m_opts;
-			ir::Function& m_fn;
 			ir::Builder m_b;
 		};
 
@@ -164,6 +162,39 @@ namespace EeIr
 					return true;
 				case 0x07: // srav
 					WriteGpr(rd, Bin(ir::Op::ShrS, ReadGpr(rt), ReadGpr(rs)));
+					return true;
+				case 0x14: // 64-bit variable shift
+					WriteGprWide(rd, BinWide(ir::Op::Shl, ReadGprWide(rt), ReadGprWide(rs)));
+					return true;
+				case 0x16: // 64-bit variable shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrU, ReadGprWide(rt), ReadGprWide(rs)));
+					return true;
+				case 0x17: // 64-bit variable shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrS, ReadGprWide(rt), ReadGprWide(rs)));
+					return true;
+				case 0x2D: // daddu
+					WriteGprWide(rd, BinWide(ir::Op::Add, ReadGprWide(rs), ReadGprWide(rt)));
+					return true;
+				case 0x2F: // dsubu
+					WriteGprWide(rd, BinWide(ir::Op::Sub, ReadGprWide(rs), ReadGprWide(rt)));
+					return true;
+				case 0x38: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::Shl, ReadGprWide(rt), m_b.ConstI64(sa + 0)));
+					return true;
+				case 0x3A: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrU, ReadGprWide(rt), m_b.ConstI64(sa + 0)));
+					return true;
+				case 0x3B: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrS, ReadGprWide(rt), m_b.ConstI64(sa + 0)));
+					return true;
+				case 0x3C: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::Shl, ReadGprWide(rt), m_b.ConstI64(sa + 32)));
+					return true;
+				case 0x3E: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrU, ReadGprWide(rt), m_b.ConstI64(sa + 32)));
+					return true;
+				case 0x3F: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrS, ReadGprWide(rt), m_b.ConstI64(sa + 32)));
 					return true;
 				case 0x0A: // movz
 				{
@@ -320,6 +351,18 @@ namespace EeIr
 					return true;
 				case 0x0F: // lui
 					WriteGpr(rt, Const(uimm << 16));
+					return true;
+				case 0x19: // daddiu
+					WriteGprWide(rt, BinWide(ir::Op::Add, ReadGprWide(rs), m_b.ConstI64(static_cast<u64>(static_cast<s64>(simm)))));
+					return true;
+				case 0x27: // lwu
+					WriteGprWide(rt, m_b.Emit1(ir::Op::Zext32, ir::Type::I64, m_b.Emit1(ir::Op::Load32, ir::Type::I32, Addr(rs, simm))));
+					return true;
+				case 0x37: // ld
+					WriteGprWide(rt, m_b.Emit1(ir::Op::Load64, ir::Type::I64, Addr(rs, simm)));
+					return true;
+				case 0x3F: // sd
+					m_b.Emit2(ir::Op::Store64, ir::Type::Void, Addr(rs, simm), ReadGprWide(rt));
 					return true;
 				case 0x20: // lb
 					WriteGpr(rt, m_b.Emit1(ir::Op::Load8S, ir::Type::I32, Addr(rs, simm)));
