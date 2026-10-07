@@ -685,6 +685,23 @@ extern "C" void EmuCoreXOracleEESteps(u32 steps)
 			execI();
 	}
 }
+
+// Same protection for a lowered IR block invoked by the differential driver:
+// guest exceptions raised by IR memory helpers longjmp through intJmpBuf.
+// Returns 1 when an exit jump interrupted the block. A cancel jump (value 0)
+// must not re-invoke the block, hence the state flag.
+extern "C" int EmuCoreXOracleEEIRStep(void (*fn)())
+{
+	volatile int state = 0;
+	if (fastjmp_set(&intJmpBuf) != 0)
+		return 1;
+	if (state == 0)
+	{
+		state = 1;
+		fn();
+	}
+	return 0;
+}
 #endif
 
 void intStepWithCancelBoundary()

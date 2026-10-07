@@ -17,16 +17,40 @@
 
 #include <string>
 
+// Test aid: standalone lowering records the exit target of Resume /
+// BranchIndirect terminators here so a driver can follow guest control flow.
+// g_eeir_exit_valid distinguishes "no terminator ran" from a target of 0.
+extern "C" u32 g_eeir_exit_pc;
+extern "C" u32 g_eeir_exit_valid;
+
 namespace EeIr
 {
+	// Inline-mode exits are emitted through these hooks so the integration can
+	// reuse the legacy block-tail machinery (pc store, event test, linking).
+	struct LowerHooks
+	{
+		void (*guest_exit)(void* ctx, u32 guest_pc, bool annulled_delay_slot) = nullptr;
+		void (*indirect_exit)(void* ctx) = nullptr; // address arrives in W16
+		// Called before every guest memory access so the integration can store
+		// the architectural pc (the faulting instruction address) and the
+		// delay-slot marker for exception accuracy.
+		void (*before_memory)(void* ctx, u32 guest_pc, bool delay_slot) = nullptr;
+		// Called around every C helper call so the integration can keep the
+		// cycle delta (W24) coherent with cpuRegs.cycle/nextEventCycle.
+		void (*before_helper)(void* ctx) = nullptr;
+		void (*after_helper)(void* ctx) = nullptr;
+		void* ctx = nullptr;
+	};
+
 	struct LowerOptions
 	{
-		// Inline body: no prologue/epilogue and no code-buffer management. The
-		// guest base is the pinned X27, the frame base is X20, and the final
-		// Resume falls through (restoring the stack) into whatever the caller
-		// emits next (the legacy block tail). Only single-block straight-line
-		// functions are accepted in this mode.
+		// Inline body: uses a temporary stack frame, without code-buffer management. The
+		// guest base is the pinned X27, the frame base is X20, and every exit
+		// is emitted through the hooks above. Only allowed in this mode:
+		// Jump, Branch, BranchIndirect and Resume.
 		bool inline_body = false;
+		const LowerHooks* hooks = nullptr;
+		bool capture_exit_pc = false; // standalone: record exit targets
 	};
 
 	struct LowerOutput

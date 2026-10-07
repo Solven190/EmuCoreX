@@ -858,6 +858,7 @@ extern "C" void EmuCoreXEEOracleSetCompileCallback(void (*callback)(u32));
 extern "C" void EmuCoreXEEForceExitAfterFirstBlock();
 extern "C" void EmuCoreXEEForceExitAfterCycles(u32 budget);
 extern "C" void EmuCoreXOracleEESteps(u32 steps);
+extern "C" int EmuCoreXOracleEEIRStep(void (*fn)());
 
 constexpr u32 MipsR(u32 rs, u32 rt, u32 rd, u32 sa, u32 fn)
 {
@@ -1011,7 +1012,7 @@ void CompareIOP(const IOPSnapshot& expected, const IOPSnapshot& actual, const ch
     Check(same, name);
 }
 
-EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlock = false)
+EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlock = false, const u64* initial_gpr = nullptr)
 {
     std::memset(&cpuRegs, 0, sizeof(cpuRegs));
     std::memset(&fpuRegs, 0, sizeof(fpuRegs));
@@ -1035,6 +1036,10 @@ EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlo
     cpuRegs.nextEventCycle = 0x7fffffffu;
     EEsCycle = 0;
     EEoCycle = 0;
+
+    if (initial_gpr)
+        for (u32 r = 1; r < 32; ++r)
+            cpuRegs.GPR.r[r].UD[0] = initial_gpr[r];
 
     constexpr u32 budget = 4096;
     if (jit)
@@ -2135,9 +2140,9 @@ void DivEdgeTests()
     }
 }
 
-void RunEEIrCase(const char* name, const std::vector<u32>& program)
+void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* initial_gpr = nullptr)
 {
-    const EESnapshot interp = RunEEProgram(false, program, false);
+    const EESnapshot interp = RunEEProgram(false, program, false, initial_gpr);
 
     ir::Function fn;
     u32 end = 0;
@@ -2176,6 +2181,10 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program)
     EEsCycle = 0;
     EEoCycle = 0;
 
+    if (initial_gpr)
+        for (u32 r = 1; r < 32; ++r)
+            cpuRegs.GPR.r[r].UD[0] = initial_gpr[r];
+
     reinterpret_cast<void (*)()>(out.entry)();
 
     EESnapshot ir_result;
@@ -2191,8 +2200,75 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program)
 void EEIrExecutionTests()
 {
     {
+        // Exercise the integrated IR tails as well as standalone lowering.
+        // Positive 64-bit values may have a negative low word, and values
+        // with identical low words are not necessarily equal.
+        u64 initial[32] = {};
+        initial[8] = 0x0000000180000000ull;
+        initial[9] = 0xffffffff80000000ull;
+        for (u32 op : {0x04u, 0x05u, 0x06u, 0x07u, 0x14u, 0x15u, 0x16u, 0x17u})
+        {
+            std::vector<u32> code = {
+                MipsI(op, 8, (op == 4 || op == 5 || op == 0x14 || op == 0x15) ? 9 : 0, 3),
+                MipsI(9, 0, 10, 7),  // delay slot, annulled for untaken likely
+                MipsI(9, 0, 11, 9),  // fallthrough marker
+                0,
+                MipsI(9, 0, 12, 11)  // common continuation
+            };
+            char name[80];
+            std::snprintf(name, sizeof(name), "ir wide branch %02x integrated", op);
+            const auto interp = RunEEProgram(false, code, true, initial);
+            const auto jit = RunEEProgram(true, code, true, initial);
+            CompareEE(interp, jit, name);
+        }
+        for (u32 rt : {0u, 1u, 2u, 3u, 0x10u, 0x11u, 0x12u, 0x13u})
+        {
+            std::vector<u32> code = {
+                MipsI(1, 8, rt, 3), MipsI(9, 0, 10, 7),
+                MipsI(9, 0, 11, 9), 0, MipsI(9, 0, 12, 11)
+            };
+            char name[80];
+            std::snprintf(name, sizeof(name), "ir wide regimm %02x integrated", rt);
+            const auto interp = RunEEProgram(false, code, true, initial);
+            const auto jit = RunEEProgram(true, code, true, initial);
+            CompareEE(interp, jit, name);
+        }
+        initial[8] = EE_TEST_PC + 16;
+        initial[31] = 0x12345678abcdef00ull;
+        const std::vector<u32> code = {
+            MipsR(8, 0, 0, 0, 9), MipsI(9, 0, 10, 7),
+            MipsI(9, 0, 11, 9), 0, MipsI(9, 0, 12, 11)
+        };
+        const auto interp = RunEEProgram(false, code, true, initial);
+        const auto jit = RunEEProgram(true, code, true, initial);
+        CompareEE(interp, jit, "ir jalr zero discards link integrated");
+    }
+
+    {
+        // Equal low words but different high words must survive all 64-bit
+        // operations; a high-only condition is nonzero for MOVZ/MOVN.
+        u64 initial[32] = {};
+        initial[8] = 0x1234567880000000ull;
+        initial[9] = 0x8765432180000000ull;
+        initial[10] = 0x0000000100000000ull;
+        initial[11] = 0xffffffff00000000ull;
+        RunEEIrCase("ir wide logic and moves", {
+            MipsR(8, 9, 12, 0, 0x24), MipsR(8, 9, 13, 0, 0x25),
+            MipsR(8, 9, 14, 0, 0x26), MipsR(8, 9, 15, 0, 0x27),
+            MipsI(0x0c, 8, 16, 0xffff), MipsI(0x0d, 8, 17, 0x1234),
+            MipsI(0x0e, 9, 18, 0xffff),
+            MipsR(8, 10, 19, 0, 0x0a), MipsR(9, 10, 20, 0, 0x0b),
+            MipsR(8, 0, 21, 0, 0x0a), MipsR(9, 0, 22, 0, 0x0b),
+            MipsR(8, 9, 23, 0, 0x2a), MipsR(8, 9, 24, 0, 0x2b),
+            MipsI(0x0a, 8, 25, 0), MipsI(0x0b, 8, 26, 0xffff),
+            MipsR(8, 0, 0, 0, 0x11), MipsR(9, 0, 0, 0, 0x13),
+            MipsR(0, 0, 27, 0, 0x10), MipsR(0, 0, 28, 0, 0x12)
+        }, initial);
+    }
+
+    {
         auto code = EEValueSetup();
-        code.push_back(MipsR(8, 16, 8, 0, 0x20));  // add t0, t0, s0
+        code.push_back(MipsR(8, 16, 8, 0, 0x21));  // addu t0, t0, s0
         code.push_back(MipsR(9, 11, 10, 0, 0x23)); // subu t2, t1, t3
         code.push_back(MipsR(10, 13, 12, 0, 0x24)); // and t4, t2, t5
         code.push_back(MipsR(12, 17, 14, 0, 0x25)); // or t6, t4, s1
@@ -2208,7 +2284,7 @@ void EEIrExecutionTests()
     {
         auto code = EEValueSetup();
         code.push_back(MipsI(0x09, 8, 15, 0xfffb));  // addiu t7, t0, -5
-        code.push_back(MipsI(0x08, 15, 15, 0x1234)); // addi t7, t7, 0x1234
+        code.push_back(MipsI(0x09, 15, 15, 0x1234)); // addiu t7, t7, 0x1234
         code.push_back(MipsI(0x0a, 8, 18, 0));       // slti s2, t0, 0
         code.push_back(MipsI(0x0b, 11, 19, 0xffff)); // sltiu s3, t3, 0xffff
         code.push_back(MipsI(0x0c, 9, 20, 0xff00));  // andi s4, t1, 0xff00
@@ -2264,6 +2340,49 @@ void EEIrExecutionTests()
     }
 
     {
+        // Internal control flow through real block labels:
+        // t1 = (t0 == 0) ? 5 : 7.
+        ir::Function fn;
+        fn.guest_entry = EE_TEST_PC;
+        ir::Builder b(fn);
+        const u32 b1 = b.CreateBlock(EE_TEST_PC);
+        const u32 t0 = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+        const u32 zero = b.ConstI32(0);
+        const u32 cond = b.Emit2(ir::Op::CmpEq, ir::Type::I32, t0, zero);
+        const u32 b2 = b.CreateBlock(EE_TEST_PC + 8);
+        const u32 b3 = b.CreateBlock(EE_TEST_PC + 12);
+        b.SetBlock(b1);
+        b.Branch(cond, b2, b3);
+        b.SetBlock(b2);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstI32(5)}, 9);
+        b.Resume(EE_TEST_PC + 12);
+        b.SetBlock(b3);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstI32(7)}, 9);
+        b.Resume(EE_TEST_PC + 12);
+
+        EeIr::LowerOutput out;
+        std::string error;
+        if (!EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+        {
+            std::printf("EEIR control flow lower failed: %s\n", error.c_str());
+            Check(false, "ir control flow");
+        }
+        else
+        {
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            const bool taken = (cpuRegs.GPR.r[9].UD[0] == 5);
+
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            cpuRegs.GPR.r[8].UD[0] = 1;
+            reinterpret_cast<void (*)()>(out.entry)();
+            const bool not_taken = (cpuRegs.GPR.r[9].UD[0] == 7);
+
+            Check(taken && not_taken, "ir control flow");
+        }
+    }
+
+    {
         auto code = EEScratchSetup();
         code.push_back(MipsI(0x23, 22, 12, 32)); // lw t4, 32(s6)
         code.push_back(MipsI(0x20, 22, 13, 32)); // lb t5, 32(s6)
@@ -2277,6 +2396,276 @@ void EEIrExecutionTests()
         code.push_back(MipsI(0x23, 22, 19, 40)); // lw s3, 40(s6)
         RunEEIrCase("ir memory", code);
     }
+}
+
+void EEGameCodeTests()
+{
+    // Differential test over real game code: reads an EE RAM dump pushed to
+    // /data/local/tmp/eeMemory.bin, then executes guest control flow with a
+    // lockstep driver - IR blocks where supported, interpreter otherwise - and
+    // compares against a pure interpreter run.
+    FILE* f = std::fopen("/data/local/tmp/eeMemory.bin", "rb");
+    if (!f)
+    {
+        std::printf("EEGAME eeMemory.bin not present, skipping\n");
+        return;
+    }
+
+    constexpr u32 kImageSize = 32 * 1024 * 1024;
+    std::vector<u8> image(kImageSize);
+    std::fread(image.data(), 1, image.size(), f);
+    std::fclose(f);
+
+    auto reset_memory = [&image]() { std::memcpy(PSM(0), image.data(), image.size()); };
+    auto reset_cpu = [](u32 pc) {
+        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+        std::memset(&fpuRegs, 0, sizeof(fpuRegs));
+        cpuRegs.pc = pc;
+        cpuRegs.nextEventCycle = 0x7fffffffu;
+        EEsCycle = 0;
+        EEoCycle = 0;
+        Cpu = &intCpu;
+        intCpu.Reset();
+    };
+
+    // Step the interpreter (from the current globals) until it reaches the
+    // target PC. Starting from the exact pre-block state avoids matching a
+    // different occurrence of the same PC.
+    // Executing outside RAM means the wandering run reached data or hardware
+    // registers; stop before the emulator asserts on a bogus MMIO access.
+    auto pc_in_executable_ram = [](u32 pc) {
+        const u32 phys = pc & 0x1fffffffu;
+        if (pc >= 0x80000000u && pc < 0xa0000000u)
+            return phys < 0x02000000u;
+        if (pc >= 0xa0000000u && pc < 0xc0000000u)
+            return phys < 0x02000000u;
+        if (pc < 0x02000000u)
+            return true;
+        if (pc >= 0x70000000u && pc < 0x70004000u)
+            return true;
+        return false;
+    };
+
+    auto step_interp_until = [&](u32 target_pc, u32 max_steps) -> EESnapshot {
+        u32 guard = max_steps;
+        do
+        {
+            EmuCoreXOracleEESteps(1);
+        } while (cpuRegs.pc != target_pc && guard-- > 0 && pc_in_executable_ram(cpuRegs.pc));
+        EESnapshot out;
+        CaptureEE(out);
+        return out;
+    };
+
+    u32 last_end = 0;
+    bool last_used_ir = false;
+    bool last_faulted = false;
+    std::string last_error;
+    ir::Function last_fn;
+
+    auto ir_step_once = [&]() -> u32 {
+        const u32 block_pc = cpuRegs.pc;
+        ir::Function fn;
+        u32 end = 0;
+        std::string error;
+        last_used_ir = false;
+        last_faulted = false;
+        last_error.clear();
+        if (EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(block_pc)), {block_pc, 64}, fn, &end, &error) &&
+            EeIr::CanLower(fn, false, &error))
+        {
+            bool has_trap = false;
+            for (const ir::Block& b : fn.blocks)
+                for (const ir::Inst& in : b.insts)
+                    has_trap |= (in.op == ir::Op::Trap || in.op == ir::Op::CheckEvents);
+
+            EeIr::LowerOutput out;
+            if (!has_trap &&
+                EeIr::LowerBlock(fn, {false, nullptr, true}, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+            {
+                g_eeir_exit_pc = 0;
+                g_eeir_exit_valid = 0;
+                const int raised = EmuCoreXOracleEEIRStep(reinterpret_cast<void (*)()>(out.entry));
+                last_end = end;
+                last_fn = fn;
+                if (raised)
+                {
+                    // Guest exception: cpuException already set CP0 and pc.
+                    last_used_ir = true;
+                    last_faulted = true;
+                    return 1;
+                }
+                if (g_eeir_exit_valid)
+                {
+                    const u32 block_steps = (end - block_pc) >> 2;
+                    cpuRegs.pc = g_eeir_exit_pc;
+                    last_used_ir = true;
+                    return block_steps;
+                }
+                if (cpuRegs.CP0.n.Status.val & 0x2)
+                {
+                    // Cancel jump: a fault aborted the block mid-way. The
+                    // oracle runs the IR helpers through the interpreter's
+                    // fault convention, so the resulting EPC differs from the
+                    // recompiler path by design; stop the run here.
+                    last_used_ir = true;
+                    last_faulted = true;
+                    return 1;
+                }
+            }
+        }
+        last_end = end;
+        last_error = error;
+        EmuCoreXOracleEESteps(1);
+        if (cpuRegs.CP0.n.Status.val & 0x2)
+            last_faulted = true;
+        return 1;
+    };
+
+    constexpr u32 kBase = 0x0017A000;
+    constexpr u32 kSize = 0x1000;
+    constexpr u32 kSteps = 200;
+
+    auto states_equal = [](const EESnapshot& a, const EESnapshot& b) {
+        return a.pc == b.pc && a.hi == b.hi && a.lo == b.lo &&
+               a.fcr31 == b.fcr31 && a.acc == b.acc && a.accflag == b.accflag &&
+               std::memcmp(a.gpr, b.gpr, sizeof(a.gpr)) == 0 &&
+               std::memcmp(a.cp0, b.cp0, sizeof(a.cp0)) == 0;
+    };
+    auto report_diff = [](const EESnapshot& a, const EESnapshot& b) {
+        if (a.pc != b.pc)
+            std::printf("  pc interp=%08x ir=%08x\n", b.pc, a.pc);
+        if (a.hi != b.hi)
+            std::printf("  hi interp=%016llx ir=%016llx\n",
+                static_cast<unsigned long long>(b.hi), static_cast<unsigned long long>(a.hi));
+        if (a.lo != b.lo)
+            std::printf("  lo interp=%016llx ir=%016llx\n",
+                static_cast<unsigned long long>(b.lo), static_cast<unsigned long long>(a.lo));
+        if (a.fcr31 != b.fcr31)
+            std::printf("  fcr31 interp=%08x ir=%08x\n", b.fcr31, a.fcr31);
+        if (a.acc != b.acc)
+            std::printf("  acc interp=%08x ir=%08x\n", b.acc, a.acc);
+        for (u32 r = 0; r < 32; ++r)
+        {
+            if (a.cp0[r] != b.cp0[r])
+                std::printf("  cp0[%u] interp=%08x ir=%08x\n", r, b.cp0[r], a.cp0[r]);
+        }
+        for (u32 r = 0; r < 32; ++r)
+        {
+            if (a.gpr[r] != b.gpr[r])
+                std::printf("  gpr[%u] interp=%016llx ir=%016llx\n", r,
+                    static_cast<unsigned long long>(b.gpr[r]),
+                    static_cast<unsigned long long>(a.gpr[r]));
+        }
+    };
+
+    struct BlockRec
+    {
+        u32 start_pc;
+        u32 exit_pc;
+        u32 n;
+        u32 end;
+        bool ir;
+        std::string err;
+        EESnapshot snap;
+    };
+
+    int tested = 0;
+    int failed = 0;
+    for (u32 start = kBase; start < kBase + kSize && failed == 0; start += 16)
+    {
+        // Phase 1: run the IR driver, recording the state at every block
+        // boundary.
+        std::vector<BlockRec> recs;
+        reset_memory();
+        reset_cpu(start);
+        u32 steps = 0;
+        u32 blocks = 0;
+        bool ir_truncated = false;
+        while (steps < kSteps && blocks++ < 256 && pc_in_executable_ram(cpuRegs.pc))
+        {
+            BlockRec rec;
+            rec.start_pc = cpuRegs.pc;
+            const u32 n = ir_step_once();
+            if (last_faulted)
+            {
+                ir_truncated = true;
+                break;
+            }
+            steps += n;
+            rec.exit_pc = cpuRegs.pc;
+            rec.n = n;
+            rec.end = last_end;
+            rec.ir = last_used_ir;
+            rec.err = last_error;
+            CaptureEE(rec.snap);
+            recs.push_back(rec);
+        }
+        std::vector<u8> ir_mem(kImageSize);
+        std::memcpy(ir_mem.data(), PSM(0), kImageSize);
+
+        // Phase 2: replay with the interpreter from the same start, checking
+        // the state at every recorded boundary.
+        reset_memory();
+        reset_cpu(start);
+        ++tested;
+        bool divergent = false;
+        bool replay_truncated = false;
+        for (const BlockRec& rec : recs)
+        {
+            const EESnapshot b = step_interp_until(rec.exit_pc, rec.n * 2 + 64);
+            if (b.cp0[12] & 0x2 || b.pc != rec.exit_pc)
+            {
+                replay_truncated = true;
+                break;
+            }
+            if (!states_equal(rec.snap, b))
+            {
+                ++failed;
+                divergent = true;
+                std::printf("EEGAME divergent block pc=%08x steps=%u ir=%d end=%08x err=%s\n",
+                    rec.start_pc, rec.n, rec.ir ? 1 : 0, rec.end, rec.err.c_str());
+                report_diff(rec.snap, b);
+                std::printf("  words:");
+                for (u32 i = 0; i < rec.n && i < 64; ++i)
+                    std::printf(" %08x", reinterpret_cast<const u32*>(PSM(rec.start_pc))[i]);
+                std::printf("\n");
+                std::printf("  recs:\n");
+                for (size_t i = 0; i < recs.size() && i < 48; ++i)
+                {
+                    const BlockRec& r = recs[i];
+                    std::printf("    %2u %08x -> %08x n=%u ir=%d status=%08x epc=%08x\n",
+                        static_cast<unsigned>(i), r.start_pc, r.exit_pc, r.n, r.ir ? 1 : 0,
+                        r.snap.cp0[12], r.snap.cp0[14]);
+                }
+                break;
+            }
+        }
+
+        if (!divergent && !ir_truncated && !replay_truncated)
+        {
+            const u32* ir_words = reinterpret_cast<const u32*>(ir_mem.data());
+            const u32* in_words = reinterpret_cast<const u32*>(PSM(0));
+            for (u32 off = 0; off < kImageSize; off += 4)
+            {
+                if (ir_words[off >> 2] != in_words[off >> 2])
+                {
+                    ++failed;
+                    std::printf("EEGAME divergent memory at %08x interp=%08x ir=%08x start=%08x\n", off,
+                        in_words[off >> 2], ir_words[off >> 2], start);
+                    for (size_t i = 0; i < recs.size() && i < 48; ++i)
+                    {
+                        const BlockRec& r = recs[i];
+                        std::printf("    %2u %08x -> %08x n=%u ir=%d\n",
+                            static_cast<unsigned>(i), r.start_pc, r.exit_pc, r.n, r.ir ? 1 : 0);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    std::printf("EEGAME tested=%d failed=%d\n", tested, failed);
+    Check(failed == 0, "ee game code differential");
 }
 
 void EETests()
@@ -2418,6 +2807,7 @@ void EETests()
     EECoverageMmi();
     EECoverageExceptions();
     EEIrExecutionTests();
+    EEGameCodeTests();
 }
 
 void RunIOPCase(const char* name, const std::vector<u32>& code, s32 eeCycles = -1, bool forceGteInterpreter = false)

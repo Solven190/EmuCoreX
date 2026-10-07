@@ -13,6 +13,9 @@
 
 namespace EeIr
 {
+	extern "C" u32 g_eeir_exit_pc = 0;
+	extern "C" u32 g_eeir_exit_valid = 0;
+
 	namespace
 	{
 		// C++ helpers referenced by the lowered code. ABI: integer arguments in
@@ -129,6 +132,8 @@ namespace EeIr
 			Lowerer(ir::Function& fn, const LowerOptions& options)
 				: m_fn(fn)
 				, m_inline(options.inline_body)
+				, m_hooks(options.hooks)
+				, m_capture_exit(options.capture_exit_pc)
 			{
 			}
 
@@ -172,6 +177,7 @@ namespace EeIr
 			static s64 HiOffset() { return static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.HI)); }
 			static s64 PcOffset() { return static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc)); }
 
+			void EmitFrameAdjust(bool add, u32 amount);
 			void EmitPrologue();
 			void EmitEpilogue();
 			bool EmitInst(const ir::Inst& inst, std::string* error);
@@ -181,6 +187,8 @@ namespace EeIr
 			std::vector<oak::Label> m_labels;
 			u32 m_frame = 0;
 			bool m_inline = false;
+			const LowerHooks* m_hooks = nullptr;
+			bool m_capture_exit = false;
 		};
 
 		bool Lowerer::Fail(std::string* error, const char* what)
@@ -194,10 +202,37 @@ namespace EeIr
 			return false;
 		}
 
+		void Lowerer::EmitFrameAdjust(bool add, u32 amount)
+		{
+			// AArch64 ADD/SUB immediates encode 0..4095 or an imm12 shifted by
+			// 12, so larger frames are adjusted with two instructions.
+			if (amount <= 4095)
+			{
+				if (add)
+					oakAsm->ADD(oak::util::SP, oak::util::SP, amount);
+				else
+					oakAsm->SUB(oak::util::SP, oak::util::SP, amount);
+				return;
+			}
+
+			const u32 hi = amount >> 12;
+			const u32 lo = amount & 0xfffu;
+			if (add)
+			{
+				oakAsm->ADD(oak::util::SP, oak::util::SP, lo);
+				oakAsm->ADD(oak::util::SP, oak::util::SP, hi, oak::LslSymbol::LSL, 12);
+			}
+			else
+			{
+				oakAsm->SUB(oak::util::SP, oak::util::SP, hi, oak::LslSymbol::LSL, 12);
+				oakAsm->SUB(oak::util::SP, oak::util::SP, lo);
+			}
+		}
+
 		void Lowerer::EmitPrologue()
 		{
 			recBeginOaknutEmit();
-			oakAsm->SUB(oak::util::SP, oak::util::SP, m_frame);
+			EmitFrameAdjust(false, m_frame);
 			if (m_inline)
 			{
 				oakAsm->MOV(oak::util::X20, oak::util::SP);
@@ -217,13 +252,13 @@ namespace EeIr
 			recBeginOaknutEmit();
 			if (m_inline)
 			{
-				oakAsm->ADD(oak::util::SP, oak::util::SP, m_frame);
+				EmitFrameAdjust(true, m_frame);
 			}
 			else
 			{
 				oakAsm->LDP(oak::util::X28, oak::util::XZR, oak::util::SP, oak::SOffset<10, 3>(16));
 				oakAsm->LDP(oak::util::X19, oak::util::X30, oak::util::SP, oak::SOffset<10, 3>(0));
-				oakAsm->ADD(oak::util::SP, oak::util::SP, m_frame);
+				EmitFrameAdjust(true, m_frame);
 				oakAsm->RET();
 			}
 			recEndOaknutEmit();
@@ -231,10 +266,8 @@ namespace EeIr
 
 		bool Lowerer::Run(u8* code, size_t capacity, LowerOutput* out, std::string* error)
 		{
-			if (!ir::Verify(m_fn, error))
+			if (!CanLower(m_fn, m_inline, error))
 				return false;
-			if (m_inline && m_fn.blocks.size() != 1)
-				return Fail(error, "inline mode requires a single block");
 
 			const u32 value_count = static_cast<u32>(m_fn.value_types.size());
 			m_frame = (kSaveArea + value_count * 8 + 15u) & ~15u;
@@ -243,12 +276,25 @@ namespace EeIr
 
 			if (m_inline)
 			{
+				if (!m_hooks)
+					return Fail(error, "inline mode requires exit hooks");
+				for (const ir::Block& block : m_fn.blocks)
+				{
+					for (const ir::Inst& inst : block.insts)
+					{
+						if ((inst.op == ir::Op::Resume && !m_hooks->guest_exit) ||
+							(inst.op == ir::Op::BranchIndirect && !m_hooks->indirect_exit))
+							return Fail(error, "missing inline exit hook");
+					}
+				}
+
 				// Emit into the caller's active Oaknut block. The caller is
-				// responsible for the code buffer and for the block tail that
-				// follows the fall-through.
+				// responsible for the code buffer and for the exit hooks.
+				m_labels.resize(m_fn.blocks.size());
 				EmitPrologue();
 				for (const ir::Block& block : m_fn.blocks)
 				{
+					oakAsm->l(m_labels[block.id - 1]);
 					for (const ir::Inst& inst : block.insts)
 					{
 						if (!EmitInst(inst, error))
@@ -286,18 +332,21 @@ namespace EeIr
 		{
 			const u32* a = inst.args;
 
-			if (m_inline && (inst.op == ir::Op::Jump || inst.op == ir::Op::Branch ||
-					inst.op == ir::Op::BranchIndirect || inst.op == ir::Op::Trap ||
-					inst.op == ir::Op::CheckEvents))
+			if (m_inline && (inst.op == ir::Op::Trap || inst.op == ir::Op::CheckEvents ||
+					inst.op == ir::Op::Return))
 			{
-				return Fail(error, "inline mode supports straight-line blocks only");
+				return Fail(error, "inline mode does not support this terminator");
 			}
 
 			auto load_a = [&]() { Load32(a[0], oak::util::W0); };
 			auto load_b = [&]() { Load32(a[1], oak::util::W1); };
 			auto store_r = [&]() { Store32(inst.value, oak::util::W0); };
 			auto call_helper = [&](const void* fn) {
+				if (m_hooks && m_hooks->before_helper)
+					m_hooks->before_helper(m_hooks->ctx);
 				oakEmitCall(fn);
+				if (m_hooks && m_hooks->after_helper)
+					m_hooks->after_helper(m_hooks->ctx);
 			};
 
 			switch (inst.op)
@@ -347,19 +396,39 @@ namespace EeIr
 				case ir::Op::Select:
 					recBeginOaknutEmit();
 					Load32(a[0], oak::util::W0);
-					Load32(a[1], oak::util::W1);
-					Load32(a[2], oak::util::W2);
-					oakAsm->CMP(oak::util::W0, 0);
-					oakAsm->CSEL(oak::util::W0, oak::util::W1, oak::util::W2, oak::Cond::NE);
-					store_r();
+					if (inst.type == ir::Type::I64)
+					{
+						Load64(a[1], oak::util::X1);
+						Load64(a[2], oak::util::X2);
+						oakAsm->CMP(oak::util::W0, 0);
+						oakAsm->CSEL(oak::util::X0, oak::util::X1, oak::util::X2, oak::Cond::NE);
+						Store64(inst.value, oak::util::X0);
+					}
+					else
+					{
+						Load32(a[1], oak::util::W1);
+						Load32(a[2], oak::util::W2);
+						oakAsm->CMP(oak::util::W0, 0);
+						oakAsm->CSEL(oak::util::W0, oak::util::W1, oak::util::W2, oak::Cond::NE);
+						store_r();
+					}
 					recEndOaknutEmit();
 					return true;
 
 				case ir::Op::Not:
 					recBeginOaknutEmit();
-					load_a();
-					oakAsm->MVN(oak::util::W0, oak::util::W0);
-					store_r();
+					if (inst.type == ir::Type::I64)
+					{
+						Load64(a[0], oak::util::X0);
+						oakAsm->MVN(oak::util::X0, oak::util::X0);
+						Store64(inst.value, oak::util::X0);
+					}
+					else
+					{
+						load_a();
+						oakAsm->MVN(oak::util::W0, oak::util::W0);
+						store_r();
+					}
 					recEndOaknutEmit();
 					return true;
 				case ir::Op::Neg:
@@ -568,9 +637,18 @@ namespace EeIr
 						default: cond = oak::Cond::HS; break;
 					}
 					recBeginOaknutEmit();
-					load_a();
-					load_b();
-					oakAsm->CMP(oak::util::W0, oak::util::W1);
+					if (m_fn.ValueType(a[0]) == ir::Type::I64)
+					{
+						Load64(a[0], oak::util::X0);
+						Load64(a[1], oak::util::X1);
+						oakAsm->CMP(oak::util::X0, oak::util::X1);
+					}
+					else
+					{
+						load_a();
+						load_b();
+						oakAsm->CMP(oak::util::W0, oak::util::W1);
+					}
 					oakAsm->CSET(oak::util::W0, cond);
 					store_r();
 					recEndOaknutEmit();
@@ -616,6 +694,8 @@ namespace EeIr
 					}
 					recBeginOaknutEmit();
 					load_a();
+					if (m_hooks && m_hooks->before_memory)
+						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
 					call_helper(helper);
 					store_r();
 					recEndOaknutEmit();
@@ -625,6 +705,8 @@ namespace EeIr
 				case ir::Op::Load64:
 					recBeginOaknutEmit();
 					load_a();
+					if (m_hooks && m_hooks->before_memory)
+						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
 					call_helper(reinterpret_cast<const void*>(&EeIrMemRead64));
 					Store64(inst.value, oak::util::X0);
 					recEndOaknutEmit();
@@ -649,6 +731,8 @@ namespace EeIr
 						Load64(a[1], oak::util::X1);
 					else
 						Load32(a[1], oak::util::W1);
+					if (m_hooks && m_hooks->before_memory)
+						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
 					call_helper(helper);
 					recEndOaknutEmit();
 					return true;
@@ -656,8 +740,16 @@ namespace EeIr
 
 				case ir::Op::ReadGpr:
 					recBeginOaknutEmit();
-					oakLoad32(oak::util::W0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
-					store_r();
+					if (inst.type == ir::Type::I64)
+					{
+						oakLoad64(oak::util::X0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
+						Store64(inst.value, oak::util::X0);
+					}
+					else
+					{
+						oakLoad32(oak::util::W0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
+						store_r();
+					}
 					recEndOaknutEmit();
 					return true;
 
@@ -665,8 +757,16 @@ namespace EeIr
 					if (inst.imm == 0)
 						return true; // $0 is hardwired to zero
 					recBeginOaknutEmit();
-					load_a();
-					oakAsm->SXTW(oak::util::X0, oak::util::W0);
+					if (inst.aux & ir::IF_WIDE_WRITE)
+					{
+						// Value is already a full 64-bit quantity (jal link).
+						Load64(a[0], oak::util::X0);
+					}
+					else
+					{
+						load_a();
+						oakAsm->SXTW(oak::util::X0, oak::util::W0);
+					}
 					oakStore64(oak::util::X0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
 					recEndOaknutEmit();
 					return true;
@@ -674,16 +774,29 @@ namespace EeIr
 				case ir::Op::ReadHi:
 				case ir::Op::ReadLo:
 					recBeginOaknutEmit();
-					oakLoad32(oak::util::W0, {GuestBase(), (inst.op == ir::Op::ReadHi) ? HiOffset() : LoOffset()});
-					store_r();
+					if (inst.type == ir::Type::I64)
+					{
+						oakLoad64(oak::util::X0, {GuestBase(), (inst.op == ir::Op::ReadHi) ? HiOffset() : LoOffset()});
+						Store64(inst.value, oak::util::X0);
+					}
+					else
+					{
+						oakLoad32(oak::util::W0, {GuestBase(), (inst.op == ir::Op::ReadHi) ? HiOffset() : LoOffset()});
+						store_r();
+					}
 					recEndOaknutEmit();
 					return true;
 
 				case ir::Op::WriteHi:
 				case ir::Op::WriteLo:
 					recBeginOaknutEmit();
-					load_a();
-					oakAsm->SXTW(oak::util::X0, oak::util::W0);
+					if (m_fn.ValueType(a[0]) == ir::Type::I64)
+						Load64(a[0], oak::util::X0);
+					else
+					{
+						load_a();
+						oakAsm->SXTW(oak::util::X0, oak::util::W0);
+					}
 					oakStore64(oak::util::X0, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset() : LoOffset()});
 					recEndOaknutEmit();
 					return true;
@@ -710,14 +823,52 @@ namespace EeIr
 				}
 
 				case ir::Op::BranchIndirect:
+					if (m_inline)
+					{
+						// Address arrives in W16 for the integration hook.
+						recBeginOaknutEmit();
+						Load32(a[0], oak::util::W16);
+						EmitEpilogue();
+						recEndOaknutEmit();
+						m_hooks->indirect_exit(m_hooks->ctx);
+						return true;
+					}
 					recBeginOaknutEmit();
 					load_a();
+					if (m_capture_exit)
+					{
+						oakMoveAddressToReg(oak::util::X16, &g_eeir_exit_valid);
+						oakAsm->MOV(oak::util::W17, 1);
+						oakStore32(oak::util::W17, {oak::util::X16, 0});
+						oakMoveAddressToReg(oak::util::X16, &g_eeir_exit_pc);
+						oakStore32(oak::util::W0, {oak::util::X16, 0});
+					}
 					oakStore32(oak::util::W0, {GuestBase(), PcOffset()});
 					EmitEpilogue();
 					recEndOaknutEmit();
 					return true;
 
 				case ir::Op::Resume:
+					if (m_inline)
+					{
+						EmitEpilogue();
+						m_hooks->guest_exit(m_hooks->ctx, static_cast<u32>(inst.imm), (inst.aux & ir::IF_ANNULLED_DELAY_SLOT) != 0);
+						return true;
+					}
+					if (m_capture_exit)
+					{
+						recBeginOaknutEmit();
+						oakMoveAddressToReg(oak::util::X16, &g_eeir_exit_valid);
+						oakAsm->MOV(oak::util::W17, 1);
+						oakStore32(oak::util::W17, {oak::util::X16, 0});
+						oakMoveAddressToReg(oak::util::X16, &g_eeir_exit_pc);
+						oakAsm->MOV(oak::util::W17, static_cast<u32>(inst.imm));
+						oakStore32(oak::util::W17, {oak::util::X16, 0});
+						recEndOaknutEmit();
+					}
+					EmitEpilogue();
+					return true;
+
 				case ir::Op::Trap:
 				case ir::Op::CheckEvents:
 				case ir::Op::Return:
@@ -732,26 +883,50 @@ namespace EeIr
 
 	bool CanLower(const ir::Function& fn, bool inline_body, std::string* error)
 	{
+		if (!ir::Verify(fn, error))
+			return false;
+		// Reject before emission: the caller may fall back to the legacy JIT.
+		if (fn.value_types.size() > (0x3f00u - 32u) / 8u)
+		{
+			if (error)
+				*error = "IR stack frame too large";
+			return false;
+		}
 		for (const ir::Block& block : fn.blocks)
 		{
 			for (const ir::Inst& inst : block.insts)
 			{
+				if (ir::IsVectorType(inst.type) || inst.type == ir::Type::Any ||
+					(inst.type == ir::Type::I64 && (inst.op == ir::Op::Undef ||
+						inst.op == ir::Op::Neg || inst.op == ir::Op::MinS || inst.op == ir::Op::MinU ||
+						inst.op == ir::Op::MaxS || inst.op == ir::Op::MaxU || inst.op == ir::Op::DivS ||
+						inst.op == ir::Op::DivU || inst.op == ir::Op::RemS || inst.op == ir::Op::RemU)) ||
+					((inst.op == ir::Op::ReadGpr || inst.op == ir::Op::WriteGpr) && inst.imm >= 32))
+				{
+					if (error)
+						*error = "unsupported IR operand type or guest register";
+					return false;
+				}
 				switch (inst.op)
 				{
 					case ir::Op::Jump:
 					case ir::Op::Branch:
 					case ir::Op::BranchIndirect:
+					case ir::Op::Resume:
+						break;
 					case ir::Op::Trap:
 					case ir::Op::CheckEvents:
+					case ir::Op::AddCycles:
+						if (error)
+							*error = "IR exception/event semantics are not modelled";
+						return false;
+					case ir::Op::Return:
 						if (inline_body)
 						{
 							if (error)
-								*error = "inline mode supports straight-line blocks only";
+								*error = "inline mode does not support this terminator";
 							return false;
 						}
-						break;
-					case ir::Op::Resume:
-					case ir::Op::Return:
 						break;
 					default:
 						if (!IsSupportedOp(inst.op))

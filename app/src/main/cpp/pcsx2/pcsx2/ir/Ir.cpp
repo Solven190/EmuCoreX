@@ -161,6 +161,8 @@ namespace ir
 		inst.type = type;
 		inst.imm = imm;
 		inst.aux = aux;
+		if (m_delay_slot)
+			inst.aux |= IF_DELAY_SLOT;
 		inst.guest_pc = guest_pc ? guest_pc : (m_pc ? m_pc : block.guest_start);
 		inst.num_args = static_cast<u8>(args.size());
 		u32 index = 0;

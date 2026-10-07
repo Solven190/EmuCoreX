@@ -12,7 +12,7 @@ namespace HangTrace
 		CPU_VU1 = 3,
 	};
 
-#if defined(NDEBUG) && !defined(PCSX2_DEVBUILD)
+#if defined(NDEBUG) && !defined(PCSX2_DEVBUILD) && !defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 	inline constexpr bool IsActive() { return false; }
 	inline constexpr void Start() {}
 	inline constexpr void Stop() {}

@@ -2439,15 +2439,86 @@ static bool EeIrEnabled()
 	return s_enabled;
 }
 
-// Compiles one straight-line block through the shared IR. Returns false when
-// the block needs the legacy recompiler (unsupported opcode, control flow,
-// different block boundary, ...). Nothing is emitted before CanLower passes,
-// so a false return leaves the code buffer untouched.
+// Debug aid: restrict the IR path to a physical PC range for bisection.
+static bool EeIrInRange(u32 phys)
+{
+#if defined(__ANDROID__)
+	static const u32 s_min = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_min", value) > 0 ? static_cast<u32>(strtoul(value, nullptr, 16)) : 0u;
+	}();
+	static const u32 s_max = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_max", value) > 0 ? static_cast<u32>(strtoul(value, nullptr, 16)) : 0xffffffffu;
+	}();
+	return phys >= s_min && phys < s_max;
+#else
+	return true;
+#endif
+}
+
+// Exit hooks for the inline IR body: reuse the legacy block tail so pc
+// storage, event tests and block linking behave exactly like a legacy block.
+static void EeIrGuestExitHook(void* ctx, u32 guest_pc, bool annulled_delay_slot)
+{
+	const u32 saved_cycles = s_nBlockCycles;
+	if (annulled_delay_slot)
+		s_nBlockCycles -= *static_cast<const u32*>(ctx);
+	SetBranchImm(guest_pc);
+	s_nBlockCycles = saved_cycles;
+}
+
+static void EeIrIndirectExitHook(void* ctx)
+{
+	// The target address arrives in W16.
+	g_branch = 1;
+	recBeginOaknutEmit();
+	oakStore32(oak::util::W16, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc))});
+	recEndOaknutEmit();
+	iFlushCall(FLUSH_EVERYTHING);
+	iBranchTest();
+}
+
+static void EeIrBeforeMemoryHook(void* ctx, u32 guest_pc, bool delay_slot)
+{
+	// Match the legacy VTLB emitters: cpuRegs.pc holds the faulting
+	// instruction address and IsDelaySlot marks delay-slot accesses, so a TLB
+	// exception reports the correct EPC/BD to the guest handler.
+	recBeginOaknutEmit();
+	oakAsm->MOV(OAK_WSCRATCH, guest_pc);
+	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc))});
+	oakAsm->MOV(OAK_WSCRATCH, delay_slot ? 1u : 0u);
+	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
+	recEndOaknutEmit();
+}
+
+static void EeIrBeforeHelperHook(void* ctx)
+{
+	recFlushReccycle();
+}
+
+static void EeIrAfterHelperHook(void* ctx)
+{
+	recReloadReccycle();
+	// A successful access in a delay slot must not leave BD state behind
+	// for a later legacy instruction or an event-handler exception.
+	oakStore32(oak::util::WZR, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
+}
+
+// Compiles one guest block through the shared IR. Returns false when the block
+// needs the legacy recompiler (unsupported opcode, trap, different block
+// boundary, ...). Nothing is emitted before CanLower passes, so a false return
+// leaves the code buffer untouched.
 static bool TryCompileEeIrBlock(const u32 startpc)
 {
 	const u32 insts = (s_nEndBlock - startpc) >> 2;
 	if (insts == 0 || insts > 4096)
 		return false;
+	for (u32 guest_pc = startpc; guest_pc < s_nEndBlock; guest_pc += 4)
+	{
+		if (OpcodeFamilies::EEShouldInterpret(*reinterpret_cast<const u32*>(PSM(guest_pc))))
+			return false;
+	}
 
 	ir::Function fn;
 	u32 end = 0;
@@ -2455,35 +2526,33 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	if (!EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(startpc)), {startpc, insts}, fn, &end, &error))
 		return false;
 
-	if (end != s_nEndBlock || fn.blocks.size() != 1)
-		return false;
-
-	const ir::Block& block = fn.blocks.front();
-	if (block.insts.empty() || block.insts.back().op != ir::Op::Resume)
-		return false;
-
-	// Only true fall-through blocks are supported for now: a Resume with a
-	// different target (jal/j) needs the block tail to link to the target, not
-	// to the fall-through pc.
-	if (block.insts.back().imm != s_nEndBlock)
+	if (end != s_nEndBlock)
 		return false;
 
 	if (!EeIr::CanLower(fn, true, &error))
 		return false;
 
 	// Cycle accounting must match the legacy loop exactly.
+	u32 delay_cycles = 0;
 	for (u32 cycle_pc = startpc; cycle_pc < s_nEndBlock; cycle_pc += 4)
 	{
 		cpuRegs.code = *reinterpret_cast<const u32*>(PSM(cycle_pc));
 		const OPCODE& opcode = GetCurrentInstruction();
-		if (cpuRegs.code == 0)
-			s_nBlockCycles += 9 * (2 - ((cpuRegs.CP0.n.Config >> 18) & 0x1));
-		else
-			s_nBlockCycles += opcode.cycles * (2 - ((cpuRegs.CP0.n.Config >> 18) & 0x1));
+		const u32 cycles = (cpuRegs.code == 0 ? 9 : opcode.cycles) * (2 - ((cpuRegs.CP0.n.Config >> 18) & 0x1));
+		s_nBlockCycles += cycles;
+		delay_cycles = cycles;
 	}
 
+	EeIr::LowerHooks hooks;
+	hooks.ctx = &delay_cycles;
+	hooks.guest_exit = &EeIrGuestExitHook;
+	hooks.indirect_exit = &EeIrIndirectExitHook;
+	hooks.before_memory = &EeIrBeforeMemoryHook;
+	hooks.before_helper = &EeIrBeforeHelperHook;
+	hooks.after_helper = &EeIrAfterHelperHook;
+
 	EeIr::LowerOutput out;
-	if (!EeIr::LowerBlock(fn, {true}, nullptr, 0, &out, &error))
+	if (!EeIr::LowerBlock(fn, {true, &hooks}, nullptr, 0, &out, &error))
 	{
 		Console.Warning("EE IR: %s", error.c_str());
 		return false;
@@ -2927,11 +2996,16 @@ StartRecomp:
 		// Finally: Generate ARM64 recompiled code!
 		g_pCurInstInfo = s_pInstCache;
 		bool ir_compiled = false;
-		if (EeIrEnabled())
+		if (EeIrEnabled() && EeIrInRange(HWADDR(startpc)))
 		{
 			ir_compiled = TryCompileEeIrBlock(startpc);
 			if (ir_compiled)
+			{
+				// The IR body already emitted every exit through the hooks.
 				pc = s_nEndBlock;
+				g_branch = 1;
+				willbranch3 = 0;
+			}
 		}
 		if (!ir_compiled)
 		{

@@ -89,6 +89,13 @@ namespace ir
 						if (inst.type != Type::V4U32)
 							return Fail(error, "ConstVec: bad type");
 					}
+					else if (inst.op == Op::Select)
+					{
+						if (!CheckOperandType(fn, inst, 0, Type::I32, error) ||
+							!CheckOperandType(fn, inst, 1, inst.type, error) ||
+							!CheckOperandType(fn, inst, 2, inst.type, error))
+							return false;
+					}
 					else if (inst.arg_count() > 0)
 					{
 						const Type operand_type = fn.ValueType(inst.args[0]);

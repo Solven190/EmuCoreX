@@ -1,6 +1,6 @@
 #include "HangTrace.h"
 
-#if !defined(NDEBUG) || defined(PCSX2_DEVBUILD)
+#if !defined(NDEBUG) || defined(PCSX2_DEVBUILD) || defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 
 #include "arm64/OaknutHelpers-arm64.h"
 #include "Config.h"
