@@ -1699,11 +1699,17 @@ private fun PreviewLayout(
     ) {
         val gridStepDp = 24.dp
         // Sub-cell drag remainder per control, kept between drag events so snapping
-        // never swallows slow movements. Cleared whenever a control is (re)selected.
+        // never swallows slow movements. The drag gesture reports selection on every
+        // event, so the remainder is only cleared when a gesture actually ends.
         val snapResiduals = remember { mutableMapOf<String, Pair<Float, Float>>() }
-        val selectControl: (String) -> Unit = { id ->
+        val selectControl: (String) -> Unit = onSelectControl
+        val commitControl: (String) -> Unit = { id ->
             snapResiduals.clear()
-            onSelectControl(id)
+            onCommitControlPosition(id)
+        }
+        val commitCustomControl: (String) -> Unit = { id ->
+            snapResiduals.clear()
+            onCommitCustomControlPosition(id)
         }
         if (showGrid) {
             Box(
@@ -1969,6 +1975,7 @@ private fun PreviewLayout(
         }
 
         fun commitButtonGroup(specs: List<OverlayCanvasButtonSpec>) {
+            snapResiduals.clear()
             onCommitControlPositions(specs.map { it.id })
         }
 
@@ -2057,7 +2064,7 @@ private fun PreviewLayout(
                 selected = selectedControlId == spec.id,
                 onSelectControl = selectControl,
                 onMoveControlBy = { id, delta -> moveButton(id, spec, delta) },
-                onCommitControlPosition = onCommitControlPosition,
+                onCommitControlPosition = commitControl,
                 baseZIndex = baseZIndex
             )
         }
@@ -2070,7 +2077,7 @@ private fun PreviewLayout(
                 selected = selectedControlId == spec.id,
                 onSelectControl = selectControl,
                 onMoveControlBy = { id, delta -> moveDpadCluster(id, spec, delta) },
-                onCommitControlPosition = onCommitControlPosition,
+                onCommitControlPosition = commitControl,
                 showDirections = !showIndependentDpad,
                 baseZIndex = if (showIndependentDpad) 0.5f else 1.5f,
                 selectedZBoost = if (showIndependentDpad) 0.5f else 10f
@@ -2101,7 +2108,7 @@ private fun PreviewLayout(
                         onMoveControlBy = { movedId, delta ->
                             moveDpadClusterButton(movedId, spec, slot, delta)
                         },
-                        onCommitControlPosition = onCommitControlPosition,
+                        onCommitControlPosition = commitControl,
                         baseZIndex = 5f
                     )
                 }
@@ -2125,7 +2132,7 @@ private fun PreviewLayout(
                 onMoveControlBy = { _, delta ->
                     targetStickSpec?.let { stick -> moveStick(stick.id, stick, delta) }
                 },
-                onCommitControlPosition = onCommitControlPosition,
+                onCommitControlPosition = commitControl,
                 baseZIndex = 2.5f,
                 selectedZBoost = 10f
             )
@@ -2147,7 +2154,7 @@ private fun PreviewLayout(
                 baseZIndex = if (spec.visible) 2f else 0.5f,
                 onSelectControl = selectControl,
                 onMoveControlBy = { id, delta -> moveStick(id, spec, delta) },
-                onCommitControlPosition = onCommitControlPosition
+                onCommitControlPosition = commitControl
             )
         }
 
@@ -2165,7 +2172,7 @@ private fun PreviewLayout(
                 baseZIndex = if (spec.visible) 2f else 0.5f,
                 onSelectControl = selectControl,
                 onMoveControlBy = { id, delta -> moveStick(id, spec, delta) },
-                onCommitControlPosition = onCommitControlPosition
+                onCommitControlPosition = commitControl
             )
         }
 
@@ -2200,7 +2207,7 @@ private fun PreviewLayout(
                         (control.positionY + snapped.second / travelY).coerceIn(0f, 1f)
                     )
                 },
-                onCommitControlPosition = { onCommitCustomControlPosition(control.id) },
+                onCommitControlPosition = { commitCustomControl(control.id) },
                 baseZIndex = 4f,
                 modifier = Modifier.offset {
                     IntOffset(
