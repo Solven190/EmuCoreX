@@ -213,7 +213,7 @@ namespace EeIr
 			oak::XReg GuestBase() const { return m_inline ? oak::util::X27 : oak::util::X19; }
 
 		private:
-			u32 SaveArea() const { return m_allocate_registers ? 64u : 32u; }
+			u32 SaveArea() const { return m_inline ? 0u : (m_allocate_registers ? 64u : 32u); }
 			static constexpr int kUnallocated = -1;
 			void AllocateRegisters();
 			oak::WReg Result32(u32 value) const { return oak::WReg(m_registers[value] >= 0 ? m_registers[value] : 0); }
@@ -233,6 +233,28 @@ namespace EeIr
 				return scratch;
 			}
 
+			template <typename Reg>
+			bool EmitAddSubImmediate(const ir::Inst& inst, const Reg& dst, const Reg& src, u64 constant)
+			{
+				if (inst.op != ir::Op::Add && inst.op != ir::Op::Sub)
+					return false;
+				const u64 mask = inst.type == ir::Type::I64 ? ~u64(0) : 0xffffffffull;
+				constant &= mask;
+				bool subtract = inst.op == ir::Op::Sub;
+				if (constant > 4095)
+				{
+					constant = (u64(0) - constant) & mask;
+					subtract = !subtract;
+				}
+				if (constant > 4095)
+					return false;
+				if (subtract)
+					oakAsm->SUB(dst, src, constant);
+				else
+					oakAsm->ADD(dst, src, constant);
+				return true;
+			}
+
 			u32 Slot(u32 value) const { return m_slots[value]; }
 
 			void Load32(u32 value, const oak::WReg& dst)
@@ -240,7 +262,8 @@ namespace EeIr
 				if (m_registers[value] >= 0)
 				{
 					const oak::WReg src(m_registers[value]);
-					if (dst.index() != src.index())
+					// MOV Wn,Wn must execute when truncating a coalesced I64.
+					if (dst.index() != src.index() || m_fn.ValueType(value) == ir::Type::I64)
 						oakAsm->MOV(dst, src);
 				}
 				else if (m_constants[value])
@@ -299,6 +322,7 @@ namespace EeIr
 
 			void EmitFrameAdjust(bool add, u32 amount);
 			void EmitPrologue();
+			void EmitEntryJump();
 			void EmitEpilogue();
 			bool EmitInst(const ir::Inst& inst, std::string* error);
 			bool Fail(std::string* error, const char* what);
@@ -347,7 +371,9 @@ namespace EeIr
 			{
 				interval.last = std::max(interval.first, last_use[interval.value]);
 				active.erase(std::remove_if(active.begin(), active.end(), [&](const Interval& live) {
-					return live.last < interval.first;
+					// Every emitter reads all operands before defining its result,
+				// so a register can be reused at the operand's final use.
+				return live.last <= interval.first;
 				}), active.end());
 				for (int reg : host_regs)
 				{
@@ -377,6 +403,8 @@ namespace EeIr
 
 		void Lowerer::EmitFrameAdjust(bool add, u32 amount)
 		{
+			if (amount == 0)
+				return;
 			// AArch64 ADD/SUB immediates encode 0..4095 or an imm12 shifted by
 			// 12, so larger frames are adjusted with two instructions.
 			if (amount <= 4095)
@@ -404,6 +432,10 @@ namespace EeIr
 
 		void Lowerer::EmitPrologue()
 		{
+			// Inline blocks use the dispatcher's saved registers; only actual
+			// spills need a frame. Spill-free blocks need no SP/frame-base work.
+			if (m_inline && m_frame == 0)
+				return;
 			recBeginOaknutEmit();
 			EmitFrameAdjust(false, m_frame);
 			if (m_inline)
@@ -422,6 +454,17 @@ namespace EeIr
 				oakAsm->MOV(oak::util::X28, oak::util::SP);
 				oakMoveAddressToReg(oak::util::X19, &g_cpuRegistersPack);
 			}
+			recEndOaknutEmit();
+		}
+
+		void Lowerer::EmitEntryJump()
+		{
+			// Block ids follow storage order, but the declared entry can differ.
+			// The normal lifter uses entry 1 and pays no runtime instruction here.
+			if (m_fn.entry == 1)
+				return;
+			recBeginOaknutEmit();
+			oakAsm->B(m_labels[m_fn.entry - 1]);
 			recEndOaknutEmit();
 		}
 
@@ -508,6 +551,7 @@ namespace EeIr
 				m_labels.resize(m_fn.blocks.size());
 				u8* const start = oakGetCurrentCodePointer();
 				EmitPrologue();
+				EmitEntryJump();
 				for (const ir::Block& block : m_fn.blocks)
 				{
 					oakAsm->l(m_labels[block.id - 1]);
@@ -527,6 +571,7 @@ namespace EeIr
 
 			m_labels.resize(m_fn.blocks.size());
 			EmitPrologue();
+			EmitEntryJump();
 
 			for (const ir::Block& block : m_fn.blocks)
 			{
@@ -591,15 +636,15 @@ namespace EeIr
 					if (inst.type == ir::Type::I64)
 					{
 						recBeginOaknutEmit();
-						Load64(a[0], oak::util::X0);
-						Store64(inst.value, oak::util::X0);
+						Load64(a[0], Result64(inst.value));
+						Store64(inst.value, Result64(inst.value));
 						recEndOaknutEmit();
 					}
 					else
 					{
 						recBeginOaknutEmit();
-						load_a();
-						store_r();
+						Load32(a[0], Result32(inst.value));
+						Store32(inst.value, Result32(inst.value));
 						recEndOaknutEmit();
 					}
 					return true;
@@ -637,71 +682,65 @@ namespace EeIr
 					recBeginOaknutEmit();
 					if (inst.type == ir::Type::I64)
 					{
-						Load64(a[0], oak::util::X0);
-						oakAsm->MVN(oak::util::X0, oak::util::X0);
-						Store64(inst.value, oak::util::X0);
+						const auto src = Operand64(a[0], oak::util::X0);
+						const auto dst = Result64(inst.value);
+						oakAsm->MVN(dst, src);
+						Store64(inst.value, dst);
 					}
 					else
 					{
-						load_a();
-						oakAsm->MVN(oak::util::W0, oak::util::W0);
-						store_r();
+						const auto src = Operand32(a[0], oak::util::W0);
+						const auto dst = Result32(inst.value);
+						oakAsm->MVN(dst, src);
+						Store32(inst.value, dst);
 					}
 					recEndOaknutEmit();
 					return true;
+
 				case ir::Op::Neg:
-					recBeginOaknutEmit();
-					load_a();
-					oakAsm->NEG(oak::util::W0, oak::util::W0);
-					store_r();
-					recEndOaknutEmit();
-					return true;
 				case ir::Op::Sext8:
-					recBeginOaknutEmit();
-					load_a();
-					oakAsm->SXTB(oak::util::W0, oak::util::W0);
-					store_r();
-					recEndOaknutEmit();
-					return true;
 				case ir::Op::Sext16:
-					recBeginOaknutEmit();
-					load_a();
-					oakAsm->SXTH(oak::util::W0, oak::util::W0);
-					store_r();
-					recEndOaknutEmit();
-					return true;
 				case ir::Op::Zext8:
-					recBeginOaknutEmit();
-					load_a();
-					oakAsm->UXTB(oak::util::W0, oak::util::W0);
-					store_r();
-					recEndOaknutEmit();
-					return true;
 				case ir::Op::Zext16:
+				{
 					recBeginOaknutEmit();
-					load_a();
-					oakAsm->UXTH(oak::util::W0, oak::util::W0);
-					store_r();
+					const auto src = Operand32(a[0], oak::util::W0);
+					const auto dst = Result32(inst.value);
+					switch (inst.op)
+					{
+						case ir::Op::Neg: oakAsm->NEG(dst, src); break;
+						case ir::Op::Sext8: oakAsm->SXTB(dst, src); break;
+						case ir::Op::Sext16: oakAsm->SXTH(dst, src); break;
+						case ir::Op::Zext8: oakAsm->UXTB(dst, src); break;
+						default: oakAsm->UXTH(dst, src); break;
+					}
+					Store32(inst.value, dst);
 					recEndOaknutEmit();
 					return true;
+				}
 				case ir::Op::Sext32:
+				{
 					recBeginOaknutEmit();
-					load_a();
-					oakAsm->SXTW(oak::util::X0, oak::util::W0);
-					Store64(inst.value, oak::util::X0);
+					const auto src = Operand32(a[0], oak::util::W0);
+					const auto dst = Result64(inst.value);
+					oakAsm->SXTW(dst, src);
+					Store64(inst.value, dst);
 					recEndOaknutEmit();
 					return true;
+				}
 				case ir::Op::Zext32:
+				{
 					recBeginOaknutEmit();
-					load_a();
-					oakAsm->MOV(oak::util::X0, oak::util::X0);
-					Store64(inst.value, oak::util::X0);
+					// A W-register write zeroes the upper word, including in-place.
+					Load32(a[0], oak::WReg(Result64(inst.value).index()));
+					Store64(inst.value, Result64(inst.value));
 					recEndOaknutEmit();
 					return true;
+				}
 				case ir::Op::Trunc32:
 					recBeginOaknutEmit();
-					Load64(a[0], oak::util::X0);
-					Store32(inst.value, oak::util::W0);
+					Load32(a[0], Result32(inst.value));
+					Store32(inst.value, Result32(inst.value));
 					recEndOaknutEmit();
 					return true;
 
@@ -719,8 +758,14 @@ namespace EeIr
 					if (inst.type == ir::Type::I64)
 					{
 						const auto lhs = Operand64(a[0], oak::util::X0);
-						const auto rhs = Operand64(a[1], oak::util::X1);
 						const auto dst = Result64(inst.value);
+						if (m_constants[a[1]] && EmitAddSubImmediate(inst, dst, lhs, *m_constants[a[1]]))
+						{
+							Store64(inst.value, dst);
+							recEndOaknutEmit();
+							return true;
+						}
+						const auto rhs = Operand64(a[1], oak::util::X1);
 						switch (inst.op)
 						{
 							case ir::Op::Add: oakAsm->ADD(dst, lhs, rhs); break;
@@ -735,8 +780,14 @@ namespace EeIr
 					else
 					{
 						const auto lhs = Operand32(a[0], oak::util::W0);
-						const auto rhs = Operand32(a[1], oak::util::W1);
 						const auto dst = Result32(inst.value);
+						if (m_constants[a[1]] && EmitAddSubImmediate(inst, dst, lhs, *m_constants[a[1]]))
+						{
+							Store32(inst.value, dst);
+							recEndOaknutEmit();
+							return true;
+						}
+						const auto rhs = Operand32(a[1], oak::util::W1);
 						switch (inst.op)
 						{
 							case ir::Op::Add: oakAsm->ADD(dst, lhs, rhs); break;
@@ -797,6 +848,20 @@ namespace EeIr
 					if (inst.type == ir::Type::I64)
 					{
 						const auto lhs = Operand64(a[0], oak::util::X0);
+						if (m_constants[a[1]])
+						{
+							const auto dst = Result64(inst.value);
+							const u32 amount = static_cast<u32>(*m_constants[a[1]]) & 63u;
+							if (inst.op == ir::Op::Shl)
+								oakAsm->LSL(dst, lhs, amount);
+							else if (inst.op == ir::Op::ShrU)
+								oakAsm->LSR(dst, lhs, amount);
+							else
+								oakAsm->ASR(dst, lhs, amount);
+							Store64(inst.value, dst);
+							recEndOaknutEmit();
+							return true;
+						}
 						const auto rhs = m_fn.ValueType(a[1]) == ir::Type::I64 ?
 							Operand64(a[1], oak::util::X1) : oak::XReg(Operand32(a[1], oak::util::W1).index());
 						const auto dst = Result64(inst.value);
@@ -811,6 +876,20 @@ namespace EeIr
 					else
 					{
 						const auto lhs = Operand32(a[0], oak::util::W0);
+						if (m_constants[a[1]])
+						{
+							const auto dst = Result32(inst.value);
+							const u32 amount = static_cast<u32>(*m_constants[a[1]]) & 31u;
+							if (inst.op == ir::Op::Shl)
+								oakAsm->LSL(dst, lhs, amount);
+							else if (inst.op == ir::Op::ShrU)
+								oakAsm->LSR(dst, lhs, amount);
+							else
+								oakAsm->ASR(dst, lhs, amount);
+							Store32(inst.value, dst);
+							recEndOaknutEmit();
+							return true;
+						}
 						const auto rhs = Operand32(a[1], oak::util::W1);
 						const auto dst = Result32(inst.value);
 						if (inst.op == ir::Op::Shl)
@@ -974,13 +1053,15 @@ namespace EeIr
 					recBeginOaknutEmit();
 					if (inst.aux & ir::IF_WIDE_WRITE)
 					{
-						// Value is already a full 64-bit quantity (jal link).
-						Load64(a[0], oak::util::X0);
+						const auto value = Operand64(a[0], oak::util::X0);
+						oakStore64(value, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
+						recEndOaknutEmit();
+						return true;
 					}
 					else
 					{
-						load_a();
-						oakAsm->SXTW(oak::util::X0, oak::util::W0);
+						const auto value = Operand32(a[0], oak::util::W0);
+						oakAsm->SXTW(oak::util::X0, value);
 					}
 					oakStore64(oak::util::X0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
 					recEndOaknutEmit();
@@ -1006,11 +1087,16 @@ namespace EeIr
 				case ir::Op::WriteLo:
 					recBeginOaknutEmit();
 					if (m_fn.ValueType(a[0]) == ir::Type::I64)
-						Load64(a[0], oak::util::X0);
+					{
+						const auto value = Operand64(a[0], oak::util::X0);
+						oakStore64(value, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset() : LoOffset()});
+						recEndOaknutEmit();
+						return true;
+					}
 					else
 					{
-						load_a();
-						oakAsm->SXTW(oak::util::X0, oak::util::W0);
+						const auto value = Operand32(a[0], oak::util::W0);
+						oakAsm->SXTW(oak::util::X0, value);
 					}
 					oakStore64(oak::util::X0, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset() : LoOffset()});
 					recEndOaknutEmit();
@@ -1030,8 +1116,8 @@ namespace EeIr
 					const u32 taken = a[1];
 					const u32 not_taken = a[2];
 					recBeginOaknutEmit();
-					load_a();
-					oakAsm->CBNZ(oak::util::W0, m_labels[taken - 1]);
+					const auto condition = Operand32(a[0], oak::util::W0);
+					oakAsm->CBNZ(condition, m_labels[taken - 1]);
 					oakAsm->B(m_labels[not_taken - 1]);
 					recEndOaknutEmit();
 					return true;

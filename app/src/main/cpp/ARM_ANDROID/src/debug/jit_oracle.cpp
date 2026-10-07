@@ -2210,6 +2210,81 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
 void EEIrExecutionTests()
 {
     {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstI64(0xbad)}, 9, ir::IF_WIDE_WRITE);
+        b.Resume(EE_TEST_PC + 4);
+        fn.entry = b.CreateBlock(EE_TEST_PC + 4);
+        fn.guest_entry = EE_TEST_PC + 4;
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstI64(0xfeed)}, 9, ir::IF_WIDE_WRITE);
+        b.Resume(EE_TEST_PC + 8);
+        bool same = true;
+        for (bool optimize : {false, true})
+        {
+            EeIr::LowerOptions options;
+            options.optimize_ir = optimize;
+            options.capture_exit_pc = true;
+            EeIr::LowerOutput out;
+            std::string error;
+            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+            {
+                same = false;
+                continue;
+            }
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= cpuRegs.GPR.r[9].UD[0] == 0xfeed && g_eeir_exit_valid && g_eeir_exit_pc == EE_TEST_PC + 8;
+        }
+        Check(same, "ir declared non-first entry block");
+    }
+
+    {
+        // Reusing an X register for an I32 truncation still has to clear its
+        // upper word before a following zero extension. Keep the chain
+        // unfused so this tests the lowering rather than constant folding.
+        for (u64 edge : {0x1234567800000001ull, 0xffff000080000000ull,
+                0x010203047fffffffull, 0x8000000000000000ull})
+        {
+            bool same = true;
+            for (bool allocate : {false, true})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 input = b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8);
+                const u32 narrow = b.Emit1(ir::Op::Trunc32, ir::Type::I32, input);
+                const u32 zero = b.Emit1(ir::Op::Zext32, ir::Type::I64, narrow);
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {zero}, 9, ir::IF_WIDE_WRITE);
+                const u32 again = b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8);
+                const u32 low = b.Emit1(ir::Op::Trunc32, ir::Type::I32, again);
+                const u32 sign = b.Emit1(ir::Op::Sext32, ir::Type::I64, low);
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {sign}, 10, ir::IF_WIDE_WRITE);
+                b.Resume(EE_TEST_PC + 4);
+                EeIr::LowerOptions options;
+                options.allocate_registers = allocate;
+                options.optimize_ir = false;
+                EeIr::LowerOutput out;
+                std::string error;
+                if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                {
+                    same = false;
+                    continue;
+                }
+                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                cpuRegs.GPR.r[8].UD[0] = edge;
+                reinterpret_cast<void (*)()>(out.entry)();
+                same &= cpuRegs.GPR.r[9].UD[0] == static_cast<u32>(edge) &&
+                    cpuRegs.GPR.r[10].UD[0] == static_cast<u64>(static_cast<s64>(static_cast<s32>(edge))) &&
+                    cpuRegs.GPR.r[8].UD[0] == edge && (!allocate || out.spill_values == 0);
+            }
+            char name[96];
+            std::snprintf(name, sizeof(name), "ir coalesced truncation %016llx", static_cast<unsigned long long>(edge));
+            Check(same, name);
+        }
+    }
+
+    {
         // Compare folding with actual ARM64 execution at both integer widths,
         // including overflow, negative low words and masked shift counts.
         constexpr u64 edges[] = {0, 1, 31, 64, 0x80000000ull,

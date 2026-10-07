@@ -8,7 +8,8 @@
 // Integer constants are materialized at their uses, reducing spills and
 // stack frame sizes while keeping the generated code easy to validate
 // against the interpreter. Guest state lives in g_cpuRegistersPack and is
-// addressed through X19, which the prologue pins and the epilogue restores.
+// addressed through pinned X27 in inline mode, or X19 in standalone mode
+// where the prologue pins it and the epilogue restores it.
 //
 // Memory and division use small C helpers with interpreter-exact semantics;
 // later iterations replace them with inline VTLB/fastmem emitters.
@@ -46,8 +47,8 @@ namespace EeIr
 
 	struct LowerOptions
 	{
-		// Inline body: uses a temporary stack frame, without code-buffer management. The
-		// guest base is the pinned X27, the frame base is X20, and every exit
+		// Inline body: only spills need a temporary stack frame; no code-buffer
+		// management. The guest base is the pinned X27, the frame base is X20, and every exit
 		// is emitted through the hooks above. Only allowed in this mode:
 		// Jump, Branch, BranchIndirect and Resume.
 		bool inline_body = false;
