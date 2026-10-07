@@ -53,8 +53,8 @@ class CustomTouchControlTest {
         ).sanitized()!!
 
         assertEquals(CustomTouchControl.DEFAULT_ACTION_ID, safe.actionId)
-        assertTrue(safe.positionX in 0f..1f)
-        assertEquals(1f, safe.positionY)
+        assertEquals(0.5f, safe.positionX)
+        assertEquals(CustomTouchControl.MAX_POSITION, safe.positionY)
         assertEquals(CustomTouchControl.MIN_SIZE_DP, safe.widthDp)
         assertEquals(CustomTouchControl.MAX_SIZE_DP, safe.heightDp)
         assertEquals(CustomTouchControl.MIN_OPACITY, safe.opacity)
@@ -141,12 +141,24 @@ class CustomTouchControlTest {
     }
 
     @Test
-    fun duplicateClampsPositionToCanvasBounds() {
+    fun duplicateKeepsPositionsBeyondTheSafeArea() {
         val source = CustomTouchControl(id = "edge", positionX = 1f, positionY = 0.99f)
 
         val copy = source.duplicate(id = "edge-copy", name = "Edge copy")
 
-        assertEquals(1f, copy.positionX)
-        assertEquals(1f, copy.positionY)
+        assertEquals(1.05f, copy.positionX)
+        assertEquals(1.04f, copy.positionY)
+    }
+
+    @Test
+    fun sanitizerKeepsControlsParkedOverTheCameraCutout() {
+        val safe = CustomTouchControl(
+            id = "cutout",
+            positionX = -0.2f,
+            positionY = 1.2f
+        ).sanitized()!!
+
+        assertEquals(-0.2f, safe.positionX)
+        assertEquals(1.2f, safe.positionY)
     }
 }
