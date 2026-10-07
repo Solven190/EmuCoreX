@@ -3,7 +3,8 @@
 //
 // Lowers the recompiler IR to ARM64 machine code.
 //
-// Nonconstant SSA values use stack slots (no register allocation yet).
+// A conservative linear scan assigns integer SSA values to call-preserved
+// host registers, spilling values to the stack when register pressure requires.
 // Integer constants are materialized at their uses, reducing spills and
 // stack frame sizes while keeping the generated code easy to validate
 // against the interpreter. Guest state lives in g_cpuRegistersPack and is
@@ -55,6 +56,9 @@ namespace EeIr
 		// Integer constants are materialized at their uses and need no spill
 		// slot. The oracle disables this to compare both lowering paths.
 		bool materialize_constants = true;
+		// Conservative linear-scan allocation in call-preserved host registers.
+		// Both modes remain available to the interpreter differential oracle.
+		bool allocate_registers = true;
 	};
 
 	struct LowerOutput
@@ -62,6 +66,8 @@ namespace EeIr
 		u8* entry = nullptr; // callable host function (standalone mode only)
 		u32 host_size = 0;
 		u32 frame_size = 0;
+		u32 register_values = 0;
+		u32 spill_values = 0;
 	};
 
 	// `code` must point at an executable buffer of `capacity` bytes that is not

@@ -2560,7 +2560,17 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	hooks.after_helper = &EeIrAfterHelperHook;
 
 	EeIr::LowerOutput out;
-	if (!EeIr::LowerBlock(fn, {true, &hooks}, nullptr, 0, &out, &error))
+	EeIr::LowerOptions options;
+	options.inline_body = true;
+	options.hooks = &hooks;
+#if defined(__ANDROID__)
+	static const bool allocate_registers = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_regalloc", value) == 0 || value[0] != '0';
+	}();
+	options.allocate_registers = allocate_registers;
+#endif
+	if (!EeIr::LowerBlock(fn, options, nullptr, 0, &out, &error))
 	{
 		Console.Warning("EE IR: %s", error.c_str());
 		return false;
@@ -2578,10 +2588,11 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u registers=%u spills=%u",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
-			static_cast<unsigned long long>(native_bytes), startpc);
+			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
+			out.register_values, out.spill_values);
 	}
 #endif
 

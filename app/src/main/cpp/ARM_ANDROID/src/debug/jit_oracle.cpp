@@ -2164,6 +2164,7 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
     {
         EeIr::LowerOptions options;
         options.materialize_constants = optimize;
+        options.allocate_registers = optimize;
         EeIr::LowerOutput out;
         if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
         {
@@ -2205,6 +2206,43 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
 
 void EEIrExecutionTests()
 {
+    {
+        // Keep more values alive than the allocator has host registers, then
+        // call a memory helper before consuming them. This exercises spills
+        // and the call-preserved register contract together.
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        std::vector<u32> values;
+        for (u32 reg = 8; reg < 16; ++reg)
+            values.push_back(b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, reg));
+        b.Emit2(ir::Op::Store64, ir::Type::Void, b.ConstI32(EE_TEST_SCRATCH), values[0]);
+        u32 sum = values[0];
+        for (size_t i = 1; i < values.size(); ++i)
+            sum = b.Emit2(ir::Op::Add, ir::Type::I64, sum, values[i]);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {sum}, 31, ir::IF_WIDE_WRITE);
+        b.Resume(EE_TEST_PC + 4);
+        EeIr::LowerOutput out;
+        std::string error;
+        if (!EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+            Check(false, "ir register pressure lowering");
+        else
+        {
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            u64 expected = 0;
+            for (u32 reg = 8; reg < 16; ++reg)
+            {
+                const u64 value = 0x1234567887654321ull * reg;
+                cpuRegs.GPR.r[reg].UD[0] = value;
+                expected += value;
+            }
+            reinterpret_cast<void (*)()>(out.entry)();
+            Check(out.register_values > 0 && out.spill_values > 0 && cpuRegs.GPR.r[31].UD[0] == expected &&
+                memRead64(EE_TEST_SCRATCH) == cpuRegs.GPR.r[8].UD[0],
+                "ir register pressure and helper preservation");
+        }
+    }
+
     {
         constexpr u64 edges[] = {0, 1, 0x7fffffffull, 0x80000000ull,
             0x7fffffffffffffffull, 0x8000000000000000ull, 0xffffffffffffffffull};
@@ -2448,13 +2486,13 @@ void EEIrExecutionTests()
         code.push_back(MipsI(0x23, 22, 19, 40)); // lw s3, 40(s6)
         RunEEIrCase("ir memory", code);
     }
-    std::printf("EEIR constants code_bytes baseline=%llu optimized=%llu frame_bytes baseline=%llu optimized=%llu\n",
+    std::printf("EEIR optimizer code_bytes baseline=%llu optimized=%llu frame_bytes baseline=%llu optimized=%llu\n",
         static_cast<unsigned long long>(eeir_baseline_bytes),
         static_cast<unsigned long long>(eeir_optimized_bytes),
         static_cast<unsigned long long>(eeir_baseline_frames),
         static_cast<unsigned long long>(eeir_optimized_frames));
     Check(eeir_optimized_bytes < eeir_baseline_bytes && eeir_optimized_frames < eeir_baseline_frames,
-        "ir constants reduce emitted code and spill frames");
+        "ir optimizer reduces emitted code and spill frames");
 
 }
 

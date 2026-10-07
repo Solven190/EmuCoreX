@@ -129,6 +129,16 @@ std::string GetAndroidSystemProperty(const char* name)
 	return length > 0 ? std::string(value, static_cast<size_t>(length)) : std::string();
 }
 
+bool DebugPerformanceLogEnabled()
+{
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	static const bool enabled = GetAndroidSystemProperty("debug.emucorex.perf_log") == "1";
+	return enabled;
+#else
+	return false;
+#endif
+}
+
 std::string GetHostCpuName(const CPUInfo& cpu_info)
 {
 	if (!cpu_info.name.empty() && cpu_info.name != "Unknown")
@@ -215,8 +225,8 @@ void SetPerformanceMetricsCallbackEnabled(bool enabled, bool detailed, bool gpu_
 {
 	s_performance_metrics_enabled.store(enabled, std::memory_order_relaxed);
 	s_performance_metrics_detailed.store(enabled && detailed, std::memory_order_relaxed);
-	PerformanceMetrics::SetCPUThreadUsageEnabled(enabled && detailed);
-	PerformanceMetrics::SetFrameTimeStatsEnabled(enabled && detailed);
+	PerformanceMetrics::SetCPUThreadUsageEnabled((enabled && detailed) || DebugPerformanceLogEnabled());
+	PerformanceMetrics::SetFrameTimeStatsEnabled((enabled && detailed) || DebugPerformanceLogEnabled());
 	// The Android overlay exposes interval frame-time stats, not the upstream history graph.
 	// Native OSD frame graphs still override this gate through GSConfig.OsdShowFrameTimes.
 	PerformanceMetrics::SetFrameTimeHistoryEnabled(false);
@@ -444,6 +454,21 @@ void Host::OnGameChanged(const std::string& title, const std::string&, const std
 
 void Host::OnPerformanceMetricsUpdated()
 {
+	if (DebugPerformanceLogEnabled())
+	{
+		static auto last_log = std::chrono::steady_clock::time_point{};
+		const auto now = std::chrono::steady_clock::now();
+		if (now - last_log >= std::chrono::seconds(1))
+		{
+			last_log = now;
+			__android_log_print(ANDROID_LOG_INFO, "EmuPerf",
+				"frames=%llu vps=%.2f speed=%.2f ee_ms=%.3f gs_ms=%.3f frame_ms=%.3f",
+				static_cast<unsigned long long>(PerformanceMetrics::GetFrameNumber()),
+				PerformanceMetrics::GetFPS(), PerformanceMetrics::GetSpeed(),
+				PerformanceMetrics::GetCPUThreadAverageTime(), PerformanceMetrics::GetGSThreadAverageTime(),
+				PerformanceMetrics::GetAverageFrameTime());
+		}
+	}
 	if (!s_performance_metrics_enabled.load(std::memory_order_relaxed))
 		return;
 
