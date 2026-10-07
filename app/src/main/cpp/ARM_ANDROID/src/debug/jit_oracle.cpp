@@ -6,6 +6,9 @@
 #include "JitProfiler.h"
 #include "ir/Ir.h"
 #include "arm64/ee/EeIrLifter-arm64.h"
+#include "arm64/ee/EeIrLower-arm64.h"
+#include "arm64/OaknutHelpers-arm64.h"
+#include "arm64/cpuRegistersPack-arm64.h"
 #include "R3000A.h"
 #include "R5900.h"
 #include "VUmicro.h"
@@ -857,6 +860,7 @@ extern "C" void EmuCoreXEEOracleSetCompileCallback(void (*callback)(u32));
 extern "C" void EmuCoreXEEForceExitAfterFirstBlock();
 extern "C" void EmuCoreXEEForceExitAfterCycles(u32 budget);
 extern "C" void EmuCoreXOracleEESteps(u32 steps);
+extern "C" int EmuCoreXOracleEEIRStep(void (*fn)());
 
 constexpr u32 MipsR(u32 rs, u32 rt, u32 rd, u32 sa, u32 fn)
 {
@@ -1010,7 +1014,7 @@ void CompareIOP(const IOPSnapshot& expected, const IOPSnapshot& actual, const ch
     Check(same, name);
 }
 
-EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlock = false)
+EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlock = false, const u64* initial_gpr = nullptr)
 {
     std::memset(&cpuRegs, 0, sizeof(cpuRegs));
     std::memset(&fpuRegs, 0, sizeof(fpuRegs));
@@ -1034,6 +1038,10 @@ EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlo
     cpuRegs.nextEventCycle = 0x7fffffffu;
     EEsCycle = 0;
     EEoCycle = 0;
+
+    if (initial_gpr)
+        for (u32 r = 1; r < 32; ++r)
+            cpuRegs.GPR.r[r].UD[0] = initial_gpr[r];
 
     constexpr u32 budget = 4096;
     if (jit)
@@ -2134,6 +2142,843 @@ void DivEdgeTests()
     }
 }
 
+u64 eeir_baseline_bytes = 0;
+u64 eeir_optimized_bytes = 0;
+u64 eeir_baseline_frames = 0;
+u64 eeir_optimized_frames = 0;
+
+void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* initial_gpr = nullptr)
+{
+    const EESnapshot interp = RunEEProgram(false, program, false, initial_gpr);
+    ir::Function fn;
+    u32 end = 0;
+    std::string error;
+    if (!EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(EE_TEST_PC)),
+            {EE_TEST_PC, static_cast<u32>(program.size())}, fn, &end, &error))
+    {
+        std::printf("EEIR lift failed %s: %s\n", name, error.c_str());
+        Check(false, name);
+        return;
+    }
+
+    bool same = true;
+    for (bool optimize : {false, true})
+    {
+        EeIr::LowerOptions options;
+        options.materialize_constants = optimize;
+        options.allocate_registers = optimize;
+        options.optimize_ir = optimize;
+        EeIr::LowerOutput out;
+        if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+        {
+            std::printf("EEIR lower failed %s optimize=%d: %s\n", name, optimize, error.c_str());
+            Check(false, name);
+            return;
+        }
+        (optimize ? eeir_optimized_bytes : eeir_baseline_bytes) += out.host_size;
+        (optimize ? eeir_optimized_frames : eeir_baseline_frames) += out.frame_size;
+
+        // Both lowering modes and the interpreter start with the same state,
+        // including memory modified by a preceding store in this test.
+        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+        std::memset(&fpuRegs, 0, sizeof(fpuRegs));
+        std::memset(&VU0.VF, 0, sizeof(VU0.VF));
+        std::memset(&VU0.VI, 0, sizeof(VU0.VI));
+        std::memset(&VU0.ACC, 0, sizeof(VU0.ACC));
+        VU0.q.UL = VU0.p.UL = 0;
+        VU0.macflag = VU0.statusflag = VU0.clipflag = 0;
+        for (u32 i = 0; i < EE_SCRATCH_SIZE; ++i)
+            memWrite8(EE_TEST_SCRATCH + i, static_cast<u8>(i * 13 + 7));
+        cpuRegs.pc = EE_TEST_PC;
+        cpuRegs.nextEventCycle = 0x7fffffffu;
+        EEsCycle = 0;
+        EEoCycle = 0;
+        if (initial_gpr)
+            for (u32 r = 1; r < 32; ++r)
+                cpuRegs.GPR.r[r].UD[0] = initial_gpr[r];
+        reinterpret_cast<void (*)()>(out.entry)();
+        EESnapshot result;
+        CaptureEE(result);
+        same &= CpuDiff(name, "GPR", interp.gpr, result.gpr, sizeof(interp.gpr));
+        same &= CpuDiff(name, "HI", &interp.hi, &result.hi, sizeof(interp.hi));
+        same &= CpuDiff(name, "LO", &interp.lo, &result.lo, sizeof(interp.lo));
+        same &= CpuDiff(name, "scratch", interp.scratch, result.scratch, sizeof(interp.scratch));
+    }
+    Check(same, name);
+}
+
+void EEIrExecutionTests()
+{
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstI64(0xbad)}, 9, ir::IF_WIDE_WRITE);
+        b.Resume(EE_TEST_PC + 4);
+        fn.entry = b.CreateBlock(EE_TEST_PC + 4);
+        fn.guest_entry = EE_TEST_PC + 4;
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstI64(0xfeed)}, 9, ir::IF_WIDE_WRITE);
+        b.Resume(EE_TEST_PC + 8);
+        bool same = true;
+        for (bool optimize : {false, true})
+        {
+            EeIr::LowerOptions options;
+            options.optimize_ir = optimize;
+            options.capture_exit_pc = true;
+            EeIr::LowerOutput out;
+            std::string error;
+            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+            {
+                same = false;
+                continue;
+            }
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= cpuRegs.GPR.r[9].UD[0] == 0xfeed && g_eeir_exit_valid && g_eeir_exit_pc == EE_TEST_PC + 8;
+        }
+        Check(same, "ir declared non-first entry block");
+    }
+
+    {
+        // Reusing an X register for an I32 truncation still has to clear its
+        // upper word before a following zero extension. Keep the chain
+        // unfused so this tests the lowering rather than constant folding.
+        for (u64 edge : {0x1234567800000001ull, 0xffff000080000000ull,
+                0x010203047fffffffull, 0x8000000000000000ull})
+        {
+            bool same = true;
+            for (bool allocate : {false, true})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 input = b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8);
+                const u32 narrow = b.Emit1(ir::Op::Trunc32, ir::Type::I32, input);
+                const u32 zero = b.Emit1(ir::Op::Zext32, ir::Type::I64, narrow);
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {zero}, 9, ir::IF_WIDE_WRITE);
+                const u32 again = b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8);
+                const u32 low = b.Emit1(ir::Op::Trunc32, ir::Type::I32, again);
+                const u32 sign = b.Emit1(ir::Op::Sext32, ir::Type::I64, low);
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {sign}, 10, ir::IF_WIDE_WRITE);
+                b.Resume(EE_TEST_PC + 4);
+                EeIr::LowerOptions options;
+                options.allocate_registers = allocate;
+                options.optimize_ir = false;
+                EeIr::LowerOutput out;
+                std::string error;
+                if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                {
+                    same = false;
+                    continue;
+                }
+                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                cpuRegs.GPR.r[8].UD[0] = edge;
+                reinterpret_cast<void (*)()>(out.entry)();
+                same &= cpuRegs.GPR.r[9].UD[0] == static_cast<u32>(edge) &&
+                    cpuRegs.GPR.r[10].UD[0] == static_cast<u64>(static_cast<s64>(static_cast<s32>(edge))) &&
+                    cpuRegs.GPR.r[8].UD[0] == edge && (!allocate || out.spill_values == 0);
+            }
+            char name[96];
+            std::snprintf(name, sizeof(name), "ir coalesced truncation %016llx", static_cast<unsigned long long>(edge));
+            Check(same, name);
+        }
+    }
+
+    {
+        // Compare folding with actual ARM64 execution at both integer widths,
+        // including overflow, negative low words and masked shift counts.
+        constexpr u64 edges[] = {0, 1, 31, 64, 0x80000000ull,
+            0x8000000000000000ull, 0xffffffffffffffffull};
+        for (ir::Type type : {ir::Type::I32, ir::Type::I64})
+        {
+            for (ir::Op op : {ir::Op::Add, ir::Op::Sub, ir::Op::Mul, ir::Op::And, ir::Op::Or, ir::Op::Xor,
+                    ir::Op::Shl, ir::Op::ShrU, ir::Op::ShrS, ir::Op::CmpEq, ir::Op::CmpNe,
+                    ir::Op::CmpLtS, ir::Op::CmpLtU, ir::Op::CmpLeS, ir::Op::CmpLeU,
+                    ir::Op::CmpGtS, ir::Op::CmpGtU, ir::Op::CmpGeS, ir::Op::CmpGeU})
+            {
+                bool same = true;
+                for (u64 lhs : edges)
+                {
+                    for (u64 rhs : edges)
+                    {
+                        ir::Function fn;
+                        ir::Builder b(fn);
+                        b.CreateBlock(EE_TEST_PC);
+                        const auto constant = [&](u64 v) { return type == ir::Type::I64 ? b.ConstI64(v) : b.ConstI32(static_cast<u32>(v)); };
+                        const auto result_type = ir::Info(op).kind == ir::OpKind::Compare ? ir::Type::I32 : type;
+                        const u32 value = b.Emit2(op, result_type, constant(lhs), constant(rhs));
+                        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, 31, result_type == ir::Type::I64 ? ir::IF_WIDE_WRITE : 0);
+                        b.Resume(EE_TEST_PC + 4);
+                        u64 baseline = 0;
+                        for (bool optimize : {false, true})
+                        {
+                            EeIr::LowerOptions options;
+                            options.optimize_ir = optimize;
+                            EeIr::LowerOutput out;
+                            std::string error;
+                            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                            {
+                                same = false;
+                                continue;
+                            }
+                            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                            reinterpret_cast<void (*)()>(out.entry)();
+                            if (!optimize)
+                                baseline = cpuRegs.GPR.r[31].UD[0];
+                            else
+                                same &= cpuRegs.GPR.r[31].UD[0] == baseline;
+                        }
+                    }
+                }
+                char name[96];
+                std::snprintf(name, sizeof(name), "ir integer fold %s %s edges", ir::TypeName(type), ir::OpName(op));
+                Check(same, name);
+            }
+        }
+    }
+
+    {
+        constexpr u64 edges[] = {0, 1, 0x80000000ull, 0xffffffffull,
+            0x1234567880000001ull, 0x8000000000000000ull, 0xffffffffffffffffull};
+        for (u64 edge : edges)
+        {
+            u64 initial[32] = {};
+            initial[8] = edge;
+            initial[9] = 0xabcdef0176543210ull;
+            const std::vector<u32> code = {
+                MipsI(9, 8, 10, 3),              // narrow read must not establish sign extension of t0
+                MipsR(8, 9, 11, 0, 0x26),       // original full-width read
+                MipsI(9, 8, 8, -1),              // narrow write sign-extends t0
+                MipsR(8, 9, 12, 0, 0x25),       // wide read after narrow write
+                MipsI(0x19, 8, 8, 7),           // full-width overwrite
+                MipsI(9, 8, 13, 1),              // truncate wide value to low word
+                MipsR(8, 0, 0, 0, 0x11),        // mthi
+                MipsR(0, 0, 14, 0, 0x10),       // mfhi
+                MipsR(0, 0, 15, 0, 0x10),       // repeated mfhi
+                MipsR(8, 9, 16, 0, 0x24)        // repeated wide reads
+            };
+            char name[96];
+            std::snprintf(name, sizeof(name), "ir forwarding mixed widths %016llx", static_cast<unsigned long long>(edge));
+            RunEEIrCase(name, code, initial);
+            CompareEE(RunEEProgram(false, code, false, initial), RunEEProgram(true, code, false, initial), name);
+        }
+        RunEEIrCase("ir constant chain and overwritten values", {
+            MipsI(0x0f, 0, 8, 0x8000), MipsI(0x0d, 8, 8, 0x1234),
+            MipsI(0x19, 8, 9, -1), MipsR(0, 9, 10, 31, 0x3b),
+            MipsR(9, 10, 11, 0, 0x2d), MipsR(9, 10, 12, 0, 0x2f),
+            MipsR(11, 12, 13, 0, 0x27), MipsR(11, 12, 14, 0, 0x2a),
+            MipsI(9, 0, 8, 7), MipsI(9, 0, 8, -8), MipsR(8, 0, 15, 0, 0x25)
+        });
+    }
+    {
+        // Model an MMIO helper observing prior architectural writes and
+        // modifying a GPR. The unused load must execute; later reads must
+        // reload state, while earlier SSA values remain immutable.
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        const u32 before = b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {before}, 9, ir::IF_WIDE_WRITE);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstI64(0x8877665544332211ull)}, 11, ir::IF_WIDE_WRITE);
+        b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+        const u32 after = b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {after}, 10, ir::IF_WIDE_WRITE);
+        b.Resume(EE_TEST_PC + 4);
+        EeIr::LowerHooks hooks;
+        hooks.after_helper = +[](void*) {
+            oakAsm->MOV(oak::util::X16, 0x123456789abcdef0ull);
+            oakStore64(oak::util::X16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[8]))});
+            oakLoad64(oak::util::X16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[11]))});
+            oakStore64(oak::util::X16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[12]))});
+        };
+        bool same = true;
+        for (bool optimize : {false, true})
+        {
+            EeIr::LowerOptions options;
+            options.optimize_ir = optimize;
+            options.hooks = &hooks;
+            EeIr::LowerOutput out;
+            std::string error;
+            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+            {
+                same = false;
+                continue;
+            }
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            cpuRegs.GPR.r[8].UD[0] = 0xfedcba9876543210ull;
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= cpuRegs.GPR.r[9].UD[0] == 0xfedcba9876543210ull &&
+                cpuRegs.GPR.r[10].UD[0] == 0x123456789abcdef0ull && cpuRegs.GPR.r[12].UD[0] == 0x8877665544332211ull;
+        }
+        Check(same, "ir forwarding helper barrier and observable writes");
+    }
+
+    {
+        // Keep more values alive than the allocator has host registers, then
+        // call a memory helper before consuming them. This exercises spills
+        // and the call-preserved register contract together.
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        std::vector<u32> values;
+        for (u32 reg = 8; reg < 16; ++reg)
+            values.push_back(b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, reg));
+        b.Emit2(ir::Op::Store64, ir::Type::Void, b.ConstI32(EE_TEST_SCRATCH), values[0]);
+        u32 sum = values[0];
+        for (size_t i = 1; i < values.size(); ++i)
+            sum = b.Emit2(ir::Op::Add, ir::Type::I64, sum, values[i]);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {sum}, 31, ir::IF_WIDE_WRITE);
+        b.Resume(EE_TEST_PC + 4);
+        EeIr::LowerOutput out;
+        std::string error;
+        if (!EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+            Check(false, "ir register pressure lowering");
+        else
+        {
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            u64 expected = 0;
+            for (u32 reg = 8; reg < 16; ++reg)
+            {
+                const u64 value = 0x1234567887654321ull * reg;
+                cpuRegs.GPR.r[reg].UD[0] = value;
+                expected += value;
+            }
+            reinterpret_cast<void (*)()>(out.entry)();
+            Check(out.register_values > 0 && out.spill_values > 0 && cpuRegs.GPR.r[31].UD[0] == expected &&
+                memRead64(EE_TEST_SCRATCH) == cpuRegs.GPR.r[8].UD[0],
+                "ir register pressure and helper preservation");
+        }
+    }
+
+    {
+        constexpr u64 edges[] = {0, 1, 0x7fffffffull, 0x80000000ull,
+            0x7fffffffffffffffull, 0x8000000000000000ull, 0xffffffffffffffffull};
+        for (u64 edge : edges)
+        {
+            u64 initial[32] = {};
+            initial[8] = edge;
+            initial[9] = 0x123456789abcdef0ull;
+            for (u32 shift : {0u, 1u, 31u, 32u, 63u, 64u, 127u})
+            {
+                initial[10] = shift;
+                std::vector<u32> code = {
+                    MipsI(0x19, 8, 11, 0xffff),
+                    MipsR(8, 9, 12, 0, 0x2d), MipsR(8, 9, 13, 0, 0x2f),
+                    MipsR(10, 8, 14, 0, 0x14), MipsR(10, 8, 15, 0, 0x16),
+                    MipsR(10, 8, 16, 0, 0x17),
+                    MipsR(0, 8, 17, shift & 31, 0x38),
+                    MipsR(0, 8, 18, shift & 31, 0x3a),
+                    MipsR(0, 8, 19, shift & 31, 0x3b),
+                    MipsR(0, 8, 20, shift & 31, 0x3c),
+                    MipsR(0, 8, 21, shift & 31, 0x3e),
+                    MipsR(0, 8, 22, shift & 31, 0x3f)
+                };
+                char name[96];
+                std::snprintf(name, sizeof(name), "ir 64-bit arithmetic edge=%016llx shift=%u",
+                    static_cast<unsigned long long>(edge), shift);
+                RunEEIrCase(name, code, initial);
+                const auto interp = RunEEProgram(false, code, false, initial);
+                const auto jit = RunEEProgram(true, code, false, initial);
+                CompareEE(interp, jit, name);
+            }
+        }
+        u64 initial[32] = {};
+        initial[8] = 0xfedcba9880000000ull;
+        initial[22] = EE_TEST_SCRATCH;
+        const std::vector<u32> code = {
+            MipsI(0x3f, 22, 8, 32), MipsI(0x37, 22, 9, 32),
+            MipsI(0x27, 22, 10, 32), MipsI(0x23, 22, 11, 32),
+            MipsI(0x37, 22, 0, 32), MipsI(0x3f, 22, 0, 40)
+        };
+        RunEEIrCase("ir ld sd lwu", code, initial);
+        const auto interp = RunEEProgram(false, code, false, initial);
+        const auto jit = RunEEProgram(true, code, false, initial);
+        CompareEE(interp, jit, "ir ld sd lwu integrated");
+    }
+
+    {
+        // Exercise the integrated IR tails as well as standalone lowering.
+        // Positive 64-bit values may have a negative low word, and values
+        // with identical low words are not necessarily equal.
+        u64 initial[32] = {};
+        initial[8] = 0x0000000180000000ull;
+        initial[9] = 0xffffffff80000000ull;
+        for (u32 op : {0x04u, 0x05u, 0x06u, 0x07u, 0x14u, 0x15u, 0x16u, 0x17u})
+        {
+            std::vector<u32> code = {
+                MipsI(op, 8, (op == 4 || op == 5 || op == 0x14 || op == 0x15) ? 9 : 0, 3),
+                MipsI(9, 0, 10, 7),  // delay slot, annulled for untaken likely
+                MipsI(9, 0, 11, 9),  // fallthrough marker
+                0,
+                MipsI(9, 0, 12, 11)  // common continuation
+            };
+            char name[80];
+            std::snprintf(name, sizeof(name), "ir wide branch %02x integrated", op);
+            const auto interp = RunEEProgram(false, code, true, initial);
+            const auto jit = RunEEProgram(true, code, true, initial);
+            CompareEE(interp, jit, name);
+        }
+        for (u32 rt : {0u, 1u, 2u, 3u, 0x10u, 0x11u, 0x12u, 0x13u})
+        {
+            std::vector<u32> code = {
+                MipsI(1, 8, rt, 3), MipsI(9, 0, 10, 7),
+                MipsI(9, 0, 11, 9), 0, MipsI(9, 0, 12, 11)
+            };
+            char name[80];
+            std::snprintf(name, sizeof(name), "ir wide regimm %02x integrated", rt);
+            const auto interp = RunEEProgram(false, code, true, initial);
+            const auto jit = RunEEProgram(true, code, true, initial);
+            CompareEE(interp, jit, name);
+        }
+        initial[8] = EE_TEST_PC + 16;
+        initial[31] = 0x12345678abcdef00ull;
+        const std::vector<u32> code = {
+            MipsR(8, 0, 0, 0, 9), MipsI(9, 0, 10, 7),
+            MipsI(9, 0, 11, 9), 0, MipsI(9, 0, 12, 11)
+        };
+        const auto interp = RunEEProgram(false, code, true, initial);
+        const auto jit = RunEEProgram(true, code, true, initial);
+        CompareEE(interp, jit, "ir jalr zero discards link integrated");
+    }
+
+    {
+        // Equal low words but different high words must survive all 64-bit
+        // operations; a high-only condition is nonzero for MOVZ/MOVN.
+        u64 initial[32] = {};
+        initial[8] = 0x1234567880000000ull;
+        initial[9] = 0x8765432180000000ull;
+        initial[10] = 0x0000000100000000ull;
+        initial[11] = 0xffffffff00000000ull;
+        RunEEIrCase("ir wide logic and moves", {
+            MipsR(8, 9, 12, 0, 0x24), MipsR(8, 9, 13, 0, 0x25),
+            MipsR(8, 9, 14, 0, 0x26), MipsR(8, 9, 15, 0, 0x27),
+            MipsI(0x0c, 8, 16, 0xffff), MipsI(0x0d, 8, 17, 0x1234),
+            MipsI(0x0e, 9, 18, 0xffff),
+            MipsR(8, 10, 19, 0, 0x0a), MipsR(9, 10, 20, 0, 0x0b),
+            MipsR(8, 0, 21, 0, 0x0a), MipsR(9, 0, 22, 0, 0x0b),
+            MipsR(8, 9, 23, 0, 0x2a), MipsR(8, 9, 24, 0, 0x2b),
+            MipsI(0x0a, 8, 25, 0), MipsI(0x0b, 8, 26, 0xffff),
+            MipsR(8, 0, 0, 0, 0x11), MipsR(9, 0, 0, 0, 0x13),
+            MipsR(0, 0, 27, 0, 0x10), MipsR(0, 0, 28, 0, 0x12)
+        }, initial);
+    }
+
+    {
+        auto code = EEValueSetup();
+        code.push_back(MipsR(8, 16, 8, 0, 0x21));  // addu t0, t0, s0
+        code.push_back(MipsR(9, 11, 10, 0, 0x23)); // subu t2, t1, t3
+        code.push_back(MipsR(10, 13, 12, 0, 0x24)); // and t4, t2, t5
+        code.push_back(MipsR(12, 17, 14, 0, 0x25)); // or t6, t4, s1
+        code.push_back(MipsR(17, 8, 16, 0, 0x26)); // xor s0, s1, t0
+        code.push_back(MipsR(16, 10, 17, 0, 0x27)); // nor s1, s0, t2
+        code.push_back(MipsR(8, 9, 15, 0, 0x2a));  // slt t7, t0, t1
+        code.push_back(MipsR(9, 8, 15, 0, 0x2b));  // sltu t7, t1, t0
+        code.push_back(MipsR(9, 0, 8, 0, 0x0a));   // movz t0, t1, zero
+        code.push_back(MipsR(11, 13, 10, 0, 0x0b)); // movn t2, t3, t5
+        RunEEIrCase("ir alu_logic", code);
+    }
+
+    {
+        auto code = EEValueSetup();
+        code.push_back(MipsI(0x09, 8, 15, 0xfffb));  // addiu t7, t0, -5
+        code.push_back(MipsI(0x09, 15, 15, 0x1234)); // addiu t7, t7, 0x1234
+        code.push_back(MipsI(0x0a, 8, 18, 0));       // slti s2, t0, 0
+        code.push_back(MipsI(0x0b, 11, 19, 0xffff)); // sltiu s3, t3, 0xffff
+        code.push_back(MipsI(0x0c, 9, 20, 0xff00));  // andi s4, t1, 0xff00
+        code.push_back(MipsI(0x0d, 10, 21, 0x8000)); // ori s5, t2, 0x8000
+        code.push_back(MipsI(0x0e, 12, 22, 0xffff)); // xori s6, t4, 0xffff
+        code.push_back(MipsI(0x0f, 0, 23, 0xdead));  // lui s7, 0xdead
+        RunEEIrCase("ir immediates", code);
+    }
+
+    {
+        auto code = EEValueSetup();
+        code.push_back(MipsR(0, 8, 15, 3, 0x00));  // sll t7, t0, 3
+        code.push_back(MipsR(0, 9, 15, 5, 0x02));  // srl t7, t1, 5
+        code.push_back(MipsR(0, 9, 15, 4, 0x03));  // sra t7, t1, 4
+        code.push_back(MipsR(13, 8, 15, 0, 0x04)); // sllv t7, t0, t5
+        code.push_back(MipsR(13, 9, 15, 0, 0x06)); // srlv t7, t1, t5
+        code.push_back(MipsR(13, 9, 15, 0, 0x07)); // srav t7, t1, t5
+        RunEEIrCase("ir shifts", code);
+    }
+
+    {
+        auto code = EEValueSetup();
+        code.push_back(MipsR(8, 9, 0, 0, 0x18));   // mult t0, t1
+        code.push_back(MipsR(0, 0, 16, 0, 0x12));  // mflo s0
+        code.push_back(MipsR(0, 0, 17, 0, 0x10));  // mfhi s1
+        code.push_back(MipsR(10, 11, 0, 0, 0x19)); // multu t2, t3
+        code.push_back(MipsR(0, 0, 18, 0, 0x12));  // mflo s2
+        code.push_back(MipsR(0, 0, 19, 0, 0x10));  // mfhi s3
+        code.push_back(MipsR(9, 13, 0, 0, 0x1a));  // div t1, t5
+        code.push_back(MipsR(0, 0, 20, 0, 0x12));  // mflo s4
+        code.push_back(MipsR(0, 0, 21, 0, 0x10));  // mfhi s5
+        code.push_back(MipsR(9, 0, 0, 0, 0x1a));   // div t1, zero
+        code.push_back(MipsR(0, 0, 22, 0, 0x12));  // mflo s6
+        code.push_back(MipsR(0, 0, 23, 0, 0x10));  // mfhi s7
+        code.push_back(MipsR(10, 11, 0, 0, 0x1b)); // divu t2, t3
+        code.push_back(MipsR(0, 0, 15, 0, 0x12));  // mflo t7
+        code.push_back(MipsR(0, 0, 8, 0, 0x10));   // mfhi t0
+        code.push_back(MipsI(0x0f, 0, 15, 0x8000)); // lui t7, 0x8000
+        code.push_back(MipsR(15, 11, 0, 0, 0x1a)); // div t7, t3 (-1)
+        code.push_back(MipsR(0, 0, 16, 0, 0x12));  // mflo s0
+        code.push_back(MipsR(0, 0, 17, 0, 0x10));  // mfhi s1
+        RunEEIrCase("ir multdiv", code);
+    }
+
+    {
+        // R5900 mult/multu also write LO into Rd when Rd is nonzero.
+        auto code = EEValueSetup();
+        code.push_back(MipsR(8, 9, 18, 0, 0x18));   // mult s2, t0, t1
+        code.push_back(MipsR(10, 11, 19, 0, 0x19)); // multu s3, t2, t3
+        code.push_back(MipsR(0, 0, 16, 0, 0x12));   // mflo s0
+        code.push_back(MipsR(0, 0, 17, 0, 0x10));   // mfhi s1
+        RunEEIrCase("ir mult_rd", code);
+    }
+
+    {
+        // Internal control flow through real block labels:
+        // t1 = (t0 == 0) ? 5 : 7.
+        ir::Function fn;
+        fn.guest_entry = EE_TEST_PC;
+        ir::Builder b(fn);
+        const u32 b1 = b.CreateBlock(EE_TEST_PC);
+        const u32 t0 = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+        const u32 zero = b.ConstI32(0);
+        const u32 cond = b.Emit2(ir::Op::CmpEq, ir::Type::I32, t0, zero);
+        const u32 b2 = b.CreateBlock(EE_TEST_PC + 8);
+        const u32 b3 = b.CreateBlock(EE_TEST_PC + 12);
+        b.SetBlock(b1);
+        b.Branch(cond, b2, b3);
+        b.SetBlock(b2);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstI32(5)}, 9);
+        b.Resume(EE_TEST_PC + 12);
+        b.SetBlock(b3);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstI32(7)}, 9);
+        b.Resume(EE_TEST_PC + 12);
+
+        EeIr::LowerOutput out;
+        std::string error;
+        if (!EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+        {
+            std::printf("EEIR control flow lower failed: %s\n", error.c_str());
+            Check(false, "ir control flow");
+        }
+        else
+        {
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            const bool taken = (cpuRegs.GPR.r[9].UD[0] == 5);
+
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            cpuRegs.GPR.r[8].UD[0] = 1;
+            reinterpret_cast<void (*)()>(out.entry)();
+            const bool not_taken = (cpuRegs.GPR.r[9].UD[0] == 7);
+
+            Check(taken && not_taken, "ir control flow");
+        }
+    }
+
+    {
+        auto code = EEScratchSetup();
+        code.push_back(MipsI(0x23, 22, 12, 32)); // lw t4, 32(s6)
+        code.push_back(MipsI(0x20, 22, 13, 32)); // lb t5, 32(s6)
+        code.push_back(MipsI(0x24, 22, 14, 35)); // lbu t6, 35(s6)
+        code.push_back(MipsI(0x21, 22, 15, 32)); // lh t7, 32(s6)
+        code.push_back(MipsI(0x29, 22, 10, 40)); // sh t2, 40(s6)
+        code.push_back(MipsI(0x25, 22, 16, 40)); // lhu s0, 40(s6)
+        code.push_back(MipsI(0x28, 22, 11, 44)); // sb t3, 44(s6)
+        code.push_back(MipsI(0x24, 22, 17, 44)); // lbu s1, 44(s6)
+        code.push_back(MipsI(0x20, 22, 18, 44)); // lb s2, 44(s6)
+        code.push_back(MipsI(0x23, 22, 19, 40)); // lw s3, 40(s6)
+        RunEEIrCase("ir memory", code);
+    }
+    std::printf("EEIR optimizer code_bytes baseline=%llu optimized=%llu frame_bytes baseline=%llu optimized=%llu\n",
+        static_cast<unsigned long long>(eeir_baseline_bytes),
+        static_cast<unsigned long long>(eeir_optimized_bytes),
+        static_cast<unsigned long long>(eeir_baseline_frames),
+        static_cast<unsigned long long>(eeir_optimized_frames));
+    Check(eeir_optimized_bytes < eeir_baseline_bytes && eeir_optimized_frames < eeir_baseline_frames,
+        "ir optimizer reduces emitted code and spill frames");
+
+}
+
+void EEGameCodeTests()
+{
+    // Differential test over real game code: reads an EE RAM dump pushed to
+    // /data/local/tmp/eeMemory.bin, then executes guest control flow with a
+    // lockstep driver - IR blocks where supported, interpreter otherwise - and
+    // compares against a pure interpreter run.
+    FILE* f = std::fopen("/data/local/tmp/eeMemory.bin", "rb");
+    if (!f)
+    {
+        std::printf("EEGAME eeMemory.bin not present, skipping\n");
+        return;
+    }
+
+    constexpr u32 kImageSize = 32 * 1024 * 1024;
+    std::vector<u8> image(kImageSize);
+    std::fread(image.data(), 1, image.size(), f);
+    std::fclose(f);
+
+    auto reset_memory = [&image]() { std::memcpy(PSM(0), image.data(), image.size()); };
+    auto reset_cpu = [](u32 pc) {
+        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+        std::memset(&fpuRegs, 0, sizeof(fpuRegs));
+        cpuRegs.pc = pc;
+        cpuRegs.nextEventCycle = 0x7fffffffu;
+        EEsCycle = 0;
+        EEoCycle = 0;
+        Cpu = &intCpu;
+        intCpu.Reset();
+    };
+
+    // Step the interpreter (from the current globals) until it reaches the
+    // target PC. Starting from the exact pre-block state avoids matching a
+    // different occurrence of the same PC.
+    // Executing outside RAM means the wandering run reached data or hardware
+    // registers; stop before the emulator asserts on a bogus MMIO access.
+    auto pc_in_executable_ram = [](u32 pc) {
+        const u32 phys = pc & 0x1fffffffu;
+        if (pc >= 0x80000000u && pc < 0xa0000000u)
+            return phys < 0x02000000u;
+        if (pc >= 0xa0000000u && pc < 0xc0000000u)
+            return phys < 0x02000000u;
+        if (pc < 0x02000000u)
+            return true;
+        if (pc >= 0x70000000u && pc < 0x70004000u)
+            return true;
+        return false;
+    };
+
+    auto step_interp_until = [&](u32 target_pc, u32 max_steps, u32 min_steps) -> EESnapshot {
+        u32 steps = 0;
+        do
+        {
+            EmuCoreXOracleEESteps(1);
+            ++steps;
+        } while ((steps < min_steps || cpuRegs.pc != target_pc) &&
+            steps < max_steps && pc_in_executable_ram(cpuRegs.pc));
+        EESnapshot out;
+        CaptureEE(out);
+        return out;
+    };
+
+    u32 last_end = 0;
+    bool last_used_ir = false;
+    bool last_faulted = false;
+    std::string last_error;
+    ir::Function last_fn;
+
+    auto ir_step_once = [&]() -> u32 {
+        const u32 block_pc = cpuRegs.pc;
+        ir::Function fn;
+        u32 end = 0;
+        std::string error;
+        last_used_ir = false;
+        last_faulted = false;
+        last_error.clear();
+        if (EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(block_pc)), {block_pc, 64}, fn, &end, &error) &&
+            EeIr::CanLower(fn, false, &error))
+        {
+            bool has_trap = false;
+            for (const ir::Block& b : fn.blocks)
+                for (const ir::Inst& in : b.insts)
+                    has_trap |= (in.op == ir::Op::Trap || in.op == ir::Op::CheckEvents);
+
+            EeIr::LowerOutput out;
+            if (!has_trap &&
+                EeIr::LowerBlock(fn, {false, nullptr, true}, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+            {
+                g_eeir_exit_pc = 0;
+                g_eeir_exit_valid = 0;
+                const int raised = EmuCoreXOracleEEIRStep(reinterpret_cast<void (*)()>(out.entry));
+                last_end = end;
+                last_fn = fn;
+                if (raised)
+                {
+                    // Guest exception: cpuException already set CP0 and pc.
+                    last_used_ir = true;
+                    last_faulted = true;
+                    return 1;
+                }
+                if (g_eeir_exit_valid)
+                {
+                    const u32 block_steps = (end - block_pc) >> 2;
+                    cpuRegs.pc = g_eeir_exit_pc;
+                    last_used_ir = true;
+                    return block_steps;
+                }
+                if (cpuRegs.CP0.n.Status.val & 0x2)
+                {
+                    // Cancel jump: a fault aborted the block mid-way. The
+                    // oracle runs the IR helpers through the interpreter's
+                    // fault convention, so the resulting EPC differs from the
+                    // recompiler path by design; stop the run here.
+                    last_used_ir = true;
+                    last_faulted = true;
+                    return 1;
+                }
+            }
+        }
+        last_end = end;
+        last_error = error;
+        EmuCoreXOracleEESteps(1);
+        if (cpuRegs.CP0.n.Status.val & 0x2)
+            last_faulted = true;
+        return 1;
+    };
+
+    constexpr u32 kBase = 0x0017A000;
+    constexpr u32 kSize = 0x1000;
+    constexpr u32 kSteps = 200;
+
+    auto states_equal = [](const EESnapshot& a, const EESnapshot& b) {
+        return a.pc == b.pc && a.hi == b.hi && a.lo == b.lo &&
+               a.fcr31 == b.fcr31 && a.acc == b.acc && a.accflag == b.accflag &&
+               std::memcmp(a.gpr, b.gpr, sizeof(a.gpr)) == 0 &&
+               std::memcmp(a.cp0, b.cp0, sizeof(a.cp0)) == 0;
+    };
+    auto report_diff = [](const EESnapshot& a, const EESnapshot& b) {
+        if (a.pc != b.pc)
+            std::printf("  pc interp=%08x ir=%08x\n", b.pc, a.pc);
+        if (a.hi != b.hi)
+            std::printf("  hi interp=%016llx ir=%016llx\n",
+                static_cast<unsigned long long>(b.hi), static_cast<unsigned long long>(a.hi));
+        if (a.lo != b.lo)
+            std::printf("  lo interp=%016llx ir=%016llx\n",
+                static_cast<unsigned long long>(b.lo), static_cast<unsigned long long>(a.lo));
+        if (a.fcr31 != b.fcr31)
+            std::printf("  fcr31 interp=%08x ir=%08x\n", b.fcr31, a.fcr31);
+        if (a.acc != b.acc)
+            std::printf("  acc interp=%08x ir=%08x\n", b.acc, a.acc);
+        for (u32 r = 0; r < 32; ++r)
+        {
+            if (a.cp0[r] != b.cp0[r])
+                std::printf("  cp0[%u] interp=%08x ir=%08x\n", r, b.cp0[r], a.cp0[r]);
+        }
+        for (u32 r = 0; r < 32; ++r)
+        {
+            if (a.gpr[r] != b.gpr[r])
+                std::printf("  gpr[%u] interp=%016llx ir=%016llx\n", r,
+                    static_cast<unsigned long long>(b.gpr[r]),
+                    static_cast<unsigned long long>(a.gpr[r]));
+        }
+    };
+
+    struct BlockRec
+    {
+        u32 start_pc;
+        u32 exit_pc;
+        u32 n;
+        u32 end;
+        bool ir;
+        std::string err;
+        EESnapshot snap;
+    };
+
+    int tested = 0;
+    int failed = 0;
+    for (u32 start = kBase; start < kBase + kSize && failed == 0; start += 16)
+    {
+        // Phase 1: run the IR driver, recording the state at every block
+        // boundary.
+        std::vector<BlockRec> recs;
+        reset_memory();
+        reset_cpu(start);
+        u32 steps = 0;
+        u32 blocks = 0;
+        bool ir_truncated = false;
+        while (steps < kSteps && blocks++ < 256 && pc_in_executable_ram(cpuRegs.pc))
+        {
+            BlockRec rec;
+            rec.start_pc = cpuRegs.pc;
+            const u32 n = ir_step_once();
+            if (last_faulted)
+            {
+                ir_truncated = true;
+                break;
+            }
+            steps += n;
+            rec.exit_pc = cpuRegs.pc;
+            rec.n = n;
+            rec.end = last_end;
+            rec.ir = last_used_ir;
+            rec.err = last_error;
+            CaptureEE(rec.snap);
+            recs.push_back(rec);
+        }
+        std::vector<u8> ir_mem(kImageSize);
+        std::memcpy(ir_mem.data(), PSM(0), kImageSize);
+
+        // Phase 2: replay with the interpreter from the same start, checking
+        // the state at every recorded boundary.
+        reset_memory();
+        reset_cpu(start);
+        ++tested;
+        bool divergent = false;
+        bool replay_truncated = false;
+        for (const BlockRec& rec : recs)
+        {
+            // Taken branches execute their delay slot inside one interpreter
+            // step. An exit target can also occur earlier inside the block;
+            // reaching that address before the branch is not a block exit.
+            const u32 min_steps = rec.ir ? std::max(1u, rec.n - 1) : 1u;
+            const EESnapshot b = step_interp_until(rec.exit_pc, rec.n * 2 + 64, min_steps);
+            if (b.cp0[12] & 0x2 || b.pc != rec.exit_pc)
+            {
+                replay_truncated = true;
+                break;
+            }
+            if (!states_equal(rec.snap, b))
+            {
+                ++failed;
+                divergent = true;
+                std::printf("EEGAME divergent block pc=%08x steps=%u ir=%d end=%08x err=%s\n",
+                    rec.start_pc, rec.n, rec.ir ? 1 : 0, rec.end, rec.err.c_str());
+                report_diff(rec.snap, b);
+                std::printf("  words:");
+                for (u32 i = 0; i < rec.n && i < 64; ++i)
+                    std::printf(" %08x", reinterpret_cast<const u32*>(PSM(rec.start_pc))[i]);
+                std::printf("\n");
+                std::printf("  recs:\n");
+                for (size_t i = 0; i < recs.size() && i < 48; ++i)
+                {
+                    const BlockRec& r = recs[i];
+                    std::printf("    %2u %08x -> %08x n=%u ir=%d status=%08x epc=%08x\n",
+                        static_cast<unsigned>(i), r.start_pc, r.exit_pc, r.n, r.ir ? 1 : 0,
+                        r.snap.cp0[12], r.snap.cp0[14]);
+                }
+                break;
+            }
+        }
+
+        if (!divergent && !ir_truncated && !replay_truncated)
+        {
+            const u32* ir_words = reinterpret_cast<const u32*>(ir_mem.data());
+            const u32* in_words = reinterpret_cast<const u32*>(PSM(0));
+            for (u32 off = 0; off < kImageSize; off += 4)
+            {
+                if (ir_words[off >> 2] != in_words[off >> 2])
+                {
+                    ++failed;
+                    std::printf("EEGAME divergent memory at %08x interp=%08x ir=%08x start=%08x\n", off,
+                        in_words[off >> 2], ir_words[off >> 2], start);
+                    for (size_t i = 0; i < recs.size() && i < 48; ++i)
+                    {
+                        const BlockRec& r = recs[i];
+                        std::printf("    %2u %08x -> %08x n=%u ir=%d\n",
+                            static_cast<unsigned>(i), r.start_pc, r.exit_pc, r.n, r.ir ? 1 : 0);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    std::printf("EEGAME tested=%d failed=%d\n", tested, failed);
+    Check(failed == 0, "ee game code differential");
+}
+
 void EETests()
 {
     EmuCoreXOracleSetSkipEvents(1);
@@ -2272,6 +3117,8 @@ void EETests()
     EECoverageCop2Spec2();
     EECoverageMmi();
     EECoverageExceptions();
+    EEIrExecutionTests();
+    EEGameCodeTests();
 }
 
 void RunIOPCase(const char* name, const std::vector<u32>& code, s32 eeCycles = -1, bool forceGteInterpreter = false)

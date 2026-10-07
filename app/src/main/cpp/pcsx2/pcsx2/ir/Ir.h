@@ -131,9 +131,9 @@ namespace ir
 	X(WriteVi,      StateWrite,  1, 1, Void, false) \
 	X(ReadAcc,      StateRead,   0, 0, V4F32, false) \
 	X(WriteAcc,     StateWrite,  1, 1, Void, false) \
-	X(ReadHi,       StateRead,   0, 0, I32,  false) \
+	X(ReadHi,       StateRead,   0, 0, Any,  false) \
 	X(WriteHi,      StateWrite,  1, 1, Void, false) \
-	X(ReadLo,       StateRead,   0, 0, I32,  false) \
+	X(ReadLo,       StateRead,   0, 0, Any,  false) \
 	X(WriteLo,      StateWrite,  1, 1, Void, false) \
 	X(ReadFlags,    StateRead,   0, 0, Flags, false) \
 	X(WriteFlags,   StateWrite,  1, 1, Void, false) \
@@ -285,6 +285,9 @@ namespace ir
 		IF_FASTMEM = 0x0010, // lowering may use the fastmem path
 		IF_SIGN_EXTEND = 0x0020,
 		IF_EXACT = 0x0040, // cannot be replaced by a value-equivalent op
+		IF_DELAY_SLOT = 0x0080, // instruction occupies a branch delay slot
+		IF_WIDE_WRITE = 0x0100, // WriteGpr stores a full 64-bit value as-is
+		IF_ANNULLED_DELAY_SLOT = 0x0200, // Resume skips a branch-likely delay slot
 	};
 
 	// ------------------------------------------------------------------
@@ -348,6 +351,7 @@ namespace ir
 		// Guest PC attached to subsequent instructions until changed. When 0,
 		// instructions inherit the current block's start address.
 		void SetGuestPc(u32 pc) { m_pc = pc; }
+		void SetDelaySlot(bool delay_slot) { m_delay_slot = delay_slot; }
 		void SetBlockEnd(u32 guest_end);
 
 		u32 Emit(Op op, Type type, std::initializer_list<u32> args, u64 imm = 0, u16 aux = 0, u32 guest_pc = 0);
@@ -380,11 +384,18 @@ namespace ir
 		Function* m_fn;
 		u32 m_block = 0;
 		u32 m_pc = 0;
+		bool m_delay_slot = false;
 	};
 
 	// ------------------------------------------------------------------
 	// Verification and printing
 	// ------------------------------------------------------------------
+	// Value operands exclude control-flow block ids. Shared by optimizers and
+	// liveness analysis; the function must already have passed Verify.
+	u32 ValueOperandCount(const Inst& inst);
+	// Block-local copy propagation, integer constant folding and dead-value
+	// removal. Memory accesses, helpers and architectural writes stay ordered.
+	void OptimizeIntegerValues(Function& fn);
 	bool Verify(const Function& fn, std::string* error = nullptr);
 	void Dump(const Function& fn, std::string& out);
 	std::string Dump(const Function& fn);

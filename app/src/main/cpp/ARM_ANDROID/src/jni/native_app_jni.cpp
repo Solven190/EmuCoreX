@@ -751,6 +751,9 @@ extern "C" JNIEXPORT jint JNICALL Java_com_sbro_emucorex_core_NativeApp_convertI
 	return -1;
 }
 
+// Debug tooling entry points. JitProfiler and HangTrace only exist in debug
+// builds; the release build has no JNI surface for them at all.
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_startJitProfiler(JNIEnv*, jclass)
 {
 	JitProfiler::Start();
@@ -780,6 +783,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_isHa
 {
 	return HangTrace::IsActive() ? JNI_TRUE : JNI_FALSE;
 }
+#endif
 
 extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setNativeCrashLogFilePath(JNIEnv* env, jclass, jstring path)
 {

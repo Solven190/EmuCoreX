@@ -17,8 +17,15 @@
 #include "arm64/ee/BaseblockEx-arm64.h"
 #include "arm64/ee/iR5900-arm64.h"
 #include "arm64/ee/iR5900Analysis-arm64.h"
+#include "arm64/ee/EeIrLifter-arm64.h"
+#include "arm64/ee/EeIrLower-arm64.h"
 #include "JitProfiler.h"
 #include "HangTrace.h"
+
+#if defined(__ANDROID__)
+#include <android/log.h>
+#include <sys/system_properties.h>
+#endif
 
 #include "common/AlignedMalloc.h"
 #include "common/FastJmp.h"
@@ -2418,6 +2425,188 @@ static u8* recShortBlockLink_emit_oaknut(u32 next_pc, u32 scaled_cycles)
 	return link_patch;
 }
 
+// Enables the IR code path at runtime. The debug property is read once per
+// process so A/B runs only need `adb shell setprop debug.emucorex.ee_ir 1`.
+// The IR is still under development: it is compiled into debug builds only and
+// can never activate in a release build.
+static bool EeIrEnabled()
+{
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	static const bool s_enabled = []() {
+		char value[PROP_VALUE_MAX] = {};
+		const bool enabled = __system_property_get("debug.emucorex.ee_ir", value) > 0 && value[0] == '1';
+		__android_log_print(ANDROID_LOG_INFO, "EEIR", "enabled=%u property=debug.emucorex.ee_ir", enabled ? 1u : 0u);
+		return enabled;
+	}();
+	return s_enabled;
+#else
+	return false;
+#endif
+}
+
+// Debug aid: restrict the IR path to a physical PC range for bisection.
+static bool EeIrInRange(u32 phys)
+{
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	static const u32 s_min = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_min", value) > 0 ? static_cast<u32>(strtoul(value, nullptr, 16)) : 0u;
+	}();
+	static const u32 s_max = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_max", value) > 0 ? static_cast<u32>(strtoul(value, nullptr, 16)) : 0xffffffffu;
+	}();
+	static const bool s_logged = []() {
+		__android_log_print(ANDROID_LOG_INFO, "EEIR", "physical_pc_range=[%08x,%08x)", s_min, s_max);
+		return true;
+	}();
+	(void)s_logged;
+	return phys >= s_min && phys < s_max;
+#else
+	(void)phys;
+	return true;
+#endif
+}
+
+// Exit hooks for the inline IR body: reuse the legacy block tail so pc
+// storage, event tests and block linking behave exactly like a legacy block.
+static void EeIrGuestExitHook(void* ctx, u32 guest_pc, bool annulled_delay_slot)
+{
+	const u32 saved_cycles = s_nBlockCycles;
+	if (annulled_delay_slot)
+		s_nBlockCycles -= *static_cast<const u32*>(ctx);
+	SetBranchImm(guest_pc);
+	s_nBlockCycles = saved_cycles;
+}
+
+static void EeIrIndirectExitHook(void* ctx)
+{
+	// The target address arrives in W16.
+	g_branch = 1;
+	recBeginOaknutEmit();
+	oakStore32(oak::util::W16, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc))});
+	recEndOaknutEmit();
+	iFlushCall(FLUSH_EVERYTHING);
+	iBranchTest();
+}
+
+static void EeIrBeforeMemoryHook(void* ctx, u32 guest_pc, bool delay_slot)
+{
+	// Match the legacy VTLB emitters: cpuRegs.pc holds the faulting
+	// instruction address and IsDelaySlot marks delay-slot accesses, so a TLB
+	// exception reports the correct EPC/BD to the guest handler.
+	recBeginOaknutEmit();
+	oakAsm->MOV(OAK_WSCRATCH, guest_pc);
+	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc))});
+	oakAsm->MOV(OAK_WSCRATCH, delay_slot ? 1u : 0u);
+	oakStore32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
+	recEndOaknutEmit();
+}
+
+static void EeIrBeforeHelperHook(void* ctx)
+{
+	recFlushReccycle();
+}
+
+static void EeIrAfterHelperHook(void* ctx)
+{
+	recReloadReccycle();
+	// A successful access in a delay slot must not leave BD state behind
+	// for a later legacy instruction or an event-handler exception.
+	oakStore32(oak::util::WZR, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
+}
+
+// Compiles one guest block through the shared IR. Returns false when the block
+// needs the legacy recompiler (unsupported opcode, trap, different block
+// boundary, ...). Nothing is emitted before CanLower passes, so a false return
+// leaves the code buffer untouched.
+static bool TryCompileEeIrBlock(const u32 startpc)
+{
+	const u32 insts = (s_nEndBlock - startpc) >> 2;
+	if (insts == 0 || insts > 4096)
+		return false;
+	for (u32 guest_pc = startpc; guest_pc < s_nEndBlock; guest_pc += 4)
+	{
+		if (OpcodeFamilies::EEShouldInterpret(*reinterpret_cast<const u32*>(PSM(guest_pc))))
+			return false;
+	}
+
+	ir::Function fn;
+	u32 end = 0;
+	std::string error;
+	if (!EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(startpc)), {startpc, insts}, fn, &end, &error))
+		return false;
+
+	if (end != s_nEndBlock)
+		return false;
+
+	if (!EeIr::CanLower(fn, true, &error))
+		return false;
+
+	// Cycle accounting must match the legacy loop exactly.
+	u32 delay_cycles = 0;
+	for (u32 cycle_pc = startpc; cycle_pc < s_nEndBlock; cycle_pc += 4)
+	{
+		cpuRegs.code = *reinterpret_cast<const u32*>(PSM(cycle_pc));
+		const OPCODE& opcode = GetCurrentInstruction();
+		const u32 cycles = (cpuRegs.code == 0 ? 9 : opcode.cycles) * (2 - ((cpuRegs.CP0.n.Config >> 18) & 0x1));
+		s_nBlockCycles += cycles;
+		delay_cycles = cycles;
+	}
+
+	EeIr::LowerHooks hooks;
+	hooks.ctx = &delay_cycles;
+	hooks.guest_exit = &EeIrGuestExitHook;
+	hooks.indirect_exit = &EeIrIndirectExitHook;
+	hooks.before_memory = &EeIrBeforeMemoryHook;
+	hooks.before_helper = &EeIrBeforeHelperHook;
+	hooks.after_helper = &EeIrAfterHelperHook;
+
+	EeIr::LowerOutput out;
+	EeIr::LowerOptions options;
+	options.inline_body = true;
+	options.hooks = &hooks;
+#if defined(__ANDROID__)
+	static const bool allocate_registers = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_regalloc", value) == 0 || value[0] != '0';
+	}();
+	options.allocate_registers = allocate_registers;
+	static const bool optimize_ir = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_optimize", value) == 0 || value[0] != '0';
+	}();
+	options.optimize_ir = optimize_ir;
+#endif
+	if (!EeIr::LowerBlock(fn, options, nullptr, 0, &out, &error))
+	{
+		Console.Warning("EE IR: %s", error.c_str());
+		return false;
+	}
+#if defined(__ANDROID__)
+	// Process-local compilation counts prove that the enabled path is used,
+	// without instrumenting every execution of a hot guest block.
+	static u64 compiled_blocks = 0;
+	static u64 guest_instructions = 0;
+	static u64 native_bytes = 0;
+	++compiled_blocks;
+	guest_instructions += insts;
+	native_bytes += out.host_size;
+	if ((compiled_blocks <= 1024 && (compiled_blocks & (compiled_blocks - 1)) == 0) ||
+		(compiled_blocks % 4096) == 0)
+	{
+		__android_log_print(ANDROID_LOG_INFO, "EEIR",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u",
+			static_cast<unsigned long long>(compiled_blocks),
+			static_cast<unsigned long long>(guest_instructions),
+			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
+			options.optimize_ir ? 1u : 0u, out.register_values, out.spill_values, out.frame_size);
+	}
+#endif
+
+	return true;
+}
+
 static void recRecompile(const u32 startpc)
 {
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
@@ -2852,9 +3041,24 @@ StartRecomp:
 	{
 		// Finally: Generate ARM64 recompiled code!
 		g_pCurInstInfo = s_pInstCache;
-		while (!g_branch && pc < s_nEndBlock)
+		bool ir_compiled = false;
+		if (EeIrEnabled() && EeIrInRange(HWADDR(startpc)))
 		{
-			recompileNextInstruction(false, false); // For the love of recursion, batman!
+			ir_compiled = TryCompileEeIrBlock(startpc);
+			if (ir_compiled)
+			{
+				// The IR body already emitted every exit through the hooks.
+				pc = s_nEndBlock;
+				g_branch = 1;
+				willbranch3 = 0;
+			}
+		}
+		if (!ir_compiled)
+		{
+			while (!g_branch && pc < s_nEndBlock)
+			{
+				recompileNextInstruction(false, false); // For the love of recursion, batman!
+			}
 		}
 	}
 

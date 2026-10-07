@@ -4,6 +4,8 @@
 #include "ir/Ir.h"
 
 #include <cstring>
+#include <optional>
+#include <algorithm>
 
 namespace ir
 {
@@ -161,6 +163,8 @@ namespace ir
 		inst.type = type;
 		inst.imm = imm;
 		inst.aux = aux;
+		if (m_delay_slot)
+			inst.aux |= IF_DELAY_SLOT;
 		inst.guest_pc = guest_pc ? guest_pc : (m_pc ? m_pc : block.guest_start);
 		inst.num_args = static_cast<u8>(args.size());
 		u32 index = 0;
@@ -266,5 +270,133 @@ namespace ir
 	u32 Builder::Trap()
 	{
 		return Emit(Op::Trap, Type::Void, {});
+	}
+
+	u32 ValueOperandCount(const Inst& inst)
+	{
+		if (Info(inst.op).kind == OpKind::Control)
+			return (inst.op == Op::Branch || inst.op == Op::BranchIndirect) ? 1u : 0u;
+		return inst.arg_count();
+	}
+
+	namespace
+	{
+		bool RemovableValue(const Inst& inst)
+		{
+			if (!inst.value || !IsIntegerType(inst.type))
+				return false;
+			switch (inst.op)
+			{
+				case Op::ConstI32: case Op::ConstI64: case Op::Copy:
+				case Op::Add: case Op::Sub: case Op::Mul:
+				case Op::And: case Op::Or: case Op::Xor: case Op::Not: case Op::Neg:
+				case Op::Shl: case Op::ShrU: case Op::ShrS:
+				case Op::Sext8: case Op::Sext16: case Op::Zext8: case Op::Zext16:
+				case Op::Sext32: case Op::Zext32: case Op::Trunc32:
+				case Op::CmpEq: case Op::CmpNe: case Op::CmpLtS: case Op::CmpLtU:
+				case Op::CmpLeS: case Op::CmpLeU: case Op::CmpGtS: case Op::CmpGtU:
+				case Op::CmpGeS: case Op::CmpGeU: case Op::Select:
+				case Op::ReadGpr: case Op::ReadHi: case Op::ReadLo:
+					return true;
+				default: return false;
+			}
+		}
+
+		std::optional<u64> FoldInteger(const Function& fn, const Inst& inst,
+			const std::vector<std::optional<u64>>& constants)
+		{
+			if (!inst.value || !IsIntegerType(inst.type))
+				return std::nullopt;
+			if (inst.op == Op::ConstI32 || inst.op == Op::ConstI64)
+				return inst.imm;
+			for (u32 i = 0; i < inst.arg_count(); ++i)
+				if (!constants[inst.args[i]])
+					return std::nullopt;
+			if (!inst.arg_count())
+				return std::nullopt;
+			const u64 a = *constants[inst.args[0]];
+			const u64 b = inst.arg_count() > 1 ? *constants[inst.args[1]] : 0;
+			const u32 bits = fn.ValueType(inst.args[0]) == Type::I64 ? 64 : 32;
+			const u64 mask = bits == 64 ? ~u64(0) : 0xffffffffull;
+			const u32 shift = static_cast<u32>(b) & (bits - 1);
+			const auto signed_value = [&](u64 value) {
+				return bits == 64 ? static_cast<s64>(value) : static_cast<s64>(static_cast<s32>(value));
+			};
+			switch (inst.op)
+			{
+				case Op::Copy: return a;
+				case Op::Add: return a + b;
+				case Op::Sub: return a - b;
+				case Op::Mul: return a * b;
+				case Op::And: return a & b;
+				case Op::Or: return a | b;
+				case Op::Xor: return a ^ b;
+				case Op::Not: return ~a;
+				case Op::Neg: return u64(0) - a;
+				case Op::Shl: return a << shift;
+				case Op::ShrU: return (a & mask) >> shift;
+				case Op::ShrS: return static_cast<u64>(signed_value(a) >> shift);
+				case Op::Sext8: return static_cast<u64>(static_cast<s64>(static_cast<s8>(a)));
+				case Op::Sext16: return static_cast<u64>(static_cast<s64>(static_cast<s16>(a)));
+				case Op::Sext32: return static_cast<u64>(static_cast<s64>(static_cast<s32>(a)));
+				case Op::Zext8: return a & 0xff;
+				case Op::Zext16: return a & 0xffff;
+				case Op::Zext32: case Op::Trunc32: return a & 0xffffffffull;
+				case Op::CmpEq: return a == b;
+				case Op::CmpNe: return a != b;
+				case Op::CmpLtS: return signed_value(a) < signed_value(b);
+				case Op::CmpLtU: return a < b;
+				case Op::CmpLeS: return signed_value(a) <= signed_value(b);
+				case Op::CmpLeU: return a <= b;
+				case Op::CmpGtS: return signed_value(a) > signed_value(b);
+				case Op::CmpGtU: return a > b;
+				case Op::CmpGeS: return signed_value(a) >= signed_value(b);
+				case Op::CmpGeU: return a >= b;
+				case Op::Select: return a ? b : *constants[inst.args[2]];
+				default: return std::nullopt;
+			}
+		}
+	}
+
+	void OptimizeIntegerValues(Function& fn)
+	{
+		for (Block& block : fn.blocks)
+		{
+			std::vector<u32> aliases(fn.value_types.size(), 0);
+			std::vector<std::optional<u64>> constants(fn.value_types.size());
+			for (Inst& inst : block.insts)
+			{
+				for (u32 i = 0; i < ValueOperandCount(inst); ++i)
+					while (aliases[inst.args[i]])
+						inst.args[i] = aliases[inst.args[i]];
+				if (inst.op == Op::Copy)
+					aliases[inst.value] = inst.args[0];
+				if (auto folded = FoldInteger(fn, inst, constants))
+				{
+					const u64 value = inst.type == Type::I32 ? static_cast<u32>(*folded) : *folded;
+					constants[inst.value] = value;
+					inst.op = inst.type == Type::I32 ? Op::ConstI32 : Op::ConstI64;
+					inst.imm = value;
+					inst.num_args = 0;
+				}
+			}
+			std::vector<bool> live(fn.value_types.size(), false);
+			for (auto it = block.insts.rbegin(); it != block.insts.rend(); ++it)
+			{
+				if (RemovableValue(*it) && !live[it->value])
+				{
+					it->op = Op::Nop;
+					it->type = Type::Void;
+					it->value = 0;
+					it->num_args = 0;
+					continue;
+				}
+				for (u32 i = 0; i < ValueOperandCount(*it); ++i)
+					live[it->args[i]] = true;
+			}
+			block.insts.erase(std::remove_if(block.insts.begin(), block.insts.end(), [](const Inst& inst) {
+				return inst.op == Op::Nop;
+			}), block.insts.end());
+		}
 	}
 } // namespace ir

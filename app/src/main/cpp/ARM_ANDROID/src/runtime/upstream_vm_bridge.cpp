@@ -12,6 +12,8 @@
 #include "pcsx2/MTVU.h"
 #include "pcsx2/VUmicro.h"
 #include "pcsx2/PerformanceMetrics.h"
+#include "pcsx2/JitProfiler.h"
+#include "pcsx2/HangTrace.h"
 #include "pcsx2/R3000A.h"
 #include "pcsx2/R5900.h"
 #include "pcsx2/VMManager.h"
@@ -25,6 +27,9 @@
 
 #include <SDL3/SDL_hints.h>
 #include <android/log.h>
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+#endif
 
 #include <algorithm>
 #include <chrono>
@@ -543,6 +548,27 @@ bool RunUpstreamVm(const VmLaunchConfig& config, VmStartupCallback startup_callb
 	if (startup_callback)
 		startup_callback(startup_userdata, true);
 	VMManager::SetState(VMState::Running);
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	// Debug-only: profile every VM session automatically so perf runs do not need
+	// any UI interaction. PumpMessagesOnCPUThread() first registers this thread as
+	// the CPU thread, which makes the profiler's Host::RunOnCPUThread tasks run
+	// inline instead of waiting on a queue that this thread pumps.
+	if (!JitProfiler::IsActive())
+	{
+		Host::PumpMessagesOnCPUThread();
+		JitProfiler::Start();
+		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "JIT profiler auto-started for this VM session");
+	}
+	if (!HangTrace::IsActive())
+	{
+		char trace_value[PROP_VALUE_MAX] = {};
+		if (__system_property_get("debug.emucorex.hang_trace", trace_value) > 0 && trace_value[0] == '1')
+		{
+			HangTrace::Start();
+			__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Hang trace auto-started for this VM session");
+		}
+	}
+#endif
 	QueryAndNotifyAchievementsState();
 	for (;;)
 	{
@@ -564,6 +590,20 @@ bool RunUpstreamVm(const VmLaunchConfig& config, VmStartupCallback startup_callb
 		RecordVmExecutePhaseForCrashDiagnostics("execute-returned");
 	}
 	RecordVmExecutePhaseForCrashDiagnostics("shutdown");
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	// Write the perf report before the VM tears down so disc serial/CRC and the
+	// compiled block tables are still valid. Stop() runs inline on this thread.
+	if (JitProfiler::IsActive())
+	{
+		JitProfiler::Stop();
+		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "JIT profiler report written to jit_profile.txt");
+	}
+	if (HangTrace::IsActive())
+	{
+		HangTrace::Stop();
+		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Hang trace report written to hang_trace.txt");
+	}
+#endif
 	VMManager::Shutdown(false);
 	PerformanceMetrics::SetCPUThread(Threading::ThreadHandle());
 	PerformanceMetrics::SetGSSWThreadCount(0);

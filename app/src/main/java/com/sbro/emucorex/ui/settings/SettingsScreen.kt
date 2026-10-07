@@ -1217,6 +1217,7 @@ private fun SettingsContent(
     val gamepadDeviceAssignments by GamepadManager.gamepadDeviceAssignmentsState.collectAsState()
     val ignoredGamepadDevices by GamepadManager.ignoredGamepadDevicesState.collectAsState()
     val floatingQuickActionsEnabled by viewModel.floatingQuickActionsEnabled.collectAsState()
+    val showPatchMessages by viewModel.showPatchMessages.collectAsState()
     val gyroStickTarget by viewModel.gyroStickTarget.collectAsState()
     val lightGunAim by viewModel.lightGunAim.collectAsState()
     val lightGunCursorEnabled by viewModel.lightGunCursorEnabled.collectAsState()
@@ -1359,6 +1360,15 @@ private fun SettingsContent(
                             onResetToDefault = { viewModel.setRespectDisplayCutout(defaults.respectDisplayCutout) }
                         )
                         ToggleItem(
+                            icon = Icons.Rounded.Info,
+                            title = stringResource(R.string.settings_show_patch_messages),
+                            subtitle = stringResource(R.string.settings_show_patch_messages_desc),
+                            checked = showPatchMessages,
+                            onCheckedChange = viewModel::setShowPatchMessages,
+                            helpText = stringResource(R.string.settings_help_show_patch_messages),
+                            onResetToDefault = { viewModel.setShowPatchMessages(false) }
+                        )
+                        ToggleItem(
                             icon = Icons.AutoMirrored.Rounded.ExitToApp,
                             title = stringResource(R.string.settings_back_button_exits_game),
                             subtitle = stringResource(R.string.settings_back_button_exits_game_desc),
@@ -1402,15 +1412,6 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setShowHomeSearch,
                             helpText = stringResource(R.string.settings_help_home_search),
                             onResetToDefault = { viewModel.setShowHomeSearch(defaults.showHomeSearch) }
-                        )
-                        ToggleItem(
-                            icon = Icons.Rounded.SettingsSuggest,
-                            title = stringResource(R.string.settings_show_debug_options),
-                            subtitle = stringResource(R.string.settings_show_debug_options_desc),
-                            checked = uiState.showDebugOptions,
-                            onCheckedChange = viewModel::setShowDebugOptions,
-                            helpText = stringResource(R.string.settings_help_debug_options),
-                            onResetToDefault = { viewModel.setShowDebugOptions(defaults.showDebugOptions) }
                         )
                         ToggleItem(
                             icon = Icons.Rounded.Language,
@@ -1990,8 +1991,8 @@ private fun SettingsContent(
                         ChoiceSection(
                             title = stringResource(R.string.settings_stick_toggle_target),
                             options = listOf(
-                                AppPreferences.STICK_TOGGLE_RIGHT to stringResource(R.string.settings_stick_toggle_right),
-                                AppPreferences.STICK_TOGGLE_LEFT to stringResource(R.string.settings_stick_toggle_left)
+                                AppPreferences.STICK_TOGGLE_LEFT to stringResource(R.string.settings_stick_toggle_left),
+                                AppPreferences.STICK_TOGGLE_RIGHT to stringResource(R.string.settings_stick_toggle_right)
                             ),
                             selectedValue = uiState.stickToggleTarget,
                             onSelect = viewModel::setStickToggleTarget,
@@ -7303,6 +7304,7 @@ private fun nativeScalingOptions(): List<Pair<Int, String>> = listOf(
 
 @Composable
 private fun fpsOverlayMetricOptions(): List<Pair<Int, String>> = listOf(
+    PerformanceOverlayMetrics.VERSION to stringResource(R.string.settings_fps_metric_version),
     PerformanceOverlayMetrics.FPS to stringResource(R.string.settings_fps_metric_fps),
     PerformanceOverlayMetrics.VPS to stringResource(R.string.settings_fps_metric_vps),
     PerformanceOverlayMetrics.SPEED to stringResource(R.string.settings_fps_metric_speed),

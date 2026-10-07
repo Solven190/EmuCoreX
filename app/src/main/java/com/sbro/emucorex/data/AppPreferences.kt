@@ -120,7 +120,6 @@ data class SettingsSnapshot(
     val respectDisplayCutout: Boolean = false,
     val showRecentGames: Boolean = true,
     val showHomeSearch: Boolean = false,
-    val showDebugOptions: Boolean = false,
     val preferEnglishGameTitles: Boolean = false,
     val biosPath: String? = null,
     val biosValid: Boolean = false,
@@ -360,7 +359,8 @@ class AppPreferences(private val context: Context) {
             "audioFastForwardVolume", "audioMuted", "audioInterpolation", "audioSyncMode",
             "audioLightweightSpu2", "audioBackend", "audioBufferMs", "audioOutputLatencyMs",
             "audioMinimalOutputLatency", "autoProgressiveScan", "padVibration",
-            "padVibrationStrength", "padVibrationFallback", "showFps", "fpsOverlayMode",
+            "padVibrationStrength", "padVibrationFallback", "showFps", "showPatchMessages",
+            "fpsOverlayMode",
             "fpsOverlayCorner", "fpsOverlayScale", "fpsOverlayMetrics", "confirmSaveLoadActions",
             "backButtonExitsGame", "compactControls", "keepScreenOn", "overlayScale",
             "overlayOpacity", "overlayShow", "racingMode", "stickyButtons", "touchscreenRightStick",
@@ -655,6 +655,7 @@ class AppPreferences(private val context: Context) {
         private val PAD_VIBRATION_STRENGTH = intPreferencesKey("pad_vibration_strength")
         private val PAD_VIBRATION_FALLBACK = booleanPreferencesKey("pad_vibration_fallback")
         private val SHOW_FPS = booleanPreferencesKey("show_fps")
+        private val SHOW_PATCH_MESSAGES = booleanPreferencesKey("show_patch_messages")
         private val FPS_OVERLAY_MODE = intPreferencesKey("fps_overlay_mode")
         private val FPS_OVERLAY_CORNER = intPreferencesKey("fps_overlay_corner")
         private val FPS_OVERLAY_SCALE = intPreferencesKey("fps_overlay_scale")
@@ -666,7 +667,6 @@ class AppPreferences(private val context: Context) {
         private val RESPECT_DISPLAY_CUTOUT = booleanPreferencesKey("respect_display_cutout")
         private val SHOW_RECENT_GAMES = booleanPreferencesKey("show_recent_games")
         private val SHOW_HOME_SEARCH = booleanPreferencesKey("show_home_search")
-        private val SHOW_DEBUG_OPTIONS = booleanPreferencesKey("show_debug_options")
         private val PREFER_ENGLISH_GAME_TITLES = booleanPreferencesKey("prefer_english_game_titles")
         private val GAME_SERIAL_EDITING_ENABLED = booleanPreferencesKey("game_serial_editing_enabled")
         private val GAME_SERIAL_OVERRIDES = stringPreferencesKey("game_serial_overrides")
@@ -1876,7 +1876,6 @@ class AppPreferences(private val context: Context) {
                 respectDisplayCutout = prefs[RESPECT_DISPLAY_CUTOUT] ?: false,
                 showRecentGames = prefs[SHOW_RECENT_GAMES] ?: true,
                 showHomeSearch = prefs[SHOW_HOME_SEARCH] ?: false,
-                showDebugOptions = prefs[SHOW_DEBUG_OPTIONS] ?: false,
                 preferEnglishGameTitles = prefs[PREFER_ENGLISH_GAME_TITLES] ?: false,
                 biosPath = biosPath,
                 gamePath = readGamePaths(prefs).firstOrNull(),
@@ -2391,6 +2390,14 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[SHOW_FPS] = enabled }
     }
 
+    val showPatchMessages: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SHOW_PATCH_MESSAGES] ?: false
+    }
+
+    suspend fun setShowPatchMessages(enabled: Boolean) {
+        context.dataStore.edit { it[SHOW_PATCH_MESSAGES] = enabled }
+    }
+
     val fpsOverlayMode: Flow<Int> = context.dataStore.data.map { prefs ->
         prefs[FPS_OVERLAY_MODE] ?: FPS_OVERLAY_MODE_DETAILED
     }
@@ -2500,14 +2507,6 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setShowHomeSearch(enabled: Boolean) {
         context.dataStore.edit { it[SHOW_HOME_SEARCH] = enabled }
-    }
-
-    val showDebugOptions: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[SHOW_DEBUG_OPTIONS] ?: false
-    }
-
-    suspend fun setShowDebugOptions(enabled: Boolean) {
-        context.dataStore.edit { it[SHOW_DEBUG_OPTIONS] = enabled }
     }
 
     val preferEnglishGameTitles: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -4248,7 +4247,6 @@ class AppPreferences(private val context: Context) {
             put("respectDisplayCutout", prefs[RESPECT_DISPLAY_CUTOUT] ?: false)
             put("showRecentGames", prefs[SHOW_RECENT_GAMES] ?: true)
             put("showHomeSearch", prefs[SHOW_HOME_SEARCH] ?: false)
-            put("showDebugOptions", prefs[SHOW_DEBUG_OPTIONS] ?: false)
             put("preferEnglishGameTitles", prefs[PREFER_ENGLISH_GAME_TITLES] ?: false)
             put("gameSerialEditingEnabled", prefs[GAME_SERIAL_EDITING_ENABLED] ?: false)
             put(
@@ -4695,7 +4693,6 @@ class AppPreferences(private val context: Context) {
             prefs[RESPECT_DISPLAY_CUTOUT] = json.optBoolean("respectDisplayCutout", false)
             prefs[SHOW_RECENT_GAMES] = json.optBoolean("showRecentGames", true)
             prefs[SHOW_HOME_SEARCH] = json.optBoolean("showHomeSearch", false)
-            prefs[SHOW_DEBUG_OPTIONS] = json.optBoolean("showDebugOptions", false)
             prefs[PREFER_ENGLISH_GAME_TITLES] = json.optBoolean("preferEnglishGameTitles", false)
             prefs[GAME_SERIAL_EDITING_ENABLED] = json.optBoolean("gameSerialEditingEnabled", false)
             json.optJSONObject("gameSerialOverrides")?.let { overrides ->

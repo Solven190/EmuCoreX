@@ -392,12 +392,6 @@ object NativeApp {
     @JvmStatic external fun listMemoryCards(): String?
     @JvmStatic external fun createMemoryCard(name: String, type: Int, fileType: Int): Boolean
     @JvmStatic external fun convertIsoToChd(inputIsoPath: String): Int
-    @JvmStatic external fun startJitProfiler()
-    @JvmStatic external fun stopJitProfiler()
-    @JvmStatic external fun isJitProfilerActive(): Boolean
-    @JvmStatic external fun startHangTrace()
-    @JvmStatic external fun stopHangTrace()
-    @JvmStatic external fun isHangTraceActive(): Boolean
     @JvmStatic external fun setNativeCrashLogFilePath(path: String)
 
     @JvmStatic

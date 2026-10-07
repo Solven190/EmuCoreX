@@ -78,6 +78,11 @@
     <string name="emulation_load_failed">無法載入即時存檔。</string>
     <string name="emulation_fps">FPS: %s</string>
     <string name="emulation_bios_missing">請先新增 BIOS 檔案。</string>
+    <string name="emulation_patches_title">补丁已启用</string>
+    <string name="emulation_patches_widescreen">宽屏补丁</string>
+    <string name="emulation_patches_no_interlacing">无隔行补丁</string>
+    <string name="emulation_patches_cheats">金手指</string>
+    <string name="emulation_patches_user_count">用户补丁：%1$d</string>
     <string name="emulation_launch_failed">無法開啟此遊戲。</string>
     <string name="emulation_launch_path_error">無法開啟此檔案。</string>
     <string name="emulation_show_controls">顯示控制</string>
@@ -728,6 +733,13 @@
     <string name="settings_respect_display_cutout">避开摄像头挖孔</string>
     <string name="settings_respect_display_cutout_desc">让游戏画面避开摄像头挖孔区域。</string>
     <string name="settings_help_respect_display_cutout">在模拟画面上添加边距，避免其绘制到摄像头挖孔（刘海或打孔）下方。横向时挖孔遮挡画面会很有用。仅影响模拟画面，应用其他界面已适配挖孔。</string>
+    <string name="settings_show_patch_messages">显示补丁消息</string>
+    <string name="settings_show_patch_messages_desc">应用游戏补丁时显示简短消息。</string>
+    <string name="controls_editor_reset_selected">重置所选元素</string>
+    <string name="controls_editor_show_grid">显示网格</string>
+    <string name="controls_editor_snap_grid">对齐网格</string>
+    <string name="controls_editor_group_scale_value">组缩放 %1$d%%</string>
+    <string name="settings_help_show_patch_messages">游戏启动时显示简短提示，列出已启用的补丁选项和找到的用户补丁数量。</string>
     <string name="settings_help_pad_vibration">允许支持的游戏触发控制器震动。它在赛车、格斗和高冲击力的游戏中增加了有用的反馈，但它会更快地耗尽电池，并且一些无线手柄可能会出现震动微弱或轻微延迟的情况。</string>
     <string name="settings_help_recent_games">为您最后玩过的游戏显示一个快速访问行。如果您经常在几个游戏之间切换，这很好；如果您想要一个更干净的主屏幕，请将其关闭。</string>
     <string name="settings_help_home_search">直接在主屏幕上显示库搜索栏。对于大型游戏库，请保持开启；如果您喜欢更干净的布局并且很少按名称搜索，请将其关闭。</string>
@@ -1121,9 +1133,6 @@
     <string name="onboarding_emulator_folder_title">选择模拟器文件夹</string>
     <string name="onboarding_emulator_folder_desc">选择记忆卡、即时存档、金手指、补丁和日志的存储位置。</string>
     <string name="settings_help_emulator_data_path">选择 EmuCoreX 存储模拟器运行文件的位置，如记忆卡、即时存档、金手指、补丁和日志。除非您希望将模拟器数据保存在共享或手动管理的位置，否则请保留在默认文件夹。</string>
-    <string name="settings_help_debug_options">在游戏菜单中显示额外的诊断控件，包括 JIT 分析器和挂起追踪记录器。正常游玩时请将其关闭。</string>
-    <string name="settings_show_debug_options">调试选项</string>
-    <string name="settings_show_debug_options_desc">在游戏内菜单中显示开发者分析工具。</string>
     <string name="settings_emulator_data_path">模拟器文件夹</string>
     <string name="settings_emulator_data_path_desc">选择模拟器文件的存储位置。</string>
     <string name="settings_emulator_data_path_default">默认文件夹</string>
@@ -1820,6 +1829,7 @@
     <string name="settings_fps_overlay_metrics">可见统计数据</string>
     <string name="settings_help_fps_overlay_metrics">选择详细统计数据覆盖层中包含的各项数值。这不会影响指标收集或模拟器性能。</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">版本</string>
     <string name="settings_fps_metric_vps">VPS</string>
     <string name="settings_fps_metric_speed">速度</string>
     <string name="settings_fps_metric_target">目标</string>
@@ -1952,7 +1962,7 @@
     <string name="settings_stick_toggle_right">右摇杆</string>
     <string name="settings_stick_toggle_left">左摇杆</string>
     <string name="settings_stick_toggle_button">切换摇杆</string>
-    <string name="settings_help_stick_toggle_target">选择 Select 与 Start 之间的按钮所切换的屏幕摇杆。右：隐藏或显示右摇杆。左：在左摇杆和方向键之间切换。不会影响实体控制器。</string>
+    <string name="settings_help_stick_toggle_target">选择 Select 与 Start 之间的按钮将哪个屏幕摇杆切换为方向键。所选摇杆会临时替换为方向键。不会影响实体控制器。</string>
     <string name="settings_touchscreen_right_stick">触屏右摇杆</string>
     <string name="settings_touchscreen_right_stick_desc">在屏幕空白区域滑动以控制虚拟右摇杆。</string>
     <string name="settings_help_touchscreen_right_stick">将游戏画面未使用区域中的拖动手势映射到虚拟右摇杆轴，无需触碰可见摇杆即可移动镜头。触控按键和可见摇杆仍保持原有操作方式。</string>

@@ -56,12 +56,9 @@ class MemoryCardRepository(
 
         val refreshedNames = listCards().map { it.name }.toSet()
         val current = currentAssignments()
-        val resolvedSlot1 = current.slot1.takeIf { it in refreshedNames }
-            ?: defaultSlot1.takeIf { it in refreshedNames }
-            ?: refreshedNames.firstOrNull()
-        val resolvedSlot2 = current.slot2.takeIf { it in refreshedNames && !it.equals(resolvedSlot1, ignoreCase = true) }
-            ?: defaultSlot2.takeIf { it in refreshedNames && !it.equals(resolvedSlot1, ignoreCase = true) }
-            ?: refreshedNames.firstOrNull { !it.equals(resolvedSlot1, ignoreCase = true) }
+        val resolved = resolveMemoryCardAssignments(current, refreshedNames, defaultSlot1, defaultSlot2)
+        val resolvedSlot1 = resolved.slot1
+        val resolvedSlot2 = resolved.slot2
 
         if (!current.slot1.equals(resolvedSlot1, ignoreCase = true) ||
             !current.slot2.equals(resolvedSlot2, ignoreCase = true)
@@ -580,3 +577,24 @@ internal fun MemoryCardInfo.defaultCardMigration(file: File): DefaultCardMigrati
 }
 
 private const val LEGACY_BLANK_SAMPLE_BYTES = 64 * 1024
+
+/** Resolve both user selections before choosing replacements for empty or missing slots. */
+internal fun resolveMemoryCardAssignments(
+    current: MemoryCardAssignments,
+    existingNames: Set<String>,
+    defaultSlot1: String = "Mcd001.ps2",
+    defaultSlot2: String = "Mcd002.ps2"
+): MemoryCardAssignments {
+    fun existing(name: String?) = existingNames.firstOrNull { it.equals(name, ignoreCase = true) }
+    var slot1 = existing(current.slot1)
+    var slot2 = existing(current.slot2)?.takeUnless { it.equals(slot1, ignoreCase = true) }
+    if (slot1 == null) {
+        slot1 = existing(defaultSlot1)?.takeUnless { it.equals(slot2, ignoreCase = true) }
+            ?: existingNames.firstOrNull { !it.equals(slot2, ignoreCase = true) }
+    }
+    if (slot2 == null) {
+        slot2 = existing(defaultSlot2)?.takeUnless { it.equals(slot1, ignoreCase = true) }
+            ?: existingNames.firstOrNull { !it.equals(slot1, ignoreCase = true) }
+    }
+    return MemoryCardAssignments(slot1, slot2)
+}

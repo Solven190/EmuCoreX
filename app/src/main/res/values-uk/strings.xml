@@ -78,6 +78,11 @@
     <string name="emulation_load_failed">Не вдалося завантажити збереження.</string>
     <string name="emulation_fps">FPS: %s</string>
     <string name="emulation_bios_missing">Спочатку додайте файл BIOS.</string>
+    <string name="emulation_patches_title">Патчі активні</string>
+    <string name="emulation_patches_widescreen">Патчі широкоекранного режиму</string>
+    <string name="emulation_patches_no_interlacing">Патчі без черезрядковості</string>
+    <string name="emulation_patches_cheats">Чіти</string>
+    <string name="emulation_patches_user_count">Користувацькі патчі: %1$d</string>
     <string name="emulation_launch_failed">Неможливо відкрити цю гру.</string>
     <string name="emulation_launch_path_error">Неможливо відкрити цей файл.</string>
     <string name="emulation_show_controls">Показати керування</string>
@@ -777,6 +782,13 @@
     <string name="settings_respect_display_cutout">Враховувати виріз під камеру</string>
     <string name="settings_respect_display_cutout_desc">Тримати ігрове зображення поза зоною вирізу камери.</string>
     <string name="settings_help_respect_display_cutout">Додає відступ навколо зображення емуляції, щоб воно не заходило під виріз камери (notch або отвір). Зручно в ландшафтному режимі, коли виріз перекриває картинку. Впливає лише на емуляцію — решта застосунку вже враховує вирізи.</string>
+    <string name="settings_show_patch_messages">Показувати повідомлення про патчі</string>
+    <string name="settings_show_patch_messages_desc">Показувати коротке повідомлення про застосування патчів.</string>
+    <string name="controls_editor_reset_selected">Скинути вибраний елемент</string>
+    <string name="controls_editor_show_grid">Показати сітку</string>
+    <string name="controls_editor_snap_grid">Прив\'язувати до сітки</string>
+    <string name="controls_editor_group_scale_value">Масштаб групи %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Показує коротке повідомлення під час запуску гри зі списком активних параметрів патчів і кількістю знайдених користувацьких патчів.</string>
     <string name="settings_help_pad_vibration">Дозволяє підтримуваним іграм викликати вібрацію контролера. Це додає корисний зворотний зв\'язок у перегонах, боях та іграх із сильними ударами, але може швидше розряджати батарею, а деякі бездротові геймпади можуть вібрувати слабко або з невеликою затримкою.</string>
     <string name="settings_help_recent_games">Показує рядок швидкого доступу до ігор, у які ви грали востаннє. Зручно, якщо ви часто перемикаєтеся між кількома іграми; вимкніть, якщо хочете, щоб головний екран був чистішим.</string>
     <string name="settings_help_home_search">Показує панель пошуку по бібліотеці прямо на головному екрані. Залиште ввімкненою для великих бібліотек; вимкніть, якщо віддаєте перевагу чистішому макету і рідко шукаєте за назвою.</string>
@@ -1149,9 +1161,6 @@
     <string name="onboarding_emulator_folder_title">Виберіть папку емулятора</string>
     <string name="onboarding_emulator_folder_desc">Виберіть, де зберігатимуться карти пам\'яті, збереження, чити, патчі та журнали.</string>
     <string name="settings_help_emulator_data_path">Вибирає, де EmuCoreX зберігає файли середовища емулятора, такі як карти пам\'яті, збереження стану, чити, патчі та журнали (логи). Залиште папку за замовчуванням, якщо не бажаєте зберігати дані емулятора у спільній або керованій вручну папці.</string>
-    <string name="settings_help_debug_options">Показує додаткові елементи керування діагностикою у внутрішньоігровому меню, включаючи профайлер JIT та запис трасування зависань. Тримайте це вимкненим для звичайної гри.</string>
-    <string name="settings_show_debug_options">Налаштування налагодження</string>
-    <string name="settings_show_debug_options_desc">Показувати інструменти профілювання розробника у внутрішньоігровому меню.</string>
     <string name="settings_emulator_data_path">Папка емулятора</string>
     <string name="settings_emulator_data_path_desc">Виберіть, де зберігаються файли емулятора.</string>
     <string name="settings_emulator_data_path_default">Папка за замовчуванням</string>
@@ -1848,6 +1857,7 @@
     <string name="settings_fps_overlay_metrics">Видима статистика</string>
     <string name="settings_help_fps_overlay_metrics">Виберіть окремі значення, що відображатимуться в детальному оверлеї статистики. Це не впливає на збір показників або продуктивність емуляції.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Версія</string>
     <string name="settings_fps_metric_vps">VPS</string>
     <string name="settings_fps_metric_speed">Швидкість</string>
     <string name="settings_fps_metric_target">Ціль</string>
@@ -1980,7 +1990,7 @@
     <string name="settings_stick_toggle_right">Правий стік</string>
     <string name="settings_stick_toggle_left">Лівий стік</string>
     <string name="settings_stick_toggle_button">Перемикання стіка</string>
-    <string name="settings_help_stick_toggle_target">Виберіть, яким екранним стіком керує кнопка між Select і Start. Правий: приховати або показати правий стік. Лівий: перемикатися між лівим стіком і хрестовиною. На фізичні геймпади це не впливає.</string>
+    <string name="settings_help_stick_toggle_target">Виберіть, який екранний стік кнопка між Select і Start перемикає на хрестовину. Вибраний стік тимчасово замінюється хрестовиною. На фізичні геймпади це не впливає.</string>
     <string name="settings_touchscreen_right_stick">Правий стік на сенсорному екрані</string>
     <string name="settings_touchscreen_right_stick_desc">Проводьте пальцем по вільній частині екрана, щоб керувати віртуальним правим стіком.</string>
     <string name="settings_help_touchscreen_right_stick">Прив’язує жести перетягування у вільних ділянках ігрового екрана до осей віртуального правого стіка, щоб рухати камерою без торкання видимого стіка. Сенсорні кнопки та видимі стіки працюють як зазвичай.</string>

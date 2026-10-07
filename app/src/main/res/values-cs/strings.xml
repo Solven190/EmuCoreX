@@ -121,6 +121,11 @@
     <string name="emulation_hardcore_action_blocked">Tato akce je zakázána, dokud je aktivní Hardcore režim RetroAchievements.</string>
     <string name="emulation_fps">FPS: %s</string>
     <string name="emulation_bios_missing">Nejprve přidejte soubor BIOS.</string>
+    <string name="emulation_patches_title">Aktivní patche</string>
+    <string name="emulation_patches_widescreen">Widescreen patche</string>
+    <string name="emulation_patches_no_interlacing">Patche bez prokládání</string>
+    <string name="emulation_patches_cheats">Cheaty</string>
+    <string name="emulation_patches_user_count">Uživatelské patche: %1$d</string>
     <string name="emulation_launch_failed">Tuto hru nelze otevřít.</string>
     <string name="emulation_launch_path_error">Tento soubor nelze otevřít.</string>
     <string name="emulation_session_restored_unavailable">Předchozí relace emulace byla ukončena na pozadí. Spusťte hru znovu z knihovny.</string>
@@ -697,8 +702,6 @@
     <string name="settings_show_recent_games_desc">Zobrazit sekci nedávno hraných her na domovské obrazovce.</string>
     <string name="settings_show_home_search">Zobrazit vyhledávání na domovské obrazovce</string>
     <string name="settings_show_home_search_desc">Zobrazit vyhledávací pole na domovské obrazovce.</string>
-    <string name="settings_show_debug_options">Možnosti ladění (Debug)</string>
-    <string name="settings_show_debug_options_desc">Zobrazit vývojářské profilovací nástroje v herním menu.</string>
     <string name="settings_prefer_english_game_titles">Preferovat anglické názvy her</string>
     <string name="settings_prefer_english_game_titles_desc">Používat anglické názvy z databáze her PCSX2, pokud jsou k dispozici.</string>
     <string name="settings_help_content_description">Zobrazit podrobnosti nastavení</string>
@@ -711,6 +714,13 @@
     <string name="settings_respect_display_cutout">Respektovat výřez fotoaparátu</string>
     <string name="settings_respect_display_cutout_desc">Udržet obraz hry mimo oblast výřezu.</string>
     <string name="settings_help_respect_display_cutout">Přidá okraj kolem obrazu emulace, aby se nevykresloval pod výřezem fotoaparátu (notch nebo otvor). Hodí se na šířku, když výřez zakrývá obraz. Ovlivňuje pouze emulaci – zbytek aplikace už výřezy respektuje.</string>
+    <string name="settings_show_patch_messages">Zobrazit zprávy o patchech</string>
+    <string name="settings_show_patch_messages_desc">Zobrazí krátkou zprávu při použití patchů hry.</string>
+    <string name="controls_editor_reset_selected">Obnovit vybraný prvek</string>
+    <string name="controls_editor_show_grid">Zobrazit mřížku</string>
+    <string name="controls_editor_snap_grid">Přichytit k mřížce</string>
+    <string name="controls_editor_group_scale_value">Měřítko skupiny %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Zobrazí při spuštění hry krátké oznámení se seznamem aktivních možností patchů a počtem nalezených uživatelských patchů.</string>
     <string name="settings_help_pad_vibration">Umožňuje podporovaným hrám spouštět vibrace ovladače. Přidává užitečnou zpětnou vazbu v závodních, bojových a akčních hrách, ale může rychleji vybíjet baterii a některé bezdrátové ovladače mohou vibrovat slabě nebo s mírným zpožděním.</string>
     <string name="settings_help_pad_vibration_strength">Upravuje sílu herních vibrací předtím, než jsou odeslány do Androidu. Snižte ji u hlučných motorků v handheldech, nebo zvyšte, pokud se vám vibrace ovladače zdají příliš slabé.</string>
     <string name="settings_help_pad_vibration_test">Nejprve odešle přímý požadavek Androidu na vibrace připojenému ovladači a poté na záložní vibrace telefonu nebo handheldu, pokud jsou povoleny.</string>
@@ -721,7 +731,6 @@
     <string name="settings_help_auto_progressive_scan">Simuluje podržení Trojúhelníku + Křížku po dobu několika sekund po spuštění. Použijte to u her, které zobrazují výzvu k zapnutí progresivního skenování (nebo 480p) pouze tehdy, když se toto kombo drží během bootování.</string>
     <string name="settings_help_recent_games">Zobrazí řádek pro rychlý přístup k naposledy hraným hrám. Užitečné, pokud často střídáte několik titulů; vypněte, pokud chcete mít čistší domovskou obrazovku.</string>
     <string name="settings_help_home_search">Zobrazí vyhledávací pole knihovny přímo na domovské obrazovce. Ponechte zapnuté pro velké knihovny; vypněte, pokud preferujete čistší vzhled a zřídka vyhledáváte podle jména.</string>
-    <string name="settings_help_debug_options">Zobrazí v herním menu další diagnostické ovládací prvky, včetně JIT profileru a nástroje pro záznam zamrznutí (hang trace). Pro normální hraní ponechte vypnuté.</string>
     <string name="settings_help_prefer_english_game_titles">Používá anglické názvy z databáze GameIndex emulátoru PCSX2 pro hry, které mají výchozí japonské nebo jiné regionální názvy. To pomáhá hlavně k tomu, aby se dovezené vydání v knihovně četla jasněji. Hry bez anglického názvu v databázi si zachovají své normální jméno.</string>
     <string name="settings_help_bios_path">Nasměruje EmuCoreX na soubor obrazu BIOSu PS2. Nejlepší volbou je čistý dump z vaší vlastní konzole. Aplikace očekává hlavní obraz BIOSu, obvykle soubor .bin nebo .rom, a jakékoli vygenerované soubory NVRAM/MEC ukládá vedle importované kopie.</string>
     <string name="settings_help_game_path">Přidává složky do knihovny her. EmuCoreX rekurzivně prohledá každou vybranou složku a sloučí výsledky bez duplicitních cest k souborům. Klepnutím na složku v seznamu ji odeberete. Podporované obrazy zahrnují .iso, .bin, .img, .mdf, .gz, .cso, .zso, .chd a .elf.</string>
@@ -832,8 +841,9 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Změní velikost textu jednoduchého počítadla FPS i podrobných statistik. Větší hodnoty rovněž rozšíří detailní překrytí (overlay), aby se zamezilo zalamování řádků.</string>
     <string name="settings_fps_overlay_metrics">Viditelné statistiky</string>
-    <string name="settings_help_fps_overlay_metrics">Vyberte jednotlivé hodnoty, jež budou zahrnuty do detailního překrytí statistik. Verze aplikace, sestavení (build) a verze jádra jsou vždy na prvním místě. Časování GPU se shromažďuje pouze tehdy, když je vybrána metrika GPU.</string>
+    <string name="settings_help_fps_overlay_metrics">Vyberte jednotlivé hodnoty, jež budou zahrnuty do detailního překrytí statistik. Časování GPU se shromažďuje pouze tehdy, když je vybrána metrika GPU.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Verze</string>
     <string name="settings_fps_metric_vps">VPS</string>
     <string name="settings_fps_metric_speed">Rychlost</string>
     <string name="settings_fps_metric_target">Cíl</string>
@@ -1971,7 +1981,7 @@
     <string name="settings_stick_toggle_right">Pravá páčka</string>
     <string name="settings_stick_toggle_left">Levá páčka</string>
     <string name="settings_stick_toggle_button">Přepínání páčky</string>
-    <string name="settings_help_stick_toggle_target">Vyberte páčku na obrazovce, kterou přepíná tlačítko mezi Select a Start. Pravá: skryje nebo zobrazí pravou páčku. Levá: přepíná mezi levou páčkou a směrovým křížem. Fyzické ovladače nejsou ovlivněny.</string>
+    <string name="settings_help_stick_toggle_target">Vyberte páčku na obrazovce, kterou tlačítko mezi Select a Start přepne na směrový kříž. Zvolená páčka je dočasně nahrazena křížem. Fyzické ovladače nejsou ovlivněny.</string>
     <string name="settings_touchscreen_right_stick">Pravá páčka na dotykové obrazovce</string>
     <string name="settings_touchscreen_right_stick_desc">Potažením po volném místě na obrazovce ovládáte virtuální pravou páčku.</string>
     <string name="settings_help_touchscreen_right_stick">Mapuje gesta tažení v nevyužitých oblastech herní obrazovky na osy virtuální pravé páčky, což umožňuje pohyb kamery bez dotyku viditelné páčky. Dotyková tlačítka a viditelné páčky si zachovávají své normální chování.</string>

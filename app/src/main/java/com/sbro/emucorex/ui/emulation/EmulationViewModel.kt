@@ -31,10 +31,12 @@ import com.sbro.emucorex.core.PerformancePresets
 import com.sbro.emucorex.core.resolveAndroidGamePhase
 import com.sbro.emucorex.core.utils.RetroAchievementsLiveStateManager
 import com.sbro.emucorex.core.normalizeUpscale
+import com.sbro.emucorex.data.ActivePatchNotice
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_SIMPLE
 import com.sbro.emucorex.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
 import com.sbro.emucorex.data.CheatBlock
+import com.sbro.emucorex.data.PatchRepository
 import com.sbro.emucorex.data.DisplayCrop
 import com.sbro.emucorex.data.OverlayControlLayout
 import com.sbro.emucorex.data.CheatRepository
@@ -302,8 +304,7 @@ data class EmulationUiState(
     val autoLoadOnStart: Boolean = false,
     val autoSaveLastModified: Long = 0L,
     val isAutoSaveInProgress: Boolean = false,
-    val activePlayTimeMs: Long = 0L,
-    val showDebugOptions: Boolean = false
+    val activePlayTimeMs: Long = 0L
 )
 
 internal data class EmulationLaunchConfig(
@@ -559,6 +560,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         private const val AUTO_SAVE_SLOT = 0
         private const val PLAY_TIME_LOCAL_CACHE_INTERVAL_MS = 60_000L
         private const val PLAY_TIME_CLOUD_SYNC_INTERVAL_MS = 10L * 60_000L
+        private const val ACTIVE_PATCH_NOTICE_DURATION_MS = 7_000L
         private val SAVE_STATE_FILE_REGEX = Regex("""^(.+?) \(([0-9A-Fa-f]{8})\)\.(\d{2})\.p2s$""")
     }
 
@@ -587,6 +589,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         )
     )
     val uiState: StateFlow<EmulationUiState> = _uiState.asStateFlow()
+    // Kept outside EmulationUiState: that data class is near the JVM 255-argument limit.
+    private val _activePatchNotice = MutableStateFlow<ActivePatchNotice?>(null)
+    val activePatchNotice: StateFlow<ActivePatchNotice?> = _activePatchNotice.asStateFlow()
     private val lifecycleMutex = Mutex()
     private val transportMutex = Mutex()
     private var pausedForBackground = false
@@ -806,11 +811,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 val updated = _uiState.value.copy(fpsOverlayMetrics = metrics)
                 _uiState.value = updated
                 syncNativePerformanceOverlayState(updated)
-            }
-        }
-        viewModelScope.launch {
-            preferences.showDebugOptions.collect { enabled ->
-                _uiState.value = _uiState.value.copy(showDebugOptions = enabled)
             }
         }
         viewModelScope.launch {
@@ -1509,6 +1509,36 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
         AppAnalytics.logSaveStateAction(action = "save", automatic = true, success = success)
         return success
+    }
+
+    /**
+     * Summarises the launch-time patch options in the app's own HUD. The core renders no
+     * OSD on Android, so nothing about patches would be visible otherwise.
+     */
+    private fun maybeShowActivePatchNotice() {
+        viewModelScope.launch {
+            val enabled = runCatching { preferences.showPatchMessages.first() }.getOrDefault(false)
+            if (!enabled) return@launch
+            val state = _uiState.value
+            val userPatchCount = withContext(Dispatchers.IO) {
+                runCatching {
+                    PatchRepository(getApplication(), preferences)
+                        .countUserPatches(currentGameSerial, currentGameCrc)
+                }.getOrDefault(0)
+            }
+            val notice = ActivePatchNotice(
+                widescreen = state.widescreenPatches,
+                noInterlacing = state.noInterlacingPatches,
+                cheats = state.enableCheats,
+                userPatchCount = userPatchCount
+            )
+            if (!notice.hasAnything) return@launch
+            _activePatchNotice.value = notice
+            delay(ACTIVE_PATCH_NOTICE_DURATION_MS.milliseconds)
+            if (_activePatchNotice.value == notice) {
+                _activePatchNotice.value = null
+            }
+        }
     }
 
     private fun pollNativePerformanceMetrics() {
@@ -2229,6 +2259,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     performanceProfile = analyticsPerformanceProfile,
                     saveStateLoad = hasPendingStateLoad
                 )
+                if (!bootToBios && !bootSmokeProbe && !autotestMode) {
+                    maybeShowActivePatchNotice()
+                }
             } else {
                 AppAnalytics.logEmulationStartFailed(analyticsLaunchType, "native_start")
             }

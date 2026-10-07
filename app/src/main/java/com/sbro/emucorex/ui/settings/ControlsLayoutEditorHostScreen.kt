@@ -81,6 +81,7 @@ fun ControlsLayoutEditorHostScreen(
             visualStyle = perGame?.touchControlVisualStyle ?: settings.touchControlVisualStyle,
             pressEffect = perGame?.touchControlPressEffect ?: settings.touchControlPressEffect,
             overlayScale = globalLayout.overlayScale,
+            stickToggleTarget = settings.stickToggleTarget,
             customControls = customControls
         ) to (perGame?.touchControlsLayout != null || perGame?.customTouchControls != null)
     }

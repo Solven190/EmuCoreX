@@ -159,7 +159,6 @@ data class SettingsUiState(
     val respectDisplayCutout: Boolean = false,
     val showRecentGames: Boolean = true,
     val showHomeSearch: Boolean = false,
-    val showDebugOptions: Boolean = false,
     val preferEnglishGameTitles: Boolean = false,
     val biosPath: String? = null,
     val gamePath: String? = null,
@@ -360,6 +359,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     // Kept outside SettingsUiState: that data class is at the JVM 255-argument limit.
+    val showPatchMessages: StateFlow<Boolean> = preferences.showPatchMessages
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val gyroStickTarget: StateFlow<Int> = preferences.gyroStickTarget
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppPreferences.DEFAULT_GYRO_STICK_TARGET)
     val lightGunAim: StateFlow<Int> = preferences.lightGunAim
@@ -481,7 +482,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             respectDisplayCutout = snapshot.respectDisplayCutout,
             showRecentGames = snapshot.showRecentGames,
             showHomeSearch = snapshot.showHomeSearch,
-            showDebugOptions = snapshot.showDebugOptions,
             preferEnglishGameTitles = snapshot.preferEnglishGameTitles,
             biosPath = snapshot.biosPath,
             gamePath = snapshot.gamePath,
@@ -1198,6 +1198,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setShowFps(enabled: Boolean) { viewModelScope.launch { preferences.setShowFps(enabled) } }
+
+    fun setShowPatchMessages(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setShowPatchMessages(enabled)
+        }
+    }
     fun setAudioVolume(value: Int) {
         viewModelScope.launch {
             val normalized = AudioDefaults.coerceVolume(value)
@@ -1368,7 +1374,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     fun setShowRecentGames(enabled: Boolean) { viewModelScope.launch { preferences.setShowRecentGames(enabled) } }
     fun setShowHomeSearch(enabled: Boolean) { viewModelScope.launch { preferences.setShowHomeSearch(enabled) } }
-    fun setShowDebugOptions(enabled: Boolean) { viewModelScope.launch { preferences.setShowDebugOptions(enabled) } }
     fun setPreferEnglishGameTitles(enabled: Boolean) {
         viewModelScope.launch {
             EmulatorBridge.setSetting("UI", "PreferEnglishGameTitles", "bool", enabled.toString())

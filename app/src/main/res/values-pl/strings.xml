@@ -121,6 +121,11 @@
     <string name="emulation_hardcore_action_blocked">Ta akcja jest zablokowana, gdy tryb Hardcore RetroAchievements jest aktywny.</string>
     <string name="emulation_fps">FPS: %s</string>
     <string name="emulation_bios_missing">Najpierw dodaj plik BIOS.</string>
+    <string name="emulation_patches_title">Aktywne patche</string>
+    <string name="emulation_patches_widescreen">Patche widescreen</string>
+    <string name="emulation_patches_no_interlacing">Patche bez przeplotu</string>
+    <string name="emulation_patches_cheats">Cheaty</string>
+    <string name="emulation_patches_user_count">Patche użytkownika: %1$d</string>
     <string name="emulation_launch_failed">Nie można otworzyć tej gry.</string>
     <string name="emulation_launch_path_error">Nie można otworzyć tego pliku.</string>
     <string name="emulation_session_restored_unavailable">Poprzednia sesja emulacji została zamknięta w tle. Uruchom grę ponownie ze swojej biblioteki.</string>
@@ -695,8 +700,6 @@
     <string name="settings_show_recent_games_desc">Wyświetla sekcję ostatnio ogrywanych gier na ekranie głównym.</string>
     <string name="settings_show_home_search">Pokaż wyszukiwarkę</string>
     <string name="settings_show_home_search_desc">Wyświetla pasek wyszukiwania na ekranie głównym.</string>
-    <string name="settings_show_debug_options">Opcje debugowania</string>
-    <string name="settings_show_debug_options_desc">Pokaż narzędzia profilowania dla deweloperów w menu gry.</string>
     <string name="settings_prefer_english_game_titles">Preferuj angielskie tytuły gier</string>
     <string name="settings_prefer_english_game_titles_desc">Używaj angielskich nazw z bazy gier PCSX2, jeśli są dostępne.</string>
     <string name="settings_help_content_description">Pokaż szczegóły ustawienia</string>
@@ -709,6 +712,13 @@
     <string name="settings_respect_display_cutout">Uwzględniaj wycięcie aparatu</string>
     <string name="settings_respect_display_cutout_desc">Trzymaj obraz gry poza obszarem wycięcia.</string>
     <string name="settings_help_respect_display_cutout">Dodaje margines wokół obrazu emulacji, aby nie był rysowany pod wycięciem aparatu (notch lub otwór). Przydatne w poziomie, gdy wycięcie zasłania obraz. Dotyczy tylko emulacji — reszta aplikacji już uwzględnia wycięcia.</string>
+    <string name="settings_show_patch_messages">Pokaż komunikaty o patchach</string>
+    <string name="settings_show_patch_messages_desc">Pokaż krótki komunikat o zastosowaniu patchy gry.</string>
+    <string name="controls_editor_reset_selected">Przywróć wybrany element</string>
+    <string name="controls_editor_show_grid">Pokaż siatkę</string>
+    <string name="controls_editor_snap_grid">Przyciągaj do siatki</string>
+    <string name="controls_editor_group_scale_value">Skala grupy %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Pokazuje krótkie powiadomienie przy starcie gry z aktywnymi opcjami patchy i liczbą znalezionych patchy użytkownika.</string>
     <string name="settings_help_pad_vibration">Pozwala obsługiwanym grom na wyzwalanie wibracji kontrolera (rumble). Dodaje to przydatne odczucia w wyścigach, walkach i grach opartych na uderzeniach, ale może szybciej rozładować baterię, a niektóre pady bezprzewodowe mogą wibrować słabo lub z lekkim opóźnieniem.</string>
     <string name="settings_help_pad_vibration_strength">Skaluje wibracje z gry przed ich wysłaniem do Androida. Zmniejsz tę wartość dla głośnych silniczków konsol przenośnych lub zwiększ, jeśli wibracje na kontrolerze są za słabe.</string>
     <string name="settings_help_pad_vibration_test">Wysyła bezpośrednie żądanie wibracji Androida najpierw do podłączonego kontrolera, a następnie do telefonu lub konsoli (jeśli wibracje zastępcze są włączone).</string>
@@ -719,7 +729,6 @@
     <string name="settings_help_auto_progressive_scan">Symuluje przytrzymanie Trójkąta + Krzyżyka przez kilka sekund po uruchomieniu gry. Używaj tego dla tytułów, które wyświetlają wybór skanowania progresywnego (480p) tylko wtedy, gdy ta kombinacja jest wciśnięta w trakcie startu.</string>
     <string name="settings_help_recent_games">Pokazuje pasek szybkiego dostępu do ostatnio ogrywanych tytułów. Przydatne, jeśli często skaczesz między kilkoma grami; wyłącz, jeśli wolisz bardziej minimalistyczny ekran główny.</string>
     <string name="settings_help_home_search">Wyświetla pasek wyszukiwania w bibliotece bezpośrednio na ekranie głównym. Zostaw to włączone dla dużych kolekcji; wyłącz, jeśli wolisz czystszy układ i rzadko szukasz po nazwie.</string>
-    <string name="settings_help_debug_options">Pokazuje dodatkowe funkcje diagnostyczne w menu w grze, w tym profiler JIT i rejestrator śladów awarii. Pozostaw wyłączone podczas normalnej gry.</string>
     <string name="settings_help_prefer_english_game_titles">Używa angielskich tytułów z bazy GameIndex PCSX2 dla gier wydanych z japońskimi lub innymi regionalnymi nazwami. Pomaga to zachować czytelność biblioteki przy imporcie. Gry bez angielskiego tytułu w bazie zachowają swoją oryginalną nazwę.</string>
     <string name="settings_help_bios_path">Wskazuje EmuCoreX ścieżkę do pliku z obrazem BIOS-u PS2. Najlepszym wyborem jest czysty dump z Twojej własnej konsoli. Aplikacja oczekuje głównego obrazu BIOS, zazwyczaj pliku .bin lub .rom, a wygenerowane pliki NVRAM/MEC trzyma obok importowanej kopii.</string>
     <string name="settings_help_game_path">Dodaje foldery do biblioteki gier. EmuCoreX skanuje każdy wybrany folder rekursywnie i łączy wyniki, odrzucając powielone ścieżki plików. Dotknij folderu na liście, aby go usunąć. Obsługiwane obrazy to: .iso, .bin, .img, .mdf, .gz, .cso, .zso, .chd i .elf.</string>
@@ -830,8 +839,9 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Zmienia rozmiar tekstu zarówno dla prostego licznika FPS, jak i szczegółowych statystyk. Większe wartości poszerzają również szczegółową nakładkę, aby uniknąć zawijania tekstu.</string>
     <string name="settings_fps_overlay_metrics">Widoczne statystyki</string>
-    <string name="settings_help_fps_overlay_metrics">Wybierz poszczególne wartości, które znajdą się w szczegółowej nakładce statystyk. Wersje aplikacji, kompilacji i rdzenia są zawsze pokazywane na początku. Czasy GPU są zbierane tylko wtedy, gdy wybrana jest metryka GPU.</string>
+    <string name="settings_help_fps_overlay_metrics">Wybierz poszczególne wartości, które znajdą się w szczegółowej nakładce statystyk. Czasy GPU są zbierane tylko wtedy, gdy wybrana jest metryka GPU.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Wersja</string>
     <string name="settings_fps_metric_vps">VPS</string>
     <string name="settings_fps_metric_speed">Prędkość</string>
     <string name="settings_fps_metric_target">Cel</string>
@@ -1971,7 +1981,7 @@
     <string name="settings_stick_toggle_right">Prawy drążek</string>
     <string name="settings_stick_toggle_left">Lewy drążek</string>
     <string name="settings_stick_toggle_button">Przełączanie drążka</string>
-    <string name="settings_help_stick_toggle_target">Wybierz drążek ekranowy przełączany przyciskiem między Select a Start. Prawy: ukrywa lub pokazuje prawy drążek. Lewy: przełącza między lewym drążkiem a krzyżakiem. Nie wpływa to na fizyczne kontrolery.</string>
+    <string name="settings_help_stick_toggle_target">Wybierz drążek ekranowy, który przycisk między Select a Start zamienia na krzyżak. Wybrany drążek jest tymczasowo zastępowany krzyżakiem. Nie wpływa to na fizyczne kontrolery.</string>
     <string name="settings_touchscreen_right_stick">Prawa gałka na ekranie dotykowym</string>
     <string name="settings_touchscreen_right_stick_desc">Przesuwaj palcem po wolnej przestrzeni na ekranie, by kontrolować wirtualną prawą gałkę.</string>
     <string name="settings_help_touchscreen_right_stick">Przypisuje gesty przeciągania na niewykorzystanej powierzchni gry do osi prawej gałki, co umożliwia poruszanie kamerą bez konieczności dotykania samej grafiki drążka na ekranie. Przyciski i sam drążek zachowują swoje normalne funkcje.</string>

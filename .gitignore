@@ -98,8 +98,11 @@ Thumbs.db
 *.bak
 *.orig
 emulog.txt
-# Local investigation notes and profiling captures
+# Local-only desktop project, its submodule configuration, and documentation.
+/Windows-MacOS-Linux/
+/.gitmodules
 docs/
+# Local investigation notes and profiling captures
 profiling-runs/
 profiler/
 /local-traces/

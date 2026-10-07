@@ -37,7 +37,6 @@ namespace EeIr
 			Lifter(const u32* code, const LiftOptions& options, ir::Function& fn)
 				: m_code(code)
 				, m_opts(options)
-				, m_fn(fn)
 				, m_b(fn)
 			{
 			}
@@ -45,11 +44,16 @@ namespace EeIr
 			bool Run(u32* end_pc, std::string* error);
 
 		private:
-			u32 ReadGpr(u32 index) { return m_b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, index); }
+			u32 ReadGpr(u32 index) { return index == 0 ? m_b.ConstI32(0) : m_b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, index); }
+			u32 ReadGprWide(u32 index) { return index == 0 ? m_b.ConstI64(0) : m_b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, index); }
 			void WriteGpr(u32 index, u32 value) { m_b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, index); }
+			// Full 64-bit write, no sign extension: jal/jalr link registers are
+			// zero-extended on the R5900 (the interpreter stores a u32).
+			void WriteGprWide(u32 index, u32 value) { m_b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, index, ir::IF_WIDE_WRITE); }
 			u32 Const(u32 value) { return m_b.ConstI32(value); }
 			u32 Bin(ir::Op op, u32 a, u32 b) { return m_b.Emit2(op, ir::Type::I32, a, b); }
 			u32 Un(ir::Op op, u32 a) { return m_b.Emit1(op, ir::Type::I32, a); }
+			u32 BinWide(ir::Op op, u32 a, u32 b) { return m_b.Emit2(op, ir::Type::I64, a, b); }
 
 			bool Fail(std::string* error, const char* what, u32 pc)
 			{
@@ -74,7 +78,6 @@ namespace EeIr
 
 			const u32* m_code;
 			LiftOptions m_opts;
-			ir::Function& m_fn;
 			ir::Builder m_b;
 		};
 
@@ -99,10 +102,21 @@ namespace EeIr
 				}
 				case 0x01:
 				{
-					const u32 rt = Rt(word);
-					if (rt <= 0x03 || (rt >= 0x10 && rt <= 0x13))
-						return Kind::Branch;
-					return Kind::Unsupported;
+					switch (Rt(word))
+					{
+						case 0x00: // bltz
+						case 0x01: // bgez
+						case 0x10: // bltzal
+						case 0x11: // bgezal
+							return Kind::Branch;
+						case 0x02: // bltzl
+						case 0x03: // bgezl
+						case 0x12: // bltzall
+						case 0x13: // bgezall
+							return Kind::BranchLikely;
+						default:
+							return Kind::Unsupported;
+					}
 				}
 				case 0x02:
 				case 0x03:
@@ -149,36 +163,69 @@ namespace EeIr
 				case 0x07: // srav
 					WriteGpr(rd, Bin(ir::Op::ShrS, ReadGpr(rt), ReadGpr(rs)));
 					return true;
+				case 0x14: // 64-bit variable shift
+					WriteGprWide(rd, BinWide(ir::Op::Shl, ReadGprWide(rt), ReadGprWide(rs)));
+					return true;
+				case 0x16: // 64-bit variable shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrU, ReadGprWide(rt), ReadGprWide(rs)));
+					return true;
+				case 0x17: // 64-bit variable shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrS, ReadGprWide(rt), ReadGprWide(rs)));
+					return true;
+				case 0x2D: // daddu
+					WriteGprWide(rd, BinWide(ir::Op::Add, ReadGprWide(rs), ReadGprWide(rt)));
+					return true;
+				case 0x2F: // dsubu
+					WriteGprWide(rd, BinWide(ir::Op::Sub, ReadGprWide(rs), ReadGprWide(rt)));
+					return true;
+				case 0x38: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::Shl, ReadGprWide(rt), m_b.ConstI64(sa + 0)));
+					return true;
+				case 0x3A: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrU, ReadGprWide(rt), m_b.ConstI64(sa + 0)));
+					return true;
+				case 0x3B: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrS, ReadGprWide(rt), m_b.ConstI64(sa + 0)));
+					return true;
+				case 0x3C: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::Shl, ReadGprWide(rt), m_b.ConstI64(sa + 32)));
+					return true;
+				case 0x3E: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrU, ReadGprWide(rt), m_b.ConstI64(sa + 32)));
+					return true;
+				case 0x3F: // 64-bit immediate shift
+					WriteGprWide(rd, BinWide(ir::Op::ShrS, ReadGprWide(rt), m_b.ConstI64(sa + 32)));
+					return true;
 				case 0x0A: // movz
 				{
-					const u32 value = ReadGpr(rs);
-					const u32 old = ReadGpr(rd);
-					const u32 cond = Bin(ir::Op::CmpEq, ReadGpr(rt), Const(0));
-					WriteGpr(rd, m_b.Emit3(ir::Op::Select, ir::Type::I32, cond, value, old));
+					const u32 value = ReadGprWide(rs);
+					const u32 old = ReadGprWide(rd);
+					const u32 cond = Bin(ir::Op::CmpEq, ReadGprWide(rt), m_b.ConstI64(0));
+					WriteGprWide(rd, m_b.Emit3(ir::Op::Select, ir::Type::I64, cond, value, old));
 					return true;
 				}
 				case 0x0B: // movn
 				{
-					const u32 value = ReadGpr(rs);
-					const u32 old = ReadGpr(rd);
-					const u32 cond = Bin(ir::Op::CmpNe, ReadGpr(rt), Const(0));
-					WriteGpr(rd, m_b.Emit3(ir::Op::Select, ir::Type::I32, cond, value, old));
+					const u32 value = ReadGprWide(rs);
+					const u32 old = ReadGprWide(rd);
+					const u32 cond = Bin(ir::Op::CmpNe, ReadGprWide(rt), m_b.ConstI64(0));
+					WriteGprWide(rd, m_b.Emit3(ir::Op::Select, ir::Type::I64, cond, value, old));
 					return true;
 				}
 				case 0x0F: // sync
 					m_b.Emit0(ir::Op::Nop);
 					return true;
 				case 0x10: // mfhi
-					WriteGpr(rd, m_b.Emit0(ir::Op::ReadHi, ir::Type::I32));
+					WriteGprWide(rd, m_b.Emit0(ir::Op::ReadHi, ir::Type::I64));
 					return true;
 				case 0x11: // mthi
-					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, ReadGpr(rs));
+					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, ReadGprWide(rs));
 					return true;
 				case 0x12: // mflo
-					WriteGpr(rd, m_b.Emit0(ir::Op::ReadLo, ir::Type::I32));
+					WriteGprWide(rd, m_b.Emit0(ir::Op::ReadLo, ir::Type::I64));
 					return true;
 				case 0x13: // mtlo
-					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, ReadGpr(rs));
+					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, ReadGprWide(rs));
 					return true;
 				case 0x18: // mult
 				case 0x19: // multu
@@ -192,6 +239,10 @@ namespace EeIr
 					const u32 hi = m_b.Emit1(ir::Op::Trunc32, ir::Type::I32, hi64);
 					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
 					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
+					// R5900 quirk: mult/multu also write LO into Rd when Rd != 0.
+					const u32 rd = Rd(word);
+					if (rd != 0)
+						WriteGpr(rd, lo);
 					return true;
 				}
 				case 0x1A: // div
@@ -204,31 +255,32 @@ namespace EeIr
 					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, Bin(sign ? ir::Op::RemS : ir::Op::RemU, a, b));
 					return true;
 				}
-				case 0x20: // add
+				case 0x20: // add (traps on overflow)
+				case 0x22: // sub (traps on overflow)
+					return Fail(error, "trapping arithmetic is not modelled yet", pc);
 				case 0x21: // addu
 					WriteGpr(rd, Bin(ir::Op::Add, ReadGpr(rs), ReadGpr(rt)));
 					return true;
-				case 0x22: // sub
 				case 0x23: // subu
 					WriteGpr(rd, Bin(ir::Op::Sub, ReadGpr(rs), ReadGpr(rt)));
 					return true;
 				case 0x24: // and
-					WriteGpr(rd, Bin(ir::Op::And, ReadGpr(rs), ReadGpr(rt)));
+					WriteGprWide(rd, BinWide(ir::Op::And, ReadGprWide(rs), ReadGprWide(rt)));
 					return true;
 				case 0x25: // or
-					WriteGpr(rd, Bin(ir::Op::Or, ReadGpr(rs), ReadGpr(rt)));
+					WriteGprWide(rd, BinWide(ir::Op::Or, ReadGprWide(rs), ReadGprWide(rt)));
 					return true;
 				case 0x26: // xor
-					WriteGpr(rd, Bin(ir::Op::Xor, ReadGpr(rs), ReadGpr(rt)));
+					WriteGprWide(rd, BinWide(ir::Op::Xor, ReadGprWide(rs), ReadGprWide(rt)));
 					return true;
 				case 0x27: // nor
-					WriteGpr(rd, Un(ir::Op::Not, Bin(ir::Op::Or, ReadGpr(rs), ReadGpr(rt))));
+					WriteGprWide(rd, m_b.Emit1(ir::Op::Not, ir::Type::I64, BinWide(ir::Op::Or, ReadGprWide(rs), ReadGprWide(rt))));
 					return true;
 				case 0x2A: // slt
-					WriteGpr(rd, Bin(ir::Op::CmpLtS, ReadGpr(rs), ReadGpr(rt)));
+					WriteGpr(rd, Bin(ir::Op::CmpLtS, ReadGprWide(rs), ReadGprWide(rt)));
 					return true;
 				case 0x2B: // sltu
-					WriteGpr(rd, Bin(ir::Op::CmpLtU, ReadGpr(rs), ReadGpr(rt)));
+					WriteGpr(rd, Bin(ir::Op::CmpLtU, ReadGprWide(rs), ReadGprWide(rt)));
 					return true;
 				default:
 					return Fail(error, "unsupported SPECIAL instruction", pc);
@@ -238,21 +290,21 @@ namespace EeIr
 		bool Lifter::LiftRegimmBranch(u32 word, u32 pc, u32* cond, bool* link, std::string* error)
 		{
 			const u32 rs = Rs(word);
-			const u32 value = ReadGpr(rs);
+			const u32 value = ReadGprWide(rs);
 			switch (Rt(word))
 			{
 				case 0x00: // bltz
 				case 0x02: // bltzl
 				case 0x10: // bltzal
 				case 0x12: // bltzall
-					*cond = Bin(ir::Op::CmpLtS, value, Const(0));
+					*cond = Bin(ir::Op::CmpLtS, value, m_b.ConstI64(0));
 					*link = (Rt(word) >= 0x10);
 					return true;
 				case 0x01: // bgez
 				case 0x03: // bgezl
 				case 0x11: // bgezal
 				case 0x13: // bgezall
-					*cond = Bin(ir::Op::CmpGeS, value, Const(0));
+					*cond = Bin(ir::Op::CmpGeS, value, m_b.ConstI64(0));
 					*link = (Rt(word) >= 0x10);
 					return true;
 				default:
@@ -279,27 +331,38 @@ namespace EeIr
 
 			switch (op)
 			{
-				case 0x08: // addi
 				case 0x09: // addiu
 					WriteGpr(rt, Bin(ir::Op::Add, ReadGpr(rs), Const(static_cast<u32>(simm))));
 					return true;
 				case 0x0A: // slti
-					WriteGpr(rt, Bin(ir::Op::CmpLtS, ReadGpr(rs), Const(static_cast<u32>(simm))));
+					WriteGpr(rt, Bin(ir::Op::CmpLtS, ReadGprWide(rs), m_b.ConstI64(static_cast<u64>(static_cast<s64>(simm)))));
 					return true;
 				case 0x0B: // sltiu
-					WriteGpr(rt, Bin(ir::Op::CmpLtU, ReadGpr(rs), Const(static_cast<u32>(simm))));
+					WriteGpr(rt, Bin(ir::Op::CmpLtU, ReadGprWide(rs), m_b.ConstI64(static_cast<u64>(static_cast<s64>(simm)))));
 					return true;
 				case 0x0C: // andi
-					WriteGpr(rt, Bin(ir::Op::And, ReadGpr(rs), Const(uimm)));
+					WriteGprWide(rt, BinWide(ir::Op::And, ReadGprWide(rs), m_b.ConstI64(uimm)));
 					return true;
 				case 0x0D: // ori
-					WriteGpr(rt, Bin(ir::Op::Or, ReadGpr(rs), Const(uimm)));
+					WriteGprWide(rt, BinWide(ir::Op::Or, ReadGprWide(rs), m_b.ConstI64(uimm)));
 					return true;
 				case 0x0E: // xori
-					WriteGpr(rt, Bin(ir::Op::Xor, ReadGpr(rs), Const(uimm)));
+					WriteGprWide(rt, BinWide(ir::Op::Xor, ReadGprWide(rs), m_b.ConstI64(uimm)));
 					return true;
 				case 0x0F: // lui
 					WriteGpr(rt, Const(uimm << 16));
+					return true;
+				case 0x19: // daddiu
+					WriteGprWide(rt, BinWide(ir::Op::Add, ReadGprWide(rs), m_b.ConstI64(static_cast<u64>(static_cast<s64>(simm)))));
+					return true;
+				case 0x27: // lwu
+					WriteGprWide(rt, m_b.Emit1(ir::Op::Zext32, ir::Type::I64, m_b.Emit1(ir::Op::Load32, ir::Type::I32, Addr(rs, simm))));
+					return true;
+				case 0x37: // ld
+					WriteGprWide(rt, m_b.Emit1(ir::Op::Load64, ir::Type::I64, Addr(rs, simm)));
+					return true;
+				case 0x3F: // sd
+					m_b.Emit2(ir::Op::Store64, ir::Type::Void, Addr(rs, simm), ReadGprWide(rt));
 					return true;
 				case 0x20: // lb
 					WriteGpr(rt, m_b.Emit1(ir::Op::Load8S, ir::Type::I32, Addr(rs, simm)));
@@ -344,7 +407,10 @@ namespace EeIr
 				return Fail(error, "control instruction in a delay slot", delay_pc);
 
 			m_b.SetGuestPc(delay_pc);
-			return LiftPlain(word, delay_pc, error);
+			m_b.SetDelaySlot(true);
+			const bool result = LiftPlain(word, delay_pc, error);
+			m_b.SetDelaySlot(false);
+			return result;
 		}
 
 		bool Lifter::Run(u32* end_pc, std::string* error)
@@ -364,6 +430,7 @@ namespace EeIr
 
 				if (kind == Kind::Plain)
 				{
+					m_b.SetGuestPc(pc);
 					if (!LiftPlain(word, pc, error))
 						return false;
 					pc += 4;
@@ -406,19 +473,19 @@ namespace EeIr
 								break;
 							case 0x04: // beq
 							case 0x14: // beql
-								cond = Bin(ir::Op::CmpEq, ReadGpr(Rs(word)), ReadGpr(Rt(word)));
+								cond = Bin(ir::Op::CmpEq, ReadGprWide(Rs(word)), ReadGprWide(Rt(word)));
 								break;
 							case 0x05: // bne
 							case 0x15: // bnel
-								cond = Bin(ir::Op::CmpNe, ReadGpr(Rs(word)), ReadGpr(Rt(word)));
+								cond = Bin(ir::Op::CmpNe, ReadGprWide(Rs(word)), ReadGprWide(Rt(word)));
 								break;
 							case 0x06: // blez
 							case 0x16: // blezl
-								cond = Bin(ir::Op::CmpLeS, ReadGpr(Rs(word)), Const(0));
+								cond = Bin(ir::Op::CmpLeS, ReadGprWide(Rs(word)), m_b.ConstI64(0));
 								break;
 							case 0x07: // bgtz
 							case 0x17: // bgtzl
-								cond = Bin(ir::Op::CmpGtS, ReadGpr(Rs(word)), Const(0));
+								cond = Bin(ir::Op::CmpGtS, ReadGprWide(Rs(word)), m_b.ConstI64(0));
 								break;
 							default:
 								return Fail(error, "unsupported branch", pc);
@@ -432,13 +499,13 @@ namespace EeIr
 						break;
 					case Kind::JumpIndirect:
 					{
-						const u32 target = (Funct(word) == 0x09) ? ReadGpr(Rs(word)) : ReadGpr(Rs(word));
+						const u32 target = ReadGpr(Rs(word));
 						link = (Funct(word) == 0x09);
 						if (link)
 						{
-							// jalr writes rd (defaults to 31 when rd == 0).
+							// jalr with rd == 0 discards the link; it does not write $31.
 							const u32 rd = Rd(word);
-							WriteGpr(rd == 0 ? 31 : rd, Const(branch_pc + 8));
+							WriteGprWide(rd, m_b.ConstI64(branch_pc + 8));
 						}
 						if (!LiftDelaySlot(delay_pc, error))
 							return false;
@@ -453,7 +520,7 @@ namespace EeIr
 				}
 
 				if (link)
-					WriteGpr(31, Const(branch_pc + 8));
+					WriteGprWide(31, m_b.ConstI64(branch_pc + 8));
 
 				const u32 original_block = m_b.CurrentBlock();
 
@@ -478,7 +545,7 @@ namespace EeIr
 
 					m_b.SetBlock(skipped);
 					m_b.SetGuestPc(fallthrough_pc);
-					m_b.Resume(fallthrough_pc);
+					m_b.Emit(ir::Op::Resume, ir::Type::Void, {}, fallthrough_pc, ir::IF_ANNULLED_DELAY_SLOT);
 					m_b.SetBlockEnd(fallthrough_pc);
 
 					*end_pc = fallthrough_pc;
@@ -554,22 +621,13 @@ namespace EeIr
 			u32 end = 0;
 			std::string error;
 			if (!LiftBlock(code, {0x00100000, 4}, fn, &end, &error))
-			{
-				std::printf("EE IR case 1 lift failed: %s\n", error.c_str());
 				return false;
-			}
 			if (end != 0x0010000c || !ir::Verify(fn, &error))
-			{
-				std::printf("EE IR case 1 failed: end=0x%08x error=%s\n", end, error.c_str());
 				return false;
-			}
 			const std::string dump = ir::Dump(fn);
 			if (dump.find("CmpEq") == std::string::npos || dump.find("Branch") == std::string::npos ||
 				dump.find("Resume") == std::string::npos || dump.find("Add") == std::string::npos)
-			{
-				std::printf("EE IR case 1 dump mismatch\n%s\n", dump.c_str());
 				return false;
-			}
 		}
 
 		// jal writes the link register and exits at the target.

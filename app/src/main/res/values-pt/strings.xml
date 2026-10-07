@@ -78,6 +78,11 @@
     <string name="emulation_load_failed">Não foi possível carregar o save state.</string>
     <string name="emulation_fps">FPS: %s</string>
     <string name="emulation_bios_missing">Adicione um arquivo da BIOS primeiro.</string>
+    <string name="emulation_patches_title">Patches ativos</string>
+    <string name="emulation_patches_widescreen">Patches widescreen</string>
+    <string name="emulation_patches_no_interlacing">Patches sem entrelaçamento</string>
+    <string name="emulation_patches_cheats">Cheats</string>
+    <string name="emulation_patches_user_count">Patches do usuário: %1$d</string>
     <string name="emulation_launch_failed">Não foi possível abrir este jogo.</string>
     <string name="emulation_launch_path_error">Não foi possível abrir este arquivo.</string>
     <string name="emulation_show_controls">Mostrar controles</string>
@@ -728,6 +733,13 @@
     <string name="settings_respect_display_cutout">Respeitar o recorte da câmara</string>
     <string name="settings_respect_display_cutout_desc">Manter a imagem do jogo fora da área do recorte.</string>
     <string name="settings_help_respect_display_cutout">Adiciona margem ao redor da imagem emulada para que não seja desenhada sob o recorte da câmara (notch ou orifício). Útil na horizontal quando o recorte tapa a imagem. Afeta apenas a emulação; o resto da app já respeita os recortes.</string>
+    <string name="settings_show_patch_messages">Mostrar mensagens de patches</string>
+    <string name="settings_show_patch_messages_desc">Mostra uma mensagem breve quando patches do jogo são aplicados.</string>
+    <string name="controls_editor_reset_selected">Repor o elemento selecionado</string>
+    <string name="controls_editor_show_grid">Mostrar grelha</string>
+    <string name="controls_editor_snap_grid">Ajustar à grelha</string>
+    <string name="controls_editor_group_scale_value">Escala do grupo %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Mostra um aviso breve ao iniciar o jogo com as opções de patches ativas e quantos patches do usuário foram encontrados.</string>
     <string name="settings_help_pad_vibration">Permite que jogos compatíveis acionem a vibração (rumble) do controle. Adiciona feedback útil em jogos de corrida, combate e de grande impacto, mas pode descarregar a bateria mais rápido e alguns controles sem fio podem vibrar fracamente ou com um leve atraso.</string>
     <string name="settings_help_recent_games">Mostra uma linha de acesso rápido para os jogos que você jogou por último. Útil se você costuma alternar entre alguns títulos frequentemente; desligue se quiser uma tela inicial mais limpa.</string>
     <string name="settings_help_home_search">Mostra a barra de pesquisa da biblioteca diretamente na tela inicial. Deixe ativado para grandes bibliotecas; desligue se preferir um layout mais limpo e raramente pesquisar por nome.</string>
@@ -1121,9 +1133,6 @@
     <string name="onboarding_emulator_folder_title">Escolher pasta do emulador</string>
     <string name="onboarding_emulator_folder_desc">Selecione onde cartões de memória, save states, cheats, patches e logs são armazenados.</string>
     <string name="settings_help_emulator_data_path">Seleciona onde o EmuCoreX armazena arquivos de tempo de execução do emulador, como cartões de memória, save states, cheats, patches e logs. Deixe na pasta padrão, a menos que você queira manter os dados do emulador em um local compartilhado ou gerenciado manualmente.</string>
-    <string name="settings_help_debug_options">Mostra controles de diagnóstico extras no menu do jogo, incluindo o perfilador JIT e o gravador de rastreamento de travamento. Mantenha isso desligado para jogar normalmente.</string>
-    <string name="settings_show_debug_options">Opções de depuração</string>
-    <string name="settings_show_debug_options_desc">Mostrar ferramentas de perfil de desenvolvedor no menu do jogo.</string>
     <string name="settings_emulator_data_path">Pasta do Emulador</string>
     <string name="settings_emulator_data_path_desc">Selecione onde os arquivos do emulador são armazenados.</string>
     <string name="settings_emulator_data_path_default">Pasta padrão</string>
@@ -1821,6 +1830,7 @@
     <string name="settings_fps_overlay_metrics">Estatísticas visíveis</string>
     <string name="settings_help_fps_overlay_metrics">Escolha os valores individuais incluídos na sobreposição de estatísticas detalhadas. Isso não afeta a coleta de métricas ou o desempenho da emulação.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Versão</string>
     <string name="settings_fps_metric_vps">VPS</string>
     <string name="settings_fps_metric_speed">Velocidade</string>
     <string name="settings_fps_metric_target">Alvo</string>
@@ -1953,7 +1963,7 @@
     <string name="settings_stick_toggle_right">Analógico direito</string>
     <string name="settings_stick_toggle_left">Analógico esquerdo</string>
     <string name="settings_stick_toggle_button">Alternar analógico</string>
-    <string name="settings_help_stick_toggle_target">Escolha qual analógico na tela o botão entre Select e Start controla. Direito: oculta ou mostra o analógico direito. Esquerdo: alterna entre o analógico esquerdo e o direcional. Não afeta os controles físicos.</string>
+    <string name="settings_help_stick_toggle_target">Escolha qual analógico na tela o botão entre Select e Start transforma em direcional. O analógico escolhido é substituído temporariamente por um direcional. Não afeta os controles físicos.</string>
     <string name="settings_touchscreen_right_stick">Analógico direito na tela sensível ao toque</string>
     <string name="settings_touchscreen_right_stick_desc">Deslize por uma área livre da tela para controlar o analógico direito virtual.</string>
     <string name="settings_help_touchscreen_right_stick">Mapeia gestos de arrastar nas áreas livres da tela do jogo para os eixos do analógico direito virtual, permitindo mover a câmera sem tocar no analógico visível. Os botões de toque e os analógicos visíveis mantêm o comportamento normal.</string>
