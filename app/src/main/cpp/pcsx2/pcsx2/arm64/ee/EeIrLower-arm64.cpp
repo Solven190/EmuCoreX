@@ -128,6 +128,72 @@ namespace EeIr
 			}
 		}
 
+
+		// Forward reads only within one basic block. Keep every architectural
+		// write in place: a following memory helper may observe state or fault.
+		// Helpers/accesses are barriers even for ordinary RAM because the same
+		// operation can dispatch MMIO, events or guest exception handlers.
+		void ForwardEEStateReads(ir::Function& fn)
+		{
+			struct CachedState { u32 narrow = 0, wide = 0; bool sign_extended = false; };
+			for (ir::Block& block : fn.blocks)
+			{
+				std::array<CachedState, 34> cache{}; // GPR[32], HI, LO
+				for (ir::Inst& inst : block.insts)
+				{
+					const auto kind = ir::Info(inst.op).kind;
+					if (kind == ir::OpKind::MemLoad || kind == ir::OpKind::MemStore || kind == ir::OpKind::Helper ||
+						inst.op == ir::Op::DivS || inst.op == ir::Op::DivU || inst.op == ir::Op::RemS || inst.op == ir::Op::RemU)
+					{
+						cache = {};
+						continue;
+					}
+					const bool read = inst.op == ir::Op::ReadGpr || inst.op == ir::Op::ReadHi || inst.op == ir::Op::ReadLo;
+					const bool write = inst.op == ir::Op::WriteGpr || inst.op == ir::Op::WriteHi || inst.op == ir::Op::WriteLo;
+					if (!read && !write)
+						continue;
+					const u32 reg = (inst.op == ir::Op::ReadGpr || inst.op == ir::Op::WriteGpr) ?
+						static_cast<u32>(inst.imm) : (inst.op == ir::Op::ReadHi || inst.op == ir::Op::WriteHi) ? 32u : 33u;
+					if (reg == 0)
+						continue;
+					CachedState& state = cache[reg];
+					if (!ir::IsIntegerType(read ? inst.type : fn.ValueType(inst.args[0])))
+					{
+						state = {};
+						continue;
+					}
+					if (write)
+					{
+						const bool wide = reg < 32 ? (inst.aux & ir::IF_WIDE_WRITE) != 0 : fn.ValueType(inst.args[0]) == ir::Type::I64;
+						state = wide ? CachedState{0, inst.args[0], false} : CachedState{inst.args[0], 0, true};
+						continue;
+					}
+					const bool wide = inst.type == ir::Type::I64;
+					const u32 source = wide ? state.wide : state.narrow;
+					if (source)
+					{
+						inst.op = ir::Op::Copy;
+						inst.args[0] = source;
+						inst.num_args = 1;
+					}
+					else if ((!wide && state.wide) || (wide && state.narrow && state.sign_extended))
+					{
+						inst.op = wide ? ir::Op::Sext32 : ir::Op::Trunc32;
+						inst.args[0] = wide ? state.narrow : state.wide;
+						inst.num_args = 1;
+					}
+					if (wide)
+						state.wide = inst.value;
+					else
+						state.narrow = inst.value;
+					// A narrow READ alone says nothing about bits 32..63. Only a
+					// narrow architectural WRITE establishes the sign extension.
+					if (inst.op == ir::Op::Copy || inst.op == ir::Op::Sext32 || inst.op == ir::Op::Trunc32)
+						inst.imm = 0;
+				}
+			}
+		}
+
 		class Lowerer
 		{
 		public:
@@ -263,9 +329,7 @@ namespace EeIr
 			{
 				for (const ir::Inst& inst : block.insts)
 				{
-					u32 operands = inst.arg_count();
-					if (ir::Info(inst.op).kind == ir::OpKind::Control)
-						operands = (inst.op == ir::Op::Branch || inst.op == ir::Op::BranchIndirect) ? 1u : 0u;
+					const u32 operands = ir::ValueOperandCount(inst);
 					for (u32 i = 0; i < operands; ++i)
 						last_use[inst.args[i]] = position;
 					if (inst.value && !m_constants[inst.value] && ir::IsIntegerType(inst.type))
@@ -391,6 +455,11 @@ namespace EeIr
 			const u32 value_count = static_cast<u32>(m_fn.value_types.size());
 			m_constants.resize(value_count);
 			m_slots.resize(value_count);
+			std::vector<bool> defined(value_count, false);
+			for (const ir::Block& block : m_fn.blocks)
+				for (const ir::Inst& inst : block.insts)
+					if (inst.value)
+						defined[inst.value] = true;
 			if (m_materialize_constants)
 			{
 				for (const ir::Block& block : m_fn.blocks)
@@ -408,7 +477,7 @@ namespace EeIr
 			{
 				if (m_registers[value] >= 0)
 					++out->register_values;
-				else if (!m_constants[value])
+				else if (defined[value] && !m_constants[value])
 				{
 					++out->spill_values;
 					m_slots[value] = next_slot;
@@ -1096,6 +1165,17 @@ namespace EeIr
 		out->frame_size = 0;
 		out->register_values = 0;
 		out->spill_values = 0;
+		// Optimize a copy so callers can lower the identical input in A/B modes.
+		if (options.optimize_ir)
+		{
+			if (!CanLower(fn, options.inline_body, error))
+				return false;
+			ir::Function optimized = fn;
+			ForwardEEStateReads(optimized);
+			ir::OptimizeIntegerValues(optimized);
+			Lowerer lowerer(optimized, options);
+			return lowerer.Run(code, capacity, out, error);
+		}
 		Lowerer lowerer(fn, options);
 		return lowerer.Run(code, capacity, out, error);
 	}

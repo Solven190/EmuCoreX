@@ -390,6 +390,12 @@ namespace ir
 	// ------------------------------------------------------------------
 	// Verification and printing
 	// ------------------------------------------------------------------
+	// Value operands exclude control-flow block ids. Shared by optimizers and
+	// liveness analysis; the function must already have passed Verify.
+	u32 ValueOperandCount(const Inst& inst);
+	// Block-local copy propagation, integer constant folding and dead-value
+	// removal. Memory accesses, helpers and architectural writes stay ordered.
+	void OptimizeIntegerValues(Function& fn);
 	bool Verify(const Function& fn, std::string* error = nullptr);
 	void Dump(const Function& fn, std::string& out);
 	std::string Dump(const Function& fn);

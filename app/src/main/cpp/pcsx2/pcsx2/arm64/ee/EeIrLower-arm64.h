@@ -59,6 +59,9 @@ namespace EeIr
 		// Conservative linear-scan allocation in call-preserved host registers.
 		// Both modes remain available to the interpreter differential oracle.
 		bool allocate_registers = true;
+		// Preserve state writes and memory/helper barriers while forwarding
+		// redundant reads, folding integer constants and removing dead values.
+		bool optimize_ir = true;
 	};
 
 	struct LowerOutput

@@ -2569,6 +2569,11 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		return __system_property_get("debug.emucorex.ee_ir_regalloc", value) == 0 || value[0] != '0';
 	}();
 	options.allocate_registers = allocate_registers;
+	static const bool optimize_ir = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_optimize", value) == 0 || value[0] != '0';
+	}();
+	options.optimize_ir = optimize_ir;
 #endif
 	if (!EeIr::LowerBlock(fn, options, nullptr, 0, &out, &error))
 	{
@@ -2588,11 +2593,11 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u registers=%u spills=%u",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
-			out.register_values, out.spill_values);
+			options.optimize_ir ? 1u : 0u, out.register_values, out.spill_values);
 	}
 #endif
 
