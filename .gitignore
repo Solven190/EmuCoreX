@@ -98,8 +98,9 @@ Thumbs.db
 *.bak
 *.orig
 emulog.txt
-# Local investigation notes and profiling captures
+# Local project documentation: keep the entire directory out of Git.
 docs/
+# Local investigation notes and profiling captures
 profiling-runs/
 profiler/
 /local-traces/
