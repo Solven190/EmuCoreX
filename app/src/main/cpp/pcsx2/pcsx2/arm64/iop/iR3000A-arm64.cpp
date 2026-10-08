@@ -1814,16 +1814,17 @@ static bool TryIopIrSequence()
     s_iopIrDirectLoads += out.direct_iop_load_operations;
     if (out.frame_size != 0 && out.spill_values != 0) ++s_iopIrSpillSequences;
 #if defined(__ANDROID__)
-    static u64 sequences = 0, native_bytes = 0;
+    static u64 sequences = 0, native_bytes = 0, fused_multiply_pairs = 0;
     ++sequences;
     native_bytes += out.host_size;
+    fused_multiply_pairs += out.fused_multiply_pairs;
     if ((sequences <= 1024 && (sequences & (sequences - 1)) == 0) || sequences % 4096 == 0)
         __android_log_print(ANDROID_LOG_INFO, "IOPIR",
-            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u memory_operations=%llu direct_loads=%llu native_div=%u muldiv_instructions=%llu",
+            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u memory_operations=%llu direct_loads=%llu native_div=%u muldiv_instructions=%llu fused_multiply_pairs=%llu",
             static_cast<unsigned long long>(sequences), static_cast<unsigned long long>(s_iopIrInstructions),
             static_cast<unsigned long long>(native_bytes), psxpc - accepted * 4, out.register_values, out.spill_values, out.frame_size,
             static_cast<unsigned long long>(s_iopIrMemoryOperations), static_cast<unsigned long long>(s_iopIrDirectLoads),
-            options.inline_division ? 1u : 0u, static_cast<unsigned long long>(s_iopIrMulDivInstructions));
+            options.inline_division ? 1u : 0u, static_cast<unsigned long long>(s_iopIrMulDivInstructions), static_cast<unsigned long long>(fused_multiply_pairs));
 #endif
     return true;
 }

@@ -106,6 +106,7 @@ namespace Arm64Ir
 		u32 vector_save_values = 0; // allocated SIMD values needing stack homes
 		u32 iop_memory_operations = 0;
 		u32 direct_iop_load_operations = 0;
+		u32 fused_multiply_pairs = 0;
 	};
 
 	// `code` must point at an executable buffer of `capacity` bytes that is not

@@ -265,6 +265,7 @@ namespace Arm64Ir
 				, m_allocate_registers(options.allocate_registers)
 				, m_allocate_vectors(options.allocate_registers && options.allocate_vector_registers)
 				, m_inline_division(options.optimize_ir && options.inline_division)
+				, m_fuse_multiply_pairs(options.optimize_ir)
 				, m_direct_quad_memory(options.optimize_ir && options.direct_quad_memory && (!CHECK_CACHE || CHECK_EEREC))
 				, m_direct_quad_vectors(options.direct_quad_vectors)
 				, m_direct_iop_loads(options.optimize_ir && options.direct_iop_loads)
@@ -457,6 +458,8 @@ namespace Arm64Ir
 			void EmitPrologue();
 			void EmitEntryJump();
 			void EmitEpilogue();
+			bool EmitBlock(const ir::Block& block, std::string* error);
+			bool TryEmitMultiplyPair(const ir::Inst& lo, const ir::Inst& hi);
 			bool EmitInst(const ir::Inst& inst, std::string* error);
 			bool EmitInstBody(const ir::Inst& inst, std::string* error);
 			bool Fail(std::string* error, const char* what);
@@ -474,6 +477,8 @@ namespace Arm64Ir
 			bool m_at_vector_barrier = false;
 			u32 m_emit_position = 0;
 			bool m_inline_division = true;
+			bool m_fuse_multiply_pairs = true;
+			u32 m_fused_multiply_pairs = 0;
 			bool m_direct_quad_memory = true;
 			bool m_direct_quad_vectors = true;
 			bool m_direct_iop_loads = true;
@@ -820,11 +825,8 @@ namespace Arm64Ir
 				for (const ir::Block& block : m_fn.blocks)
 				{
 					oakAsm->l(m_labels[block.id - 1]);
-					for (const ir::Inst& inst : block.insts)
-					{
-						if (!EmitInst(inst, error))
-							return false;
-					}
+					if (!EmitBlock(block, error))
+						return false;
 				}
 				out->entry = nullptr;
 				out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
@@ -832,6 +834,7 @@ namespace Arm64Ir
 				out->direct_quad_vector_operations = m_direct_quad_vector_operations;
 				out->iop_memory_operations = m_iop_memory_operations;
 				out->direct_iop_load_operations = m_direct_iop_load_operations;
+				out->fused_multiply_pairs = m_fused_multiply_pairs;
 				return true;
 			}
 
@@ -845,11 +848,8 @@ namespace Arm64Ir
 			for (const ir::Block& block : m_fn.blocks)
 			{
 				oakAsm->l(m_labels[block.id - 1]);
-				for (const ir::Inst& inst : block.insts)
-				{
-					if (!EmitInst(inst, error))
-						return false;
-				}
+				if (!EmitBlock(block, error))
+					return false;
 			}
 
 			const u8* const end = oakEndBlock();
@@ -859,6 +859,46 @@ namespace Arm64Ir
 			out->direct_quad_vector_operations = m_direct_quad_vector_operations;
 			out->iop_memory_operations = m_iop_memory_operations;
 			out->direct_iop_load_operations = m_direct_iop_load_operations;
+			out->fused_multiply_pairs = m_fused_multiply_pairs;
+			return true;
+		}
+
+		bool Lowerer::TryEmitMultiplyPair(const ir::Inst& lo, const ir::Inst& hi)
+		{
+			if (!m_fuse_multiply_pairs || lo.op != ir::Op::Mul || lo.type != ir::Type::I32 ||
+				(hi.op != ir::Op::MulHiS && hi.op != ir::Op::MulHiU) || hi.type != ir::Type::I32 ||
+				lo.args[0] != hi.args[0] || lo.args[1] != hi.args[1] ||
+				m_fn.ValueType(lo.args[0]) != ir::Type::I32 || m_fn.ValueType(lo.args[1]) != ir::Type::I32)
+				return false;
+			// Read both inputs before defining either result, matching the existing
+			// allocator's final-use coalescing contract. X2 is outside its pool.
+			recBeginOaknutEmit();
+			const auto lhs = Operand32(lo.args[0], oak::util::W0);
+			const auto rhs = Operand32(lo.args[1], oak::util::W1);
+			if (hi.op == ir::Op::MulHiS)
+				oakAsm->SMULL(oak::util::X2, lhs, rhs);
+			else
+				oakAsm->UMULL(oak::util::X2, lhs, rhs);
+			Store32(lo.value, oak::util::W2);
+			const auto dst_hi = Result32(hi.value);
+			oakAsm->LSR(dst_hi.toX(), oak::util::X2, 32);
+			Store32(hi.value, dst_hi);
+			recEndOaknutEmit();
+			// Vector save/restore schedules use original IR instruction positions.
+			m_emit_position += 2;
+			++m_fused_multiply_pairs;
+			return true;
+		}
+
+		bool Lowerer::EmitBlock(const ir::Block& block, std::string* error)
+		{
+			for (size_t i = 0; i < block.insts.size(); ++i)
+			{
+				if (i + 1 < block.insts.size() && TryEmitMultiplyPair(block.insts[i], block.insts[i + 1]))
+					++i;
+				else if (!EmitInst(block.insts[i], error))
+					return false;
+			}
 			return true;
 		}
 
@@ -1197,9 +1237,8 @@ namespace Arm64Ir
 						oakAsm->SMULL(oak::util::X2, lhs, rhs);
 					else
 						oakAsm->UMULL(oak::util::X2, lhs, rhs);
-					oakAsm->LSR(oak::util::X2, oak::util::X2, 32);
 					const auto dst = Result32(inst.value);
-					oakAsm->MOV(dst, oak::util::W2);
+					oakAsm->LSR(dst.toX(), oak::util::X2, 32);
 					Store32(inst.value, dst);
 					recEndOaknutEmit();
 					return true;

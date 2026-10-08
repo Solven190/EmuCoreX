@@ -232,12 +232,10 @@ namespace EeIr
 				case 0x19: // multu
 				{
 					const bool sign = (Funct(word) == 0x18);
-					const u32 a = m_b.Emit1(sign ? ir::Op::Sext32 : ir::Op::Zext32, ir::Type::I64, ReadGpr(rs));
-					const u32 b = m_b.Emit1(sign ? ir::Op::Sext32 : ir::Op::Zext32, ir::Type::I64, ReadGpr(rt));
-					const u32 product = m_b.Emit2(ir::Op::Mul, ir::Type::I64, a, b);
-					const u32 lo = m_b.Emit1(ir::Op::Trunc32, ir::Type::I32, product);
-					const u32 hi64 = m_b.Emit2(ir::Op::ShrS, ir::Type::I64, product, m_b.ConstI64(32));
-					const u32 hi = m_b.Emit1(ir::Op::Trunc32, ir::Type::I32, hi64);
+					const u32 a = ReadGpr(rs);
+					const u32 b = ReadGpr(rt);
+					const u32 lo = m_b.Emit2(ir::Op::Mul, ir::Type::I32, a, b);
+					const u32 hi = m_b.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, ir::Type::I32, a, b);
 					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
 					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
 					// R5900 quirk: mult/multu also write LO into Rd when Rd != 0.
@@ -770,7 +768,7 @@ namespace EeIr
 			if (!ir::Verify(fn, &error))
 				return false;
 			const std::string dump = ir::Dump(fn);
-			if (dump.find("Mul") == std::string::npos || dump.find("Sext32") == std::string::npos ||
+			if (dump.find("MulHiS") == std::string::npos || dump.find("WriteHi") == std::string::npos ||
 				dump.find("WriteLo") == std::string::npos || dump.find("ReadLo") == std::string::npos)
 				return false;
 		}

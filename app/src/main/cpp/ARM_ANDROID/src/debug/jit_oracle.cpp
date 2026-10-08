@@ -3845,8 +3845,229 @@ void EEIrWordShuffleTests()
     }
 }
 
+
+// Count emitted multiply instructions, independently of lowering statistics.
+u32 IRMultiplyInstructions(const Arm64Ir::LowerOutput& out)
+{
+    u32 count = 0;
+    for (u32 offset = 0; offset < out.host_size; offset += 4)
+    {
+        u32 word;
+        std::memcpy(&word, out.entry + offset, 4);
+        const u32 op = word & 0xffe0fc00u;
+        count += op == 0x1b007c00u || op == 0x9b007c00u || op == 0x9b207c00u || op == 0x9ba07c00u;
+    }
+    return count;
+}
+
+void IRMultiplyPairTests()
+{
+    const u32 edges[] = {0, 1, 2, 0x7fffffff, 0x80000000, 0xffffffff, 0x89abcdef};
+    for (auto domain : {Arm64Ir::GuestState::EE, Arm64Ir::GuestState::IOP})
+        for (bool sign : {false, true})
+            for (u32 shape = 0; shape < 6; ++shape)
+                for (u32 mode = 0; mode < 5; ++mode)
+                {
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(EE_TEST_PC);
+                    const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+                    const u32 c = shape == 4 ? b.ConstI32(0x89abcdef) : shape == 5 ? a : b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 9);
+                    const auto high = [&]() { return b.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, ir::Type::I32,
+                        shape == 1 ? c : a, shape == 1 ? a : c); };
+                    u32 hi = shape == 3 ? high() : 0;
+                    const u32 lo = b.Emit2(ir::Op::Mul, ir::Type::I32, a, c);
+                    if (shape == 2) b.Emit1(ir::Op::WriteGpr, ir::Type::Void, lo, 12);
+                    if (shape != 3) hi = high();
+                    b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
+                    b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, lo, 8);
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, hi, 9);
+                    b.Resume(EE_TEST_PC + 4);
+                    Arm64Ir::LowerOptions options;
+                    options.guest_state = domain;
+                    options.optimize_ir = mode != 0;
+                    options.allocate_registers = mode != 2;
+                    options.materialize_constants = mode != 3;
+                    options.reuse_spill_slots = mode != 4;
+                    Arm64Ir::LowerOutput out;
+                    std::string error;
+                    bool same = Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                    const bool fused = (shape == 0 || shape >= 4) && mode != 0;
+                    const bool one_product = same && IRMultiplyInstructions(out) == (fused ? 1u : 2u) &&
+                        out.fused_multiply_pairs == (fused ? 1u : 0u);
+                    for (u32 lhs : edges)
+                        for (u32 rhs : edges)
+                        {
+                            if (!same) break;
+                            std::memset(&cpuRegs, 0xa5, sizeof(cpuRegs));
+                            std::memset(&psxRegs, 0x5a, sizeof(psxRegs));
+                            cpuRegs.GPR.r[8].UD[0] = 0xfedcba9800000000ull | lhs;
+                            cpuRegs.GPR.r[9].UD[0] = 0x1234567800000000ull | rhs;
+                            psxRegs.GPR.r[8] = lhs;
+                            psxRegs.GPR.r[9] = rhs;
+                            auto ee_expected = cpuRegs;
+                            auto iop_expected = psxRegs;
+                            const u32 multiplier = shape == 4 ? 0x89abcdef : shape == 5 ? lhs : rhs;
+                            const u64 product = sign ? static_cast<u64>(static_cast<s64>(static_cast<s32>(lhs)) * static_cast<s64>(static_cast<s32>(multiplier))) :
+                                static_cast<u64>(lhs) * multiplier;
+                            const u32 low = static_cast<u32>(product), upper = static_cast<u32>(product >> 32);
+                            if (domain == Arm64Ir::GuestState::EE)
+                            {
+                                ee_expected.GPR.r[8].SD[0] = ee_expected.LO.SD[0] = static_cast<s32>(low);
+                                ee_expected.GPR.r[9].SD[0] = ee_expected.HI.SD[0] = static_cast<s32>(upper);
+                                if (shape == 2) ee_expected.GPR.r[12].SD[0] = static_cast<s32>(low);
+                            }
+                            else
+                            {
+                                iop_expected.GPR.r[8] = iop_expected.GPR.n.lo = low;
+                                iop_expected.GPR.r[9] = iop_expected.GPR.n.hi = upper;
+                                if (shape == 2) iop_expected.GPR.r[12] = low;
+                            }
+                            reinterpret_cast<void (*)()>(out.entry)();
+                            same &= std::memcmp(&ee_expected, &cpuRegs, sizeof(cpuRegs)) == 0 &&
+                                std::memcmp(&iop_expected, &psxRegs, sizeof(psxRegs)) == 0;
+                        }
+                    char name[128];
+                    std::snprintf(name, sizeof(name), "ir product pair domain=%u sign=%u shape=%u mode=%u exact states", static_cast<u32>(domain), sign, shape, mode);
+                    Check(same, name);
+                    std::snprintf(name, sizeof(name), "ir product pair domain=%u sign=%u shape=%u mode=%u multiplier count", static_cast<u32>(domain), sign, shape, mode);
+                    Check(one_product, name);
+                }
+}
+
+void IRMultiplyPairVectorTests()
+{
+    for (bool allocate : {false, true})
+        for (bool reuse : {false, true})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            const u32 first = b.CreateBlock(EE_TEST_PC);
+            const u32 vector = b.ConstVec({0x12345678, 0x89abcdef, 0xfedcba98, 0x76543210});
+            const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+            const u32 c = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 9);
+            const u32 lo = b.Emit2(ir::Op::Mul, ir::Type::I32, a, c);
+            const u32 hi = b.Emit2(ir::Op::MulHiS, ir::Type::I32, a, c);
+            b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
+            b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
+            b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, vector, 12);
+            const u32 second = b.CreateBlock(EE_TEST_PC + 4);
+            const u32 vector2 = b.ConstVec({1, 2, 3, 4});
+            b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, vector2, 13);
+            b.Resume(EE_TEST_PC + 8);
+            b.SetBlock(first);
+            b.Jump(second);
+            Arm64Ir::LowerHooks hooks;
+            hooks.before_helper = hooks.after_helper = +[](void*) {
+                for (u32 r = 2; r <= 7; ++r) oakAsm->MOVI(oak::QReg(r).B16(), 0xa5);
+            };
+            Arm64Ir::LowerOptions options;
+            options.allocate_registers = allocate;
+            options.reuse_spill_slots = reuse;
+            options.hooks = &hooks;
+            Arm64Ir::LowerOutput out;
+            std::string error;
+            bool same = Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                cpuRegs.GPR.r[8].UL[0] = 0x80000000;
+                cpuRegs.GPR.r[9].UL[0] = 0xffffffff;
+                reinterpret_cast<void (*)()>(out.entry)();
+                const u32 expected[] = {0x12345678, 0x89abcdef, 0xfedcba98, 0x76543210, 1, 2, 3, 4};
+                same &= std::memcmp(cpuRegs.GPR.r[12].UL, expected, sizeof(expected)) == 0 &&
+                    cpuRegs.LO.UD[0] == 0xffffffff80000000ull && cpuRegs.HI.UD[0] == 0 && IRMultiplyInstructions(out) == 1;
+            }
+            Check(same, "ir fused multiply retains vector helper positions across blocks");
+        }
+}
+
+void EEIrMultiplyTests()
+{
+    IRMultiplyPairTests();
+    IRMultiplyPairVectorTests();
+    // Compare actual frontend output to the previous widened representation,
+    // using identical backend options and dynamic operands in both functions.
+    for (bool sign : {false, true})
+        for (u32 mode = 0; mode < 5; ++mode)
+        {
+            ir::Function old;
+            ir::Builder b(old);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 a = b.Emit1(sign ? ir::Op::Sext32 : ir::Op::Zext32, ir::Type::I64, b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8));
+            const u32 c = b.Emit1(sign ? ir::Op::Sext32 : ir::Op::Zext32, ir::Type::I64, b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 9));
+            const u32 product = b.Emit2(ir::Op::Mul, ir::Type::I64, a, c);
+            const u32 lo = b.Emit1(ir::Op::Trunc32, ir::Type::I32, product);
+            const u32 hi = b.Emit1(ir::Op::Trunc32, ir::Type::I32, b.Emit2(ir::Op::ShrS, ir::Type::I64, product, b.ConstI64(32)));
+            b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
+            b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, lo, 12);
+            b.Resume(EE_TEST_PC + 4);
+            const u32 word = MipsR(8, 9, 12, 0, sign ? 0x18 : 0x19);
+            ir::Function current;
+            std::string error;
+            u32 end = 0;
+            Arm64Ir::LowerOptions options;
+            options.optimize_ir = mode != 0;
+            options.allocate_registers = mode != 2;
+            options.materialize_constants = mode != 3;
+            options.reuse_spill_slots = mode != 4;
+            Arm64Ir::LowerOutput baseline, out;
+            const bool lowered = EeIr::LiftBlock(&word, {EE_TEST_PC, 1}, current, &end, &error) &&
+                Arm64Ir::LowerBlock(old, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &baseline, &error) &&
+                Arm64Ir::LowerBlock(current, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            Check(lowered && out.host_size < baseline.host_size, "ir EE full product emits fewer bytes than widened reference");
+            if (lowered) std::printf("EEIR multiply sign=%u mode=%u widened_bytes=%u narrow_bytes=%u multipliers=%u\n",
+                sign, mode, baseline.host_size, out.host_size, IRMultiplyInstructions(out));
+        }
+    const u32 edges[] = {0, 1, 2, 0x7fffffff, 0x80000000, 0xffffffff, 0x89abcdef};
+    const u32 aliases[][3] = {{8,9,12}, {8,9,8}, {8,9,9}, {8,8,8}, {0,9,12}, {8,0,0}};
+    for (u32 funct : {0x18u, 0x19u})
+        for (u32 lhs : edges)
+            for (u32 rhs : edges)
+                for (const auto& regs : aliases)
+                {
+                    u64 initial[32] = {};
+                    initial[8] = 0xfedcba9800000000ull | lhs;
+                    initial[9] = 0x1234567800000000ull | rhs;
+                    initial[12] = 0xdeadbeefcafef00dull;
+                    const std::vector<u32> code = {MipsR(regs[0], regs[1], regs[2], 0, funct),
+                        MipsR(0, 0, 16, 0, 0x10), MipsR(0, 0, 17, 0, 0x12)};
+                    char name[144];
+                    std::snprintf(name, sizeof(name), "ir EE product fn=%02x rs=%u rt=%u rd=%u lhs=%08x rhs=%08x",
+                        funct, regs[0], regs[1], regs[2], lhs, rhs);
+                    RunEEIrCase(name, code, initial);
+                    CompareEE(RunEEProgram(false, code, false, initial), RunEEProgram(true, code, false, initial), name);
+                }
+    for (u32 funct : {0x18u, 0x19u})
+    {
+        const std::vector<u32> code = {MipsI(15, 0, 22, EE_TEST_SCRATCH >> 16), MipsI(13, 22, 22, EE_TEST_SCRATCH & 0xffff),
+            MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48), MipsI(30, 22, 12, 64), MipsR(8, 9, 12, 0, funct),
+            MipsI(31, 22, 12, 96), MipsR(0, 0, 16, 0, 0x10), MipsR(0, 0, 17, 0, 0x12)};
+        RunEEIrCase("ir EE product preserves destination upper half", code, nullptr, false, true);
+        CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), "ir EE product preserves destination upper half integrated");
+    }
+    for (u32 funct : {0x18u, 0x19u})
+        for (u32 branch : {4u, 0x14u})
+            for (bool taken : {false, true})
+            {
+                const std::vector<u32> code = {MipsI(15, 0, 22, EE_TEST_SCRATCH >> 16), MipsI(13, 22, 22, EE_TEST_SCRATCH & 0xffff),
+                    MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48), MipsI(30, 22, 12, 64),
+                    MipsI(9, 0, 4, taken ? 1 : 0), MipsI(9, 0, 5, 1),
+                    MipsI(branch, 4, 5, 1), MipsR(8, 9, 12, 0, funct)};
+                char name[96];
+                std::snprintf(name, sizeof(name), "ir EE product upper preservation fn=%02x delay branch=%02x taken=%u", funct, branch, taken);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+            }
+}
+
 void EEIrExecutionTests()
 {
+    EEIrMultiplyTests();
     EEIrQuadTests();
     EEIrQuadOptimizationsTests();
     EEIrMmiTests();
