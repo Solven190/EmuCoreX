@@ -286,7 +286,9 @@ namespace ir
 			if (!inst.value)
 				return false;
 			if (IsVectorType(inst.type))
-				return inst.op == Op::ConstVec || inst.op == Op::Copy || inst.op == Op::ReadGpr;
+				return inst.op == Op::ConstVec || inst.op == Op::Copy || inst.op == Op::ReadGpr ||
+					(inst.type == Type::V4U32 && (inst.op == Op::Add || inst.op == Op::Sub ||
+						inst.op == Op::And || inst.op == Op::Or || inst.op == Op::Xor || inst.op == Op::Not));
 			if (!IsIntegerType(inst.type))
 				return false;
 			switch (inst.op)

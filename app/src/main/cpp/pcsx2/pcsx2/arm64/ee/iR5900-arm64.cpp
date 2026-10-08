@@ -2605,6 +2605,11 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		return __system_property_get("debug.emucorex.ee_ir_spill_reuse", value) == 0 || value[0] != '0';
 	}();
 	options.reuse_spill_slots = reuse_spill_slots;
+	static const bool forward_quad_state = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_quad_forward", value) == 0 || value[0] != '0';
+	}();
+	options.forward_quad_state = forward_quad_state;
 #endif
 	if (!EeIr::LowerBlock(fn, options, nullptr, 0, &out, &error))
 	{
@@ -2640,7 +2645,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
@@ -2648,7 +2653,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			options.optimize_ir && options.inline_division ? 1u : 0u, static_cast<unsigned long long>(division_pairs),
 			quad_memory ? 1u : 0u, static_cast<unsigned long long>(quad_operations),
 			static_cast<unsigned long long>(direct_quad_operations), options.optimize_ir && options.reuse_spill_slots ? 1u : 0u, out.spill_slots,
-			static_cast<unsigned long long>(vector_alu_operations));
+			static_cast<unsigned long long>(vector_alu_operations), options.optimize_ir && options.forward_quad_state ? 1u : 0u);
 	}
 #endif
 

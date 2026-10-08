@@ -2623,6 +2623,268 @@ void EEIrQuadTests()
 }
 
 
+
+void EEIrVectorForwardTests()
+{
+    using Quad = std::array<u32, 4>;
+    constexpr Quad initial = {0x12345678, 0xabcdef01, 0x87654321, 0xfedcba98};
+    constexpr Quad updated = {0x80000003, 0x10203040, 0x50607080, 0x90a0b0c0};
+    constexpr Quad mutated = {0x31415926, 0x53589793, 0x23846264, 0x33832795};
+    char name[128];
+    for (u32 scenario = 0; scenario < 6; ++scenario)
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        auto read_quad = [&]() { return b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8); };
+        auto write = [&](u32 reg, u32 value) { b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, reg); };
+        std::array<Quad, 3> expected = {initial, initial, initial};
+        if (scenario == 1)
+            write(8, b.ConstVec(updated));
+        if (scenario == 5)
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void,
+                {b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8)}, 9, ir::IF_WIDE_WRITE);
+        else
+            write(9, read_quad());
+        if (scenario == 2)
+        {
+            write(8, b.ConstI32(0x80000003));
+            expected[1] = expected[2] = Quad{0x80000003, 0xffffffff, initial[2], initial[3]};
+        }
+        if (scenario == 3)
+        {
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstI64(0x1020304080000003ull)}, 8, ir::IF_WIDE_WRITE);
+            expected[1] = expected[2] = Quad{updated[0], updated[1], initial[2], initial[3]};
+        }
+        if (scenario == 4)
+        {
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void,
+                {b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8)}, 10, ir::IF_WIDE_WRITE);
+            expected[1] = Quad{initial[0], initial[1], 0, 0};
+        }
+        else if (scenario == 5)
+        {
+            write(8, b.ConstVec(updated));
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void,
+                {b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8)}, 10, ir::IF_WIDE_WRITE);
+            expected = {Quad{initial[0], initial[1], 0, 0}, Quad{updated[0], updated[1], 0, 0},
+                Quad{updated[0], 0xffffffff, 0, 0}};
+        }
+        else
+            write(10, read_quad());
+        write(11, scenario == 5 ? b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8) : read_quad());
+        if (scenario == 1)
+            expected.fill(updated);
+        b.Resume(EE_TEST_PC + 4);
+        for (bool allocate : {false, true})
+            for (bool reuse : {false, true})
+                for (bool forward : {false, true})
+                {
+                    EeIr::LowerOptions options;
+                    options.allocate_registers = allocate;
+                    options.reuse_spill_slots = reuse;
+                    options.forward_quad_state = forward;
+                    EeIr::LowerOutput out;
+                    std::string error;
+                    bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                    if (same)
+                    {
+                        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                        std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        for (u32 i = 0; i < 3; ++i)
+                            same &= std::memcmp(cpuRegs.GPR.r[i + 9].UL, expected[i].data(), 16) == 0;
+                    }
+                    std::snprintf(name, sizeof(name), "ir quad forwarding mixed widths case=%u alloc=%u reuse=%u forward=%u", scenario, allocate, reuse, forward);
+                    Check(same, name);
+                }
+    }
+    // Same function, same lowering options, only forwarding changes. Check
+    // real output and generated size rather than the optimizer's internals.
+    for (bool writes : {false, true})
+        for (bool allocate : {false, true})
+            for (bool reuse : {false, true})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                u32 value = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+                const u32 step = b.ConstVec({1, 2, 3, 4});
+                for (u32 i = 0; i < 24; ++i)
+                {
+                    const u32 read = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+                    value = b.Emit2(writes ? ir::Op::Add : ir::Op::Xor, ir::Type::V4U32, writes ? read : value, writes ? step : read);
+                    if (writes)
+                        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 8);
+                }
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 9);
+                b.Resume(EE_TEST_PC + 4);
+                u32 baseline = 0;
+                bool same = true;
+                for (bool forward : {false, true})
+                {
+                    EeIr::LowerOptions options;
+                    options.allocate_registers = allocate;
+                    options.reuse_spill_slots = reuse;
+                    options.forward_quad_state = forward;
+                    EeIr::LowerOutput out;
+                    std::string error;
+                    if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                    {
+                        same = false;
+                        continue;
+                    }
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    for (u32 lane = 0; lane < 4; ++lane)
+                        same &= cpuRegs.GPR.r[9].UL[lane] == initial[lane] + (writes ? 24 * (lane + 1) : 0);
+                    if (!forward)
+                        baseline = out.host_size;
+                    else
+                        same &= out.host_size < baseline;
+                    std::printf("EEIR vector forwarding writes=%u alloc=%u reuse=%u forward=%u bytes=%u frame=%u\n",
+                        writes, allocate, reuse, forward, out.host_size, out.frame_size);
+                }
+                Check(same, "ir quad forwarding reduces emitted code with identical options and results");
+            }
+    for (ir::Op access : {ir::Op::Load32, ir::Op::Load128, ir::Op::Store32, ir::Op::Store128, ir::Op::DivU})
+        for (bool direct : {false, true})
+            for (bool forward : {false, true})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 old = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, old, 9);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstVec(updated), 8);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8), 10);
+                const u32 addr = b.ConstI32(EE_TEST_SCRATCH);
+                if (access == ir::Op::DivU)
+                {
+                    const u32 quotient = b.Emit2(access, ir::Type::I32, b.ConstI32(7), b.ConstI32(3));
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, quotient, 15);
+                }
+                else if (access == ir::Op::Store128 || access == ir::Op::Store32)
+                    b.Emit2(access, ir::Type::Void, addr, access == ir::Op::Store128 ? old : b.ConstI32(7));
+                else
+                    b.Emit1(access, access == ir::Op::Load128 ? ir::Type::V4U32 : ir::Type::I32, addr);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8), 11);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, old, 13);
+                b.Resume(EE_TEST_PC + 4);
+                EeIr::LowerHooks hooks;
+                auto mutate = +[](void*) {
+                    oakLoad128(oak::util::Q0, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[8]))});
+                    oakStore128(oak::util::Q0, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[12]))});
+                    oakAsm->MOV(oak::util::X16, 0x5358979331415926ull);
+                    oakStore64(oak::util::X16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[8]))});
+                    oakAsm->MOV(oak::util::X16, 0x3383279523846264ull);
+                    oakStore64(oak::util::X16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[8])) + 8});
+                };
+                if (access == ir::Op::DivU)
+                    hooks.after_helper = mutate;
+                else
+                    hooks.after_memory = mutate;
+                EeIr::LowerOptions options;
+                options.hooks = &hooks;
+                options.inline_division = false;
+                options.direct_quad_memory = direct;
+                options.forward_quad_state = forward;
+                EeIr::LowerOutput out;
+                std::string error;
+                bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                if (same)
+                {
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    same &= std::memcmp(cpuRegs.GPR.r[9].UL, initial.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[10].UL, updated.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[11].UL, mutated.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[12].UL, updated.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[13].UL, initial.data(), 16) == 0;
+                }
+                std::snprintf(name, sizeof(name), "ir quad forwarding barrier %s direct=%u forward=%u", ir::OpName(access), direct, forward);
+                Check(same, name);
+            }
+    {
+        ir::Function fn;
+        fn.guest_entry = EE_TEST_PC;
+        ir::Builder b(fn);
+        const u32 entry = b.CreateBlock(EE_TEST_PC);
+        const u32 cond = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 7);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8), 9);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstVec(updated), 8);
+        const u32 left = b.CreateBlock(EE_TEST_PC + 4), right = b.CreateBlock(EE_TEST_PC + 8), join = b.CreateBlock(EE_TEST_PC + 12);
+        b.SetBlock(entry);
+        b.Branch(cond, left, right);
+        b.SetBlock(left);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8), 11);
+        b.Jump(join);
+        b.SetBlock(right);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstVec(mutated), 8);
+        b.Jump(join);
+        b.SetBlock(join);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8), 10);
+        b.Resume(EE_TEST_PC + 16);
+        for (bool forward : {false, true})
+        {
+            EeIr::LowerOptions options;
+            options.forward_quad_state = forward;
+            EeIr::LowerOutput out;
+            std::string error;
+            bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+                for (bool taken : {false, true})
+                {
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    cpuRegs.GPR.r[7].UL[0] = taken;
+                    std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    same &= std::memcmp(cpuRegs.GPR.r[9].UL, initial.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[10].UL, (taken ? updated : mutated).data(), 16) == 0;
+                    if (taken)
+                        same &= std::memcmp(cpuRegs.GPR.r[11].UL, updated.data(), 16) == 0;
+                }
+            Check(same, "ir quad forwarding remains block-local across branch merge");
+        }
+    }
+    for (ir::Op op : {ir::Op::Add, ir::Op::Sub, ir::Op::And, ir::Op::Or, ir::Op::Xor, ir::Op::Not})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+        const u32 dead = op == ir::Op::Not ? b.Emit1(op, ir::Type::V4U32, a) : b.Emit2(op, ir::Type::V4U32, a, a);
+        b.Emit1(ir::Op::Not, ir::Type::V4U32, dead); // recursively dead chain
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstVec(updated), 9);
+        b.Resume(EE_TEST_PC + 4);
+        u32 baseline = 0;
+        bool same = true;
+        for (bool optimize : {false, true})
+        {
+            EeIr::LowerOptions options;
+            options.optimize_ir = optimize;
+            options.reuse_spill_slots = false;
+            EeIr::LowerOutput out;
+            std::string error;
+            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+            {
+                same = false;
+                continue;
+            }
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= std::memcmp(cpuRegs.GPR.r[9].UL, updated.data(), 16) == 0;
+            if (!optimize)
+                baseline = out.host_size;
+            else
+                same &= out.host_size < baseline;
+        }
+        Check(same, "ir dead vector ALU chain removed without changing live write");
+    }
+}
+
 void EEIrMmiTests()
 {
     struct Operation { const char* name; u32 group, sub; ir::Op op; bool invert; };
@@ -2753,6 +3015,7 @@ void EEIrExecutionTests()
     EEIrQuadTests();
     EEIrQuadOptimizationsTests();
     EEIrMmiTests();
+    EEIrVectorForwardTests();
     {
         const std::array<std::array<u64, 3>, 8> edges = {{
             {{0, 0, 0}}, {{1, 1, 0}}, {{~u64(0), ~u64(0), 0}},

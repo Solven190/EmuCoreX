@@ -74,6 +74,8 @@ namespace EeIr
 		bool direct_quad_memory = true;
 		// Reuse typed spill slots after their SSA values die within a block.
 		bool reuse_spill_slots = true;
+		// Keep a separate block-local cache for full 128-bit GPR values.
+		bool forward_quad_state = true;
 	};
 
 	struct LowerOutput

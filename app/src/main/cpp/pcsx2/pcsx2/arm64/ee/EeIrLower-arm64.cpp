@@ -139,9 +139,9 @@ namespace EeIr
 		// write in place: a following memory helper may observe state or fault.
 		// Helpers/accesses are barriers even for ordinary RAM because the same
 		// operation can dispatch MMIO, events or guest exception handlers.
-		void ForwardEEStateReads(ir::Function& fn, bool inline_division)
+		void ForwardEEStateReads(ir::Function& fn, bool inline_division, bool forward_quad_state)
 		{
-			struct CachedState { u32 narrow = 0, wide = 0; bool sign_extended = false; };
+			struct CachedState { u32 narrow = 0, wide = 0; bool sign_extended = false; u32 quad = 0; };
 			for (ir::Block& block : fn.blocks)
 			{
 				std::array<CachedState, 34> cache{}; // GPR[32], HI, LO
@@ -164,7 +164,29 @@ namespace EeIr
 					if (reg == 0)
 						continue;
 					CachedState& state = cache[reg];
-					if (!ir::IsIntegerType(read ? inst.type : fn.ValueType(inst.args[0])))
+					const ir::Type type = read ? inst.type : fn.ValueType(inst.args[0]);
+					if (forward_quad_state && reg < 32 && type == ir::Type::V4U32)
+					{
+						if (write)
+						{
+							// A full write invalidates cached scalar views of this GPR.
+							state = {};
+							state.quad = inst.args[0];
+						}
+						else
+						{
+							if (state.quad)
+							{
+								inst.op = ir::Op::Copy;
+								inst.args[0] = state.quad;
+								inst.num_args = 1;
+								inst.imm = 0;
+							}
+							state.quad = inst.value;
+						}
+						continue;
+					}
+					if (!ir::IsIntegerType(type))
 					{
 						state = {};
 						continue;
@@ -172,6 +194,8 @@ namespace EeIr
 					if (write)
 					{
 						const bool wide = reg < 32 ? (inst.aux & ir::IF_WIDE_WRITE) != 0 : fn.ValueType(inst.args[0]) == ir::Type::I64;
+						// A partial write changes the low half, so the old full value
+						// is unusable even though the architectural upper half survives.
 						state = wide ? CachedState{0, inst.args[0], false} : CachedState{inst.args[0], 0, true};
 						continue;
 					}
@@ -1539,7 +1563,7 @@ namespace EeIr
 			if (!CanLower(fn, options.inline_body, error))
 				return false;
 			ir::Function optimized = fn;
-			ForwardEEStateReads(optimized, options.inline_division);
+			ForwardEEStateReads(optimized, options.inline_division, options.forward_quad_state);
 			ir::OptimizeIntegerValues(optimized);
 			Lowerer lowerer(optimized, options);
 			return lowerer.Run(code, capacity, out, error);
