@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0+
 #include "Common.h"
 #include "IopMem.h"
+#include "IopHw.h"
 #include "Memory.h"
 #include "OpcodeFamilies.h"
 #include "JitProfiler.h"
 #include "ir/Ir.h"
 #include "arm64/ee/EeIrLifter-arm64.h"
+#include "arm64/iop/IopIrLifter-arm64.h"
 #include "arm64/ee/EeIrLower-arm64.h"
 #include "arm64/OaknutHelpers-arm64.h"
 #include "arm64/cpuRegistersPack-arm64.h"
@@ -40,6 +42,10 @@ extern "C" void EmuCoreXOracleSetSkipEvents(int enabled)
 {
     s_oracleSkipEvents = enabled != 0;
 }
+
+extern "C" void EmuCoreXOracleSetIOPIR(int enabled);
+extern "C" u64 EmuCoreXOracleIOPIRInstructions();
+extern "C" u64 EmuCoreXOracleIOPIRSpillSequences();
 
 namespace
 {
@@ -1078,7 +1084,7 @@ EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlo
     return out;
 }
 
-IOPSnapshot RunIOPProgram(bool jit, const std::vector<u32>& program, s32 eeCycles = -1, bool forceGteInterpreter = false)
+IOPSnapshot RunIOPProgram(bool jit, const std::vector<u32>& program, s32 eeCycles = -1, bool forceGteInterpreter = false, u64 forcedFamilies = 0)
 {
     std::memset(&psxRegs, 0, sizeof(psxRegs));
     // Deterministic GTE fixtures: both engines must see identical CP2 state.
@@ -1104,7 +1110,7 @@ IOPSnapshot RunIOPProgram(bool jit, const std::vector<u32>& program, s32 eeCycle
     if (jit)
     {
         OpcodeFamilies::SetFamilyMask(OpcodeFamilies::CORE_IOP,
-            forceGteInterpreter ? (1ull << OpcodeFamilies::IOP::FAM_GTE) : 0);
+            forcedFamilies | (forceGteInterpreter ? (1ull << OpcodeFamilies::IOP::FAM_GTE) : 0));
         psxCpu = &psxRec;
         psxRec.Reset();
     }
@@ -5231,6 +5237,230 @@ void IOPCoverageGte()
     // them in a dedicated runner before enabling.
 }
 
+void IOPSharedIntegrationTests()
+{
+    std::vector<u32> mixed = {
+        MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16), MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff),
+        MipsI(9, 0, 8, 0x1234), MipsI(43, 22, 8, 0), MipsI(35, 22, 9, 0),
+        MipsR(8, 9, 8, 0, 0x21), MipsR(8, 9, 0, 0, 0x18), MipsR(0, 0, 10, 0, 0x12),
+        MipsI(9, 10, 11, 1), MipsI(43, 22, 11, 4), MipsI(4, 8, 9, 1), MipsI(9, 8, 8, 1),
+        MipsI(4, 0, 0, 1), MipsI(9, 9, 9, 1), MipsI(9, 10, 10, 1)};
+    // Legacy loads keep the following inputs unknown to the optimizer. Four
+    // pair sums and their cross-dependencies exceed the three-register pool,
+    // exercising the inline X20 spill frame before legacy memory consumers.
+    for (u32 r = 8; r < 16; ++r) mixed.push_back(MipsI(35, 22, r, (r - 8) * 4));
+    const u32 pressure[] = {
+        MipsR(8, 9, 16, 0, 0x21), MipsR(10, 11, 17, 0, 0x21),
+        MipsR(12, 13, 18, 0, 0x21), MipsR(14, 15, 19, 0, 0x21),
+        MipsR(16, 18, 20, 0, 0x26), MipsR(17, 19, 21, 0, 0x26),
+        MipsR(16, 17, 8, 0, 0x21), MipsR(18, 19, 9, 0, 0x21),
+        MipsR(20, 21, 10, 0, 0x26)};
+    mixed.insert(mixed.end(), std::begin(pressure), std::end(pressure));
+    for (u32 r = 8; r < 22; ++r) mixed.push_back(MipsI(43, 22, r, 32 + (r - 8) * 4));
+    // Force multiple IR fragments and then a legacy memory consumer.
+    for (u32 i = 0; i < 200; ++i) mixed.push_back(MipsI(9, 8, 8, 1));
+    mixed.push_back(MipsI(43, 22, 8, 8));
+    const u32 saved_icfg = psxHu32(HW_ICFG);
+    for (u32 clock : {0u, 8u})
+        for (s32 budget : {4096, 12345})
+        {
+            psxHu32(HW_ICFG) = clock;
+            EmuCoreXOracleSetIOPIR(0);
+            const IOPSnapshot legacy = RunIOPProgram(true, mixed, budget);
+            const s32 legacy_budget = psxRegs.iopCycleEE;
+            const u32 legacy_carry = psxRegs.iopCycleEECarry;
+            const u64 before = EmuCoreXOracleIOPIRInstructions();
+            const u64 spill_before = EmuCoreXOracleIOPIRSpillSequences();
+            EmuCoreXOracleSetIOPIR(1);
+            const IOPSnapshot actual = RunIOPProgram(true, mixed, budget);
+            CompareIOP(legacy, actual, "ir IOP mixed production/legacy state");
+            Check(legacy.cycle == actual.cycle && legacy_budget == psxRegs.iopCycleEE &&
+                legacy_carry == psxRegs.iopCycleEECarry, "ir IOP mixed production exact cycle/budget/carry");
+            Check(EmuCoreXOracleIOPIRInstructions() > before, "ir IOP production actually compiled shared IR instructions");
+            Check(EmuCoreXOracleIOPIRSpillSequences() > spill_before,
+                "ir IOP production uses inline spill frame with dynamic register pressure");
+        }
+    psxHu32(HW_ICFG) = saved_icfg;
+    const std::vector<u32> forced = {MipsI(9, 0, 8, 1), MipsI(9, 8, 8, 2), MipsI(13, 8, 9, 4)};
+    const u64 before = EmuCoreXOracleIOPIRInstructions();
+    const IOPSnapshot expected = RunIOPProgram(false, forced);
+    const IOPSnapshot actual = RunIOPProgram(true, forced, -1, false, 1ull << OpcodeFamilies::IOP::FAM_ALU_IMM);
+    CompareIOP(expected, actual, "ir IOP forced interpreter instructions preserved");
+    Check(EmuCoreXOracleIOPIRInstructions() == before, "ir IOP forced interpreter bypasses shared IR");
+    EmuCoreXOracleSetIOPIR(-1);
+}
+
+void IOPSharedFrontendTests()
+{
+    // Execute the lifted instructions in isolation, comparing with the actual
+    // R3000A interpreter. Seed values cover signed edges and shift count masks.
+    const u32 edges[] = {0, 1, 31, 32, 0x80000000u, 0xffffffffu};
+    for (u32 kind = 0; kind < 25; ++kind)
+        for (u32 dest : {0u, 8u, 9u, 10u})
+            for (u32 edge : edges)
+            {
+                const u32 other = edge ^ 0x80000021u;
+                std::vector<u32> code = {
+                    MipsI(15, 0, 8, edge >> 16), MipsI(13, 8, 8, edge & 0xffff),
+                    MipsI(15, 0, 9, other >> 16), MipsI(13, 9, 9, other & 0xffff),
+                    MipsR(8, 0, 0, 0, 0x11), MipsR(9, 0, 0, 0, 0x13)};
+                const u32 functions[] = {0x21, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2a, 0x2b,
+                    0, 2, 3, 4, 6, 7, 0x10, 0x12, 0x11, 0x13};
+                const u32 immediates[] = {9, 10, 11, 12, 13, 14, 15};
+                if (kind < 8)
+                    code.push_back(MipsR(8, 9, dest, 0, functions[kind]));
+                else if (kind < 11)
+                    code.push_back(MipsR(0, 8, dest, edge & 31, functions[kind]));
+                else if (kind < 14)
+                    code.push_back(MipsR(9, 8, dest, 0, functions[kind]));
+                else if (kind < 16)
+                    code.push_back(MipsR(0, 0, dest, 0, functions[kind]));
+                else if (kind < 18)
+                    code.push_back(MipsR(dest, 0, 0, 0, functions[kind]));
+                else
+                    code.push_back(MipsI(immediates[kind - 18], 8, dest, edge & 0xffff));
+                const IOPSnapshot expected = RunIOPProgram(false, code);
+                ir::Function fn;
+                std::string error;
+                u32 count = 0;
+                bool same = IopIr::LiftSequence(code.data() + 6, IOP_TEST_PC + 24, 1, fn, &count, &error) &&
+                    count == 1 && ir::Verify(fn, &error);
+                for (u32 mode = 0; same && mode < 5; ++mode)
+                {
+                    Arm64Ir::LowerOptions options;
+                    options.guest_state = Arm64Ir::GuestState::IOP;
+                    options.optimize_ir = mode != 0;
+                    options.allocate_registers = mode != 2;
+                    options.materialize_constants = mode != 3;
+                    options.reuse_spill_slots = mode != 4;
+                    Arm64Ir::LowerOutput out;
+                    same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                    if (!same) break;
+                    std::memset(&psxRegs, 0, sizeof(psxRegs));
+                    // Keep inputs dynamic in every backend mode, so optimization
+                    // cannot fold the opcode under test into constant writes.
+                    psxRegs.GPR.r[8] = psxRegs.GPR.n.hi = edge;
+                    psxRegs.GPR.r[9] = psxRegs.GPR.n.lo = other;
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    same &= std::memcmp(psxRegs.GPR.r, expected.gpr, sizeof(expected.gpr)) == 0 &&
+                        psxRegs.GPR.n.hi == expected.hi && psxRegs.GPR.n.lo == expected.lo;
+                }
+                char name[128];
+                std::snprintf(name, sizeof(name), "ir IOP frontend kind=%u dest=%u edge=%08x modes/interpreter", kind, dest, edge);
+                Check(same, name);
+            }
+    for (u32 word : {MipsI(8, 8, 9, 1), MipsR(8, 9, 10, 0, 0x20), MipsR(8, 9, 10, 0, 0x22),
+        MipsI(35, 8, 9, 0), MipsI(43, 8, 9, 0), MipsI(4, 8, 9, 1),
+        MipsR(8, 0, 0, 0, 8), MipsR(8, 9, 0, 0, 0x18), MipsR(8, 9, 0, 0, 0x1a),
+        0x40086000u, 0x48080000u, 0x0000000cu, 0xffffffffu})
+    {
+        const u32 code[] = {MipsI(9, 0, 8, 1), word, 0};
+        ir::Function fn;
+        std::string error;
+        u32 count = 99;
+        const bool prefix = IopIr::LiftSequence(code, IOP_TEST_PC, 3, fn, &count, &error) &&
+            count == 1 && fn.blocks.back().insts.back().imm == IOP_TEST_PC + 4;
+        const bool reject = !IopIr::LiftSequence(code + 1, IOP_TEST_PC + 4, 2, fn, &count, &error) &&
+            count == 0 && fn.blocks.empty();
+        Check(prefix && reject, "ir IOP frontend stops before legacy boundary, rejects unsupported head");
+    }
+    const u32 nops[] = {0, 0, 0};
+    ir::Function fn;
+    std::string error;
+    u32 count = 0;
+    Check(IopIr::LiftSequence(nops, IOP_TEST_PC + 0xffc, 3, fn, &count, &error) && count == 1,
+        "ir IOP frontend never crosses guest page");
+    Check(IopIr::LiftSequence(nops, IOP_TEST_PC, 2, fn, &count, &error) && count == 2,
+        "ir IOP frontend respects caller instruction cap");
+    Check(!IopIr::LiftSequence(nops, IOP_TEST_PC, 0, fn, &count, &error) && count == 0,
+        "ir IOP frontend rejects empty input");
+    Check(!IopIr::LiftSequence(nops, IOP_TEST_PC + 1, 1, fn, &count, &error) && count == 0,
+        "ir IOP frontend rejects misaligned PC");
+}
+
+void IOPSharedStateTests()
+{
+    for (u32 source : {0u, 8u, 31u})
+        for (u32 dest : {0u, 1u, 8u, 31u})
+            for (u32 edge : {0u, 1u, 0x7fffffffu, 0x80000000u, 0xffffffffu})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(IOP_TEST_PC);
+                const u32 value = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, source);
+                const u32 hi = b.Emit(ir::Op::ReadHi, ir::Type::I32, {});
+                const u32 lo = b.Emit(ir::Op::ReadLo, ir::Type::I32, {});
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, dest);
+                b.Emit1(ir::Op::WriteHi, ir::Type::Void, lo);
+                b.Emit1(ir::Op::WriteLo, ir::Type::Void, hi);
+                b.Resume(IOP_TEST_PC + 4);
+                bool same = true;
+                for (u32 mode = 0; mode < 5; ++mode)
+                {
+                    Arm64Ir::LowerOptions options;
+                    options.guest_state = Arm64Ir::GuestState::IOP;
+                    options.optimize_ir = mode != 0;
+                    options.allocate_registers = mode != 2;
+                    options.materialize_constants = mode != 3;
+                    options.reuse_spill_slots = mode != 4;
+                    Arm64Ir::LowerOutput out;
+                    std::string error;
+                    if (!Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                    {
+                        same = false;
+                        continue;
+                    }
+                    std::memset(&cpuRegs, 0x5a, sizeof(cpuRegs));
+                    const auto ee_before = cpuRegs;
+                    std::memset(&psxRegs, 0, sizeof(psxRegs));
+                    for (u32 r = 0; r < 34; ++r)
+                        psxRegs.GPR.r[r] = 0x12345678u ^ (r * 0x1010101u);
+                    psxRegs.GPR.r[source] = edge;
+                    auto expected = psxRegs.GPR;
+                    if (dest != 0)
+                        expected.r[dest] = source == 0 ? 0 : edge;
+                    std::swap(expected.n.hi, expected.n.lo);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    same &= std::memcmp(&psxRegs.GPR, &expected, sizeof(expected)) == 0 &&
+                        std::memcmp(&cpuRegs, &ee_before, sizeof(cpuRegs)) == 0;
+                }
+                char name[128];
+                std::snprintf(name, sizeof(name), "ir IOP state32 source=%u dest=%u edge=%08x neighbors/EE isolated", source, dest, edge);
+                Check(same, name);
+            }
+    for (ir::Op op : {ir::Op::Load32, ir::Op::ReadFpr, ir::Op::ConstVec, ir::Op::BranchIndirect})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(IOP_TEST_PC);
+        if (op == ir::Op::Load32)
+            b.Emit1(op, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+        else if (op == ir::Op::ReadFpr)
+            b.Emit(op, ir::Type::F32, {}, 1);
+        else if (op == ir::Op::ConstVec)
+            b.ConstVec({1, 2, 3, 4});
+        if (op == ir::Op::BranchIndirect)
+            b.Emit1(op, ir::Type::Void, b.ConstI32(IOP_TEST_PC));
+        else
+            b.Resume(IOP_TEST_PC + 4);
+        std::string error;
+        Check(ir::Verify(fn, &error) && !Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::IOP),
+            "ir IOP domain rejects EE memory/vector/FPU/control before emission");
+    }
+    for (ir::Type type : {ir::Type::I64, ir::Type::V4U32})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(IOP_TEST_PC);
+        const u32 value = b.Emit(ir::Op::ReadGpr, type, {}, 8);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 9, type == ir::Type::I64 ? ir::IF_WIDE_WRITE : 0);
+        b.Resume(IOP_TEST_PC + 4);
+        std::string error;
+        Check(ir::Verify(fn, &error) && !Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::IOP),
+            "ir IOP domain rejects wide architectural state accesses");
+    }
+}
+
 void IOPTests()
 {
     EmuCoreXOracleSetSkipEvents(1);
@@ -5301,6 +5531,9 @@ void IOPTests()
 
     IOPCoverage();
     IOPCoverageGte();
+    IOPSharedIntegrationTests();
+    IOPSharedFrontendTests();
+    IOPSharedStateTests();
 }
 }
 

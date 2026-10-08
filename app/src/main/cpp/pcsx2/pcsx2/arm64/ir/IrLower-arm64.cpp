@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 EmuCoreX Team
 // SPDX-License-Identifier: GPL-3.0+
 
-#include "arm64/ee/EeIrLower-arm64.h"
+#include "arm64/ir/IrLower-arm64.h"
 
 #include "arm64/OaknutHelpers-arm64.h"
 #include "arm64/cpuRegistersPack-arm64.h"
@@ -13,7 +13,7 @@
 #include <optional>
 #include <vector>
 
-namespace EeIr
+namespace Arm64Ir
 {
 	extern "C" u32 g_eeir_exit_pc = 0;
 	extern "C" u32 g_eeir_exit_valid = 0;
@@ -154,7 +154,7 @@ namespace EeIr
 		// write in place: a following memory helper may observe state or fault.
 		// Helpers/accesses are barriers even for ordinary RAM because the same
 		// operation can dispatch MMIO, events or guest exception handlers.
-		void ForwardEEStateReads(ir::Function& fn, bool inline_division, bool forward_quad_state)
+		void ForwardGuestStateReads(ir::Function& fn, bool inline_division, bool forward_quad_state)
 		{
 			struct CachedState { u32 narrow = 0, wide = 0; bool sign_extended = false; u32 quad = 0; };
 			for (ir::Block& block : fn.blocks)
@@ -245,6 +245,7 @@ namespace EeIr
 		public:
 			Lowerer(ir::Function& fn, const LowerOptions& options)
 				: m_fn(fn)
+				, m_guest_state(options.guest_state)
 				, m_inline(options.inline_body)
 				, m_hooks(options.hooks)
 				, m_capture_exit(options.capture_exit_pc)
@@ -427,14 +428,16 @@ namespace EeIr
 				}
 			}
 
-			static s64 GprOffset(u32 reg)
+			s64 GprOffset(u32 reg) const
 			{
+				if (m_guest_state == GuestState::IOP)
+					return static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.GPR.r[0])) + reg * sizeof(u32);
 				return static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0])) +
 					static_cast<s64>(reg) * static_cast<s64>(sizeof(GPR_reg));
 			}
 
-			static s64 LoOffset() { return static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.LO)); }
-			static s64 HiOffset() { return static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.HI)); }
+			s64 LoOffset() const { return m_guest_state == GuestState::IOP ? offsetof(cpuRegistersPack, psxRegs.GPR.n.lo) : offsetof(cpuRegistersPack, cpuRegs.LO); }
+			s64 HiOffset() const { return m_guest_state == GuestState::IOP ? offsetof(cpuRegistersPack, psxRegs.GPR.n.hi) : offsetof(cpuRegistersPack, cpuRegs.HI); }
 			static s64 PcOffset() { return static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc)); }
 
 			void EmitFrameAdjust(bool add, u32 amount);
@@ -446,6 +449,7 @@ namespace EeIr
 			bool Fail(std::string* error, const char* what);
 
 			ir::Function& m_fn;
+			GuestState m_guest_state;
 			std::vector<oak::Label> m_labels;
 			u32 m_frame = 0;
 			bool m_inline = false;
@@ -689,7 +693,7 @@ namespace EeIr
 
 		bool Lowerer::Run(u8* code, size_t capacity, LowerOutput* out, std::string* error)
 		{
-			if (!CanLower(m_fn, m_inline, error))
+			if (!CanLower(m_fn, m_inline, error, m_guest_state))
 				return false;
 
 			const u32 value_count = static_cast<u32>(m_fn.value_types.size());
@@ -1658,7 +1662,10 @@ namespace EeIr
 					}
 					else
 					{
-						oakLoad32(Result32(inst.value), {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
+						if (inst.imm == 0)
+							oakAsm->MOV(Result32(inst.value), 0);
+						else
+							oakLoad32(Result32(inst.value), {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
 						Store32(inst.value, Result32(inst.value));
 					}
 					recEndOaknutEmit();
@@ -1685,6 +1692,12 @@ namespace EeIr
 					else
 					{
 						const auto value = Operand32(a[0], oak::util::W0);
+						if (m_guest_state == GuestState::IOP)
+						{
+							oakStore32(value, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
+							recEndOaknutEmit();
+							return true;
+						}
 						oakAsm->SXTW(oak::util::X0, value);
 					}
 					oakStore64(oak::util::X0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
@@ -1720,6 +1733,12 @@ namespace EeIr
 					else
 					{
 						const auto value = Operand32(a[0], oak::util::W0);
+						if (m_guest_state == GuestState::IOP)
+						{
+							oakStore32(value, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset() : LoOffset()});
+							recEndOaknutEmit();
+							return true;
+						}
 						oakAsm->SXTW(oak::util::X0, value);
 					}
 					oakStore64(oak::util::X0, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset() : LoOffset()});
@@ -1806,7 +1825,7 @@ namespace EeIr
 		}
 	} // namespace
 
-	bool CanLower(const ir::Function& fn, bool inline_body, std::string* error)
+	bool CanLower(const ir::Function& fn, bool inline_body, std::string* error, GuestState guest_state)
 	{
 		if (!ir::Verify(fn, error))
 			return false;
@@ -1827,6 +1846,33 @@ namespace EeIr
 		{
 			for (const ir::Inst& inst : block.insts)
 			{
+				if (guest_state == GuestState::IOP)
+				{
+					// Stage one accepts only pure 32-bit integer sequences. EE memory,
+					// helpers and control paths must never run with the IOP layout.
+					bool supported = inst.type == ir::Type::Void || inst.type == ir::Type::I32;
+					for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)
+						supported &= fn.ValueType(inst.args[arg]) == ir::Type::I32;
+					switch (inst.op)
+					{
+						case ir::Op::Nop: case ir::Op::ConstI32: case ir::Op::Copy:
+						case ir::Op::Add: case ir::Op::Sub: case ir::Op::And:
+						case ir::Op::Or: case ir::Op::Xor: case ir::Op::Not:
+						case ir::Op::Shl: case ir::Op::ShrU: case ir::Op::ShrS:
+						case ir::Op::CmpLtS: case ir::Op::CmpLtU:
+						case ir::Op::ReadGpr: case ir::Op::WriteGpr:
+						case ir::Op::ReadHi: case ir::Op::WriteHi:
+						case ir::Op::ReadLo: case ir::Op::WriteLo:
+						case ir::Op::Resume:
+							break;
+						default: supported = false; break;
+					}
+					if (!supported || (inst.aux & ir::IF_WIDE_WRITE))
+					{
+						if (error) *error = "unsupported IOP IR operation or type";
+						return false;
+					}
+				}
 				const bool quad_alu = inst.type == ir::Type::V4U32 &&
 					(inst.op == ir::Op::Add || inst.op == ir::Op::Sub || inst.op == ir::Op::And ||
 						inst.op == ir::Op::Or || inst.op == ir::Op::Xor || inst.op == ir::Op::Not ||
@@ -1903,10 +1949,10 @@ namespace EeIr
 		// Optimize a copy so callers can lower the identical input in A/B modes.
 		if (options.optimize_ir)
 		{
-			if (!CanLower(fn, options.inline_body, error))
+			if (!CanLower(fn, options.inline_body, error, options.guest_state))
 				return false;
 			ir::Function optimized = fn;
-			ForwardEEStateReads(optimized, options.inline_division, options.forward_quad_state);
+			ForwardGuestStateReads(optimized, options.inline_division, options.forward_quad_state);
 			ir::OptimizeIntegerValues(optimized);
 			Lowerer lowerer(optimized, options);
 			return lowerer.Run(code, capacity, out, error);
@@ -1919,4 +1965,4 @@ namespace EeIr
 	{
 		return LowerBlock(fn, LowerOptions{}, code, capacity, out, error);
 	}
-} // namespace EeIr
+} // namespace Arm64Ir

@@ -1025,13 +1025,14 @@ set(pcsx2JitSources
 	ir/IrPrint.cpp
 	ir/IrVerify.cpp
 	arm64/ee/EeIrLifter-arm64.cpp
-	arm64/ee/EeIrLower-arm64.cpp
+	arm64/ir/IrLower-arm64.cpp
 	arm64/ee/BaseblockEx-arm64.cpp
 	arm64/ee/iCOP0-arm64.cpp
 	arm64/ee/iCore-arm64.cpp
 	arm64/ee/iFPU-arm64.cpp
 	arm64/ee/iFPUd-arm64.cpp
 	arm64/ee/iMMI-arm64.cpp
+	arm64/iop/IopIrLifter-arm64.cpp
 	arm64/iop/iR3000A-arm64.cpp
 	arm64/iop/iR3000Atables-arm64.cpp
 	arm64/ee/iR5900Analysis-arm64.cpp
@@ -1055,11 +1056,13 @@ set(pcsx2JitHeaders
 	ir/Ir.h
 	arm64/ee/EeIrLifter-arm64.h
 	arm64/ee/EeIrLower-arm64.h
+	arm64/ir/IrLower-arm64.h
 	arm64/ee/BaseblockEx-arm64.h
 	arm64/ee/iCOP0-arm64.h
 	arm64/ee/iCore-arm64.h
 	arm64/ee/iFPU-arm64.h
 	arm64/ee/iMMI-arm64.h
+	arm64/iop/IopIrLifter-arm64.h
 	arm64/iop/iR3000A-arm64.h
 	arm64/ee/iR5900Arit-arm64.h
 	arm64/ee/iR5900AritImm-arm64.h

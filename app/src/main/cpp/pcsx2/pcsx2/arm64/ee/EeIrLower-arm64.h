@@ -1,115 +1,14 @@
 // SPDX-FileCopyrightText: 2026 EmuCoreX Team
 // SPDX-License-Identifier: GPL-3.0+
-//
-// Lowers the recompiler IR to ARM64 machine code.
-//
-// A conservative linear scan assigns integer SSA values to call-preserved
-// host registers, spilling values to the stack when register pressure requires.
-// Full 128-bit SIMD values use caller-save registers, with typed stack homes
-// and save/restore around memory hooks and C helpers when their values are live.
-// Integer constants are materialized at their uses, reducing spills and
-// stack frame sizes while keeping the generated code easy to validate
-// against the interpreter. Guest state lives in g_cpuRegistersPack and is
-// addressed through pinned X27 in inline mode, or X19 in standalone mode
-// where the prologue pins it and the epilogue restores it.
-//
-// Memory uses small C helpers with interpreter-exact semantics. Optimized
-// 32-bit division/remainder use ARM64 with R5900 edge-case corrections; the
-// unoptimized path retains helpers for differential comparison.
-
 #pragma once
 
-#include "ir/Ir.h"
-
-#include <string>
-
-// Test aid: standalone lowering records the exit target of Resume /
-// BranchIndirect terminators here so a driver can follow guest control flow.
-// g_eeir_exit_valid distinguishes "no terminator ran" from a target of 0.
-extern "C" u32 g_eeir_exit_pc;
-extern "C" u32 g_eeir_exit_valid;
-
+// EE source compatibility facade; lowering and allocation are shared with IOP.
+#include "arm64/ir/IrLower-arm64.h"
 namespace EeIr
 {
-	// Inline-mode exits are emitted through these hooks so the integration can
-	// reuse the legacy block-tail machinery (pc store, event test, linking).
-	struct LowerHooks
-	{
-		void (*guest_exit)(void* ctx, u32 guest_pc, bool annulled_delay_slot) = nullptr;
-		void (*indirect_exit)(void* ctx) = nullptr; // address arrives in W16
-		// Called before every guest memory access so the integration can store
-		// the architectural pc (the faulting instruction address) and the
-		// delay-slot marker for exception accuracy.
-		void (*before_memory)(void* ctx, u32 guest_pc, bool delay_slot) = nullptr;
-		// Runs after the access on both direct-memory and helper paths.
-		void (*after_memory)(void* ctx) = nullptr;
-		// Called around every C helper call so the integration can keep the
-		// cycle delta (W24) coherent with cpuRegs.cycle/nextEventCycle.
-		void (*before_helper)(void* ctx) = nullptr;
-		void (*after_helper)(void* ctx) = nullptr;
-		void* ctx = nullptr;
-		// Explicit contract for before_memory/after_memory only. C helpers and
-		// their surrounding hooks always clobber caller-save SIMD registers.
-		bool memory_preserves_vectors = false;
-	};
-
-	struct LowerOptions
-	{
-		// Inline body: only spills need a temporary stack frame; no code-buffer
-		// management. The guest base is the pinned X27, the frame base is X20, and every exit
-		// is emitted through the hooks above. Only allowed in this mode:
-		// Jump, Branch, BranchIndirect and Resume.
-		bool inline_body = false;
-		const LowerHooks* hooks = nullptr;
-		bool capture_exit_pc = false; // standalone: record exit targets
-		// Integer constants are materialized at their uses and need no spill
-		// slot. The oracle disables this to compare both lowering paths.
-		bool materialize_constants = true;
-		// Conservative linear-scan allocation in call-preserved host registers.
-		// Both modes remain available to the interpreter differential oracle.
-		bool allocate_registers = true;
-		// Allocate full-width SIMD values, preserving live ones around helpers.
-		bool allocate_vector_registers = true;
-		// Preserve state writes and memory/helper barriers while forwarding
-		// redundant reads, folding integer constants, removing dead values and
-		// inlining 32-bit division/remainder with guest-exact edge semantics.
-		bool optimize_ir = true;
-		// Keep helper-based division available for isolated runtime A/B tests.
-		bool inline_division = true;
-		// Check the live VTLB entry and access mapped memory directly; handler
-		// entries retain the interpreter helper. Disabled for EE cache emulation.
-		bool direct_quad_memory = true;
-		// Keep SIMD values in registers on direct RAM paths; spill on fallback.
-		bool direct_quad_vectors = true;
-		// Reuse typed spill slots after their SSA values die within a block.
-		bool reuse_spill_slots = true;
-		// Keep a separate block-local cache for full 128-bit GPR values.
-		bool forward_quad_state = true;
-	};
-
-	struct LowerOutput
-	{
-		u8* entry = nullptr; // callable host function (standalone mode only)
-		u32 host_size = 0;
-		u32 frame_size = 0;
-		u32 register_values = 0;
-		u32 spill_values = 0;
-		u32 spill_slots = 0;
-		u32 direct_quad_operations = 0;
-		u32 direct_quad_vector_operations = 0;
-		u32 vector_register_values = 0;
-		u32 vector_save_values = 0; // allocated SIMD values needing stack homes
-	};
-
-	// `code` must point at an executable buffer of `capacity` bytes that is not
-	// in use. The function pointer in `out` remains valid until the buffer is
-	// reused or the instruction cache is invalidated externally.
-	bool LowerBlock(ir::Function& fn, const LowerOptions& options, u8* code, size_t capacity,
-		LowerOutput* out, std::string* error);
-
-	bool LowerBlock(ir::Function& fn, u8* code, size_t capacity, LowerOutput* out, std::string* error);
-
-	// Validation-only pass: true when LowerBlock is guaranteed to accept the
-	// function. Used by the integration path to decide before emitting code.
-	bool CanLower(const ir::Function& fn, bool inline_body, std::string* error);
-} // namespace EeIr
+    using Arm64Ir::LowerHooks;
+    using Arm64Ir::LowerOptions;
+    using Arm64Ir::LowerOutput;
+    using Arm64Ir::CanLower;
+    using Arm64Ir::LowerBlock;
+}

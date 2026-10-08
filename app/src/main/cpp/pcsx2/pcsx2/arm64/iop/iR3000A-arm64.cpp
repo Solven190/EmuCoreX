@@ -3,6 +3,13 @@
 
 #include "arm64/iop/iR3000A-arm64.h"
 #include "R3000A.h"
+#include "arm64/iop/IopIrLifter-arm64.h"
+#include "arm64/ir/IrLower-arm64.h"
+#include <array>
+#if defined(__ANDROID__)
+#include <android/log.h>
+#include <sys/system_properties.h>
+#endif
 #include "arm64/ee/BaseblockEx-arm64.h"
 #include "R5900OpcodeTables.h"
 #include "OpcodeFamilies.h"
@@ -34,6 +41,31 @@
 #if !defined(__ANDROID__)
 using namespace x86Emitter;
 #endif
+
+static u64 s_iopIrInstructions = 0;
+static u64 s_iopIrSpillSequences = 0;
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+static int s_iopIrOverride = -1;
+extern "C" void EmuCoreXOracleSetIOPIR(int enabled) { s_iopIrOverride = enabled < 0 ? -1 : (enabled != 0); }
+extern "C" u64 EmuCoreXOracleIOPIRInstructions() { return s_iopIrInstructions; }
+extern "C" u64 EmuCoreXOracleIOPIRSpillSequences() { return s_iopIrSpillSequences; }
+#endif
+
+static bool IopIrEnabled()
+{
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+    if (s_iopIrOverride >= 0) return s_iopIrOverride != 0;
+    static const bool enabled = []() {
+        char value[PROP_VALUE_MAX] = {};
+        const bool result = __system_property_get("debug.emucorex.iop_ir", value) == 1 && value[0] == '1';
+        __android_log_print(ANDROID_LOG_INFO, "IOPIR", "enabled=%u property=debug.emucorex.iop_ir", result ? 1u : 0u);
+        return result;
+    }();
+    return enabled;
+#else
+    return false;
+#endif
+}
 
 extern void psxBREAK();
 
@@ -91,7 +123,7 @@ static void iopClearRecLUT(BASEBLOCK* base, int count);
 // IOP JIT maps only a subset of the 32-bit address space (RAM/ROM via the
 // 0x0000/0x8000/0xA000 bases). Any other PC (KUSEG aliases like 0x20000000,
 // HW registers, gaps) has a null LUT entry. Dereferencing PSX_GETBLOCK for
-// such a PC faults with address pc*2 (e.g. 0x40000030) – the top native
+// such a PC faults with address pc*2 (e.g. 0x40000030), the top native
 // crash in Android Vitals (iopRecRecompile). Guard every dereference.
 static __fi bool iopRecPageIsMapped(u32 pc)
 {
@@ -1661,6 +1693,64 @@ void psxRecompileNextInstruction(bool delayslot, bool swapped_delayslot)
 }
 
 
+// This exit only restores the temporary IR frame and falls through into the
+// same legacy block. The IOP block tail owns PC, cycles, linking and events.
+static void IopIrFallThrough(void*, u32, bool) {}
+
+static bool TryIopIrSequence()
+{
+    std::array<u32, 64> code;
+    u32 available = 0;
+    const u32 limit = std::min<u32>(code.size(), (s_nEndBlock - psxpc) / 4);
+    for (; available < limit; ++available)
+    {
+        const u32 word = iopMemRead32(psxpc + available * 4);
+        if (OpcodeFamilies::IOPShouldInterpret(word)) break;
+        code[available] = word;
+    }
+    if (available == 0) return false;
+    ir::Function fn;
+    u32 accepted = 0;
+    std::string error;
+    if (!IopIr::LiftSequence(code.data(), psxpc, available, fn, &accepted, &error) ||
+        !Arm64Ir::CanLower(fn, true, &error, Arm64Ir::GuestState::IOP))
+        return false;
+
+    // Legacy constants and host allocations may precede this fragment. Commit
+    // them before reading guest state, then invalidate the caches after writes.
+    _psxFlushCall(FLUSH_EVERYTHING);
+    Arm64Ir::LowerHooks hooks;
+    hooks.guest_exit = &IopIrFallThrough;
+    Arm64Ir::LowerOptions options;
+    options.guest_state = Arm64Ir::GuestState::IOP;
+    options.inline_body = true;
+    options.hooks = &hooks;
+    Arm64Ir::LowerOutput out;
+    if (!Arm64Ir::LowerBlock(fn, options, nullptr, 0, &out, &error))
+        pxFailRel(error.c_str()); // validated above; never append fallback after partial emission
+    _initX86regs();
+    g_psxHasConstReg = g_psxFlushedConstReg = 1;
+    psxRegs.code = code[accepted - 1];
+    s_recompilingDelaySlot = false;
+    g_iopCyclePenalty = 0;
+    psxpc += accepted * 4;
+    g_pCurInstInfo += accepted;
+    s_psxBlockCycles += accepted;
+    s_iopIrInstructions += accepted;
+    if (out.frame_size != 0 && out.spill_values != 0) ++s_iopIrSpillSequences;
+#if defined(__ANDROID__)
+    static u64 sequences = 0, native_bytes = 0;
+    ++sequences;
+    native_bytes += out.host_size;
+    if ((sequences <= 1024 && (sequences & (sequences - 1)) == 0) || sequences % 4096 == 0)
+        __android_log_print(ANDROID_LOG_INFO, "IOPIR",
+            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u",
+            static_cast<unsigned long long>(sequences), static_cast<unsigned long long>(s_iopIrInstructions),
+            static_cast<unsigned long long>(native_bytes), psxpc - accepted * 4, out.register_values, out.spill_values, out.frame_size);
+#endif
+    return true;
+}
+
 static void iopRecRecompile(u32 startpc)
 {
 	u32 i;
@@ -1904,8 +1994,13 @@ StartRecomp:
 	}
 
 	g_pCurInstInfo = s_pInstCache;
+    // Include temporary breakpoints. Debugger/profiler paths retain their
+    // instruction-by-instruction hooks; delay slots always remain legacy.
+    const bool use_ir = IopIrEnabled() && !JitProfiler::IsActive() &&
+        CBreakPoints::GetBreakpoints(BREAKPOINT_IOP, true).empty() && CBreakPoints::GetNumMemchecks() == 0;
 	while (!psxbranch && psxpc < s_nEndBlock)
 	{
+        if (use_ir && TryIopIrSequence()) continue;
 		psxRecompileNextInstruction(false, false);
 	}
 
