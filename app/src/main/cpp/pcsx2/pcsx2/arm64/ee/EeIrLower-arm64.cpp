@@ -34,6 +34,8 @@ namespace EeIr
 			void EeIrMemWrite16(u32 addr, u32 value) { memWrite16(addr, static_cast<u16>(value)); }
 			void EeIrMemWrite32(u32 addr, u32 value) { memWrite32(addr, value); }
 			void EeIrMemWrite64(u32 addr, u64 value) { memWrite64(addr, value); }
+			void EeIrMemRead128(u32 addr, mem128_t* out) { memRead128(addr, out); }
+			void EeIrMemWrite128(u32 addr, const mem128_t* value) { memWrite128(addr, value); }
 
 			// DIV/DIVU edge cases match R5900OpcodeImpl exactly.
 			u32 EeIrDivSLo(u32 a, u32 b)
@@ -66,6 +68,7 @@ namespace EeIr
 				case ir::Op::ConstI32:
 				case ir::Op::ConstF32:
 				case ir::Op::ConstI64:
+				case ir::Op::ConstVec:
 				case ir::Op::Copy:
 				case ir::Op::Undef:
 				case ir::Op::Select:
@@ -112,10 +115,12 @@ namespace EeIr
 				case ir::Op::Load16S:
 				case ir::Op::Load32:
 				case ir::Op::Load64:
+				case ir::Op::Load128:
 				case ir::Op::Store8:
 				case ir::Op::Store16:
 				case ir::Op::Store32:
 				case ir::Op::Store64:
+				case ir::Op::Store128:
 				case ir::Op::ReadGpr:
 				case ir::Op::WriteGpr:
 				case ir::Op::ReadHi:
@@ -311,6 +316,29 @@ namespace EeIr
 				}
 				else
 					oakStore64(src, {FrameBase(), static_cast<s64>(Slot(value))});
+			}
+
+			void Load128(u32 value, const oak::QReg& dst)
+			{
+				oakLoad128(dst, {FrameBase(), static_cast<s64>(Slot(value))});
+			}
+
+			void Store128(u32 value, const oak::QReg& src)
+			{
+				oakStore128(src, {FrameBase(), static_cast<s64>(Slot(value))});
+			}
+
+			void SlotAddress(u32 value, const oak::XReg& dst)
+			{
+				const u32 offset = Slot(value);
+				if (offset <= 4095)
+					oakAsm->ADD(dst, FrameBase(), offset);
+				else
+				{
+					oakAsm->ADD(dst, FrameBase(), offset >> 12, oak::LslSymbol::LSL, 12);
+					if (offset & 0xfff)
+						oakAsm->ADD(dst, dst, offset & 0xfff);
+				}
 			}
 
 			static s64 GprOffset(u32 reg)
@@ -527,8 +555,10 @@ namespace EeIr
 				else if (defined[value] && !m_constants[value])
 				{
 					++out->spill_values;
+					const u32 size = std::max(8u, ir::TypeSize(m_fn.ValueType(value)));
+					next_slot = (next_slot + size - 1u) & ~(size - 1u);
 					m_slots[value] = next_slot;
-					next_slot += 8;
+					next_slot += size;
 				}
 			}
 			m_frame = (next_slot + 15u) & ~15u;
@@ -636,8 +666,27 @@ namespace EeIr
 					recEndOaknutEmit();
 					return true;
 
+				case ir::Op::ConstVec:
+				{
+					const auto& lanes = m_fn.vec_consts[inst.imm];
+					recBeginOaknutEmit();
+					oakAsm->MOV(oak::util::X0, u64(lanes[0]) | (u64(lanes[1]) << 32));
+					oakAsm->MOV(oak::util::X1, u64(lanes[2]) | (u64(lanes[3]) << 32));
+					oakStore64(oak::util::X0, {FrameBase(), static_cast<s64>(Slot(inst.value))});
+					oakStore64(oak::util::X1, {FrameBase(), static_cast<s64>(Slot(inst.value) + 8)});
+					recEndOaknutEmit();
+					return true;
+				}
+
 				case ir::Op::Copy:
-					if (inst.type == ir::Type::I64)
+					if (inst.type == ir::Type::V4U32)
+					{
+						recBeginOaknutEmit();
+						Load128(a[0], oak::util::Q0);
+						Store128(inst.value, oak::util::Q0);
+						recEndOaknutEmit();
+					}
+					else if (inst.type == ir::Type::I64)
 					{
 						recBeginOaknutEmit();
 						Load64(a[0], Result64(inst.value));
@@ -1075,6 +1124,20 @@ namespace EeIr
 					recEndOaknutEmit();
 					return true;
 
+				case ir::Op::Load128:
+				case ir::Op::Store128:
+				{
+					recBeginOaknutEmit();
+					load_a();
+					SlotAddress(inst.op == ir::Op::Load128 ? inst.value : a[1], oak::util::X1);
+					if (m_hooks && m_hooks->before_memory)
+						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
+					call_helper(inst.op == ir::Op::Load128 ? reinterpret_cast<const void*>(&EeIrMemRead128) :
+						reinterpret_cast<const void*>(&EeIrMemWrite128));
+					recEndOaknutEmit();
+					return true;
+				}
+
 				case ir::Op::Store8:
 				case ir::Op::Store16:
 				case ir::Op::Store32:
@@ -1103,7 +1166,20 @@ namespace EeIr
 
 				case ir::Op::ReadGpr:
 					recBeginOaknutEmit();
-					if (inst.type == ir::Type::I64)
+					if (inst.type == ir::Type::V4U32)
+					{
+						if (inst.imm == 0)
+						{
+							oakStore64(oak::util::XZR, {FrameBase(), static_cast<s64>(Slot(inst.value))});
+							oakStore64(oak::util::XZR, {FrameBase(), static_cast<s64>(Slot(inst.value) + 8)});
+						}
+						else
+						{
+							oakLoad128(oak::util::Q0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
+							Store128(inst.value, oak::util::Q0);
+						}
+					}
+					else if (inst.type == ir::Type::I64)
 					{
 						oakLoad64(Result64(inst.value), {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
 						Store64(inst.value, Result64(inst.value));
@@ -1120,6 +1196,13 @@ namespace EeIr
 					if (inst.imm == 0)
 						return true; // $0 is hardwired to zero
 					recBeginOaknutEmit();
+					if (m_fn.ValueType(a[0]) == ir::Type::V4U32)
+					{
+						Load128(a[0], oak::util::Q0);
+						oakStore128(oak::util::Q0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
+						recEndOaknutEmit();
+						return true;
+					}
 					if (inst.aux & ir::IF_WIDE_WRITE)
 					{
 						const auto value = Operand64(a[0], oak::util::X0);
@@ -1256,7 +1339,13 @@ namespace EeIr
 		if (!ir::Verify(fn, error))
 			return false;
 		// Reject before emission: the caller may fall back to the legacy JIT.
-		if (fn.value_types.size() > (0x3f00u - 64u) / 8u)
+		u64 worst_frame = 64;
+		for (u32 value = 1; value < fn.value_types.size(); ++value)
+		{
+			const u32 size = std::max(8u, ir::TypeSize(fn.ValueType(value)));
+			worst_frame = ((worst_frame + size - 1u) & ~u64(size - 1u)) + size;
+		}
+		if (((worst_frame + 15u) & ~u64(15)) > 0x3f00u)
 		{
 			if (error)
 				*error = "IR stack frame too large";
@@ -1266,7 +1355,23 @@ namespace EeIr
 		{
 			for (const ir::Inst& inst : block.insts)
 			{
-				if (ir::IsVectorType(inst.type) || inst.type == ir::Type::Any ||
+				const bool quad_result = inst.type == ir::Type::V4U32 &&
+					(inst.op == ir::Op::ConstVec || inst.op == ir::Op::Copy || inst.op == ir::Op::ReadGpr || inst.op == ir::Op::Load128);
+				for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)
+				{
+					const ir::Type type = fn.ValueType(inst.args[arg]);
+					const bool quad_operand = type == ir::Type::V4U32 &&
+						((inst.op == ir::Op::Copy && quad_result) || (inst.op == ir::Op::Store128 && arg == 1) ||
+							(inst.op == ir::Op::WriteGpr && !(inst.aux & ir::IF_WIDE_WRITE)));
+					if ((ir::IsVectorType(type) && !quad_operand) ||
+						(inst.op == ir::Op::Store128 && arg == 1 && !quad_operand))
+					{
+						if (error)
+							*error = "unsupported IR vector operand";
+						return false;
+					}
+				}
+				if ((ir::IsVectorType(inst.type) && !quad_result) || inst.type == ir::Type::Any ||
 					(inst.type == ir::Type::I64 && (inst.op == ir::Op::Undef ||
 						inst.op == ir::Op::Neg || inst.op == ir::Op::MinS || inst.op == ir::Op::MinU ||
 						inst.op == ir::Op::MaxS || inst.op == ir::Op::MaxU || inst.op == ir::Op::DivS ||

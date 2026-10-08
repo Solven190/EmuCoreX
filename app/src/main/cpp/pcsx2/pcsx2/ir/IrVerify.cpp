@@ -42,6 +42,9 @@ namespace ir
 			if (inst.num_args < info.min_args || inst.num_args > info.max_args)
 				return Fail(error, std::string(OpName(inst.op)) + ": bad operand count");
 
+			if (inst.op == Op::ConstVec && inst.imm >= fn.vec_consts.size())
+				return Fail(error, "ConstVec: constant pool index is out of range");
+
 			if (info.terminator != is_last)
 				return Fail(error, std::string(OpName(inst.op)) + ": terminator placement is wrong");
 

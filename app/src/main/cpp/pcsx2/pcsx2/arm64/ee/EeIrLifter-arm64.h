@@ -23,6 +23,7 @@ namespace EeIr
 	{
 		u32 start_pc = 0;
 		u32 max_insts = 256; // decode cap for a single block
+		bool quad_memory = true; // LQ/SQ coverage; legacy comparison can disable it
 	};
 
 	// `code` points at the host-mapped guest instruction stream for

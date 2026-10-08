@@ -283,7 +283,11 @@ namespace ir
 	{
 		bool RemovableValue(const Inst& inst)
 		{
-			if (!inst.value || !IsIntegerType(inst.type))
+			if (!inst.value)
+				return false;
+			if (IsVectorType(inst.type))
+				return inst.op == Op::ConstVec || inst.op == Op::Copy || inst.op == Op::ReadGpr;
+			if (!IsIntegerType(inst.type))
 				return false;
 			switch (inst.op)
 			{

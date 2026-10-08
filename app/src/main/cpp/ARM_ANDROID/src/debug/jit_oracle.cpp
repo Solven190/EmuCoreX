@@ -880,6 +880,7 @@ constexpr u32 MipsCop1(u32 rs, u32 ft, u32 fs, u32 fd, u32 fn)
 struct EESnapshot
 {
     u64 gpr[32];
+    u64 gpr_upper[32];
     u64 hi, lo;
     u32 pc;
     u32 cycle;
@@ -912,6 +913,7 @@ void CaptureEE(EESnapshot& out)
     for (u32 i = 0; i < 32; ++i)
     {
         out.gpr[i] = cpuRegs.GPR.r[i].UD[0];
+        out.gpr_upper[i] = cpuRegs.GPR.r[i].UD[1];
         out.fpr[i] = fpuRegs.fpr[i].UL;
         out.cp0[i] = cpuRegs.CP0.r[i];
     }
@@ -972,6 +974,7 @@ bool CpuDiff(const char* test, const char* field, const void* expected, const vo
 void CompareEE(const EESnapshot& expected, const EESnapshot& actual, const char* name)
 {
     bool same = CpuDiff(name, "GPR", expected.gpr, actual.gpr, sizeof(expected.gpr));
+    same &= CpuDiff(name, "GPR upper", expected.gpr_upper, actual.gpr_upper, sizeof(expected.gpr_upper));
     same &= CpuDiff(name, "HI", &expected.hi, &actual.hi, sizeof(expected.hi));
     same &= CpuDiff(name, "LO", &expected.lo, &actual.lo, sizeof(expected.lo));
     same &= CpuDiff(name, "PC", &expected.pc, &actual.pc, sizeof(expected.pc));
@@ -2149,7 +2152,7 @@ u64 eeir_optimized_frames = 0;
 u64 eeir_native_division_bytes = 0;
 u64 eeir_helper_division_bytes = 0;
 
-void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* initial_gpr = nullptr, bool division_modes = false)
+void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* initial_gpr = nullptr, bool division_modes = false, bool quad_modes = false)
 {
     const EESnapshot interp = RunEEProgram(false, program, false, initial_gpr);
     ir::Function fn;
@@ -2164,7 +2167,7 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
     }
 
     bool same = true;
-    for (u32 mode = 0; mode < (division_modes ? 5u : 2u); ++mode)
+    for (u32 mode = 0; mode < (division_modes ? 5u : quad_modes ? 4u : 2u); ++mode)
     {
         const bool optimize = mode != 0;
         EeIr::LowerOptions options;
@@ -2176,7 +2179,7 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
         EeIr::LowerHooks hooks;
         hooks.ctx = &helper_calls;
         hooks.before_helper = +[](void* ctx) { ++*static_cast<u32*>(ctx); };
-        if (division_modes)
+        if (division_modes || quad_modes)
             options.hooks = &hooks;
         EeIr::LowerOutput out;
         if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
@@ -2197,6 +2200,16 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
                 eeir_native_division_bytes += out.host_size;
             else if (mode == 4)
                 eeir_helper_division_bytes += out.host_size;
+        }
+
+        if (quad_modes)
+        {
+            u32 memory_calls = 0;
+            for (const auto& block : fn.blocks)
+                for (const auto& inst : block.insts)
+                    if (ir::Info(inst.op).kind == ir::OpKind::MemLoad || ir::Info(inst.op).kind == ir::OpKind::MemStore)
+                        ++memory_calls;
+            same &= helper_calls == memory_calls && out.frame_size >= 16 && out.frame_size % 16 == 0;
         }
 
         // Both lowering modes and the interpreter start with the same state,
@@ -2221,6 +2234,7 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
         EESnapshot result;
         CaptureEE(result);
         same &= CpuDiff(name, "GPR", interp.gpr, result.gpr, sizeof(interp.gpr));
+        same &= CpuDiff(name, "GPR upper", interp.gpr_upper, result.gpr_upper, sizeof(interp.gpr_upper));
         same &= CpuDiff(name, "HI", &interp.hi, &result.hi, sizeof(interp.hi));
         same &= CpuDiff(name, "LO", &interp.lo, &result.lo, sizeof(interp.lo));
         same &= CpuDiff(name, "scratch", interp.scratch, result.scratch, sizeof(interp.scratch));
@@ -2228,8 +2242,149 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
     Check(same, name);
 }
 
+void EEIrQuadTests()
+{
+    for (u32 offset = 0; offset < 16; ++offset)
+    {
+        const std::vector<u32> code = {
+            MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+            MipsI(30, 22, 8, 32 + offset), MipsI(31, 22, 8, 64 + offset),
+            MipsI(30, 22, 0, 32 + offset), MipsI(31, 22, 0, 80 + offset),
+            MipsI(30, 22, 9, 64),
+            MipsI(9, 8, 8, -7), MipsI(31, 22, 8, 96),
+            MipsI(0x37, 22, 8, 32), MipsI(31, 22, 8, 112)
+        };
+        char name[80];
+        std::snprintf(name, sizeof(name), "ir quad alignment=%u zero/discard and upper preservation", offset);
+        RunEEIrCase(name, code, nullptr, false, true);
+        CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), name);
+    }
+    for (s32 offset : {-17, -16, -1, 0, 1, 15, 16, 17})
+    {
+        const std::vector<u32> code = {
+            MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+            MipsI(9, 22, 23, 48), MipsI(30, 23, 23, offset), MipsI(31, 22, 23, 96)
+        };
+        char name[80];
+        std::snprintf(name, sizeof(name), "ir quad alias base/destination offset=%d", offset);
+        RunEEIrCase(name, code, nullptr, false, true);
+        CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), name);
+    }
+    for (u32 op : {4u, 0x14u})
+    {
+        for (bool taken : {false, true})
+        {
+            for (u32 access : {30u, 31u})
+            {
+                const std::vector<u32> code = {
+                    MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                    MipsI(30, 22, 10, 32), MipsI(9, 0, 8, taken ? 1 : 0), MipsI(9, 0, 9, 1),
+                    MipsI(op, 8, 9, 1), MipsI(access, 22, 10, 65)
+                };
+                char name[80];
+                std::snprintf(name, sizeof(name), "ir quad delay op=%02x access=%u taken=%u", op, access, taken);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+            }
+        }
+    }
+    {
+        // Vector constants/copies stay intact across a memory helper. Mutate
+        // the Function pool after lowering to reject embedded pool addresses.
+        const std::array<u32, 4> lanes = {0x01234567, 0x89abcdef, 0xfedcba98, 0x76543210};
+        for (bool optimize : {false, true})
+        {
+            for (bool allocate : {false, true})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 value = b.ConstVec(lanes);
+                const u32 copied = b.Emit1(ir::Op::Copy, ir::Type::V4U32, value);
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {copied}, 8);
+                const u32 loaded = b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH + 32));
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, 9);
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {loaded}, 10);
+                b.Emit2(ir::Op::Store128, ir::Type::Void, b.ConstI32(EE_TEST_SCRATCH + 64), copied);
+                b.Resume(EE_TEST_PC + 4);
+                EeIr::LowerOptions options;
+                options.optimize_ir = optimize;
+                options.allocate_registers = allocate;
+                EeIr::LowerOutput out;
+                std::string error;
+                bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                if (same)
+                {
+                    fn.vec_consts[0].fill(0xdeadc0de);
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    mem128_t input;
+                    std::memcpy(&input, lanes.data(), sizeof(input));
+                    memWrite128(EE_TEST_SCRATCH + 32, input);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    mem128_t stored;
+                    memRead128(EE_TEST_SCRATCH + 64, stored);
+                    same &= std::memcmp(cpuRegs.GPR.r[8].UL, lanes.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[9].UL, lanes.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[10].UL, lanes.data(), 16) == 0 && std::memcmp(&stored, lanes.data(), 16) == 0;
+                }
+                Check(same, "ir quad constants and copies survive helper and pool lifetime");
+            }
+        }
+    }
+    {
+        // A helper target beyond imm12 needs a two-part frame-relative
+        // address; the 16-byte result must not overlap scalar spill slots.
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        for (u32 i = 0; i < 320; ++i)
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstVec({i, ~i, i + 1, i + 2})}, 8);
+        const u32 loaded = b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH));
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {loaded}, 9);
+        b.Emit2(ir::Op::Store128, ir::Type::Void, b.ConstI32(EE_TEST_SCRATCH + 64), loaded);
+        b.Resume(EE_TEST_PC + 4);
+        EeIr::LowerOutput out;
+        std::string error;
+        const std::array<u32, 4> lanes = {0x80000000, 0xffffffff, 0x01020304, 0xf0e0d0c0};
+        bool same = EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        if (same)
+        {
+            mem128_t input;
+            std::memcpy(&input, lanes.data(), sizeof(input));
+            memWrite128(EE_TEST_SCRATCH, input);
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            mem128_t stored;
+            memRead128(EE_TEST_SCRATCH + 64, stored);
+            same &= out.frame_size > 4095 && out.frame_size % 16 == 0 &&
+                std::memcmp(cpuRegs.GPR.r[9].UL, lanes.data(), 16) == 0 && std::memcmp(&stored, lanes.data(), 16) == 0;
+        }
+        Check(same, "ir quad helper uses aligned large-frame slot address");
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        for (u32 i = 0; i < 1005; ++i)
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstVec({i, i, i, i})}, 8);
+        b.Resume(EE_TEST_PC + 4);
+        std::string error;
+        Check(!EeIr::CanLower(fn, true, &error), "ir quad rejects oversized typed frame before emission");
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        b.Emit(ir::Op::ConstVec, ir::Type::V4U32, {}, 1);
+        b.Resume(EE_TEST_PC + 4);
+        std::string error;
+        Check(!ir::Verify(fn, &error), "ir quad rejects invalid vector constant pool index");
+    }
+}
+
 void EEIrExecutionTests()
 {
+    EEIrQuadTests();
     {
         const std::array<std::array<u64, 3>, 8> edges = {{
             {{0, 0, 0}}, {{1, 1, 0}}, {{~u64(0), ~u64(0), 0}},

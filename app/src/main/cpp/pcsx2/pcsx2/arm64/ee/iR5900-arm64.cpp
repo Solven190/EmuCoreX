@@ -2531,10 +2531,18 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			return false;
 	}
 
+	bool quad_memory = true;
+#if defined(__ANDROID__)
+	static const bool enable_quad_memory = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_quad", value) == 0 || value[0] != '0';
+	}();
+	quad_memory = enable_quad_memory;
+#endif
 	ir::Function fn;
 	u32 end = 0;
 	std::string error;
-	if (!EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(startpc)), {startpc, insts}, fn, &end, &error))
+	if (!EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(startpc)), {startpc, insts, quad_memory}, fn, &end, &error))
 		return false;
 
 	if (end != s_nEndBlock)
@@ -2595,10 +2603,15 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	static u64 guest_instructions = 0;
 	static u64 native_bytes = 0;
 	static u64 division_pairs = 0;
+	static u64 quad_operations = 0;
 	for (const ir::Block& block : fn.blocks)
 		for (const ir::Inst& inst : block.insts)
+		{
 			if (inst.op == ir::Op::DivS || inst.op == ir::Op::DivU)
 				++division_pairs;
+			if (inst.op == ir::Op::Load128 || inst.op == ir::Op::Store128)
+				++quad_operations;
+		}
 	++compiled_blocks;
 	guest_instructions += insts;
 	native_bytes += out.host_size;
@@ -2606,12 +2619,13 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
 			options.optimize_ir ? 1u : 0u, out.register_values, out.spill_values, out.frame_size,
-			options.optimize_ir && options.inline_division ? 1u : 0u, static_cast<unsigned long long>(division_pairs));
+			options.optimize_ir && options.inline_division ? 1u : 0u, static_cast<unsigned long long>(division_pairs),
+			quad_memory ? 1u : 0u, static_cast<unsigned long long>(quad_operations));
 	}
 #endif
 
