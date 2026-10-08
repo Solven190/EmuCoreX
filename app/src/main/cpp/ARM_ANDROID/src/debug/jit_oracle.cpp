@@ -2622,10 +2622,137 @@ void EEIrQuadTests()
     }
 }
 
+
+void EEIrMmiTests()
+{
+    struct Operation { const char* name; u32 group, sub; ir::Op op; bool invert; };
+    constexpr Operation operations[] = {
+        {"paddw", 8, 0, ir::Op::Add, false}, {"psubw", 8, 1, ir::Op::Sub, false},
+        {"pand", 9, 18, ir::Op::And, false}, {"pxor", 9, 19, ir::Op::Xor, false},
+        {"por", 41, 18, ir::Op::Or, false}, {"pnor", 41, 19, ir::Op::Or, true}
+    };
+    constexpr u32 edges[] = {0, 1, 0xffffffffu, 0x80000000u, 0x7fffffffu, 0x55555555u, 0xaaaaaaaau, 0x12345678u};
+    char name[128];
+    for (const auto& op : operations)
+    {
+        for (u32 pattern = 0; pattern < std::size(edges); ++pattern)
+        {
+            std::array<u32, 4> lhs{}, rhs{}, expected{};
+            for (u32 lane = 0; lane < 4; ++lane)
+            {
+                lhs[lane] = edges[(pattern + lane) % std::size(edges)];
+                rhs[lane] = edges[(pattern + 3 * lane + 1) % std::size(edges)];
+                switch (op.op)
+                {
+                    case ir::Op::Add: expected[lane] = lhs[lane] + rhs[lane]; break;
+                    case ir::Op::Sub: expected[lane] = lhs[lane] - rhs[lane]; break;
+                    case ir::Op::And: expected[lane] = lhs[lane] & rhs[lane]; break;
+                    case ir::Op::Xor: expected[lane] = lhs[lane] ^ rhs[lane]; break;
+                    default: expected[lane] = lhs[lane] | rhs[lane]; break;
+                }
+                if (op.invert)
+                    expected[lane] = ~expected[lane];
+            }
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 a = b.ConstVec(lhs), other = b.ConstVec(rhs);
+            u32 result = b.Emit2(op.op, ir::Type::V4U32, a, other);
+            if (op.invert)
+                result = b.Emit1(ir::Op::Not, ir::Type::V4U32, result);
+            // The value must survive both direct memory and C helper paths.
+            b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH));
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {result}, 8);
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {a}, 9);
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {other}, 10);
+            b.Emit2(ir::Op::Store128, ir::Type::Void, b.ConstI32(EE_TEST_SCRATCH + 96), result);
+            b.Resume(EE_TEST_PC + 4);
+            for (u32 mode = 0; mode < 4; ++mode)
+            {
+                EeIr::LowerOptions options;
+                options.optimize_ir = mode != 0;
+                options.allocate_registers = mode != 2;
+                options.direct_quad_memory = mode != 3;
+                options.reuse_spill_slots = mode != 3;
+                EeIr::LowerOutput out;
+                std::string error;
+                bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                if (same)
+                {
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    mem128_t stored;
+                    memRead128(EE_TEST_SCRATCH + 96, stored);
+                    same &= std::memcmp(cpuRegs.GPR.r[8].UL, expected.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[9].UL, lhs.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[10].UL, rhs.data(), 16) == 0 &&
+                        std::memcmp(&stored, expected.data(), 16) == 0;
+                }
+                std::snprintf(name, sizeof(name), "ir SIMD %s edges=%u mode=%u", op.name, pattern, mode);
+                Check(same, name);
+            }
+        }
+        constexpr std::array<u32, 3> aliases[] = {
+            {8, 9, 10}, {8, 9, 8}, {8, 9, 9}, {8, 8, 8},
+            {0, 9, 10}, {8, 0, 10}, {0, 0, 10}, {8, 9, 0}
+        };
+        for (u32 alias = 0; alias < std::size(aliases); ++alias)
+        {
+            const auto regs = aliases[alias];
+            const std::vector<u32> code = {
+                MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48),
+                Mmi(op.group, op.sub, regs[0], regs[1], regs[2]),
+                MipsI(31, 22, regs[2], 96), MipsI(9, regs[2], regs[2], -3),
+                MipsI(31, 22, regs[2], 112)
+            };
+            std::snprintf(name, sizeof(name), "ir MMI %s aliases=%u and scalar upper preservation", op.name, alias);
+            RunEEIrCase(name, code, nullptr, false, true);
+            CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), name);
+        }
+        for (u32 branch : {4u, 0x14u})
+        {
+            for (bool taken : {false, true})
+            {
+                const std::vector<u32> code = {
+                    MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                    MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48),
+                    MipsI(9, 0, 4, taken ? 1 : 0), MipsI(9, 0, 5, 1),
+                    MipsI(branch, 4, 5, 1), Mmi(op.group, op.sub, 8, 9, 8)
+                };
+                std::snprintf(name, sizeof(name), "ir MMI %s delay branch=%02x taken=%u", op.name, branch, taken);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+            }
+        }
+    }
+    // Reject unimplemented MMI operations even when their destination is $0.
+    for (u32 word : {Mmi(8, 4, 8, 9, 0), Mmi(9, 17, 8, 9, 0), Mmi(41, 17, 8, 9, 0), Mmi(0, 0, 8, 9, 0)})
+    {
+        ir::Function fn;
+        u32 end;
+        std::string error;
+        Check(!EeIr::LiftBlock(&word, {EE_TEST_PC, 1}, fn, &end, &error), "ir MMI unsupported opcode keeps legacy fallback");
+    }
+    for (ir::Op op : {ir::Op::Mul, ir::Op::MinU, ir::Op::MaxS, ir::Op::DivU})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        const u32 a = b.ConstVec({1, 2, 3, 4});
+        const u32 value = b.Emit2(op, ir::Type::V4U32, a, a);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, 8);
+        b.Resume(EE_TEST_PC + 4);
+        std::string error;
+        Check(!EeIr::CanLower(fn, false, &error), "ir SIMD unsupported vector operation rejected before emission");
+    }
+}
+
 void EEIrExecutionTests()
 {
     EEIrQuadTests();
     EEIrQuadOptimizationsTests();
+    EEIrMmiTests();
     {
         const std::array<std::array<u64, 3>, 8> edges = {{
             {{0, 0, 0}}, {{1, 1, 0}}, {{~u64(0), ~u64(0), 0}},

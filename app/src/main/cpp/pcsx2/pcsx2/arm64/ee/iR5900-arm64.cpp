@@ -2620,6 +2620,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	static u64 division_pairs = 0;
 	static u64 quad_operations = 0;
 	static u64 direct_quad_operations = 0;
+	static u64 vector_alu_operations = 0;
 	for (const ir::Block& block : fn.blocks)
 		for (const ir::Inst& inst : block.insts)
 		{
@@ -2627,6 +2628,9 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 				++division_pairs;
 			if (inst.op == ir::Op::Load128 || inst.op == ir::Op::Store128)
 				++quad_operations;
+			if (inst.type == ir::Type::V4U32 && (inst.op == ir::Op::Add || inst.op == ir::Op::Sub ||
+				inst.op == ir::Op::And || inst.op == ir::Op::Or || inst.op == ir::Op::Xor || inst.op == ir::Op::Not))
+				++vector_alu_operations;
 		}
 	direct_quad_operations += out.direct_quad_operations;
 	++compiled_blocks;
@@ -2636,14 +2640,15 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
 			options.optimize_ir ? 1u : 0u, out.register_values, out.spill_values, out.frame_size,
 			options.optimize_ir && options.inline_division ? 1u : 0u, static_cast<unsigned long long>(division_pairs),
 			quad_memory ? 1u : 0u, static_cast<unsigned long long>(quad_operations),
-			static_cast<unsigned long long>(direct_quad_operations), options.optimize_ir && options.reuse_spill_slots ? 1u : 0u, out.spill_slots);
+			static_cast<unsigned long long>(direct_quad_operations), options.optimize_ir && options.reuse_spill_slots ? 1u : 0u, out.spill_slots,
+			static_cast<unsigned long long>(vector_alu_operations));
 	}
 #endif
 

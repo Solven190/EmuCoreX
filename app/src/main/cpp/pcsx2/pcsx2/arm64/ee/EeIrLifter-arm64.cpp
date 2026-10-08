@@ -361,6 +361,33 @@ namespace EeIr
 				case 0x19: // daddiu
 					WriteGprWide(rt, BinWide(ir::Op::Add, ReadGprWide(rs), m_b.ConstI64(static_cast<u64>(static_cast<s64>(simm)))));
 					return true;
+				case 0x1C: // MMI: wrapping word arithmetic and full-width bitwise operations
+				{
+					const u32 group = word & 0x3f;
+					const u32 sub = (word >> 6) & 0x1f;
+					ir::Op operation;
+					bool invert = false;
+					if (group == 0x08 && sub <= 1)
+						operation = sub == 0 ? ir::Op::Add : ir::Op::Sub; // paddw / psubw
+					else if (group == 0x09 && (sub == 0x12 || sub == 0x13))
+						operation = sub == 0x12 ? ir::Op::And : ir::Op::Xor; // pand / pxor
+					else if (group == 0x29 && (sub == 0x12 || sub == 0x13))
+					{
+						operation = ir::Op::Or; // por / pnor
+						invert = sub == 0x13;
+					}
+					else
+						return Fail(error, "unsupported MMI instruction", pc);
+					const u32 rd = Rd(word);
+					if (rd != 0)
+					{
+						u32 value = m_b.Emit2(operation, ir::Type::V4U32, ReadGprQuad(rs), ReadGprQuad(rt));
+						if (invert)
+							value = m_b.Emit1(ir::Op::Not, ir::Type::V4U32, value);
+						m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
+					}
+					return true;
+				}
 				case 0x1E: // lq: EE silently aligns down, including loads to $0
 					if (!m_opts.quad_memory)
 						return Fail(error, "quad memory disabled", pc);

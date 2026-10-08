@@ -781,7 +781,13 @@ namespace EeIr
 
 				case ir::Op::Not:
 					recBeginOaknutEmit();
-					if (inst.type == ir::Type::I64)
+					if (inst.type == ir::Type::V4U32)
+					{
+						Load128(a[0], oak::util::Q0);
+						oakAsm->NOT(oak::util::Q0.B16(), oak::util::Q0.B16());
+						Store128(inst.value, oak::util::Q0);
+					}
+					else if (inst.type == ir::Type::I64)
 					{
 						const auto src = Operand64(a[0], oak::util::X0);
 						const auto dst = Result64(inst.value);
@@ -856,7 +862,23 @@ namespace EeIr
 				case ir::Op::MaxU:
 				{
 					recBeginOaknutEmit();
-					if (inst.type == ir::Type::I64)
+					if (inst.type == ir::Type::V4U32)
+					{
+						// Read both inputs before writing a possibly reused spill slot.
+						Load128(a[0], oak::util::Q0);
+						Load128(a[1], oak::util::Q1);
+						switch (inst.op)
+						{
+							case ir::Op::Add: oakAsm->ADD(oak::util::Q0.S4(), oak::util::Q0.S4(), oak::util::Q1.S4()); break;
+							case ir::Op::Sub: oakAsm->SUB(oak::util::Q0.S4(), oak::util::Q0.S4(), oak::util::Q1.S4()); break;
+							case ir::Op::And: oakAsm->AND(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16()); break;
+							case ir::Op::Or: oakAsm->ORR(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16()); break;
+							case ir::Op::Xor: oakAsm->EOR(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16()); break;
+							default: return Fail(error, "unsupported vector arithmetic op");
+						}
+						Store128(inst.value, oak::util::Q0);
+					}
+					else if (inst.type == ir::Type::I64)
 					{
 						const auto lhs = Operand64(a[0], oak::util::X0);
 						const auto dst = Result64(inst.value);
@@ -1438,13 +1460,16 @@ namespace EeIr
 		{
 			for (const ir::Inst& inst : block.insts)
 			{
+				const bool quad_alu = inst.type == ir::Type::V4U32 &&
+					(inst.op == ir::Op::Add || inst.op == ir::Op::Sub || inst.op == ir::Op::And ||
+						inst.op == ir::Op::Or || inst.op == ir::Op::Xor || inst.op == ir::Op::Not);
 				const bool quad_result = inst.type == ir::Type::V4U32 &&
-					(inst.op == ir::Op::ConstVec || inst.op == ir::Op::Copy || inst.op == ir::Op::ReadGpr || inst.op == ir::Op::Load128);
+					(inst.op == ir::Op::ConstVec || inst.op == ir::Op::Copy || inst.op == ir::Op::ReadGpr || inst.op == ir::Op::Load128 || quad_alu);
 				for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)
 				{
 					const ir::Type type = fn.ValueType(inst.args[arg]);
 					const bool quad_operand = type == ir::Type::V4U32 &&
-						((inst.op == ir::Op::Copy && quad_result) || (inst.op == ir::Op::Store128 && arg == 1) ||
+						(quad_alu || (inst.op == ir::Op::Copy && quad_result) || (inst.op == ir::Op::Store128 && arg == 1) ||
 							(inst.op == ir::Op::WriteGpr && !(inst.aux & ir::IF_WIDE_WRITE)));
 					if ((ir::IsVectorType(type) && !quad_operand) ||
 						(inst.op == ir::Op::Store128 && arg == 1 && !quad_operand))
