@@ -3364,11 +3364,167 @@ void EEIrMmiTests()
     }
 }
 
+void EEIrPackedWordShiftTests()
+{
+    struct Operation { const char* name; u32 function; ir::Op op; };
+    constexpr Operation operations[] = {
+        {"psllw", 0x3c, ir::Op::VShl}, {"psrlw", 0x3e, ir::Op::VShrU}, {"psraw", 0x3f, ir::Op::VShrS}
+    };
+    constexpr std::array<u32, 4> input = {0x80000001, 0x7fffffff, 0xffffffff, 0x12345678};
+    std::vector<u32> counts;
+    for (u32 count = 0; count < 32; ++count)
+        counts.push_back(count);
+    counts.insert(counts.end(), {32, 33, 63, 64, 255, 256, 0x80000000u, 0xffffffffu});
+    char name[160];
+    for (const auto& op : operations)
+    {
+        // Shared IR handles both constant and runtime scalar counts. Count
+        // masking must happen before ARM64 uses its signed per-lane shifts.
+        for (u32 count : counts)
+            for (bool wide : {false, true})
+                for (bool runtime : {false, true})
+                {
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(EE_TEST_PC);
+                    const u32 source = b.ConstVec(input);
+                    const u64 full_count = (wide ? 0xfedcba9800000000ull : 0) | count;
+                    const u32 amount = runtime ? b.Emit(ir::Op::ReadGpr, wide ? ir::Type::I64 : ir::Type::I32, {}, 12) :
+                        wide ? b.ConstI64(full_count) : b.ConstI32(count);
+                    const u32 shifted = b.Emit2(op.op, ir::Type::V4U32, source, amount);
+                    b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, shifted, 8);
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, source, 9);
+                    b.Resume(EE_TEST_PC + 4);
+                    EeIr::LowerHooks hooks;
+                    hooks.before_helper = hooks.after_helper = +[](void*) {
+                        for (u32 reg = 2; reg <= 7; ++reg)
+                            oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+                    };
+                    bool same = true;
+                    for (u32 mode = 0; mode < 5; ++mode)
+                    {
+                        EeIr::LowerOptions options;
+                        options.optimize_ir = mode != 0;
+                        options.allocate_registers = mode != 0 && mode != 3;
+                        options.materialize_constants = mode == 1 || mode == 3 || mode == 4;
+                        options.allocate_vector_registers = mode != 4;
+                        options.hooks = &hooks;
+                        EeIr::LowerOutput out;
+                        std::string error;
+                        if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                        {
+                            same = false;
+                            continue;
+                        }
+                        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                        cpuRegs.GPR.r[12].UD[0] = full_count;
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        same &= std::memcmp(cpuRegs.GPR.r[9].UL, input.data(), 16) == 0;
+                        for (u32 lane = 0; lane < 4; ++lane)
+                        {
+                            const u32 shift = count & 31u;
+                            const u32 expected = op.op == ir::Op::VShl ? input[lane] << shift :
+                                op.op == ir::Op::VShrU ? input[lane] >> shift :
+                                static_cast<u32>(static_cast<s32>(input[lane]) >> shift);
+                            same &= cpuRegs.GPR.r[8].UL[lane] == expected;
+                        }
+                    }
+                    std::snprintf(name, sizeof(name), "ir SIMD %s count=%08x wide=%u runtime=%u all allocation modes/helper clobbers",
+                        op.name, count, wide, runtime);
+                    Check(same, name);
+                }
+        constexpr std::array<u32, 2> aliases[] = {{8, 9}, {8, 8}, {0, 9}, {8, 0}, {0, 0}};
+        for (u32 count = 0; count < 32; ++count)
+            for (const auto& regs : aliases)
+            {
+                const std::vector<u32> code = {
+                    MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                    MipsI(30, 22, 8, 32), Mmi(op.function, count, 0, regs[0], regs[1]),
+                    MipsI(31, 22, regs[1], 96), MipsI(9, regs[1], regs[1], -3),
+                    MipsI(31, 22, regs[1], 112)
+                };
+                std::snprintf(name, sizeof(name), "ir MMI %s count=%u rt=%u rd=%u scalar upper preservation",
+                    op.name, count, regs[0], regs[1]);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), name);
+            }
+        for (u32 count : {0u, 1u, 31u})
+            for (u32 branch : {4u, 0x14u})
+                for (bool taken : {false, true})
+                {
+                    const std::vector<u32> code = {
+                        MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000), MipsI(30, 22, 8, 32),
+                        MipsI(9, 0, 4, taken ? 1 : 0), MipsI(9, 0, 5, 1),
+                        MipsI(branch, 4, 5, 1), Mmi(op.function, count, 0, 8, 8)
+                    };
+                    std::snprintf(name, sizeof(name), "ir MMI %s count=%u delay branch=%02x taken=%u", op.name, count, branch, taken);
+                    RunEEIrCase(name, code, nullptr, false, true);
+                    CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+                }
+        {
+            // Shared IR permits signed integer vectors; the EE backend
+            // currently represents full GPR bits using V4U32 exclusively.
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 source = b.Emit(ir::Op::ReadGpr, ir::Type::V4I32, {}, 8);
+            const u32 shifted = b.Emit2(op.op, ir::Type::V4I32, source, b.ConstI32(31));
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, shifted, 9);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(ir::Verify(fn, &error) && !EeIr::CanLower(fn, false, &error),
+                "ir signed packed shifts verify while EE retains its raw unsigned vector boundary");
+        }
+        for (ir::Type type : {ir::Type::I32, ir::Type::I64, ir::Type::F32, ir::Type::V4F32, ir::Type::Flags})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 source = b.Emit(ir::Op::Undef, type, {});
+            const u32 shifted = b.Emit2(op.op, type, source, b.ConstI32(1));
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, shifted, 8);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(!ir::Verify(fn, &error), "ir packed shift rejects scalar/float/flag source types");
+        }
+        for (ir::Type type : {ir::Type::F32, ir::Type::V4U32})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 shifted = b.Emit2(op.op, ir::Type::V4U32, b.ConstVec(input), b.Emit(ir::Op::Undef, type, {}));
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, shifted, 8);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(!ir::Verify(fn, &error), "ir packed shift requires a scalar integer count");
+        }
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        u32 value = b.ConstVec(input);
+        for (ir::Op op : {ir::Op::VShl, ir::Op::VShrU, ir::Op::VShrS})
+            value = b.Emit2(op, ir::Type::V4U32, value, b.ConstI32(3));
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstI32(42), 10);
+        b.Resume(EE_TEST_PC + 4);
+        ir::OptimizeIntegerValues(fn);
+        std::string error;
+        bool removed = ir::Verify(fn, &error);
+        for (const auto& block : fn.blocks)
+            for (const auto& inst : block.insts)
+                removed &= inst.op != ir::Op::VShl && inst.op != ir::Op::VShrU && inst.op != ir::Op::VShrS;
+        Check(removed, "ir dead packed shift chain is removed");
+    }
+}
+
 void EEIrExecutionTests()
 {
     EEIrQuadTests();
     EEIrQuadOptimizationsTests();
     EEIrMmiTests();
+    EEIrPackedWordShiftTests();
     EEIrVectorForwardTests();
     EEIrVectorAllocationTests();
     EEIrQuadVectorFastPathTests();

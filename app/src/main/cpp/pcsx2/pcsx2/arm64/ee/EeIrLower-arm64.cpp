@@ -95,6 +95,9 @@ namespace EeIr
 				case ir::Op::Shl:
 				case ir::Op::ShrU:
 				case ir::Op::ShrS:
+				case ir::Op::VShl:
+				case ir::Op::VShrU:
+				case ir::Op::VShrS:
 				case ir::Op::CmpEq:
 				case ir::Op::CmpNe:
 				case ir::Op::CmpLtS:
@@ -1148,6 +1151,46 @@ namespace EeIr
 					recEndOaknutEmit();
 					return true;
 
+				case ir::Op::VShl:
+				case ir::Op::VShrU:
+				case ir::Op::VShrS:
+				{
+					recBeginOaknutEmit();
+					const auto source = Operand128(a[0], oak::util::Q0);
+					const auto dst = Result128(inst.value);
+					if (m_constants[a[1]])
+					{
+						const u32 amount = static_cast<u32>(*m_constants[a[1]]) & 31u;
+						// ARM64 immediate right shifts require a nonzero amount.
+						if (amount == 0)
+						{
+							if (dst.index() != source.index())
+								oakAsm->MOV(dst.B16(), source.B16());
+						}
+						else if (inst.op == ir::Op::VShl)
+							oakAsm->SHL(dst.S4(), source.S4(), amount);
+						else if (inst.op == ir::Op::VShrU)
+							oakAsm->USHR(dst.S4(), source.S4(), amount);
+						else
+							oakAsm->SSHR(dst.S4(), source.S4(), amount);
+					}
+					else
+					{
+						Load32(a[1], oak::util::W0);
+						oakAsm->AND(oak::util::W0, oak::util::W0, 31);
+						if (inst.op != ir::Op::VShl)
+							oakAsm->NEG(oak::util::W0, oak::util::W0);
+						oakAsm->DUP(oak::util::Q1.S4(), oak::util::W0);
+						if (inst.op == ir::Op::VShrS)
+							oakAsm->SSHL(dst.S4(), source.S4(), oak::util::Q1.S4());
+						else
+							oakAsm->USHL(dst.S4(), source.S4(), oak::util::Q1.S4());
+					}
+					Store128(inst.value, dst);
+					recEndOaknutEmit();
+					return true;
+				}
+
 				case ir::Op::Shl:
 				case ir::Op::ShrU:
 				case ir::Op::ShrS:
@@ -1655,7 +1698,8 @@ namespace EeIr
 			{
 				const bool quad_alu = inst.type == ir::Type::V4U32 &&
 					(inst.op == ir::Op::Add || inst.op == ir::Op::Sub || inst.op == ir::Op::And ||
-						inst.op == ir::Op::Or || inst.op == ir::Op::Xor || inst.op == ir::Op::Not);
+						inst.op == ir::Op::Or || inst.op == ir::Op::Xor || inst.op == ir::Op::Not ||
+						inst.op == ir::Op::VShl || inst.op == ir::Op::VShrU || inst.op == ir::Op::VShrS);
 				const bool quad_result = inst.type == ir::Type::V4U32 &&
 					(inst.op == ir::Op::ConstVec || inst.op == ir::Op::Copy || inst.op == ir::Op::ReadGpr || inst.op == ir::Op::Load128 || quad_alu);
 				for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)

@@ -361,10 +361,21 @@ namespace EeIr
 				case 0x19: // daddiu
 					WriteGprWide(rt, BinWide(ir::Op::Add, ReadGprWide(rs), m_b.ConstI64(static_cast<u64>(static_cast<s64>(simm)))));
 					return true;
-				case 0x1C: // MMI: wrapping word arithmetic and full-width bitwise operations
+				case 0x1C: // MMI: packed word arithmetic/shifts and full-width bitwise operations
 				{
 					const u32 group = word & 0x3f;
-					const u32 sub = (word >> 6) & 0x1f;
+					const u32 sub = Sa(word);
+					const u32 rd = Rd(word);
+					if (group == 0x3c || group == 0x3e || group == 0x3f)
+					{
+						if (rd != 0)
+						{
+							const ir::Op shift = group == 0x3c ? ir::Op::VShl : group == 0x3e ? ir::Op::VShrU : ir::Op::VShrS;
+							const u32 value = m_b.Emit2(shift, ir::Type::V4U32, ReadGprQuad(rt), Const(sub));
+							m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
+						}
+						return true;
+					}
 					ir::Op operation;
 					bool invert = false;
 					if (group == 0x08 && sub <= 1)
@@ -378,7 +389,6 @@ namespace EeIr
 					}
 					else
 						return Fail(error, "unsupported MMI instruction", pc);
-					const u32 rd = Rd(word);
 					if (rd != 0)
 					{
 						u32 value = m_b.Emit2(operation, ir::Type::V4U32, ReadGprQuad(rs), ReadGprQuad(rt));

@@ -178,6 +178,7 @@ namespace ir
 	X(VNot,         VecUnary,    1, 1, Any,  false) \
 	X(VNeg,         VecUnary,    1, 1, Any,  false) \
 	X(VAbs,         VecUnary,    1, 1, Any,  false) \
+	/* Integer 32-bit lanes; scalar I32/I64 count masked with 31. */ \
 	X(VShl,         Shift,       2, 2, Any,  false) \
 	X(VShrU,        Shift,       2, 2, Any,  false) \
 	X(VShrS,        Shift,       2, 2, Any,  false) \

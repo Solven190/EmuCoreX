@@ -142,6 +142,9 @@ namespace ir
 					const Type t1 = fn.ValueType(inst.args[1]);
 					if (!IsIntegerType(t1))
 						return Fail(error, std::string(OpName(inst.op)) + ": shift amount must be integer");
+					if ((inst.op == Op::VShl || inst.op == Op::VShrU || inst.op == Op::VShrS) &&
+						t0 != Type::V4U32 && t0 != Type::V4I32)
+						return Fail(error, std::string(OpName(inst.op)) + ": integer vector operand required");
 					if (inst.type != t0)
 						return Fail(error, std::string(OpName(inst.op)) + ": shift result must match the value type");
 					break;
