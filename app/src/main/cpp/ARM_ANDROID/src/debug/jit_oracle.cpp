@@ -3241,11 +3241,13 @@ void EEIrVectorForwardTests()
 
 void EEIrMmiTests()
 {
-    struct Operation { const char* name; u32 group, sub; ir::Op op; bool invert; };
+    struct Operation { const char* name; u32 group, sub; ir::Op op; bool invert; bool swap = false; };
     constexpr Operation operations[] = {
         {"paddw", 8, 0, ir::Op::Add, false}, {"psubw", 8, 1, ir::Op::Sub, false},
         {"pand", 9, 18, ir::Op::And, false}, {"pxor", 9, 19, ir::Op::Xor, false},
-        {"por", 41, 18, ir::Op::Or, false}, {"pnor", 41, 19, ir::Op::Or, true}
+        {"por", 41, 18, ir::Op::Or, false}, {"pnor", 41, 19, ir::Op::Or, true},
+        {"pcgtw", 8, 2, ir::Op::VCmpLtS, false, true}, {"pmaxw", 8, 3, ir::Op::VMaxS, false},
+        {"pceqw", 40, 2, ir::Op::VCmpEq, false}, {"pminw", 40, 3, ir::Op::VMinS, false}
     };
     constexpr u32 edges[] = {0, 1, 0xffffffffu, 0x80000000u, 0x7fffffffu, 0x55555555u, 0xaaaaaaaau, 0x12345678u};
     char name[128];
@@ -3264,6 +3266,10 @@ void EEIrMmiTests()
                     case ir::Op::Sub: expected[lane] = lhs[lane] - rhs[lane]; break;
                     case ir::Op::And: expected[lane] = lhs[lane] & rhs[lane]; break;
                     case ir::Op::Xor: expected[lane] = lhs[lane] ^ rhs[lane]; break;
+                    case ir::Op::VCmpLtS: expected[lane] = static_cast<s32>(lhs[lane]) > static_cast<s32>(rhs[lane]) ? ~0u : 0u; break;
+                    case ir::Op::VCmpEq: expected[lane] = lhs[lane] == rhs[lane] ? ~0u : 0u; break;
+                    case ir::Op::VMaxS: expected[lane] = static_cast<s32>(lhs[lane]) > static_cast<s32>(rhs[lane]) ? lhs[lane] : rhs[lane]; break;
+                    case ir::Op::VMinS: expected[lane] = static_cast<s32>(lhs[lane]) < static_cast<s32>(rhs[lane]) ? lhs[lane] : rhs[lane]; break;
                     default: expected[lane] = lhs[lane] | rhs[lane]; break;
                 }
                 if (op.invert)
@@ -3273,7 +3279,7 @@ void EEIrMmiTests()
             ir::Builder b(fn);
             b.CreateBlock(EE_TEST_PC);
             const u32 a = b.ConstVec(lhs), other = b.ConstVec(rhs);
-            u32 result = b.Emit2(op.op, ir::Type::V4U32, a, other);
+            u32 result = b.Emit2(op.op, ir::Type::V4U32, op.swap ? other : a, op.swap ? a : other);
             if (op.invert)
                 result = b.Emit1(ir::Op::Not, ir::Type::V4U32, result);
             // The value must survive both direct memory and C helper paths.
@@ -3519,12 +3525,124 @@ void EEIrPackedWordShiftTests()
     }
 }
 
+void EEIrVectorCompareTests()
+{
+    constexpr ir::Op operations[] = {ir::Op::VMinS, ir::Op::VMinU, ir::Op::VMaxS, ir::Op::VMaxU,
+        ir::Op::VCmpEq, ir::Op::VCmpNe, ir::Op::VCmpLtS, ir::Op::VCmpLtU, ir::Op::VCmpLeS, ir::Op::VCmpLeU};
+    constexpr u32 edges[] = {0, 1, 0xffffffffu, 0x80000000u, 0x7fffffffu, 0x55555555u, 0xaaaaaaaau, 0x12345678u};
+    char name[128];
+    for (ir::Op op : operations)
+        for (u32 i = 0; i < std::size(edges); ++i)
+            for (u32 j = 0; j < std::size(edges); ++j)
+                for (u32 live = 0; live < 5; ++live)
+            {
+                if (live == 4 && (i != 0 || j != 0))
+                    continue;
+                std::array<u32, 4> lhs{}, rhs{}, expected{};
+                for (u32 lane = 0; lane < 4; ++lane)
+                {
+                    const u32 a = lhs[lane] = edges[(i + lane) % std::size(edges)];
+                    const u32 b = rhs[lane] = edges[(j + 3 * lane) % std::size(edges)];
+                    switch (op)
+                    {
+                        case ir::Op::VMinS: expected[lane] = static_cast<s32>(a) < static_cast<s32>(b) ? a : b; break;
+                        case ir::Op::VMinU: expected[lane] = std::min(a, b); break;
+                        case ir::Op::VMaxS: expected[lane] = static_cast<s32>(a) > static_cast<s32>(b) ? a : b; break;
+                        case ir::Op::VMaxU: expected[lane] = std::max(a, b); break;
+                        case ir::Op::VCmpEq: expected[lane] = a == b ? ~0u : 0u; break;
+                        case ir::Op::VCmpNe: expected[lane] = a != b ? ~0u : 0u; break;
+                        case ir::Op::VCmpLtS: expected[lane] = static_cast<s32>(a) < static_cast<s32>(b) ? ~0u : 0u; break;
+                        case ir::Op::VCmpLtU: expected[lane] = a < b ? ~0u : 0u; break;
+                        case ir::Op::VCmpLeS: expected[lane] = static_cast<s32>(a) <= static_cast<s32>(b) ? ~0u : 0u; break;
+                        default: expected[lane] = a <= b ? ~0u : 0u; break;
+                    }
+                }
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                // Keep eight extra vectors live to force operand spills under register pressure.
+                std::array<u32, 8> pressure{};
+                if (live == 4)
+                    for (u32 k = 0; k < pressure.size(); ++k)
+                        pressure[k] = b.ConstVec({k, k + 1, ~k, 0x80000000u + k});
+                const u32 a = b.ConstVec(lhs), other = b.ConstVec(rhs);
+                const u32 result = b.Emit2(op, ir::Type::V4U32, a, other);
+                b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 8);
+                if ((live & 1) || live == 4)
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, a, 9);
+                if ((live & 2) || live == 4)
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, other, 10);
+                if (live == 4)
+                    for (u32 k = 0; k < pressure.size(); ++k)
+                        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, pressure[k], 11 + k);
+                b.Resume(EE_TEST_PC + 4);
+                EeIr::LowerHooks hooks;
+                hooks.before_helper = hooks.after_helper = +[](void*) {
+                    for (u32 reg = 2; reg <= 7; ++reg)
+                        oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+                };
+                bool same = true;
+                for (u32 mode = 0; mode < 5; ++mode)
+                {
+                    EeIr::LowerOptions options;
+                    options.optimize_ir = mode != 0;
+                    options.allocate_registers = mode != 2;
+                    options.allocate_vector_registers = mode != 4;
+                    options.reuse_spill_slots = mode != 3;
+                    options.hooks = &hooks;
+                    EeIr::LowerOutput out;
+                    std::string error;
+                    if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                    {
+                        same = false;
+                        continue;
+                    }
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    same &= std::memcmp(cpuRegs.GPR.r[8].UL, expected.data(), 16) == 0;
+                    if ((live & 1) || live == 4)
+                        same &= std::memcmp(cpuRegs.GPR.r[9].UL, lhs.data(), 16) == 0;
+                    if ((live & 2) || live == 4)
+                        same &= std::memcmp(cpuRegs.GPR.r[10].UL, rhs.data(), 16) == 0;
+                    if (live == 4)
+                        for (u32 k = 0; k < pressure.size(); ++k)
+                        {
+                            const std::array<u32, 4> preserved = {k, k + 1, ~k, 0x80000000u + k};
+                            same &= std::memcmp(cpuRegs.GPR.r[11 + k].UL, preserved.data(), 16) == 0;
+                        }
+                }
+                std::snprintf(name, sizeof(name), "ir SIMD %s edges=%u,%u live=%u exact masks/helper clobbers/allocation modes", ir::OpName(op), i, j, live);
+                Check(same, name);
+            }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        u32 value = b.ConstVec({0x80000000, 0xffffffff, 0x7fffffff, 0});
+        const u32 other = b.ConstVec({0, 0x80000000, 0xffffffff, 0x7fffffff});
+        for (ir::Op op : operations)
+            value = b.Emit2(op, ir::Type::V4U32, value, other);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstI32(42), 10);
+        b.Resume(EE_TEST_PC + 4);
+        ir::OptimizeIntegerValues(fn);
+        std::string error;
+        bool removed = ir::Verify(fn, &error);
+        for (const auto& block : fn.blocks)
+            for (const auto& inst : block.insts)
+                for (ir::Op op : operations)
+                    removed &= inst.op != op;
+        Check(removed, "ir dead integer vector comparisons/minmax chain is removed");
+    }
+}
+
 void EEIrExecutionTests()
 {
     EEIrQuadTests();
     EEIrQuadOptimizationsTests();
     EEIrMmiTests();
     EEIrPackedWordShiftTests();
+    EEIrVectorCompareTests();
     EEIrVectorForwardTests();
     EEIrVectorAllocationTests();
     EEIrQuadVectorFastPathTests();

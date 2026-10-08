@@ -377,9 +377,15 @@ namespace EeIr
 						return true;
 					}
 					ir::Op operation;
-					bool invert = false;
-					if (group == 0x08 && sub <= 1)
-						operation = sub == 0 ? ir::Op::Add : ir::Op::Sub; // paddw / psubw
+					bool invert = false, swap = false;
+					if (group == 0x08 && sub <= 3)
+					{
+						constexpr ir::Op word_ops[] = {ir::Op::Add, ir::Op::Sub, ir::Op::VCmpLtS, ir::Op::VMaxS};
+						operation = word_ops[sub]; // paddw / psubw / pcgtw / pmaxw
+						swap = sub == 2; // rs > rt is rt < rs
+					}
+					else if (group == 0x28 && (sub == 2 || sub == 3))
+						operation = sub == 2 ? ir::Op::VCmpEq : ir::Op::VMinS; // pceqw / pminw
 					else if (group == 0x09 && (sub == 0x12 || sub == 0x13))
 						operation = sub == 0x12 ? ir::Op::And : ir::Op::Xor; // pand / pxor
 					else if (group == 0x29 && (sub == 0x12 || sub == 0x13))
@@ -391,7 +397,7 @@ namespace EeIr
 						return Fail(error, "unsupported MMI instruction", pc);
 					if (rd != 0)
 					{
-						u32 value = m_b.Emit2(operation, ir::Type::V4U32, ReadGprQuad(rs), ReadGprQuad(rt));
+						u32 value = m_b.Emit2(operation, ir::Type::V4U32, ReadGprQuad(swap ? rt : rs), ReadGprQuad(swap ? rs : rt));
 						if (invert)
 							value = m_b.Emit1(ir::Op::Not, ir::Type::V4U32, value);
 						m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);

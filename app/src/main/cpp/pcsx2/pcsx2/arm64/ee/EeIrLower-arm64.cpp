@@ -98,6 +98,16 @@ namespace EeIr
 				case ir::Op::VShl:
 				case ir::Op::VShrU:
 				case ir::Op::VShrS:
+				case ir::Op::VMinS:
+				case ir::Op::VMinU:
+				case ir::Op::VMaxS:
+				case ir::Op::VMaxU:
+				case ir::Op::VCmpEq:
+				case ir::Op::VCmpNe:
+				case ir::Op::VCmpLtS:
+				case ir::Op::VCmpLtU:
+				case ir::Op::VCmpLeS:
+				case ir::Op::VCmpLeU:
 				case ir::Op::CmpEq:
 				case ir::Op::CmpNe:
 				case ir::Op::CmpLtS:
@@ -1151,6 +1161,43 @@ namespace EeIr
 					recEndOaknutEmit();
 					return true;
 
+				case ir::Op::VMinS:
+				case ir::Op::VMinU:
+				case ir::Op::VMaxS:
+				case ir::Op::VMaxU:
+				case ir::Op::VCmpEq:
+				case ir::Op::VCmpNe:
+				case ir::Op::VCmpLtS:
+				case ir::Op::VCmpLtU:
+				case ir::Op::VCmpLeS:
+				case ir::Op::VCmpLeU:
+				{
+					recBeginOaknutEmit();
+					const auto lhs = Operand128(a[0], oak::util::Q0);
+					const auto rhs = Operand128(a[1], oak::util::Q1);
+					const auto dst = Result128(inst.value);
+					switch (inst.op)
+					{
+						case ir::Op::VMinS: oakAsm->SMIN(dst.S4(), lhs.S4(), rhs.S4()); break;
+						case ir::Op::VMinU: oakAsm->UMIN(dst.S4(), lhs.S4(), rhs.S4()); break;
+						case ir::Op::VMaxS: oakAsm->SMAX(dst.S4(), lhs.S4(), rhs.S4()); break;
+						case ir::Op::VMaxU: oakAsm->UMAX(dst.S4(), lhs.S4(), rhs.S4()); break;
+						case ir::Op::VCmpEq: oakAsm->CMEQ(dst.S4(), lhs.S4(), rhs.S4()); break;
+						case ir::Op::VCmpNe:
+							oakAsm->CMEQ(dst.S4(), lhs.S4(), rhs.S4());
+							oakAsm->NOT(dst.B16(), dst.B16());
+							break;
+						case ir::Op::VCmpLtS: oakAsm->CMGT(dst.S4(), rhs.S4(), lhs.S4()); break;
+						case ir::Op::VCmpLtU: oakAsm->CMHI(dst.S4(), rhs.S4(), lhs.S4()); break;
+						case ir::Op::VCmpLeS: oakAsm->CMGE(dst.S4(), rhs.S4(), lhs.S4()); break;
+						case ir::Op::VCmpLeU: oakAsm->CMHS(dst.S4(), rhs.S4(), lhs.S4()); break;
+						default: break;
+					}
+					Store128(inst.value, dst);
+					recEndOaknutEmit();
+					return true;
+				}
+
 				case ir::Op::VShl:
 				case ir::Op::VShrU:
 				case ir::Op::VShrS:
@@ -1699,7 +1746,10 @@ namespace EeIr
 				const bool quad_alu = inst.type == ir::Type::V4U32 &&
 					(inst.op == ir::Op::Add || inst.op == ir::Op::Sub || inst.op == ir::Op::And ||
 						inst.op == ir::Op::Or || inst.op == ir::Op::Xor || inst.op == ir::Op::Not ||
-						inst.op == ir::Op::VShl || inst.op == ir::Op::VShrU || inst.op == ir::Op::VShrS);
+						inst.op == ir::Op::VShl || inst.op == ir::Op::VShrU || inst.op == ir::Op::VShrS ||
+						inst.op == ir::Op::VMinS || inst.op == ir::Op::VMinU || inst.op == ir::Op::VMaxS || inst.op == ir::Op::VMaxU ||
+						inst.op == ir::Op::VCmpEq || inst.op == ir::Op::VCmpNe || inst.op == ir::Op::VCmpLtS || inst.op == ir::Op::VCmpLtU ||
+						inst.op == ir::Op::VCmpLeS || inst.op == ir::Op::VCmpLeU);
 				const bool quad_result = inst.type == ir::Type::V4U32 &&
 					(inst.op == ir::Op::ConstVec || inst.op == ir::Op::Copy || inst.op == ir::Op::ReadGpr || inst.op == ir::Op::Load128 || quad_alu);
 				for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)

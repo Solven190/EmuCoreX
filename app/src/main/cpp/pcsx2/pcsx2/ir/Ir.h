@@ -182,6 +182,7 @@ namespace ir
 	X(VShl,         Shift,       2, 2, Any,  false) \
 	X(VShrU,        Shift,       2, 2, Any,  false) \
 	X(VShrS,        Shift,       2, 2, Any,  false) \
+	/* Integer min/max uses 32-bit lanes; integer compares return all ones/zero per lane. */ \
 	X(VMinS,        VecBinary,   2, 2, Any,  false) \
 	X(VMinU,        VecBinary,   2, 2, Any,  false) \
 	X(VMaxS,        VecBinary,   2, 2, Any,  false) \

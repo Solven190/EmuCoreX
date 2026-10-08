@@ -289,7 +289,10 @@ namespace ir
 				return inst.op == Op::ConstVec || inst.op == Op::Copy || inst.op == Op::ReadGpr ||
 					(inst.type == Type::V4U32 && (inst.op == Op::Add || inst.op == Op::Sub ||
 						inst.op == Op::And || inst.op == Op::Or || inst.op == Op::Xor || inst.op == Op::Not ||
-						inst.op == Op::VShl || inst.op == Op::VShrU || inst.op == Op::VShrS));
+						inst.op == Op::VShl || inst.op == Op::VShrU || inst.op == Op::VShrS ||
+						inst.op == Op::VMinS || inst.op == Op::VMinU || inst.op == Op::VMaxS || inst.op == Op::VMaxU ||
+						inst.op == Op::VCmpEq || inst.op == Op::VCmpNe || inst.op == Op::VCmpLtS || inst.op == Op::VCmpLtU ||
+						inst.op == Op::VCmpLeS || inst.op == Op::VCmpLeU));
 			if (!IsIntegerType(inst.type))
 				return false;
 			switch (inst.op)
