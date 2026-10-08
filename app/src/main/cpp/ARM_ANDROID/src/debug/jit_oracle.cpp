@@ -2167,13 +2167,15 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
     }
 
     bool same = true;
-    for (u32 mode = 0; mode < (division_modes ? 5u : quad_modes ? 4u : 2u); ++mode)
+    for (u32 mode = 0; mode < (division_modes ? 5u : quad_modes ? 7u : 2u); ++mode)
     {
         const bool optimize = mode != 0;
         EeIr::LowerOptions options;
         options.materialize_constants = optimize && mode != 3;
         options.allocate_registers = mode == 1 || mode == 3 || mode == 4;
         options.inline_division = mode != 4;
+        options.direct_quad_memory = !quad_modes || (mode != 4 && mode != 6);
+        options.reuse_spill_slots = !quad_modes || (mode != 5 && mode != 6);
         options.optimize_ir = optimize;
         u32 helper_calls = 0;
         EeIr::LowerHooks hooks;
@@ -2240,6 +2242,241 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
         same &= CpuDiff(name, "scratch", interp.scratch, result.scratch, sizeof(interp.scratch));
     }
     Check(same, name);
+}
+
+
+struct EEIrQuadTrace
+{
+    mem128_t input{}, stored{}, mutated{};
+    u32 reads = 0, writes = 0, helper_before = 0, helper_after = 0, completed = 0;
+    u32 read_addr = 0, write_addr = 0, read_pc = 0, write_pc = 0, read_bd = 0, write_bd = 0;
+    u64 destination_before = 0;
+};
+EEIrQuadTrace s_eeir_quad_trace;
+
+RETURNS_R128 EEIrQuadReadHandler(u32 addr)
+{
+    auto& t = s_eeir_quad_trace;
+    ++t.reads;
+    t.read_addr = addr;
+    t.read_pc = cpuRegs.pc;
+    t.read_bd = cpuRegs.IsDelaySlot;
+    t.destination_before = cpuRegs.GPR.r[8].UD[0];
+    std::memcpy(cpuRegs.GPR.r[14].UL, &t.mutated, 16);
+    return r128_load(&t.input);
+}
+
+void TAKES_R128 EEIrQuadWriteHandler(u32 addr, r128 value)
+{
+    auto& t = s_eeir_quad_trace;
+    ++t.writes;
+    t.write_addr = addr;
+    t.write_pc = cpuRegs.pc;
+    t.write_bd = cpuRegs.IsDelaySlot;
+    r128_store(&t.stored, value);
+}
+
+void EEIrQuadOptimizationsTests()
+{
+    // Only the virtual table entries are changed. Restore them on every exit;
+    // this does not replace real hardware handlers or physical mappings.
+    constexpr u32 aliases[] = {0x41000000u, 0xc1000000u};
+    constexpr u32 physical = 0x1ff00000u;
+    struct RestoreMappings
+    {
+        vtlb_private::VTLBVirtual saved[2];
+        RestoreMappings()
+        {
+            for (u32 i = 0; i < 2; ++i)
+                saved[i] = vtlb_private::vtlbdata.vmap[aliases[i] >> 12];
+        }
+        ~RestoreMappings()
+        {
+            for (u32 i = 0; i < 2; ++i)
+                vtlb_private::vtlbdata.vmap[aliases[i] >> 12] = saved[i];
+        }
+    } restore;
+    const vtlbHandler handler = vtlb_RegisterHandler(nullptr, nullptr, nullptr, nullptr, &EEIrQuadReadHandler,
+        nullptr, nullptr, nullptr, nullptr, &EEIrQuadWriteHandler);
+    alignas(16) std::array<u8, 4096> ram_a{}, ram_b{};
+    const std::array<u32, 4> before = {0xaabbccdd, 0x11223344, 0x01234567, 0xfedcba98};
+    const std::array<u32, 4> packet_a = {0x80000000, 0xffffffff, 0x12345678, 0x90abcdef};
+    const std::array<u32, 4> packet_b = {0x98765432, 0x10203040, 0x50607080, 0xf0e0d0c0};
+    const std::array<u32, 4> mutated = {0xcafebabe, 0xdeadc0de, 0x11112222, 0x33334444};
+    for (u32 base : aliases)
+    {
+        for (u32 offset : {0u, 0xff0u})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 saved = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 14);
+            b.SetGuestPc(EE_TEST_PC + 4);
+            b.SetDelaySlot(true);
+            const u32 loaded = b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(base + offset));
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {loaded}, 8);
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {saved}, 15);
+            const u32 after = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 14);
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {after}, 16);
+            b.SetGuestPc(EE_TEST_PC + 8);
+            b.Emit2(ir::Op::Store128, ir::Type::Void, b.ConstI32(base + offset), saved);
+            b.SetDelaySlot(false);
+            b.Resume(EE_TEST_PC + 12);
+            EeIr::LowerHooks hooks;
+            hooks.before_memory = +[](void*, u32 pc, bool delay) {
+                oakAsm->MOV(oak::util::W16, pc);
+                oakStore32(oak::util::W16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc))});
+                oakAsm->MOV(oak::util::W16, delay ? 1 : 0);
+                oakStore32(oak::util::W16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
+            };
+            // Non-capturing callbacks emit runtime counters: counting the
+            // generated cold branch alone would not prove RAM skipped it.
+            hooks.before_helper = +[](void*) {
+                oakMoveAddressToReg(oak::util::X16, &s_eeir_quad_trace.helper_before);
+                oakAsm->LDR(oak::util::W17, oak::util::X16);
+                oakAsm->ADD(oak::util::W17, oak::util::W17, 1);
+                oakAsm->STR(oak::util::W17, oak::util::X16);
+            };
+            hooks.after_helper = +[](void*) {
+                oakMoveAddressToReg(oak::util::X16, &s_eeir_quad_trace.helper_after);
+                oakAsm->LDR(oak::util::W17, oak::util::X16);
+                oakAsm->ADD(oak::util::W17, oak::util::W17, 1);
+                oakAsm->STR(oak::util::W17, oak::util::X16);
+            };
+            hooks.after_memory = +[](void*) {
+                oakStore32(oak::util::WZR, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
+                oakMoveAddressToReg(oak::util::X16, &s_eeir_quad_trace.completed);
+                oakAsm->LDR(oak::util::W17, oak::util::X16);
+                oakAsm->ADD(oak::util::W17, oak::util::W17, 1);
+                oakAsm->STR(oak::util::W17, oak::util::X16);
+            };
+            for (bool direct : {false, true})
+            {
+                for (bool reuse : {false, true})
+                {
+                    for (bool allocate : {false, true})
+                    {
+                        EeIr::LowerOptions options;
+                        options.direct_quad_memory = direct;
+                        options.reuse_spill_slots = reuse;
+                        options.allocate_registers = allocate;
+                        options.hooks = &hooks;
+                        EeIr::LowerOutput out;
+                        std::string error;
+                        const bool lowered = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        // Run the SAME compiled code after two RAM mappings
+                        // and a handler mapping; no recompilation hides stale pointers.
+                        for (u32 mapping = 0; mapping < 3; ++mapping)
+                        {
+                            bool same = lowered && out.direct_quad_operations == (direct ? 2u : 0u);
+                            if (same)
+                            {
+                                auto& entry = vtlb_private::vtlbdata.vmap[base >> 12];
+                                entry = mapping == 2 ? vtlb_private::VTLBVirtual(vtlb_private::VTLBPhysical::fromHandler(handler), physical, base) :
+                                    vtlb_private::VTLBVirtual::fromPointer(reinterpret_cast<uptr>(mapping == 0 ? ram_a.data() : ram_b.data()), base);
+                                const auto& packet = mapping == 1 ? packet_b : packet_a;
+                                std::memcpy((mapping == 0 ? ram_a.data() : ram_b.data()) + offset, packet.data(), 16);
+                                s_eeir_quad_trace = {};
+                                std::memcpy(&s_eeir_quad_trace.input, packet.data(), 16);
+                                std::memcpy(&s_eeir_quad_trace.mutated, mutated.data(), 16);
+                                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                                cpuRegs.GPR.r[8].UD[0] = 0xfedcba9876543210ull;
+                                std::memcpy(cpuRegs.GPR.r[14].UL, before.data(), 16);
+                                reinterpret_cast<void (*)()>(out.entry)();
+                                const auto& t = s_eeir_quad_trace;
+                                same &= t.helper_before == ((!direct || mapping == 2) ? 2u : 0u) && t.helper_after == t.helper_before &&
+                                    t.completed == 2 && cpuRegs.IsDelaySlot == 0 &&
+                                    std::memcmp(cpuRegs.GPR.r[8].UL, packet.data(), 16) == 0 &&
+                                    std::memcmp(cpuRegs.GPR.r[15].UL, before.data(), 16) == 0 &&
+                                    std::memcmp(cpuRegs.GPR.r[16].UL, mapping == 2 ? mutated.data() : before.data(), 16) == 0;
+                                if (mapping == 2)
+                                    same &= t.reads == 1 && t.writes == 1 && t.read_addr == physical + offset && t.write_addr == physical + offset &&
+                                        t.read_pc == EE_TEST_PC + 4 && t.write_pc == EE_TEST_PC + 8 && t.read_bd == 1 && t.write_bd == 1 &&
+                                        t.destination_before == 0xfedcba9876543210ull && std::memcmp(&t.stored, before.data(), 16) == 0;
+                                else
+                                    same &= t.reads == 0 && t.writes == 0 &&
+                                        std::memcmp((mapping == 0 ? ram_a.data() : ram_b.data()) + offset, before.data(), 16) == 0;
+                            }
+                            char name[128];
+                            std::snprintf(name, sizeof(name), "ir quad live mapping base=%08x offset=%03x map=%u direct=%u reuse=%u alloc=%u",
+                                base, offset, mapping, direct, reuse, allocate);
+                            Check(same, name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        for (u32 round = 0; round < 8; ++round)
+        {
+            std::vector<u32> scalar, quad;
+            for (u32 reg = 8; reg < 16; ++reg)
+                scalar.push_back(b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, reg));
+            for (u32 reg = 16; reg < 20; ++reg)
+                quad.push_back(b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, reg));
+            b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH));
+            for (u32 reg = 0; reg < scalar.size(); ++reg)
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {scalar[reg]}, reg + 24, ir::IF_WIDE_WRITE);
+            for (u32 reg = 0; reg < quad.size(); ++reg)
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {quad[reg]}, reg + 20);
+        }
+        b.Resume(EE_TEST_PC + 4);
+        for (bool direct : {false, true})
+        {
+            for (bool allocate : {false, true})
+            {
+                u32 baseline_frame = 0;
+                for (bool reuse : {false, true})
+                {
+                    EeIr::LowerOptions options;
+                    options.direct_quad_memory = direct;
+                    options.allocate_registers = allocate;
+                    options.reuse_spill_slots = reuse;
+                    EeIr::LowerOutput out;
+                    std::string error;
+                    bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                    if (same)
+                    {
+                        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                        for (u32 reg = 8; reg < 20; ++reg)
+                            for (u32 lane = 0; lane < 4; ++lane)
+                                cpuRegs.GPR.r[reg].UL[lane] = (reg << 24) | (lane * 0x12345);
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        for (u32 reg = 0; reg < 8; ++reg)
+                            same &= cpuRegs.GPR.r[reg + 24].UD[0] == cpuRegs.GPR.r[reg + 8].UD[0];
+                        for (u32 reg = 0; reg < 4; ++reg)
+                            same &= std::memcmp(cpuRegs.GPR.r[reg + 20].UL, cpuRegs.GPR.r[reg + 16].UL, 16) == 0;
+                        if (!reuse)
+                            baseline_frame = out.frame_size;
+                        else
+                            same &= out.frame_size < baseline_frame && out.spill_slots < out.spill_values && out.frame_size % 16 == 0;
+                        std::printf("EEIR spill lifetime direct=%u alloc=%u reuse=%u values=%u slots=%u frame=%u bytes=%u\n",
+                            direct, allocate, reuse, out.spill_values, out.spill_slots, out.frame_size, out.host_size);
+                    }
+                    Check(same, "ir mixed-width spill lifetimes survive helper and reduce peak frame");
+                }
+            }
+        }
+    }
+    {
+        const auto config = EmuConfig.Cpu.Recompiler;
+        EmuConfig.Cpu.Recompiler.EnableEE = false;
+        EmuConfig.Cpu.Recompiler.EnableEECache = true;
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH));
+        b.Resume(EE_TEST_PC + 4);
+        EeIr::LowerOutput out;
+        std::string error;
+        const bool lowered = EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        EmuConfig.Cpu.Recompiler = config;
+        Check(lowered && out.direct_quad_operations == 0, "ir quad keeps helper for EE cache emulation");
+    }
 }
 
 void EEIrQuadTests()
@@ -2346,7 +2583,10 @@ void EEIrQuadTests()
         EeIr::LowerOutput out;
         std::string error;
         const std::array<u32, 4> lanes = {0x80000000, 0xffffffff, 0x01020304, 0xf0e0d0c0};
-        bool same = EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        EeIr::LowerOptions options;
+        options.reuse_spill_slots = false; // preserve the large-frame address test
+        options.direct_quad_memory = false; // actually execute the large-slot helper path
+        bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
         if (same)
         {
             mem128_t input;
@@ -2385,6 +2625,7 @@ void EEIrQuadTests()
 void EEIrExecutionTests()
 {
     EEIrQuadTests();
+    EEIrQuadOptimizationsTests();
     {
         const std::array<std::array<u64, 3>, 8> edges = {{
             {{0, 0, 0}}, {{1, 1, 0}}, {{~u64(0), ~u64(0), 0}},

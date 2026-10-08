@@ -2511,6 +2511,10 @@ static void EeIrBeforeHelperHook(void* ctx)
 static void EeIrAfterHelperHook(void* ctx)
 {
 	recReloadReccycle();
+}
+
+static void EeIrAfterMemoryHook(void* ctx)
+{
 	// A successful access in a delay slot must not leave BD state behind
 	// for a later legacy instruction or an event-handler exception.
 	oakStore32(oak::util::WZR, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
@@ -2569,6 +2573,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	hooks.before_memory = &EeIrBeforeMemoryHook;
 	hooks.before_helper = &EeIrBeforeHelperHook;
 	hooks.after_helper = &EeIrAfterHelperHook;
+	hooks.after_memory = &EeIrAfterMemoryHook;
 
 	EeIr::LowerOutput out;
 	EeIr::LowerOptions options;
@@ -2590,6 +2595,16 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		return __system_property_get("debug.emucorex.ee_ir_native_div", value) == 0 || value[0] != '0';
 	}();
 	options.inline_division = inline_division;
+	static const bool direct_quad_memory = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_direct_quad", value) == 0 || value[0] != '0';
+	}();
+	options.direct_quad_memory = direct_quad_memory;
+	static const bool reuse_spill_slots = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_spill_reuse", value) == 0 || value[0] != '0';
+	}();
+	options.reuse_spill_slots = reuse_spill_slots;
 #endif
 	if (!EeIr::LowerBlock(fn, options, nullptr, 0, &out, &error))
 	{
@@ -2604,6 +2619,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	static u64 native_bytes = 0;
 	static u64 division_pairs = 0;
 	static u64 quad_operations = 0;
+	static u64 direct_quad_operations = 0;
 	for (const ir::Block& block : fn.blocks)
 		for (const ir::Inst& inst : block.insts)
 		{
@@ -2612,6 +2628,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			if (inst.op == ir::Op::Load128 || inst.op == ir::Op::Store128)
 				++quad_operations;
 		}
+	direct_quad_operations += out.direct_quad_operations;
 	++compiled_blocks;
 	guest_instructions += insts;
 	native_bytes += out.host_size;
@@ -2619,13 +2636,14 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
 			options.optimize_ir ? 1u : 0u, out.register_values, out.spill_values, out.frame_size,
 			options.optimize_ir && options.inline_division ? 1u : 0u, static_cast<unsigned long long>(division_pairs),
-			quad_memory ? 1u : 0u, static_cast<unsigned long long>(quad_operations));
+			quad_memory ? 1u : 0u, static_cast<unsigned long long>(quad_operations),
+			static_cast<unsigned long long>(direct_quad_operations), options.optimize_ir && options.reuse_spill_slots ? 1u : 0u, out.spill_slots);
 	}
 #endif
 

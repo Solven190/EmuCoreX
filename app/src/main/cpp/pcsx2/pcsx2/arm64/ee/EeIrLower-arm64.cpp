@@ -212,6 +212,8 @@ namespace EeIr
 				, m_materialize_constants(options.materialize_constants)
 				, m_allocate_registers(options.allocate_registers)
 				, m_inline_division(options.optimize_ir && options.inline_division)
+				, m_direct_quad_memory(options.optimize_ir && options.direct_quad_memory && (!CHECK_CACHE || CHECK_EEREC))
+				, m_reuse_spill_slots(options.optimize_ir && options.reuse_spill_slots)
 			{
 			}
 
@@ -367,6 +369,9 @@ namespace EeIr
 			bool m_materialize_constants = true;
 			bool m_allocate_registers = true;
 			bool m_inline_division = true;
+			bool m_direct_quad_memory = true;
+			bool m_reuse_spill_slots = true;
+			u32 m_direct_quad_operations = 0;
 			std::vector<std::optional<u64>> m_constants;
 			std::vector<u32> m_slots;
 			std::vector<int> m_registers;
@@ -530,11 +535,6 @@ namespace EeIr
 			const u32 value_count = static_cast<u32>(m_fn.value_types.size());
 			m_constants.resize(value_count);
 			m_slots.resize(value_count);
-			std::vector<bool> defined(value_count, false);
-			for (const ir::Block& block : m_fn.blocks)
-				for (const ir::Inst& inst : block.insts)
-					if (inst.value)
-						defined[inst.value] = true;
 			if (m_materialize_constants)
 			{
 				for (const ir::Block& block : m_fn.blocks)
@@ -548,18 +548,61 @@ namespace EeIr
 			}
 			AllocateRegisters();
 			u32 next_slot = SaveArea();
-			for (u32 value = 1; value < value_count; ++value)
+			struct Spill { u32 last, size, slot; };
+			std::array<std::vector<u32>, 2> free_slots;
+			for (const ir::Block& block : m_fn.blocks)
 			{
-				if (m_registers[value] >= 0)
-					++out->register_values;
-				else if (defined[value] && !m_constants[value])
+				std::vector<u32> last_use(value_count);
+				u32 position = 0;
+				for (const ir::Inst& inst : block.insts)
 				{
-					++out->spill_values;
-					const u32 size = std::max(8u, ir::TypeSize(m_fn.ValueType(value)));
-					next_slot = (next_slot + size - 1u) & ~(size - 1u);
-					m_slots[value] = next_slot;
-					next_slot += size;
+					for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)
+						last_use[inst.args[arg]] = position;
+					++position;
 				}
+				std::vector<Spill> active;
+				position = 0;
+				for (const ir::Inst& inst : block.insts)
+				{
+					if (m_reuse_spill_slots)
+					{
+						active.erase(std::remove_if(active.begin(), active.end(), [&](const Spill& spill) {
+							// Emitters read all operands before writing the result,
+							// including addresses passed to memory helpers.
+							if (spill.last > position)
+								return false;
+							free_slots[spill.size == 16].push_back(spill.slot);
+							return true;
+						}), active.end());
+					}
+					const u32 value = inst.value;
+					if (value && m_registers[value] >= 0)
+						++out->register_values;
+					else if (value && !m_constants[value])
+					{
+						++out->spill_values;
+						const u32 size = std::max(8u, ir::TypeSize(inst.type));
+						auto& free = free_slots[size == 16];
+						if (m_reuse_spill_slots && !free.empty())
+						{
+							m_slots[value] = free.back();
+							free.pop_back();
+						}
+						else
+						{
+							next_slot = (next_slot + size - 1u) & ~(size - 1u);
+							m_slots[value] = next_slot;
+							next_slot += size;
+							++out->spill_slots;
+						}
+						active.push_back({std::max(position, last_use[value]), size, m_slots[value]});
+					}
+					++position;
+				}
+				// SSA values cannot cross blocks; all typed slots are reusable
+				// on every successor, including loops and conditional paths.
+				for (const Spill& spill : active)
+					free_slots[spill.size == 16].push_back(spill.slot);
 			}
 			m_frame = (next_slot + 15u) & ~15u;
 			if (m_frame > 0x3f00)
@@ -597,6 +640,7 @@ namespace EeIr
 				}
 				out->entry = nullptr;
 				out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
+				out->direct_quad_operations = m_direct_quad_operations;
 				return true;
 			}
 
@@ -620,6 +664,7 @@ namespace EeIr
 			const u8* const end = oakEndBlock();
 			out->entry = start;
 			out->host_size = static_cast<u32>(end - start);
+			out->direct_quad_operations = m_direct_quad_operations;
 			return true;
 		}
 
@@ -679,6 +724,9 @@ namespace EeIr
 				}
 
 				case ir::Op::Copy:
+					if (m_reuse_spill_slots && m_registers[inst.value] < 0 && m_registers[a[0]] < 0 &&
+						!m_constants[a[0]] && Slot(inst.value) == Slot(a[0]))
+						return true;
 					if (inst.type == ir::Type::V4U32)
 					{
 						recBeginOaknutEmit();
@@ -1109,6 +1157,8 @@ namespace EeIr
 					if (m_hooks && m_hooks->before_memory)
 						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
 					call_helper(helper);
+					if (m_hooks && m_hooks->after_memory)
+						m_hooks->after_memory(m_hooks->ctx);
 					store_r();
 					recEndOaknutEmit();
 					return true;
@@ -1120,6 +1170,8 @@ namespace EeIr
 					if (m_hooks && m_hooks->before_memory)
 						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
 					call_helper(reinterpret_cast<const void*>(&EeIrMemRead64));
+					if (m_hooks && m_hooks->after_memory)
+						m_hooks->after_memory(m_hooks->ctx);
 					Store64(inst.value, oak::util::X0);
 					recEndOaknutEmit();
 					return true;
@@ -1129,11 +1181,40 @@ namespace EeIr
 				{
 					recBeginOaknutEmit();
 					load_a();
-					SlotAddress(inst.op == ir::Op::Load128 ? inst.value : a[1], oak::util::X1);
 					if (m_hooks && m_hooks->before_memory)
 						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
+					oak::Label slow, done;
+					if (m_direct_quad_memory)
+					{
+						// VTLBVirtual stores host_pointer - guest_address. Test
+						// the sign AFTER adding the zero-extended address: entries
+						// for high guest aliases can themselves be negative.
+						oakLoad64(oak::util::X2, {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, vtlbdata.vmap))});
+						oakAsm->LSR(oak::util::W3, oak::util::W0, vtlb_private::VTLB_PAGE_BITS);
+						oakAsm->LDR(oak::util::X2, oak::util::X2, oak::util::X3, oak::IndexExt::LSL, 3);
+						oakAsm->ADD(oak::util::X2, oak::util::X2, oak::util::X0);
+						oakAsm->TBNZ(oak::util::X2, 63, slow);
+						if (inst.op == ir::Op::Load128)
+						{
+							oakAsm->LDR(oak::util::Q0, oak::util::X2);
+							Store128(inst.value, oak::util::Q0);
+						}
+						else
+						{
+							Load128(a[1], oak::util::Q0);
+							oakAsm->STR(oak::util::Q0, oak::util::X2);
+						}
+						oakAsm->B(done);
+						oakAsm->l(slow);
+						++m_direct_quad_operations;
+					}
+					SlotAddress(inst.op == ir::Op::Load128 ? inst.value : a[1], oak::util::X1);
 					call_helper(inst.op == ir::Op::Load128 ? reinterpret_cast<const void*>(&EeIrMemRead128) :
 						reinterpret_cast<const void*>(&EeIrMemWrite128));
+					if (m_direct_quad_memory)
+						oakAsm->l(done);
+					if (m_hooks && m_hooks->after_memory)
+						m_hooks->after_memory(m_hooks->ctx);
 					recEndOaknutEmit();
 					return true;
 				}
@@ -1160,6 +1241,8 @@ namespace EeIr
 					if (m_hooks && m_hooks->before_memory)
 						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
 					call_helper(helper);
+					if (m_hooks && m_hooks->after_memory)
+						m_hooks->after_memory(m_hooks->ctx);
 					recEndOaknutEmit();
 					return true;
 				}

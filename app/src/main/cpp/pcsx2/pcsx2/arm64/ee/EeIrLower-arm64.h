@@ -39,6 +39,8 @@ namespace EeIr
 		// the architectural pc (the faulting instruction address) and the
 		// delay-slot marker for exception accuracy.
 		void (*before_memory)(void* ctx, u32 guest_pc, bool delay_slot) = nullptr;
+		// Runs after the access on both direct-memory and helper paths.
+		void (*after_memory)(void* ctx) = nullptr;
 		// Called around every C helper call so the integration can keep the
 		// cycle delta (W24) coherent with cpuRegs.cycle/nextEventCycle.
 		void (*before_helper)(void* ctx) = nullptr;
@@ -67,6 +69,11 @@ namespace EeIr
 		bool optimize_ir = true;
 		// Keep helper-based division available for isolated runtime A/B tests.
 		bool inline_division = true;
+		// Check the live VTLB entry and access mapped memory directly; handler
+		// entries retain the interpreter helper. Disabled for EE cache emulation.
+		bool direct_quad_memory = true;
+		// Reuse typed spill slots after their SSA values die within a block.
+		bool reuse_spill_slots = true;
 	};
 
 	struct LowerOutput
@@ -76,6 +83,8 @@ namespace EeIr
 		u32 frame_size = 0;
 		u32 register_values = 0;
 		u32 spill_values = 0;
+		u32 spill_slots = 0;
+		u32 direct_quad_operations = 0;
 	};
 
 	// `code` must point at an executable buffer of `capacity` bytes that is not
