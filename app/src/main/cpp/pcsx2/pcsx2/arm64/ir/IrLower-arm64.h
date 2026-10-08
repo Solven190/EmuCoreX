@@ -89,6 +89,7 @@ namespace Arm64Ir
 		// Keep a separate block-local cache for full 128-bit GPR values.
 		bool forward_quad_state = true;
 		GuestState guest_state = GuestState::EE;
+		bool direct_iop_loads = true; // live RAM LUT; handlers for other IOP reads
 	};
 
 	struct LowerOutput
@@ -103,6 +104,8 @@ namespace Arm64Ir
 		u32 direct_quad_vector_operations = 0;
 		u32 vector_register_values = 0;
 		u32 vector_save_values = 0; // allocated SIMD values needing stack homes
+		u32 iop_memory_operations = 0;
+		u32 direct_iop_load_operations = 0;
 	};
 
 	// `code` must point at an executable buffer of `capacity` bytes that is not

@@ -44,11 +44,15 @@ using namespace x86Emitter;
 
 static u64 s_iopIrInstructions = 0;
 static u64 s_iopIrSpillSequences = 0;
+static u64 s_iopIrMemoryOperations = 0;
+static u64 s_iopIrDirectLoads = 0;
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 static int s_iopIrOverride = -1;
 extern "C" void EmuCoreXOracleSetIOPIR(int enabled) { s_iopIrOverride = enabled < 0 ? -1 : (enabled != 0); }
 extern "C" u64 EmuCoreXOracleIOPIRInstructions() { return s_iopIrInstructions; }
 extern "C" u64 EmuCoreXOracleIOPIRSpillSequences() { return s_iopIrSpillSequences; }
+extern "C" u64 EmuCoreXOracleIOPIRMemoryOperations() { return s_iopIrMemoryOperations; }
+extern "C" u64 EmuCoreXOracleIOPIRDirectLoads() { return s_iopIrDirectLoads; }
 #endif
 
 static bool IopIrEnabled()
@@ -64,6 +68,19 @@ static bool IopIrEnabled()
     return enabled;
 #else
     return false;
+#endif
+}
+
+static bool IopIrDirectLoadsEnabled()
+{
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+    static const bool enabled = []() {
+        char value[PROP_VALUE_MAX] = {};
+        return !(__system_property_get("debug.emucorex.iop_ir_direct_loads", value) == 1 && value[0] == '0');
+    }();
+    return enabled;
+#else
+    return true;
 #endif
 }
 
@@ -1697,9 +1714,31 @@ void psxRecompileNextInstruction(bool delayslot, bool swapped_delayslot)
 // same legacy block. The IOP block tail owns PC, cycles, linking and events.
 static void IopIrFallThrough(void*, u32, bool) {}
 
+struct IopIrMemoryContext
+{
+    u32 start_pc;
+    const u32* code;
+    u32 count;
+};
+
+static void IopIrBeforeMemory(void* opaque, u32 guest_pc, bool delay_slot)
+{
+    const auto& ctx = *static_cast<const IopIrMemoryContext*>(opaque);
+    const u32 index = (guest_pc - ctx.start_pc) / 4;
+    pxAssert(!delay_slot && index < ctx.count);
+    // IOP handlers observe the next PC and the original instruction. Keep
+    // W0/W1 intact: they carry the memory address and optional store value.
+    oakAsm->MOV(oak::util::W16, guest_pc + 4);
+    oakStore32(oak::util::W16, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.pc))});
+    oakAsm->MOV(oak::util::W16, ctx.code[index]);
+    oakStore32(oak::util::W16, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.code))});
+}
+
 static bool TryIopIrSequence()
 {
-    std::array<u32, 64> code;
+    // Memory merges emit several SSA operations per guest instruction. Keep
+    // a fragment small enough for the outer block's remaining 32 KiB reserve.
+    std::array<u32, 16> code;
     u32 available = 0;
     const u32 limit = std::min<u32>(code.size(), (s_nEndBlock - psxpc) / 4);
     for (; available < limit; ++available)
@@ -1719,10 +1758,14 @@ static bool TryIopIrSequence()
     // Legacy constants and host allocations may precede this fragment. Commit
     // them before reading guest state, then invalidate the caches after writes.
     _psxFlushCall(FLUSH_EVERYTHING);
+    IopIrMemoryContext memory_context{psxpc, code.data(), accepted};
     Arm64Ir::LowerHooks hooks;
+    hooks.ctx = &memory_context;
+    hooks.before_memory = &IopIrBeforeMemory;
     hooks.guest_exit = &IopIrFallThrough;
     Arm64Ir::LowerOptions options;
     options.guest_state = Arm64Ir::GuestState::IOP;
+    options.direct_iop_loads = IopIrDirectLoadsEnabled();
     options.inline_body = true;
     options.hooks = &hooks;
     Arm64Ir::LowerOutput out;
@@ -1737,6 +1780,8 @@ static bool TryIopIrSequence()
     g_pCurInstInfo += accepted;
     s_psxBlockCycles += accepted;
     s_iopIrInstructions += accepted;
+    s_iopIrMemoryOperations += out.iop_memory_operations;
+    s_iopIrDirectLoads += out.direct_iop_load_operations;
     if (out.frame_size != 0 && out.spill_values != 0) ++s_iopIrSpillSequences;
 #if defined(__ANDROID__)
     static u64 sequences = 0, native_bytes = 0;
@@ -1744,9 +1789,10 @@ static bool TryIopIrSequence()
     native_bytes += out.host_size;
     if ((sequences <= 1024 && (sequences & (sequences - 1)) == 0) || sequences % 4096 == 0)
         __android_log_print(ANDROID_LOG_INFO, "IOPIR",
-            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u",
+            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u memory_operations=%llu direct_loads=%llu",
             static_cast<unsigned long long>(sequences), static_cast<unsigned long long>(s_iopIrInstructions),
-            static_cast<unsigned long long>(native_bytes), psxpc - accepted * 4, out.register_values, out.spill_values, out.frame_size);
+            static_cast<unsigned long long>(native_bytes), psxpc - accepted * 4, out.register_values, out.spill_values, out.frame_size,
+            static_cast<unsigned long long>(s_iopIrMemoryOperations), static_cast<unsigned long long>(s_iopIrDirectLoads));
 #endif
     return true;
 }
@@ -2000,6 +2046,15 @@ StartRecomp:
         CBreakPoints::GetBreakpoints(BREAKPOINT_IOP, true).empty() && CBreakPoints::GetNumMemchecks() == 0;
 	while (!psxbranch && psxpc < s_nEndBlock)
 	{
+        // A page of IR memory operations can exceed the legacy 64 KiB block
+        // reserve. Split BEFORE the next fragment/instruction, leaving half
+        // the reserve for its bounded emission and the normal linking tail.
+        if (use_ir && oakGetCurrentCodePointer() - recPtr >= _32kb)
+        {
+            s_nEndBlock = psxpc;
+            willbranch3 = 1;
+            break;
+        }
         if (use_ir && TryIopIrSequence()) continue;
 		psxRecompileNextInstruction(false, false);
 	}

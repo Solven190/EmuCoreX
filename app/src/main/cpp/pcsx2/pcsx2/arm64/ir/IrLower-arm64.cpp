@@ -6,6 +6,7 @@
 #include "arm64/OaknutHelpers-arm64.h"
 #include "arm64/cpuRegistersPack-arm64.h"
 #include "Memory.h"
+#include "IopMem.h"
 
 #include <cstdio>
 #include <cstring>
@@ -36,6 +37,15 @@ namespace Arm64Ir
 			void EeIrMemWrite64(u32 addr, u64 value) { memWrite64(addr, value); }
 			void EeIrMemRead128(u32 addr, mem128_t* out) { memRead128(addr, out); }
 			void EeIrMemWrite128(u32 addr, const mem128_t* value) { memWrite128(addr, value); }
+
+			u32 IopIrMemRead8(u32 addr) { return iopMemRead8(addr); }
+			u32 IopIrMemRead8S(u32 addr) { return static_cast<u32>(static_cast<s32>(static_cast<s8>(iopMemRead8(addr)))); }
+			u32 IopIrMemRead16(u32 addr) { return iopMemRead16(addr); }
+			u32 IopIrMemRead16S(u32 addr) { return static_cast<u32>(static_cast<s32>(static_cast<s16>(iopMemRead16(addr)))); }
+			u32 IopIrMemRead32(u32 addr) { return iopMemRead32(addr); }
+			void IopIrMemWrite8(u32 addr, u32 value) { iopMemWrite8(addr, static_cast<u8>(value)); }
+			void IopIrMemWrite16(u32 addr, u32 value) { iopMemWrite16(addr, static_cast<u16>(value)); }
+			void IopIrMemWrite32(u32 addr, u32 value) { iopMemWrite32(addr, value); }
 
 			// DIV/DIVU edge cases match R5900OpcodeImpl exactly.
 			u32 EeIrDivSLo(u32 a, u32 b)
@@ -255,6 +265,7 @@ namespace Arm64Ir
 				, m_inline_division(options.optimize_ir && options.inline_division)
 				, m_direct_quad_memory(options.optimize_ir && options.direct_quad_memory && (!CHECK_CACHE || CHECK_EEREC))
 				, m_direct_quad_vectors(options.direct_quad_vectors)
+				, m_direct_iop_loads(options.optimize_ir && options.direct_iop_loads)
 				, m_reuse_spill_slots(options.optimize_ir && options.reuse_spill_slots)
 			{
 			}
@@ -463,7 +474,10 @@ namespace Arm64Ir
 			bool m_inline_division = true;
 			bool m_direct_quad_memory = true;
 			bool m_direct_quad_vectors = true;
+			bool m_direct_iop_loads = true;
 			bool m_reuse_spill_slots = true;
+			u32 m_iop_memory_operations = 0;
+			u32 m_direct_iop_load_operations = 0;
 			u32 m_direct_quad_operations = 0;
 			u32 m_direct_quad_vector_operations = 0;
 			std::vector<std::optional<u64>> m_constants;
@@ -814,6 +828,8 @@ namespace Arm64Ir
 				out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
 				out->direct_quad_operations = m_direct_quad_operations;
 				out->direct_quad_vector_operations = m_direct_quad_vector_operations;
+				out->iop_memory_operations = m_iop_memory_operations;
+				out->direct_iop_load_operations = m_direct_iop_load_operations;
 				return true;
 			}
 
@@ -839,6 +855,8 @@ namespace Arm64Ir
 			out->host_size = static_cast<u32>(end - start);
 			out->direct_quad_operations = m_direct_quad_operations;
 			out->direct_quad_vector_operations = m_direct_quad_vector_operations;
+			out->iop_memory_operations = m_iop_memory_operations;
+			out->direct_iop_load_operations = m_direct_iop_load_operations;
 			return true;
 		}
 
@@ -1528,20 +1546,51 @@ namespace Arm64Ir
 				case ir::Op::Load16S:
 				case ir::Op::Load32:
 				{
+					const bool iop = m_guest_state == GuestState::IOP;
+					if (iop) ++m_iop_memory_operations;
 					const void* helper = nullptr;
 					switch (inst.op)
 					{
-						case ir::Op::Load8U: helper = reinterpret_cast<const void*>(&EeIrMemRead8); break;
-						case ir::Op::Load8S: helper = reinterpret_cast<const void*>(&EeIrMemRead8S); break;
-						case ir::Op::Load16U: helper = reinterpret_cast<const void*>(&EeIrMemRead16); break;
-						case ir::Op::Load16S: helper = reinterpret_cast<const void*>(&EeIrMemRead16S); break;
-						default: helper = reinterpret_cast<const void*>(&EeIrMemRead32); break;
+						case ir::Op::Load8U: helper = iop ? reinterpret_cast<const void*>(&IopIrMemRead8) : reinterpret_cast<const void*>(&EeIrMemRead8); break;
+						case ir::Op::Load8S: helper = iop ? reinterpret_cast<const void*>(&IopIrMemRead8S) : reinterpret_cast<const void*>(&EeIrMemRead8S); break;
+						case ir::Op::Load16U: helper = iop ? reinterpret_cast<const void*>(&IopIrMemRead16) : reinterpret_cast<const void*>(&EeIrMemRead16); break;
+						case ir::Op::Load16S: helper = iop ? reinterpret_cast<const void*>(&IopIrMemRead16S) : reinterpret_cast<const void*>(&EeIrMemRead16S); break;
+						default: helper = iop ? reinterpret_cast<const void*>(&IopIrMemRead32) : reinterpret_cast<const void*>(&EeIrMemRead32); break;
 					}
 					recBeginOaknutEmit();
 					load_a();
 					if (m_hooks && m_hooks->before_memory)
 						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
+					oak::Label slow, done;
+					if (iop && m_direct_iop_loads)
+					{
+						// Only real RAM pages bypass handlers. Read the live LUT at
+						// execution time so remaps and null pages retain their meaning.
+						oakAsm->AND(oak::util::W3, oak::util::W0, 0x1fffffff);
+						oakAsm->CMP(oak::util::W3, 0x00800000);
+						oakAsm->B(oak::Cond::HS, slow);
+						oakMoveAddressToReg(oak::util::X2, &psxMemRLUT);
+						oakLoad64(oak::util::X2, {oak::util::X2, 0});
+						oakAsm->LSR(oak::util::W4, oak::util::W3, 16);
+						oakAsm->LDR(oak::util::X2, oak::util::X2, oak::util::X4, oak::IndexExt::LSL, 3);
+						oakAsm->CBZ(oak::util::X2, slow);
+						oakAsm->AND(oak::util::W3, oak::util::W3, 0xffff);
+						oakAsm->ADD(oak::util::X2, oak::util::X2, oak::util::X3);
+						switch (inst.op)
+						{
+							case ir::Op::Load8U: oakAsm->LDRB(oak::util::W0, oak::util::X2); break;
+							case ir::Op::Load8S: oakAsm->LDRSB(oak::util::W0, oak::util::X2); break;
+							case ir::Op::Load16U: oakAsm->LDRH(oak::util::W0, oak::util::X2); break;
+							case ir::Op::Load16S: oakAsm->LDRSH(oak::util::W0, oak::util::X2); break;
+							default: oakAsm->LDR(oak::util::W0, oak::util::X2); break;
+						}
+						oakAsm->B(done);
+						oakAsm->l(slow);
+						++m_direct_iop_load_operations;
+					}
 					call_helper(helper);
+					if (iop && m_direct_iop_loads)
+						oakAsm->l(done);
 					if (m_hooks && m_hooks->after_memory)
 						m_hooks->after_memory(m_hooks->ctx);
 					store_r();
@@ -1621,12 +1670,14 @@ namespace Arm64Ir
 				case ir::Op::Store32:
 				case ir::Op::Store64:
 				{
+					const bool iop = m_guest_state == GuestState::IOP;
+					if (iop) ++m_iop_memory_operations;
 					const void* helper = nullptr;
 					switch (inst.op)
 					{
-						case ir::Op::Store8: helper = reinterpret_cast<const void*>(&EeIrMemWrite8); break;
-						case ir::Op::Store16: helper = reinterpret_cast<const void*>(&EeIrMemWrite16); break;
-						case ir::Op::Store32: helper = reinterpret_cast<const void*>(&EeIrMemWrite32); break;
+						case ir::Op::Store8: helper = iop ? reinterpret_cast<const void*>(&IopIrMemWrite8) : reinterpret_cast<const void*>(&EeIrMemWrite8); break;
+						case ir::Op::Store16: helper = iop ? reinterpret_cast<const void*>(&IopIrMemWrite16) : reinterpret_cast<const void*>(&EeIrMemWrite16); break;
+						case ir::Op::Store32: helper = iop ? reinterpret_cast<const void*>(&IopIrMemWrite32) : reinterpret_cast<const void*>(&EeIrMemWrite32); break;
 						default: helper = reinterpret_cast<const void*>(&EeIrMemWrite64); break;
 					}
 					recBeginOaknutEmit();
@@ -1848,8 +1899,8 @@ namespace Arm64Ir
 			{
 				if (guest_state == GuestState::IOP)
 				{
-					// Stage one accepts only pure 32-bit integer sequences. EE memory,
-					// helpers and control paths must never run with the IOP layout.
+					// IOP accepts 32-bit integer state and memory only. EE-specific
+					// memory, helpers and control paths must never use the IOP layout.
 					bool supported = inst.type == ir::Type::Void || inst.type == ir::Type::I32;
 					for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)
 						supported &= fn.ValueType(inst.args[arg]) == ir::Type::I32;
@@ -1863,6 +1914,9 @@ namespace Arm64Ir
 						case ir::Op::ReadGpr: case ir::Op::WriteGpr:
 						case ir::Op::ReadHi: case ir::Op::WriteHi:
 						case ir::Op::ReadLo: case ir::Op::WriteLo:
+						case ir::Op::Load8S: case ir::Op::Load8U:
+						case ir::Op::Load16S: case ir::Op::Load16U: case ir::Op::Load32:
+						case ir::Op::Store8: case ir::Op::Store16: case ir::Op::Store32:
 						case ir::Op::Resume:
 							break;
 						default: supported = false; break;

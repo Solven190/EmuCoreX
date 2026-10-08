@@ -46,6 +46,9 @@ extern "C" void EmuCoreXOracleSetSkipEvents(int enabled)
 extern "C" void EmuCoreXOracleSetIOPIR(int enabled);
 extern "C" u64 EmuCoreXOracleIOPIRInstructions();
 extern "C" u64 EmuCoreXOracleIOPIRSpillSequences();
+extern "C" u64 EmuCoreXOracleIOPIRMemoryOperations();
+extern "C" u64 EmuCoreXOracleIOPIRDirectLoads();
+extern void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 
 namespace
 {
@@ -871,6 +874,11 @@ extern "C" int EmuCoreXOracleEEIRStep(void (*fn)());
 constexpr u32 MipsR(u32 rs, u32 rt, u32 rd, u32 sa, u32 fn)
 {
     return (rs << 21) | (rt << 16) | (rd << 11) | (sa << 6) | fn;
+}
+
+constexpr u32 MipsJ(u32 op, u32 target)
+{
+    return (op << 26) | ((target >> 2) & 0x03ffffffu);
 }
 
 constexpr u32 MipsI(u32 op, u32 rs, u32 rt, u32 imm)
@@ -5237,6 +5245,266 @@ void IOPCoverageGte()
     // them in a dedicated runner before enabling.
 }
 
+void ResetIOPMemoryFixture()
+{
+    std::memset(&psxRegs, 0, sizeof(psxRegs));
+    psxCpu = &psxInt;
+    for (u32 i = 0; i < IOP_SCRATCH_SIZE; ++i)
+        iopMemWrite8(IOP_TEST_SCRATCH + i, static_cast<u8>(i * 13 + 7));
+}
+
+void IOPSharedMemoryFrontendTests()
+{
+    const u32 opcodes[] = {32, 33, 34, 35, 36, 37, 38, 40, 41, 42, 43, 46};
+    for (u32 op : opcodes)
+        for (u32 alignment = 0; alignment < 4; ++alignment)
+            for (u32 target : {0u, 8u, 9u, 31u})
+                for (u32 alias : {0u, 0x80000000u, 0xa0000000u, 0x20000000u, 0xe0000000u})
+                    for (bool negative : {false, true})
+                    {
+                        const u32 base = alias | (IOP_TEST_SCRATCH + (negative ? 40 : 32));
+                        const u32 immediate = (negative ? 0xfff8 : 0) + alignment;
+                        const u32 word = MipsI(op, 8, target, immediate);
+                        const std::vector<u32> program = {
+                            MipsI(15, 0, 8, base >> 16), MipsI(13, 8, 8, base & 0xffff),
+                            MipsI(15, 0, 9, 0x89ab), MipsI(13, 9, 9, 0xcdef),
+                            MipsI(15, 0, 31, 0xa5f0), MipsI(13, 31, 31, 0x8001), word};
+                        const IOPSnapshot expected = RunIOPProgram(false, program);
+                        ir::Function fn;
+                        std::string error;
+                        u32 count = 0;
+                        bool same = IopIr::LiftSequence(&word, IOP_TEST_PC + 24, 1, fn, &count, &error) && count == 1;
+                        for (u32 mode = 0; same && mode < 6; ++mode)
+                        {
+                            Arm64Ir::LowerOptions options;
+                            options.guest_state = Arm64Ir::GuestState::IOP;
+                            options.optimize_ir = mode != 0;
+                            options.allocate_registers = mode != 2;
+                            options.materialize_constants = mode != 3;
+                            options.reuse_spill_slots = mode != 4;
+                            options.direct_iop_loads = mode != 5;
+                            Arm64Ir::LowerOutput out;
+                            same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                            if (!same) break;
+                            ResetIOPMemoryFixture();
+                            psxRegs.GPR.r[8] = base;
+                            psxRegs.GPR.r[9] = 0x89abcdefu;
+                            psxRegs.GPR.r[31] = 0xa5f08001u;
+                            const auto ee_before = cpuRegs;
+                            reinterpret_cast<void (*)()>(out.entry)();
+                            IOPSnapshot actual;
+                            CaptureIOP(actual);
+                            same &= std::memcmp(expected.gpr, actual.gpr, sizeof(expected.gpr)) == 0 &&
+                                std::memcmp(expected.scratch, actual.scratch, sizeof(expected.scratch)) == 0 &&
+                                std::memcmp(&cpuRegs, &ee_before, sizeof(cpuRegs)) == 0;
+                        }
+                        char name[160];
+                        std::snprintf(name, sizeof(name), "ir IOP memory op=%u align=%u target=%u alias=%08x negative=%u six modes/interpreter",
+                            op, alignment, target, alias, negative ? 1 : 0);
+                        Check(same, name);
+                    }
+}
+
+static void (*s_iopClearOriginal)(u32, u32) = nullptr;
+static u32 s_iopObservedPc = 0, s_iopObservedCode = 0, s_iopObservedWrites = 0;
+static u32 s_iopObserveAddress = 0, s_iopObserveWord = 0;
+void IOPClearMemoryProbe(u32 address, u32 size)
+{
+    if (address == s_iopObserveAddress && psxRegs.code == s_iopObserveWord)
+    {
+        s_iopObservedPc = psxRegs.pc;
+        s_iopObservedCode = psxRegs.code;
+        ++s_iopObservedWrites;
+    }
+    s_iopClearOriginal(address, size); // preserve actual invalidation
+}
+
+void IOPSharedMemoryRuntimeTests()
+{
+    for (bool direct : {false, true})
+    {
+        // ICTRL clears on read. A load into $0 must still call the MMIO handler.
+        const u32 word = MipsI(35, 8, 0, 0);
+        ir::Function fn;
+        std::string error;
+        u32 count = 0;
+        bool same = IopIr::LiftSequence(&word, IOP_TEST_PC, 1, fn, &count, &error);
+        Arm64Ir::LowerOptions options;
+        options.guest_state = Arm64Ir::GuestState::IOP;
+        options.direct_iop_loads = direct;
+        Arm64Ir::LowerOutput out;
+        same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        if (same)
+        {
+            const u32 saved = psxHu32(HW_ICTRL);
+            ResetIOPMemoryFixture();
+            psxRegs.GPR.r[8] = HW_ICTRL;
+            psxHu32(HW_ICTRL) = 0x87654321;
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= psxHu32(HW_ICTRL) == 0 && psxRegs.GPR.r[0] == 0 && out.iop_memory_operations == 1;
+            psxHu32(HW_ICTRL) = saved;
+        }
+        Check(same, "ir IOP load into zero retains read-clear MMIO side effects");
+    }
+    for (u32 op : {40u, 41u, 42u, 43u, 46u})
+        for (u32 alignment = 0; alignment < 4; ++alignment)
+        {
+            const u32 word = MipsI(op, 8, 9, alignment);
+            ir::Function fn;
+            std::string error;
+            u32 count = 0;
+            bool same = IopIr::LiftSequence(&word, IOP_TEST_PC, 1, fn, &count, &error);
+            Arm64Ir::LowerOptions options;
+            options.guest_state = Arm64Ir::GuestState::IOP;
+            Arm64Ir::LowerOutput out;
+            same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                ResetIOPMemoryFixture();
+                psxRegs.GPR.r[8] = IOP_TEST_SCRATCH + 32;
+                psxRegs.GPR.r[9] = 0x89abcdef;
+                psxRegs.CP0.n.Status = 0x10000;
+                reinterpret_cast<void (*)()>(out.entry)();
+                for (u32 i = 0; i < IOP_SCRATCH_SIZE; ++i)
+                    same &= iopMemRead8(IOP_TEST_SCRATCH + i) == static_cast<u8>(i * 13 + 7);
+            }
+            Check(same, "ir IOP cache-isolated stores preserve RAM including unaligned merges");
+        }
+    {
+        const u32 word = MipsI(35, 8, 9, 0);
+        ir::Function fn;
+        std::string error;
+        u32 count = 0;
+        bool same = IopIr::LiftSequence(&word, IOP_TEST_PC, 1, fn, &count, &error);
+        Arm64Ir::LowerOptions options;
+        options.guest_state = Arm64Ir::GuestState::IOP;
+        Arm64Ir::LowerOutput out;
+        same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        if (same)
+        {
+            ResetIOPMemoryFixture();
+            psxRegs.GPR.r[8] = IOP_TEST_SCRATCH + 32;
+            const u32 page = (IOP_TEST_SCRATCH >> 16) + 0x2000;
+            const uptr saved = psxMemWLUT[page];
+            alignas(16) u32 remapped[0x4000] = {};
+            remapped[8] = 0xfedcba98;
+            psxMemWLUT[page] = reinterpret_cast<uptr>(remapped);
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= psxRegs.GPR.r[9] == 0xfedcba98;
+            psxMemWLUT[page] = 0;
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= psxRegs.GPR.r[9] == 0;
+            psxMemWLUT[page] = saved;
+            Check(same, "ir IOP direct RAM load follows live RLUT remap and null fallback");
+            Check(out.direct_iop_load_operations == 1, "ir IOP direct RAM load emitted actual fast path");
+        }
+        else Check(false, "ir IOP direct RAM load setup");
+    }
+    EmuCoreXOracleSetIOPIR(1);
+    const std::vector<u32> observe = {
+        MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16), MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff),
+        MipsI(9, 0, 9, 0x1234), MipsI(43, 22, 9, 4), MipsI(35, 22, 10, 4)};
+    s_iopClearOriginal = psxRec.Clear;
+    s_iopObserveAddress = IOP_TEST_SCRATCH + 4;
+    s_iopObserveWord = observe[3];
+    s_iopObservedWrites = 0;
+    psxRec.Clear = &IOPClearMemoryProbe;
+    const u64 memory_before = EmuCoreXOracleIOPIRMemoryOperations();
+    const u64 direct_before = EmuCoreXOracleIOPIRDirectLoads();
+    const IOPSnapshot observed = RunIOPProgram(true, observe);
+    psxRec.Clear = s_iopClearOriginal;
+    Check(s_iopObservedWrites != 0 && s_iopObservedPc == IOP_TEST_PC + 16 && s_iopObservedCode == observe[3],
+        "ir IOP store helper sees exact guest PC/opcode and calls real JIT invalidation");
+    Check(observed.gpr[10] == 0x1234 && EmuCoreXOracleIOPIRMemoryOperations() > memory_before &&
+        EmuCoreXOracleIOPIRDirectLoads() > direct_before, "ir IOP production actually compiled memory and direct RAM load");
+    // Compile a target, overwrite its first word, and revisit it. The second
+    // JAL must observe the new instruction after the store handler invalidates it.
+    const u32 target = IOP_TEST_PC + 16 * 4, replacement = MipsI(9, 0, 10, 2);
+    std::vector<u32> smc = {
+        MipsJ(3, target), 0, MipsI(15, 0, 8, replacement >> 16), MipsI(13, 8, 8, replacement & 0xffff),
+        MipsI(15, 0, 22, target >> 16), MipsI(13, 22, 22, target & 0xffff), MipsI(43, 22, 8, 0),
+        MipsJ(3, target), 0, MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16),
+        MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff), MipsI(43, 22, 10, 0),
+        MipsJ(2, IOP_TEST_PC + 20 * 4), 0, 0, 0, MipsI(9, 0, 10, 1), MipsR(31, 0, 0, 0, 8), 0, 0};
+    const IOPSnapshot expected = RunIOPProgram(false, smc);
+    const IOPSnapshot actual = RunIOPProgram(true, smc);
+    CompareIOP(expected, actual, "ir IOP self-modifying store invalidates previously compiled target");
+    Check(actual.gpr[10] == 2 && actual.scratch[0] == 2, "ir IOP self-modifying target executes replacement");
+    const std::vector<u32> forced = {MipsI(15, 0, 8, IOP_TEST_SCRATCH >> 16),
+        MipsI(13, 8, 8, IOP_TEST_SCRATCH & 0xffff), MipsI(35, 8, 9, 0), MipsI(43, 8, 9, 4)};
+    const u64 before_forced = EmuCoreXOracleIOPIRMemoryOperations();
+    const IOPSnapshot forced_expected = RunIOPProgram(false, forced);
+    const IOPSnapshot forced_actual = RunIOPProgram(true, forced, -1, false, 1ull << OpcodeFamilies::IOP::FAM_LOADSTORE);
+    CompareIOP(forced_expected, forced_actual, "ir IOP forced memory interpreter preserved");
+    Check(EmuCoreXOracleIOPIRMemoryOperations() == before_forced, "ir IOP forced memory never enters shared backend");
+    // Full straight-line pages stress the OUTER compiled block, rather than
+    // only the 64-word fragments inside it. The cache reserves 64 KiB/block.
+    for (u32 op : {35u, 42u, 46u})
+    {
+        std::vector<u32> page = {MipsI(15, 0, 8, IOP_TEST_SCRATCH >> 16),
+            MipsI(13, 8, 8, IOP_TEST_SCRATCH & 0xffff)};
+        page.resize(1024, MipsI(op, 8, 9, 1));
+        const IOPSnapshot expected_page = RunIOPProgram(false, page, 200000);
+        const IOPSnapshot actual_page = RunIOPProgram(true, page, 200000);
+        CompareIOP(expected_page, actual_page, "ir IOP full memory page production/interpreter");
+        std::vector<JitBlockProfile> profiles;
+        IOP_JitGetBlockProfiles(profiles);
+        bool bounded = !profiles.empty();
+        for (const auto& profile : profiles) bounded &= profile.host_size < 0x10000;
+        Check(bounded, "ir IOP full memory page stays inside 64 KiB block reserve");
+    }
+    EmuCoreXOracleSetIOPIR(-1);
+}
+
+void IOPSharedMemoryDomainTests()
+{
+    const u32 saved_sif = psHu32(SBUS_F240);
+    psHu32(SBUS_F240) = 0x89abcdefu;
+    for (ir::Op op : {ir::Op::Load8S, ir::Op::Load8U, ir::Op::Load16S, ir::Op::Load16U, ir::Op::Load32})
+        for (u32 address : {IOP_TEST_SCRATCH + 32, 0x80180020u, 0xa0180020u, 0x20180020u,
+            0x1f800040u, 0x1f000040u, 0x00800020u, 0x00400020u,
+            0x1fc00040u, 0xbfc00040u, 0x1d000040u, 0xbd000040u})
+        {
+            ResetIOPMemoryFixture();
+            const u32 physical = address & 0x1fffffffu;
+            if (physical < 0x1fc00000u && physical != 0x1d000040u)
+                iopMemWrite32(address, 0x89abcdefu);
+            const u32 expected = op == ir::Op::Load8S ? static_cast<u32>(static_cast<s32>(static_cast<s8>(iopMemRead8(address)))) :
+                op == ir::Op::Load8U ? iopMemRead8(address) :
+                op == ir::Op::Load16S ? static_cast<u32>(static_cast<s32>(static_cast<s16>(iopMemRead16(address)))) :
+                op == ir::Op::Load16U ? iopMemRead16(address) : iopMemRead32(address);
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(IOP_TEST_PC);
+            const u32 addr = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+            const u32 value = b.Emit1(op, ir::Type::I32, addr);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 10);
+            b.Resume(IOP_TEST_PC + 4);
+            bool same = true;
+            for (bool direct : {false, true})
+            {
+                Arm64Ir::LowerOptions options;
+                options.guest_state = Arm64Ir::GuestState::IOP;
+                options.direct_iop_loads = direct;
+                Arm64Ir::LowerOutput out;
+                std::string error;
+                if (!Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                {
+                    same = false;
+                    continue;
+                }
+                psxRegs.GPR.r[8] = address;
+                psxRegs.GPR.r[10] = ~expected;
+                reinterpret_cast<void (*)()>(out.entry)();
+                same &= psxRegs.GPR.r[10] == expected;
+            }
+            char name[128];
+            std::snprintf(name, sizeof(name), "ir IOP memory domain op=%s address=%08x matches IOP handler", ir::OpName(op), address);
+            Check(same, name);
+        }
+    psHu32(SBUS_F240) = saved_sif;
+}
+
 void IOPSharedIntegrationTests()
 {
     std::vector<u32> mixed = {
@@ -5245,9 +5513,9 @@ void IOPSharedIntegrationTests()
         MipsR(8, 9, 8, 0, 0x21), MipsR(8, 9, 0, 0, 0x18), MipsR(0, 0, 10, 0, 0x12),
         MipsI(9, 10, 11, 1), MipsI(43, 22, 11, 4), MipsI(4, 8, 9, 1), MipsI(9, 8, 8, 1),
         MipsI(4, 0, 0, 1), MipsI(9, 9, 9, 1), MipsI(9, 10, 10, 1)};
-    // Legacy loads keep the following inputs unknown to the optimizer. Four
+    // Memory loads keep the following inputs unknown to the optimizer. Four
     // pair sums and their cross-dependencies exceed the three-register pool,
-    // exercising the inline X20 spill frame before legacy memory consumers.
+    // exercising the inline X20 spill frame across memory consumers.
     for (u32 r = 8; r < 16; ++r) mixed.push_back(MipsI(35, 22, r, (r - 8) * 4));
     const u32 pressure[] = {
         MipsR(8, 9, 16, 0, 0x21), MipsR(10, 11, 17, 0, 0x21),
@@ -5257,7 +5525,7 @@ void IOPSharedIntegrationTests()
         MipsR(20, 21, 10, 0, 0x26)};
     mixed.insert(mixed.end(), std::begin(pressure), std::end(pressure));
     for (u32 r = 8; r < 22; ++r) mixed.push_back(MipsI(43, 22, r, 32 + (r - 8) * 4));
-    // Force multiple IR fragments and then a legacy memory consumer.
+    // Force multiple IR fragments and then a memory consumer.
     for (u32 i = 0; i < 200; ++i) mixed.push_back(MipsI(9, 8, 8, 1));
     mixed.push_back(MipsI(43, 22, 8, 8));
     const u32 saved_icfg = psxHu32(HW_ICFG);
@@ -5350,7 +5618,7 @@ void IOPSharedFrontendTests()
                 Check(same, name);
             }
     for (u32 word : {MipsI(8, 8, 9, 1), MipsR(8, 9, 10, 0, 0x20), MipsR(8, 9, 10, 0, 0x22),
-        MipsI(35, 8, 9, 0), MipsI(43, 8, 9, 0), MipsI(4, 8, 9, 1),
+        MipsI(50, 8, 9, 0), MipsI(58, 8, 9, 0), MipsI(4, 8, 9, 1),
         MipsR(8, 0, 0, 0, 8), MipsR(8, 9, 0, 0, 0x18), MipsR(8, 9, 0, 0, 0x1a),
         0x40086000u, 0x48080000u, 0x0000000cu, 0xffffffffu})
     {
@@ -5428,13 +5696,13 @@ void IOPSharedStateTests()
                 std::snprintf(name, sizeof(name), "ir IOP state32 source=%u dest=%u edge=%08x neighbors/EE isolated", source, dest, edge);
                 Check(same, name);
             }
-    for (ir::Op op : {ir::Op::Load32, ir::Op::ReadFpr, ir::Op::ConstVec, ir::Op::BranchIndirect})
+    for (ir::Op op : {ir::Op::Load64, ir::Op::ReadFpr, ir::Op::ConstVec, ir::Op::BranchIndirect})
     {
         ir::Function fn;
         ir::Builder b(fn);
         b.CreateBlock(IOP_TEST_PC);
-        if (op == ir::Op::Load32)
-            b.Emit1(op, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+        if (op == ir::Op::Load64)
+            b.Emit1(op, ir::Type::I64, b.ConstI32(EE_TEST_SCRATCH));
         else if (op == ir::Op::ReadFpr)
             b.Emit(op, ir::Type::F32, {}, 1);
         else if (op == ir::Op::ConstVec)
@@ -5531,6 +5799,9 @@ void IOPTests()
 
     IOPCoverage();
     IOPCoverageGte();
+    IOPSharedMemoryRuntimeTests();
+    IOPSharedMemoryDomainTests();
+    IOPSharedMemoryFrontendTests();
     IOPSharedIntegrationTests();
     IOPSharedFrontendTests();
     IOPSharedStateTests();
