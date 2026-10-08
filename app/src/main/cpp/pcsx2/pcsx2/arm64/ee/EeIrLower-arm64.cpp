@@ -238,6 +238,7 @@ namespace EeIr
 				, m_allocate_vectors(options.allocate_registers && options.allocate_vector_registers)
 				, m_inline_division(options.optimize_ir && options.inline_division)
 				, m_direct_quad_memory(options.optimize_ir && options.direct_quad_memory && (!CHECK_CACHE || CHECK_EEREC))
+				, m_direct_quad_vectors(options.direct_quad_vectors)
 				, m_reuse_spill_slots(options.optimize_ir && options.reuse_spill_slots)
 			{
 			}
@@ -253,6 +254,22 @@ namespace EeIr
 			void AllocateRegisters();
 			void AllocateVectorRegisters();
 			bool IsVectorBarrier(const ir::Inst& inst) const;
+			bool UsesDirectVectorMemory(const ir::Inst& inst) const
+			{
+				return m_allocate_vectors && m_direct_quad_memory && m_direct_quad_vectors &&
+					(!m_hooks || m_hooks->memory_preserves_vectors) &&
+					(inst.op == ir::Op::Load128 || inst.op == ir::Op::Store128);
+			}
+			void SaveVectors(u32 position)
+			{
+				for (u32 value : m_vector_saves[position])
+					oakStore128(oak::QReg(m_vector_registers[value]), {FrameBase(), static_cast<s64>(Slot(value))});
+			}
+			void RestoreVectors(u32 position)
+			{
+				for (u32 value : m_vector_restores[position])
+					oakLoad128(oak::QReg(m_vector_registers[value]), {FrameBase(), static_cast<s64>(Slot(value))});
+			}
 			oak::QReg Result128(u32 value) const
 			{
 				return oak::QReg(!m_at_vector_barrier && m_vector_registers[value] >= 0 ? m_vector_registers[value] : 0);
@@ -426,8 +443,10 @@ namespace EeIr
 			u32 m_emit_position = 0;
 			bool m_inline_division = true;
 			bool m_direct_quad_memory = true;
+			bool m_direct_quad_vectors = true;
 			bool m_reuse_spill_slots = true;
 			u32 m_direct_quad_operations = 0;
+			u32 m_direct_quad_vector_operations = 0;
 			std::vector<std::optional<u64>> m_constants;
 			std::vector<u32> m_slots;
 			std::vector<int> m_registers;
@@ -775,6 +794,7 @@ namespace EeIr
 				out->entry = nullptr;
 				out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
 				out->direct_quad_operations = m_direct_quad_operations;
+				out->direct_quad_vector_operations = m_direct_quad_vector_operations;
 				return true;
 			}
 
@@ -799,24 +819,23 @@ namespace EeIr
 			out->entry = start;
 			out->host_size = static_cast<u32>(end - start);
 			out->direct_quad_operations = m_direct_quad_operations;
+			out->direct_quad_vector_operations = m_direct_quad_vector_operations;
 			return true;
 		}
 
 		bool Lowerer::EmitInst(const ir::Inst& inst, std::string* error)
 		{
 			const u32 position = m_emit_position++;
-			if (!m_allocate_vectors || !IsVectorBarrier(inst))
+			if (!m_allocate_vectors || !IsVectorBarrier(inst) || UsesDirectVectorMemory(inst))
 				return EmitInstBody(inst, error);
 			m_at_vector_barrier = true;
 			recBeginOaknutEmit();
-			for (u32 value : m_vector_saves[position])
-				oakStore128(oak::QReg(m_vector_registers[value]), {FrameBase(), static_cast<s64>(Slot(value))});
+			SaveVectors(position);
 			recEndOaknutEmit();
 			if (!EmitInstBody(inst, error))
 				return false;
 			recBeginOaknutEmit();
-			for (u32 value : m_vector_restores[position])
-				oakLoad128(oak::QReg(m_vector_registers[value]), {FrameBase(), static_cast<s64>(Slot(value))});
+			RestoreVectors(position);
 			recEndOaknutEmit();
 			m_at_vector_barrier = false;
 			return true;
@@ -1367,6 +1386,8 @@ namespace EeIr
 				case ir::Op::Load128:
 				case ir::Op::Store128:
 				{
+					const bool direct_vectors = UsesDirectVectorMemory(inst);
+					const u32 position = m_emit_position - 1;
 					recBeginOaknutEmit();
 					load_a();
 					if (m_hooks && m_hooks->before_memory)
@@ -1384,21 +1405,31 @@ namespace EeIr
 						oakAsm->TBNZ(oak::util::X2, 63, slow);
 						if (inst.op == ir::Op::Load128)
 						{
-							oakAsm->LDR(oak::util::Q0, oak::util::X2);
-							Store128(inst.value, oak::util::Q0);
+							const auto dst = Result128(inst.value);
+							oakAsm->LDR(dst, oak::util::X2);
+							Store128(inst.value, dst);
 						}
 						else
 						{
-							Load128(a[1], oak::util::Q0);
-							oakAsm->STR(oak::util::Q0, oak::util::X2);
+							const auto src = Operand128(a[1], oak::util::Q0);
+							oakAsm->STR(src, oak::util::X2);
 						}
 						oakAsm->B(done);
 						oakAsm->l(slow);
 						++m_direct_quad_operations;
+						if (direct_vectors)
+						{
+							++m_direct_quad_vector_operations;
+							// Only the C-helper fallback needs caller-save homes.
+							// Save before before_helper can clobber any full Q value.
+							SaveVectors(position);
+						}
 					}
 					SlotAddress(inst.op == ir::Op::Load128 ? inst.value : a[1], oak::util::X1);
 					call_helper(inst.op == ir::Op::Load128 ? reinterpret_cast<const void*>(&EeIrMemRead128) :
 						reinterpret_cast<const void*>(&EeIrMemWrite128));
+					if (direct_vectors)
+						RestoreVectors(position);
 					if (m_direct_quad_memory)
 						oakAsm->l(done);
 					if (m_hooks && m_hooks->after_memory)

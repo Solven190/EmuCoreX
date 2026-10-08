@@ -48,6 +48,9 @@ namespace EeIr
 		void (*before_helper)(void* ctx) = nullptr;
 		void (*after_helper)(void* ctx) = nullptr;
 		void* ctx = nullptr;
+		// Explicit contract for before_memory/after_memory only. C helpers and
+		// their surrounding hooks always clobber caller-save SIMD registers.
+		bool memory_preserves_vectors = false;
 	};
 
 	struct LowerOptions
@@ -76,6 +79,8 @@ namespace EeIr
 		// Check the live VTLB entry and access mapped memory directly; handler
 		// entries retain the interpreter helper. Disabled for EE cache emulation.
 		bool direct_quad_memory = true;
+		// Keep SIMD values in registers on direct RAM paths; spill on fallback.
+		bool direct_quad_vectors = true;
 		// Reuse typed spill slots after their SSA values die within a block.
 		bool reuse_spill_slots = true;
 		// Keep a separate block-local cache for full 128-bit GPR values.
@@ -91,6 +96,7 @@ namespace EeIr
 		u32 spill_values = 0;
 		u32 spill_slots = 0;
 		u32 direct_quad_operations = 0;
+		u32 direct_quad_vector_operations = 0;
 		u32 vector_register_values = 0;
 		u32 vector_save_values = 0; // allocated SIMD values needing stack homes
 	};

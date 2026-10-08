@@ -2305,12 +2305,17 @@ void EEIrQuadOptimizationsTests()
     const std::array<u32, 4> mutated = {0xcafebabe, 0xdeadc0de, 0x11112222, 0x33334444};
     for (u32 base : aliases)
     {
+        for (bool pressure : {false, true})
         for (u32 offset : {0u, 0xff0u})
         {
             ir::Function fn;
             ir::Builder b(fn);
             b.CreateBlock(EE_TEST_PC);
             const u32 saved = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 14);
+            std::array<u32, 8> held{};
+            if (pressure)
+                for (u32 i = 0; i < held.size(); ++i)
+                    held[i] = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, i + 17);
             b.SetGuestPc(EE_TEST_PC + 4);
             b.SetDelaySlot(true);
             const u32 loaded = b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(base + offset));
@@ -2320,6 +2325,9 @@ void EEIrQuadOptimizationsTests()
             b.Emit(ir::Op::WriteGpr, ir::Type::Void, {after}, 16);
             b.SetGuestPc(EE_TEST_PC + 8);
             b.Emit2(ir::Op::Store128, ir::Type::Void, b.ConstI32(base + offset), saved);
+            if (pressure)
+                for (u32 i = 0; i < held.size(); ++i)
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, held[i], i + 24);
             b.SetDelaySlot(false);
             b.Resume(EE_TEST_PC + 12);
             EeIr::LowerHooks hooks;
@@ -2332,12 +2340,16 @@ void EEIrQuadOptimizationsTests()
             // Non-capturing callbacks emit runtime counters: counting the
             // generated cold branch alone would not prove RAM skipped it.
             hooks.before_helper = +[](void*) {
+                for (u32 reg = 2; reg <= 7; ++reg)
+                    oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
                 oakMoveAddressToReg(oak::util::X16, &s_eeir_quad_trace.helper_before);
                 oakAsm->LDR(oak::util::W17, oak::util::X16);
                 oakAsm->ADD(oak::util::W17, oak::util::W17, 1);
                 oakAsm->STR(oak::util::W17, oak::util::X16);
             };
             hooks.after_helper = +[](void*) {
+                for (u32 reg = 2; reg <= 7; ++reg)
+                    oakAsm->MOVI(oak::QReg(reg).B16(), 0x3c);
                 oakMoveAddressToReg(oak::util::X16, &s_eeir_quad_trace.helper_after);
                 oakAsm->LDR(oak::util::W17, oak::util::X16);
                 oakAsm->ADD(oak::util::W17, oak::util::W17, 1);
@@ -2350,6 +2362,8 @@ void EEIrQuadOptimizationsTests()
                 oakAsm->ADD(oak::util::W17, oak::util::W17, 1);
                 oakAsm->STR(oak::util::W17, oak::util::X16);
             };
+            hooks.memory_preserves_vectors = true;
+            for (bool fast_vectors : {false, true})
             for (bool direct : {false, true})
             {
                 for (bool reuse : {false, true})
@@ -2358,6 +2372,7 @@ void EEIrQuadOptimizationsTests()
                     {
                         EeIr::LowerOptions options;
                         options.direct_quad_memory = direct;
+                        options.direct_quad_vectors = fast_vectors;
                         options.reuse_spill_slots = reuse;
                         options.allocate_registers = allocate;
                         options.hooks = &hooks;
@@ -2366,9 +2381,11 @@ void EEIrQuadOptimizationsTests()
                         const bool lowered = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
                         // Run the SAME compiled code after two RAM mappings
                         // and a handler mapping; no recompilation hides stale pointers.
-                        for (u32 mapping = 0; mapping < 3; ++mapping)
+                        for (u32 sequence = 0; sequence < 4; ++sequence)
                         {
-                            bool same = lowered && out.direct_quad_operations == (direct ? 2u : 0u);
+                            const u32 mapping = sequence == 3 ? 0 : sequence; // RAM again after handler
+                            bool same = lowered && out.direct_quad_operations == (direct ? 2u : 0u) &&
+                                out.direct_quad_vector_operations == (direct && allocate && fast_vectors ? 2u : 0u);
                             if (same)
                             {
                                 auto& entry = vtlb_private::vtlbdata.vmap[base >> 12];
@@ -2382,6 +2399,10 @@ void EEIrQuadOptimizationsTests()
                                 std::memset(&cpuRegs, 0, sizeof(cpuRegs));
                                 cpuRegs.GPR.r[8].UD[0] = 0xfedcba9876543210ull;
                                 std::memcpy(cpuRegs.GPR.r[14].UL, before.data(), 16);
+                                if (pressure)
+                                    for (u32 i = 0; i < held.size(); ++i)
+                                        for (u32 lane = 0; lane < 4; ++lane)
+                                            cpuRegs.GPR.r[i + 17].UL[lane] = packet_b[lane] ^ (i * 0x13579bdu);
                                 reinterpret_cast<void (*)()>(out.entry)();
                                 const auto& t = s_eeir_quad_trace;
                                 same &= t.helper_before == ((!direct || mapping == 2) ? 2u : 0u) && t.helper_after == t.helper_before &&
@@ -2389,6 +2410,13 @@ void EEIrQuadOptimizationsTests()
                                     std::memcmp(cpuRegs.GPR.r[8].UL, packet.data(), 16) == 0 &&
                                     std::memcmp(cpuRegs.GPR.r[15].UL, before.data(), 16) == 0 &&
                                     std::memcmp(cpuRegs.GPR.r[16].UL, mapping == 2 ? mutated.data() : before.data(), 16) == 0;
+                                if (pressure)
+                                {
+                                    same &= out.spill_values > 0;
+                                    for (u32 i = 0; i < held.size(); ++i)
+                                        for (u32 lane = 0; lane < 4; ++lane)
+                                            same &= cpuRegs.GPR.r[i + 24].UL[lane] == (packet_b[lane] ^ (i * 0x13579bdu));
+                                }
                                 if (mapping == 2)
                                     same &= t.reads == 1 && t.writes == 1 && t.read_addr == physical + offset && t.write_addr == physical + offset &&
                                         t.read_pc == EE_TEST_PC + 4 && t.write_pc == EE_TEST_PC + 8 && t.read_bd == 1 && t.write_bd == 1 &&
@@ -2397,9 +2425,9 @@ void EEIrQuadOptimizationsTests()
                                     same &= t.reads == 0 && t.writes == 0 &&
                                         std::memcmp((mapping == 0 ? ram_a.data() : ram_b.data()) + offset, before.data(), 16) == 0;
                             }
-                            char name[128];
-                            std::snprintf(name, sizeof(name), "ir quad live mapping base=%08x offset=%03x map=%u direct=%u reuse=%u alloc=%u",
-                                base, offset, mapping, direct, reuse, allocate);
+                            char name[160];
+                            std::snprintf(name, sizeof(name), "ir quad live mapping base=%08x offset=%03x map=%u direct=%u reuse=%u alloc=%u vecfast=%u pressure=%u sequence=%u",
+                                base, offset, mapping, direct, reuse, allocate, fast_vectors, pressure, sequence);
                             Check(same, name);
                         }
                     }
@@ -2625,6 +2653,83 @@ void EEIrQuadTests()
 
 
 
+
+void EEIrQuadVectorFastPathTests()
+{
+    // Walk the emitted single-block RAM path (TBNZ falls through; B skips
+    // the slow branch). Count real Q loads/stores using the frame base.
+    // This rejects moving counters without removing actual stack traffic.
+    for (bool preserve_hooks : {false, true})
+        for (bool fast : {false, true})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 saved = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+            const u32 loaded = b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH));
+            b.Emit2(ir::Op::Store128, ir::Type::Void, b.ConstI32(EE_TEST_SCRATCH + 32), loaded);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, saved, 9);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, loaded, 10);
+            b.Resume(EE_TEST_PC + 4);
+            EeIr::LowerHooks hooks;
+            hooks.memory_preserves_vectors = preserve_hooks;
+            if (!preserve_hooks)
+            {
+                hooks.before_memory = +[](void*, u32, bool) {
+                    for (u32 reg = 2; reg <= 7; ++reg)
+                        oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+                };
+                hooks.after_memory = +[](void*) {
+                    for (u32 reg = 2; reg <= 7; ++reg)
+                        oakAsm->MOVI(oak::QReg(reg).B16(), 0x3c);
+                };
+            }
+            EeIr::LowerOptions options;
+            options.hooks = &hooks;
+            options.direct_quad_vectors = fast;
+            EeIr::LowerOutput out;
+            std::string error;
+            bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                u32 frame_quads = 0, steps = 0, pc = 0;
+                const auto* code = reinterpret_cast<const u32*>(out.entry);
+                while (pc < out.host_size / 4 && ++steps <= out.host_size / 4)
+                {
+                    const u32 word = code[pc];
+                    if (word == 0xd65f03c0u) // RET
+                        break;
+                    if ((word & 0xffc003e0u) == (0x3d800000u | (28u << 5)) ||
+                        (word & 0xffc003e0u) == (0x3dc00000u | (28u << 5)))
+                        ++frame_quads;
+                    if ((word & 0xfc000000u) == 0x14000000u) // B imm26
+                        pc = static_cast<u32>(static_cast<s32>(pc) + (static_cast<s32>(word << 6) >> 6));
+                    else
+                        ++pc;
+                }
+                const bool eligible = preserve_hooks && fast;
+                same &= steps <= out.host_size / 4 && pc < out.host_size / 4 &&
+                    out.direct_quad_vector_operations == (eligible ? 2u : 0u) &&
+                    (eligible ? frame_quads == 0 : frame_quads > 0);
+                constexpr std::array<u32, 4> input = {0x12345678, 0x80000001, 0xabcdef01, 0xfedcba98};
+                constexpr std::array<u32, 4> saved = {0xf0e0d0c0, 0x10203040, 0xffffffff, 0x80000000};
+                mem128_t packet;
+                std::memcpy(&packet, input.data(), 16);
+                memWrite128(EE_TEST_SCRATCH, packet);
+                std::memcpy(&packet, saved.data(), 16);
+                memWrite128(EE_TEST_SCRATCH + 32, packet);
+                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                std::memcpy(cpuRegs.GPR.r[8].UL, saved.data(), 16);
+                reinterpret_cast<void (*)()>(out.entry)();
+                memRead128(EE_TEST_SCRATCH + 32, packet);
+                same &= std::memcmp(cpuRegs.GPR.r[9].UL, saved.data(), 16) == 0 &&
+                    std::memcmp(cpuRegs.GPR.r[10].UL, input.data(), 16) == 0 && std::memcmp(&packet, input.data(), 16) == 0;
+                std::printf("EEIR quad vector fast=%u preserve=%u RAM frame_Q_accesses=%u bytes=%u\n",
+                    fast, preserve_hooks, frame_quads, out.host_size);
+            }
+            Check(same, "ir direct quad SIMD path removes RAM frame traffic and respects hook clobbers");
+        }
+}
 
 void EEIrVectorAllocationTests()
 {
@@ -3266,6 +3371,7 @@ void EEIrExecutionTests()
     EEIrMmiTests();
     EEIrVectorForwardTests();
     EEIrVectorAllocationTests();
+    EEIrQuadVectorFastPathTests();
     {
         const std::array<std::array<u64, 3>, 8> edges = {{
             {{0, 0, 0}}, {{1, 1, 0}}, {{~u64(0), ~u64(0), 0}},
