@@ -48,6 +48,7 @@ extern "C" u64 EmuCoreXOracleIOPIRInstructions();
 extern "C" u64 EmuCoreXOracleIOPIRSpillSequences();
 extern "C" u64 EmuCoreXOracleIOPIRMemoryOperations();
 extern "C" u64 EmuCoreXOracleIOPIRDirectLoads();
+extern "C" u64 EmuCoreXOracleIOPIRMulDivInstructions();
 extern void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 
 namespace
@@ -5253,6 +5254,228 @@ void ResetIOPMemoryFixture()
         iopMemWrite8(IOP_TEST_SCRATCH + i, static_cast<u8>(i * 13 + 7));
 }
 
+void IOPSharedMulDivFrontendTests()
+{
+    const u32 edges[] = {0, 1, 2, 0x7fffffff, 0x80000000, 0xffffffff, 0xfffffffe, 0x12345678, 0x89abcdef};
+    const u32 sources[][2] = {{8, 9}, {8, 8}, {0, 9}, {8, 0}, {31, 9}};
+    for (u32 funct : {0x18u, 0x19u, 0x1au, 0x1bu})
+        for (u32 lhs : edges)
+            for (u32 rhs : edges)
+                for (const auto& source : sources)
+                {
+                    // IOP ignores Rd even on MULT; unlike EE it must not write it.
+                    const u32 word = MipsR(source[0], source[1], 12, 0, funct);
+                    const std::vector<u32> program = {
+                        MipsI(15, 0, 8, lhs >> 16), MipsI(13, 8, 8, lhs & 0xffff),
+                        MipsI(15, 0, 9, rhs >> 16), MipsI(13, 9, 9, rhs & 0xffff),
+                        MipsI(15, 0, 31, lhs >> 16), MipsI(13, 31, 31, lhs & 0xffff),
+                        MipsI(15, 0, 12, 0xdead), MipsI(13, 12, 12, 0xbeef), word};
+                    const IOPSnapshot expected = RunIOPProgram(false, program);
+                    ir::Function fn;
+                    std::string error;
+                    u32 count = 0;
+                    bool same = IopIr::LiftSequence(&word, IOP_TEST_PC + 32, 1, fn, &count, &error) && count == 1;
+                    for (u32 mode = 0; same && mode < 6; ++mode)
+                    {
+                        Arm64Ir::LowerOptions options;
+                        options.guest_state = Arm64Ir::GuestState::IOP;
+                        options.optimize_ir = mode != 0;
+                        options.allocate_registers = mode != 2;
+                        options.materialize_constants = mode != 3;
+                        options.reuse_spill_slots = mode != 4;
+                        options.inline_division = mode != 5;
+                        Arm64Ir::LowerOutput out;
+                        same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        if (!same) break;
+                        ResetIOPMemoryFixture();
+                        psxRegs.GPR.r[8] = psxRegs.GPR.r[31] = lhs;
+                        psxRegs.GPR.r[9] = rhs;
+                        psxRegs.GPR.r[12] = 0xdeadbeef;
+                        const auto ee_before = cpuRegs;
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        IOPSnapshot actual;
+                        CaptureIOP(actual);
+                        same &= std::memcmp(expected.gpr, actual.gpr, sizeof(expected.gpr)) == 0 &&
+                            expected.hi == actual.hi && expected.lo == actual.lo &&
+                            std::memcmp(&cpuRegs, &ee_before, sizeof(cpuRegs)) == 0;
+                    }
+                    char name[160];
+                    std::snprintf(name, sizeof(name), "ir IOP muldiv fn=%02x rs=%u rt=%u lhs=%08x rhs=%08x six modes/interpreter",
+                        funct, source[0], source[1], lhs, rhs);
+                    Check(same, name);
+                }
+}
+
+void SharedMulHiBackendTests()
+{
+    for (auto domain : {Arm64Ir::GuestState::EE, Arm64Ir::GuestState::IOP})
+        for (bool sign : {false, true})
+            for (u32 lhs : {0u, 1u, 0x80000000u, 0xffffffffu, 0x89abcdefu})
+                for (u32 rhs : {0u, 1u, 0x7fffffffu, 0xffffffffu})
+                {
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(IOP_TEST_PC);
+                    const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+                    const u32 c = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 9);
+                    const u32 hi = b.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, ir::Type::I32, a, c);
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, hi, 10);
+                    b.Resume(IOP_TEST_PC + 4);
+                    const u64 product = sign ? static_cast<u64>(static_cast<s64>(static_cast<s32>(lhs)) * static_cast<s64>(static_cast<s32>(rhs))) :
+                        static_cast<u64>(lhs) * rhs;
+                    bool same = true;
+                    for (bool allocate : {false, true})
+                    {
+                        Arm64Ir::LowerOptions options;
+                        options.guest_state = domain;
+                        options.allocate_registers = allocate;
+                        Arm64Ir::LowerOutput out;
+                        std::string error;
+                        same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        if (!same) break;
+                        if (domain == Arm64Ir::GuestState::EE)
+                        {
+                            cpuRegs.GPR.r[8].UL[0] = lhs;
+                            cpuRegs.GPR.r[9].UL[0] = rhs;
+                        }
+                        else
+                        {
+                            psxRegs.GPR.r[8] = lhs;
+                            psxRegs.GPR.r[9] = rhs;
+                        }
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        same &= (domain == Arm64Ir::GuestState::EE ? cpuRegs.GPR.r[10].UL[0] : psxRegs.GPR.r[10]) == static_cast<u32>(product >> 32);
+                    }
+                    Check(same, "ir shared MulHi32 signed/unsigned EE/IOP allocated/spilled");
+                }
+    for (bool sign : {false, true})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(IOP_TEST_PC);
+        const u32 v = b.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, ir::Type::I32, b.ConstI32(0x80000000), b.ConstI32(0xffffffff));
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, v, 8);
+        b.Resume(IOP_TEST_PC + 4);
+        ir::OptimizeIntegerValues(fn);
+        bool folded = true;
+        for (const auto& block : fn.blocks)
+            for (const auto& inst : block.insts) folded &= inst.op != ir::Op::MulHiS && inst.op != ir::Op::MulHiU;
+        Check(folded, "ir MulHi32 constant folding removes high multiply");
+        for (ir::Type result : {ir::Type::I32, ir::Type::I64})
+        {
+            ir::Function wide;
+            ir::Builder wb(wide);
+            wb.CreateBlock(IOP_TEST_PC);
+            const u32 a = wb.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8);
+            const u32 c = wb.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 9);
+            const u32 hi = wb.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, result, a, c);
+            wb.Emit1(ir::Op::WriteGpr, ir::Type::Void, hi, 10);
+            wb.Resume(IOP_TEST_PC + 4);
+            std::string error;
+            Check(!Arm64Ir::CanLower(wide, false, &error), "ir high multiply rejects unsupported wide operands/results before emission");
+        }
+    }
+}
+
+struct IOPMulDivClockProbe
+{
+    u32 cycle = 0, carry = 0;
+    s32 budget = 0;
+    bool observed = false;
+};
+static IOPMulDivClockProbe s_iopMulDivClock;
+static void (*s_iopMulDivClearOriginal)(u32, u32) = nullptr;
+void IOPMulDivClearClockProbe(u32 address, u32 size)
+{
+    // Fixture setup runs with cycle==0. The explicit store follows a branch,
+    // after the first block's cycles have been committed, before idle looping
+    // can compensate a missing penalty and hide it in the final budget.
+    if (address == IOP_TEST_SCRATCH + 120 && psxRegs.cycle != 0 && !s_iopMulDivClock.observed)
+        s_iopMulDivClock = {psxRegs.cycle, psxRegs.iopCycleEECarry, psxRegs.iopCycleEE, true};
+    s_iopMulDivClearOriginal(address, size);
+}
+
+void IOPSharedMulDivIntegrationTests()
+{
+    std::vector<u32> dynamic = {MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16),
+        MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff), MipsI(35, 22, 8, 0), MipsI(35, 22, 9, 4)};
+    for (u32 funct : {0x18u, 0x19u, 0x1au, 0x1bu})
+    {
+        dynamic.push_back(MipsR(8, 9, 0, 0, funct));
+        dynamic.push_back(MipsR(0, 0, 10 + (funct - 0x18) * 2, 0, 0x10));
+        dynamic.push_back(MipsR(0, 0, 11 + (funct - 0x18) * 2, 0, 0x12));
+    }
+    dynamic.push_back(0x40026000u); // legacy MFC0 boundary
+    dynamic.push_back(MipsR(8, 0, 0, 0, 0x1a)); // signed zero divisor
+    dynamic.push_back(MipsR(0, 0, 18, 0, 0x10));
+    dynamic.push_back(MipsR(0, 0, 19, 0, 0x12));
+    for (u32 r = 10; r < 20; ++r) dynamic.push_back(MipsI(43, 22, r, 32 + (r - 10) * 4));
+    std::vector<u32> folded = {MipsI(9, 0, 8, 0), MipsI(9, 0, 9, 0),
+        MipsR(0, 0, 0, 0, 0x18), MipsR(0, 0, 0, 0, 0x19),
+        MipsR(0, 0, 0, 0, 0x1a), MipsR(0, 0, 0, 0, 0x1b),
+        MipsR(0, 0, 10, 0, 0x10), MipsR(0, 0, 11, 0, 0x12)};
+    for (auto* code : {&dynamic, &folded})
+    {
+        code->push_back(MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16));
+        code->push_back(MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff));
+        code->push_back(MipsI(4, 0, 0, 1));
+        code->push_back(0); // delay slot
+        code->push_back(MipsI(43, 22, 0, 120)); // observe first completed block
+    }
+    const u32 saved_icfg = psxHu32(HW_ICFG);
+    for (const auto& code : {dynamic, folded})
+        for (u32 clock : {0u, 8u})
+            for (s32 budget : {4096, 12345})
+            {
+                psxHu32(HW_ICFG) = clock;
+                const IOPSnapshot expected = RunIOPProgram(false, code, budget);
+                EmuCoreXOracleSetIOPIR(0);
+                s_iopMulDivClock = {};
+                s_iopMulDivClearOriginal = psxRec.Clear;
+                psxRec.Clear = &IOPMulDivClearClockProbe;
+                const IOPSnapshot legacy = RunIOPProgram(true, code, budget);
+                const IOPMulDivClockProbe legacy_clock = s_iopMulDivClock;
+                const s32 legacy_budget = psxRegs.iopCycleEE;
+                const u32 legacy_carry = psxRegs.iopCycleEECarry;
+                const u64 before = EmuCoreXOracleIOPIRMulDivInstructions();
+                EmuCoreXOracleSetIOPIR(1);
+                s_iopMulDivClock = {};
+                const IOPSnapshot actual = RunIOPProgram(true, code, budget);
+                psxRec.Clear = s_iopMulDivClearOriginal;
+                CompareIOP(expected, actual, "ir IOP muldiv mixed/folded state matches interpreter");
+                Check(legacy_clock.observed && s_iopMulDivClock.observed && legacy_clock.cycle == s_iopMulDivClock.cycle &&
+                    legacy_clock.budget == s_iopMulDivClock.budget && legacy_clock.carry == s_iopMulDivClock.carry,
+                    "ir IOP muldiv first completed block exact cycles/budget/carry before idle looping");
+                Check(actual.cycle == legacy.cycle && legacy_budget == psxRegs.iopCycleEE &&
+                    legacy_carry == psxRegs.iopCycleEECarry, "ir IOP muldiv retains exact legacy cycle/budget/carry");
+                Check(EmuCoreXOracleIOPIRMulDivInstructions() - before == (code.size() == folded.size() ? 4 : 5),
+                    "ir IOP production really compiled each muldiv source instruction including folded results");
+            }
+    psxHu32(HW_ICFG) = saved_icfg;
+    const u64 before = EmuCoreXOracleIOPIRMulDivInstructions();
+    const IOPSnapshot expected = RunIOPProgram(false, dynamic);
+    const IOPSnapshot forced = RunIOPProgram(true, dynamic, -1, false, 1ull << OpcodeFamilies::IOP::FAM_SPECIAL);
+    CompareIOP(expected, forced, "ir IOP forced SPECIAL keeps multiply/divide interpreted");
+    Check(EmuCoreXOracleIOPIRMulDivInstructions() == before, "ir IOP forced SPECIAL bypasses muldiv compilation");
+    for (u32 funct : {0x18u, 0x1au})
+    {
+        std::vector<u32> page = {MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16),
+            MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff), MipsI(35, 22, 8, 0), MipsI(35, 22, 9, 4)};
+        page.resize(1024, MipsR(8, 9, 0, 0, funct));
+        const IOPSnapshot expected_page = RunIOPProgram(false, page, 1000000);
+        const u64 before_page = EmuCoreXOracleIOPIRMulDivInstructions();
+        const IOPSnapshot actual_page = RunIOPProgram(true, page, 1000000);
+        CompareIOP(expected_page, actual_page, "ir IOP full muldiv page matches interpreter");
+        std::vector<JitBlockProfile> profiles;
+        IOP_JitGetBlockProfiles(profiles);
+        bool bounded = !profiles.empty();
+        for (const auto& profile : profiles) bounded &= profile.host_size < 0x10000;
+        Check(bounded && EmuCoreXOracleIOPIRMulDivInstructions() - before_page == 1020,
+            "ir IOP full muldiv page uses IR within 64 KiB block reserve");
+    }
+    EmuCoreXOracleSetIOPIR(-1);
+}
+
 void IOPSharedMemoryFrontendTests()
 {
     const u32 opcodes[] = {32, 33, 34, 35, 36, 37, 38, 40, 41, 42, 43, 46};
@@ -5619,7 +5842,7 @@ void IOPSharedFrontendTests()
             }
     for (u32 word : {MipsI(8, 8, 9, 1), MipsR(8, 9, 10, 0, 0x20), MipsR(8, 9, 10, 0, 0x22),
         MipsI(50, 8, 9, 0), MipsI(58, 8, 9, 0), MipsI(4, 8, 9, 1),
-        MipsR(8, 0, 0, 0, 8), MipsR(8, 9, 0, 0, 0x18), MipsR(8, 9, 0, 0, 0x1a),
+        MipsR(8, 0, 0, 0, 8), 0x0000000du, 0x42000010u,
         0x40086000u, 0x48080000u, 0x0000000cu, 0xffffffffu})
     {
         const u32 code[] = {MipsI(9, 0, 8, 1), word, 0};
@@ -5799,6 +6022,9 @@ void IOPTests()
 
     IOPCoverage();
     IOPCoverageGte();
+    IOPSharedMulDivIntegrationTests();
+    SharedMulHiBackendTests();
+    IOPSharedMulDivFrontendTests();
     IOPSharedMemoryRuntimeTests();
     IOPSharedMemoryDomainTests();
     IOPSharedMemoryFrontendTests();

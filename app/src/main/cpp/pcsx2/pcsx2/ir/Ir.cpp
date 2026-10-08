@@ -299,6 +299,7 @@ namespace ir
 			{
 				case Op::ConstI32: case Op::ConstI64: case Op::Copy:
 				case Op::Add: case Op::Sub: case Op::Mul: case Op::Msub:
+				case Op::MulHiS: case Op::MulHiU:
 				case Op::And: case Op::Or: case Op::Xor: case Op::Not: case Op::Neg:
 				case Op::Shl: case Op::ShrU: case Op::ShrS:
 				case Op::Sext8: case Op::Sext16: case Op::Zext8: case Op::Zext16:
@@ -338,6 +339,12 @@ namespace ir
 				case Op::Add: return a + b;
 				case Op::Sub: return a - b;
 				case Op::Mul: return a * b;
+				case Op::MulHiS:
+					if (bits != 32 || inst.type != Type::I32) return std::nullopt;
+					return static_cast<u64>(static_cast<s64>(static_cast<s32>(a)) * static_cast<s64>(static_cast<s32>(b))) >> 32;
+				case Op::MulHiU:
+					if (bits != 32 || inst.type != Type::I32) return std::nullopt;
+					return (static_cast<u64>(static_cast<u32>(a)) * static_cast<u32>(b)) >> 32;
 				case Op::Msub: return *constants[inst.args[2]] - a * b;
 				case Op::And: return a & b;
 				case Op::Or: return a | b;

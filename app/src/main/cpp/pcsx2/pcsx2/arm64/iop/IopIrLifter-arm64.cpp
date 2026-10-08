@@ -86,6 +86,20 @@ namespace IopIr
                         case 0x12: write(rd, b.Emit0(ir::Op::ReadLo, ir::Type::I32)); return true;
                         case 0x11: b.Emit1(ir::Op::WriteHi, ir::Type::Void, read(rs)); return true;
                         case 0x13: b.Emit1(ir::Op::WriteLo, ir::Type::Void, read(rs)); return true;
+                        case 0x18: case 0x19: // MULT/MULTU: IOP ignores Rd
+                        case 0x1a: case 0x1b: // DIV/DIVU
+                        {
+                            const u32 a = read(rs), c = read(rt);
+                            const bool multiply = (word & 63) <= 0x19;
+                            const bool sign = ((word & 63) & 1) == 0;
+                            const u32 lo = b.Emit2(multiply ? ir::Op::Mul : sign ? ir::Op::DivS : ir::Op::DivU,
+                                ir::Type::I32, a, c);
+                            const u32 hi = multiply ? b.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, ir::Type::I32, a, c) :
+                                b.Emit3(ir::Op::Msub, ir::Type::I32, lo, c, a);
+                            b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
+                            b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
+                            return true;
+                        }
                         case 0x21: op = ir::Op::Add; break;
                         case 0x23: op = ir::Op::Sub; break;
                         case 0x24: op = ir::Op::And; break;

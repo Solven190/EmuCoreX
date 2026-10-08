@@ -101,6 +101,8 @@ namespace Arm64Ir
 				case ir::Op::MaxS:
 				case ir::Op::MaxU:
 				case ir::Op::Mul:
+				case ir::Op::MulHiS:
+				case ir::Op::MulHiU:
 				case ir::Op::Msub:
 				case ir::Op::Shl:
 				case ir::Op::ShrU:
@@ -1185,6 +1187,24 @@ namespace Arm64Ir
 					recEndOaknutEmit();
 					return true;
 
+				case ir::Op::MulHiS:
+				case ir::Op::MulHiU:
+				{
+					recBeginOaknutEmit();
+					const auto lhs = Operand32(a[0], oak::util::W0);
+					const auto rhs = Operand32(a[1], oak::util::W1);
+					if (inst.op == ir::Op::MulHiS)
+						oakAsm->SMULL(oak::util::X2, lhs, rhs);
+					else
+						oakAsm->UMULL(oak::util::X2, lhs, rhs);
+					oakAsm->LSR(oak::util::X2, oak::util::X2, 32);
+					const auto dst = Result32(inst.value);
+					oakAsm->MOV(dst, oak::util::W2);
+					Store32(inst.value, dst);
+					recEndOaknutEmit();
+					return true;
+				}
+
 				case ir::Op::VShuffle:
 				{
 					recBeginOaknutEmit();
@@ -1907,6 +1927,8 @@ namespace Arm64Ir
 					switch (inst.op)
 					{
 						case ir::Op::Nop: case ir::Op::ConstI32: case ir::Op::Copy:
+						case ir::Op::Mul: case ir::Op::MulHiS: case ir::Op::MulHiU:
+						case ir::Op::DivS: case ir::Op::DivU: case ir::Op::Msub:
 						case ir::Op::Add: case ir::Op::Sub: case ir::Op::And:
 						case ir::Op::Or: case ir::Op::Xor: case ir::Op::Not:
 						case ir::Op::Shl: case ir::Op::ShrU: case ir::Op::ShrS:
@@ -1949,6 +1971,12 @@ namespace Arm64Ir
 							*error = "unsupported IR vector operand";
 						return false;
 					}
+				}
+				if ((inst.op == ir::Op::MulHiS || inst.op == ir::Op::MulHiU) &&
+					(inst.type != ir::Type::I32 || fn.ValueType(inst.args[0]) != ir::Type::I32 || fn.ValueType(inst.args[1]) != ir::Type::I32))
+				{
+					if (error) *error = "high multiply requires I32 operands and result";
+					return false;
 				}
 				if ((ir::IsVectorType(inst.type) && !quad_result) || inst.type == ir::Type::Any ||
 					(inst.type == ir::Type::I64 && (inst.op == ir::Op::Undef ||

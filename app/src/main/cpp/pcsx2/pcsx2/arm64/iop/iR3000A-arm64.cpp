@@ -46,6 +46,7 @@ static u64 s_iopIrInstructions = 0;
 static u64 s_iopIrSpillSequences = 0;
 static u64 s_iopIrMemoryOperations = 0;
 static u64 s_iopIrDirectLoads = 0;
+static u64 s_iopIrMulDivInstructions = 0;
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 static int s_iopIrOverride = -1;
 extern "C" void EmuCoreXOracleSetIOPIR(int enabled) { s_iopIrOverride = enabled < 0 ? -1 : (enabled != 0); }
@@ -53,6 +54,7 @@ extern "C" u64 EmuCoreXOracleIOPIRInstructions() { return s_iopIrInstructions; }
 extern "C" u64 EmuCoreXOracleIOPIRSpillSequences() { return s_iopIrSpillSequences; }
 extern "C" u64 EmuCoreXOracleIOPIRMemoryOperations() { return s_iopIrMemoryOperations; }
 extern "C" u64 EmuCoreXOracleIOPIRDirectLoads() { return s_iopIrDirectLoads; }
+extern "C" u64 EmuCoreXOracleIOPIRMulDivInstructions() { return s_iopIrMulDivInstructions; }
 #endif
 
 static bool IopIrEnabled()
@@ -77,6 +79,19 @@ static bool IopIrDirectLoadsEnabled()
     static const bool enabled = []() {
         char value[PROP_VALUE_MAX] = {};
         return !(__system_property_get("debug.emucorex.iop_ir_direct_loads", value) == 1 && value[0] == '0');
+    }();
+    return enabled;
+#else
+    return true;
+#endif
+}
+
+static bool IopIrNativeDivisionEnabled()
+{
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+    static const bool enabled = []() {
+        char value[PROP_VALUE_MAX] = {};
+        return !(__system_property_get("debug.emucorex.iop_ir_native_div", value) == 1 && value[0] == '0');
     }();
     return enabled;
 #else
@@ -1684,10 +1699,13 @@ void psxRecompileNextInstruction(bool delayslot, bool swapped_delayslot)
 		// EmuCoreX: user forced this opcode (or its family) onto the IOP
 		// interpreter. psxRegs.pc was already advanced to the instruction
 		// after this one, which matches the interpreter's execI() convention,
-		// so flushing PC and calling the interpreter dispatch table is enough.
+		// so publish both PC and opcode before interpreter dispatch. A preceding
+		// IR memory hook may have changed the runtime psxRegs.code.
 		// Branches execute their own delay slot and update psxRegs.pc, so end
 		// the block and let the dispatcher continue from the interpreter's pc.
 		_psxFlushCall(FLUSH_EVERYTHING | FLUSH_PC);
+		oakAsm->MOV(OAK_WSCRATCH, static_cast<u32>(psxRegs.code));
+		oakStore32(OAK_WSCRATCH, IOP_CPU(psxRegs.code));
 		oakEmitCall(reinterpret_cast<void*>(&iopInterpretCurrentInstruction));
 		if (!s_recompilingDelaySlot)
 			psxbranch = 2;
@@ -1766,6 +1784,7 @@ static bool TryIopIrSequence()
     Arm64Ir::LowerOptions options;
     options.guest_state = Arm64Ir::GuestState::IOP;
     options.direct_iop_loads = IopIrDirectLoadsEnabled();
+    options.inline_division = IopIrNativeDivisionEnabled();
     options.inline_body = true;
     options.hooks = &hooks;
     Arm64Ir::LowerOutput out;
@@ -1779,6 +1798,17 @@ static bool TryIopIrSequence()
     psxpc += accepted * 4;
     g_pCurInstInfo += accepted;
     s_psxBlockCycles += accepted;
+    // Timing belongs to source instructions, even when the optimizer folds
+    // their results. Preserve exactly the legacy recompiler's fixed penalties.
+    for (u32 i = 0; i < accepted; ++i)
+    {
+        const u32 funct = code[i] & 63;
+        if ((code[i] >> 26) == 0 && funct >= 0x18 && funct <= 0x1b)
+        {
+            s_psxBlockCycles += funct <= 0x19 ? psxInstCycles_Mult : psxInstCycles_Div;
+            ++s_iopIrMulDivInstructions;
+        }
+    }
     s_iopIrInstructions += accepted;
     s_iopIrMemoryOperations += out.iop_memory_operations;
     s_iopIrDirectLoads += out.direct_iop_load_operations;
@@ -1789,10 +1819,11 @@ static bool TryIopIrSequence()
     native_bytes += out.host_size;
     if ((sequences <= 1024 && (sequences & (sequences - 1)) == 0) || sequences % 4096 == 0)
         __android_log_print(ANDROID_LOG_INFO, "IOPIR",
-            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u memory_operations=%llu direct_loads=%llu",
+            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u memory_operations=%llu direct_loads=%llu native_div=%u muldiv_instructions=%llu",
             static_cast<unsigned long long>(sequences), static_cast<unsigned long long>(s_iopIrInstructions),
             static_cast<unsigned long long>(native_bytes), psxpc - accepted * 4, out.register_values, out.spill_values, out.frame_size,
-            static_cast<unsigned long long>(s_iopIrMemoryOperations), static_cast<unsigned long long>(s_iopIrDirectLoads));
+            static_cast<unsigned long long>(s_iopIrMemoryOperations), static_cast<unsigned long long>(s_iopIrDirectLoads),
+            options.inline_division ? 1u : 0u, static_cast<unsigned long long>(s_iopIrMulDivInstructions));
 #endif
     return true;
 }
