@@ -292,7 +292,7 @@ namespace ir
 						inst.op == Op::VShl || inst.op == Op::VShrU || inst.op == Op::VShrS ||
 						inst.op == Op::VMinS || inst.op == Op::VMinU || inst.op == Op::VMaxS || inst.op == Op::VMaxU ||
 						inst.op == Op::VCmpEq || inst.op == Op::VCmpNe || inst.op == Op::VCmpLtS || inst.op == Op::VCmpLtU ||
-						inst.op == Op::VCmpLeS || inst.op == Op::VCmpLeU));
+						inst.op == Op::VCmpLeS || inst.op == Op::VCmpLeU || inst.op == Op::VShuffle || inst.op == Op::VShuffle2));
 			if (!IsIntegerType(inst.type))
 				return false;
 			switch (inst.op)

@@ -194,7 +194,10 @@ namespace ir
 	X(VCmpLeS,      VecCompare,  2, 2, Any,  false) \
 	X(VCmpLeU,      VecCompare,  2, 2, Any,  false) \
 	X(VBroadcast,   VecLane,     1, 1, Any,  false) \
+	/* Bit-preserving 32-bit lanes. imm packs four selectors, low lane first: */ \
+	/* VShuffle uses 2 bits/lane (0..3); VShuffle2 uses 3 (a:0..3,b:4..7). */ \
 	X(VShuffle,     VecLane,     1, 1, Any,  false) \
+	X(VShuffle2,    VecLane2,    2, 2, Any,  false) \
 	X(VMerge,       VecLane2,    2, 2, Any,  false) \
 	X(VPack16,      VecUnary,    1, 1, Any,  false) \
 	X(VPack8,       VecUnary,    1, 1, Any,  false) \

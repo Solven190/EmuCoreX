@@ -3636,6 +3636,200 @@ void EEIrVectorCompareTests()
     }
 }
 
+void EEIrWordShuffleTests()
+{
+    constexpr std::array<u32, 4> lhs = {0x0080ffff, 0x12345678, 0x80000001, 0xffffffff};
+    constexpr std::array<u32, 4> rhs = {0, 0x7fffaaaa, 0x76543210, 0xabcd0001};
+    auto run = [&](bool binary, u32 selectors, u32 live, bool all_modes) {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        std::array<u32, 8> pressure{};
+        const u32 pressure_count = live == 4 || live == 6 ? 5 : live == 5 ? 8 : 0;
+        for (u32 k = 0; k < pressure_count; ++k)
+            pressure[k] = b.ConstVec({k, k + 1, ~k, 0x80000000u + k});
+        // Reverse allocation order too, so either source may be the spilled one.
+        u32 other = binary && live == 6 ? b.ConstVec(rhs) : 0;
+        const u32 a = b.ConstVec(lhs);
+        if (binary && live != 6)
+            other = b.ConstVec(rhs);
+        const u32 result = binary ? b.Emit2(ir::Op::VShuffle2, ir::Type::V4U32, a, other, selectors) :
+            b.Emit1(ir::Op::VShuffle, ir::Type::V4U32, a, selectors);
+        // The helper and its hooks overwrite every allocated caller-save vector.
+        b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 8);
+        const bool keep_a = (live & 1) || live >= 4;
+        const bool keep_b = binary && ((live & 2) || live >= 4);
+        if (keep_a)
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, a, 9);
+        if (keep_b)
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, other, 10);
+        for (u32 k = 0; k < pressure_count; ++k)
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, pressure[k], 11 + k);
+        b.Resume(EE_TEST_PC + 4);
+        std::array<u32, 4> expected{};
+        for (u32 lane = 0; lane < 4; ++lane)
+        {
+            const u32 select = (selectors >> (lane * (binary ? 3 : 2))) & (binary ? 7 : 3);
+            expected[lane] = select < 4 ? lhs[select] : rhs[select - 4];
+        }
+        EeIr::LowerHooks hooks;
+        hooks.before_helper = hooks.after_helper = +[](void*) {
+            for (u32 reg = 2; reg <= 7; ++reg)
+                oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+        };
+        bool same = true;
+        for (u32 mode = 0; mode < (all_modes ? 5u : 1u); ++mode)
+        {
+            EeIr::LowerOptions options;
+            options.optimize_ir = !all_modes || mode != 0;
+            options.allocate_registers = mode != 2;
+            options.allocate_vector_registers = mode != 4;
+            options.reuse_spill_slots = mode != 3;
+            options.hooks = &hooks;
+            EeIr::LowerOutput out;
+            std::string error;
+            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+            {
+                same = false;
+                continue;
+            }
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= std::memcmp(cpuRegs.GPR.r[8].UL, expected.data(), 16) == 0;
+            if (keep_a)
+                same &= std::memcmp(cpuRegs.GPR.r[9].UL, lhs.data(), 16) == 0;
+            if (keep_b)
+                same &= std::memcmp(cpuRegs.GPR.r[10].UL, rhs.data(), 16) == 0;
+            for (u32 k = 0; k < pressure_count; ++k)
+            {
+                const std::array<u32, 4> value = {k, k + 1, ~k, 0x80000000u + k};
+                same &= std::memcmp(cpuRegs.GPR.r[11 + k].UL, value.data(), 16) == 0;
+            }
+        }
+        char name[128];
+        std::snprintf(name, sizeof(name), "ir shuffle inputs=%u selectors=%03x live=%u modes=%u", binary ? 2 : 1, selectors, live, all_modes ? 5 : 1);
+        Check(same, name);
+    };
+    // Exhaust every possible lane selector, varying source/result lifetimes.
+    for (u32 selectors = 0; selectors < 256; ++selectors)
+        run(false, selectors, selectors & 3, false);
+    for (u32 selectors = 0; selectors < 4096; ++selectors)
+        run(true, selectors, selectors & 3, false);
+    // Exercise special SIMD patterns and a generic permutation under pressure.
+    for (u32 selectors : {0xe4u, 0x00u, 0x55u, 0xaau, 0xffu, 0xc6u, 0xc9u, 0xd8u, 0x1bu})
+        for (u32 live = 0; live < 7; ++live)
+            run(false, selectors, live, true);
+    for (u32 selectors : {0xa60u, 0xef2u, 0xefau, 0xd10u, 0xb08u, 0x6beu, 0xfacu, 0x688u, 0xfedu, 0x249u})
+        for (u32 live = 0; live < 7; ++live)
+            run(true, selectors, live, true);
+
+    struct Operation { const char* name; u32 group, sub; std::array<u32, 4> lanes; bool binary = true; };
+    constexpr Operation operations[] = {
+        {"pextlw", 8, 18, {0, 4, 1, 5}}, {"pextuw", 40, 18, {2, 6, 3, 7}}, {"ppacw", 8, 19, {0, 2, 4, 6}},
+        {"pcpyld", 9, 14, {0, 1, 4, 5}}, {"pcpyud", 41, 14, {6, 7, 2, 3}},
+        {"pexew", 9, 30, {2, 1, 0, 3}, false}, {"pexcw", 41, 30, {0, 2, 1, 3}, false}, {"prot3w", 9, 31, {1, 2, 0, 3}, false}
+    };
+    constexpr std::array<u32, 3> aliases[] = {
+        {8, 9, 10}, {8, 9, 8}, {8, 9, 9}, {8, 8, 8},
+        {0, 9, 10}, {8, 0, 10}, {0, 0, 10}, {8, 9, 0}
+    };
+    char name[128];
+    for (const auto& op : operations)
+    {
+        // Check the IR contract itself: matching lifter/backend bugs must not cancel.
+        const u32 word = Mmi(op.group, op.sub, 8, 9, 10);
+        ir::Function fn;
+        u32 end = 0, selectors = 0;
+        for (u32 lane = 0; lane < 4; ++lane)
+            selectors |= op.lanes[lane] << (lane * (op.binary ? 3 : 2));
+        std::string error;
+        bool contract = EeIr::LiftBlock(&word, {EE_TEST_PC, 1}, fn, &end, &error);
+        u32 matches = 0;
+        for (const auto& block : fn.blocks)
+            for (const auto& inst : block.insts)
+                if (inst.op == ir::Op::VShuffle || inst.op == ir::Op::VShuffle2)
+                {
+                    contract &= inst.op == (op.binary ? ir::Op::VShuffle2 : ir::Op::VShuffle) && inst.imm == selectors;
+                    ++matches;
+                }
+        std::snprintf(name, sizeof(name), "ir MMI %s exposes the documented lane-selection contract", op.name);
+        Check(contract && matches == 1, name);
+        for (u32 alias = 0; alias < std::size(aliases); ++alias)
+        {
+            const auto regs = aliases[alias];
+            const std::vector<u32> code = {
+                MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48),
+                Mmi(op.group, op.sub, regs[0], regs[1], regs[2]),
+                MipsI(31, 22, regs[2], 96), MipsI(9, regs[2], regs[2], -3),
+                MipsI(31, 22, regs[2], 112)
+            };
+            std::snprintf(name, sizeof(name), "ir MMI %s aliases=%u and scalar upper preservation", op.name, alias);
+            RunEEIrCase(name, code, nullptr, false, true);
+            CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), name);
+        }
+        for (u32 branch : {4u, 0x14u})
+            for (bool taken : {false, true})
+            {
+                const std::vector<u32> code = {
+                    MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                    MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48),
+                    MipsI(9, 0, 4, taken ? 1 : 0), MipsI(9, 0, 5, 1),
+                    MipsI(branch, 4, 5, 1), Mmi(op.group, op.sub, 8, 9, 8)
+                };
+                std::snprintf(name, sizeof(name), "ir MMI %s delay branch=%02x taken=%u", op.name, branch, taken);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+            }
+    }
+    for (bool binary : {false, true})
+    {
+        for (u64 selectors : {u64(binary ? 4096 : 256), ~u64(0)})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 a = b.ConstVec(lhs);
+            const u32 result = binary ? b.Emit2(ir::Op::VShuffle2, ir::Type::V4U32, a, a, selectors) :
+                b.Emit1(ir::Op::VShuffle, ir::Type::V4U32, a, selectors);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 8);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(!ir::Verify(fn, &error) && !EeIr::CanLower(fn, false, &error), "ir shuffle rejects out-of-range selectors before emission");
+        }
+        for (ir::Type type : {ir::Type::I32, ir::Type::I64, ir::Type::F32, ir::Type::Flags})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 a = b.Emit(ir::Op::Undef, type, {});
+            const u32 result = binary ? b.Emit2(ir::Op::VShuffle2, type, a, a, 0) : b.Emit1(ir::Op::VShuffle, type, a, 0);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 8);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(!ir::Verify(fn, &error), "ir shuffle requires vector operands");
+        }
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        const u32 a = b.ConstVec(lhs), other = b.ConstVec(rhs);
+        const u32 unary = b.Emit1(ir::Op::VShuffle, ir::Type::V4U32, a, 0xc6);
+        b.Emit2(ir::Op::VShuffle2, ir::Type::V4U32, unary, other, 0xa60);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstI32(42), 8);
+        b.Resume(EE_TEST_PC + 4);
+        ir::OptimizeIntegerValues(fn);
+        bool removed = true;
+        for (const auto& block : fn.blocks)
+            for (const auto& inst : block.insts)
+                removed &= inst.op != ir::Op::VShuffle && inst.op != ir::Op::VShuffle2;
+        std::string error;
+        Check(removed && ir::Verify(fn, &error), "ir dead vector shuffle chain is removed");
+    }
+}
+
 void EEIrExecutionTests()
 {
     EEIrQuadTests();
@@ -3643,6 +3837,7 @@ void EEIrExecutionTests()
     EEIrMmiTests();
     EEIrPackedWordShiftTests();
     EEIrVectorCompareTests();
+    EEIrWordShuffleTests();
     EEIrVectorForwardTests();
     EEIrVectorAllocationTests();
     EEIrQuadVectorFastPathTests();

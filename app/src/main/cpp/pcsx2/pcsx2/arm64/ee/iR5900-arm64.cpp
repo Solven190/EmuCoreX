@@ -2639,6 +2639,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	static u64 quad_operations = 0;
 	static u64 direct_quad_operations = 0, direct_quad_vector_operations = 0;
 	static u64 vector_alu_operations = 0, packed_word_shifts = 0, vector_compare_minmax = 0;
+	static u64 vector_shuffles = 0;
 	static u64 vector_register_values = 0, vector_save_values = 0;
 	for (const ir::Block& block : fn.blocks)
 		for (const ir::Inst& inst : block.insts)
@@ -2656,6 +2657,8 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 				inst.op == ir::Op::VMaxS || inst.op == ir::Op::VMaxU || inst.op == ir::Op::VCmpEq || inst.op == ir::Op::VCmpNe ||
 				inst.op == ir::Op::VCmpLtS || inst.op == ir::Op::VCmpLtU || inst.op == ir::Op::VCmpLeS || inst.op == ir::Op::VCmpLeU))
 				++vector_compare_minmax;
+			if (inst.op == ir::Op::VShuffle || inst.op == ir::Op::VShuffle2)
+				++vector_shuffles;
 		}
 	direct_quad_operations += out.direct_quad_operations;
 	direct_quad_vector_operations += out.direct_quad_vector_operations;
@@ -2668,7 +2671,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
@@ -2680,7 +2683,8 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			options.allocate_registers && options.allocate_vector_registers ? 1u : 0u,
 			static_cast<unsigned long long>(vector_register_values), static_cast<unsigned long long>(vector_save_values),
 			options.direct_quad_vectors ? 1u : 0u, static_cast<unsigned long long>(direct_quad_vector_operations),
-			static_cast<unsigned long long>(packed_word_shifts), static_cast<unsigned long long>(vector_compare_minmax));
+			static_cast<unsigned long long>(packed_word_shifts), static_cast<unsigned long long>(vector_compare_minmax),
+			static_cast<unsigned long long>(vector_shuffles));
 	}
 #endif
 

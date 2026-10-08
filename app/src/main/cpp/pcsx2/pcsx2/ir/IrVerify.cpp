@@ -44,6 +44,8 @@ namespace ir
 
 			if (inst.op == Op::ConstVec && inst.imm >= fn.vec_consts.size())
 				return Fail(error, "ConstVec: constant pool index is out of range");
+			if ((inst.op == Op::VShuffle && inst.imm > 0xff) || (inst.op == Op::VShuffle2 && inst.imm > 0xfff))
+				return Fail(error, "vector shuffle: lane selectors are out of range");
 
 			if (info.terminator != is_last)
 				return Fail(error, std::string(OpName(inst.op)) + ": terminator placement is wrong");

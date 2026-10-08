@@ -96,6 +96,8 @@ namespace EeIr
 				case ir::Op::ShrU:
 				case ir::Op::ShrS:
 				case ir::Op::VShl:
+				case ir::Op::VShuffle:
+				case ir::Op::VShuffle2:
 				case ir::Op::VShrU:
 				case ir::Op::VShrS:
 				case ir::Op::VMinS:
@@ -1161,6 +1163,88 @@ namespace EeIr
 					recEndOaknutEmit();
 					return true;
 
+				case ir::Op::VShuffle:
+				{
+					recBeginOaknutEmit();
+					const auto src = Operand128(a[0], oak::util::Q0);
+					const auto dst = Result128(inst.value);
+					const u32 selectors = static_cast<u32>(inst.imm);
+					if (selectors == 0xe4) // identity: 0,1,2,3
+					{
+						if (src.index() != dst.index())
+							oakAsm->MOV(dst.B16(), src.B16());
+					}
+					else if (selectors == (selectors & 3) * 0x55) // broadcast
+						oakAsm->DUP(dst.S4(), src.Selem()[selectors & 3]);
+					else if (selectors == 0xc6) // 2,1,0,3 (PEXEW)
+					{
+						oakAsm->REV64(dst.S4(), src.S4());
+						oakAsm->EXT(dst.B16(), dst.B16(), dst.B16(), 12);
+					}
+					else if (selectors == 0xc9) // 1,2,0,3 (PROT3W)
+					{
+						oakAsm->REV64(oak::util::Q1.S4(), src.S4());
+						oakAsm->EXT(oak::util::Q0.B16(), src.B16(), src.B16(), 8);
+						oakAsm->ZIP1(dst.S4(), oak::util::Q1.S4(), oak::util::Q0.S4());
+					}
+					else if (selectors == 0xd8) // 0,2,1,3 (PEXCW)
+					{
+						oakAsm->EXT(oak::util::Q1.B16(), src.B16(), src.B16(), 8);
+						oakAsm->ZIP1(dst.S4(), src.S4(), oak::util::Q1.S4());
+					}
+					else
+					{
+						// Snapshot first: dst may reuse the dying input's register.
+						auto input = src;
+						if (src.index() == dst.index())
+						{
+							oakAsm->MOV(oak::util::Q1.B16(), src.B16());
+							input = oak::util::Q1;
+						}
+						oakAsm->DUP(dst.S4(), input.Selem()[selectors & 3]);
+						for (u32 lane = 1; lane < 4; ++lane)
+							oakAsm->INS(dst.Selem()[lane], input.Selem()[(selectors >> (lane * 2)) & 3]);
+					}
+					Store128(inst.value, dst);
+					recEndOaknutEmit();
+					return true;
+				}
+
+				case ir::Op::VShuffle2:
+				{
+					recBeginOaknutEmit();
+					const auto lhs = Operand128(a[0], oak::util::Q0);
+					const auto rhs = Operand128(a[1], oak::util::Q1);
+					const auto dst = Result128(inst.value);
+					switch (inst.imm)
+					{
+						case 0xa60: oakAsm->ZIP1(dst.S4(), lhs.S4(), rhs.S4()); break; // 0,4,1,5
+						case 0xef2: oakAsm->ZIP2(dst.S4(), lhs.S4(), rhs.S4()); break; // 2,6,3,7
+						case 0xd10: oakAsm->UZP1(dst.S4(), lhs.S4(), rhs.S4()); break; // 0,2,4,6
+						case 0xb08: oakAsm->ZIP1(dst.D2(), lhs.D2(), rhs.D2()); break; // 0,1,4,5
+						case 0x6be: oakAsm->ZIP2(dst.D2(), rhs.D2(), lhs.D2()); break; // 6,7,2,3
+						case 0x688: // 0,1,2,3
+							if (dst.index() != lhs.index()) oakAsm->MOV(dst.B16(), lhs.B16());
+							break;
+						case 0xfac: // 4,5,6,7
+							if (dst.index() != rhs.index()) oakAsm->MOV(dst.B16(), rhs.B16());
+							break;
+						default:
+							// Capture every source word before touching a coalesced dst.
+							for (u32 lane = 0; lane < 4; ++lane)
+							{
+								const u32 select = (inst.imm >> (lane * 3)) & 7;
+								oakAsm->UMOV(oak::WReg(lane), (select < 4 ? lhs : rhs).Selem()[select & 3]);
+							}
+							for (u32 lane = 0; lane < 4; ++lane)
+								oakAsm->INS(dst.Selem()[lane], oak::WReg(lane));
+							break;
+					}
+					Store128(inst.value, dst);
+					recEndOaknutEmit();
+					return true;
+				}
+
 				case ir::Op::VMinS:
 				case ir::Op::VMinU:
 				case ir::Op::VMaxS:
@@ -1749,7 +1833,7 @@ namespace EeIr
 						inst.op == ir::Op::VShl || inst.op == ir::Op::VShrU || inst.op == ir::Op::VShrS ||
 						inst.op == ir::Op::VMinS || inst.op == ir::Op::VMinU || inst.op == ir::Op::VMaxS || inst.op == ir::Op::VMaxU ||
 						inst.op == ir::Op::VCmpEq || inst.op == ir::Op::VCmpNe || inst.op == ir::Op::VCmpLtS || inst.op == ir::Op::VCmpLtU ||
-						inst.op == ir::Op::VCmpLeS || inst.op == ir::Op::VCmpLeU);
+						inst.op == ir::Op::VCmpLeS || inst.op == ir::Op::VCmpLeU || inst.op == ir::Op::VShuffle || inst.op == ir::Op::VShuffle2);
 				const bool quad_result = inst.type == ir::Type::V4U32 &&
 					(inst.op == ir::Op::ConstVec || inst.op == ir::Op::Copy || inst.op == ir::Op::ReadGpr || inst.op == ir::Op::Load128 || quad_alu);
 				for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)

@@ -361,7 +361,7 @@ namespace EeIr
 				case 0x19: // daddiu
 					WriteGprWide(rt, BinWide(ir::Op::Add, ReadGprWide(rs), m_b.ConstI64(static_cast<u64>(static_cast<s64>(simm)))));
 					return true;
-				case 0x1C: // MMI: packed word arithmetic/shifts and full-width bitwise operations
+				case 0x1C: // MMI: packed word arithmetic, shifts, permutations and bitwise operations
 				{
 					const u32 group = word & 0x3f;
 					const u32 sub = Sa(word);
@@ -372,6 +372,35 @@ namespace EeIr
 						{
 							const ir::Op shift = group == 0x3c ? ir::Op::VShl : group == 0x3e ? ir::Op::VShrU : ir::Op::VShrS;
 							const u32 value = m_b.Emit2(shift, ir::Type::V4U32, ReadGprQuad(rt), Const(sub));
+							m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
+						}
+						return true;
+					}
+					u32 selectors = ~0u;
+					ir::Op shuffle = ir::Op::VShuffle2;
+					if (group == 0x08 && sub == 0x12) selectors = 0xa60; // pextlw: rt0,rs0,rt1,rs1
+					else if (group == 0x28 && sub == 0x12) selectors = 0xef2; // pextuw: rt2,rs2,rt3,rs3
+					else if (group == 0x08 && sub == 0x13) selectors = 0xd10; // ppacw: rt0,rt2,rs0,rs2
+					else if (group == 0x09 && sub == 0x0e) selectors = 0xb08; // pcpyld: rt0,rt1,rs0,rs1
+					else if (group == 0x29 && sub == 0x0e) selectors = 0x6be; // pcpyud: rs2,rs3,rt2,rt3
+					else if (group == 0x09 && (sub == 0x1e || sub == 0x1f))
+					{
+						shuffle = ir::Op::VShuffle;
+						selectors = sub == 0x1e ? 0xc6 : 0xc9; // pexew: 2,1,0,3 / prot3w: 1,2,0,3
+					}
+					else if (group == 0x29 && sub == 0x1e)
+					{
+						shuffle = ir::Op::VShuffle;
+						selectors = 0xd8; // pexcw: 0,2,1,3
+					}
+					if (selectors != ~0u)
+					{
+						if (rd != 0)
+						{
+							const u32 rt_value = ReadGprQuad(rt);
+							const u32 value = shuffle == ir::Op::VShuffle ?
+								m_b.Emit1(shuffle, ir::Type::V4U32, rt_value, selectors) :
+								m_b.Emit2(shuffle, ir::Type::V4U32, rt_value, ReadGprQuad(rs), selectors);
 							m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
 						}
 						return true;

@@ -63,8 +63,12 @@ namespace ir
 					out += buffer;
 					return;
 				case Op::VBroadcast:
-				case Op::VShuffle:
 					std::snprintf(buffer, sizeof(buffer), "lane=%u", static_cast<u32>(inst.imm));
+					out += buffer;
+					return;
+				case Op::VShuffle:
+				case Op::VShuffle2:
+					std::snprintf(buffer, sizeof(buffer), "selectors=0x%03x", static_cast<u32>(inst.imm));
 					out += buffer;
 					return;
 				case Op::VMerge:
