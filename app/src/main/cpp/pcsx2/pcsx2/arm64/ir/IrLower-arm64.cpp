@@ -452,7 +452,7 @@ namespace Arm64Ir
 
 			s64 LoOffset() const { return m_guest_state == GuestState::IOP ? offsetof(cpuRegistersPack, psxRegs.GPR.n.lo) : offsetof(cpuRegistersPack, cpuRegs.LO); }
 			s64 HiOffset() const { return m_guest_state == GuestState::IOP ? offsetof(cpuRegistersPack, psxRegs.GPR.n.hi) : offsetof(cpuRegistersPack, cpuRegs.HI); }
-			static s64 PcOffset() { return static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc)); }
+			s64 PcOffset() const { return m_guest_state == GuestState::IOP ? offsetof(cpuRegistersPack, psxRegs.pc) : offsetof(cpuRegistersPack, cpuRegs.pc); }
 
 			void EmitFrameAdjust(bool add, u32 amount);
 			void EmitPrologue();
@@ -1958,8 +1958,8 @@ namespace Arm64Ir
 			{
 				if (guest_state == GuestState::IOP)
 				{
-					// IOP accepts 32-bit integer state and memory only. EE-specific
-					// memory, helpers and control paths must never use the IOP layout.
+					// IOP accepts 32-bit integer state, memory and control.
+					// EE-specific memory and helpers must never use the IOP layout.
 					bool supported = inst.type == ir::Type::Void || inst.type == ir::Type::I32;
 					for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)
 						supported &= fn.ValueType(inst.args[arg]) == ir::Type::I32;
@@ -1972,6 +1972,9 @@ namespace Arm64Ir
 						case ir::Op::Or: case ir::Op::Xor: case ir::Op::Not:
 						case ir::Op::Shl: case ir::Op::ShrU: case ir::Op::ShrS:
 						case ir::Op::CmpLtS: case ir::Op::CmpLtU:
+						case ir::Op::CmpEq: case ir::Op::CmpNe: case ir::Op::CmpLeS:
+						case ir::Op::CmpGtS: case ir::Op::CmpGeS:
+						case ir::Op::Jump: case ir::Op::Branch: case ir::Op::BranchIndirect:
 						case ir::Op::ReadGpr: case ir::Op::WriteGpr:
 						case ir::Op::ReadHi: case ir::Op::WriteHi:
 						case ir::Op::ReadLo: case ir::Op::WriteLo:

@@ -49,6 +49,7 @@ extern "C" u64 EmuCoreXOracleIOPIRSpillSequences();
 extern "C" u64 EmuCoreXOracleIOPIRMemoryOperations();
 extern "C" u64 EmuCoreXOracleIOPIRDirectLoads();
 extern "C" u64 EmuCoreXOracleIOPIRMulDivInstructions();
+extern "C" u64 EmuCoreXOracleIOPIRBranches();
 extern void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 
 namespace
@@ -5998,8 +5999,233 @@ void IOPSharedIntegrationTests()
     const IOPSnapshot expected = RunIOPProgram(false, forced);
     const IOPSnapshot actual = RunIOPProgram(true, forced, -1, false, 1ull << OpcodeFamilies::IOP::FAM_ALU_IMM);
     CompareIOP(expected, actual, "ir IOP forced interpreter instructions preserved");
-    Check(EmuCoreXOracleIOPIRInstructions() == before, "ir IOP forced interpreter bypasses shared IR");
+    Check(EmuCoreXOracleIOPIRInstructions() - before == 2, "ir IOP forced interpreter bypasses ALU IR; only sentinel branch/delay lifted");
     EmuCoreXOracleSetIOPIR(-1);
+}
+
+void IOPControlIntegrationTests()
+{
+    const u32 saved_icfg = psxHu32(HW_ICFG);
+    const bool saved_wait = EmuConfig.Speedhacks.WaitLoop;
+    for (u32 kind = 0; kind < 12; ++kind)
+        for (bool positive : {false, true})
+            for (u32 delay_kind = 0; delay_kind < 6; ++delay_kind)
+                for (u32 clock : {0u, 8u})
+                {
+                    psxHu32(HW_ICFG) = clock;
+                    EmuConfig.Speedhacks.WaitLoop = (delay_kind & 1) != 0;
+                    std::vector<u32> code = {
+                        MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16), MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff),
+                        MipsI(9, 0, 8, positive ? 1 : -1), MipsI(9, 0, 9, -1),
+                        MipsI(43, 22, 8, 0), MipsI(35, 22, 8, 0), 0, 0};
+                    const u32 branch_pc = IOP_TEST_PC + static_cast<u32>(code.size()) * 4;
+                    const u32 target = branch_pc + 20, end = branch_pc + 24;
+                    if (kind >= 10)
+                    {
+                        code[6] = MipsI(15, 0, 8, target >> 16);
+                        code[7] = MipsI(13, 8, 8, target & 0xffff);
+                    }
+                    const u32 word = kind < 4 ? MipsI(4 + kind, 8, kind < 2 ? 9 : 0, 4) :
+                        kind < 8 ? MipsI(1, 8, kind == 4 ? 0 : kind == 5 ? 1 : kind == 6 ? 16 : 17, 4) :
+                        kind < 10 ? MipsJ(kind == 8 ? 2 : 3, target) : MipsR(8, 0, kind == 10 ? 0 : 31, 0, kind == 10 ? 8 : 9);
+                    const u32 delay = delay_kind == 0 ? 0 : delay_kind == 1 ? MipsI(9, 0, 8, 7) :
+                        delay_kind == 2 ? MipsI(43, 22, 31, 4) : delay_kind == 3 ? MipsR(8, 9, 0, 0, 0x18) :
+                        delay_kind == 4 ? MipsR(8, 9, 0, 0, 0x1a) : MipsI(35, 22, 8, 32);
+                    code.insert(code.end(), {word, delay, MipsI(9, 0, 10, 1), MipsJ(2, end), 0, MipsI(9, 0, 11, 2),
+                        MipsI(43, 22, 0, 120), MipsI(43, 22, 10, 32), MipsI(43, 22, 11, 36)});
+                    const IOPSnapshot interp = RunIOPProgram(false, code, 4096);
+                    EmuCoreXOracleSetIOPIR(0);
+                    s_iopMulDivClock = {};
+                    s_iopMulDivClearOriginal = psxRec.Clear;
+                    psxRec.Clear = &IOPMulDivClearClockProbe;
+                    const IOPSnapshot legacy = RunIOPProgram(true, code, 4096);
+                    const auto legacy_clock = s_iopMulDivClock;
+                    const s32 legacy_budget = psxRegs.iopCycleEE;
+                    const u32 legacy_carry = psxRegs.iopCycleEECarry;
+                    EmuCoreXOracleSetIOPIR(1);
+                    const u64 before = EmuCoreXOracleIOPIRBranches();
+                    s_iopMulDivClock = {};
+                    if (delay_kind == 2)
+                    {
+                        s_iopClearOriginal = &IOPMulDivClearClockProbe;
+                        s_iopObserveAddress = IOP_TEST_SCRATCH + 4;
+                        s_iopObserveWord = delay;
+                        s_iopObservedWrites = 0;
+                        psxRec.Clear = &IOPClearMemoryProbe;
+                    }
+                    const IOPSnapshot actual = RunIOPProgram(true, code, 4096);
+                    psxRec.Clear = s_iopMulDivClearOriginal;
+                    char name[128];
+                    std::snprintf(name, sizeof(name), "ir IOP control integration kind=%u positive=%u delay=%u clock=%u", kind, positive, delay_kind, clock);
+                    CompareIOP(interp, actual, name);
+                    if (delay_kind == 2)
+                        Check(s_iopObservedWrites == 1 && s_iopObservedPc == branch_pc + 8 && s_iopObservedCode == delay,
+                            "ir IOP branch delay store helper sees exact PC/opcode once");
+                    Check(legacy.cycle == actual.cycle && legacy_budget == psxRegs.iopCycleEE && legacy_carry == psxRegs.iopCycleEECarry &&
+                        legacy_clock.observed && s_iopMulDivClock.observed && legacy_clock.cycle == s_iopMulDivClock.cycle &&
+                        legacy_clock.budget == s_iopMulDivClock.budget && legacy_clock.carry == s_iopMulDivClock.carry,
+                        "ir IOP control exact first committed clock/budget/carry and WaitLoop parity");
+                    const bool taken = kind >= 8 || (kind == 0 ? !positive : kind == 1 ? positive :
+                        kind == 2 ? !positive : kind == 3 ? positive : kind == 4 || kind == 6 ? !positive : positive);
+                    // The final tail first absorbs the sentinel branch, then
+                    // its back edge compiles the sentinel as a separate block.
+                    Check(EmuCoreXOracleIOPIRBranches() - before == (taken ? 3 : 4),
+                        "ir IOP real tested branch and static continuation compile through IR");
+                }
+    // Address zero is valid executable RAM. Check a real idle loop there,
+    // including the static target needed by the legacy WaitLoop fast path.
+    const u32 saved_zero[] = {iopMemRead32(0), iopMemRead32(4), iopMemRead32(8)};
+    iopMemWrite32(0, 0);
+    iopMemWrite32(4, MipsI(4, 0, 0, -2));
+    iopMemWrite32(8, 0);
+    for (bool wait : {false, true})
+        for (u32 clock : {0u, 8u})
+        {
+            EmuConfig.Speedhacks.WaitLoop = wait;
+            psxHu32(HW_ICFG) = clock;
+            const std::vector<u32> zero = {MipsJ(2, 0), 0};
+            EmuCoreXOracleSetIOPIR(0);
+            const IOPSnapshot legacy = RunIOPProgram(true, zero, 4096);
+            const s32 budget = psxRegs.iopCycleEE;
+            const u32 carry = psxRegs.iopCycleEECarry;
+            EmuCoreXOracleSetIOPIR(1);
+            const IOPSnapshot actual = RunIOPProgram(true, zero, 4096);
+            CompareIOP(legacy, actual, "ir IOP target zero real idle-loop state");
+            Check(legacy.cycle == actual.cycle && budget == psxRegs.iopCycleEE && carry == psxRegs.iopCycleEECarry,
+                "ir IOP target zero preserves static WaitLoop cycles/budget/carry");
+        }
+    for (u32 i = 0; i < 3; ++i) iopMemWrite32(i * 4, saved_zero[i]);
+    EmuConfig.Speedhacks.WaitLoop = saved_wait;
+    psxHu32(HW_ICFG) = saved_icfg;
+    const std::vector<u32> forced = {MipsI(9, 0, 8, 1), MipsI(4, 8, 0, 1), MipsI(9, 8, 8, 1), MipsI(9, 8, 9, 1)};
+    for (u32 family : {OpcodeFamilies::IOP::FAM_BRANCH, OpcodeFamilies::IOP::FAM_ALU_IMM})
+    {
+        EmuCoreXOracleSetIOPIR(1);
+        const u64 before = EmuCoreXOracleIOPIRBranches();
+        CompareIOP(RunIOPProgram(false, forced), RunIOPProgram(true, forced, -1, false, 1ull << family),
+            "ir IOP forced branch/delay interpreter preserves state");
+        Check(EmuCoreXOracleIOPIRBranches() - before == (family == OpcodeFamilies::IOP::FAM_BRANCH ? 0 : 1),
+            "ir IOP forced branch/delay bypasses whole IR branch");
+    }
+    const std::vector<u32> import = {MipsJ(2, IOP_TEST_PC + 12), 0x24001234, MipsI(9, 0, 8, 1), MipsI(9, 0, 9, 2)};
+    const u64 before_import = EmuCoreXOracleIOPIRBranches();
+    CompareIOP(RunIOPProgram(false, import), RunIOPProgram(true, import), "ir IOP import stub retains interpreter/legacy behavior");
+    Check(EmuCoreXOracleIOPIRBranches() - before_import == 2,
+        "ir IOP import stub branch stays on HLE-capable legacy path");
+    EmuCoreXOracleSetIOPIR(-1);
+}
+
+void IOPControlFrontendTests()
+{
+    const u32 edges[] = {0, 1, 0x7fffffff, 0x80000000, 0xffffffff};
+    for (u32 kind = 0; kind < 12; ++kind)
+        for (u32 source : {0u, 8u, 31u})
+            for (u32 edge : edges)
+                for (u32 delay_kind = 0; delay_kind < 6; ++delay_kind)
+                {
+                    const u32 pc = IOP_TEST_PC, target = pc + 64;
+                    const u32 word = kind < 4 ? MipsI(4 + kind, source, kind < 2 ? 9 : 0, 15) :
+                        kind < 8 ? MipsI(1, source, kind == 4 ? 0 : kind == 5 ? 1 : kind == 6 ? 16 : 17, 15) :
+                        kind < 10 ? MipsJ(kind == 8 ? 2 : 3, target) : MipsR(source, 0, kind == 10 ? 0 : source, 0, kind == 10 ? 8 : 9);
+                    const u32 delay = delay_kind == 0 ? 0 : delay_kind == 1 ? MipsI(9, source == 0 ? 8 : 0, source, 7) :
+                        delay_kind == 2 ? MipsR(31, 0, 12, 0, 0x21) : delay_kind == 3 ? MipsI(35, 22, source, 32) :
+                        delay_kind == 4 ? MipsI(43, 22, 31, 32) : MipsR(8, 9, 0, 0, 0x1a);
+                    const u32 code[] = {word, delay};
+                    ResetIOPMemoryFixture();
+                    psxRegs.GPR.r[8] = psxRegs.GPR.r[31] = edge;
+                    psxRegs.GPR.r[9] = 0xffffffff;
+                    psxRegs.GPR.r[22] = IOP_TEST_SCRATCH;
+                    if (kind == 6 || kind == 7 || kind == 9) psxRegs.GPR.r[31] = pc + 8;
+                    if (kind == 11 && source != 0) psxRegs.GPR.r[source] = pc + 8;
+                    const u32 input = source == 0 ? 0 : psxRegs.GPR.r[source];
+                    const bool taken = kind == 0 ? input == psxRegs.GPR.r[9] : kind == 1 ? input != psxRegs.GPR.r[9] :
+                        kind == 2 ? static_cast<s32>(input) <= 0 : kind == 3 ? static_cast<s32>(input) > 0 :
+                        (kind == 4 || kind == 6) ? static_cast<s32>(input) < 0 : static_cast<s32>(input) >= 0;
+                    const u32 exit = kind >= 10 ? input : kind >= 8 || taken ? target : pc + 8;
+                    // Execute the non-control delay through the actual interpreter
+                    // after the independently computed link/condition snapshot.
+                    psxRegs.pc = pc + 8;
+                    psxRegs.code = delay;
+                    psxBSC[delay >> 26]();
+                    IOPSnapshot expected;
+                    CaptureIOP(expected);
+                    ir::Function fn;
+                    std::string error;
+                    u32 count = 0;
+                    bool same = IopIr::LiftSequence(code, pc, 2, fn, &count, &error) && count == 2;
+                    bool delay_marked = false;
+                    for (const auto& block : fn.blocks)
+                        for (const auto& inst : block.insts)
+                            if (ir::Info(inst.op).kind == ir::OpKind::MemLoad || ir::Info(inst.op).kind == ir::OpKind::MemStore)
+                                delay_marked |= inst.guest_pc == pc + 4 && (inst.aux & ir::IF_DELAY_SLOT);
+                    same &= delay_kind != 3 && delay_kind != 4 || delay_marked;
+                    for (u32 mode = 0; same && mode < 6; ++mode)
+                    {
+                        Arm64Ir::LowerOptions options;
+                        options.guest_state = Arm64Ir::GuestState::IOP;
+                        options.capture_exit_pc = true;
+                        options.optimize_ir = mode != 0;
+                        options.allocate_registers = mode != 2;
+                        options.materialize_constants = mode != 3;
+                        options.reuse_spill_slots = mode != 4;
+                        options.inline_division = mode != 5;
+                        options.direct_iop_loads = mode != 5;
+                        Arm64Ir::LowerHooks hooks;
+                        hooks.after_helper = +[](void*) {
+                            for (u32 r = 1; r <= 17; ++r) oakAsm->MOV(oak::WReg(r), 0xa5a5a5a5u);
+                        };
+                        options.hooks = &hooks;
+                        Arm64Ir::LowerOutput out;
+                        same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        if (!same) break;
+                        ResetIOPMemoryFixture();
+                        psxRegs.GPR.r[8] = psxRegs.GPR.r[31] = edge;
+                        psxRegs.GPR.r[9] = 0xffffffff;
+                        psxRegs.GPR.r[22] = IOP_TEST_SCRATCH;
+                        const auto ee_before = cpuRegs;
+                        g_eeir_exit_pc = g_eeir_exit_valid = 0;
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        IOPSnapshot actual;
+                        CaptureIOP(actual);
+                        same &= g_eeir_exit_valid && g_eeir_exit_pc == exit &&
+                            std::memcmp(expected.gpr, actual.gpr, sizeof(expected.gpr)) == 0 && expected.hi == actual.hi && expected.lo == actual.lo &&
+                            std::memcmp(expected.scratch, actual.scratch, sizeof(expected.scratch)) == 0 &&
+                            std::memcmp(&ee_before, &cpuRegs, sizeof(cpuRegs)) == 0;
+                        if (kind >= 10) same &= psxRegs.pc == exit;
+                    }
+                    char name[144];
+                    std::snprintf(name, sizeof(name), "ir IOP control kind=%u source=%u edge=%08x delay=%u six modes/target/helper preservation", kind, source, edge, delay_kind);
+                    Check(same, name);
+                }
+    const u32 branch = MipsI(4, 8, 9, 1);
+    for (u32 delay : {MipsI(8, 8, 9, 1), 0x0000000cu, 0x42000010u, MipsI(4, 0, 0, 1), 0x24001234u})
+    {
+        const u32 code[] = {MipsI(9, 0, 8, 3), branch, delay};
+        ir::Function fn;
+        std::string error;
+        u32 count = 0;
+        const bool prefix = IopIr::LiftSequence(code, IOP_TEST_PC, 3, fn, &count, &error) && count == 1;
+        const bool reject = !IopIr::LiftSequence(code + 1, IOP_TEST_PC + 4, 2, fn, &count, &error) && count == 0 && fn.blocks.empty();
+        Check(prefix && reject, "ir IOP unsupported/nested/HLE delay preserves whole legacy branch");
+    }
+    for (u32 pc : {IOP_TEST_PC, IOP_TEST_PC + 0xffc})
+    {
+        const u32 code[] = {branch, 0};
+        ir::Function fn;
+        std::string error;
+        u32 count = 0;
+        Check(!IopIr::LiftSequence(code, pc, pc == IOP_TEST_PC ? 1 : 2, fn, &count, &error) && count == 0 && fn.blocks.empty(),
+            "ir IOP branch and delay are atomic at cap/page boundary");
+    }
+    {
+        const u32 code[] = {MipsI(9, 0, 8, 1), 0x24001234u, 0};
+        ir::Function fn;
+        std::string error;
+        u32 count = 0;
+        Check(IopIr::LiftSequence(code, IOP_TEST_PC, 3, fn, &count, &error) && count == 1 &&
+            !IopIr::LiftSequence(code + 1, IOP_TEST_PC + 4, 2, fn, &count, &error) && count == 0 && fn.blocks.empty(),
+            "ir IOP import marker retains legacy HLE dispatch");
+    }
 }
 
 void IOPSharedFrontendTests()
@@ -6062,8 +6288,8 @@ void IOPSharedFrontendTests()
                 Check(same, name);
             }
     for (u32 word : {MipsI(8, 8, 9, 1), MipsR(8, 9, 10, 0, 0x20), MipsR(8, 9, 10, 0, 0x22),
-        MipsI(50, 8, 9, 0), MipsI(58, 8, 9, 0), MipsI(4, 8, 9, 1),
-        MipsR(8, 0, 0, 0, 8), 0x0000000du, 0x42000010u,
+        MipsI(50, 8, 9, 0), MipsI(58, 8, 9, 0), MipsI(1, 8, 2, 1),
+        MipsR(8, 0, 0, 0, 1), 0x0000000du, 0x42000010u,
         0x40086000u, 0x48080000u, 0x0000000cu, 0xffffffffu})
     {
         const u32 code[] = {MipsI(9, 0, 8, 1), word, 0};
@@ -6140,7 +6366,7 @@ void IOPSharedStateTests()
                 std::snprintf(name, sizeof(name), "ir IOP state32 source=%u dest=%u edge=%08x neighbors/EE isolated", source, dest, edge);
                 Check(same, name);
             }
-    for (ir::Op op : {ir::Op::Load64, ir::Op::ReadFpr, ir::Op::ConstVec, ir::Op::BranchIndirect})
+    for (ir::Op op : {ir::Op::Load64, ir::Op::ReadFpr, ir::Op::ConstVec})
     {
         ir::Function fn;
         ir::Builder b(fn);
@@ -6151,13 +6377,10 @@ void IOPSharedStateTests()
             b.Emit(op, ir::Type::F32, {}, 1);
         else if (op == ir::Op::ConstVec)
             b.ConstVec({1, 2, 3, 4});
-        if (op == ir::Op::BranchIndirect)
-            b.Emit1(op, ir::Type::Void, b.ConstI32(IOP_TEST_PC));
-        else
-            b.Resume(IOP_TEST_PC + 4);
+        b.Resume(IOP_TEST_PC + 4);
         std::string error;
         Check(ir::Verify(fn, &error) && !Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::IOP),
-            "ir IOP domain rejects EE memory/vector/FPU/control before emission");
+            "ir IOP domain rejects EE memory/vector/FPU before emission");
     }
     for (ir::Type type : {ir::Type::I64, ir::Type::V4U32})
     {
@@ -6250,6 +6473,8 @@ void IOPTests()
     IOPSharedMemoryDomainTests();
     IOPSharedMemoryFrontendTests();
     IOPSharedIntegrationTests();
+    IOPControlIntegrationTests();
+    IOPControlFrontendTests();
     IOPSharedFrontendTests();
     IOPSharedStateTests();
 }

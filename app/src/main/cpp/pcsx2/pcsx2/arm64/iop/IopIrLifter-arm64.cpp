@@ -55,6 +55,9 @@ namespace IopIr
 
         bool LiftInstruction(ir::Builder& b, u32 word)
         {
+            // ADDIU $0,$0,index is an IRX import marker, with possible host HLE
+            // side effects in the legacy decoder even though its GPR write dies.
+            if (word >> 16 == 0x2400) return false;
             const u32 rs = (word >> 21) & 31, rt = (word >> 16) & 31;
             const u32 rd = (word >> 11) & 31, sa = (word >> 6) & 31;
             const auto read = [&](u32 r) { return r == 0 ? b.ConstI32(0) : b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, r); };
@@ -132,13 +135,77 @@ namespace IopIr
             write(rt, b.Emit2(op, ir::Type::I32, read(rs), b.ConstI32(immediate)));
             return true;
         }
+        bool IsControl(u32 word)
+        {
+            const u32 op = word >> 26, rt = (word >> 16) & 31, funct = word & 63;
+            return (op >= 2 && op <= 7) || (op == 0 && (funct == 8 || funct == 9)) ||
+                (op == 1 && (rt == 0 || rt == 1 || rt == 16 || rt == 17));
+        }
+
+        bool CanLiftDelay(u32 word)
+        {
+            ir::Function probe;
+            ir::Builder b(probe);
+            b.CreateBlock(4);
+            return LiftInstruction(b, word);
+        }
+
+        void LiftControl(ir::Builder& b, u32 word, u32 delay, u32 pc)
+        {
+            const u32 op = word >> 26, rs = (word >> 21) & 31, rt = (word >> 16) & 31, rd = (word >> 11) & 31;
+            const auto read = [&](u32 r) { return r == 0 ? b.ConstI32(0) : b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, r); };
+            const bool indirect = op == 0, jump = op == 2 || op == 3;
+            const u32 link = op == 3 || (op == 1 && rt >= 16) ? 31 : indirect && (word & 63) == 9 ? rd : 0;
+            // Existing R3000A interpreter and recompiler read Rs after the
+            // link write, including JALR Rd==Rs and REGIMM-AL Rs==31 aliases.
+            if (link) b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstI32(pc + 8), link);
+            u32 condition = 0, address = 0;
+            if (indirect) address = read(rs);
+            else if (!jump)
+            {
+                const u32 a = read(rs);
+                const u32 c = op == 4 || op == 5 ? read(rt) : b.ConstI32(0);
+                const ir::Op compare = op == 4 ? ir::Op::CmpEq : op == 5 ? ir::Op::CmpNe :
+                    op == 6 ? ir::Op::CmpLeS : op == 7 ? ir::Op::CmpGtS :
+                    (rt & 1) ? ir::Op::CmpGeS : ir::Op::CmpLtS;
+                condition = b.Emit2(compare, ir::Type::I32, a, c);
+            }
+            b.SetGuestPc(pc + 4);
+            b.SetDelaySlot(true);
+            LiftInstruction(b, delay); // prevalidated before any control effects
+            b.SetDelaySlot(false);
+            b.SetGuestPc(pc);
+            b.SetBlockEnd(pc + 8);
+            if (indirect) b.BranchIndirect(address);
+            else
+            {
+                const u32 target = jump ? ((pc + 4) & 0xf0000000u) | ((word & 0x03ffffffu) << 2) :
+                    pc + 4 + static_cast<u32>(static_cast<s32>(static_cast<s16>(word)) * 4);
+                if (jump) b.Resume(target);
+                else
+                {
+                    const u32 original = b.CurrentBlock();
+                    const u32 taken = b.CreateBlock(target), fallthrough = b.CreateBlock(pc + 8);
+                    b.SetBlock(original);
+                    b.SetGuestPc(pc);
+                    b.Branch(condition, taken, fallthrough, target);
+                    b.SetBlock(taken);
+                    b.Resume(target);
+                    b.SetBlockEnd(target);
+                    b.SetBlock(fallthrough);
+                    b.Resume(pc + 8);
+                    b.SetBlockEnd(pc + 8);
+                }
+            }
+        }
     }
 
     bool LiftSequence(const u32* code, u32 start_pc, u32 max_insts,
-        ir::Function& out, u32* accepted, std::string* error)
+        ir::Function& out, u32* accepted, std::string* error, bool* ends_in_branch)
     {
         out = {};
         *accepted = 0;
+        if (ends_in_branch) *ends_in_branch = false;
         if (!code || (start_pc & 3) || max_insts == 0)
         {
             if (error) *error = "empty IOP sequence or misaligned PC";
@@ -150,6 +217,14 @@ namespace IopIr
         for (u32 i = 0; i < limit; ++i)
         {
             b.SetGuestPc(start_pc + i * 4);
+            if (IsControl(code[i]))
+            {
+                if (i + 1 >= limit || !CanLiftDelay(code[i + 1])) break;
+                LiftControl(b, code[i], code[i + 1], start_pc + i * 4);
+                *accepted += 2;
+                if (ends_in_branch) *ends_in_branch = true;
+                return ir::Verify(out, error);
+            }
             if (!LiftInstruction(b, code[i])) break;
             ++*accepted;
         }

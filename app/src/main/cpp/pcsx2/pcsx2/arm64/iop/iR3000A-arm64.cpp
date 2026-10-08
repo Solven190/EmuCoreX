@@ -47,6 +47,7 @@ static u64 s_iopIrSpillSequences = 0;
 static u64 s_iopIrMemoryOperations = 0;
 static u64 s_iopIrDirectLoads = 0;
 static u64 s_iopIrMulDivInstructions = 0;
+static u64 s_iopIrBranches = 0;
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 static int s_iopIrOverride = -1;
 extern "C" void EmuCoreXOracleSetIOPIR(int enabled) { s_iopIrOverride = enabled < 0 ? -1 : (enabled != 0); }
@@ -55,6 +56,7 @@ extern "C" u64 EmuCoreXOracleIOPIRSpillSequences() { return s_iopIrSpillSequence
 extern "C" u64 EmuCoreXOracleIOPIRMemoryOperations() { return s_iopIrMemoryOperations; }
 extern "C" u64 EmuCoreXOracleIOPIRDirectLoads() { return s_iopIrDirectLoads; }
 extern "C" u64 EmuCoreXOracleIOPIRMulDivInstructions() { return s_iopIrMulDivInstructions; }
+extern "C" u64 EmuCoreXOracleIOPIRBranches() { return s_iopIrBranches; }
 #endif
 
 static bool IopIrEnabled()
@@ -1278,7 +1280,7 @@ void psxSetBranchReg(u32 reg)
 void psxSetBranchImm(u32 imm)
 {
 	psxbranch = 1;
-	pxAssert(imm);
+	// Address zero is valid IOP RAM and uses the same cycle/WaitLoop tail.
 
 	// end the current block
 	oakAsm->MOV(OAK_WSCRATCH, imm);
@@ -1732,18 +1734,31 @@ void psxRecompileNextInstruction(bool delayslot, bool swapped_delayslot)
 // same legacy block. The IOP block tail owns PC, cycles, linking and events.
 static void IopIrFallThrough(void*, u32, bool) {}
 
+static void IopIrIndirectExit(void*)
+{
+    // The shared lowerer restores its frame before handing off W16.
+    oakStore32(oak::util::W16, IOP_CPU(psxRegs.pc));
+    psxSetBranchReg(0xffffffff);
+}
+
+static void IopIrStaticExit(void*, u32 target, bool)
+{
+    psxSetBranchImm(target);
+}
+
 struct IopIrMemoryContext
 {
     u32 start_pc;
     const u32* code;
     u32 count;
+    bool control;
 };
 
 static void IopIrBeforeMemory(void* opaque, u32 guest_pc, bool delay_slot)
 {
     const auto& ctx = *static_cast<const IopIrMemoryContext*>(opaque);
     const u32 index = (guest_pc - ctx.start_pc) / 4;
-    pxAssert(!delay_slot && index < ctx.count);
+    pxAssert(index < ctx.count && delay_slot == (ctx.control && index + 1 == ctx.count));
     // IOP handlers observe the next PC and the original instruction. Keep
     // W0/W1 intact: they carry the memory address and optional store value.
     oakAsm->MOV(oak::util::W16, guest_pc + 4);
@@ -1768,38 +1783,26 @@ static bool TryIopIrSequence()
     if (available == 0) return false;
     ir::Function fn;
     u32 accepted = 0;
+    bool control = false;
     std::string error;
-    if (!IopIr::LiftSequence(code.data(), psxpc, available, fn, &accepted, &error) ||
+    if (!IopIr::LiftSequence(code.data(), psxpc, available, fn, &accepted, &error, &control) ||
         !Arm64Ir::CanLower(fn, true, &error, Arm64Ir::GuestState::IOP))
         return false;
 
-    // Legacy constants and host allocations may precede this fragment. Commit
-    // them before reading guest state, then invalidate the caches after writes.
+    // Commit legacy state and invalidate its caches BEFORE emitting exits:
+    // their hooks flush legacy state too and must never restore stale values.
     _psxFlushCall(FLUSH_EVERYTHING);
-    IopIrMemoryContext memory_context{psxpc, code.data(), accepted};
-    Arm64Ir::LowerHooks hooks;
-    hooks.ctx = &memory_context;
-    hooks.before_memory = &IopIrBeforeMemory;
-    hooks.guest_exit = &IopIrFallThrough;
-    Arm64Ir::LowerOptions options;
-    options.guest_state = Arm64Ir::GuestState::IOP;
-    options.direct_iop_loads = IopIrDirectLoadsEnabled();
-    options.inline_division = IopIrNativeDivisionEnabled();
-    options.inline_body = true;
-    options.hooks = &hooks;
-    Arm64Ir::LowerOutput out;
-    if (!Arm64Ir::LowerBlock(fn, options, nullptr, 0, &out, &error))
-        pxFailRel(error.c_str()); // validated above; never append fallback after partial emission
     _initX86regs();
     g_psxHasConstReg = g_psxFlushedConstReg = 1;
+    IopIrMemoryContext memory_context{psxpc, code.data(), accepted, control};
     psxRegs.code = code[accepted - 1];
     s_recompilingDelaySlot = false;
     g_iopCyclePenalty = 0;
     psxpc += accepted * 4;
     g_pCurInstInfo += accepted;
     s_psxBlockCycles += accepted;
-    // Timing belongs to source instructions, even when the optimizer folds
-    // their results. Preserve exactly the legacy recompiler's fixed penalties.
+    // Exit hooks emit cycle/event tails during lowering. Account the entire
+    // source fragment first, including penalties even if results fold away.
     for (u32 i = 0; i < accepted; ++i)
     {
         const u32 funct = code[i] & 63;
@@ -1809,6 +1812,21 @@ static bool TryIopIrSequence()
             ++s_iopIrMulDivInstructions;
         }
     }
+    Arm64Ir::LowerHooks hooks;
+    hooks.ctx = &memory_context;
+    hooks.before_memory = &IopIrBeforeMemory;
+    hooks.guest_exit = control ? &IopIrStaticExit : &IopIrFallThrough;
+    hooks.indirect_exit = &IopIrIndirectExit;
+    Arm64Ir::LowerOptions options;
+    options.guest_state = Arm64Ir::GuestState::IOP;
+    options.direct_iop_loads = IopIrDirectLoadsEnabled();
+    options.inline_division = IopIrNativeDivisionEnabled();
+    options.inline_body = true;
+    options.hooks = &hooks;
+    Arm64Ir::LowerOutput out;
+    if (!Arm64Ir::LowerBlock(fn, options, nullptr, 0, &out, &error))
+        pxFailRel(error.c_str()); // validated above; never append fallback after partial emission
+    if (control) ++s_iopIrBranches;
     s_iopIrInstructions += accepted;
     s_iopIrMemoryOperations += out.iop_memory_operations;
     s_iopIrDirectLoads += out.direct_iop_load_operations;
@@ -1820,11 +1838,11 @@ static bool TryIopIrSequence()
     fused_multiply_pairs += out.fused_multiply_pairs;
     if ((sequences <= 1024 && (sequences & (sequences - 1)) == 0) || sequences % 4096 == 0)
         __android_log_print(ANDROID_LOG_INFO, "IOPIR",
-            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u memory_operations=%llu direct_loads=%llu native_div=%u muldiv_instructions=%llu fused_multiply_pairs=%llu",
+            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u memory_operations=%llu direct_loads=%llu native_div=%u muldiv_instructions=%llu fused_multiply_pairs=%llu control_branches=%llu",
             static_cast<unsigned long long>(sequences), static_cast<unsigned long long>(s_iopIrInstructions),
             static_cast<unsigned long long>(native_bytes), psxpc - accepted * 4, out.register_values, out.spill_values, out.frame_size,
             static_cast<unsigned long long>(s_iopIrMemoryOperations), static_cast<unsigned long long>(s_iopIrDirectLoads),
-            options.inline_division ? 1u : 0u, static_cast<unsigned long long>(s_iopIrMulDivInstructions), static_cast<unsigned long long>(fused_multiply_pairs));
+            options.inline_division ? 1u : 0u, static_cast<unsigned long long>(s_iopIrMulDivInstructions), static_cast<unsigned long long>(fused_multiply_pairs), static_cast<unsigned long long>(s_iopIrBranches));
 #endif
     return true;
 }
@@ -2073,7 +2091,7 @@ StartRecomp:
 
 	g_pCurInstInfo = s_pInstCache;
     // Include temporary breakpoints. Debugger/profiler paths retain their
-    // instruction-by-instruction hooks; delay slots always remain legacy.
+    // instruction-by-instruction hooks; unsupported/forced delays stay legacy.
     const bool use_ir = IopIrEnabled() && !JitProfiler::IsActive() &&
         CBreakPoints::GetBreakpoints(BREAKPOINT_IOP, true).empty() && CBreakPoints::GetNumMemchecks() == 0;
 	while (!psxbranch && psxpc < s_nEndBlock)
