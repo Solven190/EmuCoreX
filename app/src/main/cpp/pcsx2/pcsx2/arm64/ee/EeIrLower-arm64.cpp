@@ -235,6 +235,7 @@ namespace EeIr
 				, m_capture_exit(options.capture_exit_pc)
 				, m_materialize_constants(options.materialize_constants)
 				, m_allocate_registers(options.allocate_registers)
+				, m_allocate_vectors(options.allocate_registers && options.allocate_vector_registers)
 				, m_inline_division(options.optimize_ir && options.inline_division)
 				, m_direct_quad_memory(options.optimize_ir && options.direct_quad_memory && (!CHECK_CACHE || CHECK_EEREC))
 				, m_reuse_spill_slots(options.optimize_ir && options.reuse_spill_slots)
@@ -250,6 +251,19 @@ namespace EeIr
 			u32 SaveArea() const { return m_inline ? 0u : (m_allocate_registers ? 64u : 32u); }
 			static constexpr int kUnallocated = -1;
 			void AllocateRegisters();
+			void AllocateVectorRegisters();
+			bool IsVectorBarrier(const ir::Inst& inst) const;
+			oak::QReg Result128(u32 value) const
+			{
+				return oak::QReg(!m_at_vector_barrier && m_vector_registers[value] >= 0 ? m_vector_registers[value] : 0);
+			}
+			oak::QReg Operand128(u32 value, const oak::QReg& scratch)
+			{
+				if (!m_at_vector_barrier && m_vector_registers[value] >= 0)
+					return oak::QReg(m_vector_registers[value]);
+				Load128(value, scratch);
+				return scratch;
+			}
 			oak::WReg Result32(u32 value) const { return oak::WReg(m_registers[value] >= 0 ? m_registers[value] : 0); }
 			oak::XReg Result64(u32 value) const { return oak::XReg(m_registers[value] >= 0 ? m_registers[value] : 0); }
 			oak::WReg Operand32(u32 value, const oak::WReg& scratch)
@@ -346,12 +360,26 @@ namespace EeIr
 
 			void Load128(u32 value, const oak::QReg& dst)
 			{
-				oakLoad128(dst, {FrameBase(), static_cast<s64>(Slot(value))});
+				if (!m_at_vector_barrier && m_vector_registers[value] >= 0)
+				{
+					const oak::QReg src(m_vector_registers[value]);
+					if (dst.index() != src.index())
+						oakAsm->MOV(dst.B16(), src.B16());
+				}
+				else
+					oakLoad128(dst, {FrameBase(), static_cast<s64>(Slot(value))});
 			}
 
 			void Store128(u32 value, const oak::QReg& src)
 			{
-				oakStore128(src, {FrameBase(), static_cast<s64>(Slot(value))});
+				if (!m_at_vector_barrier && m_vector_registers[value] >= 0)
+				{
+					const oak::QReg dst(m_vector_registers[value]);
+					if (dst.index() != src.index())
+						oakAsm->MOV(dst.B16(), src.B16());
+				}
+				else
+					oakStore128(src, {FrameBase(), static_cast<s64>(Slot(value))});
 			}
 
 			void SlotAddress(u32 value, const oak::XReg& dst)
@@ -382,6 +410,7 @@ namespace EeIr
 			void EmitEntryJump();
 			void EmitEpilogue();
 			bool EmitInst(const ir::Inst& inst, std::string* error);
+			bool EmitInstBody(const ir::Inst& inst, std::string* error);
 			bool Fail(std::string* error, const char* what);
 
 			ir::Function& m_fn;
@@ -392,6 +421,9 @@ namespace EeIr
 			bool m_capture_exit = false;
 			bool m_materialize_constants = true;
 			bool m_allocate_registers = true;
+			bool m_allocate_vectors = true;
+			bool m_at_vector_barrier = false;
+			u32 m_emit_position = 0;
 			bool m_inline_division = true;
 			bool m_direct_quad_memory = true;
 			bool m_reuse_spill_slots = true;
@@ -399,6 +431,9 @@ namespace EeIr
 			std::vector<std::optional<u64>> m_constants;
 			std::vector<u32> m_slots;
 			std::vector<int> m_registers;
+			std::vector<int> m_vector_registers;
+			std::vector<bool> m_vector_homes;
+			std::vector<std::vector<u32>> m_vector_saves, m_vector_restores;
 		};
 
 		void Lowerer::AllocateRegisters()
@@ -447,6 +482,73 @@ namespace EeIr
 						active.push_back(interval);
 						break;
 					}
+				}
+			}
+		}
+
+		bool Lowerer::IsVectorBarrier(const ir::Inst& inst) const
+		{
+			const auto kind = ir::Info(inst.op).kind;
+			return kind == ir::OpKind::MemLoad || kind == ir::OpKind::MemStore || kind == ir::OpKind::Helper ||
+				(!m_inline_division && (inst.op == ir::Op::DivS || inst.op == ir::Op::DivU ||
+					inst.op == ir::Op::RemS || inst.op == ir::Op::RemU));
+		}
+
+		void Lowerer::AllocateVectorRegisters()
+		{
+			const u32 count = static_cast<u32>(m_fn.value_types.size());
+			m_vector_registers.assign(count, kUnallocated);
+			m_vector_homes.assign(count, false);
+			if (!m_allocate_vectors)
+				return;
+			struct Interval { u32 value, first, last; };
+			std::vector<Interval> intervals, active;
+			std::vector<u32> last_use(count), barriers;
+			u32 position = 0;
+			for (const ir::Block& block : m_fn.blocks)
+				for (const ir::Inst& inst : block.insts)
+				{
+					for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)
+						last_use[inst.args[arg]] = position;
+					if (inst.value && inst.type == ir::Type::V4U32)
+						intervals.push_back({inst.value, position, position});
+					if (IsVectorBarrier(inst))
+						barriers.push_back(position);
+					++position;
+				}
+			m_vector_saves.resize(position);
+			m_vector_restores.resize(position);
+			// Q0/Q1 are emitter temporaries. Q2..Q7 are caller-save in full;
+			// AAPCS64 preserves only the low 64 bits of V8..V15, not full quads.
+			constexpr int host_regs[] = {2, 3, 4, 5, 6, 7};
+			for (Interval interval : intervals)
+			{
+				interval.last = std::max(interval.first, last_use[interval.value]);
+				active.erase(std::remove_if(active.begin(), active.end(), [&](const Interval& live) {
+					return live.last <= interval.first;
+				}), active.end());
+				for (int reg : host_regs)
+				{
+					if (std::any_of(active.begin(), active.end(), [&](const Interval& live) {
+						return m_vector_registers[live.value] == reg;
+					}))
+						continue;
+					m_vector_registers[interval.value] = reg;
+					active.push_back(interval);
+					// Homes are needed only at barriers: live inputs are saved
+					// before hooks, and live outputs restored after all hooks.
+					// Inclusive endpoints cover Store128's pointer argument and
+					// Load128's helper result, even at the final/first use.
+					for (auto it = std::lower_bound(barriers.begin(), barriers.end(), interval.first);
+						it != barriers.end() && *it <= interval.last; ++it)
+					{
+						m_vector_homes[interval.value] = true;
+						if (interval.first < *it)
+							m_vector_saves[*it].push_back(interval.value);
+						if (*it < interval.last)
+							m_vector_restores[*it].push_back(interval.value);
+					}
+					break;
 				}
 			}
 		}
@@ -571,6 +673,7 @@ namespace EeIr
 				}
 			}
 			AllocateRegisters();
+			AllocateVectorRegisters();
 			u32 next_slot = SaveArea();
 			struct Spill { u32 last, size, slot; };
 			std::array<std::vector<u32>, 2> free_slots;
@@ -600,9 +703,16 @@ namespace EeIr
 						}), active.end());
 					}
 					const u32 value = inst.value;
-					if (value && m_registers[value] >= 0)
+					const bool allocated = value && (m_registers[value] >= 0 || m_vector_registers[value] >= 0);
+					if (allocated)
 						++out->register_values;
-					else if (value && !m_constants[value])
+					if (value && m_vector_registers[value] >= 0)
+					{
+						++out->vector_register_values;
+						if (m_vector_homes[value])
+							++out->vector_save_values;
+					}
+					if (value && !m_constants[value] && (!allocated || m_vector_homes[value]))
 					{
 						++out->spill_values;
 						const u32 size = std::max(8u, ir::TypeSize(inst.type));
@@ -694,6 +804,26 @@ namespace EeIr
 
 		bool Lowerer::EmitInst(const ir::Inst& inst, std::string* error)
 		{
+			const u32 position = m_emit_position++;
+			if (!m_allocate_vectors || !IsVectorBarrier(inst))
+				return EmitInstBody(inst, error);
+			m_at_vector_barrier = true;
+			recBeginOaknutEmit();
+			for (u32 value : m_vector_saves[position])
+				oakStore128(oak::QReg(m_vector_registers[value]), {FrameBase(), static_cast<s64>(Slot(value))});
+			recEndOaknutEmit();
+			if (!EmitInstBody(inst, error))
+				return false;
+			recBeginOaknutEmit();
+			for (u32 value : m_vector_restores[position])
+				oakLoad128(oak::QReg(m_vector_registers[value]), {FrameBase(), static_cast<s64>(Slot(value))});
+			recEndOaknutEmit();
+			m_at_vector_barrier = false;
+			return true;
+		}
+
+		bool Lowerer::EmitInstBody(const ir::Inst& inst, std::string* error)
+		{
 			const u32* a = inst.args;
 			if (inst.value && m_constants[inst.value])
 				return true;
@@ -739,23 +869,33 @@ namespace EeIr
 				{
 					const auto& lanes = m_fn.vec_consts[inst.imm];
 					recBeginOaknutEmit();
+					const auto dst = Result128(inst.value);
 					oakAsm->MOV(oak::util::X0, u64(lanes[0]) | (u64(lanes[1]) << 32));
 					oakAsm->MOV(oak::util::X1, u64(lanes[2]) | (u64(lanes[3]) << 32));
-					oakStore64(oak::util::X0, {FrameBase(), static_cast<s64>(Slot(inst.value))});
-					oakStore64(oak::util::X1, {FrameBase(), static_cast<s64>(Slot(inst.value) + 8)});
+					if (m_vector_registers[inst.value] >= 0)
+					{
+						oakAsm->FMOV(dst.toD(), oak::util::X0);
+						oakAsm->INS(dst.Delem()[1], oak::util::X1);
+					}
+					else
+					{
+						oakStore64(oak::util::X0, {FrameBase(), static_cast<s64>(Slot(inst.value))});
+						oakStore64(oak::util::X1, {FrameBase(), static_cast<s64>(Slot(inst.value) + 8)});
+					}
 					recEndOaknutEmit();
 					return true;
 				}
 
 				case ir::Op::Copy:
 					if (m_reuse_spill_slots && m_registers[inst.value] < 0 && m_registers[a[0]] < 0 &&
+						m_vector_registers[inst.value] < 0 && m_vector_registers[a[0]] < 0 &&
 						!m_constants[a[0]] && Slot(inst.value) == Slot(a[0]))
 						return true;
 					if (inst.type == ir::Type::V4U32)
 					{
 						recBeginOaknutEmit();
-						Load128(a[0], oak::util::Q0);
-						Store128(inst.value, oak::util::Q0);
+						Load128(a[0], Result128(inst.value));
+						Store128(inst.value, Result128(inst.value));
 						recEndOaknutEmit();
 					}
 					else if (inst.type == ir::Type::I64)
@@ -807,9 +947,10 @@ namespace EeIr
 					recBeginOaknutEmit();
 					if (inst.type == ir::Type::V4U32)
 					{
-						Load128(a[0], oak::util::Q0);
-						oakAsm->NOT(oak::util::Q0.B16(), oak::util::Q0.B16());
-						Store128(inst.value, oak::util::Q0);
+						const auto src = Operand128(a[0], oak::util::Q0);
+						const auto dst = Result128(inst.value);
+						oakAsm->NOT(dst.B16(), src.B16());
+						Store128(inst.value, dst);
 					}
 					else if (inst.type == ir::Type::I64)
 					{
@@ -888,19 +1029,20 @@ namespace EeIr
 					recBeginOaknutEmit();
 					if (inst.type == ir::Type::V4U32)
 					{
-						// Read both inputs before writing a possibly reused spill slot.
-						Load128(a[0], oak::util::Q0);
-						Load128(a[1], oak::util::Q1);
+						// All operand registers are read before a coalesced result is written.
+						const auto lhs = Operand128(a[0], oak::util::Q0);
+						const auto rhs = Operand128(a[1], oak::util::Q1);
+						const auto dst = Result128(inst.value);
 						switch (inst.op)
 						{
-							case ir::Op::Add: oakAsm->ADD(oak::util::Q0.S4(), oak::util::Q0.S4(), oak::util::Q1.S4()); break;
-							case ir::Op::Sub: oakAsm->SUB(oak::util::Q0.S4(), oak::util::Q0.S4(), oak::util::Q1.S4()); break;
-							case ir::Op::And: oakAsm->AND(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16()); break;
-							case ir::Op::Or: oakAsm->ORR(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16()); break;
-							case ir::Op::Xor: oakAsm->EOR(oak::util::Q0.B16(), oak::util::Q0.B16(), oak::util::Q1.B16()); break;
+							case ir::Op::Add: oakAsm->ADD(dst.S4(), lhs.S4(), rhs.S4()); break;
+							case ir::Op::Sub: oakAsm->SUB(dst.S4(), lhs.S4(), rhs.S4()); break;
+							case ir::Op::And: oakAsm->AND(dst.B16(), lhs.B16(), rhs.B16()); break;
+							case ir::Op::Or: oakAsm->ORR(dst.B16(), lhs.B16(), rhs.B16()); break;
+							case ir::Op::Xor: oakAsm->EOR(dst.B16(), lhs.B16(), rhs.B16()); break;
 							default: return Fail(error, "unsupported vector arithmetic op");
 						}
-						Store128(inst.value, oak::util::Q0);
+						Store128(inst.value, dst);
 					}
 					else if (inst.type == ir::Type::I64)
 					{
@@ -1297,16 +1439,12 @@ namespace EeIr
 					recBeginOaknutEmit();
 					if (inst.type == ir::Type::V4U32)
 					{
+						const auto dst = Result128(inst.value);
 						if (inst.imm == 0)
-						{
-							oakStore64(oak::util::XZR, {FrameBase(), static_cast<s64>(Slot(inst.value))});
-							oakStore64(oak::util::XZR, {FrameBase(), static_cast<s64>(Slot(inst.value) + 8)});
-						}
+							oakAsm->MOVI(dst.B16(), 0);
 						else
-						{
-							oakLoad128(oak::util::Q0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
-							Store128(inst.value, oak::util::Q0);
-						}
+							oakLoad128(dst, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
+						Store128(inst.value, dst);
 					}
 					else if (inst.type == ir::Type::I64)
 					{
@@ -1327,8 +1465,8 @@ namespace EeIr
 					recBeginOaknutEmit();
 					if (m_fn.ValueType(a[0]) == ir::Type::V4U32)
 					{
-						Load128(a[0], oak::util::Q0);
-						oakStore128(oak::util::Q0, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
+						const auto src = Operand128(a[0], oak::util::Q0);
+						oakStore128(src, {GuestBase(), GprOffset(static_cast<u32>(inst.imm))});
 						recEndOaknutEmit();
 						return true;
 					}
@@ -1552,11 +1690,7 @@ namespace EeIr
 	bool LowerBlock(ir::Function& fn, const LowerOptions& options, u8* code, size_t capacity,
 		LowerOutput* out, std::string* error)
 	{
-		out->entry = nullptr;
-		out->host_size = 0;
-		out->frame_size = 0;
-		out->register_values = 0;
-		out->spill_values = 0;
+		*out = {};
 		// Optimize a copy so callers can lower the identical input in A/B modes.
 		if (options.optimize_ir)
 		{

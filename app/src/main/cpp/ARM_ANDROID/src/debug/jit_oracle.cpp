@@ -2584,6 +2584,7 @@ void EEIrQuadTests()
         std::string error;
         const std::array<u32, 4> lanes = {0x80000000, 0xffffffff, 0x01020304, 0xf0e0d0c0};
         EeIr::LowerOptions options;
+        options.allocate_vector_registers = false; // force stack-backed constants for this address test
         options.reuse_spill_slots = false; // preserve the large-frame address test
         options.direct_quad_memory = false; // actually execute the large-slot helper path
         bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
@@ -2623,6 +2624,254 @@ void EEIrQuadTests()
 }
 
 
+
+
+void EEIrVectorAllocationTests()
+{
+    using Quad = std::array<u32, 4>;
+    constexpr Quad initial = {0x12345678, 0x80000001, 0xfedcba98, 0x7fffffff};
+    constexpr Quad constant = {0x31415926, 0x53589793, 0x23846264, 0x33832795};
+    constexpr Quad memory = {0xaaaaaaaa, 0x55555555, 0x80000000, 0xffffffff};
+    auto clobber = +[](void*) {
+        for (u32 reg = 2; reg <= 7; ++reg)
+            oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+    };
+    for (bool optimize : {false, true})
+        for (bool reuse : {false, true})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+            const u32 zero = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 0);
+            const u32 other = b.ConstVec(constant);
+            const u32 copy = b.Emit1(ir::Op::Copy, ir::Type::V4U32, other);
+            const u32 add = b.Emit2(ir::Op::Add, ir::Type::V4U32, a, copy);
+            const u32 sub = b.Emit2(ir::Op::Sub, ir::Type::V4U32, add, other);
+            const u32 xored = b.Emit2(ir::Op::Xor, ir::Type::V4U32, sub, a);
+            const u32 ored = b.Emit2(ir::Op::Or, ir::Type::V4U32, xored, zero);
+            const u32 masked = b.Emit2(ir::Op::And, ir::Type::V4U32, ored, other);
+            const u32 result = b.Emit1(ir::Op::Not, ir::Type::V4U32, masked);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, a, 10);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, other, 11);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, sub, 12);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 13);
+            b.Resume(EE_TEST_PC + 4);
+            u32 baseline_bytes = 0, baseline_frame = 0;
+            bool same = true;
+            for (bool vectors : {false, true})
+            {
+                EeIr::LowerOptions options;
+                options.allocate_vector_registers = vectors;
+                options.optimize_ir = optimize;
+                options.reuse_spill_slots = reuse;
+                EeIr::LowerOutput out;
+                std::string error;
+                if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                {
+                    same = false;
+                    continue;
+                }
+                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                std::memset(cpuRegs.GPR.r[0].UL, 0x5a, 16); // hardwired zero must ignore backing state
+                std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                reinterpret_cast<void (*)()>(out.entry)();
+                same &= std::memcmp(cpuRegs.GPR.r[10].UL, initial.data(), 16) == 0 &&
+                    std::memcmp(cpuRegs.GPR.r[11].UL, constant.data(), 16) == 0 &&
+                    std::memcmp(cpuRegs.GPR.r[12].UL, initial.data(), 16) == 0;
+                for (u32 lane = 0; lane < 4; ++lane)
+                    same &= cpuRegs.GPR.r[13].UL[lane] == 0xffffffffu;
+                if (!vectors)
+                {
+                    baseline_bytes = out.host_size;
+                    baseline_frame = out.frame_size;
+                    same &= out.vector_register_values == 0;
+                }
+                else
+                    same &= out.vector_register_values > 0 && out.vector_save_values == 0 && out.spill_values == 0 &&
+                        out.host_size < baseline_bytes && out.frame_size < baseline_frame;
+                std::printf("EEIR vector allocation optimize=%u reuse=%u vectors=%u bytes=%u frame=%u registers=%u homes=%u spills=%u\n",
+                    optimize, reuse, vectors, out.host_size, out.frame_size, out.vector_register_values, out.vector_save_values, out.spill_values);
+            }
+            Check(same, "ir vector allocation eliminates stack traffic in pure SIMD block");
+        }
+    // More simultaneously live vectors than the register pool, with genuine
+    // helper calls and hook clobbers of every allocated caller-save register.
+    for (bool with_memory : {false, true})
+        for (bool reuse : {false, true})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            std::array<u32, 16> values;
+            for (u32 i = 0; i < values.size(); ++i)
+                values[i] = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, i + 8);
+            if (with_memory)
+                b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+            u32 result = values[0];
+            for (u32 i = 1; i < values.size(); ++i)
+                result = b.Emit2(ir::Op::Xor, ir::Type::V4U32, result, values[i]);
+            for (u32 i = 0; i < values.size(); ++i)
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, values[i], i + 1);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 31);
+            b.Resume(EE_TEST_PC + 4);
+            EeIr::LowerHooks hooks;
+            hooks.before_memory = +[](void*, u32, bool) {
+                for (u32 reg = 2; reg <= 7; ++reg)
+                    oakAsm->MOVI(oak::QReg(reg).B16(), 0x3c);
+            };
+            hooks.before_helper = hooks.after_helper = hooks.after_memory = clobber;
+            EeIr::LowerOptions options;
+            options.hooks = &hooks;
+            options.reuse_spill_slots = reuse;
+            EeIr::LowerOutput out;
+            std::string error;
+            bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                std::array<Quad, 16> inputs;
+                Quad expected{};
+                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                for (u32 i = 0; i < inputs.size(); ++i)
+                    for (u32 lane = 0; lane < 4; ++lane)
+                    {
+                        inputs[i][lane] = initial[lane] + i * 0x13579bdu;
+                        cpuRegs.GPR.r[i + 8].UL[lane] = inputs[i][lane];
+                        expected[lane] ^= inputs[i][lane];
+                    }
+                reinterpret_cast<void (*)()>(out.entry)();
+                for (u32 i = 0; i < inputs.size(); ++i)
+                    same &= std::memcmp(cpuRegs.GPR.r[i + 1].UL, inputs[i].data(), 16) == 0;
+                same &= std::memcmp(cpuRegs.GPR.r[31].UL, expected.data(), 16) == 0 &&
+                    out.vector_register_values > 0 && out.spill_values > 0 && (!with_memory || out.vector_save_values > 0);
+            }
+            Check(same, "ir vector register pressure and caller-save helper clobbers preserve all128 bits");
+        }
+    for (ir::Op access : {ir::Op::Load128, ir::Op::Store128, ir::Op::DivU})
+        for (bool direct : {false, true})
+            for (bool native_div : {false, true})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 original = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+                const u32 addr = b.ConstI32(EE_TEST_SCRATCH);
+                u32 result;
+                if (access == ir::Op::Load128)
+                    result = b.Emit1(access, ir::Type::V4U32, addr);
+                else if (access == ir::Op::Store128)
+                {
+                    // This operand's final use is exactly at the barrier.
+                    b.Emit2(access, ir::Type::Void, addr, b.ConstVec(memory));
+                    result = original;
+                }
+                else
+                {
+                    const u32 div = b.Emit2(access, ir::Type::I32, b.ConstI32(7), b.ConstI32(3));
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, div, 14);
+                    result = original;
+                }
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, original, 9);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 10);
+                b.Resume(EE_TEST_PC + 4);
+                EeIr::LowerHooks hooks;
+                hooks.before_memory = +[](void*, u32, bool) {
+                    for (u32 reg = 2; reg <= 7; ++reg)
+                        oakAsm->MOVI(oak::QReg(reg).B16(), 0x3c);
+                };
+                hooks.before_helper = hooks.after_helper = hooks.after_memory = clobber;
+                EeIr::LowerOptions options;
+                options.hooks = &hooks;
+                options.inline_division = native_div;
+                options.direct_quad_memory = direct;
+                EeIr::LowerOutput out;
+                std::string error;
+                bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                if (same)
+                {
+                    mem128_t input;
+                    std::memcpy(&input, (access == ir::Op::Store128 ? initial : memory).data(), 16);
+                    memWrite128(EE_TEST_SCRATCH, input);
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    mem128_t stored;
+                    memRead128(EE_TEST_SCRATCH, stored);
+                    same &= std::memcmp(cpuRegs.GPR.r[9].UL, initial.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[10].UL, (access == ir::Op::Load128 ? memory : initial).data(), 16) == 0 &&
+                        std::memcmp(&stored, memory.data(), 16) == 0 && out.vector_register_values > 0;
+                    if (access == ir::Op::DivU)
+                        same &= cpuRegs.GPR.r[14].UL[0] == 2 && (native_div || out.vector_save_values > 0);
+                    else
+                        same &= out.vector_save_values > 0;
+                }
+                Check(same, "ir allocated vectors survive quad direct/helper paths and native/helper division");
+            }
+    {
+        // Keep the pool occupied while accumulating forced, non-reused
+        // spills, then give a caller-save value a home beyond imm12 range.
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        std::array<u32, 6> held;
+        for (u32 i = 0; i < held.size(); ++i)
+            held[i] = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, i + 8);
+        for (u32 i = 0; i < 320; ++i)
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstVec({i, ~i, i + 1, i + 2}), 14);
+        for (u32 i = 0; i < held.size(); ++i)
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, held[i], i + 15);
+        const u32 value = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 14);
+        b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 21);
+        b.Resume(EE_TEST_PC + 4);
+        EeIr::LowerHooks hooks;
+        hooks.before_helper = hooks.after_helper = clobber;
+        EeIr::LowerOptions options;
+        options.optimize_ir = false;
+        options.reuse_spill_slots = false;
+        options.hooks = &hooks;
+        EeIr::LowerOutput out;
+        std::string error;
+        bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        if (same)
+        {
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            for (u32 i = 0; i < held.size(); ++i)
+                std::memcpy(cpuRegs.GPR.r[i + 8].UL, initial.data(), 16);
+            reinterpret_cast<void (*)()>(out.entry)();
+            const Quad expected = {319, ~319u, 320, 321};
+            same &= std::memcmp(cpuRegs.GPR.r[21].UL, expected.data(), 16) == 0 &&
+                out.frame_size > 4095 && out.vector_save_values > 0;
+            for (u32 i = 0; i < held.size(); ++i)
+                same &= std::memcmp(cpuRegs.GPR.r[i + 15].UL, initial.data(), 16) == 0;
+        }
+        Check(same, "ir caller-save vector home beyond imm12 survives helper clobbers");
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        const u32 value = b.ConstVec(constant);
+        b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 9);
+        b.Resume(EE_TEST_PC + 4);
+        EeIr::LowerOutput out;
+        std::string error;
+        bool same = EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error) &&
+            out.vector_register_values > 0 && out.vector_save_values > 0;
+        EeIr::LowerOptions options;
+        options.allocate_registers = false; // master switch must disable both pools
+        same &= EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        if (same)
+        {
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= out.register_values == 0 && out.vector_register_values == 0 && out.vector_save_values == 0 &&
+                std::memcmp(cpuRegs.GPR.r[9].UL, constant.data(), 16) == 0;
+        }
+        Check(same, "ir master allocation switch and reused output clear SIMD counts");
+    }
+}
 
 void EEIrVectorForwardTests()
 {
@@ -3016,6 +3265,7 @@ void EEIrExecutionTests()
     EEIrQuadOptimizationsTests();
     EEIrMmiTests();
     EEIrVectorForwardTests();
+    EEIrVectorAllocationTests();
     {
         const std::array<std::array<u64, 3>, 8> edges = {{
             {{0, 0, 0}}, {{1, 1, 0}}, {{~u64(0), ~u64(0), 0}},

@@ -2585,6 +2585,11 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		return __system_property_get("debug.emucorex.ee_ir_regalloc", value) == 0 || value[0] != '0';
 	}();
 	options.allocate_registers = allocate_registers;
+	static const bool allocate_vector_registers = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_vector_regalloc", value) == 0 || value[0] != '0';
+	}();
+	options.allocate_vector_registers = allocate_vector_registers;
 	static const bool optimize_ir = []() {
 		char value[PROP_VALUE_MAX] = {};
 		return __system_property_get("debug.emucorex.ee_ir_optimize", value) == 0 || value[0] != '0';
@@ -2626,6 +2631,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	static u64 quad_operations = 0;
 	static u64 direct_quad_operations = 0;
 	static u64 vector_alu_operations = 0;
+	static u64 vector_register_values = 0, vector_save_values = 0;
 	for (const ir::Block& block : fn.blocks)
 		for (const ir::Inst& inst : block.insts)
 		{
@@ -2638,6 +2644,8 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 				++vector_alu_operations;
 		}
 	direct_quad_operations += out.direct_quad_operations;
+	vector_register_values += out.vector_register_values;
+	vector_save_values += out.vector_save_values;
 	++compiled_blocks;
 	guest_instructions += insts;
 	native_bytes += out.host_size;
@@ -2645,7 +2653,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
@@ -2653,7 +2661,9 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			options.optimize_ir && options.inline_division ? 1u : 0u, static_cast<unsigned long long>(division_pairs),
 			quad_memory ? 1u : 0u, static_cast<unsigned long long>(quad_operations),
 			static_cast<unsigned long long>(direct_quad_operations), options.optimize_ir && options.reuse_spill_slots ? 1u : 0u, out.spill_slots,
-			static_cast<unsigned long long>(vector_alu_operations), options.optimize_ir && options.forward_quad_state ? 1u : 0u);
+			static_cast<unsigned long long>(vector_alu_operations), options.optimize_ir && options.forward_quad_state ? 1u : 0u,
+			options.allocate_registers && options.allocate_vector_registers ? 1u : 0u,
+			static_cast<unsigned long long>(vector_register_values), static_cast<unsigned long long>(vector_save_values));
 	}
 #endif
 
