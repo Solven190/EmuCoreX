@@ -11,8 +11,9 @@
 // addressed through pinned X27 in inline mode, or X19 in standalone mode
 // where the prologue pins it and the epilogue restores it.
 //
-// Memory and division use small C helpers with interpreter-exact semantics;
-// later iterations replace them with inline VTLB/fastmem emitters.
+// Memory uses small C helpers with interpreter-exact semantics. Optimized
+// 32-bit division/remainder use ARM64 with R5900 edge-case corrections; the
+// unoptimized path retains helpers for differential comparison.
 
 #pragma once
 
@@ -61,8 +62,11 @@ namespace EeIr
 		// Both modes remain available to the interpreter differential oracle.
 		bool allocate_registers = true;
 		// Preserve state writes and memory/helper barriers while forwarding
-		// redundant reads, folding integer constants and removing dead values.
+		// redundant reads, folding integer constants, removing dead values and
+		// inlining 32-bit division/remainder with guest-exact edge semantics.
 		bool optimize_ir = true;
+		// Keep helper-based division available for isolated runtime A/B tests.
+		bool inline_division = true;
 	};
 
 	struct LowerOutput

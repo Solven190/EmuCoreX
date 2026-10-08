@@ -79,6 +79,8 @@ namespace ir
 	X(Add,          Binary,      2, 2, Any,  false) \
 	X(Sub,          Binary,      2, 2, Any,  false) \
 	X(Mul,          Binary,      2, 2, Any,  false) \
+	/* Msub(a,b,c) = c - a*b, with modulo integer arithmetic. */ \
+	X(Msub,         Ternary,     3, 3, Any,  false) \
 	X(MulHiS,       Binary,      2, 2, Any,  false) \
 	X(MulHiU,       Binary,      2, 2, Any,  false) \
 	X(DivS,         Binary,      2, 2, Any,  false) \
@@ -216,6 +218,7 @@ namespace ir
 		Pseudo,
 		Unary,
 		Binary,
+		Ternary,
 		Compare,
 		Shift,
 		MemLoad,

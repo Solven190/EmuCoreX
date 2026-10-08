@@ -116,6 +116,13 @@ namespace ir
 						return Fail(error, std::string(OpName(inst.op)) + ": operands have different types");
 					break;
 				}
+				case OpKind::Ternary:
+				{
+					const Type t = fn.ValueType(inst.args[0]);
+					if (!IsIntegerType(t) || fn.ValueType(inst.args[1]) != t || fn.ValueType(inst.args[2]) != t)
+						return Fail(error, std::string(OpName(inst.op)) + ": matching integer operands required");
+					break;
+				}
 				case OpKind::Compare:
 				{
 					const Type t0 = fn.ValueType(inst.args[0]);

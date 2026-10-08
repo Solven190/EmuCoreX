@@ -2146,8 +2146,10 @@ u64 eeir_baseline_bytes = 0;
 u64 eeir_optimized_bytes = 0;
 u64 eeir_baseline_frames = 0;
 u64 eeir_optimized_frames = 0;
+u64 eeir_native_division_bytes = 0;
+u64 eeir_helper_division_bytes = 0;
 
-void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* initial_gpr = nullptr)
+void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* initial_gpr = nullptr, bool division_modes = false)
 {
     const EESnapshot interp = RunEEProgram(false, program, false, initial_gpr);
     ir::Function fn;
@@ -2162,12 +2164,20 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
     }
 
     bool same = true;
-    for (bool optimize : {false, true})
+    for (u32 mode = 0; mode < (division_modes ? 5u : 2u); ++mode)
     {
+        const bool optimize = mode != 0;
         EeIr::LowerOptions options;
-        options.materialize_constants = optimize;
-        options.allocate_registers = optimize;
+        options.materialize_constants = optimize && mode != 3;
+        options.allocate_registers = mode == 1 || mode == 3 || mode == 4;
+        options.inline_division = mode != 4;
         options.optimize_ir = optimize;
+        u32 helper_calls = 0;
+        EeIr::LowerHooks hooks;
+        hooks.ctx = &helper_calls;
+        hooks.before_helper = +[](void* ctx) { ++*static_cast<u32*>(ctx); };
+        if (division_modes)
+            options.hooks = &hooks;
         EeIr::LowerOutput out;
         if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
         {
@@ -2175,8 +2185,19 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
             Check(false, name);
             return;
         }
-        (optimize ? eeir_optimized_bytes : eeir_baseline_bytes) += out.host_size;
-        (optimize ? eeir_optimized_frames : eeir_baseline_frames) += out.frame_size;
+        if (mode < 2)
+        {
+            (optimize ? eeir_optimized_bytes : eeir_baseline_bytes) += out.host_size;
+            (optimize ? eeir_optimized_frames : eeir_baseline_frames) += out.frame_size;
+        }
+        if (division_modes)
+        {
+            same &= optimize && options.inline_division ? helper_calls == 0 : helper_calls == 1;
+            if (mode == 1)
+                eeir_native_division_bytes += out.host_size;
+            else if (mode == 4)
+                eeir_helper_division_bytes += out.host_size;
+        }
 
         // Both lowering modes and the interpreter start with the same state,
         // including memory modified by a preceding store in this test.
@@ -2209,6 +2230,210 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
 
 void EEIrExecutionTests()
 {
+    {
+        const std::array<std::array<u64, 3>, 8> edges = {{
+            {{0, 0, 0}}, {{1, 1, 0}}, {{~u64(0), ~u64(0), 0}},
+            {{0x80000000, 0xffffffff, 0x80000000}},
+            {{0x8000000000000000ull, ~u64(0), 0x8000000000000000ull}},
+            {{~u64(0), 2, 0x7fffffffffffffffull}},
+            {{0x12345678abcdef01ull, 0xfeedface, 0xff00ff00ff00ff00ull}},
+            {{7, 3, 20}}
+        }};
+        for (ir::Type type : {ir::Type::I32, ir::Type::I64})
+        {
+            for (bool constants : {false, true})
+            {
+                for (const auto& edge : edges)
+                {
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(EE_TEST_PC);
+                    u32 args[3];
+                    for (u32 i = 0; i < 3; ++i)
+                        args[i] = constants ? (type == ir::Type::I64 ? b.ConstI64(edge[i]) : b.ConstI32(static_cast<u32>(edge[i]))) :
+                            b.Emit(ir::Op::ReadGpr, type, {}, 8 + i);
+                    const u32 value = b.Emit3(ir::Op::Msub, type, args[0], args[1], args[2]);
+                    b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, 11, type == ir::Type::I64 ? ir::IF_WIDE_WRITE : 0);
+                    b.Resume(EE_TEST_PC + 4);
+                    const u64 raw = edge[2] - edge[0] * edge[1];
+                    const u64 expected = type == ir::Type::I64 ? raw : static_cast<u64>(static_cast<s64>(static_cast<s32>(raw)));
+                    bool same = true;
+                    for (bool optimize : {false, true})
+                    {
+                        for (bool allocate : {false, true})
+                        {
+                            EeIr::LowerOptions options;
+                            options.optimize_ir = optimize;
+                            options.allocate_registers = allocate;
+                            EeIr::LowerOutput out;
+                            std::string error;
+                            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                            {
+                                same = false;
+                                continue;
+                            }
+                            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                            for (u32 i = 0; i < 3; ++i)
+                                cpuRegs.GPR.r[8 + i].UD[0] = edge[i];
+                            reinterpret_cast<void (*)()>(out.entry)();
+                            same &= cpuRegs.GPR.r[11].UD[0] == expected;
+                            for (u32 i = 0; i < 3; ++i)
+                                same &= cpuRegs.GPR.r[8 + i].UD[0] == edge[i];
+                        }
+                    }
+                    char name[96];
+                    std::snprintf(name, sizeof(name), "ir msub %s constants=%u edge=%016llx", ir::TypeName(type), constants,
+                        static_cast<unsigned long long>(edge[0]));
+                    Check(same, name);
+                }
+            }
+        }
+        for (u32 invalid = 0; invalid < 3; ++invalid)
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const ir::Type type = invalid == 0 ? ir::Type::F32 : ir::Type::I32;
+            const u32 a = invalid == 0 ? b.Emit(ir::Op::ConstF32, type, {}, 0) : b.ConstI32(3);
+            const u32 c = invalid == 1 ? b.ConstI64(7) : a;
+            if (invalid == 2)
+                b.Emit2(ir::Op::Msub, type, a, c);
+            else
+                b.Emit3(ir::Op::Msub, type, a, a, c);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(!ir::Verify(fn, &error), "ir msub rejects noninteger, mixed-width or missing operands");
+        }
+    }
+    {
+        // Test the raw division/remainder IR separately from the guest lifter,
+        // which now shares the quotient with its remainder. A result can reuse
+        // a dying source register here, exercising the scratch-register rule.
+        const u32 edges[] = {0, 1, 3, 0x7fffffffu, 0x80000000u,
+            0x80000001u, 0xfffffffeu, 0xffffffffu};
+        for (ir::Op op : {ir::Op::DivS, ir::Op::DivU, ir::Op::RemS, ir::Op::RemU})
+        {
+            const bool sign = op == ir::Op::DivS || op == ir::Op::RemS;
+            const bool remainder = op == ir::Op::RemS || op == ir::Op::RemU;
+            for (u32 lhs : edges)
+            {
+                for (u32 rhs : edges)
+                {
+                    u64 initial[32] = {};
+                    initial[8] = 0x1234567800000000ull | lhs;
+                    initial[9] = 0x8765432100000000ull | rhs;
+                    const auto interp = RunEEProgram(false, {MipsR(8, 9, 0, 0, sign ? 0x1a : 0x1b)}, false, initial);
+                    const u64 expected = remainder ? interp.hi : interp.lo;
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(EE_TEST_PC);
+                    const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+                    const u32 c = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 9);
+                    const u32 value = b.Emit2(op, ir::Type::I32, a, c);
+                    b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, 10);
+                    b.Resume(EE_TEST_PC + 4);
+                    bool same = true;
+                    for (bool optimize : {false, true})
+                    {
+                        for (bool allocate : {false, true})
+                        {
+                            EeIr::LowerOptions options;
+                            options.optimize_ir = optimize;
+                            options.allocate_registers = allocate;
+                            EeIr::LowerOutput out;
+                            std::string error;
+                            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                            {
+                                same = false;
+                                continue;
+                            }
+                            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                            cpuRegs.GPR.r[8].UD[0] = initial[8];
+                            cpuRegs.GPR.r[9].UD[0] = initial[9];
+                            cpuRegs.cycle = 0x654321;
+                            reinterpret_cast<void (*)()>(out.entry)();
+                            same &= cpuRegs.GPR.r[10].UD[0] == expected && cpuRegs.GPR.r[8].UD[0] == initial[8] &&
+                                cpuRegs.GPR.r[9].UD[0] == initial[9] && cpuRegs.cycle == 0x654321;
+                        }
+                    }
+                    char name[96];
+                    std::snprintf(name, sizeof(name), "ir native primitive %s %08x/%08x", ir::OpName(op), lhs, rhs);
+                    Check(same, name);
+                }
+            }
+        }
+    }
+    {
+        // Exercise the full signed/unsigned edge matrix from guest registers,
+        // so constant folding cannot hide the native divide implementation.
+        // Compare helper, allocated, stack, non-rematerialized and optimized-helper lowering.
+        const u32 edges[] = {0, 1, 2, 3, 0x7fffffffu, 0x80000000u,
+            0x80000001u, 0xfffffffeu, 0xffffffffu};
+        for (bool sign : {false, true})
+        {
+            for (u32 lhs : edges)
+            {
+                for (u32 rhs : edges)
+                {
+                    u64 initial[32] = {};
+                    initial[8] = 0x1234567800000000ull | lhs;
+                    initial[9] = 0x8765432100000000ull | rhs;
+                    char name[96];
+                    std::snprintf(name, sizeof(name), "ir native %s %08x/%08x", sign ? "div" : "divu", lhs, rhs);
+                    RunEEIrCase(name, {
+                        MipsR(8, 9, 0, 0, sign ? 0x1a : 0x1b),
+                        MipsR(0, 0, 10, 0, 0x12), MipsR(0, 0, 11, 0, 0x10),
+                        MipsR(8, 0, 12, 0, 0x2d), MipsR(9, 0, 13, 0, 0x2d)
+                    }, initial, true);
+                }
+            }
+        }
+        // Same-register and zero-register inputs cover allocator aliasing and
+        // rematerialized zero operands, including signed zero/zero behavior.
+        for (u32 edge : edges)
+        {
+            u64 initial[32] = {};
+            initial[8] = 0xfeedface00000000ull | edge;
+            for (bool sign : {false, true})
+            {
+                for (u32 rhs_reg : {0u, 8u})
+                {
+                    char name[96];
+                    std::snprintf(name, sizeof(name), "ir native %s alias %08x/r%u", sign ? "div" : "divu", edge, rhs_reg);
+                    RunEEIrCase(name, {MipsR(8, rhs_reg, 0, 0, sign ? 0x1a : 0x1b),
+                        MipsR(0, 0, 8, 0, 0x12), MipsR(0, 0, 9, 0, 0x10)}, initial, true);
+                }
+            }
+        }
+        // Real dispatch/branch-tail execution verifies the cycle delta is
+        // preserved when no division helper flush/reload is emitted.
+        for (bool sign : {false, true})
+        {
+            for (u32 lhs : {0u, 0x80000000u, 0xffffffffu, 0x7fffffffu})
+            {
+                for (u32 rhs : {0u, 3u, 0xffffffffu})
+                {
+                    u64 initial[32] = {};
+                    initial[8] = lhs;
+                    initial[9] = rhs;
+                    const std::vector<u32> code = {
+                        MipsI(4, 0, 0, 2), MipsR(8, 9, 0, 0, sign ? 0x1a : 0x1b),
+                        MipsI(9, 0, 14, 0xdead),
+                        MipsR(0, 0, 10, 0, 0x12), MipsR(0, 0, 11, 0, 0x10),
+                        MipsI(9, 8, 8, 1)
+                    };
+                    char name[96];
+                    std::snprintf(name, sizeof(name), "ir native %s delay %08x/%08x integrated", sign ? "div" : "divu", lhs, rhs);
+                    const auto interp = RunEEProgram(false, code, true, initial);
+                    const auto jit = RunEEProgram(true, code, true, initial);
+                    CompareEE(interp, jit, name);
+                    // The forced exit budget is 4096 EE cycles. A trailing
+                    // self-branch can overshoot only by one small block.
+                    Check(jit.cycle >= 4096 && jit.cycle < 4160, "ir native division preserves dispatch cycle budget");
+                }
+            }
+        }
+    }
     {
         ir::Function fn;
         ir::Builder b(fn);
@@ -2698,6 +2923,11 @@ void EEIrExecutionTests()
         static_cast<unsigned long long>(eeir_optimized_bytes),
         static_cast<unsigned long long>(eeir_baseline_frames),
         static_cast<unsigned long long>(eeir_optimized_frames));
+    std::printf("EEIR division code_bytes native=%llu optimized_helpers=%llu\n",
+        static_cast<unsigned long long>(eeir_native_division_bytes),
+        static_cast<unsigned long long>(eeir_helper_division_bytes));
+    Check(eeir_native_division_bytes < eeir_helper_division_bytes,
+        "ir native division reduces code against equally optimized helper lowering");
     Check(eeir_optimized_bytes < eeir_baseline_bytes && eeir_optimized_frames < eeir_baseline_frames,
         "ir optimizer reduces emitted code and spill frames");
 

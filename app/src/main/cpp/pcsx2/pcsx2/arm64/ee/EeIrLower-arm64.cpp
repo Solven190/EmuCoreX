@@ -88,6 +88,7 @@ namespace EeIr
 				case ir::Op::MaxS:
 				case ir::Op::MaxU:
 				case ir::Op::Mul:
+				case ir::Op::Msub:
 				case ir::Op::Shl:
 				case ir::Op::ShrU:
 				case ir::Op::ShrS:
@@ -133,7 +134,7 @@ namespace EeIr
 		// write in place: a following memory helper may observe state or fault.
 		// Helpers/accesses are barriers even for ordinary RAM because the same
 		// operation can dispatch MMIO, events or guest exception handlers.
-		void ForwardEEStateReads(ir::Function& fn)
+		void ForwardEEStateReads(ir::Function& fn, bool inline_division)
 		{
 			struct CachedState { u32 narrow = 0, wide = 0; bool sign_extended = false; };
 			for (ir::Block& block : fn.blocks)
@@ -143,7 +144,8 @@ namespace EeIr
 				{
 					const auto kind = ir::Info(inst.op).kind;
 					if (kind == ir::OpKind::MemLoad || kind == ir::OpKind::MemStore || kind == ir::OpKind::Helper ||
-						inst.op == ir::Op::DivS || inst.op == ir::Op::DivU || inst.op == ir::Op::RemS || inst.op == ir::Op::RemU)
+						(!inline_division && (inst.op == ir::Op::DivS || inst.op == ir::Op::DivU ||
+							inst.op == ir::Op::RemS || inst.op == ir::Op::RemU)))
 					{
 						cache = {};
 						continue;
@@ -204,6 +206,7 @@ namespace EeIr
 				, m_capture_exit(options.capture_exit_pc)
 				, m_materialize_constants(options.materialize_constants)
 				, m_allocate_registers(options.allocate_registers)
+				, m_inline_division(options.optimize_ir && options.inline_division)
 			{
 			}
 
@@ -335,6 +338,7 @@ namespace EeIr
 			bool m_capture_exit = false;
 			bool m_materialize_constants = true;
 			bool m_allocate_registers = true;
+			bool m_inline_division = true;
 			std::vector<std::optional<u64>> m_constants;
 			std::vector<u32> m_slots;
 			std::vector<int> m_registers;
@@ -949,11 +953,76 @@ namespace EeIr
 					return true;
 				}
 
+				case ir::Op::Msub:
+				{
+					recBeginOaknutEmit();
+					if (inst.type == ir::Type::I64)
+					{
+						const auto lhs = Operand64(a[0], oak::util::X0);
+						const auto rhs = Operand64(a[1], oak::util::X1);
+						const auto addend = Operand64(a[2], oak::util::X2);
+						const auto dst = Result64(inst.value);
+						oakAsm->MSUB(dst, lhs, rhs, addend);
+						Store64(inst.value, dst);
+					}
+					else
+					{
+						const auto lhs = Operand32(a[0], oak::util::W0);
+						const auto rhs = Operand32(a[1], oak::util::W1);
+						const auto addend = Operand32(a[2], oak::util::W2);
+						const auto dst = Result32(inst.value);
+						oakAsm->MSUB(dst, lhs, rhs, addend);
+						Store32(inst.value, dst);
+					}
+					recEndOaknutEmit();
+					return true;
+				}
+
 				case ir::Op::DivS:
 				case ir::Op::RemS:
 				case ir::Op::DivU:
 				case ir::Op::RemU:
 				{
+					if (m_inline_division)
+					{
+						recBeginOaknutEmit();
+						const auto lhs = Operand32(a[0], oak::util::W0);
+						const auto rhs = Operand32(a[1], oak::util::W1);
+						const auto dst = Result32(inst.value);
+						const bool sign = inst.op == ir::Op::DivS || inst.op == ir::Op::RemS;
+						// Keep the quotient in scratch: coalescing may assign dst
+						// to an operand that is still needed for the remainder or
+						// the R5900 divide-by-zero correction below.
+						if (sign)
+							oakAsm->SDIV(oak::util::W2, lhs, rhs);
+						else
+							oakAsm->UDIV(oak::util::W2, lhs, rhs);
+						if (inst.op == ir::Op::RemS || inst.op == ir::Op::RemU)
+						{
+							// ARM64's zero-divisor quotient is zero, so MSUB also
+							// returns the dividend in that case. INT_MIN / -1
+							// wraps to INT_MIN and produces a zero remainder.
+							oakAsm->MSUB(dst, oak::util::W2, rhs, lhs);
+						}
+						else
+						{
+							if (sign)
+							{
+								// R5900 signed divide by zero: negative -> 1,
+								// nonnegative -> -1, including a zero dividend.
+								oakAsm->ASR(oak::util::W3, lhs, 31);
+								oakAsm->LSL(oak::util::W3, oak::util::W3, 1);
+								oakAsm->MVN(oak::util::W3, oak::util::W3);
+							}
+							else
+								oakAsm->MOV(oak::util::W3, 0xffffffffu);
+							oakAsm->CMP(rhs, 0);
+							oakAsm->CSEL(dst, oak::util::W3, oak::util::W2, oak::Cond::EQ);
+						}
+						Store32(inst.value, dst);
+						recEndOaknutEmit();
+						return true;
+					}
 					const void* helper = nullptr;
 					switch (inst.op)
 					{
@@ -1257,7 +1326,7 @@ namespace EeIr
 			if (!CanLower(fn, options.inline_body, error))
 				return false;
 			ir::Function optimized = fn;
-			ForwardEEStateReads(optimized);
+			ForwardEEStateReads(optimized, options.inline_division);
 			ir::OptimizeIntegerValues(optimized);
 			Lowerer lowerer(optimized, options);
 			return lowerer.Run(code, capacity, out, error);

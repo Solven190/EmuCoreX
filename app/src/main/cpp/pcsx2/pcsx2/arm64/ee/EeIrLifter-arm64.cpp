@@ -251,8 +251,13 @@ namespace EeIr
 					const bool sign = (Funct(word) == 0x1A);
 					const u32 a = ReadGpr(rs);
 					const u32 b = ReadGpr(rt);
-					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, Bin(sign ? ir::Op::DivS : ir::Op::DivU, a, b));
-					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, Bin(sign ? ir::Op::RemS : ir::Op::RemU, a, b));
+					const u32 quotient = Bin(sign ? ir::Op::DivS : ir::Op::DivU, a, b);
+					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, quotient);
+					// Reuse the quotient instead of dividing a second time. I32
+					// arithmetic wraps: a - q*b also returns a for b == 0 and
+					// zero for INT_MIN / -1, exactly matching R5900 HI.
+					const u32 remainder = m_b.Emit3(ir::Op::Msub, ir::Type::I32, quotient, b, a);
+					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, remainder);
 					return true;
 				}
 				case 0x20: // add (traps on overflow)
