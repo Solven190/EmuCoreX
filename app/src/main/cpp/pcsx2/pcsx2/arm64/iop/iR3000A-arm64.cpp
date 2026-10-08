@@ -48,6 +48,7 @@ static u64 s_iopIrMemoryOperations = 0;
 static u64 s_iopIrDirectLoads = 0;
 static u64 s_iopIrMulDivInstructions = 0;
 static u64 s_iopIrBranches = 0;
+static u64 s_iopIrCop0Instructions = 0;
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 static int s_iopIrOverride = -1;
 extern "C" void EmuCoreXOracleSetIOPIR(int enabled) { s_iopIrOverride = enabled < 0 ? -1 : (enabled != 0); }
@@ -57,6 +58,7 @@ extern "C" u64 EmuCoreXOracleIOPIRMemoryOperations() { return s_iopIrMemoryOpera
 extern "C" u64 EmuCoreXOracleIOPIRDirectLoads() { return s_iopIrDirectLoads; }
 extern "C" u64 EmuCoreXOracleIOPIRMulDivInstructions() { return s_iopIrMulDivInstructions; }
 extern "C" u64 EmuCoreXOracleIOPIRBranches() { return s_iopIrBranches; }
+extern "C" u64 EmuCoreXOracleIOPIRCop0Instructions() { return s_iopIrCop0Instructions; }
 #endif
 
 static bool IopIrEnabled()
@@ -1805,6 +1807,7 @@ static bool TryIopIrSequence()
     // source fragment first, including penalties even if results fold away.
     for (u32 i = 0; i < accepted; ++i)
     {
+        if ((code[i] >> 26) == 16) ++s_iopIrCop0Instructions;
         const u32 funct = code[i] & 63;
         if ((code[i] >> 26) == 0 && funct >= 0x18 && funct <= 0x1b)
         {
@@ -1838,11 +1841,11 @@ static bool TryIopIrSequence()
     fused_multiply_pairs += out.fused_multiply_pairs;
     if ((sequences <= 1024 && (sequences & (sequences - 1)) == 0) || sequences % 4096 == 0)
         __android_log_print(ANDROID_LOG_INFO, "IOPIR",
-            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u memory_operations=%llu direct_loads=%llu native_div=%u muldiv_instructions=%llu fused_multiply_pairs=%llu control_branches=%llu",
+            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u memory_operations=%llu direct_loads=%llu native_div=%u muldiv_instructions=%llu fused_multiply_pairs=%llu control_branches=%llu cop0_instructions=%llu",
             static_cast<unsigned long long>(sequences), static_cast<unsigned long long>(s_iopIrInstructions),
             static_cast<unsigned long long>(native_bytes), psxpc - accepted * 4, out.register_values, out.spill_values, out.frame_size,
             static_cast<unsigned long long>(s_iopIrMemoryOperations), static_cast<unsigned long long>(s_iopIrDirectLoads),
-            options.inline_division ? 1u : 0u, static_cast<unsigned long long>(s_iopIrMulDivInstructions), static_cast<unsigned long long>(fused_multiply_pairs), static_cast<unsigned long long>(s_iopIrBranches));
+            options.inline_division ? 1u : 0u, static_cast<unsigned long long>(s_iopIrMulDivInstructions), static_cast<unsigned long long>(fused_multiply_pairs), static_cast<unsigned long long>(s_iopIrBranches), static_cast<unsigned long long>(s_iopIrCop0Instructions));
 #endif
     return true;
 }

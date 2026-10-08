@@ -7,6 +7,7 @@
 #include "arm64/cpuRegistersPack-arm64.h"
 #include "Memory.h"
 #include "IopMem.h"
+#include "IopDma.h"
 
 #include <cstdio>
 #include <cstring>
@@ -148,6 +149,9 @@ namespace Arm64Ir
 				case ir::Op::Store32:
 				case ir::Op::Store64:
 				case ir::Op::Store128:
+				case ir::Op::ReadCp0:
+				case ir::Op::WriteCp0:
+				case ir::Op::CheckInterrupts:
 				case ir::Op::ReadGpr:
 				case ir::Op::WriteGpr:
 				case ir::Op::ReadHi:
@@ -171,7 +175,7 @@ namespace Arm64Ir
 			struct CachedState { u32 narrow = 0, wide = 0; bool sign_extended = false; u32 quad = 0; };
 			for (ir::Block& block : fn.blocks)
 			{
-				std::array<CachedState, 34> cache{}; // GPR[32], HI, LO
+				std::array<CachedState, 66> cache{}; // GPR[32], HI, LO, CP0[32]
 				for (ir::Inst& inst : block.insts)
 				{
 					const auto kind = ir::Info(inst.op).kind;
@@ -182,11 +186,12 @@ namespace Arm64Ir
 						cache = {};
 						continue;
 					}
-					const bool read = inst.op == ir::Op::ReadGpr || inst.op == ir::Op::ReadHi || inst.op == ir::Op::ReadLo;
-					const bool write = inst.op == ir::Op::WriteGpr || inst.op == ir::Op::WriteHi || inst.op == ir::Op::WriteLo;
+					const bool read = inst.op == ir::Op::ReadGpr || inst.op == ir::Op::ReadHi || inst.op == ir::Op::ReadLo || inst.op == ir::Op::ReadCp0;
+					const bool write = inst.op == ir::Op::WriteGpr || inst.op == ir::Op::WriteHi || inst.op == ir::Op::WriteLo || inst.op == ir::Op::WriteCp0;
 					if (!read && !write)
 						continue;
-					const u32 reg = (inst.op == ir::Op::ReadGpr || inst.op == ir::Op::WriteGpr) ?
+					const u32 reg = (inst.op == ir::Op::ReadCp0 || inst.op == ir::Op::WriteCp0) ? 34u + static_cast<u32>(inst.imm) :
+						(inst.op == ir::Op::ReadGpr || inst.op == ir::Op::WriteGpr) ?
 						static_cast<u32>(inst.imm) : (inst.op == ir::Op::ReadHi || inst.op == ir::Op::WriteHi) ? 32u : 33u;
 					if (reg == 0)
 						continue;
@@ -1754,6 +1759,25 @@ namespace Arm64Ir
 					return true;
 				}
 
+				case ir::Op::ReadCp0:
+					recBeginOaknutEmit();
+					oakLoad32(Result32(inst.value), {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.CP0) + inst.imm * sizeof(u32))});
+					Store32(inst.value, Result32(inst.value));
+					recEndOaknutEmit();
+					return true;
+
+				case ir::Op::WriteCp0:
+					recBeginOaknutEmit();
+					oakStore32(Operand32(a[0], oak::util::W0), {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.CP0) + inst.imm * sizeof(u32))});
+					recEndOaknutEmit();
+					return true;
+
+				case ir::Op::CheckInterrupts:
+					recBeginOaknutEmit();
+					call_helper(reinterpret_cast<const void*>(&iopTestIntc));
+					recEndOaknutEmit();
+					return true;
+
 				case ir::Op::ReadGpr:
 					recBeginOaknutEmit();
 					if (inst.type == ir::Type::V4U32)
@@ -1956,6 +1980,11 @@ namespace Arm64Ir
 		{
 			for (const ir::Inst& inst : block.insts)
 			{
+				if (guest_state != GuestState::IOP && (inst.op == ir::Op::ReadCp0 || inst.op == ir::Op::WriteCp0 || inst.op == ir::Op::CheckInterrupts))
+				{
+					if (error) *error = "COP0/interrupt lowering is only modelled for IOP";
+					return false;
+				}
 				if (guest_state == GuestState::IOP)
 				{
 					// IOP accepts 32-bit integer state, memory and control.
@@ -1975,6 +2004,7 @@ namespace Arm64Ir
 						case ir::Op::CmpEq: case ir::Op::CmpNe: case ir::Op::CmpLeS:
 						case ir::Op::CmpGtS: case ir::Op::CmpGeS:
 						case ir::Op::Jump: case ir::Op::Branch: case ir::Op::BranchIndirect:
+						case ir::Op::ReadCp0: case ir::Op::WriteCp0: case ir::Op::CheckInterrupts:
 						case ir::Op::ReadGpr: case ir::Op::WriteGpr:
 						case ir::Op::ReadHi: case ir::Op::WriteHi:
 						case ir::Op::ReadLo: case ir::Op::WriteLo:

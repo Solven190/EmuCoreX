@@ -75,6 +75,27 @@ namespace IopIr
                 case 13: op = ir::Op::Or; break;
                 case 14: op = ir::Op::Xor; break;
                 case 15: write(rt, b.ConstI32(word << 16)); return true;
+                case 16:
+                    switch (rs)
+                    {
+                        case 0: case 2: // MFC0/CFC0: no read side effect for $0
+                            if (rt) write(rt, b.Emit(ir::Op::ReadCp0, ir::Type::I32, {}, rd));
+                            return true;
+                        case 4: case 6: // MTC0/CTC0: all fields are writable in the current core
+                            b.Emit1(ir::Op::WriteCp0, ir::Type::Void, read(rt), rd);
+                            return true;
+                        case 16: // Legacy COP0 dispatch selects RFE by Rs, including low-bit aliases.
+                        {
+                            const u32 status = b.Emit(ir::Op::ReadCp0, ir::Type::I32, {}, 12);
+                            const u32 low = b.Emit2(ir::Op::And, ir::Type::I32, status, b.ConstI32(0x3c));
+                            const u32 restored = b.Emit2(ir::Op::ShrU, ir::Type::I32, low, b.ConstI32(2));
+                            const u32 upper = b.Emit2(ir::Op::And, ir::Type::I32, status, b.ConstI32(0xfffffff0u));
+                            b.Emit1(ir::Op::WriteCp0, ir::Type::Void, b.Emit2(ir::Op::Or, ir::Type::I32, upper, restored), 12);
+                            b.Emit0(ir::Op::CheckInterrupts, ir::Type::Void);
+                            return true;
+                        }
+                        default: return false;
+                    }
                 case 0:
                 {
                     switch (word & 63)

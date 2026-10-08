@@ -125,6 +125,8 @@ namespace ir
 	/* Guest architectural state */ \
 	X(ReadGpr,      StateRead,   0, 0, Any,  false) \
 	X(WriteGpr,     StateWrite,  1, 1, Void, false) \
+	X(ReadCp0,      StateRead,   0, 0, I32,  false) \
+	X(WriteCp0,     StateWrite,  1, 1, Void, false) \
 	X(ReadFpr,      StateRead,   0, 0, F32,  false) \
 	X(WriteFpr,     StateWrite,  1, 1, Void, false) \
 	X(ReadVf,       StateRead,   0, 0, V4F32, false) \
@@ -148,6 +150,7 @@ namespace ir
 	X(Return,       Control,     0, 0, Void, true) \
 	X(Trap,         Control,     0, 0, Void, true) \
 	X(AddCycles,    Cycle,       0, 0, Void, false) \
+	X(CheckInterrupts, Helper,  0, 0, Void, false) \
 	X(CallHelper,   Helper,      0, 4, Any,  false) \
 	/* EE FPU */ \
 	X(FAdd,         FpuBinary,   2, 2, F32,  false) \

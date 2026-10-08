@@ -42,6 +42,8 @@ namespace ir
 			if (inst.num_args < info.min_args || inst.num_args > info.max_args)
 				return Fail(error, std::string(OpName(inst.op)) + ": bad operand count");
 
+			if ((inst.op == Op::ReadCp0 || inst.op == Op::WriteCp0) && inst.imm >= 32)
+				return Fail(error, "COP0: register index is out of range");
 			if (inst.op == Op::ConstVec && inst.imm >= fn.vec_consts.size())
 				return Fail(error, "ConstVec: constant pool index is out of range");
 			if ((inst.op == Op::VShuffle && inst.imm > 0xff) || (inst.op == Op::VShuffle2 && inst.imm > 0xfff))
@@ -169,6 +171,8 @@ namespace ir
 				}
 				case OpKind::StateWrite:
 				{
+					if (inst.op == Op::WriteCp0 && fn.ValueType(inst.args[0]) != Type::I32)
+						return Fail(error, "COP0: 32-bit write required");
 					if (inst.args[0] == 0)
 						return Fail(error, std::string(OpName(inst.op)) + ": missing value");
 					break;
