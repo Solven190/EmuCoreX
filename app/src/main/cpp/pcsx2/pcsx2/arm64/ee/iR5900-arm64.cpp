@@ -2511,6 +2511,10 @@ static void EeIrBeforeHelperHook(void* ctx)
 static void EeIrAfterHelperHook(void* ctx)
 {
 	recReloadReccycle();
+}
+
+static void EeIrAfterMemoryHook(void* ctx)
+{
 	// A successful access in a delay slot must not leave BD state behind
 	// for a later legacy instruction or an event-handler exception.
 	oakStore32(oak::util::WZR, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
@@ -2531,10 +2535,18 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			return false;
 	}
 
+	bool quad_memory = true;
+#if defined(__ANDROID__)
+	static const bool enable_quad_memory = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_quad", value) == 0 || value[0] != '0';
+	}();
+	quad_memory = enable_quad_memory;
+#endif
 	ir::Function fn;
 	u32 end = 0;
 	std::string error;
-	if (!EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(startpc)), {startpc, insts}, fn, &end, &error))
+	if (!EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(startpc)), {startpc, insts, quad_memory}, fn, &end, &error))
 		return false;
 
 	if (end != s_nEndBlock)
@@ -2561,6 +2573,10 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	hooks.before_memory = &EeIrBeforeMemoryHook;
 	hooks.before_helper = &EeIrBeforeHelperHook;
 	hooks.after_helper = &EeIrAfterHelperHook;
+	hooks.after_memory = &EeIrAfterMemoryHook;
+	// These two memory hooks emit integer state stores only; C-helper hooks
+	// retain the full caller-save clobber contract.
+	hooks.memory_preserves_vectors = true;
 
 	EeIr::LowerOutput out;
 	EeIr::LowerOptions options;
@@ -2572,11 +2588,41 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		return __system_property_get("debug.emucorex.ee_ir_regalloc", value) == 0 || value[0] != '0';
 	}();
 	options.allocate_registers = allocate_registers;
+	static const bool allocate_vector_registers = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_vector_regalloc", value) == 0 || value[0] != '0';
+	}();
+	options.allocate_vector_registers = allocate_vector_registers;
 	static const bool optimize_ir = []() {
 		char value[PROP_VALUE_MAX] = {};
 		return __system_property_get("debug.emucorex.ee_ir_optimize", value) == 0 || value[0] != '0';
 	}();
 	options.optimize_ir = optimize_ir;
+	static const bool inline_division = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_native_div", value) == 0 || value[0] != '0';
+	}();
+	options.inline_division = inline_division;
+	static const bool direct_quad_memory = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_direct_quad", value) == 0 || value[0] != '0';
+	}();
+	options.direct_quad_memory = direct_quad_memory;
+	static const bool direct_quad_vectors = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_direct_vectors", value) == 0 || value[0] != '0';
+	}();
+	options.direct_quad_vectors = direct_quad_vectors;
+	static const bool reuse_spill_slots = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_spill_reuse", value) == 0 || value[0] != '0';
+	}();
+	options.reuse_spill_slots = reuse_spill_slots;
+	static const bool forward_quad_state = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_quad_forward", value) == 0 || value[0] != '0';
+	}();
+	options.forward_quad_state = forward_quad_state;
 #endif
 	if (!EeIr::LowerBlock(fn, options, nullptr, 0, &out, &error))
 	{
@@ -2589,6 +2635,36 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	static u64 compiled_blocks = 0;
 	static u64 guest_instructions = 0;
 	static u64 native_bytes = 0;
+	static u64 division_pairs = 0;
+	static u64 quad_operations = 0;
+	static u64 direct_quad_operations = 0, direct_quad_vector_operations = 0;
+	static u64 vector_alu_operations = 0, packed_word_shifts = 0, vector_compare_minmax = 0;
+	static u64 vector_shuffles = 0, fused_multiply_pairs = 0;
+	static u64 vector_register_values = 0, vector_save_values = 0;
+	for (const ir::Block& block : fn.blocks)
+		for (const ir::Inst& inst : block.insts)
+		{
+			if (inst.op == ir::Op::DivS || inst.op == ir::Op::DivU)
+				++division_pairs;
+			if (inst.op == ir::Op::Load128 || inst.op == ir::Op::Store128)
+				++quad_operations;
+			if (inst.type == ir::Type::V4U32 && (inst.op == ir::Op::Add || inst.op == ir::Op::Sub ||
+				inst.op == ir::Op::And || inst.op == ir::Op::Or || inst.op == ir::Op::Xor || inst.op == ir::Op::Not))
+				++vector_alu_operations;
+			if (inst.op == ir::Op::VShl || inst.op == ir::Op::VShrU || inst.op == ir::Op::VShrS)
+				++packed_word_shifts;
+			if (inst.type == ir::Type::V4U32 && (inst.op == ir::Op::VMinS || inst.op == ir::Op::VMinU ||
+				inst.op == ir::Op::VMaxS || inst.op == ir::Op::VMaxU || inst.op == ir::Op::VCmpEq || inst.op == ir::Op::VCmpNe ||
+				inst.op == ir::Op::VCmpLtS || inst.op == ir::Op::VCmpLtU || inst.op == ir::Op::VCmpLeS || inst.op == ir::Op::VCmpLeU))
+				++vector_compare_minmax;
+			if (inst.op == ir::Op::VShuffle || inst.op == ir::Op::VShuffle2)
+				++vector_shuffles;
+		}
+	fused_multiply_pairs += out.fused_multiply_pairs;
+	direct_quad_operations += out.direct_quad_operations;
+	direct_quad_vector_operations += out.direct_quad_vector_operations;
+	vector_register_values += out.vector_register_values;
+	vector_save_values += out.vector_save_values;
 	++compiled_blocks;
 	guest_instructions += insts;
 	native_bytes += out.host_size;
@@ -2596,11 +2672,20 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu fused_multiply_pairs=%llu",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
-			options.optimize_ir ? 1u : 0u, out.register_values, out.spill_values, out.frame_size);
+			options.optimize_ir ? 1u : 0u, out.register_values, out.spill_values, out.frame_size,
+			options.optimize_ir && options.inline_division ? 1u : 0u, static_cast<unsigned long long>(division_pairs),
+			quad_memory ? 1u : 0u, static_cast<unsigned long long>(quad_operations),
+			static_cast<unsigned long long>(direct_quad_operations), options.optimize_ir && options.reuse_spill_slots ? 1u : 0u, out.spill_slots,
+			static_cast<unsigned long long>(vector_alu_operations), options.optimize_ir && options.forward_quad_state ? 1u : 0u,
+			options.allocate_registers && options.allocate_vector_registers ? 1u : 0u,
+			static_cast<unsigned long long>(vector_register_values), static_cast<unsigned long long>(vector_save_values),
+			options.direct_quad_vectors ? 1u : 0u, static_cast<unsigned long long>(direct_quad_vector_operations),
+			static_cast<unsigned long long>(packed_word_shifts), static_cast<unsigned long long>(vector_compare_minmax),
+			static_cast<unsigned long long>(vector_shuffles), static_cast<unsigned long long>(fused_multiply_pairs));
 	}
 #endif
 

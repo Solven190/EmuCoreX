@@ -42,6 +42,13 @@ namespace ir
 			if (inst.num_args < info.min_args || inst.num_args > info.max_args)
 				return Fail(error, std::string(OpName(inst.op)) + ": bad operand count");
 
+			if ((inst.op == Op::ReadCp0 || inst.op == Op::WriteCp0) && inst.imm >= 32)
+				return Fail(error, "COP0: register index is out of range");
+			if (inst.op == Op::ConstVec && inst.imm >= fn.vec_consts.size())
+				return Fail(error, "ConstVec: constant pool index is out of range");
+			if ((inst.op == Op::VShuffle && inst.imm > 0xff) || (inst.op == Op::VShuffle2 && inst.imm > 0xfff))
+				return Fail(error, "vector shuffle: lane selectors are out of range");
+
 			if (info.terminator != is_last)
 				return Fail(error, std::string(OpName(inst.op)) + ": terminator placement is wrong");
 
@@ -116,6 +123,13 @@ namespace ir
 						return Fail(error, std::string(OpName(inst.op)) + ": operands have different types");
 					break;
 				}
+				case OpKind::Ternary:
+				{
+					const Type t = fn.ValueType(inst.args[0]);
+					if (!IsIntegerType(t) || fn.ValueType(inst.args[1]) != t || fn.ValueType(inst.args[2]) != t)
+						return Fail(error, std::string(OpName(inst.op)) + ": matching integer operands required");
+					break;
+				}
 				case OpKind::Compare:
 				{
 					const Type t0 = fn.ValueType(inst.args[0]);
@@ -132,6 +146,9 @@ namespace ir
 					const Type t1 = fn.ValueType(inst.args[1]);
 					if (!IsIntegerType(t1))
 						return Fail(error, std::string(OpName(inst.op)) + ": shift amount must be integer");
+					if ((inst.op == Op::VShl || inst.op == Op::VShrU || inst.op == Op::VShrS) &&
+						t0 != Type::V4U32 && t0 != Type::V4I32)
+						return Fail(error, std::string(OpName(inst.op)) + ": integer vector operand required");
 					if (inst.type != t0)
 						return Fail(error, std::string(OpName(inst.op)) + ": shift result must match the value type");
 					break;
@@ -154,6 +171,8 @@ namespace ir
 				}
 				case OpKind::StateWrite:
 				{
+					if (inst.op == Op::WriteCp0 && fn.ValueType(inst.args[0]) != Type::I32)
+						return Fail(error, "COP0: 32-bit write required");
 					if (inst.args[0] == 0)
 						return Fail(error, std::string(OpName(inst.op)) + ": missing value");
 					break;

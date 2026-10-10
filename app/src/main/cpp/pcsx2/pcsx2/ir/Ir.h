@@ -79,6 +79,8 @@ namespace ir
 	X(Add,          Binary,      2, 2, Any,  false) \
 	X(Sub,          Binary,      2, 2, Any,  false) \
 	X(Mul,          Binary,      2, 2, Any,  false) \
+	/* Msub(a,b,c) = c - a*b, with modulo integer arithmetic. */ \
+	X(Msub,         Ternary,     3, 3, Any,  false) \
 	X(MulHiS,       Binary,      2, 2, Any,  false) \
 	X(MulHiU,       Binary,      2, 2, Any,  false) \
 	X(DivS,         Binary,      2, 2, Any,  false) \
@@ -123,6 +125,8 @@ namespace ir
 	/* Guest architectural state */ \
 	X(ReadGpr,      StateRead,   0, 0, Any,  false) \
 	X(WriteGpr,     StateWrite,  1, 1, Void, false) \
+	X(ReadCp0,      StateRead,   0, 0, I32,  false) \
+	X(WriteCp0,     StateWrite,  1, 1, Void, false) \
 	X(ReadFpr,      StateRead,   0, 0, F32,  false) \
 	X(WriteFpr,     StateWrite,  1, 1, Void, false) \
 	X(ReadVf,       StateRead,   0, 0, V4F32, false) \
@@ -146,6 +150,7 @@ namespace ir
 	X(Return,       Control,     0, 0, Void, true) \
 	X(Trap,         Control,     0, 0, Void, true) \
 	X(AddCycles,    Cycle,       0, 0, Void, false) \
+	X(CheckInterrupts, Helper,  0, 0, Void, false) \
 	X(CallHelper,   Helper,      0, 4, Any,  false) \
 	/* EE FPU */ \
 	X(FAdd,         FpuBinary,   2, 2, F32,  false) \
@@ -176,9 +181,11 @@ namespace ir
 	X(VNot,         VecUnary,    1, 1, Any,  false) \
 	X(VNeg,         VecUnary,    1, 1, Any,  false) \
 	X(VAbs,         VecUnary,    1, 1, Any,  false) \
+	/* Integer 32-bit lanes; scalar I32/I64 count masked with 31. */ \
 	X(VShl,         Shift,       2, 2, Any,  false) \
 	X(VShrU,        Shift,       2, 2, Any,  false) \
 	X(VShrS,        Shift,       2, 2, Any,  false) \
+	/* Integer min/max uses 32-bit lanes; integer compares return all ones/zero per lane. */ \
 	X(VMinS,        VecBinary,   2, 2, Any,  false) \
 	X(VMinU,        VecBinary,   2, 2, Any,  false) \
 	X(VMaxS,        VecBinary,   2, 2, Any,  false) \
@@ -190,7 +197,10 @@ namespace ir
 	X(VCmpLeS,      VecCompare,  2, 2, Any,  false) \
 	X(VCmpLeU,      VecCompare,  2, 2, Any,  false) \
 	X(VBroadcast,   VecLane,     1, 1, Any,  false) \
+	/* Bit-preserving 32-bit lanes. imm packs four selectors, low lane first: */ \
+	/* VShuffle uses 2 bits/lane (0..3); VShuffle2 uses 3 (a:0..3,b:4..7). */ \
 	X(VShuffle,     VecLane,     1, 1, Any,  false) \
+	X(VShuffle2,    VecLane2,    2, 2, Any,  false) \
 	X(VMerge,       VecLane2,    2, 2, Any,  false) \
 	X(VPack16,      VecUnary,    1, 1, Any,  false) \
 	X(VPack8,       VecUnary,    1, 1, Any,  false) \
@@ -216,6 +226,7 @@ namespace ir
 		Pseudo,
 		Unary,
 		Binary,
+		Ternary,
 		Compare,
 		Shift,
 		MemLoad,

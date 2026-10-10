@@ -283,12 +283,23 @@ namespace ir
 	{
 		bool RemovableValue(const Inst& inst)
 		{
-			if (!inst.value || !IsIntegerType(inst.type))
+			if (!inst.value)
+				return false;
+			if (IsVectorType(inst.type))
+				return inst.op == Op::ConstVec || inst.op == Op::Copy || inst.op == Op::ReadGpr ||
+					(inst.type == Type::V4U32 && (inst.op == Op::Add || inst.op == Op::Sub ||
+						inst.op == Op::And || inst.op == Op::Or || inst.op == Op::Xor || inst.op == Op::Not ||
+						inst.op == Op::VShl || inst.op == Op::VShrU || inst.op == Op::VShrS ||
+						inst.op == Op::VMinS || inst.op == Op::VMinU || inst.op == Op::VMaxS || inst.op == Op::VMaxU ||
+						inst.op == Op::VCmpEq || inst.op == Op::VCmpNe || inst.op == Op::VCmpLtS || inst.op == Op::VCmpLtU ||
+						inst.op == Op::VCmpLeS || inst.op == Op::VCmpLeU || inst.op == Op::VShuffle || inst.op == Op::VShuffle2));
+			if (!IsIntegerType(inst.type))
 				return false;
 			switch (inst.op)
 			{
 				case Op::ConstI32: case Op::ConstI64: case Op::Copy:
-				case Op::Add: case Op::Sub: case Op::Mul:
+				case Op::Add: case Op::Sub: case Op::Mul: case Op::Msub:
+				case Op::MulHiS: case Op::MulHiU:
 				case Op::And: case Op::Or: case Op::Xor: case Op::Not: case Op::Neg:
 				case Op::Shl: case Op::ShrU: case Op::ShrS:
 				case Op::Sext8: case Op::Sext16: case Op::Zext8: case Op::Zext16:
@@ -296,7 +307,7 @@ namespace ir
 				case Op::CmpEq: case Op::CmpNe: case Op::CmpLtS: case Op::CmpLtU:
 				case Op::CmpLeS: case Op::CmpLeU: case Op::CmpGtS: case Op::CmpGtU:
 				case Op::CmpGeS: case Op::CmpGeU: case Op::Select:
-				case Op::ReadGpr: case Op::ReadHi: case Op::ReadLo:
+				case Op::ReadGpr: case Op::ReadHi: case Op::ReadLo: case Op::ReadCp0:
 					return true;
 				default: return false;
 			}
@@ -328,6 +339,13 @@ namespace ir
 				case Op::Add: return a + b;
 				case Op::Sub: return a - b;
 				case Op::Mul: return a * b;
+				case Op::MulHiS:
+					if (bits != 32 || inst.type != Type::I32) return std::nullopt;
+					return static_cast<u64>(static_cast<s64>(static_cast<s32>(a)) * static_cast<s64>(static_cast<s32>(b))) >> 32;
+				case Op::MulHiU:
+					if (bits != 32 || inst.type != Type::I32) return std::nullopt;
+					return (static_cast<u64>(static_cast<u32>(a)) * static_cast<u32>(b)) >> 32;
+				case Op::Msub: return *constants[inst.args[2]] - a * b;
 				case Op::And: return a & b;
 				case Op::Or: return a | b;
 				case Op::Xor: return a ^ b;

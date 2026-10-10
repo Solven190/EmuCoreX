@@ -3,6 +3,13 @@
 
 #include "arm64/iop/iR3000A-arm64.h"
 #include "R3000A.h"
+#include "arm64/iop/IopIrLifter-arm64.h"
+#include "arm64/ir/IrLower-arm64.h"
+#include <array>
+#if defined(__ANDROID__)
+#include <android/log.h>
+#include <sys/system_properties.h>
+#endif
 #include "arm64/ee/BaseblockEx-arm64.h"
 #include "R5900OpcodeTables.h"
 #include "OpcodeFamilies.h"
@@ -34,6 +41,67 @@
 #if !defined(__ANDROID__)
 using namespace x86Emitter;
 #endif
+
+static u64 s_iopIrInstructions = 0;
+static u64 s_iopIrSpillSequences = 0;
+static u64 s_iopIrMemoryOperations = 0;
+static u64 s_iopIrDirectLoads = 0;
+static u64 s_iopIrMulDivInstructions = 0;
+static u64 s_iopIrBranches = 0;
+static u64 s_iopIrCop0Instructions = 0;
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+static int s_iopIrOverride = -1;
+extern "C" void EmuCoreXOracleSetIOPIR(int enabled) { s_iopIrOverride = enabled < 0 ? -1 : (enabled != 0); }
+extern "C" u64 EmuCoreXOracleIOPIRInstructions() { return s_iopIrInstructions; }
+extern "C" u64 EmuCoreXOracleIOPIRSpillSequences() { return s_iopIrSpillSequences; }
+extern "C" u64 EmuCoreXOracleIOPIRMemoryOperations() { return s_iopIrMemoryOperations; }
+extern "C" u64 EmuCoreXOracleIOPIRDirectLoads() { return s_iopIrDirectLoads; }
+extern "C" u64 EmuCoreXOracleIOPIRMulDivInstructions() { return s_iopIrMulDivInstructions; }
+extern "C" u64 EmuCoreXOracleIOPIRBranches() { return s_iopIrBranches; }
+extern "C" u64 EmuCoreXOracleIOPIRCop0Instructions() { return s_iopIrCop0Instructions; }
+#endif
+
+static bool IopIrEnabled()
+{
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+    if (s_iopIrOverride >= 0) return s_iopIrOverride != 0;
+    static const bool enabled = []() {
+        char value[PROP_VALUE_MAX] = {};
+        const bool result = __system_property_get("debug.emucorex.iop_ir", value) == 1 && value[0] == '1';
+        __android_log_print(ANDROID_LOG_INFO, "IOPIR", "enabled=%u property=debug.emucorex.iop_ir", result ? 1u : 0u);
+        return result;
+    }();
+    return enabled;
+#else
+    return false;
+#endif
+}
+
+static bool IopIrDirectLoadsEnabled()
+{
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+    static const bool enabled = []() {
+        char value[PROP_VALUE_MAX] = {};
+        return !(__system_property_get("debug.emucorex.iop_ir_direct_loads", value) == 1 && value[0] == '0');
+    }();
+    return enabled;
+#else
+    return true;
+#endif
+}
+
+static bool IopIrNativeDivisionEnabled()
+{
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+    static const bool enabled = []() {
+        char value[PROP_VALUE_MAX] = {};
+        return !(__system_property_get("debug.emucorex.iop_ir_native_div", value) == 1 && value[0] == '0');
+    }();
+    return enabled;
+#else
+    return true;
+#endif
+}
 
 extern void psxBREAK();
 
@@ -91,7 +159,7 @@ static void iopClearRecLUT(BASEBLOCK* base, int count);
 // IOP JIT maps only a subset of the 32-bit address space (RAM/ROM via the
 // 0x0000/0x8000/0xA000 bases). Any other PC (KUSEG aliases like 0x20000000,
 // HW registers, gaps) has a null LUT entry. Dereferencing PSX_GETBLOCK for
-// such a PC faults with address pc*2 (e.g. 0x40000030) – the top native
+// such a PC faults with address pc*2 (e.g. 0x40000030), the top native
 // crash in Android Vitals (iopRecRecompile). Guard every dereference.
 static __fi bool iopRecPageIsMapped(u32 pc)
 {
@@ -1214,7 +1282,7 @@ void psxSetBranchReg(u32 reg)
 void psxSetBranchImm(u32 imm)
 {
 	psxbranch = 1;
-	pxAssert(imm);
+	// Address zero is valid IOP RAM and uses the same cycle/WaitLoop tail.
 
 	// end the current block
 	oakAsm->MOV(OAK_WSCRATCH, imm);
@@ -1635,10 +1703,13 @@ void psxRecompileNextInstruction(bool delayslot, bool swapped_delayslot)
 		// EmuCoreX: user forced this opcode (or its family) onto the IOP
 		// interpreter. psxRegs.pc was already advanced to the instruction
 		// after this one, which matches the interpreter's execI() convention,
-		// so flushing PC and calling the interpreter dispatch table is enough.
+		// so publish both PC and opcode before interpreter dispatch. A preceding
+		// IR memory hook may have changed the runtime psxRegs.code.
 		// Branches execute their own delay slot and update psxRegs.pc, so end
 		// the block and let the dispatcher continue from the interpreter's pc.
 		_psxFlushCall(FLUSH_EVERYTHING | FLUSH_PC);
+		oakAsm->MOV(OAK_WSCRATCH, static_cast<u32>(psxRegs.code));
+		oakStore32(OAK_WSCRATCH, IOP_CPU(psxRegs.code));
 		oakEmitCall(reinterpret_cast<void*>(&iopInterpretCurrentInstruction));
 		if (!s_recompilingDelaySlot)
 			psxbranch = 2;
@@ -1660,6 +1731,124 @@ void psxRecompileNextInstruction(bool delayslot, bool swapped_delayslot)
 
 }
 
+
+// This exit only restores the temporary IR frame and falls through into the
+// same legacy block. The IOP block tail owns PC, cycles, linking and events.
+static void IopIrFallThrough(void*, u32, bool) {}
+
+static void IopIrIndirectExit(void*)
+{
+    // The shared lowerer restores its frame before handing off W16.
+    oakStore32(oak::util::W16, IOP_CPU(psxRegs.pc));
+    psxSetBranchReg(0xffffffff);
+}
+
+static void IopIrStaticExit(void*, u32 target, bool)
+{
+    psxSetBranchImm(target);
+}
+
+struct IopIrMemoryContext
+{
+    u32 start_pc;
+    const u32* code;
+    u32 count;
+    bool control;
+};
+
+static void IopIrBeforeMemory(void* opaque, u32 guest_pc, bool delay_slot)
+{
+    const auto& ctx = *static_cast<const IopIrMemoryContext*>(opaque);
+    const u32 index = (guest_pc - ctx.start_pc) / 4;
+    pxAssert(index < ctx.count && delay_slot == (ctx.control && index + 1 == ctx.count));
+    // IOP handlers observe the next PC and the original instruction. Keep
+    // W0/W1 intact: they carry the memory address and optional store value.
+    oakAsm->MOV(oak::util::W16, guest_pc + 4);
+    oakStore32(oak::util::W16, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.pc))});
+    oakAsm->MOV(oak::util::W16, ctx.code[index]);
+    oakStore32(oak::util::W16, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.code))});
+}
+
+static bool TryIopIrSequence()
+{
+    // Memory merges emit several SSA operations per guest instruction. Keep
+    // a fragment small enough for the outer block's remaining 32 KiB reserve.
+    std::array<u32, 16> code;
+    u32 available = 0;
+    const u32 limit = std::min<u32>(code.size(), (s_nEndBlock - psxpc) / 4);
+    for (; available < limit; ++available)
+    {
+        const u32 word = iopMemRead32(psxpc + available * 4);
+        if (OpcodeFamilies::IOPShouldInterpret(word)) break;
+        code[available] = word;
+    }
+    if (available == 0) return false;
+    ir::Function fn;
+    u32 accepted = 0;
+    bool control = false;
+    std::string error;
+    if (!IopIr::LiftSequence(code.data(), psxpc, available, fn, &accepted, &error, &control) ||
+        !Arm64Ir::CanLower(fn, true, &error, Arm64Ir::GuestState::IOP))
+        return false;
+
+    // Commit legacy state and invalidate its caches BEFORE emitting exits:
+    // their hooks flush legacy state too and must never restore stale values.
+    _psxFlushCall(FLUSH_EVERYTHING);
+    _initX86regs();
+    g_psxHasConstReg = g_psxFlushedConstReg = 1;
+    IopIrMemoryContext memory_context{psxpc, code.data(), accepted, control};
+    psxRegs.code = code[accepted - 1];
+    s_recompilingDelaySlot = false;
+    g_iopCyclePenalty = 0;
+    psxpc += accepted * 4;
+    g_pCurInstInfo += accepted;
+    s_psxBlockCycles += accepted;
+    // Exit hooks emit cycle/event tails during lowering. Account the entire
+    // source fragment first, including penalties even if results fold away.
+    for (u32 i = 0; i < accepted; ++i)
+    {
+        if ((code[i] >> 26) == 16) ++s_iopIrCop0Instructions;
+        const u32 funct = code[i] & 63;
+        if ((code[i] >> 26) == 0 && funct >= 0x18 && funct <= 0x1b)
+        {
+            s_psxBlockCycles += funct <= 0x19 ? psxInstCycles_Mult : psxInstCycles_Div;
+            ++s_iopIrMulDivInstructions;
+        }
+    }
+    Arm64Ir::LowerHooks hooks;
+    hooks.ctx = &memory_context;
+    hooks.before_memory = &IopIrBeforeMemory;
+    hooks.guest_exit = control ? &IopIrStaticExit : &IopIrFallThrough;
+    hooks.indirect_exit = &IopIrIndirectExit;
+    Arm64Ir::LowerOptions options;
+    options.guest_state = Arm64Ir::GuestState::IOP;
+    options.direct_iop_loads = IopIrDirectLoadsEnabled();
+    options.inline_division = IopIrNativeDivisionEnabled();
+    options.inline_body = true;
+    options.hooks = &hooks;
+    Arm64Ir::LowerOutput out;
+    if (!Arm64Ir::LowerBlock(fn, options, nullptr, 0, &out, &error))
+        pxFailRel(error.c_str()); // validated above; never append fallback after partial emission
+    if (control) ++s_iopIrBranches;
+    s_iopIrInstructions += accepted;
+    s_iopIrMemoryOperations += out.iop_memory_operations;
+    s_iopIrDirectLoads += out.direct_iop_load_operations;
+    if (out.frame_size != 0 && out.spill_values != 0) ++s_iopIrSpillSequences;
+#if defined(__ANDROID__)
+    static u64 sequences = 0, native_bytes = 0, fused_multiply_pairs = 0;
+    ++sequences;
+    native_bytes += out.host_size;
+    fused_multiply_pairs += out.fused_multiply_pairs;
+    if ((sequences <= 1024 && (sequences & (sequences - 1)) == 0) || sequences % 4096 == 0)
+        __android_log_print(ANDROID_LOG_INFO, "IOPIR",
+            "compiled_sequences=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x registers=%u spills=%u frame=%u memory_operations=%llu direct_loads=%llu native_div=%u muldiv_instructions=%llu fused_multiply_pairs=%llu control_branches=%llu cop0_instructions=%llu",
+            static_cast<unsigned long long>(sequences), static_cast<unsigned long long>(s_iopIrInstructions),
+            static_cast<unsigned long long>(native_bytes), psxpc - accepted * 4, out.register_values, out.spill_values, out.frame_size,
+            static_cast<unsigned long long>(s_iopIrMemoryOperations), static_cast<unsigned long long>(s_iopIrDirectLoads),
+            options.inline_division ? 1u : 0u, static_cast<unsigned long long>(s_iopIrMulDivInstructions), static_cast<unsigned long long>(fused_multiply_pairs), static_cast<unsigned long long>(s_iopIrBranches), static_cast<unsigned long long>(s_iopIrCop0Instructions));
+#endif
+    return true;
+}
 
 static void iopRecRecompile(u32 startpc)
 {
@@ -1904,8 +2093,22 @@ StartRecomp:
 	}
 
 	g_pCurInstInfo = s_pInstCache;
+    // Include temporary breakpoints. Debugger/profiler paths retain their
+    // instruction-by-instruction hooks; unsupported/forced delays stay legacy.
+    const bool use_ir = IopIrEnabled() && !JitProfiler::IsActive() &&
+        CBreakPoints::GetBreakpoints(BREAKPOINT_IOP, true).empty() && CBreakPoints::GetNumMemchecks() == 0;
 	while (!psxbranch && psxpc < s_nEndBlock)
 	{
+        // A page of IR memory operations can exceed the legacy 64 KiB block
+        // reserve. Split BEFORE the next fragment/instruction, leaving half
+        // the reserve for its bounded emission and the normal linking tail.
+        if (use_ir && oakGetCurrentCodePointer() - recPtr >= _32kb)
+        {
+            s_nEndBlock = psxpc;
+            willbranch3 = 1;
+            break;
+        }
+        if (use_ir && TryIopIrSequence()) continue;
 		psxRecompileNextInstruction(false, false);
 	}
 

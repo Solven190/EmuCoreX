@@ -553,12 +553,18 @@ bool RunUpstreamVm(const VmLaunchConfig& config, VmStartupCallback startup_callb
 	// any UI interaction. PumpMessagesOnCPUThread() first registers this thread as
 	// the CPU thread, which makes the profiler's Host::RunOnCPUThread tasks run
 	// inline instead of waiting on a queue that this thread pumps.
-	if (!JitProfiler::IsActive())
+	// IR integration tests can opt out: the IOP IR preserves opcode profiling
+	// by retaining the legacy compiler whenever the profiler is active.
+	char profile_value[PROP_VALUE_MAX] = {};
+	const bool auto_profile = __system_property_get("debug.emucorex.jit_profile", profile_value) != 1 || profile_value[0] != '0';
+	if (auto_profile && !JitProfiler::IsActive())
 	{
 		Host::PumpMessagesOnCPUThread();
 		JitProfiler::Start();
 		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "JIT profiler auto-started for this VM session");
 	}
+	else if (!auto_profile)
+		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "JIT profiler auto-start disabled by debug.emucorex.jit_profile");
 	if (!HangTrace::IsActive())
 	{
 		char trace_value[PROP_VALUE_MAX] = {};

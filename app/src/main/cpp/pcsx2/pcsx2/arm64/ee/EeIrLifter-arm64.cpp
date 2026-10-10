@@ -50,6 +50,7 @@ namespace EeIr
 			// Full 64-bit write, no sign extension: jal/jalr link registers are
 			// zero-extended on the R5900 (the interpreter stores a u32).
 			void WriteGprWide(u32 index, u32 value) { m_b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, index, ir::IF_WIDE_WRITE); }
+			u32 ReadGprQuad(u32 index) { return index == 0 ? m_b.ConstVec({0, 0, 0, 0}) : m_b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, index); }
 			u32 Const(u32 value) { return m_b.ConstI32(value); }
 			u32 Bin(ir::Op op, u32 a, u32 b) { return m_b.Emit2(op, ir::Type::I32, a, b); }
 			u32 Un(ir::Op op, u32 a) { return m_b.Emit1(op, ir::Type::I32, a); }
@@ -231,12 +232,10 @@ namespace EeIr
 				case 0x19: // multu
 				{
 					const bool sign = (Funct(word) == 0x18);
-					const u32 a = m_b.Emit1(sign ? ir::Op::Sext32 : ir::Op::Zext32, ir::Type::I64, ReadGpr(rs));
-					const u32 b = m_b.Emit1(sign ? ir::Op::Sext32 : ir::Op::Zext32, ir::Type::I64, ReadGpr(rt));
-					const u32 product = m_b.Emit2(ir::Op::Mul, ir::Type::I64, a, b);
-					const u32 lo = m_b.Emit1(ir::Op::Trunc32, ir::Type::I32, product);
-					const u32 hi64 = m_b.Emit2(ir::Op::ShrS, ir::Type::I64, product, m_b.ConstI64(32));
-					const u32 hi = m_b.Emit1(ir::Op::Trunc32, ir::Type::I32, hi64);
+					const u32 a = ReadGpr(rs);
+					const u32 b = ReadGpr(rt);
+					const u32 lo = m_b.Emit2(ir::Op::Mul, ir::Type::I32, a, b);
+					const u32 hi = m_b.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, ir::Type::I32, a, b);
 					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
 					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
 					// R5900 quirk: mult/multu also write LO into Rd when Rd != 0.
@@ -251,8 +250,13 @@ namespace EeIr
 					const bool sign = (Funct(word) == 0x1A);
 					const u32 a = ReadGpr(rs);
 					const u32 b = ReadGpr(rt);
-					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, Bin(sign ? ir::Op::DivS : ir::Op::DivU, a, b));
-					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, Bin(sign ? ir::Op::RemS : ir::Op::RemU, a, b));
+					const u32 quotient = Bin(sign ? ir::Op::DivS : ir::Op::DivU, a, b);
+					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, quotient);
+					// Reuse the quotient instead of dividing a second time. I32
+					// arithmetic wraps: a - q*b also returns a for b == 0 and
+					// zero for INT_MIN / -1, exactly matching R5900 HI.
+					const u32 remainder = m_b.Emit3(ir::Op::Msub, ir::Type::I32, quotient, b, a);
+					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, remainder);
 					return true;
 				}
 				case 0x20: // add (traps on overflow)
@@ -354,6 +358,90 @@ namespace EeIr
 					return true;
 				case 0x19: // daddiu
 					WriteGprWide(rt, BinWide(ir::Op::Add, ReadGprWide(rs), m_b.ConstI64(static_cast<u64>(static_cast<s64>(simm)))));
+					return true;
+				case 0x1C: // MMI: packed word arithmetic, shifts, permutations and bitwise operations
+				{
+					const u32 group = word & 0x3f;
+					const u32 sub = Sa(word);
+					const u32 rd = Rd(word);
+					if (group == 0x3c || group == 0x3e || group == 0x3f)
+					{
+						if (rd != 0)
+						{
+							const ir::Op shift = group == 0x3c ? ir::Op::VShl : group == 0x3e ? ir::Op::VShrU : ir::Op::VShrS;
+							const u32 value = m_b.Emit2(shift, ir::Type::V4U32, ReadGprQuad(rt), Const(sub));
+							m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
+						}
+						return true;
+					}
+					u32 selectors = ~0u;
+					ir::Op shuffle = ir::Op::VShuffle2;
+					if (group == 0x08 && sub == 0x12) selectors = 0xa60; // pextlw: rt0,rs0,rt1,rs1
+					else if (group == 0x28 && sub == 0x12) selectors = 0xef2; // pextuw: rt2,rs2,rt3,rs3
+					else if (group == 0x08 && sub == 0x13) selectors = 0xd10; // ppacw: rt0,rt2,rs0,rs2
+					else if (group == 0x09 && sub == 0x0e) selectors = 0xb08; // pcpyld: rt0,rt1,rs0,rs1
+					else if (group == 0x29 && sub == 0x0e) selectors = 0x6be; // pcpyud: rs2,rs3,rt2,rt3
+					else if (group == 0x09 && (sub == 0x1e || sub == 0x1f))
+					{
+						shuffle = ir::Op::VShuffle;
+						selectors = sub == 0x1e ? 0xc6 : 0xc9; // pexew: 2,1,0,3 / prot3w: 1,2,0,3
+					}
+					else if (group == 0x29 && sub == 0x1e)
+					{
+						shuffle = ir::Op::VShuffle;
+						selectors = 0xd8; // pexcw: 0,2,1,3
+					}
+					if (selectors != ~0u)
+					{
+						if (rd != 0)
+						{
+							const u32 rt_value = ReadGprQuad(rt);
+							const u32 value = shuffle == ir::Op::VShuffle ?
+								m_b.Emit1(shuffle, ir::Type::V4U32, rt_value, selectors) :
+								m_b.Emit2(shuffle, ir::Type::V4U32, rt_value, ReadGprQuad(rs), selectors);
+							m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
+						}
+						return true;
+					}
+					ir::Op operation;
+					bool invert = false, swap = false;
+					if (group == 0x08 && sub <= 3)
+					{
+						constexpr ir::Op word_ops[] = {ir::Op::Add, ir::Op::Sub, ir::Op::VCmpLtS, ir::Op::VMaxS};
+						operation = word_ops[sub]; // paddw / psubw / pcgtw / pmaxw
+						swap = sub == 2; // rs > rt is rt < rs
+					}
+					else if (group == 0x28 && (sub == 2 || sub == 3))
+						operation = sub == 2 ? ir::Op::VCmpEq : ir::Op::VMinS; // pceqw / pminw
+					else if (group == 0x09 && (sub == 0x12 || sub == 0x13))
+						operation = sub == 0x12 ? ir::Op::And : ir::Op::Xor; // pand / pxor
+					else if (group == 0x29 && (sub == 0x12 || sub == 0x13))
+					{
+						operation = ir::Op::Or; // por / pnor
+						invert = sub == 0x13;
+					}
+					else
+						return Fail(error, "unsupported MMI instruction", pc);
+					if (rd != 0)
+					{
+						u32 value = m_b.Emit2(operation, ir::Type::V4U32, ReadGprQuad(swap ? rt : rs), ReadGprQuad(swap ? rs : rt));
+						if (invert)
+							value = m_b.Emit1(ir::Op::Not, ir::Type::V4U32, value);
+						m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
+					}
+					return true;
+				}
+				case 0x1E: // lq: EE silently aligns down, including loads to $0
+					if (!m_opts.quad_memory)
+						return Fail(error, "quad memory disabled", pc);
+					m_b.Emit(ir::Op::WriteGpr, ir::Type::Void,
+						{m_b.Emit1(ir::Op::Load128, ir::Type::V4U32, Bin(ir::Op::And, Addr(rs, simm), Const(~u32(15))))}, rt);
+					return true;
+				case 0x1F: // sq
+					if (!m_opts.quad_memory)
+						return Fail(error, "quad memory disabled", pc);
+					m_b.Emit2(ir::Op::Store128, ir::Type::Void,
+						Bin(ir::Op::And, Addr(rs, simm), Const(~u32(15))), ReadGprQuad(rt));
 					return true;
 				case 0x27: // lwu
 					WriteGprWide(rt, m_b.Emit1(ir::Op::Zext32, ir::Type::I64, m_b.Emit1(ir::Op::Load32, ir::Type::I32, Addr(rs, simm))));
@@ -680,7 +768,7 @@ namespace EeIr
 			if (!ir::Verify(fn, &error))
 				return false;
 			const std::string dump = ir::Dump(fn);
-			if (dump.find("Mul") == std::string::npos || dump.find("Sext32") == std::string::npos ||
+			if (dump.find("MulHiS") == std::string::npos || dump.find("WriteHi") == std::string::npos ||
 				dump.find("WriteLo") == std::string::npos || dump.find("ReadLo") == std::string::npos)
 				return false;
 		}

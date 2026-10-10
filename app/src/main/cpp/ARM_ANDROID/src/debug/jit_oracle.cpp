@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0+
 #include "Common.h"
 #include "IopMem.h"
+#include "IopHw.h"
 #include "Memory.h"
 #include "OpcodeFamilies.h"
 #include "JitProfiler.h"
 #include "ir/Ir.h"
 #include "arm64/ee/EeIrLifter-arm64.h"
+#include "arm64/iop/IopIrLifter-arm64.h"
 #include "arm64/ee/EeIrLower-arm64.h"
 #include "arm64/OaknutHelpers-arm64.h"
 #include "arm64/cpuRegistersPack-arm64.h"
@@ -40,6 +42,16 @@ extern "C" void EmuCoreXOracleSetSkipEvents(int enabled)
 {
     s_oracleSkipEvents = enabled != 0;
 }
+
+extern "C" void EmuCoreXOracleSetIOPIR(int enabled);
+extern "C" u64 EmuCoreXOracleIOPIRInstructions();
+extern "C" u64 EmuCoreXOracleIOPIRSpillSequences();
+extern "C" u64 EmuCoreXOracleIOPIRMemoryOperations();
+extern "C" u64 EmuCoreXOracleIOPIRDirectLoads();
+extern "C" u64 EmuCoreXOracleIOPIRMulDivInstructions();
+extern "C" u64 EmuCoreXOracleIOPIRBranches();
+extern "C" u64 EmuCoreXOracleIOPIRCop0Instructions();
+extern void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 
 namespace
 {
@@ -867,6 +879,11 @@ constexpr u32 MipsR(u32 rs, u32 rt, u32 rd, u32 sa, u32 fn)
     return (rs << 21) | (rt << 16) | (rd << 11) | (sa << 6) | fn;
 }
 
+constexpr u32 MipsJ(u32 op, u32 target)
+{
+    return (op << 26) | ((target >> 2) & 0x03ffffffu);
+}
+
 constexpr u32 MipsI(u32 op, u32 rs, u32 rt, u32 imm)
 {
     return (op << 26) | (rs << 21) | (rt << 16) | (imm & 0xffffu);
@@ -880,6 +897,7 @@ constexpr u32 MipsCop1(u32 rs, u32 ft, u32 fs, u32 fd, u32 fn)
 struct EESnapshot
 {
     u64 gpr[32];
+    u64 gpr_upper[32];
     u64 hi, lo;
     u32 pc;
     u32 cycle;
@@ -912,6 +930,7 @@ void CaptureEE(EESnapshot& out)
     for (u32 i = 0; i < 32; ++i)
     {
         out.gpr[i] = cpuRegs.GPR.r[i].UD[0];
+        out.gpr_upper[i] = cpuRegs.GPR.r[i].UD[1];
         out.fpr[i] = fpuRegs.fpr[i].UL;
         out.cp0[i] = cpuRegs.CP0.r[i];
     }
@@ -972,6 +991,7 @@ bool CpuDiff(const char* test, const char* field, const void* expected, const vo
 void CompareEE(const EESnapshot& expected, const EESnapshot& actual, const char* name)
 {
     bool same = CpuDiff(name, "GPR", expected.gpr, actual.gpr, sizeof(expected.gpr));
+    same &= CpuDiff(name, "GPR upper", expected.gpr_upper, actual.gpr_upper, sizeof(expected.gpr_upper));
     same &= CpuDiff(name, "HI", &expected.hi, &actual.hi, sizeof(expected.hi));
     same &= CpuDiff(name, "LO", &expected.lo, &actual.lo, sizeof(expected.lo));
     same &= CpuDiff(name, "PC", &expected.pc, &actual.pc, sizeof(expected.pc));
@@ -1075,7 +1095,7 @@ EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlo
     return out;
 }
 
-IOPSnapshot RunIOPProgram(bool jit, const std::vector<u32>& program, s32 eeCycles = -1, bool forceGteInterpreter = false)
+IOPSnapshot RunIOPProgram(bool jit, const std::vector<u32>& program, s32 eeCycles = -1, bool forceGteInterpreter = false, u64 forcedFamilies = 0)
 {
     std::memset(&psxRegs, 0, sizeof(psxRegs));
     // Deterministic GTE fixtures: both engines must see identical CP2 state.
@@ -1101,7 +1121,7 @@ IOPSnapshot RunIOPProgram(bool jit, const std::vector<u32>& program, s32 eeCycle
     if (jit)
     {
         OpcodeFamilies::SetFamilyMask(OpcodeFamilies::CORE_IOP,
-            forceGteInterpreter ? (1ull << OpcodeFamilies::IOP::FAM_GTE) : 0);
+            forcedFamilies | (forceGteInterpreter ? (1ull << OpcodeFamilies::IOP::FAM_GTE) : 0));
         psxCpu = &psxRec;
         psxRec.Reset();
     }
@@ -2146,8 +2166,10 @@ u64 eeir_baseline_bytes = 0;
 u64 eeir_optimized_bytes = 0;
 u64 eeir_baseline_frames = 0;
 u64 eeir_optimized_frames = 0;
+u64 eeir_native_division_bytes = 0;
+u64 eeir_helper_division_bytes = 0;
 
-void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* initial_gpr = nullptr)
+void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* initial_gpr = nullptr, bool division_modes = false, bool quad_modes = false)
 {
     const EESnapshot interp = RunEEProgram(false, program, false, initial_gpr);
     ir::Function fn;
@@ -2162,12 +2184,22 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
     }
 
     bool same = true;
-    for (bool optimize : {false, true})
+    for (u32 mode = 0; mode < (division_modes ? 5u : quad_modes ? 7u : 2u); ++mode)
     {
+        const bool optimize = mode != 0;
         EeIr::LowerOptions options;
-        options.materialize_constants = optimize;
-        options.allocate_registers = optimize;
+        options.materialize_constants = optimize && mode != 3;
+        options.allocate_registers = mode == 1 || mode == 3 || mode == 4;
+        options.inline_division = mode != 4;
+        options.direct_quad_memory = !quad_modes || (mode != 4 && mode != 6);
+        options.reuse_spill_slots = !quad_modes || (mode != 5 && mode != 6);
         options.optimize_ir = optimize;
+        u32 helper_calls = 0;
+        EeIr::LowerHooks hooks;
+        hooks.ctx = &helper_calls;
+        hooks.before_helper = +[](void* ctx) { ++*static_cast<u32*>(ctx); };
+        if (division_modes || quad_modes)
+            options.hooks = &hooks;
         EeIr::LowerOutput out;
         if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
         {
@@ -2175,8 +2207,29 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
             Check(false, name);
             return;
         }
-        (optimize ? eeir_optimized_bytes : eeir_baseline_bytes) += out.host_size;
-        (optimize ? eeir_optimized_frames : eeir_baseline_frames) += out.frame_size;
+        if (mode < 2)
+        {
+            (optimize ? eeir_optimized_bytes : eeir_baseline_bytes) += out.host_size;
+            (optimize ? eeir_optimized_frames : eeir_baseline_frames) += out.frame_size;
+        }
+        if (division_modes)
+        {
+            same &= optimize && options.inline_division ? helper_calls == 0 : helper_calls == 1;
+            if (mode == 1)
+                eeir_native_division_bytes += out.host_size;
+            else if (mode == 4)
+                eeir_helper_division_bytes += out.host_size;
+        }
+
+        if (quad_modes)
+        {
+            u32 memory_calls = 0;
+            for (const auto& block : fn.blocks)
+                for (const auto& inst : block.insts)
+                    if (ir::Info(inst.op).kind == ir::OpKind::MemLoad || ir::Info(inst.op).kind == ir::OpKind::MemStore)
+                        ++memory_calls;
+            same &= helper_calls == memory_calls && out.frame_size >= 16 && out.frame_size % 16 == 0;
+        }
 
         // Both lowering modes and the interpreter start with the same state,
         // including memory modified by a preceding store in this test.
@@ -2200,6 +2253,7 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
         EESnapshot result;
         CaptureEE(result);
         same &= CpuDiff(name, "GPR", interp.gpr, result.gpr, sizeof(interp.gpr));
+        same &= CpuDiff(name, "GPR upper", interp.gpr_upper, result.gpr_upper, sizeof(interp.gpr_upper));
         same &= CpuDiff(name, "HI", &interp.hi, &result.hi, sizeof(interp.hi));
         same &= CpuDiff(name, "LO", &interp.lo, &result.lo, sizeof(interp.lo));
         same &= CpuDiff(name, "scratch", interp.scratch, result.scratch, sizeof(interp.scratch));
@@ -2207,8 +2261,2028 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
     Check(same, name);
 }
 
+
+struct EEIrQuadTrace
+{
+    mem128_t input{}, stored{}, mutated{};
+    u32 reads = 0, writes = 0, helper_before = 0, helper_after = 0, completed = 0;
+    u32 read_addr = 0, write_addr = 0, read_pc = 0, write_pc = 0, read_bd = 0, write_bd = 0;
+    u64 destination_before = 0;
+};
+EEIrQuadTrace s_eeir_quad_trace;
+
+RETURNS_R128 EEIrQuadReadHandler(u32 addr)
+{
+    auto& t = s_eeir_quad_trace;
+    ++t.reads;
+    t.read_addr = addr;
+    t.read_pc = cpuRegs.pc;
+    t.read_bd = cpuRegs.IsDelaySlot;
+    t.destination_before = cpuRegs.GPR.r[8].UD[0];
+    std::memcpy(cpuRegs.GPR.r[14].UL, &t.mutated, 16);
+    return r128_load(&t.input);
+}
+
+void TAKES_R128 EEIrQuadWriteHandler(u32 addr, r128 value)
+{
+    auto& t = s_eeir_quad_trace;
+    ++t.writes;
+    t.write_addr = addr;
+    t.write_pc = cpuRegs.pc;
+    t.write_bd = cpuRegs.IsDelaySlot;
+    r128_store(&t.stored, value);
+}
+
+void EEIrQuadOptimizationsTests()
+{
+    // Only the virtual table entries are changed. Restore them on every exit;
+    // this does not replace real hardware handlers or physical mappings.
+    constexpr u32 aliases[] = {0x41000000u, 0xc1000000u};
+    constexpr u32 physical = 0x1ff00000u;
+    struct RestoreMappings
+    {
+        vtlb_private::VTLBVirtual saved[2];
+        RestoreMappings()
+        {
+            for (u32 i = 0; i < 2; ++i)
+                saved[i] = vtlb_private::vtlbdata.vmap[aliases[i] >> 12];
+        }
+        ~RestoreMappings()
+        {
+            for (u32 i = 0; i < 2; ++i)
+                vtlb_private::vtlbdata.vmap[aliases[i] >> 12] = saved[i];
+        }
+    } restore;
+    const vtlbHandler handler = vtlb_RegisterHandler(nullptr, nullptr, nullptr, nullptr, &EEIrQuadReadHandler,
+        nullptr, nullptr, nullptr, nullptr, &EEIrQuadWriteHandler);
+    alignas(16) std::array<u8, 4096> ram_a{}, ram_b{};
+    const std::array<u32, 4> before = {0xaabbccdd, 0x11223344, 0x01234567, 0xfedcba98};
+    const std::array<u32, 4> packet_a = {0x80000000, 0xffffffff, 0x12345678, 0x90abcdef};
+    const std::array<u32, 4> packet_b = {0x98765432, 0x10203040, 0x50607080, 0xf0e0d0c0};
+    const std::array<u32, 4> mutated = {0xcafebabe, 0xdeadc0de, 0x11112222, 0x33334444};
+    for (u32 base : aliases)
+    {
+        for (bool pressure : {false, true})
+        for (u32 offset : {0u, 0xff0u})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 saved = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 14);
+            std::array<u32, 8> held{};
+            if (pressure)
+                for (u32 i = 0; i < held.size(); ++i)
+                    held[i] = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, i + 17);
+            b.SetGuestPc(EE_TEST_PC + 4);
+            b.SetDelaySlot(true);
+            const u32 loaded = b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(base + offset));
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {loaded}, 8);
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {saved}, 15);
+            const u32 after = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 14);
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {after}, 16);
+            b.SetGuestPc(EE_TEST_PC + 8);
+            b.Emit2(ir::Op::Store128, ir::Type::Void, b.ConstI32(base + offset), saved);
+            if (pressure)
+                for (u32 i = 0; i < held.size(); ++i)
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, held[i], i + 24);
+            b.SetDelaySlot(false);
+            b.Resume(EE_TEST_PC + 12);
+            EeIr::LowerHooks hooks;
+            hooks.before_memory = +[](void*, u32 pc, bool delay) {
+                oakAsm->MOV(oak::util::W16, pc);
+                oakStore32(oak::util::W16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc))});
+                oakAsm->MOV(oak::util::W16, delay ? 1 : 0);
+                oakStore32(oak::util::W16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
+            };
+            // Non-capturing callbacks emit runtime counters: counting the
+            // generated cold branch alone would not prove RAM skipped it.
+            hooks.before_helper = +[](void*) {
+                for (u32 reg = 2; reg <= 7; ++reg)
+                    oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+                oakMoveAddressToReg(oak::util::X16, &s_eeir_quad_trace.helper_before);
+                oakAsm->LDR(oak::util::W17, oak::util::X16);
+                oakAsm->ADD(oak::util::W17, oak::util::W17, 1);
+                oakAsm->STR(oak::util::W17, oak::util::X16);
+            };
+            hooks.after_helper = +[](void*) {
+                for (u32 reg = 2; reg <= 7; ++reg)
+                    oakAsm->MOVI(oak::QReg(reg).B16(), 0x3c);
+                oakMoveAddressToReg(oak::util::X16, &s_eeir_quad_trace.helper_after);
+                oakAsm->LDR(oak::util::W17, oak::util::X16);
+                oakAsm->ADD(oak::util::W17, oak::util::W17, 1);
+                oakAsm->STR(oak::util::W17, oak::util::X16);
+            };
+            hooks.after_memory = +[](void*) {
+                oakStore32(oak::util::WZR, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
+                oakMoveAddressToReg(oak::util::X16, &s_eeir_quad_trace.completed);
+                oakAsm->LDR(oak::util::W17, oak::util::X16);
+                oakAsm->ADD(oak::util::W17, oak::util::W17, 1);
+                oakAsm->STR(oak::util::W17, oak::util::X16);
+            };
+            hooks.memory_preserves_vectors = true;
+            for (bool fast_vectors : {false, true})
+            for (bool direct : {false, true})
+            {
+                for (bool reuse : {false, true})
+                {
+                    for (bool allocate : {false, true})
+                    {
+                        EeIr::LowerOptions options;
+                        options.direct_quad_memory = direct;
+                        options.direct_quad_vectors = fast_vectors;
+                        options.reuse_spill_slots = reuse;
+                        options.allocate_registers = allocate;
+                        options.hooks = &hooks;
+                        EeIr::LowerOutput out;
+                        std::string error;
+                        const bool lowered = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        // Run the SAME compiled code after two RAM mappings
+                        // and a handler mapping; no recompilation hides stale pointers.
+                        for (u32 sequence = 0; sequence < 4; ++sequence)
+                        {
+                            const u32 mapping = sequence == 3 ? 0 : sequence; // RAM again after handler
+                            bool same = lowered && out.direct_quad_operations == (direct ? 2u : 0u) &&
+                                out.direct_quad_vector_operations == (direct && allocate && fast_vectors ? 2u : 0u);
+                            if (same)
+                            {
+                                auto& entry = vtlb_private::vtlbdata.vmap[base >> 12];
+                                entry = mapping == 2 ? vtlb_private::VTLBVirtual(vtlb_private::VTLBPhysical::fromHandler(handler), physical, base) :
+                                    vtlb_private::VTLBVirtual::fromPointer(reinterpret_cast<uptr>(mapping == 0 ? ram_a.data() : ram_b.data()), base);
+                                const auto& packet = mapping == 1 ? packet_b : packet_a;
+                                std::memcpy((mapping == 0 ? ram_a.data() : ram_b.data()) + offset, packet.data(), 16);
+                                s_eeir_quad_trace = {};
+                                std::memcpy(&s_eeir_quad_trace.input, packet.data(), 16);
+                                std::memcpy(&s_eeir_quad_trace.mutated, mutated.data(), 16);
+                                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                                cpuRegs.GPR.r[8].UD[0] = 0xfedcba9876543210ull;
+                                std::memcpy(cpuRegs.GPR.r[14].UL, before.data(), 16);
+                                if (pressure)
+                                    for (u32 i = 0; i < held.size(); ++i)
+                                        for (u32 lane = 0; lane < 4; ++lane)
+                                            cpuRegs.GPR.r[i + 17].UL[lane] = packet_b[lane] ^ (i * 0x13579bdu);
+                                reinterpret_cast<void (*)()>(out.entry)();
+                                const auto& t = s_eeir_quad_trace;
+                                same &= t.helper_before == ((!direct || mapping == 2) ? 2u : 0u) && t.helper_after == t.helper_before &&
+                                    t.completed == 2 && cpuRegs.IsDelaySlot == 0 &&
+                                    std::memcmp(cpuRegs.GPR.r[8].UL, packet.data(), 16) == 0 &&
+                                    std::memcmp(cpuRegs.GPR.r[15].UL, before.data(), 16) == 0 &&
+                                    std::memcmp(cpuRegs.GPR.r[16].UL, mapping == 2 ? mutated.data() : before.data(), 16) == 0;
+                                if (pressure)
+                                {
+                                    same &= out.spill_values > 0;
+                                    for (u32 i = 0; i < held.size(); ++i)
+                                        for (u32 lane = 0; lane < 4; ++lane)
+                                            same &= cpuRegs.GPR.r[i + 24].UL[lane] == (packet_b[lane] ^ (i * 0x13579bdu));
+                                }
+                                if (mapping == 2)
+                                    same &= t.reads == 1 && t.writes == 1 && t.read_addr == physical + offset && t.write_addr == physical + offset &&
+                                        t.read_pc == EE_TEST_PC + 4 && t.write_pc == EE_TEST_PC + 8 && t.read_bd == 1 && t.write_bd == 1 &&
+                                        t.destination_before == 0xfedcba9876543210ull && std::memcmp(&t.stored, before.data(), 16) == 0;
+                                else
+                                    same &= t.reads == 0 && t.writes == 0 &&
+                                        std::memcmp((mapping == 0 ? ram_a.data() : ram_b.data()) + offset, before.data(), 16) == 0;
+                            }
+                            char name[160];
+                            std::snprintf(name, sizeof(name), "ir quad live mapping base=%08x offset=%03x map=%u direct=%u reuse=%u alloc=%u vecfast=%u pressure=%u sequence=%u",
+                                base, offset, mapping, direct, reuse, allocate, fast_vectors, pressure, sequence);
+                            Check(same, name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        for (u32 round = 0; round < 8; ++round)
+        {
+            std::vector<u32> scalar, quad;
+            for (u32 reg = 8; reg < 16; ++reg)
+                scalar.push_back(b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, reg));
+            for (u32 reg = 16; reg < 20; ++reg)
+                quad.push_back(b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, reg));
+            b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH));
+            for (u32 reg = 0; reg < scalar.size(); ++reg)
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {scalar[reg]}, reg + 24, ir::IF_WIDE_WRITE);
+            for (u32 reg = 0; reg < quad.size(); ++reg)
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {quad[reg]}, reg + 20);
+        }
+        b.Resume(EE_TEST_PC + 4);
+        for (bool direct : {false, true})
+        {
+            for (bool allocate : {false, true})
+            {
+                u32 baseline_frame = 0;
+                for (bool reuse : {false, true})
+                {
+                    EeIr::LowerOptions options;
+                    options.direct_quad_memory = direct;
+                    options.allocate_registers = allocate;
+                    options.reuse_spill_slots = reuse;
+                    EeIr::LowerOutput out;
+                    std::string error;
+                    bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                    if (same)
+                    {
+                        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                        for (u32 reg = 8; reg < 20; ++reg)
+                            for (u32 lane = 0; lane < 4; ++lane)
+                                cpuRegs.GPR.r[reg].UL[lane] = (reg << 24) | (lane * 0x12345);
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        for (u32 reg = 0; reg < 8; ++reg)
+                            same &= cpuRegs.GPR.r[reg + 24].UD[0] == cpuRegs.GPR.r[reg + 8].UD[0];
+                        for (u32 reg = 0; reg < 4; ++reg)
+                            same &= std::memcmp(cpuRegs.GPR.r[reg + 20].UL, cpuRegs.GPR.r[reg + 16].UL, 16) == 0;
+                        if (!reuse)
+                            baseline_frame = out.frame_size;
+                        else
+                            same &= out.frame_size < baseline_frame && out.spill_slots < out.spill_values && out.frame_size % 16 == 0;
+                        std::printf("EEIR spill lifetime direct=%u alloc=%u reuse=%u values=%u slots=%u frame=%u bytes=%u\n",
+                            direct, allocate, reuse, out.spill_values, out.spill_slots, out.frame_size, out.host_size);
+                    }
+                    Check(same, "ir mixed-width spill lifetimes survive helper and reduce peak frame");
+                }
+            }
+        }
+    }
+    {
+        const auto config = EmuConfig.Cpu.Recompiler;
+        EmuConfig.Cpu.Recompiler.EnableEE = false;
+        EmuConfig.Cpu.Recompiler.EnableEECache = true;
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH));
+        b.Resume(EE_TEST_PC + 4);
+        EeIr::LowerOutput out;
+        std::string error;
+        const bool lowered = EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        EmuConfig.Cpu.Recompiler = config;
+        Check(lowered && out.direct_quad_operations == 0, "ir quad keeps helper for EE cache emulation");
+    }
+}
+
+void EEIrQuadTests()
+{
+    for (u32 offset = 0; offset < 16; ++offset)
+    {
+        const std::vector<u32> code = {
+            MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+            MipsI(30, 22, 8, 32 + offset), MipsI(31, 22, 8, 64 + offset),
+            MipsI(30, 22, 0, 32 + offset), MipsI(31, 22, 0, 80 + offset),
+            MipsI(30, 22, 9, 64),
+            MipsI(9, 8, 8, -7), MipsI(31, 22, 8, 96),
+            MipsI(0x37, 22, 8, 32), MipsI(31, 22, 8, 112)
+        };
+        char name[80];
+        std::snprintf(name, sizeof(name), "ir quad alignment=%u zero/discard and upper preservation", offset);
+        RunEEIrCase(name, code, nullptr, false, true);
+        CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), name);
+    }
+    for (s32 offset : {-17, -16, -1, 0, 1, 15, 16, 17})
+    {
+        const std::vector<u32> code = {
+            MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+            MipsI(9, 22, 23, 48), MipsI(30, 23, 23, offset), MipsI(31, 22, 23, 96)
+        };
+        char name[80];
+        std::snprintf(name, sizeof(name), "ir quad alias base/destination offset=%d", offset);
+        RunEEIrCase(name, code, nullptr, false, true);
+        CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), name);
+    }
+    for (u32 op : {4u, 0x14u})
+    {
+        for (bool taken : {false, true})
+        {
+            for (u32 access : {30u, 31u})
+            {
+                const std::vector<u32> code = {
+                    MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                    MipsI(30, 22, 10, 32), MipsI(9, 0, 8, taken ? 1 : 0), MipsI(9, 0, 9, 1),
+                    MipsI(op, 8, 9, 1), MipsI(access, 22, 10, 65)
+                };
+                char name[80];
+                std::snprintf(name, sizeof(name), "ir quad delay op=%02x access=%u taken=%u", op, access, taken);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+            }
+        }
+    }
+    {
+        // Vector constants/copies stay intact across a memory helper. Mutate
+        // the Function pool after lowering to reject embedded pool addresses.
+        const std::array<u32, 4> lanes = {0x01234567, 0x89abcdef, 0xfedcba98, 0x76543210};
+        for (bool optimize : {false, true})
+        {
+            for (bool allocate : {false, true})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 value = b.ConstVec(lanes);
+                const u32 copied = b.Emit1(ir::Op::Copy, ir::Type::V4U32, value);
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {copied}, 8);
+                const u32 loaded = b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH + 32));
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, 9);
+                b.Emit(ir::Op::WriteGpr, ir::Type::Void, {loaded}, 10);
+                b.Emit2(ir::Op::Store128, ir::Type::Void, b.ConstI32(EE_TEST_SCRATCH + 64), copied);
+                b.Resume(EE_TEST_PC + 4);
+                EeIr::LowerOptions options;
+                options.optimize_ir = optimize;
+                options.allocate_registers = allocate;
+                EeIr::LowerOutput out;
+                std::string error;
+                bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                if (same)
+                {
+                    fn.vec_consts[0].fill(0xdeadc0de);
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    mem128_t input;
+                    std::memcpy(&input, lanes.data(), sizeof(input));
+                    memWrite128(EE_TEST_SCRATCH + 32, input);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    mem128_t stored;
+                    memRead128(EE_TEST_SCRATCH + 64, stored);
+                    same &= std::memcmp(cpuRegs.GPR.r[8].UL, lanes.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[9].UL, lanes.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[10].UL, lanes.data(), 16) == 0 && std::memcmp(&stored, lanes.data(), 16) == 0;
+                }
+                Check(same, "ir quad constants and copies survive helper and pool lifetime");
+            }
+        }
+    }
+    {
+        // A helper target beyond imm12 needs a two-part frame-relative
+        // address; the 16-byte result must not overlap scalar spill slots.
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        for (u32 i = 0; i < 320; ++i)
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstVec({i, ~i, i + 1, i + 2})}, 8);
+        const u32 loaded = b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH));
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {loaded}, 9);
+        b.Emit2(ir::Op::Store128, ir::Type::Void, b.ConstI32(EE_TEST_SCRATCH + 64), loaded);
+        b.Resume(EE_TEST_PC + 4);
+        EeIr::LowerOutput out;
+        std::string error;
+        const std::array<u32, 4> lanes = {0x80000000, 0xffffffff, 0x01020304, 0xf0e0d0c0};
+        EeIr::LowerOptions options;
+        options.allocate_vector_registers = false; // force stack-backed constants for this address test
+        options.reuse_spill_slots = false; // preserve the large-frame address test
+        options.direct_quad_memory = false; // actually execute the large-slot helper path
+        bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        if (same)
+        {
+            mem128_t input;
+            std::memcpy(&input, lanes.data(), sizeof(input));
+            memWrite128(EE_TEST_SCRATCH, input);
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            mem128_t stored;
+            memRead128(EE_TEST_SCRATCH + 64, stored);
+            same &= out.frame_size > 4095 && out.frame_size % 16 == 0 &&
+                std::memcmp(cpuRegs.GPR.r[9].UL, lanes.data(), 16) == 0 && std::memcmp(&stored, lanes.data(), 16) == 0;
+        }
+        Check(same, "ir quad helper uses aligned large-frame slot address");
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        for (u32 i = 0; i < 1005; ++i)
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstVec({i, i, i, i})}, 8);
+        b.Resume(EE_TEST_PC + 4);
+        std::string error;
+        Check(!EeIr::CanLower(fn, true, &error), "ir quad rejects oversized typed frame before emission");
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        b.Emit(ir::Op::ConstVec, ir::Type::V4U32, {}, 1);
+        b.Resume(EE_TEST_PC + 4);
+        std::string error;
+        Check(!ir::Verify(fn, &error), "ir quad rejects invalid vector constant pool index");
+    }
+}
+
+
+
+
+void EEIrQuadVectorFastPathTests()
+{
+    // Walk the emitted single-block RAM path (TBNZ falls through; B skips
+    // the slow branch). Count real Q loads/stores using the frame base.
+    // This rejects moving counters without removing actual stack traffic.
+    for (bool preserve_hooks : {false, true})
+        for (bool fast : {false, true})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 saved = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+            const u32 loaded = b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH));
+            b.Emit2(ir::Op::Store128, ir::Type::Void, b.ConstI32(EE_TEST_SCRATCH + 32), loaded);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, saved, 9);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, loaded, 10);
+            b.Resume(EE_TEST_PC + 4);
+            EeIr::LowerHooks hooks;
+            hooks.memory_preserves_vectors = preserve_hooks;
+            if (!preserve_hooks)
+            {
+                hooks.before_memory = +[](void*, u32, bool) {
+                    for (u32 reg = 2; reg <= 7; ++reg)
+                        oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+                };
+                hooks.after_memory = +[](void*) {
+                    for (u32 reg = 2; reg <= 7; ++reg)
+                        oakAsm->MOVI(oak::QReg(reg).B16(), 0x3c);
+                };
+            }
+            EeIr::LowerOptions options;
+            options.hooks = &hooks;
+            options.direct_quad_vectors = fast;
+            EeIr::LowerOutput out;
+            std::string error;
+            bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                u32 frame_quads = 0, steps = 0, pc = 0;
+                const auto* code = reinterpret_cast<const u32*>(out.entry);
+                while (pc < out.host_size / 4 && ++steps <= out.host_size / 4)
+                {
+                    const u32 word = code[pc];
+                    if (word == 0xd65f03c0u) // RET
+                        break;
+                    if ((word & 0xffc003e0u) == (0x3d800000u | (28u << 5)) ||
+                        (word & 0xffc003e0u) == (0x3dc00000u | (28u << 5)))
+                        ++frame_quads;
+                    if ((word & 0xfc000000u) == 0x14000000u) // B imm26
+                        pc = static_cast<u32>(static_cast<s32>(pc) + (static_cast<s32>(word << 6) >> 6));
+                    else
+                        ++pc;
+                }
+                const bool eligible = preserve_hooks && fast;
+                same &= steps <= out.host_size / 4 && pc < out.host_size / 4 &&
+                    out.direct_quad_vector_operations == (eligible ? 2u : 0u) &&
+                    (eligible ? frame_quads == 0 : frame_quads > 0);
+                constexpr std::array<u32, 4> input = {0x12345678, 0x80000001, 0xabcdef01, 0xfedcba98};
+                constexpr std::array<u32, 4> saved = {0xf0e0d0c0, 0x10203040, 0xffffffff, 0x80000000};
+                mem128_t packet;
+                std::memcpy(&packet, input.data(), 16);
+                memWrite128(EE_TEST_SCRATCH, packet);
+                std::memcpy(&packet, saved.data(), 16);
+                memWrite128(EE_TEST_SCRATCH + 32, packet);
+                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                std::memcpy(cpuRegs.GPR.r[8].UL, saved.data(), 16);
+                reinterpret_cast<void (*)()>(out.entry)();
+                memRead128(EE_TEST_SCRATCH + 32, packet);
+                same &= std::memcmp(cpuRegs.GPR.r[9].UL, saved.data(), 16) == 0 &&
+                    std::memcmp(cpuRegs.GPR.r[10].UL, input.data(), 16) == 0 && std::memcmp(&packet, input.data(), 16) == 0;
+                std::printf("EEIR quad vector fast=%u preserve=%u RAM frame_Q_accesses=%u bytes=%u\n",
+                    fast, preserve_hooks, frame_quads, out.host_size);
+            }
+            Check(same, "ir direct quad SIMD path removes RAM frame traffic and respects hook clobbers");
+        }
+}
+
+void EEIrVectorAllocationTests()
+{
+    using Quad = std::array<u32, 4>;
+    constexpr Quad initial = {0x12345678, 0x80000001, 0xfedcba98, 0x7fffffff};
+    constexpr Quad constant = {0x31415926, 0x53589793, 0x23846264, 0x33832795};
+    constexpr Quad memory = {0xaaaaaaaa, 0x55555555, 0x80000000, 0xffffffff};
+    auto clobber = +[](void*) {
+        for (u32 reg = 2; reg <= 7; ++reg)
+            oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+    };
+    for (bool optimize : {false, true})
+        for (bool reuse : {false, true})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+            const u32 zero = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 0);
+            const u32 other = b.ConstVec(constant);
+            const u32 copy = b.Emit1(ir::Op::Copy, ir::Type::V4U32, other);
+            const u32 add = b.Emit2(ir::Op::Add, ir::Type::V4U32, a, copy);
+            const u32 sub = b.Emit2(ir::Op::Sub, ir::Type::V4U32, add, other);
+            const u32 xored = b.Emit2(ir::Op::Xor, ir::Type::V4U32, sub, a);
+            const u32 ored = b.Emit2(ir::Op::Or, ir::Type::V4U32, xored, zero);
+            const u32 masked = b.Emit2(ir::Op::And, ir::Type::V4U32, ored, other);
+            const u32 result = b.Emit1(ir::Op::Not, ir::Type::V4U32, masked);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, a, 10);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, other, 11);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, sub, 12);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 13);
+            b.Resume(EE_TEST_PC + 4);
+            u32 baseline_bytes = 0, baseline_frame = 0;
+            bool same = true;
+            for (bool vectors : {false, true})
+            {
+                EeIr::LowerOptions options;
+                options.allocate_vector_registers = vectors;
+                options.optimize_ir = optimize;
+                options.reuse_spill_slots = reuse;
+                EeIr::LowerOutput out;
+                std::string error;
+                if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                {
+                    same = false;
+                    continue;
+                }
+                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                std::memset(cpuRegs.GPR.r[0].UL, 0x5a, 16); // hardwired zero must ignore backing state
+                std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                reinterpret_cast<void (*)()>(out.entry)();
+                same &= std::memcmp(cpuRegs.GPR.r[10].UL, initial.data(), 16) == 0 &&
+                    std::memcmp(cpuRegs.GPR.r[11].UL, constant.data(), 16) == 0 &&
+                    std::memcmp(cpuRegs.GPR.r[12].UL, initial.data(), 16) == 0;
+                for (u32 lane = 0; lane < 4; ++lane)
+                    same &= cpuRegs.GPR.r[13].UL[lane] == 0xffffffffu;
+                if (!vectors)
+                {
+                    baseline_bytes = out.host_size;
+                    baseline_frame = out.frame_size;
+                    same &= out.vector_register_values == 0;
+                }
+                else
+                    same &= out.vector_register_values > 0 && out.vector_save_values == 0 && out.spill_values == 0 &&
+                        out.host_size < baseline_bytes && out.frame_size < baseline_frame;
+                std::printf("EEIR vector allocation optimize=%u reuse=%u vectors=%u bytes=%u frame=%u registers=%u homes=%u spills=%u\n",
+                    optimize, reuse, vectors, out.host_size, out.frame_size, out.vector_register_values, out.vector_save_values, out.spill_values);
+            }
+            Check(same, "ir vector allocation eliminates stack traffic in pure SIMD block");
+        }
+    // More simultaneously live vectors than the register pool, with genuine
+    // helper calls and hook clobbers of every allocated caller-save register.
+    for (bool with_memory : {false, true})
+        for (bool reuse : {false, true})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            std::array<u32, 16> values;
+            for (u32 i = 0; i < values.size(); ++i)
+                values[i] = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, i + 8);
+            if (with_memory)
+                b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+            u32 result = values[0];
+            for (u32 i = 1; i < values.size(); ++i)
+                result = b.Emit2(ir::Op::Xor, ir::Type::V4U32, result, values[i]);
+            for (u32 i = 0; i < values.size(); ++i)
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, values[i], i + 1);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 31);
+            b.Resume(EE_TEST_PC + 4);
+            EeIr::LowerHooks hooks;
+            hooks.before_memory = +[](void*, u32, bool) {
+                for (u32 reg = 2; reg <= 7; ++reg)
+                    oakAsm->MOVI(oak::QReg(reg).B16(), 0x3c);
+            };
+            hooks.before_helper = hooks.after_helper = hooks.after_memory = clobber;
+            EeIr::LowerOptions options;
+            options.hooks = &hooks;
+            options.reuse_spill_slots = reuse;
+            EeIr::LowerOutput out;
+            std::string error;
+            bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                std::array<Quad, 16> inputs;
+                Quad expected{};
+                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                for (u32 i = 0; i < inputs.size(); ++i)
+                    for (u32 lane = 0; lane < 4; ++lane)
+                    {
+                        inputs[i][lane] = initial[lane] + i * 0x13579bdu;
+                        cpuRegs.GPR.r[i + 8].UL[lane] = inputs[i][lane];
+                        expected[lane] ^= inputs[i][lane];
+                    }
+                reinterpret_cast<void (*)()>(out.entry)();
+                for (u32 i = 0; i < inputs.size(); ++i)
+                    same &= std::memcmp(cpuRegs.GPR.r[i + 1].UL, inputs[i].data(), 16) == 0;
+                same &= std::memcmp(cpuRegs.GPR.r[31].UL, expected.data(), 16) == 0 &&
+                    out.vector_register_values > 0 && out.spill_values > 0 && (!with_memory || out.vector_save_values > 0);
+            }
+            Check(same, "ir vector register pressure and caller-save helper clobbers preserve all128 bits");
+        }
+    for (ir::Op access : {ir::Op::Load128, ir::Op::Store128, ir::Op::DivU})
+        for (bool direct : {false, true})
+            for (bool native_div : {false, true})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 original = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+                const u32 addr = b.ConstI32(EE_TEST_SCRATCH);
+                u32 result;
+                if (access == ir::Op::Load128)
+                    result = b.Emit1(access, ir::Type::V4U32, addr);
+                else if (access == ir::Op::Store128)
+                {
+                    // This operand's final use is exactly at the barrier.
+                    b.Emit2(access, ir::Type::Void, addr, b.ConstVec(memory));
+                    result = original;
+                }
+                else
+                {
+                    const u32 div = b.Emit2(access, ir::Type::I32, b.ConstI32(7), b.ConstI32(3));
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, div, 14);
+                    result = original;
+                }
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, original, 9);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 10);
+                b.Resume(EE_TEST_PC + 4);
+                EeIr::LowerHooks hooks;
+                hooks.before_memory = +[](void*, u32, bool) {
+                    for (u32 reg = 2; reg <= 7; ++reg)
+                        oakAsm->MOVI(oak::QReg(reg).B16(), 0x3c);
+                };
+                hooks.before_helper = hooks.after_helper = hooks.after_memory = clobber;
+                EeIr::LowerOptions options;
+                options.hooks = &hooks;
+                options.inline_division = native_div;
+                options.direct_quad_memory = direct;
+                EeIr::LowerOutput out;
+                std::string error;
+                bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                if (same)
+                {
+                    mem128_t input;
+                    std::memcpy(&input, (access == ir::Op::Store128 ? initial : memory).data(), 16);
+                    memWrite128(EE_TEST_SCRATCH, input);
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    mem128_t stored;
+                    memRead128(EE_TEST_SCRATCH, stored);
+                    same &= std::memcmp(cpuRegs.GPR.r[9].UL, initial.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[10].UL, (access == ir::Op::Load128 ? memory : initial).data(), 16) == 0 &&
+                        std::memcmp(&stored, memory.data(), 16) == 0 && out.vector_register_values > 0;
+                    if (access == ir::Op::DivU)
+                        same &= cpuRegs.GPR.r[14].UL[0] == 2 && (native_div || out.vector_save_values > 0);
+                    else
+                        same &= out.vector_save_values > 0;
+                }
+                Check(same, "ir allocated vectors survive quad direct/helper paths and native/helper division");
+            }
+    {
+        // Keep the pool occupied while accumulating forced, non-reused
+        // spills, then give a caller-save value a home beyond imm12 range.
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        std::array<u32, 6> held;
+        for (u32 i = 0; i < held.size(); ++i)
+            held[i] = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, i + 8);
+        for (u32 i = 0; i < 320; ++i)
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstVec({i, ~i, i + 1, i + 2}), 14);
+        for (u32 i = 0; i < held.size(); ++i)
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, held[i], i + 15);
+        const u32 value = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 14);
+        b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 21);
+        b.Resume(EE_TEST_PC + 4);
+        EeIr::LowerHooks hooks;
+        hooks.before_helper = hooks.after_helper = clobber;
+        EeIr::LowerOptions options;
+        options.optimize_ir = false;
+        options.reuse_spill_slots = false;
+        options.hooks = &hooks;
+        EeIr::LowerOutput out;
+        std::string error;
+        bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        if (same)
+        {
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            for (u32 i = 0; i < held.size(); ++i)
+                std::memcpy(cpuRegs.GPR.r[i + 8].UL, initial.data(), 16);
+            reinterpret_cast<void (*)()>(out.entry)();
+            const Quad expected = {319, ~319u, 320, 321};
+            same &= std::memcmp(cpuRegs.GPR.r[21].UL, expected.data(), 16) == 0 &&
+                out.frame_size > 4095 && out.vector_save_values > 0;
+            for (u32 i = 0; i < held.size(); ++i)
+                same &= std::memcmp(cpuRegs.GPR.r[i + 15].UL, initial.data(), 16) == 0;
+        }
+        Check(same, "ir caller-save vector home beyond imm12 survives helper clobbers");
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        const u32 value = b.ConstVec(constant);
+        b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 9);
+        b.Resume(EE_TEST_PC + 4);
+        EeIr::LowerOutput out;
+        std::string error;
+        bool same = EeIr::LowerBlock(fn, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error) &&
+            out.vector_register_values > 0 && out.vector_save_values > 0;
+        EeIr::LowerOptions options;
+        options.allocate_registers = false; // master switch must disable both pools
+        same &= EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        if (same)
+        {
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= out.register_values == 0 && out.vector_register_values == 0 && out.vector_save_values == 0 &&
+                std::memcmp(cpuRegs.GPR.r[9].UL, constant.data(), 16) == 0;
+        }
+        Check(same, "ir master allocation switch and reused output clear SIMD counts");
+    }
+}
+
+void EEIrVectorForwardTests()
+{
+    using Quad = std::array<u32, 4>;
+    constexpr Quad initial = {0x12345678, 0xabcdef01, 0x87654321, 0xfedcba98};
+    constexpr Quad updated = {0x80000003, 0x10203040, 0x50607080, 0x90a0b0c0};
+    constexpr Quad mutated = {0x31415926, 0x53589793, 0x23846264, 0x33832795};
+    char name[128];
+    for (u32 scenario = 0; scenario < 6; ++scenario)
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        auto read_quad = [&]() { return b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8); };
+        auto write = [&](u32 reg, u32 value) { b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, reg); };
+        std::array<Quad, 3> expected = {initial, initial, initial};
+        if (scenario == 1)
+            write(8, b.ConstVec(updated));
+        if (scenario == 5)
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void,
+                {b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8)}, 9, ir::IF_WIDE_WRITE);
+        else
+            write(9, read_quad());
+        if (scenario == 2)
+        {
+            write(8, b.ConstI32(0x80000003));
+            expected[1] = expected[2] = Quad{0x80000003, 0xffffffff, initial[2], initial[3]};
+        }
+        if (scenario == 3)
+        {
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {b.ConstI64(0x1020304080000003ull)}, 8, ir::IF_WIDE_WRITE);
+            expected[1] = expected[2] = Quad{updated[0], updated[1], initial[2], initial[3]};
+        }
+        if (scenario == 4)
+        {
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void,
+                {b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8)}, 10, ir::IF_WIDE_WRITE);
+            expected[1] = Quad{initial[0], initial[1], 0, 0};
+        }
+        else if (scenario == 5)
+        {
+            write(8, b.ConstVec(updated));
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void,
+                {b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8)}, 10, ir::IF_WIDE_WRITE);
+            expected = {Quad{initial[0], initial[1], 0, 0}, Quad{updated[0], updated[1], 0, 0},
+                Quad{updated[0], 0xffffffff, 0, 0}};
+        }
+        else
+            write(10, read_quad());
+        write(11, scenario == 5 ? b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8) : read_quad());
+        if (scenario == 1)
+            expected.fill(updated);
+        b.Resume(EE_TEST_PC + 4);
+        for (bool allocate : {false, true})
+            for (bool reuse : {false, true})
+                for (bool forward : {false, true})
+                {
+                    EeIr::LowerOptions options;
+                    options.allocate_registers = allocate;
+                    options.reuse_spill_slots = reuse;
+                    options.forward_quad_state = forward;
+                    EeIr::LowerOutput out;
+                    std::string error;
+                    bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                    if (same)
+                    {
+                        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                        std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        for (u32 i = 0; i < 3; ++i)
+                            same &= std::memcmp(cpuRegs.GPR.r[i + 9].UL, expected[i].data(), 16) == 0;
+                    }
+                    std::snprintf(name, sizeof(name), "ir quad forwarding mixed widths case=%u alloc=%u reuse=%u forward=%u", scenario, allocate, reuse, forward);
+                    Check(same, name);
+                }
+    }
+    // Same function, same lowering options, only forwarding changes. Check
+    // real output and generated size rather than the optimizer's internals.
+    for (bool writes : {false, true})
+        for (bool allocate : {false, true})
+            for (bool reuse : {false, true})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                u32 value = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+                const u32 step = b.ConstVec({1, 2, 3, 4});
+                for (u32 i = 0; i < 24; ++i)
+                {
+                    const u32 read = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+                    value = b.Emit2(writes ? ir::Op::Add : ir::Op::Xor, ir::Type::V4U32, writes ? read : value, writes ? step : read);
+                    if (writes)
+                        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 8);
+                }
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 9);
+                b.Resume(EE_TEST_PC + 4);
+                u32 baseline = 0;
+                bool same = true;
+                for (bool forward : {false, true})
+                {
+                    EeIr::LowerOptions options;
+                    options.allocate_registers = allocate;
+                    options.reuse_spill_slots = reuse;
+                    options.forward_quad_state = forward;
+                    EeIr::LowerOutput out;
+                    std::string error;
+                    if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                    {
+                        same = false;
+                        continue;
+                    }
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    for (u32 lane = 0; lane < 4; ++lane)
+                        same &= cpuRegs.GPR.r[9].UL[lane] == initial[lane] + (writes ? 24 * (lane + 1) : 0);
+                    if (!forward)
+                        baseline = out.host_size;
+                    else
+                        same &= out.host_size < baseline;
+                    std::printf("EEIR vector forwarding writes=%u alloc=%u reuse=%u forward=%u bytes=%u frame=%u\n",
+                        writes, allocate, reuse, forward, out.host_size, out.frame_size);
+                }
+                Check(same, "ir quad forwarding reduces emitted code with identical options and results");
+            }
+    for (ir::Op access : {ir::Op::Load32, ir::Op::Load128, ir::Op::Store32, ir::Op::Store128, ir::Op::DivU})
+        for (bool direct : {false, true})
+            for (bool forward : {false, true})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 old = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, old, 9);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstVec(updated), 8);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8), 10);
+                const u32 addr = b.ConstI32(EE_TEST_SCRATCH);
+                if (access == ir::Op::DivU)
+                {
+                    const u32 quotient = b.Emit2(access, ir::Type::I32, b.ConstI32(7), b.ConstI32(3));
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, quotient, 15);
+                }
+                else if (access == ir::Op::Store128 || access == ir::Op::Store32)
+                    b.Emit2(access, ir::Type::Void, addr, access == ir::Op::Store128 ? old : b.ConstI32(7));
+                else
+                    b.Emit1(access, access == ir::Op::Load128 ? ir::Type::V4U32 : ir::Type::I32, addr);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8), 11);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, old, 13);
+                b.Resume(EE_TEST_PC + 4);
+                EeIr::LowerHooks hooks;
+                auto mutate = +[](void*) {
+                    oakLoad128(oak::util::Q0, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[8]))});
+                    oakStore128(oak::util::Q0, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[12]))});
+                    oakAsm->MOV(oak::util::X16, 0x5358979331415926ull);
+                    oakStore64(oak::util::X16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[8]))});
+                    oakAsm->MOV(oak::util::X16, 0x3383279523846264ull);
+                    oakStore64(oak::util::X16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[8])) + 8});
+                };
+                if (access == ir::Op::DivU)
+                    hooks.after_helper = mutate;
+                else
+                    hooks.after_memory = mutate;
+                EeIr::LowerOptions options;
+                options.hooks = &hooks;
+                options.inline_division = false;
+                options.direct_quad_memory = direct;
+                options.forward_quad_state = forward;
+                EeIr::LowerOutput out;
+                std::string error;
+                bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                if (same)
+                {
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    same &= std::memcmp(cpuRegs.GPR.r[9].UL, initial.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[10].UL, updated.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[11].UL, mutated.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[12].UL, updated.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[13].UL, initial.data(), 16) == 0;
+                }
+                std::snprintf(name, sizeof(name), "ir quad forwarding barrier %s direct=%u forward=%u", ir::OpName(access), direct, forward);
+                Check(same, name);
+            }
+    {
+        ir::Function fn;
+        fn.guest_entry = EE_TEST_PC;
+        ir::Builder b(fn);
+        const u32 entry = b.CreateBlock(EE_TEST_PC);
+        const u32 cond = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 7);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8), 9);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstVec(updated), 8);
+        const u32 left = b.CreateBlock(EE_TEST_PC + 4), right = b.CreateBlock(EE_TEST_PC + 8), join = b.CreateBlock(EE_TEST_PC + 12);
+        b.SetBlock(entry);
+        b.Branch(cond, left, right);
+        b.SetBlock(left);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8), 11);
+        b.Jump(join);
+        b.SetBlock(right);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstVec(mutated), 8);
+        b.Jump(join);
+        b.SetBlock(join);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8), 10);
+        b.Resume(EE_TEST_PC + 16);
+        for (bool forward : {false, true})
+        {
+            EeIr::LowerOptions options;
+            options.forward_quad_state = forward;
+            EeIr::LowerOutput out;
+            std::string error;
+            bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+                for (bool taken : {false, true})
+                {
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    cpuRegs.GPR.r[7].UL[0] = taken;
+                    std::memcpy(cpuRegs.GPR.r[8].UL, initial.data(), 16);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    same &= std::memcmp(cpuRegs.GPR.r[9].UL, initial.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[10].UL, (taken ? updated : mutated).data(), 16) == 0;
+                    if (taken)
+                        same &= std::memcmp(cpuRegs.GPR.r[11].UL, updated.data(), 16) == 0;
+                }
+            Check(same, "ir quad forwarding remains block-local across branch merge");
+        }
+    }
+    for (ir::Op op : {ir::Op::Add, ir::Op::Sub, ir::Op::And, ir::Op::Or, ir::Op::Xor, ir::Op::Not})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+        const u32 dead = op == ir::Op::Not ? b.Emit1(op, ir::Type::V4U32, a) : b.Emit2(op, ir::Type::V4U32, a, a);
+        b.Emit1(ir::Op::Not, ir::Type::V4U32, dead); // recursively dead chain
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstVec(updated), 9);
+        b.Resume(EE_TEST_PC + 4);
+        u32 baseline = 0;
+        bool same = true;
+        for (bool optimize : {false, true})
+        {
+            EeIr::LowerOptions options;
+            options.optimize_ir = optimize;
+            options.reuse_spill_slots = false;
+            EeIr::LowerOutput out;
+            std::string error;
+            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+            {
+                same = false;
+                continue;
+            }
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= std::memcmp(cpuRegs.GPR.r[9].UL, updated.data(), 16) == 0;
+            if (!optimize)
+                baseline = out.host_size;
+            else
+                same &= out.host_size < baseline;
+        }
+        Check(same, "ir dead vector ALU chain removed without changing live write");
+    }
+}
+
+void EEIrMmiTests()
+{
+    struct Operation { const char* name; u32 group, sub; ir::Op op; bool invert; bool swap = false; };
+    constexpr Operation operations[] = {
+        {"paddw", 8, 0, ir::Op::Add, false}, {"psubw", 8, 1, ir::Op::Sub, false},
+        {"pand", 9, 18, ir::Op::And, false}, {"pxor", 9, 19, ir::Op::Xor, false},
+        {"por", 41, 18, ir::Op::Or, false}, {"pnor", 41, 19, ir::Op::Or, true},
+        {"pcgtw", 8, 2, ir::Op::VCmpLtS, false, true}, {"pmaxw", 8, 3, ir::Op::VMaxS, false},
+        {"pceqw", 40, 2, ir::Op::VCmpEq, false}, {"pminw", 40, 3, ir::Op::VMinS, false}
+    };
+    constexpr u32 edges[] = {0, 1, 0xffffffffu, 0x80000000u, 0x7fffffffu, 0x55555555u, 0xaaaaaaaau, 0x12345678u};
+    char name[128];
+    for (const auto& op : operations)
+    {
+        for (u32 pattern = 0; pattern < std::size(edges); ++pattern)
+        {
+            std::array<u32, 4> lhs{}, rhs{}, expected{};
+            for (u32 lane = 0; lane < 4; ++lane)
+            {
+                lhs[lane] = edges[(pattern + lane) % std::size(edges)];
+                rhs[lane] = edges[(pattern + 3 * lane + 1) % std::size(edges)];
+                switch (op.op)
+                {
+                    case ir::Op::Add: expected[lane] = lhs[lane] + rhs[lane]; break;
+                    case ir::Op::Sub: expected[lane] = lhs[lane] - rhs[lane]; break;
+                    case ir::Op::And: expected[lane] = lhs[lane] & rhs[lane]; break;
+                    case ir::Op::Xor: expected[lane] = lhs[lane] ^ rhs[lane]; break;
+                    case ir::Op::VCmpLtS: expected[lane] = static_cast<s32>(lhs[lane]) > static_cast<s32>(rhs[lane]) ? ~0u : 0u; break;
+                    case ir::Op::VCmpEq: expected[lane] = lhs[lane] == rhs[lane] ? ~0u : 0u; break;
+                    case ir::Op::VMaxS: expected[lane] = static_cast<s32>(lhs[lane]) > static_cast<s32>(rhs[lane]) ? lhs[lane] : rhs[lane]; break;
+                    case ir::Op::VMinS: expected[lane] = static_cast<s32>(lhs[lane]) < static_cast<s32>(rhs[lane]) ? lhs[lane] : rhs[lane]; break;
+                    default: expected[lane] = lhs[lane] | rhs[lane]; break;
+                }
+                if (op.invert)
+                    expected[lane] = ~expected[lane];
+            }
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 a = b.ConstVec(lhs), other = b.ConstVec(rhs);
+            u32 result = b.Emit2(op.op, ir::Type::V4U32, op.swap ? other : a, op.swap ? a : other);
+            if (op.invert)
+                result = b.Emit1(ir::Op::Not, ir::Type::V4U32, result);
+            // The value must survive both direct memory and C helper paths.
+            b.Emit1(ir::Op::Load128, ir::Type::V4U32, b.ConstI32(EE_TEST_SCRATCH));
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {result}, 8);
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {a}, 9);
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {other}, 10);
+            b.Emit2(ir::Op::Store128, ir::Type::Void, b.ConstI32(EE_TEST_SCRATCH + 96), result);
+            b.Resume(EE_TEST_PC + 4);
+            for (u32 mode = 0; mode < 4; ++mode)
+            {
+                EeIr::LowerOptions options;
+                options.optimize_ir = mode != 0;
+                options.allocate_registers = mode != 2;
+                options.direct_quad_memory = mode != 3;
+                options.reuse_spill_slots = mode != 3;
+                EeIr::LowerOutput out;
+                std::string error;
+                bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                if (same)
+                {
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    mem128_t stored;
+                    memRead128(EE_TEST_SCRATCH + 96, stored);
+                    same &= std::memcmp(cpuRegs.GPR.r[8].UL, expected.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[9].UL, lhs.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[10].UL, rhs.data(), 16) == 0 &&
+                        std::memcmp(&stored, expected.data(), 16) == 0;
+                }
+                std::snprintf(name, sizeof(name), "ir SIMD %s edges=%u mode=%u", op.name, pattern, mode);
+                Check(same, name);
+            }
+        }
+        constexpr std::array<u32, 3> aliases[] = {
+            {8, 9, 10}, {8, 9, 8}, {8, 9, 9}, {8, 8, 8},
+            {0, 9, 10}, {8, 0, 10}, {0, 0, 10}, {8, 9, 0}
+        };
+        for (u32 alias = 0; alias < std::size(aliases); ++alias)
+        {
+            const auto regs = aliases[alias];
+            const std::vector<u32> code = {
+                MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48),
+                Mmi(op.group, op.sub, regs[0], regs[1], regs[2]),
+                MipsI(31, 22, regs[2], 96), MipsI(9, regs[2], regs[2], -3),
+                MipsI(31, 22, regs[2], 112)
+            };
+            std::snprintf(name, sizeof(name), "ir MMI %s aliases=%u and scalar upper preservation", op.name, alias);
+            RunEEIrCase(name, code, nullptr, false, true);
+            CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), name);
+        }
+        for (u32 branch : {4u, 0x14u})
+        {
+            for (bool taken : {false, true})
+            {
+                const std::vector<u32> code = {
+                    MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                    MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48),
+                    MipsI(9, 0, 4, taken ? 1 : 0), MipsI(9, 0, 5, 1),
+                    MipsI(branch, 4, 5, 1), Mmi(op.group, op.sub, 8, 9, 8)
+                };
+                std::snprintf(name, sizeof(name), "ir MMI %s delay branch=%02x taken=%u", op.name, branch, taken);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+            }
+        }
+    }
+    // Reject unimplemented MMI operations even when their destination is $0.
+    for (u32 word : {Mmi(8, 4, 8, 9, 0), Mmi(9, 17, 8, 9, 0), Mmi(41, 17, 8, 9, 0), Mmi(0, 0, 8, 9, 0)})
+    {
+        ir::Function fn;
+        u32 end;
+        std::string error;
+        Check(!EeIr::LiftBlock(&word, {EE_TEST_PC, 1}, fn, &end, &error), "ir MMI unsupported opcode keeps legacy fallback");
+    }
+    for (ir::Op op : {ir::Op::Mul, ir::Op::MinU, ir::Op::MaxS, ir::Op::DivU})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        const u32 a = b.ConstVec({1, 2, 3, 4});
+        const u32 value = b.Emit2(op, ir::Type::V4U32, a, a);
+        b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, 8);
+        b.Resume(EE_TEST_PC + 4);
+        std::string error;
+        Check(!EeIr::CanLower(fn, false, &error), "ir SIMD unsupported vector operation rejected before emission");
+    }
+}
+
+void EEIrPackedWordShiftTests()
+{
+    struct Operation { const char* name; u32 function; ir::Op op; };
+    constexpr Operation operations[] = {
+        {"psllw", 0x3c, ir::Op::VShl}, {"psrlw", 0x3e, ir::Op::VShrU}, {"psraw", 0x3f, ir::Op::VShrS}
+    };
+    constexpr std::array<u32, 4> input = {0x80000001, 0x7fffffff, 0xffffffff, 0x12345678};
+    std::vector<u32> counts;
+    for (u32 count = 0; count < 32; ++count)
+        counts.push_back(count);
+    counts.insert(counts.end(), {32, 33, 63, 64, 255, 256, 0x80000000u, 0xffffffffu});
+    char name[160];
+    for (const auto& op : operations)
+    {
+        // Shared IR handles both constant and runtime scalar counts. Count
+        // masking must happen before ARM64 uses its signed per-lane shifts.
+        for (u32 count : counts)
+            for (bool wide : {false, true})
+                for (bool runtime : {false, true})
+                {
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(EE_TEST_PC);
+                    const u32 source = b.ConstVec(input);
+                    const u64 full_count = (wide ? 0xfedcba9800000000ull : 0) | count;
+                    const u32 amount = runtime ? b.Emit(ir::Op::ReadGpr, wide ? ir::Type::I64 : ir::Type::I32, {}, 12) :
+                        wide ? b.ConstI64(full_count) : b.ConstI32(count);
+                    const u32 shifted = b.Emit2(op.op, ir::Type::V4U32, source, amount);
+                    b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, shifted, 8);
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, source, 9);
+                    b.Resume(EE_TEST_PC + 4);
+                    EeIr::LowerHooks hooks;
+                    hooks.before_helper = hooks.after_helper = +[](void*) {
+                        for (u32 reg = 2; reg <= 7; ++reg)
+                            oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+                    };
+                    bool same = true;
+                    for (u32 mode = 0; mode < 5; ++mode)
+                    {
+                        EeIr::LowerOptions options;
+                        options.optimize_ir = mode != 0;
+                        options.allocate_registers = mode != 0 && mode != 3;
+                        options.materialize_constants = mode == 1 || mode == 3 || mode == 4;
+                        options.allocate_vector_registers = mode != 4;
+                        options.hooks = &hooks;
+                        EeIr::LowerOutput out;
+                        std::string error;
+                        if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                        {
+                            same = false;
+                            continue;
+                        }
+                        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                        cpuRegs.GPR.r[12].UD[0] = full_count;
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        same &= std::memcmp(cpuRegs.GPR.r[9].UL, input.data(), 16) == 0;
+                        for (u32 lane = 0; lane < 4; ++lane)
+                        {
+                            const u32 shift = count & 31u;
+                            const u32 expected = op.op == ir::Op::VShl ? input[lane] << shift :
+                                op.op == ir::Op::VShrU ? input[lane] >> shift :
+                                static_cast<u32>(static_cast<s32>(input[lane]) >> shift);
+                            same &= cpuRegs.GPR.r[8].UL[lane] == expected;
+                        }
+                    }
+                    std::snprintf(name, sizeof(name), "ir SIMD %s count=%08x wide=%u runtime=%u all allocation modes/helper clobbers",
+                        op.name, count, wide, runtime);
+                    Check(same, name);
+                }
+        constexpr std::array<u32, 2> aliases[] = {{8, 9}, {8, 8}, {0, 9}, {8, 0}, {0, 0}};
+        for (u32 count = 0; count < 32; ++count)
+            for (const auto& regs : aliases)
+            {
+                const std::vector<u32> code = {
+                    MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                    MipsI(30, 22, 8, 32), Mmi(op.function, count, 0, regs[0], regs[1]),
+                    MipsI(31, 22, regs[1], 96), MipsI(9, regs[1], regs[1], -3),
+                    MipsI(31, 22, regs[1], 112)
+                };
+                std::snprintf(name, sizeof(name), "ir MMI %s count=%u rt=%u rd=%u scalar upper preservation",
+                    op.name, count, regs[0], regs[1]);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), name);
+            }
+        for (u32 count : {0u, 1u, 31u})
+            for (u32 branch : {4u, 0x14u})
+                for (bool taken : {false, true})
+                {
+                    const std::vector<u32> code = {
+                        MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000), MipsI(30, 22, 8, 32),
+                        MipsI(9, 0, 4, taken ? 1 : 0), MipsI(9, 0, 5, 1),
+                        MipsI(branch, 4, 5, 1), Mmi(op.function, count, 0, 8, 8)
+                    };
+                    std::snprintf(name, sizeof(name), "ir MMI %s count=%u delay branch=%02x taken=%u", op.name, count, branch, taken);
+                    RunEEIrCase(name, code, nullptr, false, true);
+                    CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+                }
+        {
+            // Shared IR permits signed integer vectors; the EE backend
+            // currently represents full GPR bits using V4U32 exclusively.
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 source = b.Emit(ir::Op::ReadGpr, ir::Type::V4I32, {}, 8);
+            const u32 shifted = b.Emit2(op.op, ir::Type::V4I32, source, b.ConstI32(31));
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, shifted, 9);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(ir::Verify(fn, &error) && !EeIr::CanLower(fn, false, &error),
+                "ir signed packed shifts verify while EE retains its raw unsigned vector boundary");
+        }
+        for (ir::Type type : {ir::Type::I32, ir::Type::I64, ir::Type::F32, ir::Type::V4F32, ir::Type::Flags})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 source = b.Emit(ir::Op::Undef, type, {});
+            const u32 shifted = b.Emit2(op.op, type, source, b.ConstI32(1));
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, shifted, 8);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(!ir::Verify(fn, &error), "ir packed shift rejects scalar/float/flag source types");
+        }
+        for (ir::Type type : {ir::Type::F32, ir::Type::V4U32})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 shifted = b.Emit2(op.op, ir::Type::V4U32, b.ConstVec(input), b.Emit(ir::Op::Undef, type, {}));
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, shifted, 8);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(!ir::Verify(fn, &error), "ir packed shift requires a scalar integer count");
+        }
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        u32 value = b.ConstVec(input);
+        for (ir::Op op : {ir::Op::VShl, ir::Op::VShrU, ir::Op::VShrS})
+            value = b.Emit2(op, ir::Type::V4U32, value, b.ConstI32(3));
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstI32(42), 10);
+        b.Resume(EE_TEST_PC + 4);
+        ir::OptimizeIntegerValues(fn);
+        std::string error;
+        bool removed = ir::Verify(fn, &error);
+        for (const auto& block : fn.blocks)
+            for (const auto& inst : block.insts)
+                removed &= inst.op != ir::Op::VShl && inst.op != ir::Op::VShrU && inst.op != ir::Op::VShrS;
+        Check(removed, "ir dead packed shift chain is removed");
+    }
+}
+
+void EEIrVectorCompareTests()
+{
+    constexpr ir::Op operations[] = {ir::Op::VMinS, ir::Op::VMinU, ir::Op::VMaxS, ir::Op::VMaxU,
+        ir::Op::VCmpEq, ir::Op::VCmpNe, ir::Op::VCmpLtS, ir::Op::VCmpLtU, ir::Op::VCmpLeS, ir::Op::VCmpLeU};
+    constexpr u32 edges[] = {0, 1, 0xffffffffu, 0x80000000u, 0x7fffffffu, 0x55555555u, 0xaaaaaaaau, 0x12345678u};
+    char name[128];
+    for (ir::Op op : operations)
+        for (u32 i = 0; i < std::size(edges); ++i)
+            for (u32 j = 0; j < std::size(edges); ++j)
+                for (u32 live = 0; live < 5; ++live)
+            {
+                if (live == 4 && (i != 0 || j != 0))
+                    continue;
+                std::array<u32, 4> lhs{}, rhs{}, expected{};
+                for (u32 lane = 0; lane < 4; ++lane)
+                {
+                    const u32 a = lhs[lane] = edges[(i + lane) % std::size(edges)];
+                    const u32 b = rhs[lane] = edges[(j + 3 * lane) % std::size(edges)];
+                    switch (op)
+                    {
+                        case ir::Op::VMinS: expected[lane] = static_cast<s32>(a) < static_cast<s32>(b) ? a : b; break;
+                        case ir::Op::VMinU: expected[lane] = std::min(a, b); break;
+                        case ir::Op::VMaxS: expected[lane] = static_cast<s32>(a) > static_cast<s32>(b) ? a : b; break;
+                        case ir::Op::VMaxU: expected[lane] = std::max(a, b); break;
+                        case ir::Op::VCmpEq: expected[lane] = a == b ? ~0u : 0u; break;
+                        case ir::Op::VCmpNe: expected[lane] = a != b ? ~0u : 0u; break;
+                        case ir::Op::VCmpLtS: expected[lane] = static_cast<s32>(a) < static_cast<s32>(b) ? ~0u : 0u; break;
+                        case ir::Op::VCmpLtU: expected[lane] = a < b ? ~0u : 0u; break;
+                        case ir::Op::VCmpLeS: expected[lane] = static_cast<s32>(a) <= static_cast<s32>(b) ? ~0u : 0u; break;
+                        default: expected[lane] = a <= b ? ~0u : 0u; break;
+                    }
+                }
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                // Keep eight extra vectors live to force operand spills under register pressure.
+                std::array<u32, 8> pressure{};
+                if (live == 4)
+                    for (u32 k = 0; k < pressure.size(); ++k)
+                        pressure[k] = b.ConstVec({k, k + 1, ~k, 0x80000000u + k});
+                const u32 a = b.ConstVec(lhs), other = b.ConstVec(rhs);
+                const u32 result = b.Emit2(op, ir::Type::V4U32, a, other);
+                b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 8);
+                if ((live & 1) || live == 4)
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, a, 9);
+                if ((live & 2) || live == 4)
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, other, 10);
+                if (live == 4)
+                    for (u32 k = 0; k < pressure.size(); ++k)
+                        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, pressure[k], 11 + k);
+                b.Resume(EE_TEST_PC + 4);
+                EeIr::LowerHooks hooks;
+                hooks.before_helper = hooks.after_helper = +[](void*) {
+                    for (u32 reg = 2; reg <= 7; ++reg)
+                        oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+                };
+                bool same = true;
+                for (u32 mode = 0; mode < 5; ++mode)
+                {
+                    EeIr::LowerOptions options;
+                    options.optimize_ir = mode != 0;
+                    options.allocate_registers = mode != 2;
+                    options.allocate_vector_registers = mode != 4;
+                    options.reuse_spill_slots = mode != 3;
+                    options.hooks = &hooks;
+                    EeIr::LowerOutput out;
+                    std::string error;
+                    if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                    {
+                        same = false;
+                        continue;
+                    }
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    same &= std::memcmp(cpuRegs.GPR.r[8].UL, expected.data(), 16) == 0;
+                    if ((live & 1) || live == 4)
+                        same &= std::memcmp(cpuRegs.GPR.r[9].UL, lhs.data(), 16) == 0;
+                    if ((live & 2) || live == 4)
+                        same &= std::memcmp(cpuRegs.GPR.r[10].UL, rhs.data(), 16) == 0;
+                    if (live == 4)
+                        for (u32 k = 0; k < pressure.size(); ++k)
+                        {
+                            const std::array<u32, 4> preserved = {k, k + 1, ~k, 0x80000000u + k};
+                            same &= std::memcmp(cpuRegs.GPR.r[11 + k].UL, preserved.data(), 16) == 0;
+                        }
+                }
+                std::snprintf(name, sizeof(name), "ir SIMD %s edges=%u,%u live=%u exact masks/helper clobbers/allocation modes", ir::OpName(op), i, j, live);
+                Check(same, name);
+            }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        u32 value = b.ConstVec({0x80000000, 0xffffffff, 0x7fffffff, 0});
+        const u32 other = b.ConstVec({0, 0x80000000, 0xffffffff, 0x7fffffff});
+        for (ir::Op op : operations)
+            value = b.Emit2(op, ir::Type::V4U32, value, other);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstI32(42), 10);
+        b.Resume(EE_TEST_PC + 4);
+        ir::OptimizeIntegerValues(fn);
+        std::string error;
+        bool removed = ir::Verify(fn, &error);
+        for (const auto& block : fn.blocks)
+            for (const auto& inst : block.insts)
+                for (ir::Op op : operations)
+                    removed &= inst.op != op;
+        Check(removed, "ir dead integer vector comparisons/minmax chain is removed");
+    }
+}
+
+void EEIrWordShuffleTests()
+{
+    constexpr std::array<u32, 4> lhs = {0x0080ffff, 0x12345678, 0x80000001, 0xffffffff};
+    constexpr std::array<u32, 4> rhs = {0, 0x7fffaaaa, 0x76543210, 0xabcd0001};
+    auto run = [&](bool binary, u32 selectors, u32 live, bool all_modes) {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        std::array<u32, 8> pressure{};
+        const u32 pressure_count = live == 4 || live == 6 ? 5 : live == 5 ? 8 : 0;
+        for (u32 k = 0; k < pressure_count; ++k)
+            pressure[k] = b.ConstVec({k, k + 1, ~k, 0x80000000u + k});
+        // Reverse allocation order too, so either source may be the spilled one.
+        u32 other = binary && live == 6 ? b.ConstVec(rhs) : 0;
+        const u32 a = b.ConstVec(lhs);
+        if (binary && live != 6)
+            other = b.ConstVec(rhs);
+        const u32 result = binary ? b.Emit2(ir::Op::VShuffle2, ir::Type::V4U32, a, other, selectors) :
+            b.Emit1(ir::Op::VShuffle, ir::Type::V4U32, a, selectors);
+        // The helper and its hooks overwrite every allocated caller-save vector.
+        b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 8);
+        const bool keep_a = (live & 1) || live >= 4;
+        const bool keep_b = binary && ((live & 2) || live >= 4);
+        if (keep_a)
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, a, 9);
+        if (keep_b)
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, other, 10);
+        for (u32 k = 0; k < pressure_count; ++k)
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, pressure[k], 11 + k);
+        b.Resume(EE_TEST_PC + 4);
+        std::array<u32, 4> expected{};
+        for (u32 lane = 0; lane < 4; ++lane)
+        {
+            const u32 select = (selectors >> (lane * (binary ? 3 : 2))) & (binary ? 7 : 3);
+            expected[lane] = select < 4 ? lhs[select] : rhs[select - 4];
+        }
+        EeIr::LowerHooks hooks;
+        hooks.before_helper = hooks.after_helper = +[](void*) {
+            for (u32 reg = 2; reg <= 7; ++reg)
+                oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+        };
+        bool same = true;
+        for (u32 mode = 0; mode < (all_modes ? 5u : 1u); ++mode)
+        {
+            EeIr::LowerOptions options;
+            options.optimize_ir = !all_modes || mode != 0;
+            options.allocate_registers = mode != 2;
+            options.allocate_vector_registers = mode != 4;
+            options.reuse_spill_slots = mode != 3;
+            options.hooks = &hooks;
+            EeIr::LowerOutput out;
+            std::string error;
+            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+            {
+                same = false;
+                continue;
+            }
+            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= std::memcmp(cpuRegs.GPR.r[8].UL, expected.data(), 16) == 0;
+            if (keep_a)
+                same &= std::memcmp(cpuRegs.GPR.r[9].UL, lhs.data(), 16) == 0;
+            if (keep_b)
+                same &= std::memcmp(cpuRegs.GPR.r[10].UL, rhs.data(), 16) == 0;
+            for (u32 k = 0; k < pressure_count; ++k)
+            {
+                const std::array<u32, 4> value = {k, k + 1, ~k, 0x80000000u + k};
+                same &= std::memcmp(cpuRegs.GPR.r[11 + k].UL, value.data(), 16) == 0;
+            }
+        }
+        char name[128];
+        std::snprintf(name, sizeof(name), "ir shuffle inputs=%u selectors=%03x live=%u modes=%u", binary ? 2 : 1, selectors, live, all_modes ? 5 : 1);
+        Check(same, name);
+    };
+    // Exhaust every possible lane selector, varying source/result lifetimes.
+    for (u32 selectors = 0; selectors < 256; ++selectors)
+        run(false, selectors, selectors & 3, false);
+    for (u32 selectors = 0; selectors < 4096; ++selectors)
+        run(true, selectors, selectors & 3, false);
+    // Exercise special SIMD patterns and a generic permutation under pressure.
+    for (u32 selectors : {0xe4u, 0x00u, 0x55u, 0xaau, 0xffu, 0xc6u, 0xc9u, 0xd8u, 0x1bu})
+        for (u32 live = 0; live < 7; ++live)
+            run(false, selectors, live, true);
+    for (u32 selectors : {0xa60u, 0xef2u, 0xefau, 0xd10u, 0xb08u, 0x6beu, 0xfacu, 0x688u, 0xfedu, 0x249u})
+        for (u32 live = 0; live < 7; ++live)
+            run(true, selectors, live, true);
+
+    struct Operation { const char* name; u32 group, sub; std::array<u32, 4> lanes; bool binary = true; };
+    constexpr Operation operations[] = {
+        {"pextlw", 8, 18, {0, 4, 1, 5}}, {"pextuw", 40, 18, {2, 6, 3, 7}}, {"ppacw", 8, 19, {0, 2, 4, 6}},
+        {"pcpyld", 9, 14, {0, 1, 4, 5}}, {"pcpyud", 41, 14, {6, 7, 2, 3}},
+        {"pexew", 9, 30, {2, 1, 0, 3}, false}, {"pexcw", 41, 30, {0, 2, 1, 3}, false}, {"prot3w", 9, 31, {1, 2, 0, 3}, false}
+    };
+    constexpr std::array<u32, 3> aliases[] = {
+        {8, 9, 10}, {8, 9, 8}, {8, 9, 9}, {8, 8, 8},
+        {0, 9, 10}, {8, 0, 10}, {0, 0, 10}, {8, 9, 0}
+    };
+    char name[128];
+    for (const auto& op : operations)
+    {
+        // Check the IR contract itself: matching lifter/backend bugs must not cancel.
+        const u32 word = Mmi(op.group, op.sub, 8, 9, 10);
+        ir::Function fn;
+        u32 end = 0, selectors = 0;
+        for (u32 lane = 0; lane < 4; ++lane)
+            selectors |= op.lanes[lane] << (lane * (op.binary ? 3 : 2));
+        std::string error;
+        bool contract = EeIr::LiftBlock(&word, {EE_TEST_PC, 1}, fn, &end, &error);
+        u32 matches = 0;
+        for (const auto& block : fn.blocks)
+            for (const auto& inst : block.insts)
+                if (inst.op == ir::Op::VShuffle || inst.op == ir::Op::VShuffle2)
+                {
+                    contract &= inst.op == (op.binary ? ir::Op::VShuffle2 : ir::Op::VShuffle) && inst.imm == selectors;
+                    ++matches;
+                }
+        std::snprintf(name, sizeof(name), "ir MMI %s exposes the documented lane-selection contract", op.name);
+        Check(contract && matches == 1, name);
+        for (u32 alias = 0; alias < std::size(aliases); ++alias)
+        {
+            const auto regs = aliases[alias];
+            const std::vector<u32> code = {
+                MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48),
+                Mmi(op.group, op.sub, regs[0], regs[1], regs[2]),
+                MipsI(31, 22, regs[2], 96), MipsI(9, regs[2], regs[2], -3),
+                MipsI(31, 22, regs[2], 112)
+            };
+            std::snprintf(name, sizeof(name), "ir MMI %s aliases=%u and scalar upper preservation", op.name, alias);
+            RunEEIrCase(name, code, nullptr, false, true);
+            CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), name);
+        }
+        for (u32 branch : {4u, 0x14u})
+            for (bool taken : {false, true})
+            {
+                const std::vector<u32> code = {
+                    MipsI(15, 0, 22, 0x0010), MipsI(13, 22, 22, 0x1000),
+                    MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48),
+                    MipsI(9, 0, 4, taken ? 1 : 0), MipsI(9, 0, 5, 1),
+                    MipsI(branch, 4, 5, 1), Mmi(op.group, op.sub, 8, 9, 8)
+                };
+                std::snprintf(name, sizeof(name), "ir MMI %s delay branch=%02x taken=%u", op.name, branch, taken);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+            }
+    }
+    for (bool binary : {false, true})
+    {
+        for (u64 selectors : {u64(binary ? 4096 : 256), ~u64(0)})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 a = b.ConstVec(lhs);
+            const u32 result = binary ? b.Emit2(ir::Op::VShuffle2, ir::Type::V4U32, a, a, selectors) :
+                b.Emit1(ir::Op::VShuffle, ir::Type::V4U32, a, selectors);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 8);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(!ir::Verify(fn, &error) && !EeIr::CanLower(fn, false, &error), "ir shuffle rejects out-of-range selectors before emission");
+        }
+        for (ir::Type type : {ir::Type::I32, ir::Type::I64, ir::Type::F32, ir::Type::Flags})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 a = b.Emit(ir::Op::Undef, type, {});
+            const u32 result = binary ? b.Emit2(ir::Op::VShuffle2, type, a, a, 0) : b.Emit1(ir::Op::VShuffle, type, a, 0);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 8);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(!ir::Verify(fn, &error), "ir shuffle requires vector operands");
+        }
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        const u32 a = b.ConstVec(lhs), other = b.ConstVec(rhs);
+        const u32 unary = b.Emit1(ir::Op::VShuffle, ir::Type::V4U32, a, 0xc6);
+        b.Emit2(ir::Op::VShuffle2, ir::Type::V4U32, unary, other, 0xa60);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.ConstI32(42), 8);
+        b.Resume(EE_TEST_PC + 4);
+        ir::OptimizeIntegerValues(fn);
+        bool removed = true;
+        for (const auto& block : fn.blocks)
+            for (const auto& inst : block.insts)
+                removed &= inst.op != ir::Op::VShuffle && inst.op != ir::Op::VShuffle2;
+        std::string error;
+        Check(removed && ir::Verify(fn, &error), "ir dead vector shuffle chain is removed");
+    }
+}
+
+
+// Count emitted multiply instructions, independently of lowering statistics.
+u32 IRMultiplyInstructions(const Arm64Ir::LowerOutput& out)
+{
+    u32 count = 0;
+    for (u32 offset = 0; offset < out.host_size; offset += 4)
+    {
+        u32 word;
+        std::memcpy(&word, out.entry + offset, 4);
+        const u32 op = word & 0xffe0fc00u;
+        count += op == 0x1b007c00u || op == 0x9b007c00u || op == 0x9b207c00u || op == 0x9ba07c00u;
+    }
+    return count;
+}
+
+void IRMultiplyPairTests()
+{
+    const u32 edges[] = {0, 1, 2, 0x7fffffff, 0x80000000, 0xffffffff, 0x89abcdef};
+    for (auto domain : {Arm64Ir::GuestState::EE, Arm64Ir::GuestState::IOP})
+        for (bool sign : {false, true})
+            for (u32 shape = 0; shape < 6; ++shape)
+                for (u32 mode = 0; mode < 5; ++mode)
+                {
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(EE_TEST_PC);
+                    const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+                    const u32 c = shape == 4 ? b.ConstI32(0x89abcdef) : shape == 5 ? a : b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 9);
+                    const auto high = [&]() { return b.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, ir::Type::I32,
+                        shape == 1 ? c : a, shape == 1 ? a : c); };
+                    u32 hi = shape == 3 ? high() : 0;
+                    const u32 lo = b.Emit2(ir::Op::Mul, ir::Type::I32, a, c);
+                    if (shape == 2) b.Emit1(ir::Op::WriteGpr, ir::Type::Void, lo, 12);
+                    if (shape != 3) hi = high();
+                    b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
+                    b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, lo, 8);
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, hi, 9);
+                    b.Resume(EE_TEST_PC + 4);
+                    Arm64Ir::LowerOptions options;
+                    options.guest_state = domain;
+                    options.optimize_ir = mode != 0;
+                    options.allocate_registers = mode != 2;
+                    options.materialize_constants = mode != 3;
+                    options.reuse_spill_slots = mode != 4;
+                    Arm64Ir::LowerOutput out;
+                    std::string error;
+                    bool same = Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                    const bool fused = (shape == 0 || shape >= 4) && mode != 0;
+                    const bool one_product = same && IRMultiplyInstructions(out) == (fused ? 1u : 2u) &&
+                        out.fused_multiply_pairs == (fused ? 1u : 0u);
+                    for (u32 lhs : edges)
+                        for (u32 rhs : edges)
+                        {
+                            if (!same) break;
+                            std::memset(&cpuRegs, 0xa5, sizeof(cpuRegs));
+                            std::memset(&psxRegs, 0x5a, sizeof(psxRegs));
+                            cpuRegs.GPR.r[8].UD[0] = 0xfedcba9800000000ull | lhs;
+                            cpuRegs.GPR.r[9].UD[0] = 0x1234567800000000ull | rhs;
+                            psxRegs.GPR.r[8] = lhs;
+                            psxRegs.GPR.r[9] = rhs;
+                            auto ee_expected = cpuRegs;
+                            auto iop_expected = psxRegs;
+                            const u32 multiplier = shape == 4 ? 0x89abcdef : shape == 5 ? lhs : rhs;
+                            const u64 product = sign ? static_cast<u64>(static_cast<s64>(static_cast<s32>(lhs)) * static_cast<s64>(static_cast<s32>(multiplier))) :
+                                static_cast<u64>(lhs) * multiplier;
+                            const u32 low = static_cast<u32>(product), upper = static_cast<u32>(product >> 32);
+                            if (domain == Arm64Ir::GuestState::EE)
+                            {
+                                ee_expected.GPR.r[8].SD[0] = ee_expected.LO.SD[0] = static_cast<s32>(low);
+                                ee_expected.GPR.r[9].SD[0] = ee_expected.HI.SD[0] = static_cast<s32>(upper);
+                                if (shape == 2) ee_expected.GPR.r[12].SD[0] = static_cast<s32>(low);
+                            }
+                            else
+                            {
+                                iop_expected.GPR.r[8] = iop_expected.GPR.n.lo = low;
+                                iop_expected.GPR.r[9] = iop_expected.GPR.n.hi = upper;
+                                if (shape == 2) iop_expected.GPR.r[12] = low;
+                            }
+                            reinterpret_cast<void (*)()>(out.entry)();
+                            same &= std::memcmp(&ee_expected, &cpuRegs, sizeof(cpuRegs)) == 0 &&
+                                std::memcmp(&iop_expected, &psxRegs, sizeof(psxRegs)) == 0;
+                        }
+                    char name[128];
+                    std::snprintf(name, sizeof(name), "ir product pair domain=%u sign=%u shape=%u mode=%u exact states", static_cast<u32>(domain), sign, shape, mode);
+                    Check(same, name);
+                    std::snprintf(name, sizeof(name), "ir product pair domain=%u sign=%u shape=%u mode=%u multiplier count", static_cast<u32>(domain), sign, shape, mode);
+                    Check(one_product, name);
+                }
+}
+
+void IRMultiplyPairVectorTests()
+{
+    for (bool allocate : {false, true})
+        for (bool reuse : {false, true})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            const u32 first = b.CreateBlock(EE_TEST_PC);
+            const u32 vector = b.ConstVec({0x12345678, 0x89abcdef, 0xfedcba98, 0x76543210});
+            const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+            const u32 c = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 9);
+            const u32 lo = b.Emit2(ir::Op::Mul, ir::Type::I32, a, c);
+            const u32 hi = b.Emit2(ir::Op::MulHiS, ir::Type::I32, a, c);
+            b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
+            b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
+            b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, vector, 12);
+            const u32 second = b.CreateBlock(EE_TEST_PC + 4);
+            const u32 vector2 = b.ConstVec({1, 2, 3, 4});
+            b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, vector2, 13);
+            b.Resume(EE_TEST_PC + 8);
+            b.SetBlock(first);
+            b.Jump(second);
+            Arm64Ir::LowerHooks hooks;
+            hooks.before_helper = hooks.after_helper = +[](void*) {
+                for (u32 r = 2; r <= 7; ++r) oakAsm->MOVI(oak::QReg(r).B16(), 0xa5);
+            };
+            Arm64Ir::LowerOptions options;
+            options.allocate_registers = allocate;
+            options.reuse_spill_slots = reuse;
+            options.hooks = &hooks;
+            Arm64Ir::LowerOutput out;
+            std::string error;
+            bool same = Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                cpuRegs.GPR.r[8].UL[0] = 0x80000000;
+                cpuRegs.GPR.r[9].UL[0] = 0xffffffff;
+                reinterpret_cast<void (*)()>(out.entry)();
+                const u32 expected[] = {0x12345678, 0x89abcdef, 0xfedcba98, 0x76543210, 1, 2, 3, 4};
+                same &= std::memcmp(cpuRegs.GPR.r[12].UL, expected, sizeof(expected)) == 0 &&
+                    cpuRegs.LO.UD[0] == 0xffffffff80000000ull && cpuRegs.HI.UD[0] == 0 && IRMultiplyInstructions(out) == 1;
+            }
+            Check(same, "ir fused multiply retains vector helper positions across blocks");
+        }
+}
+
+void EEIrMultiplyTests()
+{
+    IRMultiplyPairTests();
+    IRMultiplyPairVectorTests();
+    // Compare actual frontend output to the previous widened representation,
+    // using identical backend options and dynamic operands in both functions.
+    for (bool sign : {false, true})
+        for (u32 mode = 0; mode < 5; ++mode)
+        {
+            ir::Function old;
+            ir::Builder b(old);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 a = b.Emit1(sign ? ir::Op::Sext32 : ir::Op::Zext32, ir::Type::I64, b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8));
+            const u32 c = b.Emit1(sign ? ir::Op::Sext32 : ir::Op::Zext32, ir::Type::I64, b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 9));
+            const u32 product = b.Emit2(ir::Op::Mul, ir::Type::I64, a, c);
+            const u32 lo = b.Emit1(ir::Op::Trunc32, ir::Type::I32, product);
+            const u32 hi = b.Emit1(ir::Op::Trunc32, ir::Type::I32, b.Emit2(ir::Op::ShrS, ir::Type::I64, product, b.ConstI64(32)));
+            b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
+            b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, lo, 12);
+            b.Resume(EE_TEST_PC + 4);
+            const u32 word = MipsR(8, 9, 12, 0, sign ? 0x18 : 0x19);
+            ir::Function current;
+            std::string error;
+            u32 end = 0;
+            Arm64Ir::LowerOptions options;
+            options.optimize_ir = mode != 0;
+            options.allocate_registers = mode != 2;
+            options.materialize_constants = mode != 3;
+            options.reuse_spill_slots = mode != 4;
+            Arm64Ir::LowerOutput baseline, out;
+            const bool lowered = EeIr::LiftBlock(&word, {EE_TEST_PC, 1}, current, &end, &error) &&
+                Arm64Ir::LowerBlock(old, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &baseline, &error) &&
+                Arm64Ir::LowerBlock(current, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            Check(lowered && out.host_size < baseline.host_size, "ir EE full product emits fewer bytes than widened reference");
+            if (lowered) std::printf("EEIR multiply sign=%u mode=%u widened_bytes=%u narrow_bytes=%u multipliers=%u\n",
+                sign, mode, baseline.host_size, out.host_size, IRMultiplyInstructions(out));
+        }
+    const u32 edges[] = {0, 1, 2, 0x7fffffff, 0x80000000, 0xffffffff, 0x89abcdef};
+    const u32 aliases[][3] = {{8,9,12}, {8,9,8}, {8,9,9}, {8,8,8}, {0,9,12}, {8,0,0}};
+    for (u32 funct : {0x18u, 0x19u})
+        for (u32 lhs : edges)
+            for (u32 rhs : edges)
+                for (const auto& regs : aliases)
+                {
+                    u64 initial[32] = {};
+                    initial[8] = 0xfedcba9800000000ull | lhs;
+                    initial[9] = 0x1234567800000000ull | rhs;
+                    initial[12] = 0xdeadbeefcafef00dull;
+                    const std::vector<u32> code = {MipsR(regs[0], regs[1], regs[2], 0, funct),
+                        MipsR(0, 0, 16, 0, 0x10), MipsR(0, 0, 17, 0, 0x12)};
+                    char name[144];
+                    std::snprintf(name, sizeof(name), "ir EE product fn=%02x rs=%u rt=%u rd=%u lhs=%08x rhs=%08x",
+                        funct, regs[0], regs[1], regs[2], lhs, rhs);
+                    RunEEIrCase(name, code, initial);
+                    CompareEE(RunEEProgram(false, code, false, initial), RunEEProgram(true, code, false, initial), name);
+                }
+    for (u32 funct : {0x18u, 0x19u})
+    {
+        const std::vector<u32> code = {MipsI(15, 0, 22, EE_TEST_SCRATCH >> 16), MipsI(13, 22, 22, EE_TEST_SCRATCH & 0xffff),
+            MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48), MipsI(30, 22, 12, 64), MipsR(8, 9, 12, 0, funct),
+            MipsI(31, 22, 12, 96), MipsR(0, 0, 16, 0, 0x10), MipsR(0, 0, 17, 0, 0x12)};
+        RunEEIrCase("ir EE product preserves destination upper half", code, nullptr, false, true);
+        CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), "ir EE product preserves destination upper half integrated");
+    }
+    for (u32 funct : {0x18u, 0x19u})
+        for (u32 branch : {4u, 0x14u})
+            for (bool taken : {false, true})
+            {
+                const std::vector<u32> code = {MipsI(15, 0, 22, EE_TEST_SCRATCH >> 16), MipsI(13, 22, 22, EE_TEST_SCRATCH & 0xffff),
+                    MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48), MipsI(30, 22, 12, 64),
+                    MipsI(9, 0, 4, taken ? 1 : 0), MipsI(9, 0, 5, 1),
+                    MipsI(branch, 4, 5, 1), MipsR(8, 9, 12, 0, funct)};
+                char name[96];
+                std::snprintf(name, sizeof(name), "ir EE product upper preservation fn=%02x delay branch=%02x taken=%u", funct, branch, taken);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+            }
+}
+
 void EEIrExecutionTests()
 {
+    EEIrMultiplyTests();
+    EEIrQuadTests();
+    EEIrQuadOptimizationsTests();
+    EEIrMmiTests();
+    EEIrPackedWordShiftTests();
+    EEIrVectorCompareTests();
+    EEIrWordShuffleTests();
+    EEIrVectorForwardTests();
+    EEIrVectorAllocationTests();
+    EEIrQuadVectorFastPathTests();
+    {
+        const std::array<std::array<u64, 3>, 8> edges = {{
+            {{0, 0, 0}}, {{1, 1, 0}}, {{~u64(0), ~u64(0), 0}},
+            {{0x80000000, 0xffffffff, 0x80000000}},
+            {{0x8000000000000000ull, ~u64(0), 0x8000000000000000ull}},
+            {{~u64(0), 2, 0x7fffffffffffffffull}},
+            {{0x12345678abcdef01ull, 0xfeedface, 0xff00ff00ff00ff00ull}},
+            {{7, 3, 20}}
+        }};
+        for (ir::Type type : {ir::Type::I32, ir::Type::I64})
+        {
+            for (bool constants : {false, true})
+            {
+                for (const auto& edge : edges)
+                {
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(EE_TEST_PC);
+                    u32 args[3];
+                    for (u32 i = 0; i < 3; ++i)
+                        args[i] = constants ? (type == ir::Type::I64 ? b.ConstI64(edge[i]) : b.ConstI32(static_cast<u32>(edge[i]))) :
+                            b.Emit(ir::Op::ReadGpr, type, {}, 8 + i);
+                    const u32 value = b.Emit3(ir::Op::Msub, type, args[0], args[1], args[2]);
+                    b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, 11, type == ir::Type::I64 ? ir::IF_WIDE_WRITE : 0);
+                    b.Resume(EE_TEST_PC + 4);
+                    const u64 raw = edge[2] - edge[0] * edge[1];
+                    const u64 expected = type == ir::Type::I64 ? raw : static_cast<u64>(static_cast<s64>(static_cast<s32>(raw)));
+                    bool same = true;
+                    for (bool optimize : {false, true})
+                    {
+                        for (bool allocate : {false, true})
+                        {
+                            EeIr::LowerOptions options;
+                            options.optimize_ir = optimize;
+                            options.allocate_registers = allocate;
+                            EeIr::LowerOutput out;
+                            std::string error;
+                            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                            {
+                                same = false;
+                                continue;
+                            }
+                            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                            for (u32 i = 0; i < 3; ++i)
+                                cpuRegs.GPR.r[8 + i].UD[0] = edge[i];
+                            reinterpret_cast<void (*)()>(out.entry)();
+                            same &= cpuRegs.GPR.r[11].UD[0] == expected;
+                            for (u32 i = 0; i < 3; ++i)
+                                same &= cpuRegs.GPR.r[8 + i].UD[0] == edge[i];
+                        }
+                    }
+                    char name[96];
+                    std::snprintf(name, sizeof(name), "ir msub %s constants=%u edge=%016llx", ir::TypeName(type), constants,
+                        static_cast<unsigned long long>(edge[0]));
+                    Check(same, name);
+                }
+            }
+        }
+        for (u32 invalid = 0; invalid < 3; ++invalid)
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const ir::Type type = invalid == 0 ? ir::Type::F32 : ir::Type::I32;
+            const u32 a = invalid == 0 ? b.Emit(ir::Op::ConstF32, type, {}, 0) : b.ConstI32(3);
+            const u32 c = invalid == 1 ? b.ConstI64(7) : a;
+            if (invalid == 2)
+                b.Emit2(ir::Op::Msub, type, a, c);
+            else
+                b.Emit3(ir::Op::Msub, type, a, a, c);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(!ir::Verify(fn, &error), "ir msub rejects noninteger, mixed-width or missing operands");
+        }
+    }
+    {
+        // Test the raw division/remainder IR separately from the guest lifter,
+        // which now shares the quotient with its remainder. A result can reuse
+        // a dying source register here, exercising the scratch-register rule.
+        const u32 edges[] = {0, 1, 3, 0x7fffffffu, 0x80000000u,
+            0x80000001u, 0xfffffffeu, 0xffffffffu};
+        for (ir::Op op : {ir::Op::DivS, ir::Op::DivU, ir::Op::RemS, ir::Op::RemU})
+        {
+            const bool sign = op == ir::Op::DivS || op == ir::Op::RemS;
+            const bool remainder = op == ir::Op::RemS || op == ir::Op::RemU;
+            for (u32 lhs : edges)
+            {
+                for (u32 rhs : edges)
+                {
+                    u64 initial[32] = {};
+                    initial[8] = 0x1234567800000000ull | lhs;
+                    initial[9] = 0x8765432100000000ull | rhs;
+                    const auto interp = RunEEProgram(false, {MipsR(8, 9, 0, 0, sign ? 0x1a : 0x1b)}, false, initial);
+                    const u64 expected = remainder ? interp.hi : interp.lo;
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(EE_TEST_PC);
+                    const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+                    const u32 c = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 9);
+                    const u32 value = b.Emit2(op, ir::Type::I32, a, c);
+                    b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, 10);
+                    b.Resume(EE_TEST_PC + 4);
+                    bool same = true;
+                    for (bool optimize : {false, true})
+                    {
+                        for (bool allocate : {false, true})
+                        {
+                            EeIr::LowerOptions options;
+                            options.optimize_ir = optimize;
+                            options.allocate_registers = allocate;
+                            EeIr::LowerOutput out;
+                            std::string error;
+                            if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                            {
+                                same = false;
+                                continue;
+                            }
+                            std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                            cpuRegs.GPR.r[8].UD[0] = initial[8];
+                            cpuRegs.GPR.r[9].UD[0] = initial[9];
+                            cpuRegs.cycle = 0x654321;
+                            reinterpret_cast<void (*)()>(out.entry)();
+                            same &= cpuRegs.GPR.r[10].UD[0] == expected && cpuRegs.GPR.r[8].UD[0] == initial[8] &&
+                                cpuRegs.GPR.r[9].UD[0] == initial[9] && cpuRegs.cycle == 0x654321;
+                        }
+                    }
+                    char name[96];
+                    std::snprintf(name, sizeof(name), "ir native primitive %s %08x/%08x", ir::OpName(op), lhs, rhs);
+                    Check(same, name);
+                }
+            }
+        }
+    }
+    {
+        // Exercise the full signed/unsigned edge matrix from guest registers,
+        // so constant folding cannot hide the native divide implementation.
+        // Compare helper, allocated, stack, non-rematerialized and optimized-helper lowering.
+        const u32 edges[] = {0, 1, 2, 3, 0x7fffffffu, 0x80000000u,
+            0x80000001u, 0xfffffffeu, 0xffffffffu};
+        for (bool sign : {false, true})
+        {
+            for (u32 lhs : edges)
+            {
+                for (u32 rhs : edges)
+                {
+                    u64 initial[32] = {};
+                    initial[8] = 0x1234567800000000ull | lhs;
+                    initial[9] = 0x8765432100000000ull | rhs;
+                    char name[96];
+                    std::snprintf(name, sizeof(name), "ir native %s %08x/%08x", sign ? "div" : "divu", lhs, rhs);
+                    RunEEIrCase(name, {
+                        MipsR(8, 9, 0, 0, sign ? 0x1a : 0x1b),
+                        MipsR(0, 0, 10, 0, 0x12), MipsR(0, 0, 11, 0, 0x10),
+                        MipsR(8, 0, 12, 0, 0x2d), MipsR(9, 0, 13, 0, 0x2d)
+                    }, initial, true);
+                }
+            }
+        }
+        // Same-register and zero-register inputs cover allocator aliasing and
+        // rematerialized zero operands, including signed zero/zero behavior.
+        for (u32 edge : edges)
+        {
+            u64 initial[32] = {};
+            initial[8] = 0xfeedface00000000ull | edge;
+            for (bool sign : {false, true})
+            {
+                for (u32 rhs_reg : {0u, 8u})
+                {
+                    char name[96];
+                    std::snprintf(name, sizeof(name), "ir native %s alias %08x/r%u", sign ? "div" : "divu", edge, rhs_reg);
+                    RunEEIrCase(name, {MipsR(8, rhs_reg, 0, 0, sign ? 0x1a : 0x1b),
+                        MipsR(0, 0, 8, 0, 0x12), MipsR(0, 0, 9, 0, 0x10)}, initial, true);
+                }
+            }
+        }
+        // Real dispatch/branch-tail execution verifies the cycle delta is
+        // preserved when no division helper flush/reload is emitted.
+        for (bool sign : {false, true})
+        {
+            for (u32 lhs : {0u, 0x80000000u, 0xffffffffu, 0x7fffffffu})
+            {
+                for (u32 rhs : {0u, 3u, 0xffffffffu})
+                {
+                    u64 initial[32] = {};
+                    initial[8] = lhs;
+                    initial[9] = rhs;
+                    const std::vector<u32> code = {
+                        MipsI(4, 0, 0, 2), MipsR(8, 9, 0, 0, sign ? 0x1a : 0x1b),
+                        MipsI(9, 0, 14, 0xdead),
+                        MipsR(0, 0, 10, 0, 0x12), MipsR(0, 0, 11, 0, 0x10),
+                        MipsI(9, 8, 8, 1)
+                    };
+                    char name[96];
+                    std::snprintf(name, sizeof(name), "ir native %s delay %08x/%08x integrated", sign ? "div" : "divu", lhs, rhs);
+                    const auto interp = RunEEProgram(false, code, true, initial);
+                    const auto jit = RunEEProgram(true, code, true, initial);
+                    CompareEE(interp, jit, name);
+                    // The forced exit budget is 4096 EE cycles. A trailing
+                    // self-branch can overshoot only by one small block.
+                    Check(jit.cycle >= 4096 && jit.cycle < 4160, "ir native division preserves dispatch cycle budget");
+                }
+            }
+        }
+    }
     {
         ir::Function fn;
         ir::Builder b(fn);
@@ -2698,6 +4772,11 @@ void EEIrExecutionTests()
         static_cast<unsigned long long>(eeir_optimized_bytes),
         static_cast<unsigned long long>(eeir_baseline_frames),
         static_cast<unsigned long long>(eeir_optimized_frames));
+    std::printf("EEIR division code_bytes native=%llu optimized_helpers=%llu\n",
+        static_cast<unsigned long long>(eeir_native_division_bytes),
+        static_cast<unsigned long long>(eeir_helper_division_bytes));
+    Check(eeir_native_division_bytes < eeir_helper_division_bytes,
+        "ir native division reduces code against equally optimized helper lowering");
     Check(eeir_optimized_bytes < eeir_baseline_bytes && eeir_optimized_frames < eeir_baseline_frames,
         "ir optimizer reduces emitted code and spill frames");
 
@@ -3390,6 +5469,1264 @@ void IOPCoverageGte()
     // them in a dedicated runner before enabling.
 }
 
+void ResetIOPMemoryFixture()
+{
+    std::memset(&psxRegs, 0, sizeof(psxRegs));
+    psxCpu = &psxInt;
+    for (u32 i = 0; i < IOP_SCRATCH_SIZE; ++i)
+        iopMemWrite8(IOP_TEST_SCRATCH + i, static_cast<u8>(i * 13 + 7));
+}
+
+void IOPSharedMulDivFrontendTests()
+{
+    const u32 edges[] = {0, 1, 2, 0x7fffffff, 0x80000000, 0xffffffff, 0xfffffffe, 0x12345678, 0x89abcdef};
+    const u32 sources[][2] = {{8, 9}, {8, 8}, {0, 9}, {8, 0}, {31, 9}};
+    for (u32 funct : {0x18u, 0x19u, 0x1au, 0x1bu})
+        for (u32 lhs : edges)
+            for (u32 rhs : edges)
+                for (const auto& source : sources)
+                {
+                    // IOP ignores Rd even on MULT; unlike EE it must not write it.
+                    const u32 word = MipsR(source[0], source[1], 12, 0, funct);
+                    const std::vector<u32> program = {
+                        MipsI(15, 0, 8, lhs >> 16), MipsI(13, 8, 8, lhs & 0xffff),
+                        MipsI(15, 0, 9, rhs >> 16), MipsI(13, 9, 9, rhs & 0xffff),
+                        MipsI(15, 0, 31, lhs >> 16), MipsI(13, 31, 31, lhs & 0xffff),
+                        MipsI(15, 0, 12, 0xdead), MipsI(13, 12, 12, 0xbeef), word};
+                    const IOPSnapshot expected = RunIOPProgram(false, program);
+                    ir::Function fn;
+                    std::string error;
+                    u32 count = 0;
+                    bool same = IopIr::LiftSequence(&word, IOP_TEST_PC + 32, 1, fn, &count, &error) && count == 1;
+                    for (u32 mode = 0; same && mode < 6; ++mode)
+                    {
+                        Arm64Ir::LowerOptions options;
+                        options.guest_state = Arm64Ir::GuestState::IOP;
+                        options.optimize_ir = mode != 0;
+                        options.allocate_registers = mode != 2;
+                        options.materialize_constants = mode != 3;
+                        options.reuse_spill_slots = mode != 4;
+                        options.inline_division = mode != 5;
+                        Arm64Ir::LowerOutput out;
+                        same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        if (!same) break;
+                        ResetIOPMemoryFixture();
+                        psxRegs.GPR.r[8] = psxRegs.GPR.r[31] = lhs;
+                        psxRegs.GPR.r[9] = rhs;
+                        psxRegs.GPR.r[12] = 0xdeadbeef;
+                        const auto ee_before = cpuRegs;
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        IOPSnapshot actual;
+                        CaptureIOP(actual);
+                        same &= std::memcmp(expected.gpr, actual.gpr, sizeof(expected.gpr)) == 0 &&
+                            expected.hi == actual.hi && expected.lo == actual.lo &&
+                            std::memcmp(&cpuRegs, &ee_before, sizeof(cpuRegs)) == 0;
+                    }
+                    char name[160];
+                    std::snprintf(name, sizeof(name), "ir IOP muldiv fn=%02x rs=%u rt=%u lhs=%08x rhs=%08x six modes/interpreter",
+                        funct, source[0], source[1], lhs, rhs);
+                    Check(same, name);
+                }
+}
+
+void SharedMulHiBackendTests()
+{
+    for (auto domain : {Arm64Ir::GuestState::EE, Arm64Ir::GuestState::IOP})
+        for (bool sign : {false, true})
+            for (u32 lhs : {0u, 1u, 0x80000000u, 0xffffffffu, 0x89abcdefu})
+                for (u32 rhs : {0u, 1u, 0x7fffffffu, 0xffffffffu})
+                {
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(IOP_TEST_PC);
+                    const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+                    const u32 c = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 9);
+                    const u32 hi = b.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, ir::Type::I32, a, c);
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, hi, 10);
+                    b.Resume(IOP_TEST_PC + 4);
+                    const u64 product = sign ? static_cast<u64>(static_cast<s64>(static_cast<s32>(lhs)) * static_cast<s64>(static_cast<s32>(rhs))) :
+                        static_cast<u64>(lhs) * rhs;
+                    bool same = true;
+                    for (bool allocate : {false, true})
+                    {
+                        Arm64Ir::LowerOptions options;
+                        options.guest_state = domain;
+                        options.allocate_registers = allocate;
+                        Arm64Ir::LowerOutput out;
+                        std::string error;
+                        same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        if (!same) break;
+                        if (domain == Arm64Ir::GuestState::EE)
+                        {
+                            cpuRegs.GPR.r[8].UL[0] = lhs;
+                            cpuRegs.GPR.r[9].UL[0] = rhs;
+                        }
+                        else
+                        {
+                            psxRegs.GPR.r[8] = lhs;
+                            psxRegs.GPR.r[9] = rhs;
+                        }
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        same &= (domain == Arm64Ir::GuestState::EE ? cpuRegs.GPR.r[10].UL[0] : psxRegs.GPR.r[10]) == static_cast<u32>(product >> 32);
+                    }
+                    Check(same, "ir shared MulHi32 signed/unsigned EE/IOP allocated/spilled");
+                }
+    for (bool sign : {false, true})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(IOP_TEST_PC);
+        const u32 v = b.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, ir::Type::I32, b.ConstI32(0x80000000), b.ConstI32(0xffffffff));
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, v, 8);
+        b.Resume(IOP_TEST_PC + 4);
+        ir::OptimizeIntegerValues(fn);
+        bool folded = true;
+        for (const auto& block : fn.blocks)
+            for (const auto& inst : block.insts) folded &= inst.op != ir::Op::MulHiS && inst.op != ir::Op::MulHiU;
+        Check(folded, "ir MulHi32 constant folding removes high multiply");
+        for (ir::Type result : {ir::Type::I32, ir::Type::I64})
+        {
+            ir::Function wide;
+            ir::Builder wb(wide);
+            wb.CreateBlock(IOP_TEST_PC);
+            const u32 a = wb.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 8);
+            const u32 c = wb.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 9);
+            const u32 hi = wb.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, result, a, c);
+            wb.Emit1(ir::Op::WriteGpr, ir::Type::Void, hi, 10);
+            wb.Resume(IOP_TEST_PC + 4);
+            std::string error;
+            Check(!Arm64Ir::CanLower(wide, false, &error), "ir high multiply rejects unsupported wide operands/results before emission");
+        }
+    }
+}
+
+struct IOPMulDivClockProbe
+{
+    u32 cycle = 0, carry = 0;
+    s32 budget = 0;
+    bool observed = false;
+};
+static IOPMulDivClockProbe s_iopMulDivClock;
+static void (*s_iopMulDivClearOriginal)(u32, u32) = nullptr;
+void IOPMulDivClearClockProbe(u32 address, u32 size)
+{
+    // Fixture setup runs with cycle==0. The explicit store follows a branch,
+    // after the first block's cycles have been committed, before idle looping
+    // can compensate a missing penalty and hide it in the final budget.
+    if (address == IOP_TEST_SCRATCH + 120 && psxRegs.cycle != 0 && !s_iopMulDivClock.observed)
+        s_iopMulDivClock = {psxRegs.cycle, psxRegs.iopCycleEECarry, psxRegs.iopCycleEE, true};
+    s_iopMulDivClearOriginal(address, size);
+}
+
+void IOPSharedMulDivIntegrationTests()
+{
+    std::vector<u32> dynamic = {MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16),
+        MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff), MipsI(35, 22, 8, 0), MipsI(35, 22, 9, 4)};
+    for (u32 funct : {0x18u, 0x19u, 0x1au, 0x1bu})
+    {
+        dynamic.push_back(MipsR(8, 9, 0, 0, funct));
+        dynamic.push_back(MipsR(0, 0, 10 + (funct - 0x18) * 2, 0, 0x10));
+        dynamic.push_back(MipsR(0, 0, 11 + (funct - 0x18) * 2, 0, 0x12));
+    }
+    dynamic.push_back(0x40026000u); // legacy MFC0 boundary
+    dynamic.push_back(MipsR(8, 0, 0, 0, 0x1a)); // signed zero divisor
+    dynamic.push_back(MipsR(0, 0, 18, 0, 0x10));
+    dynamic.push_back(MipsR(0, 0, 19, 0, 0x12));
+    for (u32 r = 10; r < 20; ++r) dynamic.push_back(MipsI(43, 22, r, 32 + (r - 10) * 4));
+    std::vector<u32> folded = {MipsI(9, 0, 8, 0), MipsI(9, 0, 9, 0),
+        MipsR(0, 0, 0, 0, 0x18), MipsR(0, 0, 0, 0, 0x19),
+        MipsR(0, 0, 0, 0, 0x1a), MipsR(0, 0, 0, 0, 0x1b),
+        MipsR(0, 0, 10, 0, 0x10), MipsR(0, 0, 11, 0, 0x12)};
+    for (auto* code : {&dynamic, &folded})
+    {
+        code->push_back(MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16));
+        code->push_back(MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff));
+        code->push_back(MipsI(4, 0, 0, 1));
+        code->push_back(0); // delay slot
+        code->push_back(MipsI(43, 22, 0, 120)); // observe first completed block
+    }
+    const u32 saved_icfg = psxHu32(HW_ICFG);
+    for (const auto& code : {dynamic, folded})
+        for (u32 clock : {0u, 8u})
+            for (s32 budget : {4096, 12345})
+            {
+                psxHu32(HW_ICFG) = clock;
+                const IOPSnapshot expected = RunIOPProgram(false, code, budget);
+                EmuCoreXOracleSetIOPIR(0);
+                s_iopMulDivClock = {};
+                s_iopMulDivClearOriginal = psxRec.Clear;
+                psxRec.Clear = &IOPMulDivClearClockProbe;
+                const IOPSnapshot legacy = RunIOPProgram(true, code, budget);
+                const IOPMulDivClockProbe legacy_clock = s_iopMulDivClock;
+                const s32 legacy_budget = psxRegs.iopCycleEE;
+                const u32 legacy_carry = psxRegs.iopCycleEECarry;
+                const u64 before = EmuCoreXOracleIOPIRMulDivInstructions();
+                EmuCoreXOracleSetIOPIR(1);
+                s_iopMulDivClock = {};
+                const IOPSnapshot actual = RunIOPProgram(true, code, budget);
+                psxRec.Clear = s_iopMulDivClearOriginal;
+                CompareIOP(expected, actual, "ir IOP muldiv mixed/folded state matches interpreter");
+                Check(legacy_clock.observed && s_iopMulDivClock.observed && legacy_clock.cycle == s_iopMulDivClock.cycle &&
+                    legacy_clock.budget == s_iopMulDivClock.budget && legacy_clock.carry == s_iopMulDivClock.carry,
+                    "ir IOP muldiv first completed block exact cycles/budget/carry before idle looping");
+                Check(actual.cycle == legacy.cycle && legacy_budget == psxRegs.iopCycleEE &&
+                    legacy_carry == psxRegs.iopCycleEECarry, "ir IOP muldiv retains exact legacy cycle/budget/carry");
+                Check(EmuCoreXOracleIOPIRMulDivInstructions() - before == (code.size() == folded.size() ? 4 : 5),
+                    "ir IOP production really compiled each muldiv source instruction including folded results");
+            }
+    psxHu32(HW_ICFG) = saved_icfg;
+    const u64 before = EmuCoreXOracleIOPIRMulDivInstructions();
+    const IOPSnapshot expected = RunIOPProgram(false, dynamic);
+    const IOPSnapshot forced = RunIOPProgram(true, dynamic, -1, false, 1ull << OpcodeFamilies::IOP::FAM_SPECIAL);
+    CompareIOP(expected, forced, "ir IOP forced SPECIAL keeps multiply/divide interpreted");
+    Check(EmuCoreXOracleIOPIRMulDivInstructions() == before, "ir IOP forced SPECIAL bypasses muldiv compilation");
+    for (u32 funct : {0x18u, 0x1au})
+    {
+        std::vector<u32> page = {MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16),
+            MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff), MipsI(35, 22, 8, 0), MipsI(35, 22, 9, 4)};
+        page.resize(1024, MipsR(8, 9, 0, 0, funct));
+        const IOPSnapshot expected_page = RunIOPProgram(false, page, 1000000);
+        const u64 before_page = EmuCoreXOracleIOPIRMulDivInstructions();
+        const IOPSnapshot actual_page = RunIOPProgram(true, page, 1000000);
+        CompareIOP(expected_page, actual_page, "ir IOP full muldiv page matches interpreter");
+        std::vector<JitBlockProfile> profiles;
+        IOP_JitGetBlockProfiles(profiles);
+        bool bounded = !profiles.empty();
+        for (const auto& profile : profiles) bounded &= profile.host_size < 0x10000;
+        Check(bounded && EmuCoreXOracleIOPIRMulDivInstructions() - before_page == 1020,
+            "ir IOP full muldiv page uses IR within 64 KiB block reserve");
+    }
+    EmuCoreXOracleSetIOPIR(-1);
+}
+
+void IOPSharedMemoryFrontendTests()
+{
+    const u32 opcodes[] = {32, 33, 34, 35, 36, 37, 38, 40, 41, 42, 43, 46};
+    for (u32 op : opcodes)
+        for (u32 alignment = 0; alignment < 4; ++alignment)
+            for (u32 target : {0u, 8u, 9u, 31u})
+                for (u32 alias : {0u, 0x80000000u, 0xa0000000u, 0x20000000u, 0xe0000000u})
+                    for (bool negative : {false, true})
+                    {
+                        const u32 base = alias | (IOP_TEST_SCRATCH + (negative ? 40 : 32));
+                        const u32 immediate = (negative ? 0xfff8 : 0) + alignment;
+                        const u32 word = MipsI(op, 8, target, immediate);
+                        const std::vector<u32> program = {
+                            MipsI(15, 0, 8, base >> 16), MipsI(13, 8, 8, base & 0xffff),
+                            MipsI(15, 0, 9, 0x89ab), MipsI(13, 9, 9, 0xcdef),
+                            MipsI(15, 0, 31, 0xa5f0), MipsI(13, 31, 31, 0x8001), word};
+                        const IOPSnapshot expected = RunIOPProgram(false, program);
+                        ir::Function fn;
+                        std::string error;
+                        u32 count = 0;
+                        bool same = IopIr::LiftSequence(&word, IOP_TEST_PC + 24, 1, fn, &count, &error) && count == 1;
+                        for (u32 mode = 0; same && mode < 6; ++mode)
+                        {
+                            Arm64Ir::LowerOptions options;
+                            options.guest_state = Arm64Ir::GuestState::IOP;
+                            options.optimize_ir = mode != 0;
+                            options.allocate_registers = mode != 2;
+                            options.materialize_constants = mode != 3;
+                            options.reuse_spill_slots = mode != 4;
+                            options.direct_iop_loads = mode != 5;
+                            Arm64Ir::LowerOutput out;
+                            same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                            if (!same) break;
+                            ResetIOPMemoryFixture();
+                            psxRegs.GPR.r[8] = base;
+                            psxRegs.GPR.r[9] = 0x89abcdefu;
+                            psxRegs.GPR.r[31] = 0xa5f08001u;
+                            const auto ee_before = cpuRegs;
+                            reinterpret_cast<void (*)()>(out.entry)();
+                            IOPSnapshot actual;
+                            CaptureIOP(actual);
+                            same &= std::memcmp(expected.gpr, actual.gpr, sizeof(expected.gpr)) == 0 &&
+                                std::memcmp(expected.scratch, actual.scratch, sizeof(expected.scratch)) == 0 &&
+                                std::memcmp(&cpuRegs, &ee_before, sizeof(cpuRegs)) == 0;
+                        }
+                        char name[160];
+                        std::snprintf(name, sizeof(name), "ir IOP memory op=%u align=%u target=%u alias=%08x negative=%u six modes/interpreter",
+                            op, alignment, target, alias, negative ? 1 : 0);
+                        Check(same, name);
+                    }
+}
+
+static void (*s_iopClearOriginal)(u32, u32) = nullptr;
+static u32 s_iopObservedPc = 0, s_iopObservedCode = 0, s_iopObservedWrites = 0;
+static u32 s_iopObserveAddress = 0, s_iopObserveWord = 0;
+void IOPClearMemoryProbe(u32 address, u32 size)
+{
+    if (address == s_iopObserveAddress && psxRegs.code == s_iopObserveWord)
+    {
+        s_iopObservedPc = psxRegs.pc;
+        s_iopObservedCode = psxRegs.code;
+        ++s_iopObservedWrites;
+    }
+    s_iopClearOriginal(address, size); // preserve actual invalidation
+}
+
+void IOPSharedMemoryRuntimeTests()
+{
+    for (bool direct : {false, true})
+    {
+        // ICTRL clears on read. A load into $0 must still call the MMIO handler.
+        const u32 word = MipsI(35, 8, 0, 0);
+        ir::Function fn;
+        std::string error;
+        u32 count = 0;
+        bool same = IopIr::LiftSequence(&word, IOP_TEST_PC, 1, fn, &count, &error);
+        Arm64Ir::LowerOptions options;
+        options.guest_state = Arm64Ir::GuestState::IOP;
+        options.direct_iop_loads = direct;
+        Arm64Ir::LowerOutput out;
+        same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        if (same)
+        {
+            const u32 saved = psxHu32(HW_ICTRL);
+            ResetIOPMemoryFixture();
+            psxRegs.GPR.r[8] = HW_ICTRL;
+            psxHu32(HW_ICTRL) = 0x87654321;
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= psxHu32(HW_ICTRL) == 0 && psxRegs.GPR.r[0] == 0 && out.iop_memory_operations == 1;
+            psxHu32(HW_ICTRL) = saved;
+        }
+        Check(same, "ir IOP load into zero retains read-clear MMIO side effects");
+    }
+    for (u32 op : {40u, 41u, 42u, 43u, 46u})
+        for (u32 alignment = 0; alignment < 4; ++alignment)
+        {
+            const u32 word = MipsI(op, 8, 9, alignment);
+            ir::Function fn;
+            std::string error;
+            u32 count = 0;
+            bool same = IopIr::LiftSequence(&word, IOP_TEST_PC, 1, fn, &count, &error);
+            Arm64Ir::LowerOptions options;
+            options.guest_state = Arm64Ir::GuestState::IOP;
+            Arm64Ir::LowerOutput out;
+            same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                ResetIOPMemoryFixture();
+                psxRegs.GPR.r[8] = IOP_TEST_SCRATCH + 32;
+                psxRegs.GPR.r[9] = 0x89abcdef;
+                psxRegs.CP0.n.Status = 0x10000;
+                reinterpret_cast<void (*)()>(out.entry)();
+                for (u32 i = 0; i < IOP_SCRATCH_SIZE; ++i)
+                    same &= iopMemRead8(IOP_TEST_SCRATCH + i) == static_cast<u8>(i * 13 + 7);
+            }
+            Check(same, "ir IOP cache-isolated stores preserve RAM including unaligned merges");
+        }
+    {
+        const u32 word = MipsI(35, 8, 9, 0);
+        ir::Function fn;
+        std::string error;
+        u32 count = 0;
+        bool same = IopIr::LiftSequence(&word, IOP_TEST_PC, 1, fn, &count, &error);
+        Arm64Ir::LowerOptions options;
+        options.guest_state = Arm64Ir::GuestState::IOP;
+        Arm64Ir::LowerOutput out;
+        same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+        if (same)
+        {
+            ResetIOPMemoryFixture();
+            psxRegs.GPR.r[8] = IOP_TEST_SCRATCH + 32;
+            const u32 page = (IOP_TEST_SCRATCH >> 16) + 0x2000;
+            const uptr saved = psxMemWLUT[page];
+            alignas(16) u32 remapped[0x4000] = {};
+            remapped[8] = 0xfedcba98;
+            psxMemWLUT[page] = reinterpret_cast<uptr>(remapped);
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= psxRegs.GPR.r[9] == 0xfedcba98;
+            psxMemWLUT[page] = 0;
+            reinterpret_cast<void (*)()>(out.entry)();
+            same &= psxRegs.GPR.r[9] == 0;
+            psxMemWLUT[page] = saved;
+            Check(same, "ir IOP direct RAM load follows live RLUT remap and null fallback");
+            Check(out.direct_iop_load_operations == 1, "ir IOP direct RAM load emitted actual fast path");
+        }
+        else Check(false, "ir IOP direct RAM load setup");
+    }
+    EmuCoreXOracleSetIOPIR(1);
+    const std::vector<u32> observe = {
+        MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16), MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff),
+        MipsI(9, 0, 9, 0x1234), MipsI(43, 22, 9, 4), MipsI(35, 22, 10, 4)};
+    s_iopClearOriginal = psxRec.Clear;
+    s_iopObserveAddress = IOP_TEST_SCRATCH + 4;
+    s_iopObserveWord = observe[3];
+    s_iopObservedWrites = 0;
+    psxRec.Clear = &IOPClearMemoryProbe;
+    const u64 memory_before = EmuCoreXOracleIOPIRMemoryOperations();
+    const u64 direct_before = EmuCoreXOracleIOPIRDirectLoads();
+    const IOPSnapshot observed = RunIOPProgram(true, observe);
+    psxRec.Clear = s_iopClearOriginal;
+    Check(s_iopObservedWrites != 0 && s_iopObservedPc == IOP_TEST_PC + 16 && s_iopObservedCode == observe[3],
+        "ir IOP store helper sees exact guest PC/opcode and calls real JIT invalidation");
+    Check(observed.gpr[10] == 0x1234 && EmuCoreXOracleIOPIRMemoryOperations() > memory_before &&
+        EmuCoreXOracleIOPIRDirectLoads() > direct_before, "ir IOP production actually compiled memory and direct RAM load");
+    // Compile a target, overwrite its first word, and revisit it. The second
+    // JAL must observe the new instruction after the store handler invalidates it.
+    const u32 target = IOP_TEST_PC + 16 * 4, replacement = MipsI(9, 0, 10, 2);
+    std::vector<u32> smc = {
+        MipsJ(3, target), 0, MipsI(15, 0, 8, replacement >> 16), MipsI(13, 8, 8, replacement & 0xffff),
+        MipsI(15, 0, 22, target >> 16), MipsI(13, 22, 22, target & 0xffff), MipsI(43, 22, 8, 0),
+        MipsJ(3, target), 0, MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16),
+        MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff), MipsI(43, 22, 10, 0),
+        MipsJ(2, IOP_TEST_PC + 20 * 4), 0, 0, 0, MipsI(9, 0, 10, 1), MipsR(31, 0, 0, 0, 8), 0, 0};
+    const IOPSnapshot expected = RunIOPProgram(false, smc);
+    const IOPSnapshot actual = RunIOPProgram(true, smc);
+    CompareIOP(expected, actual, "ir IOP self-modifying store invalidates previously compiled target");
+    Check(actual.gpr[10] == 2 && actual.scratch[0] == 2, "ir IOP self-modifying target executes replacement");
+    const std::vector<u32> forced = {MipsI(15, 0, 8, IOP_TEST_SCRATCH >> 16),
+        MipsI(13, 8, 8, IOP_TEST_SCRATCH & 0xffff), MipsI(35, 8, 9, 0), MipsI(43, 8, 9, 4)};
+    const u64 before_forced = EmuCoreXOracleIOPIRMemoryOperations();
+    const IOPSnapshot forced_expected = RunIOPProgram(false, forced);
+    const IOPSnapshot forced_actual = RunIOPProgram(true, forced, -1, false, 1ull << OpcodeFamilies::IOP::FAM_LOADSTORE);
+    CompareIOP(forced_expected, forced_actual, "ir IOP forced memory interpreter preserved");
+    Check(EmuCoreXOracleIOPIRMemoryOperations() == before_forced, "ir IOP forced memory never enters shared backend");
+    // Full straight-line pages stress the OUTER compiled block, rather than
+    // only the 64-word fragments inside it. The cache reserves 64 KiB/block.
+    for (u32 op : {35u, 42u, 46u})
+    {
+        std::vector<u32> page = {MipsI(15, 0, 8, IOP_TEST_SCRATCH >> 16),
+            MipsI(13, 8, 8, IOP_TEST_SCRATCH & 0xffff)};
+        page.resize(1024, MipsI(op, 8, 9, 1));
+        const IOPSnapshot expected_page = RunIOPProgram(false, page, 200000);
+        const IOPSnapshot actual_page = RunIOPProgram(true, page, 200000);
+        CompareIOP(expected_page, actual_page, "ir IOP full memory page production/interpreter");
+        std::vector<JitBlockProfile> profiles;
+        IOP_JitGetBlockProfiles(profiles);
+        bool bounded = !profiles.empty();
+        for (const auto& profile : profiles) bounded &= profile.host_size < 0x10000;
+        Check(bounded, "ir IOP full memory page stays inside 64 KiB block reserve");
+    }
+    EmuCoreXOracleSetIOPIR(-1);
+}
+
+void IOPSharedMemoryDomainTests()
+{
+    const u32 saved_sif = psHu32(SBUS_F240);
+    psHu32(SBUS_F240) = 0x89abcdefu;
+    for (ir::Op op : {ir::Op::Load8S, ir::Op::Load8U, ir::Op::Load16S, ir::Op::Load16U, ir::Op::Load32})
+        for (u32 address : {IOP_TEST_SCRATCH + 32, 0x80180020u, 0xa0180020u, 0x20180020u,
+            0x1f800040u, 0x1f000040u, 0x00800020u, 0x00400020u,
+            0x1fc00040u, 0xbfc00040u, 0x1d000040u, 0xbd000040u})
+        {
+            ResetIOPMemoryFixture();
+            const u32 physical = address & 0x1fffffffu;
+            if (physical < 0x1fc00000u && physical != 0x1d000040u)
+                iopMemWrite32(address, 0x89abcdefu);
+            const u32 expected = op == ir::Op::Load8S ? static_cast<u32>(static_cast<s32>(static_cast<s8>(iopMemRead8(address)))) :
+                op == ir::Op::Load8U ? iopMemRead8(address) :
+                op == ir::Op::Load16S ? static_cast<u32>(static_cast<s32>(static_cast<s16>(iopMemRead16(address)))) :
+                op == ir::Op::Load16U ? iopMemRead16(address) : iopMemRead32(address);
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(IOP_TEST_PC);
+            const u32 addr = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 8);
+            const u32 value = b.Emit1(op, ir::Type::I32, addr);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 10);
+            b.Resume(IOP_TEST_PC + 4);
+            bool same = true;
+            for (bool direct : {false, true})
+            {
+                Arm64Ir::LowerOptions options;
+                options.guest_state = Arm64Ir::GuestState::IOP;
+                options.direct_iop_loads = direct;
+                Arm64Ir::LowerOutput out;
+                std::string error;
+                if (!Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                {
+                    same = false;
+                    continue;
+                }
+                psxRegs.GPR.r[8] = address;
+                psxRegs.GPR.r[10] = ~expected;
+                reinterpret_cast<void (*)()>(out.entry)();
+                same &= psxRegs.GPR.r[10] == expected;
+            }
+            char name[128];
+            std::snprintf(name, sizeof(name), "ir IOP memory domain op=%s address=%08x matches IOP handler", ir::OpName(op), address);
+            Check(same, name);
+        }
+    psHu32(SBUS_F240) = saved_sif;
+}
+
+void IOPSharedIntegrationTests()
+{
+    std::vector<u32> mixed = {
+        MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16), MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff),
+        MipsI(9, 0, 8, 0x1234), MipsI(43, 22, 8, 0), MipsI(35, 22, 9, 0),
+        MipsR(8, 9, 8, 0, 0x21), MipsR(8, 9, 0, 0, 0x18), MipsR(0, 0, 10, 0, 0x12),
+        MipsI(9, 10, 11, 1), MipsI(43, 22, 11, 4), MipsI(4, 8, 9, 1), MipsI(9, 8, 8, 1),
+        MipsI(4, 0, 0, 1), MipsI(9, 9, 9, 1), MipsI(9, 10, 10, 1)};
+    // Memory loads keep the following inputs unknown to the optimizer. Four
+    // pair sums and their cross-dependencies exceed the three-register pool,
+    // exercising the inline X20 spill frame across memory consumers.
+    for (u32 r = 8; r < 16; ++r) mixed.push_back(MipsI(35, 22, r, (r - 8) * 4));
+    const u32 pressure[] = {
+        MipsR(8, 9, 16, 0, 0x21), MipsR(10, 11, 17, 0, 0x21),
+        MipsR(12, 13, 18, 0, 0x21), MipsR(14, 15, 19, 0, 0x21),
+        MipsR(16, 18, 20, 0, 0x26), MipsR(17, 19, 21, 0, 0x26),
+        MipsR(16, 17, 8, 0, 0x21), MipsR(18, 19, 9, 0, 0x21),
+        MipsR(20, 21, 10, 0, 0x26)};
+    mixed.insert(mixed.end(), std::begin(pressure), std::end(pressure));
+    for (u32 r = 8; r < 22; ++r) mixed.push_back(MipsI(43, 22, r, 32 + (r - 8) * 4));
+    // Force multiple IR fragments and then a memory consumer.
+    for (u32 i = 0; i < 200; ++i) mixed.push_back(MipsI(9, 8, 8, 1));
+    mixed.push_back(MipsI(43, 22, 8, 8));
+    const u32 saved_icfg = psxHu32(HW_ICFG);
+    for (u32 clock : {0u, 8u})
+        for (s32 budget : {4096, 12345})
+        {
+            psxHu32(HW_ICFG) = clock;
+            EmuCoreXOracleSetIOPIR(0);
+            const IOPSnapshot legacy = RunIOPProgram(true, mixed, budget);
+            const s32 legacy_budget = psxRegs.iopCycleEE;
+            const u32 legacy_carry = psxRegs.iopCycleEECarry;
+            const u64 before = EmuCoreXOracleIOPIRInstructions();
+            const u64 spill_before = EmuCoreXOracleIOPIRSpillSequences();
+            EmuCoreXOracleSetIOPIR(1);
+            const IOPSnapshot actual = RunIOPProgram(true, mixed, budget);
+            CompareIOP(legacy, actual, "ir IOP mixed production/legacy state");
+            Check(legacy.cycle == actual.cycle && legacy_budget == psxRegs.iopCycleEE &&
+                legacy_carry == psxRegs.iopCycleEECarry, "ir IOP mixed production exact cycle/budget/carry");
+            Check(EmuCoreXOracleIOPIRInstructions() > before, "ir IOP production actually compiled shared IR instructions");
+            Check(EmuCoreXOracleIOPIRSpillSequences() > spill_before,
+                "ir IOP production uses inline spill frame with dynamic register pressure");
+        }
+    psxHu32(HW_ICFG) = saved_icfg;
+    const std::vector<u32> forced = {MipsI(9, 0, 8, 1), MipsI(9, 8, 8, 2), MipsI(13, 8, 9, 4)};
+    const u64 before = EmuCoreXOracleIOPIRInstructions();
+    const IOPSnapshot expected = RunIOPProgram(false, forced);
+    const IOPSnapshot actual = RunIOPProgram(true, forced, -1, false, 1ull << OpcodeFamilies::IOP::FAM_ALU_IMM);
+    CompareIOP(expected, actual, "ir IOP forced interpreter instructions preserved");
+    Check(EmuCoreXOracleIOPIRInstructions() - before == 2, "ir IOP forced interpreter bypasses ALU IR; only sentinel branch/delay lifted");
+    EmuCoreXOracleSetIOPIR(-1);
+}
+
+static u32 s_iopRfeHelperCalls = 0, s_iopRfeObservedStatus = 0;
+void IOPCop0BackendTests()
+{
+    const u32 saved_ctrl = psxHu32(0x1078);
+    psxHu32(0x1078) = 0;
+    for (u32 reg : {0u, 1u, 9u, 11u, 12u, 31u})
+        for (u32 shape = 0; shape < 4; ++shape)
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(IOP_TEST_PC);
+            if (shape == 1) b.Emit1(ir::Op::WriteCp0, ir::Type::Void, b.ConstI32(0x89abcdef), reg);
+            const u32 first = b.Emit(ir::Op::ReadCp0, ir::Type::I32, {}, reg);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, first, 8);
+            if (shape == 2) b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(IOP_TEST_SCRATCH));
+            if (shape == 3) b.Emit0(ir::Op::CheckInterrupts, ir::Type::Void);
+            const u32 second = b.Emit(ir::Op::ReadCp0, ir::Type::I32, {}, reg);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, second, 9);
+            b.Resume(IOP_TEST_PC + 4);
+            bool same = true;
+            u32 loads[2] = {};
+            for (u32 mode = 0; same && mode < 6; ++mode)
+            {
+                Arm64Ir::LowerOptions options;
+                options.guest_state = Arm64Ir::GuestState::IOP;
+                options.optimize_ir = mode != 0;
+                options.allocate_registers = mode != 2;
+                options.materialize_constants = mode != 3;
+                options.reuse_spill_slots = mode != 4;
+                options.direct_iop_loads = mode != 5;
+                Arm64Ir::LowerHooks hooks;
+                hooks.ctx = &reg;
+                const auto mutate = +[](void* ctx) {
+                    oakMoveAddressToReg(oak::util::X16, &psxRegs.CP0.r[*static_cast<u32*>(ctx)]);
+                    oakAsm->MOV(oak::util::W17, 0xfedcba98u);
+                    oakStore32(oak::util::W17, {oak::util::X16, 0});
+                };
+                if (shape == 2) hooks.after_memory = mutate;
+                if (shape == 3) hooks.after_helper = mutate;
+                options.hooks = &hooks;
+                Arm64Ir::LowerOutput out;
+                std::string error;
+                same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                if (!same) break;
+                if (mode < 2)
+                    for (u32 offset = 0; offset < out.host_size; offset += 4)
+                    {
+                        u32 word;
+                        std::memcpy(&word, out.entry + offset, sizeof(word));
+                        loads[mode] += (word & 0xffc00000u) == 0xb9400000u;
+                    }
+                ResetIOPMemoryFixture();
+                psxRegs.CP0.r[reg] = 0x12345678;
+                const auto ee = cpuRegs;
+                reinterpret_cast<void (*)()>(out.entry)();
+                same &= psxRegs.GPR.r[0] == 0 && psxRegs.GPR.r[8] == (shape == 1 ? 0x89abcdefu : 0x12345678u) &&
+                    psxRegs.GPR.r[9] == (shape >= 2 ? 0xfedcba98u : shape == 1 ? 0x89abcdefu : 0x12345678u) &&
+                    std::memcmp(&cpuRegs, &ee, sizeof(ee)) == 0;
+            }
+            if (shape < 2) same &= loads[0] == 2 && loads[1] == (shape == 1 ? 0 : 1);
+            Check(same, "ir IOP CP0 cached reads/write forwarding/helper-memory barriers six modes/native load count");
+        }
+    for (ir::Op op : {ir::Op::ReadCp0, ir::Op::WriteCp0, ir::Op::CheckInterrupts})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(IOP_TEST_PC);
+        if (op == ir::Op::WriteCp0) b.Emit1(op, ir::Type::Void, b.ConstI32(1), 12);
+        else b.Emit(op, op == ir::Op::ReadCp0 ? ir::Type::I32 : ir::Type::Void, {}, 12);
+        b.Resume(IOP_TEST_PC + 4);
+        std::string error;
+        Check(ir::Verify(fn, &error) && !Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::EE),
+            "ir IOP COP0/interrupt operations reject EE domain before emission");
+    }
+    for (bool write : {false, true})
+        for (u32 index : {32u, 0xffffffffu})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(IOP_TEST_PC);
+            if (write) b.Emit1(ir::Op::WriteCp0, ir::Type::Void, b.ConstI32(1), index);
+            else b.Emit(ir::Op::ReadCp0, ir::Type::I32, {}, index);
+            b.Resume(IOP_TEST_PC + 4);
+            std::string error;
+            Check(!Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::IOP), "ir IOP CP0 rejects invalid index before offset emission");
+        }
+    for (ir::Type type : {ir::Type::I64, ir::Type::V4U32})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(IOP_TEST_PC);
+        const u32 value = type == ir::Type::I64 ? b.ConstI64(1) : b.ConstVec({1,2,3,4});
+        b.Emit1(ir::Op::WriteCp0, ir::Type::Void, value, 12);
+        b.Resume(IOP_TEST_PC + 4);
+        std::string error;
+        Check(!Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::IOP), "ir IOP CP0 rejects wide/vector writes");
+    }
+    psxHu32(0x1078) = saved_ctrl;
+}
+
+void IOPRfeInterruptIntegrationTests()
+{
+    const auto saved_ee = cpuRegs;
+    const bool saved_ee_active = eeEventTestIsActive, saved_iop_active = iopEventTestIsActive, saved_action = iopEventAction;
+    const bool saved_wait = EmuConfig.Speedhacks.WaitLoop;
+    const u32 saved_hw[] = {psxHu32(0x1070), psxHu32(0x1074), psxHu32(0x1078), psxHu32(HW_ICFG)};
+    EmuConfig.Speedhacks.WaitLoop = false;
+    for (u32 irq = 0; irq < 8; ++irq)
+        for (bool ee_active : {false, true})
+            for (bool iop_active : {false, true})
+                for (u32 clock : {0u, 8u})
+                    for (u32 branch = 0; branch < 4; ++branch)
+                    {
+                        const auto reset = [&] {
+                            cpuRegs = saved_ee;
+                            cpuRegs.cycle = 100;
+                            cpuRegs.nextEventCycle = 500;
+                            eeEventTestIsActive = ee_active;
+                            iopEventTestIsActive = iop_active;
+                            iopEventAction = false;
+                            psxHu32(0x1070) = irq & 1;
+                            psxHu32(0x1074) = (irq >> 1) & 1;
+                            psxHu32(0x1078) = (irq >> 2) & 1;
+                            psxHu32(HW_ICFG) = clock;
+                        };
+                        std::vector<u32> code = {MipsI(9, 0, 8, 0x43c), MipsI(16, 4, 8, 12 << 11)};
+                        if (branch) code.push_back(branch == 1 ? MipsI(4, 8, 8, 1) : branch == 2 ? MipsI(5, 8, 8, 1) : MipsJ(2, IOP_TEST_PC + 16));
+                        code.push_back(0x42000010);
+                        code.push_back(MipsI(16, 0, 9, 12 << 11));
+                        reset();
+                        EmuCoreXOracleSetIOPIR(0);
+                        const auto legacy = RunIOPProgram(true, code, 512);
+                        const auto legacy_ee = cpuRegs;
+                        const bool action = iopEventAction;
+                        const s32 budget = psxRegs.iopCycleEE;
+                        const u32 carry = psxRegs.iopCycleEECarry, next_event = psxRegs.iopNextEventCycle;
+                        reset();
+                        EmuCoreXOracleSetIOPIR(1);
+                        const u64 before = EmuCoreXOracleIOPIRCop0Instructions();
+                        const auto actual = RunIOPProgram(true, code, 512);
+                        CompareIOP(legacy, actual, "ir IOP RFE production IRQ/event/branch state");
+                        Check(std::memcmp(&cpuRegs, &legacy_ee, sizeof(cpuRegs)) == 0 && iopEventAction == action &&
+                            psxRegs.iopNextEventCycle == next_event && legacy.cycle == actual.cycle &&
+                            psxRegs.iopCycleEE == budget && psxRegs.iopCycleEECarry == carry,
+                            "ir IOP RFE pending IRQ EE/IOP scheduling and exact legacy timing");
+                        Check(EmuCoreXOracleIOPIRCop0Instructions() - before == 3,
+                            "ir IOP actual RFE/check interrupts compiles including branch delay");
+                    }
+    cpuRegs = saved_ee;
+    eeEventTestIsActive = saved_ee_active;
+    iopEventTestIsActive = saved_iop_active;
+    iopEventAction = saved_action;
+    EmuConfig.Speedhacks.WaitLoop = saved_wait;
+    psxHu32(0x1070) = saved_hw[0]; psxHu32(0x1074) = saved_hw[1]; psxHu32(0x1078) = saved_hw[2]; psxHu32(HW_ICFG) = saved_hw[3];
+    EmuCoreXOracleSetIOPIR(-1);
+}
+
+void IOPCop0FrontendTests()
+{
+    const auto seed = [](u32 reg, u32 edge) {
+        ResetIOPMemoryFixture();
+        for (u32 i = 1; i < 34; ++i) psxRegs.GPR.r[i] = 0x11223344u ^ (i * 0x1234567u);
+        for (u32 i = 0; i < 32; ++i) psxRegs.CP0.r[i] = 0x89abcdefu ^ (i * 0x1020304u);
+        psxRegs.CP0.r[reg] = edge;
+        psxRegs.GPR.r[8] = psxRegs.GPR.r[31] = ~edge;
+    };
+    for (u32 rs : {0u, 2u, 4u, 6u})
+        for (u32 reg = 0; reg < 32; ++reg)
+            for (u32 gpr : {0u, 8u, 31u})
+                for (u32 edge : {0u, 1u, 0x7fffffffu, 0x80000000u, 0xffffffffu})
+                {
+                    const u32 word = MipsI(16, rs, gpr, reg << 11);
+                    seed(reg, edge);
+                    psxRegs.code = word;
+                    psxBSC[16]();
+                    const auto expected = psxRegs;
+                    ir::Function fn;
+                    std::string error;
+                    u32 count = 0;
+                    bool same = IopIr::LiftSequence(&word, IOP_TEST_PC, 1, fn, &count, &error) && count == 1;
+                    for (u32 mode = 0; same && mode < 5; ++mode)
+                    {
+                        Arm64Ir::LowerOptions options;
+                        options.guest_state = Arm64Ir::GuestState::IOP;
+                        options.optimize_ir = mode != 0;
+                        options.allocate_registers = mode != 2;
+                        options.materialize_constants = mode != 3;
+                        options.reuse_spill_slots = mode != 4;
+                        Arm64Ir::LowerOutput out;
+                        same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        if (!same) break;
+                        seed(reg, edge);
+                        const auto ee = cpuRegs;
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        same &= std::memcmp(&psxRegs.GPR, &expected.GPR, sizeof(expected.GPR)) == 0 &&
+                            std::memcmp(&psxRegs.CP0, &expected.CP0, sizeof(expected.CP0)) == 0 &&
+                            std::memcmp(&psxRegs.CP2D, &expected.CP2D, sizeof(expected.CP2D)) == 0 &&
+                            std::memcmp(&psxRegs.CP2C, &expected.CP2C, sizeof(expected.CP2C)) == 0 &&
+                            std::memcmp(&cpuRegs, &ee, sizeof(ee)) == 0;
+                    }
+                    char name[128];
+                    std::snprintf(name, sizeof(name), "ir IOP COP0 rs=%u cp0=%u gpr=%u edge=%08x five modes/full state", rs, reg, gpr, edge);
+                    Check(same, name);
+                }
+    const u32 saved_ctrl = psxHu32(0x1078);
+    psxHu32(0x1078) = 0;
+    for (u32 status : {0u, 1u, 0xfu, 0x3cu, 0x3fu, 0x401u, 0x404u, 0x8000003fu, 0xffffffffu})
+        for (u32 low : {0u, 0x10u, 0x3fu})
+            for (u32 kind = 0; kind < 4; ++kind)
+            {
+                const u32 rfe = MipsI(16, 16, 0, low), target = IOP_TEST_PC + 64;
+                const u32 branch = kind == 1 ? MipsI(4, 8, 8, 15) : kind == 2 ? MipsI(5, 8, 8, 15) : MipsR(8, 0, 0, 0, 8);
+                const u32 code[] = {kind == 0 ? rfe : branch, rfe};
+                ResetIOPMemoryFixture();
+                psxRegs.GPR.r[8] = target;
+                psxRegs.CP0.n.Status = status;
+                psxRegs.code = rfe;
+                psxBSC[16]();
+                const auto expected = psxRegs;
+                ir::Function fn;
+                std::string error;
+                u32 count = 0;
+                bool same = IopIr::LiftSequence(code, IOP_TEST_PC, kind == 0 ? 1 : 2, fn, &count, &error) && count == (kind == 0 ? 1 : 2);
+                for (u32 mode = 0; same && mode < 5; ++mode)
+                {
+                    Arm64Ir::LowerOptions options;
+                    options.guest_state = Arm64Ir::GuestState::IOP;
+                    options.capture_exit_pc = true;
+                    options.optimize_ir = mode != 0;
+                    options.allocate_registers = mode != 2;
+                    options.materialize_constants = mode != 3;
+                    options.reuse_spill_slots = mode != 4;
+                    Arm64Ir::LowerHooks hooks;
+                    hooks.before_helper = +[](void*) {
+                        oakMoveAddressToReg(oak::util::X16, &psxRegs.CP0.n.Status);
+                        oakLoad32(oak::util::W17, {oak::util::X16, 0});
+                        oakMoveAddressToReg(oak::util::X16, &s_iopRfeObservedStatus);
+                        oakStore32(oak::util::W17, {oak::util::X16, 0});
+                        oakMoveAddressToReg(oak::util::X16, &s_iopRfeHelperCalls);
+                        oakLoad32(oak::util::W17, {oak::util::X16, 0});
+                        oakAsm->ADD(oak::util::W17, oak::util::W17, 1);
+                        oakStore32(oak::util::W17, {oak::util::X16, 0});
+                    };
+                    hooks.after_helper = +[](void*) { for (u32 r = 0; r <= 17; ++r) oakAsm->MOV(oak::WReg(r), 0xa5a5a5a5u); };
+                    options.hooks = &hooks;
+                    Arm64Ir::LowerOutput out;
+                    same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                    if (!same) break;
+                    ResetIOPMemoryFixture();
+                    psxRegs.GPR.r[8] = target;
+                    psxRegs.CP0.n.Status = status;
+                    s_iopRfeHelperCalls = s_iopRfeObservedStatus = 0;
+                    g_eeir_exit_pc = g_eeir_exit_valid = 0;
+                    const auto ee = cpuRegs;
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    const u32 exit = kind == 0 ? IOP_TEST_PC + 4 : kind == 2 ? IOP_TEST_PC + 8 : target;
+                    same &= std::memcmp(&psxRegs.GPR, &expected.GPR, sizeof(expected.GPR)) == 0 &&
+                        std::memcmp(&psxRegs.CP0, &expected.CP0, sizeof(expected.CP0)) == 0 &&
+                        std::memcmp(&cpuRegs, &ee, sizeof(ee)) == 0 && g_eeir_exit_valid && g_eeir_exit_pc == exit &&
+                        s_iopRfeHelperCalls == 1 && s_iopRfeObservedStatus == expected.CP0.n.Status;
+                }
+                char name[128];
+                std::snprintf(name, sizeof(name), "ir IOP RFE status=%08x low=%u branch=%u five modes/helper/target", status, low, kind);
+                Check(same, name);
+            }
+    psxHu32(0x1078) = saved_ctrl;
+    for (u32 rs : {1u, 3u, 5u, 7u, 8u, 15u, 17u, 31u})
+    {
+        const u32 code[] = {MipsI(9, 0, 8, 1), MipsI(16, rs, 8, 0), 0};
+        ir::Function fn;
+        std::string error;
+        u32 count = 0;
+        Check(IopIr::LiftSequence(code, IOP_TEST_PC, 3, fn, &count, &error) && count == 1 &&
+            !IopIr::LiftSequence(code + 1, IOP_TEST_PC + 4, 2, fn, &count, &error) && count == 0,
+            "ir IOP unknown COP0 dispatch remains legacy");
+    }
+}
+
+void IOPCop0IntegrationTests()
+{
+    const bool saved_wait = EmuConfig.Speedhacks.WaitLoop;
+    const u32 saved_icfg = psxHu32(HW_ICFG), saved_ctrl = psxHu32(0x1078);
+    EmuConfig.Speedhacks.WaitLoop = false;
+    psxHu32(0x1078) = 0;
+    for (u32 rs : {0u, 2u, 4u, 6u})
+        for (u32 reg = 0; reg < 32; ++reg)
+            for (u32 gpr : {0u, 8u, 31u})
+            {
+                const std::vector<u32> code = {MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16),
+                    MipsI(35, 22, 8, 0), MipsR(8, 0, 31, 0, 0x21), MipsI(16, rs, gpr, reg << 11), MipsI(16, 0, 9, reg << 11)};
+                const IOPSnapshot expected = RunIOPProgram(false, code, 512);
+                EmuCoreXOracleSetIOPIR(0);
+                const IOPSnapshot legacy = RunIOPProgram(true, code, 512);
+                const s32 budget = psxRegs.iopCycleEE;
+                const u32 carry = psxRegs.iopCycleEECarry;
+                EmuCoreXOracleSetIOPIR(1);
+                const u64 before = EmuCoreXOracleIOPIRCop0Instructions();
+                const IOPSnapshot actual = RunIOPProgram(true, code, 512);
+                CompareIOP(expected, actual, "ir IOP COP0 production matches interpreter");
+                Check(std::memcmp(expected.cp0, actual.cp0, sizeof(expected.cp0)) == 0 && legacy.cycle == actual.cycle &&
+                    budget == psxRegs.iopCycleEE && carry == psxRegs.iopCycleEECarry, "ir IOP COP0 all CP0 fields/exact legacy timing");
+                Check(EmuCoreXOracleIOPIRCop0Instructions() - before == 2,
+                    "ir IOP production actually compiles both COP0 transfers");
+            }
+    for (bool isolated : {false, true})
+    {
+        const std::vector<u32> code = {MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16), MipsI(35, 22, 8, 0),
+            MipsI(9, 0, 9, 0x1234), MipsI(15, 0, 10, isolated ? 1 : 0), MipsI(16, 4, 10, 12 << 11),
+            MipsI(43, 22, 9, 0), MipsI(16, 0, 11, 12 << 11), MipsI(16, 4, 0, 12 << 11), MipsI(35, 22, 12, 0)};
+        const auto expected = RunIOPProgram(false, code);
+        EmuCoreXOracleSetIOPIR(1);
+        const u64 before = EmuCoreXOracleIOPIRCop0Instructions();
+        const auto actual = RunIOPProgram(true, code);
+        CompareIOP(expected, actual, "ir IOP CP0 Status write immediately controls following store cache isolation");
+        Check(actual.gpr[12] == (isolated ? actual.gpr[8] : 0x1234u) && EmuCoreXOracleIOPIRCop0Instructions() - before == 3,
+            "ir IOP CP0 cache isolation enable/store/disable sequence actually compiled");
+    }
+    const std::vector<u32> forced = {MipsI(9, 0, 8, 0x3f), MipsI(16, 4, 8, 12 << 11), 0x42000010u, MipsI(16, 0, 9, 12 << 11)};
+    const auto expected = RunIOPProgram(false, forced);
+    const u64 before = EmuCoreXOracleIOPIRCop0Instructions();
+    const auto actual = RunIOPProgram(true, forced, -1, false, 1ull << OpcodeFamilies::IOP::FAM_COP0);
+    CompareIOP(expected, actual, "ir IOP forced COP0 interpreter state");
+    Check(EmuCoreXOracleIOPIRCop0Instructions() == before,
+        "ir IOP forced COP0 family bypasses COP0 IR");
+    EmuConfig.Speedhacks.WaitLoop = saved_wait;
+    psxHu32(HW_ICFG) = saved_icfg;
+    psxHu32(0x1078) = saved_ctrl;
+    EmuCoreXOracleSetIOPIR(-1);
+}
+
+void IOPControlIntegrationTests()
+{
+    const u32 saved_icfg = psxHu32(HW_ICFG);
+    const bool saved_wait = EmuConfig.Speedhacks.WaitLoop;
+    for (u32 kind = 0; kind < 12; ++kind)
+        for (bool positive : {false, true})
+            for (u32 delay_kind = 0; delay_kind < 6; ++delay_kind)
+                for (u32 clock : {0u, 8u})
+                {
+                    psxHu32(HW_ICFG) = clock;
+                    EmuConfig.Speedhacks.WaitLoop = (delay_kind & 1) != 0;
+                    std::vector<u32> code = {
+                        MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16), MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff),
+                        MipsI(9, 0, 8, positive ? 1 : -1), MipsI(9, 0, 9, -1),
+                        MipsI(43, 22, 8, 0), MipsI(35, 22, 8, 0), 0, 0};
+                    const u32 branch_pc = IOP_TEST_PC + static_cast<u32>(code.size()) * 4;
+                    const u32 target = branch_pc + 20, end = branch_pc + 24;
+                    if (kind >= 10)
+                    {
+                        code[6] = MipsI(15, 0, 8, target >> 16);
+                        code[7] = MipsI(13, 8, 8, target & 0xffff);
+                    }
+                    const u32 word = kind < 4 ? MipsI(4 + kind, 8, kind < 2 ? 9 : 0, 4) :
+                        kind < 8 ? MipsI(1, 8, kind == 4 ? 0 : kind == 5 ? 1 : kind == 6 ? 16 : 17, 4) :
+                        kind < 10 ? MipsJ(kind == 8 ? 2 : 3, target) : MipsR(8, 0, kind == 10 ? 0 : 31, 0, kind == 10 ? 8 : 9);
+                    const u32 delay = delay_kind == 0 ? 0 : delay_kind == 1 ? MipsI(9, 0, 8, 7) :
+                        delay_kind == 2 ? MipsI(43, 22, 31, 4) : delay_kind == 3 ? MipsR(8, 9, 0, 0, 0x18) :
+                        delay_kind == 4 ? MipsR(8, 9, 0, 0, 0x1a) : MipsI(35, 22, 8, 32);
+                    code.insert(code.end(), {word, delay, MipsI(9, 0, 10, 1), MipsJ(2, end), 0, MipsI(9, 0, 11, 2),
+                        MipsI(43, 22, 0, 120), MipsI(43, 22, 10, 32), MipsI(43, 22, 11, 36)});
+                    const IOPSnapshot interp = RunIOPProgram(false, code, 4096);
+                    EmuCoreXOracleSetIOPIR(0);
+                    s_iopMulDivClock = {};
+                    s_iopMulDivClearOriginal = psxRec.Clear;
+                    psxRec.Clear = &IOPMulDivClearClockProbe;
+                    const IOPSnapshot legacy = RunIOPProgram(true, code, 4096);
+                    const auto legacy_clock = s_iopMulDivClock;
+                    const s32 legacy_budget = psxRegs.iopCycleEE;
+                    const u32 legacy_carry = psxRegs.iopCycleEECarry;
+                    EmuCoreXOracleSetIOPIR(1);
+                    const u64 before = EmuCoreXOracleIOPIRBranches();
+                    s_iopMulDivClock = {};
+                    if (delay_kind == 2)
+                    {
+                        s_iopClearOriginal = &IOPMulDivClearClockProbe;
+                        s_iopObserveAddress = IOP_TEST_SCRATCH + 4;
+                        s_iopObserveWord = delay;
+                        s_iopObservedWrites = 0;
+                        psxRec.Clear = &IOPClearMemoryProbe;
+                    }
+                    const IOPSnapshot actual = RunIOPProgram(true, code, 4096);
+                    psxRec.Clear = s_iopMulDivClearOriginal;
+                    char name[128];
+                    std::snprintf(name, sizeof(name), "ir IOP control integration kind=%u positive=%u delay=%u clock=%u", kind, positive, delay_kind, clock);
+                    CompareIOP(interp, actual, name);
+                    if (delay_kind == 2)
+                        Check(s_iopObservedWrites == 1 && s_iopObservedPc == branch_pc + 8 && s_iopObservedCode == delay,
+                            "ir IOP branch delay store helper sees exact PC/opcode once");
+                    Check(legacy.cycle == actual.cycle && legacy_budget == psxRegs.iopCycleEE && legacy_carry == psxRegs.iopCycleEECarry &&
+                        legacy_clock.observed && s_iopMulDivClock.observed && legacy_clock.cycle == s_iopMulDivClock.cycle &&
+                        legacy_clock.budget == s_iopMulDivClock.budget && legacy_clock.carry == s_iopMulDivClock.carry,
+                        "ir IOP control exact first committed clock/budget/carry and WaitLoop parity");
+                    const bool taken = kind >= 8 || (kind == 0 ? !positive : kind == 1 ? positive :
+                        kind == 2 ? !positive : kind == 3 ? positive : kind == 4 || kind == 6 ? !positive : positive);
+                    // The final tail first absorbs the sentinel branch, then
+                    // its back edge compiles the sentinel as a separate block.
+                    Check(EmuCoreXOracleIOPIRBranches() - before == (taken ? 3 : 4),
+                        "ir IOP real tested branch and static continuation compile through IR");
+                }
+    // Address zero is valid executable RAM. Check a real idle loop there,
+    // including the static target needed by the legacy WaitLoop fast path.
+    const u32 saved_zero[] = {iopMemRead32(0), iopMemRead32(4), iopMemRead32(8)};
+    iopMemWrite32(0, 0);
+    iopMemWrite32(4, MipsI(4, 0, 0, -2));
+    iopMemWrite32(8, 0);
+    for (bool wait : {false, true})
+        for (u32 clock : {0u, 8u})
+        {
+            EmuConfig.Speedhacks.WaitLoop = wait;
+            psxHu32(HW_ICFG) = clock;
+            const std::vector<u32> zero = {MipsJ(2, 0), 0};
+            EmuCoreXOracleSetIOPIR(0);
+            const IOPSnapshot legacy = RunIOPProgram(true, zero, 4096);
+            const s32 budget = psxRegs.iopCycleEE;
+            const u32 carry = psxRegs.iopCycleEECarry;
+            EmuCoreXOracleSetIOPIR(1);
+            const IOPSnapshot actual = RunIOPProgram(true, zero, 4096);
+            CompareIOP(legacy, actual, "ir IOP target zero real idle-loop state");
+            Check(legacy.cycle == actual.cycle && budget == psxRegs.iopCycleEE && carry == psxRegs.iopCycleEECarry,
+                "ir IOP target zero preserves static WaitLoop cycles/budget/carry");
+        }
+    for (u32 i = 0; i < 3; ++i) iopMemWrite32(i * 4, saved_zero[i]);
+    EmuConfig.Speedhacks.WaitLoop = saved_wait;
+    psxHu32(HW_ICFG) = saved_icfg;
+    const std::vector<u32> forced = {MipsI(9, 0, 8, 1), MipsI(4, 8, 0, 1), MipsI(9, 8, 8, 1), MipsI(9, 8, 9, 1)};
+    for (u32 family : {OpcodeFamilies::IOP::FAM_BRANCH, OpcodeFamilies::IOP::FAM_ALU_IMM})
+    {
+        EmuCoreXOracleSetIOPIR(1);
+        const u64 before = EmuCoreXOracleIOPIRBranches();
+        CompareIOP(RunIOPProgram(false, forced), RunIOPProgram(true, forced, -1, false, 1ull << family),
+            "ir IOP forced branch/delay interpreter preserves state");
+        Check(EmuCoreXOracleIOPIRBranches() - before == (family == OpcodeFamilies::IOP::FAM_BRANCH ? 0 : 1),
+            "ir IOP forced branch/delay bypasses whole IR branch");
+    }
+    const std::vector<u32> import = {MipsJ(2, IOP_TEST_PC + 12), 0x24001234, MipsI(9, 0, 8, 1), MipsI(9, 0, 9, 2)};
+    const u64 before_import = EmuCoreXOracleIOPIRBranches();
+    CompareIOP(RunIOPProgram(false, import), RunIOPProgram(true, import), "ir IOP import stub retains interpreter/legacy behavior");
+    Check(EmuCoreXOracleIOPIRBranches() - before_import == 2,
+        "ir IOP import stub branch stays on HLE-capable legacy path");
+    EmuCoreXOracleSetIOPIR(-1);
+}
+
+void IOPControlFrontendTests()
+{
+    const u32 edges[] = {0, 1, 0x7fffffff, 0x80000000, 0xffffffff};
+    for (u32 kind = 0; kind < 12; ++kind)
+        for (u32 source : {0u, 8u, 31u})
+            for (u32 edge : edges)
+                for (u32 delay_kind = 0; delay_kind < 6; ++delay_kind)
+                {
+                    const u32 pc = IOP_TEST_PC, target = pc + 64;
+                    const u32 word = kind < 4 ? MipsI(4 + kind, source, kind < 2 ? 9 : 0, 15) :
+                        kind < 8 ? MipsI(1, source, kind == 4 ? 0 : kind == 5 ? 1 : kind == 6 ? 16 : 17, 15) :
+                        kind < 10 ? MipsJ(kind == 8 ? 2 : 3, target) : MipsR(source, 0, kind == 10 ? 0 : source, 0, kind == 10 ? 8 : 9);
+                    const u32 delay = delay_kind == 0 ? 0 : delay_kind == 1 ? MipsI(9, source == 0 ? 8 : 0, source, 7) :
+                        delay_kind == 2 ? MipsR(31, 0, 12, 0, 0x21) : delay_kind == 3 ? MipsI(35, 22, source, 32) :
+                        delay_kind == 4 ? MipsI(43, 22, 31, 32) : MipsR(8, 9, 0, 0, 0x1a);
+                    const u32 code[] = {word, delay};
+                    ResetIOPMemoryFixture();
+                    psxRegs.GPR.r[8] = psxRegs.GPR.r[31] = edge;
+                    psxRegs.GPR.r[9] = 0xffffffff;
+                    psxRegs.GPR.r[22] = IOP_TEST_SCRATCH;
+                    if (kind == 6 || kind == 7 || kind == 9) psxRegs.GPR.r[31] = pc + 8;
+                    if (kind == 11 && source != 0) psxRegs.GPR.r[source] = pc + 8;
+                    const u32 input = source == 0 ? 0 : psxRegs.GPR.r[source];
+                    const bool taken = kind == 0 ? input == psxRegs.GPR.r[9] : kind == 1 ? input != psxRegs.GPR.r[9] :
+                        kind == 2 ? static_cast<s32>(input) <= 0 : kind == 3 ? static_cast<s32>(input) > 0 :
+                        (kind == 4 || kind == 6) ? static_cast<s32>(input) < 0 : static_cast<s32>(input) >= 0;
+                    const u32 exit = kind >= 10 ? input : kind >= 8 || taken ? target : pc + 8;
+                    // Execute the non-control delay through the actual interpreter
+                    // after the independently computed link/condition snapshot.
+                    psxRegs.pc = pc + 8;
+                    psxRegs.code = delay;
+                    psxBSC[delay >> 26]();
+                    IOPSnapshot expected;
+                    CaptureIOP(expected);
+                    ir::Function fn;
+                    std::string error;
+                    u32 count = 0;
+                    bool same = IopIr::LiftSequence(code, pc, 2, fn, &count, &error) && count == 2;
+                    bool delay_marked = false;
+                    for (const auto& block : fn.blocks)
+                        for (const auto& inst : block.insts)
+                            if (ir::Info(inst.op).kind == ir::OpKind::MemLoad || ir::Info(inst.op).kind == ir::OpKind::MemStore)
+                                delay_marked |= inst.guest_pc == pc + 4 && (inst.aux & ir::IF_DELAY_SLOT);
+                    same &= delay_kind != 3 && delay_kind != 4 || delay_marked;
+                    for (u32 mode = 0; same && mode < 6; ++mode)
+                    {
+                        Arm64Ir::LowerOptions options;
+                        options.guest_state = Arm64Ir::GuestState::IOP;
+                        options.capture_exit_pc = true;
+                        options.optimize_ir = mode != 0;
+                        options.allocate_registers = mode != 2;
+                        options.materialize_constants = mode != 3;
+                        options.reuse_spill_slots = mode != 4;
+                        options.inline_division = mode != 5;
+                        options.direct_iop_loads = mode != 5;
+                        Arm64Ir::LowerHooks hooks;
+                        hooks.after_helper = +[](void*) {
+                            for (u32 r = 1; r <= 17; ++r) oakAsm->MOV(oak::WReg(r), 0xa5a5a5a5u);
+                        };
+                        options.hooks = &hooks;
+                        Arm64Ir::LowerOutput out;
+                        same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        if (!same) break;
+                        ResetIOPMemoryFixture();
+                        psxRegs.GPR.r[8] = psxRegs.GPR.r[31] = edge;
+                        psxRegs.GPR.r[9] = 0xffffffff;
+                        psxRegs.GPR.r[22] = IOP_TEST_SCRATCH;
+                        const auto ee_before = cpuRegs;
+                        g_eeir_exit_pc = g_eeir_exit_valid = 0;
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        IOPSnapshot actual;
+                        CaptureIOP(actual);
+                        same &= g_eeir_exit_valid && g_eeir_exit_pc == exit &&
+                            std::memcmp(expected.gpr, actual.gpr, sizeof(expected.gpr)) == 0 && expected.hi == actual.hi && expected.lo == actual.lo &&
+                            std::memcmp(expected.scratch, actual.scratch, sizeof(expected.scratch)) == 0 &&
+                            std::memcmp(&ee_before, &cpuRegs, sizeof(cpuRegs)) == 0;
+                        if (kind >= 10) same &= psxRegs.pc == exit;
+                    }
+                    char name[144];
+                    std::snprintf(name, sizeof(name), "ir IOP control kind=%u source=%u edge=%08x delay=%u six modes/target/helper preservation", kind, source, edge, delay_kind);
+                    Check(same, name);
+                }
+    const u32 branch = MipsI(4, 8, 9, 1);
+    for (u32 delay : {MipsI(8, 8, 9, 1), 0x0000000cu, MipsI(16, 1, 0, 0), MipsI(4, 0, 0, 1), 0x24001234u})
+    {
+        const u32 code[] = {MipsI(9, 0, 8, 3), branch, delay};
+        ir::Function fn;
+        std::string error;
+        u32 count = 0;
+        const bool prefix = IopIr::LiftSequence(code, IOP_TEST_PC, 3, fn, &count, &error) && count == 1;
+        const bool reject = !IopIr::LiftSequence(code + 1, IOP_TEST_PC + 4, 2, fn, &count, &error) && count == 0 && fn.blocks.empty();
+        Check(prefix && reject, "ir IOP unsupported/nested/HLE delay preserves whole legacy branch");
+    }
+    for (u32 pc : {IOP_TEST_PC, IOP_TEST_PC + 0xffc})
+    {
+        const u32 code[] = {branch, 0};
+        ir::Function fn;
+        std::string error;
+        u32 count = 0;
+        Check(!IopIr::LiftSequence(code, pc, pc == IOP_TEST_PC ? 1 : 2, fn, &count, &error) && count == 0 && fn.blocks.empty(),
+            "ir IOP branch and delay are atomic at cap/page boundary");
+    }
+    {
+        const u32 code[] = {MipsI(9, 0, 8, 1), 0x24001234u, 0};
+        ir::Function fn;
+        std::string error;
+        u32 count = 0;
+        Check(IopIr::LiftSequence(code, IOP_TEST_PC, 3, fn, &count, &error) && count == 1 &&
+            !IopIr::LiftSequence(code + 1, IOP_TEST_PC + 4, 2, fn, &count, &error) && count == 0 && fn.blocks.empty(),
+            "ir IOP import marker retains legacy HLE dispatch");
+    }
+}
+
+void IOPSharedFrontendTests()
+{
+    // Execute the lifted instructions in isolation, comparing with the actual
+    // R3000A interpreter. Seed values cover signed edges and shift count masks.
+    const u32 edges[] = {0, 1, 31, 32, 0x80000000u, 0xffffffffu};
+    for (u32 kind = 0; kind < 25; ++kind)
+        for (u32 dest : {0u, 8u, 9u, 10u})
+            for (u32 edge : edges)
+            {
+                const u32 other = edge ^ 0x80000021u;
+                std::vector<u32> code = {
+                    MipsI(15, 0, 8, edge >> 16), MipsI(13, 8, 8, edge & 0xffff),
+                    MipsI(15, 0, 9, other >> 16), MipsI(13, 9, 9, other & 0xffff),
+                    MipsR(8, 0, 0, 0, 0x11), MipsR(9, 0, 0, 0, 0x13)};
+                const u32 functions[] = {0x21, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2a, 0x2b,
+                    0, 2, 3, 4, 6, 7, 0x10, 0x12, 0x11, 0x13};
+                const u32 immediates[] = {9, 10, 11, 12, 13, 14, 15};
+                if (kind < 8)
+                    code.push_back(MipsR(8, 9, dest, 0, functions[kind]));
+                else if (kind < 11)
+                    code.push_back(MipsR(0, 8, dest, edge & 31, functions[kind]));
+                else if (kind < 14)
+                    code.push_back(MipsR(9, 8, dest, 0, functions[kind]));
+                else if (kind < 16)
+                    code.push_back(MipsR(0, 0, dest, 0, functions[kind]));
+                else if (kind < 18)
+                    code.push_back(MipsR(dest, 0, 0, 0, functions[kind]));
+                else
+                    code.push_back(MipsI(immediates[kind - 18], 8, dest, edge & 0xffff));
+                const IOPSnapshot expected = RunIOPProgram(false, code);
+                ir::Function fn;
+                std::string error;
+                u32 count = 0;
+                bool same = IopIr::LiftSequence(code.data() + 6, IOP_TEST_PC + 24, 1, fn, &count, &error) &&
+                    count == 1 && ir::Verify(fn, &error);
+                for (u32 mode = 0; same && mode < 5; ++mode)
+                {
+                    Arm64Ir::LowerOptions options;
+                    options.guest_state = Arm64Ir::GuestState::IOP;
+                    options.optimize_ir = mode != 0;
+                    options.allocate_registers = mode != 2;
+                    options.materialize_constants = mode != 3;
+                    options.reuse_spill_slots = mode != 4;
+                    Arm64Ir::LowerOutput out;
+                    same &= Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                    if (!same) break;
+                    std::memset(&psxRegs, 0, sizeof(psxRegs));
+                    // Keep inputs dynamic in every backend mode, so optimization
+                    // cannot fold the opcode under test into constant writes.
+                    psxRegs.GPR.r[8] = psxRegs.GPR.n.hi = edge;
+                    psxRegs.GPR.r[9] = psxRegs.GPR.n.lo = other;
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    same &= std::memcmp(psxRegs.GPR.r, expected.gpr, sizeof(expected.gpr)) == 0 &&
+                        psxRegs.GPR.n.hi == expected.hi && psxRegs.GPR.n.lo == expected.lo;
+                }
+                char name[128];
+                std::snprintf(name, sizeof(name), "ir IOP frontend kind=%u dest=%u edge=%08x modes/interpreter", kind, dest, edge);
+                Check(same, name);
+            }
+    for (u32 word : {MipsI(8, 8, 9, 1), MipsR(8, 9, 10, 0, 0x20), MipsR(8, 9, 10, 0, 0x22),
+        MipsI(50, 8, 9, 0), MipsI(58, 8, 9, 0), MipsI(1, 8, 2, 1),
+        MipsR(8, 0, 0, 0, 1), 0x0000000du, MipsI(16, 1, 0, 0),
+        MipsI(16, 8, 8, 0), 0x48080000u, 0x0000000cu, 0xffffffffu})
+    {
+        const u32 code[] = {MipsI(9, 0, 8, 1), word, 0};
+        ir::Function fn;
+        std::string error;
+        u32 count = 99;
+        const bool prefix = IopIr::LiftSequence(code, IOP_TEST_PC, 3, fn, &count, &error) &&
+            count == 1 && fn.blocks.back().insts.back().imm == IOP_TEST_PC + 4;
+        const bool reject = !IopIr::LiftSequence(code + 1, IOP_TEST_PC + 4, 2, fn, &count, &error) &&
+            count == 0 && fn.blocks.empty();
+        Check(prefix && reject, "ir IOP frontend stops before legacy boundary, rejects unsupported head");
+    }
+    const u32 nops[] = {0, 0, 0};
+    ir::Function fn;
+    std::string error;
+    u32 count = 0;
+    Check(IopIr::LiftSequence(nops, IOP_TEST_PC + 0xffc, 3, fn, &count, &error) && count == 1,
+        "ir IOP frontend never crosses guest page");
+    Check(IopIr::LiftSequence(nops, IOP_TEST_PC, 2, fn, &count, &error) && count == 2,
+        "ir IOP frontend respects caller instruction cap");
+    Check(!IopIr::LiftSequence(nops, IOP_TEST_PC, 0, fn, &count, &error) && count == 0,
+        "ir IOP frontend rejects empty input");
+    Check(!IopIr::LiftSequence(nops, IOP_TEST_PC + 1, 1, fn, &count, &error) && count == 0,
+        "ir IOP frontend rejects misaligned PC");
+}
+
+void IOPSharedStateTests()
+{
+    for (u32 source : {0u, 8u, 31u})
+        for (u32 dest : {0u, 1u, 8u, 31u})
+            for (u32 edge : {0u, 1u, 0x7fffffffu, 0x80000000u, 0xffffffffu})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(IOP_TEST_PC);
+                const u32 value = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, source);
+                const u32 hi = b.Emit(ir::Op::ReadHi, ir::Type::I32, {});
+                const u32 lo = b.Emit(ir::Op::ReadLo, ir::Type::I32, {});
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, dest);
+                b.Emit1(ir::Op::WriteHi, ir::Type::Void, lo);
+                b.Emit1(ir::Op::WriteLo, ir::Type::Void, hi);
+                b.Resume(IOP_TEST_PC + 4);
+                bool same = true;
+                for (u32 mode = 0; mode < 5; ++mode)
+                {
+                    Arm64Ir::LowerOptions options;
+                    options.guest_state = Arm64Ir::GuestState::IOP;
+                    options.optimize_ir = mode != 0;
+                    options.allocate_registers = mode != 2;
+                    options.materialize_constants = mode != 3;
+                    options.reuse_spill_slots = mode != 4;
+                    Arm64Ir::LowerOutput out;
+                    std::string error;
+                    if (!Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+                    {
+                        same = false;
+                        continue;
+                    }
+                    std::memset(&cpuRegs, 0x5a, sizeof(cpuRegs));
+                    const auto ee_before = cpuRegs;
+                    std::memset(&psxRegs, 0, sizeof(psxRegs));
+                    for (u32 r = 0; r < 34; ++r)
+                        psxRegs.GPR.r[r] = 0x12345678u ^ (r * 0x1010101u);
+                    psxRegs.GPR.r[source] = edge;
+                    auto expected = psxRegs.GPR;
+                    if (dest != 0)
+                        expected.r[dest] = source == 0 ? 0 : edge;
+                    std::swap(expected.n.hi, expected.n.lo);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    same &= std::memcmp(&psxRegs.GPR, &expected, sizeof(expected)) == 0 &&
+                        std::memcmp(&cpuRegs, &ee_before, sizeof(cpuRegs)) == 0;
+                }
+                char name[128];
+                std::snprintf(name, sizeof(name), "ir IOP state32 source=%u dest=%u edge=%08x neighbors/EE isolated", source, dest, edge);
+                Check(same, name);
+            }
+    for (ir::Op op : {ir::Op::Load64, ir::Op::ReadFpr, ir::Op::ConstVec})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(IOP_TEST_PC);
+        if (op == ir::Op::Load64)
+            b.Emit1(op, ir::Type::I64, b.ConstI32(EE_TEST_SCRATCH));
+        else if (op == ir::Op::ReadFpr)
+            b.Emit(op, ir::Type::F32, {}, 1);
+        else if (op == ir::Op::ConstVec)
+            b.ConstVec({1, 2, 3, 4});
+        b.Resume(IOP_TEST_PC + 4);
+        std::string error;
+        Check(ir::Verify(fn, &error) && !Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::IOP),
+            "ir IOP domain rejects EE memory/vector/FPU before emission");
+    }
+    for (ir::Type type : {ir::Type::I64, ir::Type::V4U32})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(IOP_TEST_PC);
+        const u32 value = b.Emit(ir::Op::ReadGpr, type, {}, 8);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, 9, type == ir::Type::I64 ? ir::IF_WIDE_WRITE : 0);
+        b.Resume(IOP_TEST_PC + 4);
+        std::string error;
+        Check(ir::Verify(fn, &error) && !Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::IOP),
+            "ir IOP domain rejects wide architectural state accesses");
+    }
+}
+
 void IOPTests()
 {
     EmuCoreXOracleSetSkipEvents(1);
@@ -3460,6 +6797,21 @@ void IOPTests()
 
     IOPCoverage();
     IOPCoverageGte();
+    IOPSharedMulDivIntegrationTests();
+    SharedMulHiBackendTests();
+    IOPSharedMulDivFrontendTests();
+    IOPSharedMemoryRuntimeTests();
+    IOPSharedMemoryDomainTests();
+    IOPSharedMemoryFrontendTests();
+    IOPSharedIntegrationTests();
+    IOPRfeInterruptIntegrationTests();
+    IOPCop0BackendTests();
+    IOPCop0IntegrationTests();
+    IOPCop0FrontendTests();
+    IOPControlIntegrationTests();
+    IOPControlFrontendTests();
+    IOPSharedFrontendTests();
+    IOPSharedStateTests();
 }
 }
 
