@@ -37,8 +37,6 @@
 using namespace R5900;
 using namespace vtlb_private;
 
-extern void recExitExecutionImmediate();
-
 #define verify pxAssert
 
 namespace vtlb_private
@@ -602,15 +600,16 @@ static __ri void vtlb_Miss(u32 addr, u32 mode)
 		return;
 	}
 
-	cpuRegs.CP0.n.BadVAddr = addr;
-	cpuRegs.CP0.n.Context &= 0xFF80000F;
-	cpuRegs.CP0.n.Context |= (addr >> 9) & 0x007FFFF0;
-	cpuRegs.CP0.n.EntryHi = (addr & 0xFFFFE000) | (cpuRegs.CP0.n.EntryHi & 0x1FFF);
-
-	const u32 bd = cpuRegs.IsDelaySlot;
-	cpuRegs.IsDelaySlot = 0;
-	cpuException(mode ? EXC_CODE_TLBS : EXC_CODE_TLBL, bd);
-	recExitExecutionImmediate();
+	// Match upstream recompiler compatibility: the unmapped handlers return
+	// zero on reads and discard writes. Some games touch absent objects while
+	// loading a scene; taking a guest exception here leaves them hung.
+	static u32 messages = 0;
+	if (messages < 50 || IsDevBuild)
+	{
+		if (messages < 50)
+			++messages;
+		Console.Error(message);
+	}
 }
 
 // BusError exception: more serious than a TLB miss.  If properly emulated the PS2 kernel

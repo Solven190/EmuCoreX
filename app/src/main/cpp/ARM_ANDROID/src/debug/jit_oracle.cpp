@@ -1034,7 +1034,7 @@ void CompareIOP(const IOPSnapshot& expected, const IOPSnapshot& actual, const ch
     Check(same, name);
 }
 
-EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlock = false, const u64* initial_gpr = nullptr)
+EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlock = false, const u64* initial_gpr = nullptr, const u32* initial_cp0 = nullptr)
 {
     std::memset(&cpuRegs, 0, sizeof(cpuRegs));
     std::memset(&fpuRegs, 0, sizeof(fpuRegs));
@@ -1062,6 +1062,8 @@ EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlo
     if (initial_gpr)
         for (u32 r = 1; r < 32; ++r)
             cpuRegs.GPR.r[r].UD[0] = initial_gpr[r];
+    if (initial_cp0)
+        std::memcpy(cpuRegs.CP0.r, initial_cp0, sizeof(cpuRegs.CP0.r));
 
     constexpr u32 budget = 4096;
     if (jit)
@@ -1804,6 +1806,68 @@ void RunEEExceptionCase(const char* name, const std::vector<u32>& code)
     if (jit.pc & 0x80000000u)
         jit.pc = 0x80000000u;
     CompareEE(interp, jit, name);
+}
+
+// The EE recompiler deliberately treats an unmapped virtual data access as
+// a zero read / discarded write, matching upstream compatibility behavior.
+// SH3 touches absent scene objects during the first frame of a room transition.
+// Raising a guest exception here strands it in the kernel exception handler.
+void EEUnmappedCompatibilityTests()
+{
+    const auto savedConfig = EmuConfig.Cpu.Recompiler;
+    const auto savedMapping = vtlb_private::vtlbdata.vmap[0];
+    auto* physical = static_cast<u8*>(vtlb_GetPhyPtr(0));
+    std::array<u8, 64> savedRAM, sentinel;
+    std::memcpy(savedRAM.data(), physical, savedRAM.size());
+    sentinel.fill(0xa5);
+    std::memcpy(physical, sentinel.data(), sentinel.size());
+    vtlb_VMapUnmap(0, vtlb_private::VTLB_PAGE_SIZE);
+    EmuConfig.Cpu.Recompiler.PauseOnTLBMiss = false;
+    for (bool fastmem : {false, true})
+    for (bool constant : {false, true})
+    for (u32 delay : {0u, 1u, 2u}) // ordinary, load slot, store slot
+    for (const auto& ops : std::array<std::array<u32, 2>, 5>{{
+        {0x24, 0x28}, {0x25, 0x29}, {0x23, 0x2b}, {0x37, 0x3f}, {0x1e, 0x1f}}})
+    {
+        EmuConfig.Cpu.Recompiler.EnableFastmem = fastmem;
+        u64 initial[32]{};
+        initial[8] = 0xfeedface;
+        initial[10] = 0xdeadbeef;
+        std::vector<u32> code;
+        if (constant)
+            code.push_back(MipsI(9, 0, 4, 0));
+        if (delay == 1)
+            code.push_back(MipsI(4, 0, 0, 1));
+        code.push_back(MipsI(ops[0], 4, 8, 16));
+        if (delay == 2)
+            code.push_back(MipsI(4, 0, 0, 1));
+        code.push_back(MipsI(ops[1], 4, 10, 16));
+        code.push_back(MipsI(9, 0, 11, 0x5a));
+        u32 cp0[32]{};
+        cp0[2] = 0x5678;
+        cp0[4] = 0x0080400f; // Context VPN bits must not be replaced by NULL's.
+        cp0[8] = 0x12345678;
+        cp0[10] = 0x2468;
+        cp0[12] = 0x20000000;
+        cp0[13] = 0x100;
+        cp0[14] = 0x12340000;
+        const auto actual = RunEEProgram(true, code, delay != 0, initial, cp0);
+        bool same = actual.gpr[8] == 0 && actual.gpr[11] == 0x5a &&
+            std::memcmp(physical, sentinel.data(), sentinel.size()) == 0;
+        if (ops[0] == 0x1e)
+            same &= actual.gpr_upper[8] == 0;
+        for (u32 reg : {2u, 4u, 8u, 10u, 12u, 13u, 14u})
+            same &= actual.cp0[reg] == cp0[reg];
+        char name[128];
+        std::snprintf(name, sizeof(name), "ee unmapped compatibility load=%02x fastmem=%u constant=%u delay=%u",
+            ops[0], fastmem, constant, delay);
+        Check(same, name);
+    }
+    vtlb_private::vtlbdata.vmap[0] = savedMapping;
+    // Reset reconstructs the original fastmem mirrors as well as the vmap.
+    std::memcpy(physical, savedRAM.data(), savedRAM.size());
+    EmuConfig.Cpu.Recompiler = savedConfig;
+    SysMemory::Reset();
 }
 
 void EECoverageExceptions()
@@ -5198,6 +5262,7 @@ void EETests()
     EECoverageExceptions();
     EEIrExecutionTests();
     EEGameCodeTests();
+    EEUnmappedCompatibilityTests();
 }
 
 void RunIOPCase(const char* name, const std::vector<u32>& code, s32 eeCycles = -1, bool forceGteInterpreter = false)
