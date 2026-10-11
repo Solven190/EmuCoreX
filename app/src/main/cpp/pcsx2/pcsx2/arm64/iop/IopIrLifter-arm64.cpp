@@ -68,7 +68,7 @@ namespace IopIr
             ir::Op op;
             switch (opcode)
             {
-                case 9: op = ir::Op::Add; break; // ADDIU: modulo 32 bits
+                case 8: case 9: op = ir::Op::Add; break; // ADDI/ADDIU: current core wraps to 32 bits
                 case 10: op = ir::Op::CmpLtS; break;
                 case 11: op = ir::Op::CmpLtU; break;
                 case 12: op = ir::Op::And; break;
@@ -124,8 +124,8 @@ namespace IopIr
                             b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
                             return true;
                         }
-                        case 0x21: op = ir::Op::Add; break;
-                        case 0x23: op = ir::Op::Sub; break;
+                        case 0x20: case 0x21: op = ir::Op::Add; break; // ADD/ADDU: legacy wrap semantics
+                        case 0x22: case 0x23: op = ir::Op::Sub; break; // SUB/SUBU: legacy wrap semantics
                         case 0x24: op = ir::Op::And; break;
                         case 0x25: op = ir::Op::Or; break;
                         case 0x26: case 0x27: op = ir::Op::Xor; break;

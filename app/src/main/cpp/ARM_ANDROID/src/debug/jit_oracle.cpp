@@ -6511,13 +6511,86 @@ void IOPControlIntegrationTests()
     EmuCoreXOracleSetIOPIR(-1);
 }
 
+void IOPSignedArithmeticIntegrationTests()
+{
+    // Match the current interpreter/recompiler: these signed forms wrap just
+    // like ADDU/SUBU/ADDIU. Do not introduce a new overflow exception policy.
+    struct Case { u32 function, a, b, immediate, result; };
+    const Case cases[] = {
+        {0x20, 0x7fffffffu, 1, 0, 0x80000000u},
+        {0x20, 0x80000000u, 0xffffffffu, 0, 0x7fffffffu},
+        {0x22, 0x80000000u, 1, 0, 0x7fffffffu},
+        {0x22, 0x7fffffffu, 0xffffffffu, 0, 0x80000000u},
+        {0, 0x7fffffffu, 1, 1, 0x80000000u},
+        {0, 0x80000000u, 1, 0xffff, 0x7fffffffu},
+        {0, 0, 1, 0x8000, 0xffff8000u},
+        {0, 0xffffffffu, 1, 1, 0},
+    };
+    const u32 saved_icfg = psxHu32(HW_ICFG);
+    const bool saved_wait = EmuConfig.Speedhacks.WaitLoop;
+    EmuConfig.Speedhacks.WaitLoop = false;
+    for (const auto& test : cases)
+        for (u32 dest : {0u, 8u, 9u, 10u})
+            for (bool dynamic : {false, true})
+                for (u32 delay = 0; delay < 3; ++delay)
+                    for (u32 clock : {0u, 8u})
+                    {
+                        psxHu32(HW_ICFG) = clock;
+                        std::vector<u32> code = {
+                            MipsI(15, 0, 22, IOP_TEST_SCRATCH >> 16),
+                            MipsI(13, 22, 22, IOP_TEST_SCRATCH & 0xffff),
+                            MipsI(15, 0, 8, test.a >> 16), MipsI(13, 8, 8, test.a & 0xffff),
+                            MipsI(15, 0, 9, test.b >> 16), MipsI(13, 9, 9, test.b & 0xffff)};
+                        if (dynamic)
+                        {
+                            const u32 roundtrip[] = {MipsI(43, 22, 8, 0), MipsI(43, 22, 9, 4),
+                                MipsI(35, 22, 8, 0), MipsI(35, 22, 9, 4)};
+                            code.insert(code.end(), std::begin(roundtrip), std::end(roundtrip));
+                        }
+                        // Taken and not-taken branches both resume at pc+8;
+                        // the operation must execute once in either delay slot.
+                        if (delay) code.push_back(delay == 1 ? MipsI(4, 0, 0, 1) : MipsI(5, 0, 0, 1));
+                        code.push_back(test.function ? MipsR(8, 9, dest, 0, test.function) : MipsI(8, 8, dest, test.immediate));
+                        code.push_back(MipsI(43, 22, dest, 16));
+                        // End this block before the sentinel loop, so its two
+                        // instructions are compiled once as a separate block.
+                        code.push_back(MipsJ(2, IOP_TEST_PC + static_cast<u32>(code.size() + 2) * 4));
+                        code.push_back(0);
+                        const s32 budget = clock ? 515 : 512;
+                        const auto expected = RunIOPProgram(false, code, budget);
+                        EmuCoreXOracleSetIOPIR(0);
+                        const auto legacy = RunIOPProgram(true, code, budget);
+                        const s32 remaining = psxRegs.iopCycleEE;
+                        const u32 carry = psxRegs.iopCycleEECarry;
+                        EmuCoreXOracleSetIOPIR(1);
+                        const u64 before = EmuCoreXOracleIOPIRInstructions();
+                        const auto actual = RunIOPProgram(true, code, budget);
+                        char name[160];
+                        std::snprintf(name, sizeof(name), "ir IOP signed arithmetic function=%u a=%08x dest=%u dynamic=%u delay=%u clock=%u",
+                            test.function, test.a, dest, dynamic, delay, clock);
+                        CompareIOP(expected, actual, name);
+                        CompareIOP(legacy, actual, name);
+                        Check(actual.gpr[dest] == (dest ? test.result : 0), name);
+                        Check(actual.cycle == legacy.cycle && remaining == psxRegs.iopCycleEE && carry == psxRegs.iopCycleEECarry,
+                            "ir IOP signed arithmetic preserves exact legacy cycle/budget/carry");
+                        const u64 compiled = EmuCoreXOracleIOPIRInstructions() - before;
+                        if (compiled != code.size() + 2)
+                            std::printf("IOP SIGNED COVERAGE actual=%llu expected=%zu %s\n", static_cast<unsigned long long>(compiled), code.size() + 2, name);
+                        Check(compiled == code.size() + 2,
+                            "ir IOP signed arithmetic and delay actually compiled with no legacy gap");
+                    }
+    psxHu32(HW_ICFG) = saved_icfg;
+    EmuConfig.Speedhacks.WaitLoop = saved_wait;
+    EmuCoreXOracleSetIOPIR(-1);
+}
+
 void IOPControlFrontendTests()
 {
     const u32 edges[] = {0, 1, 0x7fffffff, 0x80000000, 0xffffffff};
     for (u32 kind = 0; kind < 12; ++kind)
         for (u32 source : {0u, 8u, 31u})
             for (u32 edge : edges)
-                for (u32 delay_kind = 0; delay_kind < 6; ++delay_kind)
+                for (u32 delay_kind = 0; delay_kind < 9; ++delay_kind)
                 {
                     const u32 pc = IOP_TEST_PC, target = pc + 64;
                     const u32 word = kind < 4 ? MipsI(4 + kind, source, kind < 2 ? 9 : 0, 15) :
@@ -6525,7 +6598,9 @@ void IOPControlFrontendTests()
                         kind < 10 ? MipsJ(kind == 8 ? 2 : 3, target) : MipsR(source, 0, kind == 10 ? 0 : source, 0, kind == 10 ? 8 : 9);
                     const u32 delay = delay_kind == 0 ? 0 : delay_kind == 1 ? MipsI(9, source == 0 ? 8 : 0, source, 7) :
                         delay_kind == 2 ? MipsR(31, 0, 12, 0, 0x21) : delay_kind == 3 ? MipsI(35, 22, source, 32) :
-                        delay_kind == 4 ? MipsI(43, 22, 31, 32) : MipsR(8, 9, 0, 0, 0x1a);
+                        delay_kind == 4 ? MipsI(43, 22, 31, 32) : delay_kind == 5 ? MipsR(8, 9, 0, 0, 0x1a) :
+                        delay_kind == 6 ? MipsR(8, 9, source, 0, 0x20) : delay_kind == 7 ? MipsR(8, 9, source, 0, 0x22) :
+                        MipsI(8, 8, source, 0xffff);
                     const u32 code[] = {word, delay};
                     ResetIOPMemoryFixture();
                     psxRegs.GPR.r[8] = psxRegs.GPR.r[31] = edge;
@@ -6594,7 +6669,7 @@ void IOPControlFrontendTests()
                     Check(same, name);
                 }
     const u32 branch = MipsI(4, 8, 9, 1);
-    for (u32 delay : {MipsI(8, 8, 9, 1), 0x0000000cu, MipsI(16, 1, 0, 0), MipsI(4, 0, 0, 1), 0x24001234u})
+    for (u32 delay : {MipsI(50, 8, 9, 0), 0x0000000cu, MipsI(16, 1, 0, 0), MipsI(4, 0, 0, 1), 0x24001234u})
     {
         const u32 code[] = {MipsI(9, 0, 8, 3), branch, delay};
         ir::Function fn;
@@ -6629,7 +6704,7 @@ void IOPSharedFrontendTests()
     // Execute the lifted instructions in isolation, comparing with the actual
     // R3000A interpreter. Seed values cover signed edges and shift count masks.
     const u32 edges[] = {0, 1, 31, 32, 0x80000000u, 0xffffffffu};
-    for (u32 kind = 0; kind < 25; ++kind)
+    for (u32 kind = 0; kind < 28; ++kind)
         for (u32 dest : {0u, 8u, 9u, 10u})
             for (u32 edge : edges)
             {
@@ -6651,8 +6726,12 @@ void IOPSharedFrontendTests()
                     code.push_back(MipsR(0, 0, dest, 0, functions[kind]));
                 else if (kind < 18)
                     code.push_back(MipsR(dest, 0, 0, 0, functions[kind]));
-                else
+                else if (kind < 25)
                     code.push_back(MipsI(immediates[kind - 18], 8, dest, edge & 0xffff));
+                else if (kind < 27)
+                    code.push_back(MipsR(8, 9, dest, 0, kind == 25 ? 0x20 : 0x22));
+                else
+                    code.push_back(MipsI(8, 8, dest, edge & 0xffff));
                 const IOPSnapshot expected = RunIOPProgram(false, code);
                 ir::Function fn;
                 std::string error;
@@ -6683,8 +6762,7 @@ void IOPSharedFrontendTests()
                 std::snprintf(name, sizeof(name), "ir IOP frontend kind=%u dest=%u edge=%08x modes/interpreter", kind, dest, edge);
                 Check(same, name);
             }
-    for (u32 word : {MipsI(8, 8, 9, 1), MipsR(8, 9, 10, 0, 0x20), MipsR(8, 9, 10, 0, 0x22),
-        MipsI(50, 8, 9, 0), MipsI(58, 8, 9, 0), MipsI(1, 8, 2, 1),
+    for (u32 word : {MipsI(50, 8, 9, 0), MipsI(58, 8, 9, 0), MipsI(1, 8, 2, 1),
         MipsR(8, 0, 0, 0, 1), 0x0000000du, MipsI(16, 1, 0, 0),
         MipsI(16, 8, 8, 0), 0x48080000u, 0x0000000cu, 0xffffffffu})
     {
@@ -6875,6 +6953,7 @@ void IOPTests()
     IOPCop0FrontendTests();
     IOPControlIntegrationTests();
     IOPControlFrontendTests();
+    IOPSignedArithmeticIntegrationTests();
     IOPSharedFrontendTests();
     IOPSharedStateTests();
 }
