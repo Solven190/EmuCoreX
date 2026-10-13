@@ -2650,6 +2650,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	static u64 packed_narrow_operations = 0, packed_saturating_operations = 0;
 	static u64 packed_permutation_operations = 0;
 	static u64 hilo_bank1_instructions = 0, multiply_accumulate_instructions = 0, plzcw_instructions = 0;
+	static u64 full_hilo_reads = 0, full_hilo_writes = 0, widening_products = 0, variable_shifts = 0;
 	for (u32 pc = startpc; pc < s_nEndBlock; pc += 4)
 	{
 		const u32 word = *reinterpret_cast<const u32*>(PSM(pc));
@@ -2673,6 +2674,15 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	for (const ir::Block& block : fn.blocks)
 		for (const ir::Inst& inst : block.insts)
 		{
+			if (inst.type == ir::Type::V4U32 && (inst.op == ir::Op::ReadHi || inst.op == ir::Op::ReadLo))
+				++full_hilo_reads;
+			if ((inst.op == ir::Op::WriteHi || inst.op == ir::Op::WriteLo) && fn.ValueType(inst.args[0]) == ir::Type::V4U32)
+				++full_hilo_writes;
+			if (inst.op == ir::Op::VMulWidenLoS || inst.op == ir::Op::VMulWidenHiS ||
+				inst.op == ir::Op::VMulWidenLoU || inst.op == ir::Op::VMulWidenHiU)
+				++widening_products;
+			if (inst.op == ir::Op::VShlEach || inst.op == ir::Op::VShrUEach || inst.op == ir::Op::VShrSEach)
+				++variable_shifts;
 			if (inst.op == ir::Op::DivS || inst.op == ir::Op::DivU)
 				++division_pairs;
 			if (inst.op == ir::Op::Load128 || inst.op == ir::Op::Store128)
@@ -2709,7 +2719,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu fused_multiply_pairs=%llu merge_memory=%llu direct_reads=%u direct_read_operations=%llu packed_narrow=%llu packed_saturating=%llu packed_permutations=%llu hilo_bank1=%llu multiply_accumulate=%llu plzcw=%llu",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu fused_multiply_pairs=%llu merge_memory=%llu direct_reads=%u direct_read_operations=%llu packed_narrow=%llu packed_saturating=%llu packed_permutations=%llu hilo_bank1=%llu multiply_accumulate=%llu plzcw=%llu full_hilo_reads=%llu full_hilo_writes=%llu widening_products=%llu variable_shifts=%llu",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
@@ -2727,7 +2737,9 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			options.optimize_ir && options.direct_ee_loads && (!CHECK_CACHE || CHECK_EEREC) ? 1u : 0u,
 			static_cast<unsigned long long>(direct_ee_load_operations),
 			static_cast<unsigned long long>(packed_narrow_operations), static_cast<unsigned long long>(packed_saturating_operations), static_cast<unsigned long long>(packed_permutation_operations),
-			static_cast<unsigned long long>(hilo_bank1_instructions), static_cast<unsigned long long>(multiply_accumulate_instructions), static_cast<unsigned long long>(plzcw_instructions));
+			static_cast<unsigned long long>(hilo_bank1_instructions), static_cast<unsigned long long>(multiply_accumulate_instructions), static_cast<unsigned long long>(plzcw_instructions),
+			static_cast<unsigned long long>(full_hilo_reads), static_cast<unsigned long long>(full_hilo_writes),
+			static_cast<unsigned long long>(widening_products), static_cast<unsigned long long>(variable_shifts));
 	}
 #endif
 

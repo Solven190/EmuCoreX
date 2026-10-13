@@ -4003,7 +4003,7 @@ void EEIrMmiTests()
         }
     }
     // Reject unimplemented MMI operations even when their destination is $0.
-    for (u32 word : {Mmi(40, 27, 8, 9, 0), Mmi(9, 17, 8, 9, 0), Mmi(41, 17, 8, 9, 0), Mmi(0x30, 0, 8, 9, 0)})
+    for (u32 word : {Mmi(40, 27, 8, 9, 0), Mmi(9, 0, 8, 9, 0), Mmi(41, 17, 8, 9, 0), Mmi(9, 4, 8, 9, 0)})
     {
         ir::Function fn;
         u32 end;
@@ -5255,18 +5255,416 @@ void EEIrHiLoBanksTests()
         ir::Builder b(fn);
         b.CreateBlock(EE_TEST_PC);
         if (op == ir::Op::ReadHi || op == ir::Op::ReadLo)
-            b.Emit0(op, ir::Type::V4U32);
+            b.Emit0(op, ir::Type::F32);
+        else if (op == ir::Op::Clz)
+            b.Emit1(op, ir::Type::V4U32, b.ConstVec({0, 0, 0, 0}));
         else
-            b.Emit1(op, op == ir::Op::Clz ? ir::Type::V4U32 : ir::Type::Void, b.ConstVec({0, 0, 0, 0}));
+            b.Emit1(op, ir::Type::Void, b.Emit0(ir::Op::ReadFpr, ir::Type::F32));
         b.Resume(EE_TEST_PC + 4);
         std::string error;
         Check(!ir::Verify(fn, &error) && !Arm64Ir::CanLower(fn, false, &error),
-            "ir HI/LO and CLZ reject noninteger types before emission");
+            "ir HI/LO reject floats and CLZ rejects vectors before emission");
+    }
+}
+
+void EEIrPackedProductBackendTests()
+{
+    using Quad = std::array<u32, 4>;
+    for (u32 bits : {8u, 16u})
+        for (bool keep_left : {false, true})
+            for (u32 mode = 0; mode < 6; ++mode)
+            {
+                // Reading rhs first makes its dying register the allocator's
+                // first reusable destination. Keep lhs live as a second case.
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 rhs = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 9);
+                const u32 lhs = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+                const u32 result = b.Emit2(ir::Op::VPackSatS, ir::Type::V4U32, lhs, rhs, bits);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 12);
+                if (keep_left)
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, lhs, 13);
+                b.Resume(EE_TEST_PC + 4);
+                Arm64Ir::LowerOptions options;
+                options.optimize_ir = mode != 0;
+                options.allocate_registers = mode != 2;
+                options.allocate_vector_registers = mode != 3;
+                options.materialize_constants = mode != 4;
+                options.reuse_spill_slots = mode != 5;
+                Arm64Ir::LowerOutput out;
+                std::string error;
+                const Quad left = {0x00010000, 0xfffeffff, 0x00030002, 0xfffcfffd};
+                const Quad right = {0x7fff8000, 0xffff0001, 0x0100ff00, 0x00007fff};
+                Quad expected{};
+                const auto *l = reinterpret_cast<const u8 *>(left.data());
+                const auto *r = reinterpret_cast<const u8 *>(right.data());
+                auto *bytes = reinterpret_cast<u8 *>(expected.data());
+                const u32 count = 128 / (bits * 2);
+                for (u32 lane = 0; lane < count * 2; ++lane)
+                {
+                    u32 raw = 0;
+                    const u8 *source = (lane < count ? l : r) + (lane % count) * (bits / 4);
+                    for (u32 i = 0; i < bits / 4; ++i)
+                        raw |= u32(source[i]) << (i * 8);
+                    const s64 value = bits == 8 ? static_cast<s16>(raw) : static_cast<s32>(raw);
+                    const s64 minimum = -(s64(1) << (bits - 1)), maximum = (s64(1) << (bits - 1)) - 1;
+                    const u32 packed = static_cast<u32>(std::clamp(value, minimum, maximum));
+                    for (u32 i = 0; i < bits / 8; ++i)
+                        bytes[lane * (bits / 8) + i] = packed >> (i * 8);
+                }
+                bool same = Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                if (same)
+                {
+                    std::memcpy(cpuRegs.GPR.r[8].UL, left.data(), 16);
+                    std::memcpy(cpuRegs.GPR.r[9].UL, right.data(), 16);
+                    reinterpret_cast<void (*)()>(out.entry)();
+                    same &= std::memcmp(cpuRegs.GPR.r[12].UL, expected.data(), 16) == 0;
+                    if (keep_left)
+                        same &= std::memcmp(cpuRegs.GPR.r[13].UL, left.data(), 16) == 0;
+                }
+                Check(same, "ir saturating pack preserves a coalesced right operand and live left input");
+            }
+    const ir::Op ops[] = {ir::Op::VMulWidenLoS, ir::Op::VMulWidenHiS, ir::Op::VMulWidenLoU,
+                          ir::Op::VMulWidenHiU, ir::Op::VPackSatS,    ir::Op::VShlEach,
+                          ir::Op::VShrUEach,    ir::Op::VShrSEach,    ir::Op::VInterleaveOdd};
+    const auto get = [](const Quad &v, u32 bits, u32 lane)
+    {
+        u64 result = 0;
+        const auto *bytes = reinterpret_cast<const u8 *>(v.data());
+        for (u32 i = 0; i < bits / 8; ++i)
+            result |= u64(bytes[lane * (bits / 8) + i]) << (i * 8);
+        return result;
+    };
+    const auto put = [](Quad &v, u32 bits, u32 lane, u64 value)
+    {
+        auto *bytes = reinterpret_cast<u8 *>(v.data());
+        for (u32 i = 0; i < bits / 8; ++i)
+            bytes[lane * (bits / 8) + i] = value >> (i * 8);
+    };
+    const auto sign = [](u64 value, u32 bits)
+    {
+        return (value & (1ull << (bits - 1))) ? static_cast<s64>(value) - static_cast<s64>(1ull << bits)
+                                              : static_cast<s64>(value);
+    };
+    for (ir::Op op : ops)
+        for (u32 width : {0u, 8u, 16u, 32u})
+        {
+            if (op == ir::Op::VPackSatS && width == 32)
+                continue;
+            const u32 bits = width ? width : op == ir::Op::VPackSatS ? 16 : 32;
+            for (u32 pattern = 0; pattern < 7; ++pattern)
+            {
+                Quad lhs{}, rhs{}, expected{};
+                const u32 values[] = {0, 1, ~0u, 0x80000000u, 0x7fffffffu, 0x80807fffu, 0x89abcdefu};
+                for (u32 lane = 0; lane < 4; ++lane)
+                {
+                    lhs[lane] = values[(pattern + lane) % 7];
+                    rhs[lane] = values[(pattern * 3 + lane + 1) % 7];
+                }
+                if (op == ir::Op::VPackSatS)
+                {
+                    const u32 count = 128 / (bits * 2);
+                    const s64 minimum = -(1ll << (bits - 1)), maximum = (1ll << (bits - 1)) - 1;
+                    for (u32 lane = 0; lane < count * 2; ++lane)
+                    {
+                        const s64 value = sign(get(lane < count ? lhs : rhs, bits * 2, lane % count), bits * 2);
+                        put(expected, bits, lane, static_cast<u64>(std::clamp(value, minimum, maximum)));
+                    }
+                }
+                else if (op == ir::Op::VInterleaveOdd)
+                {
+                    for (u32 lane = 0; lane < 128 / bits; lane += 2)
+                    {
+                        put(expected, bits, lane, get(lhs, bits, lane + 1));
+                        put(expected, bits, lane + 1, get(rhs, bits, lane + 1));
+                    }
+                }
+                else if (op == ir::Op::VShlEach || op == ir::Op::VShrUEach || op == ir::Op::VShrSEach)
+                {
+                    for (u32 lane = 0; lane < 128 / bits; ++lane)
+                    {
+                        const u64 value = get(lhs, bits, lane);
+                        const u32 shift = get(rhs, bits, lane) & (bits - 1);
+                        put(expected, bits, lane,
+                            op == ir::Op::VShlEach    ? value << shift
+                            : op == ir::Op::VShrUEach ? value >> shift
+                                                      : static_cast<u64>(sign(value, bits) >> shift));
+                    }
+                }
+                else
+                {
+                    const u32 count = 128 / (bits * 2);
+                    const bool high = op == ir::Op::VMulWidenHiS || op == ir::Op::VMulWidenHiU;
+                    const bool signed_product = op == ir::Op::VMulWidenLoS || op == ir::Op::VMulWidenHiS;
+                    for (u32 lane = 0; lane < count; ++lane)
+                    {
+                        const u64 a = get(lhs, bits, lane + (high ? count : 0));
+                        const u64 b = get(rhs, bits, lane + (high ? count : 0));
+                        put(expected, bits * 2, lane,
+                            signed_product ? static_cast<u64>(sign(a, bits) * sign(b, bits)) : a * b);
+                    }
+                }
+                for (u32 mode = 0; mode < 6; ++mode)
+                {
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(EE_TEST_PC);
+                    const u32 a = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 8);
+                    const u32 c = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 9);
+                    std::array<u32, 8> live{};
+                    for (u32 i = 0; i < live.size(); ++i)
+                        live[i] = b.Emit2(op, ir::Type::V4U32, a, c, width);
+                    b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+                    for (u32 i = 0; i < live.size(); ++i)
+                        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, live[i], 12 + i);
+                    b.Resume(EE_TEST_PC + 4);
+                    Arm64Ir::LowerHooks hooks;
+                    hooks.before_helper = +[](void *)
+                    {
+                        for (u32 reg = 2; reg <= 7; ++reg)
+                            oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+                    };
+                    Arm64Ir::LowerOptions options;
+                    options.hooks = &hooks;
+                    options.direct_ee_loads = false;
+                    options.optimize_ir = mode != 0;
+                    options.allocate_registers = mode != 2;
+                    options.allocate_vector_registers = mode != 3;
+                    options.materialize_constants = mode != 4;
+                    options.reuse_spill_slots = mode != 5;
+                    Arm64Ir::LowerOutput out;
+                    std::string error;
+                    bool same =
+                        Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                    if (same)
+                    {
+                        std::memcpy(cpuRegs.GPR.r[8].UL, lhs.data(), 16);
+                        std::memcpy(cpuRegs.GPR.r[9].UL, rhs.data(), 16);
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        for (u32 i = 0; i < live.size(); ++i)
+                            same &= std::memcmp(cpuRegs.GPR.r[12 + i].UL, expected.data(), 16) == 0;
+                    }
+                    char name[120];
+                    std::snprintf(name, sizeof(name),
+                                  "ir packed product/pack/variable-shift %s width=%u pattern=%u mode=%u",
+                                  ir::OpName(op), width, pattern, mode);
+                    Check(same, name);
+                }
+            }
+            for (u64 bad_width : {1ull, 64ull, 0x100000008ull})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 a = b.ConstVec({0, 0, 0, 0});
+                b.Emit2(op, ir::Type::V4U32, a, a, bad_width);
+                b.Resume(EE_TEST_PC + 4);
+                std::string error;
+                Check(!ir::Verify(fn, &error) && !Arm64Ir::CanLower(fn, false, &error),
+                      "ir packed new kernels reject invalid lane widths before emission");
+            }
+        }
+}
+
+void EEIrPackedKernelDceTests()
+{
+    ir::Function original;
+    ir::Builder b(original);
+    b.CreateBlock(EE_TEST_PC);
+    const u32 a = b.ConstVec({0x12345678, 0x89abcdef, 0x7fffffff, 0x80000000});
+    for (ir::Op op :
+         {ir::Op::VMulWidenLoS, ir::Op::VMulWidenHiS, ir::Op::VMulWidenLoU, ir::Op::VMulWidenHiU, ir::Op::VPackSatS,
+          ir::Op::VShlEach, ir::Op::VShrUEach, ir::Op::VShrSEach, ir::Op::VInterleaveOdd})
+        b.Emit2(op, ir::Type::V4U32, a, a);
+    b.Emit0(ir::Op::ReadHi, ir::Type::V4U32);
+    b.Emit0(ir::Op::ReadLo, ir::Type::V4U32);
+    b.Resume(EE_TEST_PC + 4);
+    auto optimized = original;
+    ir::OptimizeIntegerValues(optimized);
+    bool removed = true;
+    for (const auto &block : optimized.blocks)
+        for (const auto &inst : block.insts)
+            removed &= inst.op == ir::Op::Resume;
+    Arm64Ir::LowerOptions options;
+    options.optimize_ir = false;
+    Arm64Ir::LowerOutput before, after;
+    std::string error;
+    const bool lowered =
+        Arm64Ir::LowerBlock(original, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &before, &error) &&
+        Arm64Ir::LowerBlock(optimized, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &after, &error);
+    Check(removed && lowered && after.host_size < before.host_size,
+          "ir dead packed kernels and full HI/LO reads are removed and reduce native code");
+}
+
+void EEIrQuadHiLoStateTests()
+{
+    const std::array<u32, 4> original = {0x12345678, 0x80000001, 0xabcdef01, 0x76543210};
+    const std::array<u32, 4> changed = {0xdeadbeef, 0x11112222, 0x87654321, 0x33334444};
+    for (ir::Op read : {ir::Op::ReadHi, ir::Op::ReadLo})
+        for (u32 mode = 0; mode < 6; ++mode)
+        {
+            const ir::Op write = read == ir::Op::ReadHi ? ir::Op::WriteHi : ir::Op::WriteLo;
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            b.Emit1(write, ir::Type::Void, b.ConstVec(original));
+            const u32 snapshot = b.Emit0(read, ir::Type::V4U32);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(read, ir::Type::I64, {}, 1), 16, ir::IF_WIDE_WRITE);
+            b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, snapshot, 12);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit0(read, ir::Type::V4U32), 13);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(read, ir::Type::I64, {}, 1), 17, ir::IF_WIDE_WRITE);
+            b.Resume(EE_TEST_PC + 4);
+            s64 offset = read == ir::Op::ReadHi ? offsetof(cpuRegistersPack, cpuRegs.HI)
+                                                : offsetof(cpuRegistersPack, cpuRegs.LO);
+            Arm64Ir::LowerHooks hooks;
+            hooks.ctx = &offset;
+            hooks.after_helper = +[](void *ctx)
+            {
+                oakAsm->MOV(oak::util::X0, 0x11112222deadbeefull);
+                oakStore64(oak::util::X0, {oak::util::X19, *static_cast<s64 *>(ctx)});
+                oakAsm->MOV(oak::util::X0, 0x3333444487654321ull);
+                oakStore64(oak::util::X0, {oak::util::X19, *static_cast<s64 *>(ctx) + 8});
+                for (u32 reg = 2; reg <= 7; ++reg)
+                    oakAsm->MOVI(oak::QReg(reg).B16(), 0xa5);
+            };
+            Arm64Ir::LowerOptions options;
+            options.hooks = &hooks;
+            options.direct_ee_loads = false;
+            options.optimize_ir = mode != 0;
+            options.allocate_registers = mode != 2;
+            options.allocate_vector_registers = mode != 3;
+            options.materialize_constants = mode != 4;
+            options.reuse_spill_slots = mode != 5;
+            Arm64Ir::LowerOutput out;
+            std::string error;
+            bool same = Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                reinterpret_cast<void (*)()>(out.entry)();
+                same &= std::memcmp(cpuRegs.GPR.r[12].UL, original.data(), 16) == 0 &&
+                        std::memcmp(cpuRegs.GPR.r[13].UL, changed.data(), 16) == 0 &&
+                        cpuRegs.GPR.r[16].UD[0] == 0x76543210abcdef01ull &&
+                        cpuRegs.GPR.r[17].UD[0] == 0x3333444487654321ull;
+            }
+            Check(same, "ir full HI/LO snapshots survive helper clobbers and later reads see mutated banks");
+        }
+    for (ir::Op op : {ir::Op::ReadHi, ir::Op::ReadLo, ir::Op::WriteHi, ir::Op::WriteLo})
+        for (u64 bank : {0ull, 1ull, 2ull, ~0ull})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            if (op == ir::Op::ReadHi || op == ir::Op::ReadLo)
+                b.Emit(op, ir::Type::V4U32, {}, bank);
+            else
+                b.Emit1(op, ir::Type::Void, b.ConstVec({1, 2, 3, 4}), bank);
+            b.Resume(EE_TEST_PC + 4);
+            std::string error;
+            Check(ir::Verify(fn, &error) == (bank == 0) &&
+                      Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::EE) == (bank == 0) &&
+                      !Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::IOP),
+                  "ir full HI/LO requires bank zero and rejects the IOP state layout");
+        }
+}
+
+void EEIrPackedHiLoTests()
+{
+    struct PackedOp
+    {
+        u32 group, sub;
+        const char *name;
+    };
+    const PackedOp ops[] = {{9, 8, "pmfhi"},     {9, 9, "pmflo"},     {41, 8, "pmthi"},     {41, 9, "pmtlo"},
+                            {48, 0, "pmfhl.lw"}, {48, 1, "pmfhl.uw"}, {48, 2, "pmfhl.slw"}, {48, 3, "pmfhl.lh"},
+                            {48, 4, "pmfhl.sh"}, {49, 0, "pmthl.lw"}, {9, 12, "pmultw"},    {41, 12, "pmultuw"},
+                            {9, 16, "pmaddh"},   {9, 20, "pmsubh"},   {9, 28, "pmulth"},    {9, 17, "phmadh"},
+                            {9, 21, "phmsbh"},   {9, 2, "psllvw"},    {9, 3, "psrlvw"},     {41, 3, "psravw"}};
+    const auto mmi = [](u32 group, u32 sub, u32 rs, u32 rt, u32 rd)
+    { return (0x1cu << 26) | MipsR(rs, rt, rd, sub, group); };
+    const u32 aliases[][3] = {{8, 9, 12}, {8, 9, 8}, {8, 9, 9}, {8, 8, 8}, {0, 9, 12}, {8, 0, 0}, {0, 0, 0}};
+    const u64 patterns[][4] = {
+        {0, 0, 0, 0},
+        {~0ull, ~0ull, ~0ull, ~0ull},
+        {0x800000007fffffffull, 0xffff80007fff0001ull, 0x12345678ffffffffull, 0xfedcba9880000000ull},
+        {0x000000200000001full, 0x8000000080000001ull, 0x0000000080000000ull, 0xffffffff7fffffffull},
+        {0xffff7fff80010000ull, 0x123489abcdef0123ull, 0x7fffffff80000000ull, 0x00000000ffffffffull}};
+    for (const auto &op : ops)
+        for (const auto &pattern : patterns)
+            for (const auto &regs : aliases)
+            {
+                u64 initial[32] = {};
+                initial[8] = pattern[0];
+                initial[9] = pattern[1];
+                initial[10] = pattern[2];
+                initial[11] = pattern[3];
+                const std::vector<u32> code = {MipsI(15, 0, 22, EE_TEST_SCRATCH >> 16),
+                                               MipsI(13, 22, 22, EE_TEST_SCRATCH & 0xffff),
+                                               MipsI(30, 22, 12, 64),
+                                               MipsR(10, 0, 0, 0, 0x11),
+                                               MipsR(11, 0, 0, 0, 0x13),
+                                               mmi(0x11, 0, 11, 0, 0),
+                                               mmi(0x13, 0, 10, 0, 0),
+                                               mmi(9, 14, 10, 8, 8),
+                                               mmi(9, 14, 11, 9, 9),
+                                               op.sub == 8 && op.group == 41 ? MipsI(30, 22, 8, 32) : 0,
+                                               mmi(op.group, op.sub, regs[0], regs[1], regs[2]),
+                                               MipsI(31, 22, regs[2], 96)};
+                char name[144];
+                std::snprintf(name, sizeof(name), "ir packed HI/LO %s rs=%u rt=%u rd=%u pattern=%016llx", op.name,
+                              regs[0], regs[1], regs[2], static_cast<unsigned long long>(pattern[0]));
+                RunEEIrCase(name, code, initial, false, true);
+                CompareEE(RunEEProgram(false, code, false, initial), RunEEProgram(true, code, false, initial), name);
+            }
+    for (const auto &op : ops)
+        for (u32 branch : {4u, 0x14u})
+            for (bool taken : {false, true})
+            {
+                const std::vector<u32> code = {MipsI(15, 0, 22, EE_TEST_SCRATCH >> 16),
+                                               MipsI(13, 22, 22, EE_TEST_SCRATCH & 0xffff),
+                                               MipsI(30, 22, 8, 32),
+                                               MipsI(30, 22, 9, 48),
+                                               mmi(41, 8, 8, 0, 0),
+                                               mmi(41, 9, 9, 0, 0),
+                                               MipsI(9, 0, 4, taken ? 1 : 0),
+                                               MipsI(9, 0, 5, 1),
+                                               MipsI(branch, 4, 5, 1),
+                                               mmi(op.group, op.sub, 8, 9, 8)};
+                char name[120];
+                std::snprintf(name, sizeof(name), "ir packed HI/LO %s delay=%02x taken=%u", op.name, branch, taken);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+            }
+    for (const auto &op : ops)
+    {
+        const std::vector<u32> code = {MipsI(15, 0, 22, EE_TEST_SCRATCH >> 16),
+                                       MipsI(13, 22, 22, EE_TEST_SCRATCH & 0xffff),
+                                       MipsI(30, 22, 8, 32),
+                                       MipsI(30, 22, 9, 48),
+                                       mmi(41, 8, 8, 0, 0),
+                                       mmi(41, 9, 9, 0, 0),
+                                       MipsR(0, 0, 16, 0, 0x10),
+                                       mmi(0x10, 0, 0, 0, 17),
+                                       mmi(op.group, op.sub, 8, 9, 8),
+                                       mmi(9, 8, 0, 0, 18),
+                                       mmi(9, 9, 0, 0, 19),
+                                       MipsR(0, 0, 20, 0, 0x10),
+                                       mmi(0x10, 0, 0, 0, 21),
+                                       mmi(0x11, 0, 9, 0, 0),
+                                       mmi(9, 8, 0, 0, 23),
+                                       mmi(9, 9, 0, 0, 24)};
+        RunEEIrCase("ir packed HI/LO mixed scalar/quad forwarding and live vector helpers", code, nullptr, false, true);
+        CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), "ir packed HI/LO mixed forwarding integrated");
     }
 }
 
 void EEIrExecutionTests()
 {
+    EEIrPackedKernelDceTests();
+    EEIrQuadHiLoStateTests();
+    EEIrPackedProductBackendTests();
+    EEIrPackedHiLoTests();
     EEIrHiLoBanksTests();
     EEIrScalarDirectReadTests();
     EEIrScalarReadBenchmark();

@@ -274,7 +274,7 @@ namespace ir
 
 	bool IsPackedLanePermutationOp(Op op)
 	{
-		return op == Op::VZipLo || op == Op::VZipHi || op == Op::VPackEven || op == Op::VInterleaveEven;
+		return op == Op::VZipLo || op == Op::VZipHi || op == Op::VPackEven || op == Op::VInterleaveEven || op == Op::VInterleaveOdd;
 	}
 
 	bool IsPackedIntegerOp(Op op)
@@ -284,6 +284,8 @@ namespace ir
 			case Op::VAddI: case Op::VSubI: case Op::VAbsSatS:
 			case Op::VAddSatS: case Op::VAddSatU: case Op::VSubSatS: case Op::VSubSatU:
 			case Op::VShl: case Op::VShrU: case Op::VShrS:
+			case Op::VMulWidenLoS: case Op::VMulWidenHiS: case Op::VMulWidenLoU: case Op::VMulWidenHiU:
+			case Op::VShlEach: case Op::VShrUEach: case Op::VShrSEach: case Op::VPackSatS:
 			case Op::VMinS: case Op::VMinU: case Op::VMaxS: case Op::VMaxU:
 			case Op::VCmpEq: case Op::VCmpNe: case Op::VCmpLtS: case Op::VCmpLtU:
 			case Op::VCmpLeS: case Op::VCmpLeU:
@@ -307,6 +309,7 @@ namespace ir
 				return false;
 			if (IsVectorType(inst.type))
 				return inst.op == Op::ConstVec || inst.op == Op::Copy || inst.op == Op::ReadGpr ||
+					inst.op == Op::ReadHi || inst.op == Op::ReadLo ||
 					(inst.type == Type::V4U32 && (inst.op == Op::Add || inst.op == Op::Sub ||
 						inst.op == Op::And || inst.op == Op::Or || inst.op == Op::Xor || inst.op == Op::Not ||
 						IsPackedIntegerOp(inst.op) || IsPackedLanePermutationOp(inst.op) || inst.op == Op::VShuffleBytes ||

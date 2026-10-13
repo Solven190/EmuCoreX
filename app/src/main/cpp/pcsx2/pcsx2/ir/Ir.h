@@ -135,7 +135,7 @@ namespace ir
 	X(WriteVi,      StateWrite,  1, 1, Void, false) \
 	X(ReadAcc,      StateRead,   0, 0, V4F32, false) \
 	X(WriteAcc,     StateWrite,  1, 1, Void, false) \
-	/* HI/LO imm selects 64-bit EE bank 0/1; IOP accepts bank 0 only. */ \
+	/* HI/LO imm selects EE bank 0/1 for scalars; V4U32 accesses full 128 bits at imm=0. IOP is scalar bank 0. */ \
 	X(ReadHi,       StateRead,   0, 0, Any,  false) \
 	X(WriteHi,      StateWrite,  1, 1, Void, false) \
 	X(ReadLo,       StateRead,   0, 0, Any,  false) \
@@ -190,6 +190,17 @@ namespace ir
 	X(VSubSatS,     VecBinary,   2, 2, Any,  false) \
 	X(VSubSatU,     VecBinary,   2, 2, Any,  false) \
 	X(VAbsSatS,     VecUnary,    1, 1, Any,  false) \
+	/* Widening products: low/high source half, signed/unsigned input lanes. */ \
+	X(VMulWidenLoS, VecBinary,   2, 2, Any,  false) \
+	X(VMulWidenHiS, VecBinary,   2, 2, Any,  false) \
+	X(VMulWidenLoU, VecBinary,   2, 2, Any,  false) \
+	X(VMulWidenHiU, VecBinary,   2, 2, Any,  false) \
+	/* Signed saturating pack: two inputs, output lane width 8/16 (0=16). */ \
+	X(VPackSatS,    VecBinary,   2, 2, Any,  false) \
+	/* Per-lane shifts: each count is masked by lane_bits-1. */ \
+	X(VShlEach,     VecBinary,   2, 2, Any,  false) \
+	X(VShrUEach,    VecBinary,   2, 2, Any,  false) \
+	X(VShrSEach,    VecBinary,   2, 2, Any,  false) \
 	/* Packed shifts mask scalar I32/I64 count with lane_bits - 1. */ \
 	X(VShl,         Shift,       2, 2, Any,  false) \
 	X(VShrU,        Shift,       2, 2, Any,  false) \
@@ -211,6 +222,7 @@ namespace ir
 	X(VZipHi,       VecBinary,   2, 2, Any,  false) \
 	X(VPackEven,    VecBinary,   2, 2, Any,  false) \
 	X(VInterleaveEven, VecBinary, 2, 2, Any, false) \
+	X(VInterleaveOdd, VecBinary, 2, 2, Any, false) \
 	/* VShuffleBytes: sixteen 4-bit byte selectors packed in imm, low byte first. */ \
 	X(VShuffleBytes, VecLane,    1, 1, Any,  false) \
 	/* Bit-preserving 32-bit lanes. imm packs four selectors, low lane first: */ \

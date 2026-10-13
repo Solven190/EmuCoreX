@@ -68,14 +68,18 @@ namespace ir
 				}
 			}
 
-			if ((inst.op == Op::ReadHi || inst.op == Op::ReadLo || inst.op == Op::Clz) && !IsIntegerType(inst.type))
-				return Fail(error, "HI/LO reads and CLZ require an integer result");
-			if ((inst.op == Op::WriteHi || inst.op == Op::WriteLo) && !IsIntegerType(fn.ValueType(inst.args[0])))
-				return Fail(error, "HI/LO writes require an integer operand");
+			if (inst.op == Op::Clz && !IsIntegerType(inst.type))
+				return Fail(error, "CLZ requires an integer result");
+			if (inst.op == Op::ReadHi || inst.op == Op::ReadLo || inst.op == Op::WriteHi || inst.op == Op::WriteLo)
+			{
+				const Type type = info.kind == OpKind::StateRead ? inst.type : fn.ValueType(inst.args[0]);
+				if (!IsIntegerType(type) && (type != Type::V4U32 || inst.imm != 0))
+					return Fail(error, "HI/LO requires scalar integer or full V4U32 at bank zero");
+			}
 
 			if (IsPackedIntegerOp(inst.op) || IsPackedLanePermutationOp(inst.op))
 			{
-				if (inst.imm != 0 && inst.imm != 8 && inst.imm != 16 && inst.imm != 32)
+				if (inst.imm != 0 && inst.imm != 8 && inst.imm != 16 && (inst.imm != 32 || inst.op == Op::VPackSatS))
 					return Fail(error, "packed integer: lane width must be 8, 16 or 32 bits");
 				const Type operand = fn.ValueType(inst.args[0]);
 				if (IsPackedIntegerOp(inst.op) && operand != Type::V4U32 && operand != Type::V4I32)

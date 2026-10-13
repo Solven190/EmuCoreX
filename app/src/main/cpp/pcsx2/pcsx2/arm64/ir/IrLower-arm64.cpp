@@ -115,6 +115,15 @@ namespace Arm64Ir
 				case ir::Op::VPackEven:
 				case ir::Op::VInterleaveEven:
 				case ir::Op::VShuffleBytes:
+				case ir::Op::VInterleaveOdd:
+				case ir::Op::VMulWidenLoS:
+				case ir::Op::VMulWidenHiS:
+				case ir::Op::VMulWidenLoU:
+				case ir::Op::VMulWidenHiU:
+				case ir::Op::VPackSatS:
+				case ir::Op::VShlEach:
+				case ir::Op::VShrUEach:
+				case ir::Op::VShrSEach:
 				case ir::Op::VShuffle:
 				case ir::Op::VShuffle2:
 				case ir::Op::VShrU:
@@ -211,6 +220,13 @@ namespace Arm64Ir
 						continue;
 					CachedState& state = cache[reg];
 					const ir::Type type = read ? inst.type : fn.ValueType(inst.args[0]);
+					if (reg >= 32 && reg < 36 && type == ir::Type::V4U32)
+					{
+						// Full writes replace both scalar bank views. Keep full
+						// reads explicit so intervening scalar writes are visible.
+						if (write) cache[reg] = cache[reg + 2] = {};
+						continue;
+					}
 					if (forward_quad_state && reg < 32 && type == ir::Type::V4U32)
 					{
 						if (write)
@@ -1339,6 +1355,7 @@ namespace Arm64Ir
 				case ir::Op::VZipHi:
 				case ir::Op::VPackEven:
 				case ir::Op::VInterleaveEven:
+				case ir::Op::VInterleaveOdd:
 				{
 					recBeginOaknutEmit();
 					const auto lhs = Operand128(a[0], oak::util::Q0);
@@ -1351,6 +1368,7 @@ namespace Arm64Ir
 							case ir::Op::VZipHi: oakAsm->ZIP2(d, s, t); break;
 							case ir::Op::VPackEven: oakAsm->UZP1(d, s, t); break;
 							case ir::Op::VInterleaveEven: oakAsm->TRN1(d, s, t); break;
+							case ir::Op::VInterleaveOdd: oakAsm->TRN2(d, s, t); break;
 							default: break;
 						}
 					};
@@ -1449,6 +1467,130 @@ namespace Arm64Ir
 					recEndOaknutEmit();
 					return true;
 				}
+
+				case ir::Op::VMulWidenLoS:
+				case ir::Op::VMulWidenHiS:
+				case ir::Op::VMulWidenLoU:
+				case ir::Op::VMulWidenHiU:
+				{
+					recBeginOaknutEmit();
+					const auto lhs = Operand128(a[0], oak::util::Q0);
+					const auto rhs = Operand128(a[1], oak::util::Q1);
+					const auto dst = Result128(inst.value);
+					const bool high = inst.op == ir::Op::VMulWidenHiS || inst.op == ir::Op::VMulWidenHiU;
+					const bool sign = inst.op == ir::Op::VMulWidenLoS || inst.op == ir::Op::VMulWidenHiS;
+					if (inst.imm == 8)
+					{
+						if (high)
+						{
+							if (sign)
+								oakAsm->SMULL2(dst.H8(), lhs.B16(), rhs.B16());
+							else
+								oakAsm->UMULL2(dst.H8(), lhs.B16(), rhs.B16());
+						}
+						else
+						{
+							if (sign)
+								oakAsm->SMULL(dst.H8(), lhs.toD().B8(), rhs.toD().B8());
+							else
+								oakAsm->UMULL(dst.H8(), lhs.toD().B8(), rhs.toD().B8());
+						}
+					}
+					else if (inst.imm == 16)
+					{
+						if (high)
+						{
+							if (sign)
+								oakAsm->SMULL2(dst.S4(), lhs.H8(), rhs.H8());
+							else
+								oakAsm->UMULL2(dst.S4(), lhs.H8(), rhs.H8());
+						}
+						else
+						{
+							if (sign)
+								oakAsm->SMULL(dst.S4(), lhs.toD().H4(), rhs.toD().H4());
+							else
+								oakAsm->UMULL(dst.S4(), lhs.toD().H4(), rhs.toD().H4());
+						}
+					}
+					else
+					{
+						if (high)
+						{
+							if (sign)
+								oakAsm->SMULL2(dst.D2(), lhs.S4(), rhs.S4());
+							else
+								oakAsm->UMULL2(dst.D2(), lhs.S4(), rhs.S4());
+						}
+						else
+						{
+							if (sign)
+								oakAsm->SMULL(dst.D2(), lhs.toD().S2(), rhs.toD().S2());
+							else
+								oakAsm->UMULL(dst.D2(), lhs.toD().S2(), rhs.toD().S2());
+						}
+					}
+					Store128(inst.value, dst);
+					recEndOaknutEmit();
+					return true;
+				}
+
+				case ir::Op::VPackSatS:
+				{
+					recBeginOaknutEmit();
+					const auto lhs = Operand128(a[0], oak::util::Q0);
+					auto rhs = Operand128(a[1], oak::util::Q1);
+					const auto dst = Result128(inst.value);
+					if (rhs.index() == dst.index())
+					{
+						oakAsm->MOV(oak::util::Q1.B16(), rhs.B16());
+						rhs = oak::util::Q1;
+					}
+					if (inst.imm == 8)
+					{
+						oakAsm->SQXTN(dst.toD().B8(), lhs.H8());
+						oakAsm->SQXTN2(dst.B16(), rhs.H8());
+					}
+					else
+					{
+						oakAsm->SQXTN(dst.toD().H4(), lhs.S4());
+						oakAsm->SQXTN2(dst.H8(), rhs.S4());
+					}
+					Store128(inst.value, dst);
+					recEndOaknutEmit();
+					return true;
+				}
+
+				case ir::Op::VShlEach:
+				case ir::Op::VShrUEach:
+				case ir::Op::VShrSEach:
+				{
+					recBeginOaknutEmit();
+					const auto lhs = Operand128(a[0], oak::util::Q0);
+					const auto rhs = Operand128(a[1], oak::util::Q1);
+					const auto dst = Result128(inst.value);
+					const auto emit = [&](auto d, auto s, auto t, auto counts, u32 mask_shift)
+					{
+						oakAsm->SHL(counts, t, mask_shift);
+						oakAsm->USHR(counts, counts, mask_shift);
+						if (inst.op != ir::Op::VShlEach)
+							oakAsm->NEG(counts, counts);
+						if (inst.op == ir::Op::VShrSEach)
+							oakAsm->SSHL(d, s, counts);
+						else
+							oakAsm->USHL(d, s, counts);
+					};
+					if (inst.imm == 8)
+						emit(dst.B16(), lhs.B16(), rhs.B16(), oak::util::Q1.B16(), 5);
+					else if (inst.imm == 16)
+						emit(dst.H8(), lhs.H8(), rhs.H8(), oak::util::Q1.H8(), 12);
+					else
+						emit(dst.S4(), lhs.S4(), rhs.S4(), oak::util::Q1.S4(), 27);
+					Store128(inst.value, dst);
+					recEndOaknutEmit();
+					return true;
+				}
+
 
 				case ir::Op::VAbsSatS:
 				{
@@ -2015,7 +2157,12 @@ namespace Arm64Ir
 				case ir::Op::ReadHi:
 				case ir::Op::ReadLo:
 					recBeginOaknutEmit();
-					if (inst.type == ir::Type::I64)
+					if (inst.type == ir::Type::V4U32)
+					{
+						oakLoad128(Result128(inst.value), {GuestBase(), (inst.op == ir::Op::ReadHi) ? HiOffset(0) : LoOffset(0)});
+						Store128(inst.value, Result128(inst.value));
+					}
+					else if (inst.type == ir::Type::I64)
 					{
 						oakLoad64(Result64(inst.value), {GuestBase(), (inst.op == ir::Op::ReadHi) ? HiOffset(inst.imm) : LoOffset(inst.imm)});
 						Store64(inst.value, Result64(inst.value));
@@ -2031,6 +2178,12 @@ namespace Arm64Ir
 				case ir::Op::WriteHi:
 				case ir::Op::WriteLo:
 					recBeginOaknutEmit();
+					if (m_fn.ValueType(a[0]) == ir::Type::V4U32)
+					{
+						oakStore128(Operand128(a[0], oak::util::Q0), {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset(0) : LoOffset(0)});
+						recEndOaknutEmit();
+						return true;
+					}
 					if (m_fn.ValueType(a[0]) == ir::Type::I64)
 					{
 						const auto value = Operand64(a[0], oak::util::X0);
@@ -2207,13 +2360,14 @@ namespace Arm64Ir
 						ir::IsPackedIntegerOp(inst.op) || ir::IsPackedLanePermutationOp(inst.op) || inst.op == ir::Op::VShuffleBytes ||
 						inst.op == ir::Op::VShuffle || inst.op == ir::Op::VShuffle2);
 				const bool quad_result = inst.type == ir::Type::V4U32 &&
-					(inst.op == ir::Op::ConstVec || inst.op == ir::Op::Copy || inst.op == ir::Op::ReadGpr || inst.op == ir::Op::Load128 || quad_alu);
+					(inst.op == ir::Op::ConstVec || inst.op == ir::Op::Copy || inst.op == ir::Op::ReadGpr ||
+						inst.op == ir::Op::ReadHi || inst.op == ir::Op::ReadLo || inst.op == ir::Op::Load128 || quad_alu);
 				for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)
 				{
 					const ir::Type type = fn.ValueType(inst.args[arg]);
 					const bool quad_operand = type == ir::Type::V4U32 &&
 						(quad_alu || (inst.op == ir::Op::Copy && quad_result) || (inst.op == ir::Op::Store128 && arg == 1) ||
-							(inst.op == ir::Op::WriteGpr && !(inst.aux & ir::IF_WIDE_WRITE)));
+							((inst.op == ir::Op::WriteGpr || inst.op == ir::Op::WriteHi || inst.op == ir::Op::WriteLo) && !(inst.aux & ir::IF_WIDE_WRITE)));
 					if ((ir::IsVectorType(type) && !quad_operand) ||
 						(inst.op == ir::Op::Store128 && arg == 1 && !quad_operand))
 					{

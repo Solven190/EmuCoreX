@@ -74,6 +74,7 @@ namespace EeIr
 			bool LiftPlain(u32 word, u32 pc, std::string* error);
 			bool LiftSpecial(u32 word, u32 pc, std::string* error);
 			bool LiftMergeMemory(u32 word);
+			bool LiftPackedHiLo(u32 word);
 			bool LiftRegimmBranch(u32 word, u32 pc, u32* cond, bool* link, std::string* error);
 
 			// Lifts the delay slot into the current block. Fails when the slot
@@ -383,6 +384,126 @@ namespace EeIr
 			return true;
 		}
 
+		bool Lifter::LiftPackedHiLo(u32 word)
+		{
+			const u32 group = Funct(word), sub = Sa(word), rs = Rs(word), rt = Rt(word), rd = Rd(word);
+			const auto read = [&](ir::Op op) { return m_b.Emit0(op, ir::Type::V4U32); };
+			const auto write = [&](ir::Op op, u32 value) { m_b.Emit1(op, ir::Type::Void, value); };
+			const auto binary = [&](ir::Op op, u32 a, u32 b, u32 bits = 0)
+			{ return m_b.Emit2(op, ir::Type::V4U32, a, b, bits); };
+			const auto shuffle = [&](u32 value, u32 lanes)
+			{ return m_b.Emit1(ir::Op::VShuffle, ir::Type::V4U32, value, lanes); };
+			const auto sign_extend_even = [&](u32 value, bool odd = false)
+			{
+				const u32 pair = shuffle(value, odd ? 0xdd : 0x88);
+				return binary(ir::Op::VZipLo, pair, m_b.Emit2(ir::Op::VShrS, ir::Type::V4U32, pair, Const(31)), 32);
+			};
+			if ((group == 9 || group == 41) && (sub == 8 || sub == 9))
+			{
+				const ir::Op state = sub == 8 ? ir::Op::ReadHi : ir::Op::ReadLo;
+				if (group == 9)
+				{
+					if (rd)
+						m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, read(state), rd);
+				}
+				else
+					write(sub == 8 ? ir::Op::WriteHi : ir::Op::WriteLo, ReadGprQuad(rs));
+				return true;
+			}
+			if (group == 0x30) // PMFHL variants; reserved modes have no effect.
+			{
+				if (!rd || sub > 4)
+					return true;
+				const u32 lo = read(ir::Op::ReadLo), hi = read(ir::Op::ReadHi);
+				u32 value;
+				if (sub <= 1)
+					value = binary(sub == 0 ? ir::Op::VInterleaveEven : ir::Op::VInterleaveOdd, lo, hi, 32);
+				else if (sub == 2)
+				{
+					// A reconstructed signed 64-bit value fits I32 exactly when
+					// its HI word equals the sign of its LO word.
+					const u32 lo_sign = m_b.Emit2(ir::Op::VShrS, ir::Type::V4U32, lo, Const(31));
+					const u32 hi_sign = m_b.Emit2(ir::Op::VShrS, ir::Type::V4U32, hi, Const(31));
+					const u32 fits = binary(ir::Op::VCmpEq, hi, lo_sign, 32);
+					const u32 limits =
+						binary(ir::Op::Xor, hi_sign, m_b.ConstVec({0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}));
+					const u32 selected = binary(ir::Op::Or, binary(ir::Op::And, lo, fits),
+												binary(ir::Op::And, limits, m_b.Emit1(ir::Op::Not, ir::Type::V4U32, fits)));
+					value = sign_extend_even(selected);
+				}
+				else
+					value = shuffle(binary(sub == 3 ? ir::Op::VPackEven : ir::Op::VPackSatS, lo, hi, 16), 0xd8);
+				m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
+				return true;
+			}
+			if (group == 0x31) // PMTHL.LW replaces only the even words.
+			{
+				if (sub != 0)
+					return true;
+				const u32 source = ReadGprQuad(rs), lo = read(ir::Op::ReadLo), hi = read(ir::Op::ReadHi);
+				const u32 even = m_b.ConstVec({~u32(0), 0, ~u32(0), 0});
+				const u32 odd = m_b.ConstVec({0, ~u32(0), 0, ~u32(0)});
+				write(ir::Op::WriteLo, binary(ir::Op::Or, binary(ir::Op::And, lo, odd), binary(ir::Op::And, source, even)));
+				write(ir::Op::WriteHi,
+					  binary(ir::Op::Or, binary(ir::Op::And, hi, odd), binary(ir::Op::And, shuffle(source, 0xb1), even)));
+				return true;
+			}
+			if ((group == 9 && (sub == 2 || sub == 3)) || (group == 41 && sub == 3))
+			{
+				if (rd)
+				{
+					const ir::Op op = group == 41 ? ir::Op::VShrSEach : sub == 2 ? ir::Op::VShlEach : ir::Op::VShrUEach;
+					const u32 value = binary(op, ReadGprQuad(rt), ReadGprQuad(rs), 32);
+					m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, sign_extend_even(value), rd);
+				}
+				return true;
+			}
+			if ((group == 9 || group == 41) && sub == 12)
+			{
+				const u32 lhs = shuffle(ReadGprQuad(rs), 0x88), rhs = shuffle(ReadGprQuad(rt), 0x88);
+				const u32 value = binary(group == 9 ? ir::Op::VMulWidenLoS : ir::Op::VMulWidenLoU, lhs, rhs, 32);
+				write(ir::Op::WriteLo, sign_extend_even(value));
+				write(ir::Op::WriteHi, sign_extend_even(value, true));
+				if (rd)
+					m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
+				return true;
+			}
+			if (group == 9 && (sub == 16 || sub == 17 || sub == 20 || sub == 21 || sub == 28))
+			{
+				const u32 lhs = ReadGprQuad(rs), rhs = ReadGprQuad(rt);
+				const u32 lower = binary(ir::Op::VMulWidenLoS, lhs, rhs, 16);
+				const u32 upper = binary(ir::Op::VMulWidenHiS, lhs, rhs, 16);
+				u32 lo = m_b.Emit2(ir::Op::VShuffle2, ir::Type::V4U32, lower, upper, 0xb08);
+				u32 hi = m_b.Emit2(ir::Op::VShuffle2, ir::Type::V4U32, lower, upper, 0xf9a);
+				if (sub == 16 || sub == 20)
+				{
+					const ir::Op operation = sub == 16 ? ir::Op::VAddI : ir::Op::VSubI;
+					lo = binary(operation, read(ir::Op::ReadLo), lo, 32);
+					hi = binary(operation, read(ir::Op::ReadHi), hi, 32);
+				}
+				else if (sub == 17 || sub == 21)
+				{
+					const auto horizontal = [&](u32 product)
+					{
+						const u32 even = shuffle(product, 0xa0), odd = shuffle(product, 0xf5);
+						const u32 result =
+							sub == 17 ? binary(ir::Op::VAddI, odd, even, 32) : binary(ir::Op::VSubI, odd, even, 32);
+						const u32 kept = sub == 17 ? odd : m_b.Emit1(ir::Op::Not, ir::Type::V4U32, odd);
+						return m_b.Emit2(ir::Op::VShuffle2, ir::Type::V4U32, result, kept, 0xea8);
+					};
+					lo = horizontal(lo);
+					hi = horizontal(hi);
+				}
+				write(ir::Op::WriteLo, lo);
+				write(ir::Op::WriteHi, hi);
+				if (rd)
+					m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, binary(ir::Op::VInterleaveEven, lo, hi, 32), rd);
+				return true;
+			}
+			return false;
+		}
+
+
 		bool Lifter::LiftPlain(u32 word, u32 pc, std::string* error)
 		{
 			if (word == 0)
@@ -433,6 +554,7 @@ namespace EeIr
 					return true;
 				case 0x1C: // MMI: packed arithmetic, shifts, permutations and bitwise operations
 				{
+					if (LiftPackedHiLo(word)) return true;
 					const u32 group = word & 0x3f;
 					const u32 sub = Sa(word);
 					const u32 rd = Rd(word);
