@@ -13,7 +13,7 @@ int main(int argc, char** argv)
     const bool replay = argc == 4 && (fallback || std::strcmp(argv[2], "replay-vu1") == 0);
     if (argc != 3 && !replay)
     {
-        std::fprintf(stderr, "usage: %s /absolute/path/libemucore_4k.so classifier|vu|vectors|sqrt-flags|div-edges|ee|iop|replay-vu1 [capture.vuo]\n", argv[0]);
+        std::fprintf(stderr, "usage: %s /absolute/path/libemucore_4k.so classifier|vu|vectors|sqrt-flags|div-edges|ee|iop|gs-prepare|replay-vu1 [capture.vuo]\n", argv[0]);
         return 2;
     }
     setvbuf(stdout, nullptr, _IONBF, 0);
@@ -40,6 +40,24 @@ int main(int argc, char** argv)
     {
         std::fprintf(stderr, "debug oracle unavailable: %s\n", dlerror());
         return 2;
+    }
+    // A data export with this platform function's name can redirect the
+    // Android SPHAL loader into non-executable storage before Vulkan starts.
+    Dl_info core_info{};
+    if (!dladdr(reinterpret_cast<void*>(run), &core_info))
+    {
+        std::fprintf(stderr, "Cannot inspect Android API exports in the emulator library.\n");
+        return 2;
+    }
+    for (const char* api : {"android_get_exported_namespace", "android_link_namespaces", "android_create_namespace"})
+    {
+        Dl_info api_info{};
+        void* api_symbol = dlsym(library, api);
+        if (api_symbol && dladdr(api_symbol, &api_info) && core_info.dli_fbase == api_info.dli_fbase)
+        {
+            std::fprintf(stderr, "Invalid Android API export: %s belongs to the emulator library.\n", api);
+            return 2;
+        }
     }
     const int result = run(replay ? argv[3] : argv[2]);
     std::fflush(nullptr);

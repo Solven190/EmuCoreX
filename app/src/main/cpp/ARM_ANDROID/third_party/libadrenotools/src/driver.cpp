@@ -67,7 +67,7 @@ void *adrenotools_open_libvulkan(int dlopenFlags, int featureFlags, const char *
     }
 
     // Create a namespace that can isolate our hook from the classloader namespace
-    auto hookNs{android_create_namespace("adrenotools-libvulkan", hookLibDir, nullptr, ANDROID_NAMESPACE_TYPE_SHARED, nullptr, nullptr)};
+    auto hookNs{linkernsbypass_create_namespace("adrenotools-libvulkan", hookLibDir, nullptr, ANDROID_NAMESPACE_TYPE_SHARED, nullptr, nullptr)};
 
     // Link it to the default namespace so the hook can use libandroid etc
     if (!linkernsbypass_link_namespace_to_default_all_libs(hookNs))
