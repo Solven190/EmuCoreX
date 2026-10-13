@@ -42,6 +42,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <chrono>
 #include <cstring>
 #include <deque>
 #include <limits>
@@ -55,7 +56,6 @@
 #include <android/log.h>
 #include <sys/resource.h>
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
-#include <chrono>
 #include <sys/system_properties.h>
 #endif
 #endif
@@ -5983,7 +5983,7 @@ VkPipeline GSDeviceVK::GetTFXPipeline(const PipelineSelector& p)
 	{
 		std::lock_guard lock(m_tfx_pipelines_mutex);
 		const auto it = m_tfx_pipelines.find(p);
-		if (it != m_tfx_pipelines.end())
+		if (it != m_tfx_pipelines.end() && it->second != VK_NULL_HANDLE)
 		{
 			m_last_tfx_pipeline_selector = p;
 			m_last_tfx_pipeline = it->second;
@@ -5995,7 +5995,7 @@ VkPipeline GSDeviceVK::GetTFXPipeline(const PipelineSelector& p)
 	m_last_tfx_pipeline_selector = p;
 	m_last_tfx_pipeline =
 		PublishTFXPipeline(p, CreateTFXPipelineWithCache(p, g_vulkan_shader_cache->GetPipelineCache(true), true));
-	m_last_tfx_pipeline_valid = true;
+	m_last_tfx_pipeline_valid = (m_last_tfx_pipeline != VK_NULL_HANDLE);
 
 	// Persist the pipeline cache every N new compiles so an OOM-kill or crash mid-session does
 	// not throw the batch away. The flush is rate-limited internally, and it never runs while
@@ -6387,6 +6387,286 @@ bool GSDeviceVK::TestTFXShaderSourceCatalog()
 }
 #endif
 
+void GSDeviceVK::TFXPreparationProgress::Reset(u32 total)
+{
+	m_snapshot = {};
+	m_snapshot.total = total;
+	m_next_index = 0;
+	m_job_states.assign(total, 0);
+}
+
+std::optional<u32> GSDeviceVK::TFXPreparationProgress::TryClaimNext()
+{
+	if (m_snapshot.cancel_requested || m_snapshot.finished || m_next_index >= m_snapshot.total)
+		return std::nullopt;
+
+	const u32 index = m_next_index++;
+	m_job_states[index] = 1;
+	m_snapshot.in_flight++;
+	return index;
+}
+
+bool GSDeviceVK::TFXPreparationProgress::FinishClaim(u32 index, TFXPreparationResult result)
+{
+	if (m_snapshot.finished || index >= m_job_states.size() || m_job_states[index] != 1)
+		return false;
+
+	m_job_states[index] = 2;
+	--m_snapshot.in_flight;
+	switch (result)
+	{
+		case TFXPreparationResult::Published:
+			++m_snapshot.completed;
+			break;
+		case TFXPreparationResult::AlreadyAvailable:
+			++m_snapshot.already_available;
+			break;
+		case TFXPreparationResult::Failed:
+		default:
+			++m_snapshot.failed;
+			break;
+	}
+	return true;
+}
+
+void GSDeviceVK::TFXPreparationProgress::RequestCancel()
+{
+	if (!m_snapshot.finished)
+		m_snapshot.cancel_requested = true;
+}
+
+void GSDeviceVK::TFXPreparationProgress::FinishAfterJoin(bool checkpoint_saved)
+{
+	if (m_snapshot.finished || m_snapshot.in_flight != 0)
+		return;
+
+	const u32 accounted = m_snapshot.completed + m_snapshot.already_available + m_snapshot.failed;
+	if (accounted > m_snapshot.total)
+		return;
+
+	m_snapshot.cancelled = m_snapshot.total - accounted;
+	m_snapshot.checkpoint_saved = checkpoint_saved;
+	m_snapshot.finished = true;
+}
+
+GSDeviceVK::TFXPreparationProgressSnapshot GSDeviceVK::TFXPreparationProgress::Snapshot() const
+{
+	return m_snapshot;
+}
+
+void GSDeviceVK::TFXPreparationMergeCoordinator::Reset(u32 expected_workers)
+{
+	m_expected_workers = expected_workers;
+	m_merged_workers = 0;
+	m_all_succeeded = true;
+}
+
+bool GSDeviceVK::TFXPreparationMergeCoordinator::ReportMerged(bool succeeded)
+{
+	if (m_merged_workers >= m_expected_workers)
+		return false;
+
+	++m_merged_workers;
+	m_all_succeeded = m_all_succeeded && succeeded;
+	return AllMerged();
+}
+
+GSDeviceVK::TFXPreparationProgressSnapshot GSDeviceVK::GetTFXPreparationProgress() const
+{
+	std::lock_guard lock(m_tfx_progress_mutex);
+	return m_tfx_progress.Snapshot();
+}
+
+void GSDeviceVK::RequestTFXPreparationCancel()
+{
+	{
+		std::lock_guard lock(m_tfx_progress_mutex);
+		m_tfx_progress.RequestCancel();
+	}
+	m_tfx_compile_quit.store(true, std::memory_order_relaxed);
+}
+
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+bool GSDeviceVK::TestTFXPreparationProgress()
+{
+	TFXPreparationProgress progress;
+	progress.Reset(0);
+	if (progress.TryClaimNext().has_value())
+		return false;
+	progress.FinishAfterJoin(true);
+	const TFXPreparationProgressSnapshot empty = progress.Snapshot();
+	if (empty.total != 0 || empty.completed != 0 || empty.already_available != 0 || empty.failed != 0 ||
+		empty.cancelled != 0 || empty.in_flight != 0 || !empty.finished || !empty.checkpoint_saved)
+	{
+		return false;
+	}
+
+	progress.Reset(3);
+	const std::optional<u32> first = progress.TryClaimNext();
+	if (!first.has_value() || *first != 0)
+		return false;
+
+	if (!progress.FinishClaim(*first, TFXPreparationResult::Published))
+		return false;
+	const std::optional<u32> second = progress.TryClaimNext();
+	if (!second.has_value() || *second != 1)
+		return false;
+	const TFXPreparationProgressSnapshot before_duplicate = progress.Snapshot();
+	if (progress.FinishClaim(*first, TFXPreparationResult::Failed))
+		return false;
+	const TFXPreparationProgressSnapshot after_duplicate = progress.Snapshot();
+	if (before_duplicate.completed != after_duplicate.completed ||
+		before_duplicate.failed != after_duplicate.failed || before_duplicate.in_flight != after_duplicate.in_flight)
+	{
+		return false;
+	}
+	if (!progress.FinishClaim(*second, TFXPreparationResult::AlreadyAvailable))
+		return false;
+	const std::optional<u32> third = progress.TryClaimNext();
+	if (!third.has_value() || *third != 2)
+		return false;
+	if (!progress.FinishClaim(*third, TFXPreparationResult::Failed))
+		return false;
+	if (progress.TryClaimNext().has_value())
+		return false;
+
+	progress.FinishAfterJoin(true);
+	const TFXPreparationProgressSnapshot complete = progress.Snapshot();
+	if (complete.total != 3 || complete.completed != 1 || complete.already_available != 1 ||
+		complete.failed != 1 || complete.cancelled != 0 || complete.in_flight != 0 || !complete.finished ||
+		!complete.checkpoint_saved)
+	{
+		return false;
+	}
+
+	progress.Reset(2);
+	progress.RequestCancel();
+	if (progress.TryClaimNext().has_value())
+		return false;
+	progress.FinishAfterJoin(false);
+	const TFXPreparationProgressSnapshot cancelled_before_start = progress.Snapshot();
+	if (cancelled_before_start.total != 2 || cancelled_before_start.completed != 0 ||
+		cancelled_before_start.cancelled != 2 || cancelled_before_start.in_flight != 0 ||
+		!cancelled_before_start.cancel_requested || !cancelled_before_start.finished ||
+		cancelled_before_start.checkpoint_saved)
+	{
+		return false;
+	}
+
+	progress.Reset(4);
+	const std::optional<u32> active = progress.TryClaimNext();
+	if (!active.has_value() || *active != 0)
+		return false;
+	progress.RequestCancel();
+	if (progress.TryClaimNext().has_value())
+		return false;
+	if (!progress.FinishClaim(*active, TFXPreparationResult::Published))
+		return false;
+	progress.FinishAfterJoin(false);
+	const TFXPreparationProgressSnapshot cancelled = progress.Snapshot();
+	if (cancelled.total != 4 || cancelled.completed != 1 || cancelled.already_available != 0 ||
+		cancelled.failed != 0 || cancelled.cancelled != 3 || cancelled.in_flight != 0 ||
+		!cancelled.cancel_requested || !cancelled.finished || cancelled.checkpoint_saved)
+	{
+		return false;
+	}
+
+	// A resumed batch starts with a fresh snapshot and can claim the same stable index.
+	progress.Reset(1);
+	const std::optional<u32> resumed = progress.TryClaimNext();
+	if (!resumed.has_value() || *resumed != 0)
+		return false;
+	if (!progress.FinishClaim(*resumed, TFXPreparationResult::Published))
+		return false;
+	progress.FinishAfterJoin(true);
+	const TFXPreparationProgressSnapshot resumed_snapshot = progress.Snapshot();
+	if (resumed_snapshot.total != 1 || resumed_snapshot.completed != 1 ||
+		resumed_snapshot.already_available != 0 || resumed_snapshot.failed != 0 ||
+		resumed_snapshot.cancelled != 0 || resumed_snapshot.in_flight != 0 || !resumed_snapshot.finished ||
+		!resumed_snapshot.checkpoint_saved)
+	{
+		return false;
+	}
+
+	// The delayed worker cannot permit a flush until all registered caches have merged.
+	TFXPreparationMergeCoordinator coordinator;
+	coordinator.Reset(3);
+	if (coordinator.ReportMerged(true) || coordinator.AllMerged())
+		return false;
+	if (coordinator.ReportMerged(true) || coordinator.AllMerged())
+		return false;
+	if (!coordinator.ReportMerged(true) || !coordinator.AllMerged() || !coordinator.AllMergesSucceeded())
+		return false;
+	coordinator.Reset(3);
+	if (coordinator.ReportMerged(true) || coordinator.ReportMerged(false) ||
+		!coordinator.ReportMerged(true) || !coordinator.AllMerged() || coordinator.AllMergesSucceeded())
+	{
+		return false;
+	}
+
+	// Three callers share one progress state through the same caller-owned mutex.
+	progress.Reset(12);
+	std::mutex progress_mutex;
+	std::mutex gate_mutex;
+	std::condition_variable gate_cv;
+	u32 ready_workers = 0;
+	bool release_workers = false;
+	std::array<std::thread, 3> workers;
+	for (u32 worker_index = 0; worker_index < workers.size(); worker_index++)
+	{
+		workers[worker_index] = std::thread([&, worker_index]() {
+			std::optional<u32> claim;
+			{
+				std::lock_guard lock(progress_mutex);
+				claim = progress.TryClaimNext();
+			}
+			if (!claim.has_value())
+				return;
+
+			{
+				std::unique_lock lock(gate_mutex);
+				++ready_workers;
+				gate_cv.notify_all();
+				gate_cv.wait(lock, [&]() { return release_workers; });
+			}
+
+			std::lock_guard lock(progress_mutex);
+			const TFXPreparationResult result = static_cast<TFXPreparationResult>(worker_index);
+			if (!progress.FinishClaim(*claim, result) || progress.TryClaimNext().has_value())
+				return;
+		});
+	}
+	bool workers_ready;
+	{
+		std::unique_lock lock(gate_mutex);
+		workers_ready = gate_cv.wait_for(lock, std::chrono::seconds(5), [&]() {
+			return ready_workers == workers.size();
+		});
+	}
+	{
+		std::lock_guard lock(progress_mutex);
+		progress.RequestCancel();
+	}
+	{
+		std::lock_guard lock(gate_mutex);
+		release_workers = true;
+	}
+	gate_cv.notify_all();
+	for (std::thread& worker : workers)
+		worker.join();
+	if (!workers_ready)
+		return false;
+	{
+		std::lock_guard lock(progress_mutex);
+		progress.FinishAfterJoin(false);
+	}
+	const TFXPreparationProgressSnapshot concurrent = progress.Snapshot();
+	return concurrent.total == 12 && concurrent.completed == 1 && concurrent.already_available == 1 &&
+		concurrent.failed == 1 && concurrent.cancelled == 9 && concurrent.in_flight == 0 &&
+		concurrent.cancel_requested && concurrent.finished && !concurrent.checkpoint_saved;
+}
+#endif
+
 void GSDeviceVK::BuildWarmupTFXSelectors(std::vector<PipelineSelector>& out)
 {
 	out.clear();
@@ -6515,6 +6795,28 @@ void GSDeviceVK::BuildWarmupTFXSelectors(std::vector<PipelineSelector>& out)
 	}
 }
 
+namespace
+{
+	void LogTFXPreparationProgress(const GSDeviceVK::TFXPreparationProgressSnapshot& progress)
+	{
+		Console.WriteLn("VK: TFX preparation finished: total=%u compiled=%u available=%u failed=%u cancelled=%u in_flight=%u cancel_requested=%u finished=%u checkpoint=%s",
+			progress.total, progress.completed, progress.already_available, progress.failed, progress.cancelled,
+			progress.in_flight, progress.cancel_requested ? 1u : 0u, progress.finished ? 1u : 0u,
+			progress.checkpoint_saved ? "saved" : "not saved");
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+		char value[PROP_VALUE_MAX]{};
+		if (__system_property_get("debug.emucorex.gs_compile_trace", value) == 1 && value[0] == '1')
+		{
+			__android_log_print(ANDROID_LOG_INFO, "GSPrepare",
+				"total=%u compiled=%u available=%u failed=%u cancelled=%u in_flight=%u cancel_requested=%u finished=%u checkpoint_saved=%u",
+				progress.total, progress.completed, progress.already_available, progress.failed, progress.cancelled,
+				progress.in_flight, progress.cancel_requested ? 1u : 0u, progress.finished ? 1u : 0u,
+				progress.checkpoint_saved ? 1u : 0u);
+		}
+#endif
+	}
+}
+
 void GSDeviceVK::WarmupCommonTFXPipelines()
 {
 	std::vector<PipelineSelector> selectors;
@@ -6535,8 +6837,16 @@ void GSDeviceVK::StartAsyncTFXCompilation()
 	const size_t learned_count = BuildTFXWarmupOrder(generic_selectors, m_tfx_learned_order, m_tfx_compile_queue);
 	if (learned_count > 0)
 		Console.WriteLn("VK: Replaying %zu learned TFX pipelines in the background.", learned_count);
-	m_tfx_compile_next.store(0, std::memory_order_relaxed);
 	m_tfx_compile_quit.store(false, std::memory_order_relaxed);
+	{
+		std::lock_guard lock(m_tfx_progress_mutex);
+		m_tfx_progress.Reset(static_cast<u32>(m_tfx_compile_queue.size()));
+		m_tfx_merge_coordinator.Reset(0);
+	}
+	{
+		std::lock_guard lock(m_tfx_compile_start_mutex);
+		m_tfx_compile_start_released = false;
+	}
 
 	const u32 hw_threads = std::max(1u, std::thread::hardware_concurrency());
 	const u32 worker_count = std::min(MAX_TFX_COMPILE_THREADS, std::max(1u, hw_threads / 2));
@@ -6551,11 +6861,70 @@ void GSDeviceVK::StartAsyncTFXCompilation()
 			break;
 		}
 	}
+	{
+		// Threads cannot drain the queue until every successful spawn is counted.
+		// This prevents an early worker from being mistaken for the final worker.
+		std::lock_guard start_lock(m_tfx_compile_start_mutex);
+		{
+			std::lock_guard progress_lock(m_tfx_progress_mutex);
+			m_tfx_merge_coordinator.Reset(static_cast<u32>(m_tfx_compile_threads.size()));
+		}
+		m_tfx_compile_start_released = true;
+	}
+	m_tfx_compile_start_cv.notify_all();
 
 	if (m_tfx_compile_threads.empty())
 	{
 		Console.Warning("VK: Failed to start TFX compile threads, compiling synchronously.");
-		WarmupCommonTFXPipelines();
+		for (;;)
+		{
+			std::optional<u32> index;
+			{
+				std::lock_guard lock(m_tfx_progress_mutex);
+				index = m_tfx_progress.TryClaimNext();
+			}
+			if (!index.has_value())
+				break;
+			bool claim_finished = false;
+			ScopedGuard claim_cleanup([this, &claim_finished, claim_index = *index]() {
+				if (claim_finished)
+					return;
+				std::lock_guard lock(m_tfx_progress_mutex);
+				claim_finished = m_tfx_progress.FinishClaim(claim_index, TFXPreparationResult::Failed);
+			});
+
+			const PipelineSelector& p = m_tfx_compile_queue[*index];
+			bool already_available = false;
+			{
+				std::lock_guard lock(m_tfx_pipelines_mutex);
+				const auto it = m_tfx_pipelines.find(p);
+				already_available = (it != m_tfx_pipelines.end() && it->second != VK_NULL_HANDLE);
+			}
+
+			TFXPreparationResult result = TFXPreparationResult::Failed;
+			if (already_available)
+			{
+				result = TFXPreparationResult::AlreadyAvailable;
+			}
+			else if (GetTFXPipeline(p) != VK_NULL_HANDLE)
+			{
+				result = TFXPreparationResult::Published;
+			}
+			{
+				std::lock_guard lock(m_tfx_progress_mutex);
+				claim_finished = m_tfx_progress.FinishClaim(*index, result);
+			}
+		}
+
+		const bool flush_succeeded = g_vulkan_shader_cache->FlushPipelineCache(true);
+		{
+			std::lock_guard lock(m_tfx_progress_mutex);
+			const bool checkpoint_saved =
+				g_vulkan_shader_cache->HasPipelineCacheFile() && flush_succeeded;
+			m_tfx_progress.FinishAfterJoin(checkpoint_saved);
+		}
+		const TFXPreparationProgressSnapshot progress = GetTFXPreparationProgress();
+		LogTFXPreparationProgress(progress);
 		m_tfx_compile_queue.clear();
 		return;
 	}
@@ -6566,7 +6935,7 @@ void GSDeviceVK::StartAsyncTFXCompilation()
 
 void GSDeviceVK::StopAsyncTFXCompilation()
 {
-	m_tfx_compile_quit.store(true, std::memory_order_relaxed);
+	RequestTFXPreparationCancel();
 
 	for (std::thread& thread : m_tfx_compile_threads)
 	{
@@ -6576,65 +6945,138 @@ void GSDeviceVK::StopAsyncTFXCompilation()
 
 	m_tfx_compile_threads.clear();
 	m_tfx_compile_queue.clear();
-	m_tfx_compile_quit.store(false, std::memory_order_relaxed);
+	{
+		std::lock_guard lock(m_tfx_progress_mutex);
+		const TFXPreparationProgressSnapshot progress = m_tfx_progress.Snapshot();
+		if (!progress.finished && progress.in_flight == 0)
+			m_tfx_progress.FinishAfterJoin(false);
+	}
 
 	SaveLearnedTFXSelectors();
 }
 
 void GSDeviceVK::TFXCompileThreadEntryPoint()
 {
+	{
+		std::unique_lock lock(m_tfx_compile_start_mutex);
+		m_tfx_compile_start_cv.wait(lock, [this]() { return m_tfx_compile_start_released; });
+	}
+
 #if defined(__ANDROID__)
 	// Keep the emulation threads ahead of shader compilation.
 	setpriority(PRIO_PROCESS, 0, 19);
 #endif
 
-	m_tfx_compile_active_workers.fetch_add(1, std::memory_order_relaxed);
-	VkPipelineCache transient_cache = g_vulkan_shader_cache->CreateTransientPipelineCache();
+	VkPipelineCache transient_cache = VK_NULL_HANDLE;
+	ScopedGuard worker_cleanup([this, &transient_cache]() {
+		const bool merge_succeeded = g_vulkan_shader_cache->MergeTransientPipelineCache(transient_cache);
+		bool last_merge = false;
+		{
+			std::lock_guard lock(m_tfx_progress_mutex);
+			last_merge = m_tfx_merge_coordinator.ReportMerged(merge_succeeded);
+		}
 
-	for (;;)
+		if (!last_merge)
+			return;
+		const bool flush_succeeded = g_vulkan_shader_cache->FlushPipelineCache(true);
+		bool all_merges_succeeded;
+		{
+			std::lock_guard lock(m_tfx_progress_mutex);
+			all_merges_succeeded = m_tfx_merge_coordinator.AllMergesSucceeded();
+			const bool checkpoint_saved = g_vulkan_shader_cache->HasPipelineCacheFile() &&
+				all_merges_succeeded && flush_succeeded;
+			m_tfx_progress.FinishAfterJoin(checkpoint_saved);
+		}
+		const TFXPreparationProgressSnapshot progress = GetTFXPreparationProgress();
+		LogTFXPreparationProgress(progress);
+	});
+
+	try
 	{
-		if (m_tfx_compile_quit.load(std::memory_order_relaxed))
-			break;
-
-		const u32 index = m_tfx_compile_next.fetch_add(1, std::memory_order_relaxed);
-		if (index >= m_tfx_compile_queue.size())
-			break;
-
-		const PipelineSelector& p = m_tfx_compile_queue[index];
+		transient_cache = g_vulkan_shader_cache->CreateTransientPipelineCache();
+		for (;;)
 		{
-			std::lock_guard lock(m_tfx_pipelines_mutex);
-			if (m_tfx_pipelines.find(p) != m_tfx_pipelines.end())
-				continue;
-		}
+			if (m_tfx_compile_quit.load(std::memory_order_relaxed))
+				break;
 
-		try
-		{
-			const VkPipeline pipeline = CreateTFXPipelineWithCache(p, transient_cache, false);
-			if (pipeline != VK_NULL_HANDLE)
-				PublishTFXPipeline(p, pipeline);
-		}
-		catch (...)
-		{
-			Console.Error("VK: Failed to compile TFX pipeline on background thread.");
+			std::optional<u32> index;
+			{
+				std::lock_guard lock(m_tfx_progress_mutex);
+				index = m_tfx_progress.TryClaimNext();
+			}
+			if (!index.has_value())
+				break;
+			bool claim_finished = false;
+			ScopedGuard claim_cleanup([this, &claim_finished, claim_index = *index]() {
+				if (claim_finished)
+					return;
+				std::lock_guard lock(m_tfx_progress_mutex);
+				claim_finished = m_tfx_progress.FinishClaim(claim_index, TFXPreparationResult::Failed);
+			});
+
+			const PipelineSelector& p = m_tfx_compile_queue[*index];
+			bool already_available = false;
+			{
+				std::lock_guard lock(m_tfx_pipelines_mutex);
+				const auto it = m_tfx_pipelines.find(p);
+				already_available = (it != m_tfx_pipelines.end() && it->second != VK_NULL_HANDLE);
+			}
+
+			TFXPreparationResult result = TFXPreparationResult::Failed;
+			if (already_available)
+			{
+				result = TFXPreparationResult::AlreadyAvailable;
+			}
+			else
+			{
+				VkPipeline pipeline = VK_NULL_HANDLE;
+				try
+				{
+					pipeline = CreateTFXPipelineWithCache(p, transient_cache, false);
+					if (pipeline != VK_NULL_HANDLE && PublishTFXPipeline(p, pipeline) != VK_NULL_HANDLE)
+						result = TFXPreparationResult::Published;
+				}
+				catch (...)
+				{
+					Console.Error("VK: Failed to compile TFX pipeline on background thread.");
+				}
+			}
+			{
+				std::lock_guard lock(m_tfx_progress_mutex);
+				claim_finished = m_tfx_progress.FinishClaim(*index, result);
+			}
 		}
 	}
-
-	// The last worker merges its cache and flushes to disk, so the batch survives a kill.
-	const u32 remaining = m_tfx_compile_active_workers.fetch_sub(1, std::memory_order_acq_rel) - 1;
-	g_vulkan_shader_cache->MergeTransientPipelineCache(transient_cache);
-	if (remaining == 0)
-		g_vulkan_shader_cache->FlushPipelineCache(true);
+	catch (...)
+	{
+		Console.Error("VK: TFX preparation worker exited after an unexpected failure.");
+	}
 }
 
 VkPipeline GSDeviceVK::PublishTFXPipeline(const PipelineSelector& p, VkPipeline pipeline)
 {
+	if (pipeline == VK_NULL_HANDLE)
+		return VK_NULL_HANDLE;
+
 	std::lock_guard lock(m_tfx_pipelines_mutex);
 
-	const auto [it, inserted] = m_tfx_pipelines.emplace(p, pipeline);
-	if (!inserted && pipeline != VK_NULL_HANDLE && it->second != pipeline)
-		vkDestroyPipeline(m_device, pipeline, nullptr);
-	else if (inserted && pipeline != VK_NULL_HANDLE)
+	const auto it = m_tfx_pipelines.find(p);
+	if (it == m_tfx_pipelines.end())
+	{
+		m_tfx_pipelines.emplace(p, pipeline);
 		RecordLearnedTFXSelector(p);
+		return pipeline;
+	}
+
+	if (it->second == VK_NULL_HANDLE)
+	{
+		it->second = pipeline;
+		RecordLearnedTFXSelector(p);
+		return pipeline;
+	}
+
+	if (it->second != pipeline)
+		vkDestroyPipeline(m_device, pipeline, nullptr);
 
 	return it->second;
 }

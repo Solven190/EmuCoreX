@@ -22,6 +22,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -63,6 +64,61 @@ public:
 		bool feedback_loop_layout = false;
 		bool scalarize_vector_bitwise_and = false;
 		bool provoking_vertex_last = false;
+	};
+
+	enum class TFXPreparationResult : u8
+	{
+		Published,
+		AlreadyAvailable,
+		Failed,
+	};
+
+	struct TFXPreparationProgressSnapshot
+	{
+		u32 total = 0;
+		u32 completed = 0;
+		u32 already_available = 0;
+		u32 failed = 0;
+		u32 cancelled = 0;
+		u32 in_flight = 0;
+		bool cancel_requested = false;
+		bool finished = false;
+		bool checkpoint_saved = false;
+	};
+
+	TFXPreparationProgressSnapshot GetTFXPreparationProgress() const;
+	void RequestTFXPreparationCancel();
+
+	// Deterministic progress transitions. GSDeviceVK protects its live instance with
+	// m_tfx_progress_mutex; this state object itself does not synchronize callers.
+	class TFXPreparationProgress
+	{
+	public:
+		void Reset(u32 total);
+		std::optional<u32> TryClaimNext();
+		bool FinishClaim(u32 index, TFXPreparationResult result);
+		void RequestCancel();
+		void FinishAfterJoin(bool checkpoint_saved);
+		TFXPreparationProgressSnapshot Snapshot() const;
+
+	private:
+		TFXPreparationProgressSnapshot m_snapshot;
+		u32 m_next_index = 0;
+		std::vector<u8> m_job_states;
+	};
+
+	class TFXPreparationMergeCoordinator
+	{
+	public:
+		void Reset(u32 expected_workers);
+		bool ReportMerged(bool succeeded);
+		bool AllMerged() const { return (m_expected_workers > 0 && m_merged_workers == m_expected_workers); }
+		bool AllMergesSucceeded() const { return (AllMerged() && m_all_succeeded); }
+
+	private:
+		u32 m_expected_workers = 0;
+		u32 m_merged_workers = 0;
+		bool m_all_succeeded = true;
 	};
 
 	// Global state accessors
@@ -585,9 +641,13 @@ private:
 
 	std::vector<std::thread> m_tfx_compile_threads;
 	std::vector<PipelineSelector> m_tfx_compile_queue;
-	std::atomic<u32> m_tfx_compile_next{0};
-	std::atomic<u32> m_tfx_compile_active_workers{0};
 	std::atomic<bool> m_tfx_compile_quit{false};
+	mutable std::mutex m_tfx_progress_mutex;
+	TFXPreparationProgress m_tfx_progress;
+	TFXPreparationMergeCoordinator m_tfx_merge_coordinator;
+	std::mutex m_tfx_compile_start_mutex;
+	std::condition_variable m_tfx_compile_start_cv;
+	bool m_tfx_compile_start_released = false;
 
 	std::unordered_set<PipelineSelector, PipelineSelectorHash> m_tfx_learned_set;
 	std::deque<PipelineSelector> m_tfx_learned_order;
@@ -713,6 +773,7 @@ public:
 	static bool TestTFXWarmupOrdering();
 	static bool TestTFXShaderSourceBuilders();
 	static bool TestTFXShaderSourceCatalog();
+	static bool TestTFXPreparationProgress();
 #endif
 
 	bool Create(GSVSyncMode vsync_mode, bool allow_present_throttle) override;

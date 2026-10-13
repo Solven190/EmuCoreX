@@ -20,6 +20,7 @@
 #include "Gif_Unit.h"
 #include "GS/GSState.h"
 #include "GS/Renderers/Vulkan/GSDeviceVK.h"
+#include "GS/Renderers/Vulkan/VKShaderCache.h"
 
 #include <array>
 #include <cstdio>
@@ -140,6 +141,8 @@ void CheckBits(bool pass, u32 actual, u32 expected, const char* name)
 
 void ClassifierTests()
 {
+    Check(VKShaderCache::TestPipelineCachePersistence("artifacts/tfx-cache-checkpoint.bin"), "GS checkpoint persists same-size changed bytes and rejects failed writes");
+    Check(GSDeviceVK::TestTFXPreparationProgress(), "GS preparation counts completion and cancellation after worker checkpoint");
     Check(GSDeviceVK::TestTFXShaderSourceCatalog(), "GS pure catalog maps all baseline pipelines to unique canonical sources");
     Check(GSDeviceVK::TestTFXShaderSourceBuilders(), "GS reusable source builders preserve all selector and capability variants");
     Check(GSDeviceVK::TestTFXWarmupOrdering(), "GS learned pipelines precede generic warmup without duplicates");

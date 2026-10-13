@@ -18,6 +18,7 @@
 #include "common/FileSystem.h"
 #include "common/MD5Digest.h"
 #include "common/Path.h"
+#include "common/ScopedGuard.h"
 
 #ifndef __ANDROID__
 #include "SPIRV/GlslangToSpv.h"
@@ -28,9 +29,14 @@
 #include "fmt/format.h"
 #include "shaderc/shaderc.h"
 
+#include <cerrno>
 #include <cstring>
 #include <memory>
 #include <mutex>
+
+#ifdef __ANDROID__
+#include <unistd.h>
+#endif
 
 // TODO: store the driver version and stuff in the shader header
 
@@ -775,31 +781,140 @@ bool VKShaderCache::FlushPipelineCache(bool force)
 
 	data.resize(data_size);
 
-	// Save disk writes if it hasn't changed, think of the poor SSDs.
-	FILESYSTEM_STAT_DATA sd;
-	if (!FileSystem::StatFile(m_pipeline_cache_filename.c_str(), &sd) || sd.Size != static_cast<s64>(data_size))
-	{
-		Console.WriteLn("Writing %zu bytes to '%s'", data_size, m_pipeline_cache_filename.c_str());
-		// Write through a temp file and rename: a kill mid-flush must never
-		// leave a torn blob behind, or the next launch feeds it to the driver
-		// and crashes inside vkCreatePipelineCache (Adreno memcpy SIGSEGV).
-		const std::string tmp_filename = m_pipeline_cache_filename + ".tmp";
-		if (!FileSystem::WriteBinaryFile(tmp_filename.c_str(), data.data(), data.size()) ||
-			!FileSystem::RenamePath(tmp_filename.c_str(), m_pipeline_cache_filename.c_str()))
-		{
-			Console.Error("Failed to write pipeline cache to '%s'", m_pipeline_cache_filename.c_str());
-			FileSystem::DeleteFilePath(tmp_filename.c_str());
-			return false;
-		}
-	}
-	else
-	{
-		Console.WriteLn("Skipping updating pipeline cache '%s' due to no changes.", m_pipeline_cache_filename.c_str());
-	}
+	if (!SavePipelineCacheDataIfChanged(m_pipeline_cache_filename, data))
+		return false;
 
 	m_pipeline_cache_dirty.store(false, std::memory_order_relaxed);
 	return true;
 }
+
+bool VKShaderCache::SavePipelineCacheDataIfChanged(const std::string& filename, const std::vector<u8>& data,
+	bool* written)
+{
+	if (written)
+		*written = false;
+
+	const std::optional<std::vector<u8>> existing_data = FileSystem::ReadBinaryFile(filename.c_str());
+	if (existing_data.has_value() && *existing_data == data)
+	{
+		Console.WriteLn("Skipping updating pipeline cache '%s' due to no changes.", filename.c_str());
+		return true;
+	}
+
+	Console.WriteLn("Writing %zu bytes to '%s'", data.size(), filename.c_str());
+	// Write through a temp file and rename: a kill mid-flush must never leave a
+	// torn blob behind, or the next launch feeds it to the driver and crashes.
+	const std::string tmp_filename = filename + ".tmp";
+	auto fp = FileSystem::OpenManagedCFile(tmp_filename.c_str(), "wb");
+	if (!fp)
+	{
+		const int open_error = errno;
+		Console.Error("Failed to write pipeline cache to '%s'", filename.c_str());
+		FileSystem::DeleteFilePath(tmp_filename.c_str());
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+		std::fprintf(stderr, "Pipeline cache persistence temp open failed for '%s.tmp' (errno=%d)\n",
+			filename.c_str(), open_error);
+#endif
+		return false;
+	}
+
+	const bool write_ok = data.empty() || std::fwrite(data.data(), 1, data.size(), fp.get()) == data.size();
+	const bool flush_ok = std::fflush(fp.get()) == 0;
+	const bool close_ok = std::fclose(fp.release()) == 0;
+	if (!write_ok || !flush_ok || !close_ok ||
+		!FileSystem::RenamePath(tmp_filename.c_str(), filename.c_str()))
+	{
+		Console.Error("Failed to write pipeline cache to '%s'", filename.c_str());
+		FileSystem::DeleteFilePath(tmp_filename.c_str());
+		return false;
+	}
+
+	if (written)
+		*written = true;
+	return true;
+}
+
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+bool VKShaderCache::TestPipelineCachePersistence(const char* test_filename)
+{
+	if (!test_filename || !*test_filename)
+	{
+		std::fprintf(stderr, "Pipeline cache persistence test: empty test filename (errno=%d)\n", errno);
+		return false;
+	}
+
+	const std::string filename(test_filename);
+	const std::string tmp_filename = filename + ".tmp";
+	const std::string failed_filename = filename + FS_OSPATH_SEPARATOR_STR "child";
+	const std::string failed_tmp_filename = failed_filename + ".tmp";
+	ScopedGuard cleanup([&]() {
+		FileSystem::DeleteFilePath(filename.c_str());
+		FileSystem::DeleteFilePath(tmp_filename.c_str());
+		FileSystem::DeleteFilePath(failed_filename.c_str());
+		FileSystem::DeleteFilePath(failed_tmp_filename.c_str());
+	});
+	bool written = false;
+	const auto fail = [&written](const char* stage) {
+		std::fprintf(stderr, "Pipeline cache persistence test failed at %s (written=%d, errno=%d)\n",
+			stage, written, errno);
+		return false;
+	};
+
+	FileSystem::DeleteFilePath(filename.c_str());
+	FileSystem::DeleteFilePath(tmp_filename.c_str());
+	FileSystem::DeleteFilePath(failed_filename.c_str());
+	FileSystem::DeleteFilePath(failed_tmp_filename.c_str());
+
+	const std::vector<u8> first{0x10, 0x20, 0x30};
+	const std::vector<u8> changed{0x10, 0x20, 0x31};
+	if (!SavePipelineCacheDataIfChanged(filename, first, &written) || !written)
+		return fail("missing-file write");
+	auto persisted = FileSystem::ReadBinaryFile(filename.c_str());
+	if (!persisted.has_value() || *persisted != first)
+	{
+		std::fprintf(stderr, "Pipeline cache persistence test failed at initial readback (present=%d, size=%zu, expected=%zu, bytes_match=%d, errno=%d)\n",
+			persisted.has_value(), persisted.has_value() ? persisted->size() : 0, first.size(),
+			persisted.has_value() && *persisted == first, errno);
+		return false;
+	}
+
+	if (!SavePipelineCacheDataIfChanged(filename, changed, &written) || !written)
+		return fail("same-size changed write");
+	persisted = FileSystem::ReadBinaryFile(filename.c_str());
+	if (!persisted.has_value() || *persisted != changed)
+	{
+		std::fprintf(stderr, "Pipeline cache persistence test failed at changed readback (present=%d, size=%zu, expected=%zu, bytes_match=%d, errno=%d)\n",
+			persisted.has_value(), persisted.has_value() ? persisted->size() : 0, changed.size(),
+			persisted.has_value() && *persisted == changed, errno);
+		return false;
+	}
+
+	if (!SavePipelineCacheDataIfChanged(filename, changed, &written) || written)
+		return fail("equal blob no-write");
+
+#ifdef __ANDROID__
+	// /dev/full accepts buffered writes but fails when the stream flushes. The
+	// temporary path is a test-owned symlink, so cleanup removes only the link.
+	if (symlink("/dev/full", tmp_filename.c_str()) != 0)
+		return fail("/dev/full symlink setup");
+	if (SavePipelineCacheDataIfChanged(filename, first, &written) || written)
+		return fail("/dev/full flush failure");
+	persisted = FileSystem::ReadBinaryFile(filename.c_str());
+	if (!persisted.has_value() || *persisted != changed || FileSystem::FileExists(tmp_filename.c_str()))
+		return fail("/dev/full source/temp integrity");
+#endif
+
+	// Use the existing regular file as a parent path, which makes the child
+	// destination unwritable and must leave the source and temporary path intact.
+	if (SavePipelineCacheDataIfChanged(failed_filename, first, &written) || written)
+		return fail("regular-file parent failure");
+	persisted = FileSystem::ReadBinaryFile(filename.c_str());
+	if (!persisted.has_value() || *persisted != changed || FileSystem::FileExists(failed_tmp_filename.c_str()) ||
+		FileSystem::FileExists(failed_filename.c_str()))
+		return fail("regular-file parent source/temp integrity");
+	return true;
+}
+#endif
 
 VkPipelineCache VKShaderCache::CreateTransientPipelineCache()
 {
@@ -825,23 +940,28 @@ VkPipelineCache VKShaderCache::CreateTransientPipelineCache()
 	return cache;
 }
 
-void VKShaderCache::MergeTransientPipelineCache(VkPipelineCache cache)
+bool VKShaderCache::MergeTransientPipelineCache(VkPipelineCache cache)
 {
 	if (cache == VK_NULL_HANDLE)
-		return;
+		return false;
 
 	VkDevice device = GSDeviceVK::GetInstance()->GetDevice();
+	bool merged = false;
 	if (m_pipeline_cache != VK_NULL_HANDLE)
 	{
 		std::lock_guard lock(m_pipeline_cache_mutex);
 		const VkResult res = vkMergePipelineCaches(device, m_pipeline_cache, 1, &cache);
 		if (res == VK_SUCCESS)
+		{
 			m_pipeline_cache_dirty.store(true, std::memory_order_relaxed);
+			merged = true;
+		}
 		else
 			LOG_VULKAN_ERROR(res, "vkMergePipelineCaches() (merge) failed: ");
 	}
 
 	vkDestroyPipelineCache(device, cache, nullptr);
+	return merged;
 }
 
 std::mutex& VKShaderCache::GetPipelineCacheMutex()

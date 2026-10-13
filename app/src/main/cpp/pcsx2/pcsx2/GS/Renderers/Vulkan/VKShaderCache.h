@@ -34,14 +34,19 @@ public:
 	/// Writes pipeline cache to file, saving all newly compiled pipelines. The write re-serialises
 	/// the whole cache, so non-forced calls are rate-limited; force=true is for teardown.
 	bool FlushPipelineCache(bool force = false);
+	bool HasPipelineCacheFile() const { return !m_pipeline_cache_filename.empty(); }
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	static bool TestPipelineCachePersistence(const char* test_filename);
+#endif
 
 	/// Creates a pipeline cache seeded with the contents of the shared cache, for use on a
 	/// compilation thread. Returns VK_NULL_HANDLE on failure. Merge it back with
 	/// MergeTransientPipelineCache() when the thread is done.
 	VkPipelineCache CreateTransientPipelineCache();
 
-	/// Merges a transient cache into the shared cache and destroys it.
-	void MergeTransientPipelineCache(VkPipelineCache cache);
+	/// Merges a transient cache into the shared cache and destroys it. Returns true only
+	/// when the merge succeeded; a null cache or absent shared cache returns false.
+	bool MergeTransientPipelineCache(VkPipelineCache cache);
 
 	/// Serializes creation against the shared pipeline cache and FlushPipelineCache().
 	std::mutex& GetPipelineCacheMutex();
@@ -101,6 +106,8 @@ private:
 	bool CreateNewPipelineCache();
 	bool ReadExistingPipelineCache();
 	void ClosePipelineCache();
+	static bool SavePipelineCacheDataIfChanged(const std::string& filename, const std::vector<u8>& data,
+		bool* written = nullptr);
 
 	std::optional<SPIRVCodeVector> GetShaderSPV(u32 type, std::string_view shader_code);
 	std::optional<SPIRVCodeVector> CompileAndAddShaderSPV(const CacheIndexKey& key, std::string_view shader_code);
