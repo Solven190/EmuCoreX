@@ -68,6 +68,8 @@ extern void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 extern void VU0_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 extern void VU1_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 
+extern void EE_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
+
 namespace
 {
 constexpr u32 NOP_U = 0x000002ff;
@@ -1721,6 +1723,9 @@ extern "C" void EmuCoreXEEForceExitAfterFirstBlock();
 extern "C" void EmuCoreXEEForceExitAfterCycles(u32 budget);
 extern "C" void EmuCoreXOracleEESteps(u32 steps);
 extern "C" int EmuCoreXOracleEEIRStep(void (*fn)());
+extern "C" void EmuCoreXOracleSetEeIrMode(int mode);
+extern "C" void EmuCoreXOracleGetEeIrCop1Counts(u64* mfc1, u64* mtc1, u64* cfc1, u64* ctc1);
+
 
 constexpr u32 MipsR(u32 rs, u32 rt, u32 rd, u32 sa, u32 fn)
 {
@@ -1750,6 +1755,7 @@ struct EESnapshot
     u32 pc;
     u32 cycle;
     u32 fpr[32];
+    u32 fcr[32];
     u32 fcr31;
     u32 acc;
     u32 accflag;
@@ -1780,6 +1786,7 @@ void CaptureEE(EESnapshot& out)
         out.gpr[i] = cpuRegs.GPR.r[i].UD[0];
         out.gpr_upper[i] = cpuRegs.GPR.r[i].UD[1];
         out.fpr[i] = fpuRegs.fpr[i].UL;
+        out.fcr[i] = fpuRegs.fprc[i];
         out.cp0[i] = cpuRegs.CP0.r[i];
     }
     out.hi = cpuRegs.HI.UD[0];
@@ -1848,6 +1855,7 @@ void CompareEE(const EESnapshot& expected, const EESnapshot& actual, const char*
     same &= CpuDiff(name, "LO1", &expected.lo1, &actual.lo1, sizeof(expected.lo1));
     same &= CpuDiff(name, "PC", &expected.pc, &actual.pc, sizeof(expected.pc));
     same &= CpuDiff(name, "FPR", expected.fpr, actual.fpr, sizeof(expected.fpr));
+    same &= CpuDiff(name, "FCR", expected.fcr, actual.fcr, sizeof(expected.fcr));
     same &= CpuDiff(name, "FCR31", &expected.fcr31, &actual.fcr31, sizeof(expected.fcr31));
     same &= CpuDiff(name, "ACC", &expected.acc, &actual.acc, sizeof(expected.acc));
     same &= CpuDiff(name, "ACCflag", &expected.accflag, &actual.accflag, sizeof(expected.accflag));
@@ -1886,7 +1894,9 @@ void CompareIOP(const IOPSnapshot& expected, const IOPSnapshot& actual, const ch
     Check(same, name);
 }
 
-EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlock = false, const u64* initial_gpr = nullptr, const u32* initial_cp0 = nullptr)
+EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlock = false,
+    const u64* initial_gpr = nullptr, const u32* initial_cp0 = nullptr,
+    const GPR_reg* initial_gpr_full = nullptr, const u32* initial_fpr = nullptr, const u32* initial_fcr = nullptr)
 {
     std::memset(&cpuRegs, 0, sizeof(cpuRegs));
     std::memset(&fpuRegs, 0, sizeof(fpuRegs));
@@ -1914,6 +1924,13 @@ EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlo
     if (initial_gpr)
         for (u32 r = 1; r < 32; ++r)
             cpuRegs.GPR.r[r].UD[0] = initial_gpr[r];
+    if (initial_gpr_full)
+        std::memcpy(cpuRegs.GPR.r, initial_gpr_full, sizeof(cpuRegs.GPR.r));
+    if (initial_fpr)
+        for (u32 r = 0; r < 32; ++r)
+            fpuRegs.fpr[r].UL = initial_fpr[r];
+    if (initial_fcr)
+        std::memcpy(fpuRegs.fprc, initial_fcr, sizeof(fpuRegs.fprc));
     if (initial_cp0)
         std::memcpy(cpuRegs.CP0.r, initial_cp0, sizeof(cpuRegs.CP0.r));
 
@@ -1947,6 +1964,17 @@ EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlo
             out.pc = sentinel;
     }
     return out;
+}
+
+EESnapshot RunEEProgramWithIrMode(int mode, const std::vector<u32>& program,
+    const GPR_reg* initial_gpr, const u32* initial_cp0, const u32* initial_fpr, const u32* initial_fcr,
+    bool multiBlock = false)
+{
+    EmuCoreXOracleSetEeIrMode(mode);
+    const EESnapshot result = RunEEProgram(true, program, multiBlock, nullptr, initial_cp0,
+        initial_gpr, initial_fpr, initial_fcr);
+    EmuCoreXOracleSetEeIrMode(-1);
+    return result;
 }
 
 IOPSnapshot RunIOPProgram(bool jit, const std::vector<u32>& program, s32 eeCycles = -1, bool forceGteInterpreter = false, u64 forcedFamilies = 0)
@@ -3259,6 +3287,585 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
         same &= CpuDiff(name, "scratch", interp.scratch, result.scratch, sizeof(interp.scratch));
     }
     Check(same, name);
+}
+
+bool RunEEIrCop1Direct(const std::vector<u32>& program, const GPR_reg* initial_gpr,
+    const u32* initial_fpr, const u32* initial_fcr, EESnapshot& result)
+{
+    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+    std::memset(&fpuRegs, 0, sizeof(fpuRegs));
+    std::memset(&VU0.VF, 0, sizeof(VU0.VF));
+    std::memset(&VU0.VI, 0, sizeof(VU0.VI));
+    std::memset(&VU0.ACC, 0, sizeof(VU0.ACC));
+    VU0.q.UL = VU0.p.UL = 0;
+    VU0.macflag = VU0.statusflag = VU0.clipflag = 0;
+    if (initial_gpr)
+        std::memcpy(cpuRegs.GPR.r, initial_gpr, sizeof(cpuRegs.GPR.r));
+    cpuRegs.CP0.n.Status.val = 0x20000000u; // CU1: these direct programs exercise usable COP1 transfers.
+    if (initial_fpr)
+        for (u32 reg = 0; reg < 32; ++reg)
+            fpuRegs.fpr[reg].UL = initial_fpr[reg];
+    if (initial_fcr)
+        std::memcpy(fpuRegs.fprc, initial_fcr, sizeof(fpuRegs.fprc));
+    for (u32 i = 0; i < EE_SCRATCH_SIZE; ++i)
+        memWrite8(EE_TEST_SCRATCH + i, static_cast<u8>(i * 13 + 7));
+    cpuRegs.pc = EE_TEST_PC;
+    cpuRegs.nextEventCycle = 0x7fffffffu;
+    EEsCycle = EEoCycle = 0;
+    for (u32 i = 0; i < program.size(); ++i)
+        memWrite32(EE_TEST_PC + i * 4, program[i]);
+
+    ir::Function fn;
+    u32 end = 0;
+    std::string error;
+    if (!EeIr::LiftBlock(reinterpret_cast<const u32*>(PSM(EE_TEST_PC)),
+            {EE_TEST_PC, static_cast<u32>(program.size())}, fn, &end, &error))
+        return false;
+    if (!EeIr::CanLower(fn, false, &error))
+        return false;
+    g_eeir_exit_pc = 0;
+    g_eeir_exit_valid = 0;
+    EeIr::LowerOptions options;
+    options.capture_exit_pc = true;
+    EeIr::LowerOutput out;
+    if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
+        return false;
+    reinterpret_cast<void (*)()>(out.entry)();
+    CaptureEE(result);
+    if (!g_eeir_exit_valid)
+        return false;
+    // Resume is the control-flow target selected by the standalone body. It
+    // may differ from LiftBlock's consumed end for branches and annul paths.
+    result.pc = g_eeir_exit_pc;
+    return true;
+}
+
+void EEIrCop1TransferTests()
+{
+    constexpr u32 raw_bits[] = {0x00000000u, 0x80000000u, 0x7f800000u, 0xff800000u,
+        0x7fc12345u, 0x7f812345u, 0xdeadbeefu, 0x80000001u};
+    std::array<GPR_reg, 32> initial_gpr{};
+    std::array<u32, 32> initial_fpr{}, initial_fcr{};
+    std::array<u32, 32> cop1_cp0{};
+    cop1_cp0[12] = 0x20000000u; // Status.CU1
+    for (u32 reg = 0; reg < 32; ++reg)
+    {
+        initial_gpr[reg].UD[0] = 0x1234567800000000ull | (0x76543210u + reg);
+        initial_gpr[reg].UD[1] = 0xabcdef0100000000ull | (0x89abcdefu + reg);
+        initial_fpr[reg] = raw_bits[reg % (sizeof(raw_bits) / sizeof(raw_bits[0]))] ^ (reg * 0x01010101u);
+        initial_fcr[reg] = 0x80000000u | (0x10203040u + reg);
+    }
+    initial_fcr[0] = 0x2e30;
+    auto architectural_gpr = initial_gpr;
+    architectural_gpr[0] = {};
+
+    bool direct_mfc1 = true, direct_mtc1 = true;
+    for (u32 fs = 0; fs < 32; ++fs)
+    {
+        const u32 read_word = MipsCop1(0, 8, fs, 0, 0); // mfc1 t0, fs
+        const std::vector<u32> read_code = {read_word};
+        const auto interp = RunEEProgram(false, read_code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        const auto jit = RunEEProgram(true, read_code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        char name[96];
+        std::snprintf(name, sizeof(name), "COP1 MFC1 legacy/interpreter fs=%u", fs);
+        CompareEE(interp, jit, name);
+        const u64 expected = static_cast<u64>(static_cast<s64>(static_cast<s32>(initial_fpr[fs])));
+        Check(interp.gpr[8] == expected && interp.gpr_upper[8] == initial_gpr[8].UD[1],
+            "COP1 MFC1 independently checks sign extension and retained GPR upper64");
+        bool mfc1_gprs = true;
+        for (u32 reg = 1; reg < 32; ++reg)
+            mfc1_gprs &= interp.gpr[reg] == (reg == 8 ? expected : initial_gpr[reg].UD[0]) &&
+                interp.gpr_upper[reg] == initial_gpr[reg].UD[1];
+        Check(mfc1_gprs, "COP1 MFC1 independently preserves all other GPR low/upper halves");
+        EESnapshot direct{};
+        direct_mfc1 &= RunEEIrCop1Direct(read_code, initial_gpr.data(), initial_fpr.data(), initial_fcr.data(), direct);
+        if (direct.pc)
+        {
+            std::snprintf(name, sizeof(name), "COP1 MFC1 direct IR fs=%u", fs);
+            CompareEE(interp, direct, name);
+        }
+
+        const u32 write_word = MipsCop1(4, 8, fs, 0, 0); // mtc1 t0, fs
+        const std::vector<u32> write_code = {write_word};
+        const auto write_interp = RunEEProgram(false, write_code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        const auto write_jit = RunEEProgram(true, write_code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        std::snprintf(name, sizeof(name), "COP1 MTC1 legacy/interpreter fs=%u", fs);
+        CompareEE(write_interp, write_jit, name);
+        Check(write_interp.fpr[fs] == static_cast<u32>(initial_gpr[8].UD[0]),
+            "COP1 MTC1 independently checks raw low32 and neighboring FPR state");
+        bool mtc1_fprs = true;
+        for (u32 reg = 0; reg < 32; ++reg)
+            mtc1_fprs &= write_interp.fpr[reg] == (reg == fs ? static_cast<u32>(initial_gpr[8].UD[0]) : initial_fpr[reg]);
+        Check(mtc1_fprs, "COP1 MTC1 independently preserves every non-destination FPR word");
+        direct = {};
+        direct_mtc1 &= RunEEIrCop1Direct(write_code, initial_gpr.data(), initial_fpr.data(), initial_fcr.data(), direct);
+        if (direct.pc)
+        {
+            std::snprintf(name, sizeof(name), "COP1 MTC1 direct IR fs=%u", fs);
+            CompareEE(write_interp, direct, name);
+        }
+    }
+    Check(direct_mfc1, "COP1 MFC1 all 32 raw FPR indices accepted and executed directly through EE IR");
+    Check(direct_mtc1, "COP1 MTC1 all 32 raw FPR indices accepted and executed directly through EE IR");
+
+    bool direct_cfc1 = true, direct_ctc1 = true;
+    for (u32 fs : {0u, 1u, 30u, 31u})
+    {
+        const u32 word = MipsCop1(2, 8, fs, 0, 0); // cfc1 t0, fs
+        const std::vector<u32> code = {word};
+        const auto interp = RunEEProgram(false, code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        const auto jit = RunEEProgram(true, code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        char name[96];
+        std::snprintf(name, sizeof(name), "COP1 CFC1 legacy/interpreter fs=%u", fs);
+        CompareEE(interp, jit, name);
+        const u64 expected = fs == 31 ? static_cast<u64>(static_cast<s64>(static_cast<s32>(initial_fcr[31]))) :
+            fs == 0 ? 0x2e00ull : 0ull;
+        Check(interp.gpr[8] == expected && interp.gpr_upper[8] == initial_gpr[8].UD[1],
+            "COP1 CFC1 independently checks FCR0 constant, FCR31 sign extension, and unsupported indices");
+        bool cfc1_fcrs = true;
+        for (u32 reg = 0; reg < 32; ++reg)
+            cfc1_fcrs &= interp.fcr[reg] == initial_fcr[reg];
+        Check(cfc1_fcrs, "COP1 CFC1 independently preserves every FCR word");
+        EESnapshot direct{};
+        direct_cfc1 &= RunEEIrCop1Direct(code, initial_gpr.data(), initial_fpr.data(), initial_fcr.data(), direct);
+        if (direct.pc)
+        {
+            std::snprintf(name, sizeof(name), "COP1 CFC1 direct IR fs=%u", fs);
+            CompareEE(interp, direct, name);
+        }
+
+        const u32 control_word = MipsCop1(6, 8, fs, 0, 0); // ctc1 t0, fs
+        const std::vector<u32> control_code = {control_word};
+        const auto control_interp = RunEEProgram(false, control_code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        const auto control_jit = RunEEProgram(true, control_code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        std::snprintf(name, sizeof(name), "COP1 CTC1 legacy/interpreter fs=%u", fs);
+        CompareEE(control_interp, control_jit, name);
+        Check(control_interp.fcr[31] == (fs == 31 ? static_cast<u32>(initial_gpr[8].UD[0]) : initial_fcr[31]) &&
+            control_interp.fcr[0] == initial_fcr[0],
+            "COP1 CTC1 independently checks FCR31-only write and neighboring FCR state");
+        bool ctc1_fcrs = true;
+        for (u32 reg = 0; reg < 32; ++reg)
+            ctc1_fcrs &= control_interp.fcr[reg] ==
+                (fs == 31 && reg == 31 ? static_cast<u32>(initial_gpr[8].UD[0]) : initial_fcr[reg]);
+        Check(ctc1_fcrs, "COP1 CTC1 independently preserves every non-target FCR word");
+        direct = {};
+        direct_ctc1 &= RunEEIrCop1Direct(control_code, initial_gpr.data(), initial_fpr.data(), initial_fcr.data(), direct);
+        if (direct.pc)
+        {
+            std::snprintf(name, sizeof(name), "COP1 CTC1 direct IR fs=%u", fs);
+            CompareEE(control_interp, direct, name);
+        }
+    }
+    Check(direct_cfc1, "COP1 CFC1 all specified control-register cases accepted and executed directly through EE IR");
+    Check(direct_ctc1, "COP1 CTC1 valid and ignored control-register cases accepted directly through EE IR");
+
+    // Register-zero behavior is asymmetric: reads suppress the GPR write,
+    // while MTC1/CTC1 still consume architectural GPR zero as a zero value.
+    for (u32 rs : {0u, 2u})
+    {
+        const u32 word = MipsCop1(rs, 0, rs == 0 ? 7u : 31u, 0, 0);
+        const std::vector<u32> code = {word};
+        const auto interp = RunEEProgram(false, code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        const auto jit = RunEEProgram(true, code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        CompareEE(interp, jit, "COP1 MFC1/CFC1 rt zero interpreter/JIT");
+        Check(interp.gpr[0] == initial_gpr[0].UD[0] && interp.gpr_upper[0] == initial_gpr[0].UD[1],
+            "COP1 MFC1/CFC1 rt zero preserves the complete GPR0 backing value");
+        EESnapshot direct{};
+        const bool lowered = RunEEIrCop1Direct(code, initial_gpr.data(), initial_fpr.data(), initial_fcr.data(), direct);
+        if (lowered)
+        {
+            CompareEE(interp, direct, "COP1 direct MFC1/CFC1 rt zero preserves full GPR0");
+        }
+        if (rs == 0)
+            direct_mfc1 &= lowered;
+        else
+            direct_cfc1 &= lowered;
+    }
+    for (u32 rs : {4u, 6u})
+    {
+        const u32 word = MipsCop1(rs, 0, rs == 4 ? 7u : 31u, 0, 0);
+        const auto interp = RunEEProgram(false, {word}, false, nullptr, cop1_cp0.data(),
+            architectural_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        const auto jit = RunEEProgram(true, {word}, false, nullptr, cop1_cp0.data(),
+            architectural_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        CompareEE(interp, jit, "COP1 MTC1/CTC1 rt zero interpreter/JIT");
+        Check(rs == 4 ? interp.fpr[7] == 0 : interp.fcr[31] == 0,
+            "COP1 MTC1/CTC1 rt zero writes a zero raw word");
+        EESnapshot direct{};
+        const bool lowered = RunEEIrCop1Direct({word}, architectural_gpr.data(), initial_fpr.data(), initial_fcr.data(), direct);
+        if (lowered)
+        {
+            CompareEE(interp, direct, "COP1 direct MTC1/CTC1 rt zero writes zero");
+        }
+        if (rs == 4)
+            direct_mtc1 &= lowered;
+        else
+            direct_ctc1 &= lowered;
+    }
+
+    // Consecutive state dependencies must observe the just-written raw field.
+    for (u32 bits : raw_bits)
+    {
+        initial_gpr[8].UD[0] = (initial_gpr[8].UD[0] & 0xffffffff00000000ull) | bits;
+        const std::vector<u32> code = {MipsCop1(4, 8, 5, 0, 0), MipsCop1(0, 9, 5, 0, 0)};
+        const auto interp = RunEEProgram(false, code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        const auto jit = RunEEProgram(true, code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        CompareEE(interp, jit, "COP1 MTC1 to MFC1 same-block raw hazard");
+        const u64 expected = static_cast<u64>(static_cast<s64>(static_cast<s32>(bits)));
+        Check(interp.fpr[5] == bits && interp.gpr[9] == expected,
+            "COP1 MTC1/MFC1 dependency independently checks raw bits and sign extension");
+        EESnapshot direct{};
+        const bool lowered = RunEEIrCop1Direct(code, initial_gpr.data(), initial_fpr.data(), initial_fcr.data(), direct);
+        if (lowered)
+            CompareEE(interp, direct, "COP1 direct MTC1/MFC1 same-block raw hazard");
+        if (lowered)
+        direct_mfc1 &= lowered;
+        direct_mtc1 &= lowered;
+    }
+    {
+        const std::vector<u32> code = {MipsCop1(6, 8, 31, 0, 0), MipsCop1(2, 9, 31, 0, 0)};
+        const auto interp = RunEEProgram(false, code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        const auto jit = RunEEProgram(true, code, false, nullptr, cop1_cp0.data(),
+            initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+        CompareEE(interp, jit, "COP1 CTC1 to CFC1 same-block control hazard");
+        const u64 expected = static_cast<u64>(static_cast<s64>(static_cast<s32>(initial_gpr[8].UD[0])));
+        Check(interp.fcr[31] == static_cast<u32>(initial_gpr[8].UD[0]) && interp.gpr[9] == expected,
+            "COP1 CTC1/CFC1 dependency independently checks FCR31 visibility");
+        EESnapshot direct{};
+        direct_cfc1 &= RunEEIrCop1Direct(code, initial_gpr.data(), initial_fpr.data(), initial_fcr.data(), direct);
+        direct_ctc1 &= direct.pc != 0;
+        if (direct.pc)
+        {
+            CompareEE(interp, direct, "COP1 direct CTC1/CFC1 same-block control hazard");
+        }
+    }
+
+    // A normal branch executes its COP1 transfer delay slot; an untaken
+    // branch-likely annuls that same slot. Test interpreted/JIT semantics now
+    // and require direct IR acceptance in the later green implementation.
+    const std::vector<u32> branch_delay = {MipsI(4, 0, 0, 1), MipsCop1(0, 8, 5, 0, 0)};
+    const auto delay_interp = RunEEProgram(false, branch_delay, false, nullptr, cop1_cp0.data(),
+        architectural_gpr.data(), initial_fpr.data(), initial_fcr.data());
+    const auto delay_jit = RunEEProgram(true, branch_delay, false, nullptr, cop1_cp0.data(),
+        architectural_gpr.data(), initial_fpr.data(), initial_fcr.data());
+    CompareEE(delay_interp, delay_jit, "COP1 MFC1 normal branch delay slot");
+    const u64 delay_expected = static_cast<u64>(static_cast<s64>(static_cast<s32>(initial_fpr[5])));
+    Check(delay_interp.gpr[8] == delay_expected, "COP1 normal branch delay slot executes once");
+    EESnapshot direct{};
+    const bool delay_lowered = RunEEIrCop1Direct(branch_delay, architectural_gpr.data(), initial_fpr.data(), initial_fcr.data(), direct);
+    if (delay_lowered)
+    {
+        CompareEE(delay_interp, direct, "COP1 direct IR normal branch delay slot");
+    }
+
+    const std::vector<u32> likely_annul = {MipsI(0x14, 8, 0, 1), MipsCop1(0, 8, 5, 0, 0)};
+    const auto annul_interp = RunEEProgram(false, likely_annul, false, nullptr, cop1_cp0.data(),
+        architectural_gpr.data(), initial_fpr.data(), initial_fcr.data());
+    const auto annul_jit = RunEEProgram(true, likely_annul, false, nullptr, cop1_cp0.data(),
+        architectural_gpr.data(), initial_fpr.data(), initial_fcr.data());
+    CompareEE(annul_interp, annul_jit, "COP1 MFC1 untaken likely delay slot annulment");
+    Check(annul_interp.gpr[8] == architectural_gpr[8].UD[0], "COP1 untaken likely delay slot does not write GPR");
+    direct = {};
+    const bool annul_lowered = RunEEIrCop1Direct(likely_annul, architectural_gpr.data(), initial_fpr.data(), initial_fcr.data(), direct);
+    if (annul_lowered)
+    {
+        CompareEE(annul_interp, direct, "COP1 direct IR untaken likely delay slot annulment");
+    }
+    Check(delay_lowered && annul_lowered,
+        "COP1 transfer in normal and likely branch delay slots accepted and executed directly through EE IR");
+
+    auto raw_state_function = [](ir::Op op, u64 imm, ir::Type write_type = ir::Type::I32) {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        if (op == ir::Op::WriteFprBits || op == ir::Op::WriteFcr31)
+        {
+            const u32 value = write_type == ir::Type::I64 ? b.ConstI64(0x12345678) : b.ConstI32(0x12345678);
+            b.Emit1(op, ir::Type::Void, value, imm);
+        }
+        else
+            b.Emit(op, ir::Type::I32, {}, imm);
+        b.Return();
+        return fn;
+    };
+    {
+        std::string error;
+        ir::Function invalid = raw_state_function(ir::Op::ReadFprBits, 32);
+        std::array<u8, 128> code;
+        code.fill(0xa5);
+        Arm64Ir::LowerOptions options;
+        Arm64Ir::LowerOutput out;
+        const bool verified = ir::Verify(invalid, &error);
+        const bool lowered = Arm64Ir::LowerBlock(invalid, options, code.data(), code.size(), &out, &error);
+        const bool untouched = std::all_of(code.begin(), code.end(), [](u8 byte) { return byte == 0xa5; });
+        Check(!verified && !lowered && untouched,
+            "COP1 raw FPR index 32 is rejected before native bytes are emitted");
+    }
+    {
+        std::string error;
+        ir::Function wrong_type = raw_state_function(ir::Op::WriteFprBits, 3, ir::Type::I64);
+        Check(!ir::Verify(wrong_type, &error), "COP1 raw FPR write requires an I32 operand");
+        ir::Function wrong_fcr_type = raw_state_function(ir::Op::WriteFcr31, 0, ir::Type::I64);
+        Check(!ir::Verify(wrong_fcr_type, &error), "COP1 raw FCR write requires an I32 operand");
+        ir::Function invalid_fcr = raw_state_function(ir::Op::ReadFcr31, 1);
+        Check(!ir::Verify(invalid_fcr, &error), "COP1 raw FCR operation rejects an invalid fixed-register index");
+        ir::Function invalid_fcr_write = raw_state_function(ir::Op::WriteFcr31, 1);
+        Check(!ir::Verify(invalid_fcr_write, &error), "COP1 raw FCR write rejects an invalid fixed-register index");
+    }
+    {
+        std::string error;
+        ir::Function ee_only = raw_state_function(ir::Op::ReadFprBits, 7);
+        std::array<u8, 128> code;
+        code.fill(0x5a);
+        Arm64Ir::LowerOptions options;
+        options.guest_state = Arm64Ir::GuestState::IOP;
+        Arm64Ir::LowerOutput out;
+        const bool verified = ir::Verify(ee_only, &error);
+        const bool can_lower_iop = Arm64Ir::CanLower(ee_only, false, &error, Arm64Ir::GuestState::IOP);
+        const bool lowered_iop = Arm64Ir::LowerBlock(ee_only, options, code.data(), code.size(), &out, &error);
+        const bool untouched = std::all_of(code.begin(), code.end(), [](u8 byte) { return byte == 0x5a; });
+        Check(verified && !can_lower_iop && !lowered_iop && untouched,
+            "COP1 raw state stays EE-only and IOP rejection emits no native bytes");
+    }
+
+    bool rejects_arithmetic = true, rejects_bc1 = true, rejects_malformed = true;
+    for (const std::vector<u32>& unsupported : {
+            std::vector<u32>{MipsCop1(16, 9, 8, 10, 0)}, // add.s
+            std::vector<u32>{MipsCop1(8, 1, 0, 0, 0)}, // bc1t
+            std::vector<u32>{MipsCop1(3, 8, 5, 0, 0)}, // reserved rs/format
+            std::vector<u32>{MipsCop1(0, 8, 5, 1, 0)}, // reserved MFC1 fd bits
+            std::vector<u32>{MipsCop1(6, 8, 31, 0, 1)}}) // reserved CTC1 low bits
+    {
+        ir::Function fn;
+        u32 end = 0;
+        std::string error;
+        const bool accepted = EeIr::LiftBlock(unsupported.data(), {EE_TEST_PC, 1}, fn, &end, &error);
+        if (unsupported[0] == MipsCop1(16, 9, 8, 10, 0))
+            rejects_arithmetic &= !accepted;
+        else if (unsupported[0] == MipsCop1(8, 1, 0, 0, 0))
+            rejects_bc1 &= !accepted;
+        else
+            rejects_malformed &= !accepted;
+    }
+    Check(rejects_arithmetic, "COP1 scalar arithmetic remains outside this raw-transfer slice");
+    Check(rejects_bc1, "COP1 BC1 remains outside this raw-transfer slice");
+    Check(rejects_malformed, "COP1 reserved transfer encodings remain rejected by the raw-transfer slice");
+
+    // Exercise interpreter, legacy JIT, and production shared JIT separately.
+    // Each RunEEProgram call resets the EE recompiler/cache; the override is
+    // intentionally per-run so these comparisons cannot inherit a prior mode.
+    auto check_production_modes = [&](const char* name, const std::vector<u32>& code,
+        const std::array<u64, 4>& expected_shared_counts, const GPR_reg* gpr = nullptr) {
+        const GPR_reg* state_gpr = gpr ? gpr : initial_gpr.data();
+        const EESnapshot interp = RunEEProgram(false, code, false, nullptr, cop1_cp0.data(),
+            state_gpr, initial_fpr.data(), initial_fcr.data());
+        u64 before[4]{}, after_legacy[4]{}, after_shared[4]{};
+        EmuCoreXOracleGetEeIrCop1Counts(&before[0], &before[1], &before[2], &before[3]);
+        const EESnapshot legacy = RunEEProgramWithIrMode(0, code, state_gpr, cop1_cp0.data(),
+            initial_fpr.data(), initial_fcr.data());
+        EmuCoreXOracleGetEeIrCop1Counts(&after_legacy[0], &after_legacy[1], &after_legacy[2], &after_legacy[3]);
+        const EESnapshot shared = RunEEProgramWithIrMode(1, code, state_gpr, cop1_cp0.data(),
+            initial_fpr.data(), initial_fcr.data());
+        EmuCoreXOracleGetEeIrCop1Counts(&after_shared[0], &after_shared[1], &after_shared[2], &after_shared[3]);
+
+        CompareEE(interp, legacy, name);
+        char label[128];
+        std::snprintf(label, sizeof(label), "%s interpreter/shared state", name);
+        CompareEE(interp, shared, label);
+        std::snprintf(label, sizeof(label), "%s legacy/shared state", name);
+        CompareEE(legacy, shared, label);
+        Check(legacy.cycle == shared.cycle, "COP1 legacy/shared production JIT cycles match");
+
+        bool legacy_counts_clear = true, shared_counts_exact = true;
+        for (u32 i = 0; i < 4; ++i)
+        {
+            legacy_counts_clear &= after_legacy[i] == before[i];
+            shared_counts_exact &= after_shared[i] - after_legacy[i] == expected_shared_counts[i];
+        }
+        std::snprintf(label, sizeof(label), "%s legacy route has no shared COP1 compile hits", name);
+        Check(legacy_counts_clear, label);
+        std::snprintf(label, sizeof(label), "%s shared route increments exact COP1 compile counters", name);
+        Check(shared_counts_exact, label);
+    };
+
+    check_production_modes("COP1 production MFC1", {MipsCop1(0, 8, 5, 0, 0)}, {1, 0, 0, 0});
+    check_production_modes("COP1 production MTC1", {MipsCop1(4, 8, 5, 0, 0)}, {0, 1, 0, 0});
+    check_production_modes("COP1 production CFC1 FCR0", {MipsCop1(2, 8, 0, 0, 0)}, {0, 0, 1, 0});
+    check_production_modes("COP1 production CTC1 FCR31", {MipsCop1(6, 8, 31, 0, 0)}, {0, 0, 0, 1});
+    check_production_modes("COP1 production MFC1 rt zero", {MipsCop1(0, 0, 5, 0, 0)}, {1, 0, 0, 0});
+    check_production_modes("COP1 production MTC1 rt zero", {MipsCop1(4, 0, 5, 0, 0)}, {0, 1, 0, 0}, architectural_gpr.data());
+    check_production_modes("COP1 production CFC1 unsupported control", {MipsCop1(2, 8, 1, 0, 0)}, {0, 0, 1, 0});
+    check_production_modes("COP1 production CTC1 ignored control", {MipsCop1(6, 8, 1, 0, 0)}, {0, 0, 0, 1});
+    for (u32 bits : raw_bits)
+    {
+        initial_gpr[8].UD[0] = (initial_gpr[8].UD[0] & 0xffffffff00000000ull) | bits;
+        check_production_modes("COP1 production raw MTC1/MFC1 hazard",
+            {MipsCop1(4, 8, 5, 0, 0), MipsCop1(0, 9, 5, 0, 0)}, {1, 1, 0, 0});
+    }
+    check_production_modes("COP1 production CTC1/CFC1 control hazard",
+        {MipsCop1(6, 8, 31, 0, 0), MipsCop1(2, 9, 31, 0, 0)}, {0, 0, 1, 1});
+    check_production_modes("COP1 production normal branch delay transfer",
+        {MipsI(4, 0, 0, 1), MipsCop1(0, 8, 5, 0, 0)}, {1, 0, 0, 0});
+    check_production_modes("COP1 production likely-branch annul transfer",
+        {MipsI(0x14, 8, 0, 1), MipsCop1(0, 8, 5, 0, 0)}, {1, 0, 0, 0}, architectural_gpr.data());
+
+    // This reserved low-field form is safely interpreted as the legacy CTC1
+    // behavior, but the shared lifter must reject it and fall back unchanged.
+    check_production_modes("COP1 production reserved-lowbits fallback",
+        {MipsCop1(6, 8, 31, 0, 1)}, {0, 0, 0, 0});
+
+    // Force three separate blocks: the first writes raw COP1 state through
+    // shared IR, the second contains unsupported scalar FPU arithmetic and
+    // must stay on the legacy compiler, and the third reads the legacy
+    // arithmetic result back through shared IR. The exact 1.0 + 2.0 result
+    // gives an independent finite bit-pattern oracle without FP rounding noise.
+    {
+        auto boundary_gpr = initial_gpr;
+        auto boundary_fpr = initial_fpr;
+        auto boundary_fcr = initial_fcr;
+        boundary_gpr[8].UD[0] = (boundary_gpr[8].UD[0] & 0xffffffff00000000ull) | 0x3f800000u;
+        boundary_gpr[10].UD[0] = 0;
+        boundary_fpr[1] = 0xdeadbeefu;
+        boundary_fpr[2] = 0x40000000u; // 2.0f
+        boundary_fpr[3] = 0x7fc12345u;
+        boundary_fcr[31] = 0x80000000u;
+
+        const std::vector<u32> code = {
+            MipsCop1(4, 8, 1, 0, 0),             // block 1: mtc1 t0, f1 = 1.0
+            MipsCop1(6, 10, 31, 0, 0),           // ctc1 t2, fcr31 = 0
+            MipsI(4, 0, 0, 2), 0,                // branch to block 2
+            0,                                    // skipped word
+            MipsCop1(16, 1, 2, 3, 0),            // block 2: add.s f3, f1, f2 (legacy)
+            MipsI(4, 0, 0, 2), 0,                // branch to block 3
+            0,                                    // skipped word
+            MipsCop1(0, 9, 3, 0, 0)};             // block 3: mfc1 t1, f3
+
+        const EESnapshot interp = RunEEProgram(false, code, true, nullptr, cop1_cp0.data(),
+            boundary_gpr.data(), boundary_fpr.data(), boundary_fcr.data());
+        u64 before[4]{}, after_legacy[4]{}, after_shared[4]{};
+        EmuCoreXOracleGetEeIrCop1Counts(&before[0], &before[1], &before[2], &before[3]);
+        const EESnapshot legacy = RunEEProgramWithIrMode(0, code, boundary_gpr.data(), cop1_cp0.data(),
+            boundary_fpr.data(), boundary_fcr.data(), true);
+        EmuCoreXOracleGetEeIrCop1Counts(&after_legacy[0], &after_legacy[1], &after_legacy[2], &after_legacy[3]);
+        const EESnapshot shared = RunEEProgramWithIrMode(1, code, boundary_gpr.data(), cop1_cp0.data(),
+            boundary_fpr.data(), boundary_fcr.data(), true);
+        EmuCoreXOracleGetEeIrCop1Counts(&after_shared[0], &after_shared[1], &after_shared[2], &after_shared[3]);
+
+        CompareEE(interp, legacy, "COP1 IR/legacy-FPU boundary interpreter/legacy multi-block state");
+        CompareEE(interp, shared, "COP1 IR/legacy-FPU boundary interpreter/shared multi-block state");
+        CompareEE(legacy, shared, "COP1 IR/legacy-FPU boundary legacy/shared multi-block state");
+        Check(legacy.cycle == shared.cycle,
+            "COP1 IR/legacy-FPU boundary legacy/shared multi-block JIT cycles match");
+        Check(shared.fpr[1] == 0x3f800000u && shared.fpr[3] == 0x40400000u &&
+                shared.gpr[9] == 0x0000000040400000ull && shared.fcr[31] == 0,
+            "COP1 stores reach legacy ADD.S and its result reaches the following IR MFC1");
+
+        bool no_legacy_ir_counts = true;
+        bool exact_shared_ir_counts = true;
+        constexpr u64 expected_transfer_counts[4] = {1, 1, 0, 1};
+        for (u32 i = 0; i < 4; ++i)
+        {
+            no_legacy_ir_counts &= after_legacy[i] == before[i];
+            exact_shared_ir_counts &= after_shared[i] - after_legacy[i] == expected_transfer_counts[i];
+        }
+        Check(no_legacy_ir_counts,
+            "COP1 multi-block boundary legacy mode does not count shared-IR transfer blocks");
+        Check(exact_shared_ir_counts,
+            "COP1 multi-block boundary shared mode lowers MTC1, CTC1, and post-legacy MFC1 exactly once");
+    }
+
+    // This intentionally measures the MFC1-only fixture: cold timing includes
+    // the full reset/input setup plus compilation, while hot timing batches
+    // cached executions so timer granularity does not dominate the result.
+    const std::vector<u32> bench_code = {MipsCop1(0, 8, 5, 0, 0)};
+    for (int mode : {0, 1})
+    {
+        std::vector<double> cold_setup_compile_us;
+        u32 native_bytes = 0;
+        constexpr u32 cold_samples = 7;
+        for (u32 sample = 0; sample < cold_samples; ++sample)
+        {
+            const auto start = std::chrono::steady_clock::now();
+            const EESnapshot cold = RunEEProgramWithIrMode(mode, bench_code, initial_gpr.data(), cop1_cp0.data(),
+                initial_fpr.data(), initial_fcr.data());
+            const auto stop = std::chrono::steady_clock::now();
+            cold_setup_compile_us.push_back(std::chrono::duration<double, std::micro>(stop - start).count());
+            const u64 cold_expected = static_cast<u64>(static_cast<s64>(static_cast<s32>(initial_fpr[5])));
+            Check(cold.gpr[8] == cold_expected && cold.gpr_upper[8] == initial_gpr[8].UD[1] &&
+                    cold.cycle > 0 && cold.pc == EE_TEST_PC + 4,
+                "COP1 MFC1 cold benchmark executes the guest op and reaches the expected PC");
+            std::vector<JitBlockProfile> profiles;
+            EE_JitGetBlockProfiles(profiles);
+            u32 matching_blocks = 0;
+            for (const JitBlockProfile& profile : profiles)
+            {
+                if (profile.startpc == EE_TEST_PC)
+                {
+                    ++matching_blocks;
+                    native_bytes = profile.host_size;
+                }
+            }
+            Check(matching_blocks == 1 && native_bytes != 0,
+                "COP1 cold benchmark captures one nonzero actual native block size");
+        }
+        std::sort(cold_setup_compile_us.begin(), cold_setup_compile_us.end());
+
+        // Populate the cache once. Keep the selected route active for the full
+        // batch so every call is measured under the matching legacy/shared mode.
+        RunEEProgramWithIrMode(mode, bench_code, initial_gpr.data(), cop1_cp0.data(),
+            initial_fpr.data(), initial_fcr.data());
+        std::vector<double> hot_ns_per_op;
+        constexpr u32 hot_samples = 9;
+        constexpr u32 hot_repeats_per_sample = 4096;
+        EmuCoreXOracleSetEeIrMode(mode);
+        for (u32 sample = 0; sample < hot_samples; ++sample)
+        {
+            const u32 input_bits = raw_bits[sample % (sizeof(raw_bits) / sizeof(raw_bits[0]))];
+            const auto start = std::chrono::steady_clock::now();
+            for (u32 repeat = 0; repeat < hot_repeats_per_sample; ++repeat)
+            {
+                cpuRegs.CP0.n.Status.val = 0x20000000u;
+                cpuRegs.pc = EE_TEST_PC;
+                cpuRegs.cycle = 0;
+                cpuRegs.branch = 0;
+                cpuRegs.GPR.r[8].UD[0] = initial_gpr[8].UD[0];
+                cpuRegs.GPR.r[8].UD[1] = initial_gpr[8].UD[1];
+                cpuRegs.nextEventCycle = 0x7fffffffu;
+                fpuRegs.fpr[5].UL = input_bits;
+                EEsCycle = EEoCycle = 0;
+                EmuCoreXEEForceExitAfterFirstBlock();
+                Cpu->Execute();
+            }
+            const auto stop = std::chrono::steady_clock::now();
+            hot_ns_per_op.push_back(std::chrono::duration<double, std::nano>(stop - start).count() /
+                hot_repeats_per_sample);
+            const u64 expected_gpr = static_cast<u64>(static_cast<s64>(static_cast<s32>(input_bits)));
+            Check(cpuRegs.GPR.r[8].UD[0] == expected_gpr &&
+                    cpuRegs.GPR.r[8].UD[1] == initial_gpr[8].UD[1],
+                "COP1 MFC1 hot benchmark independently checks raw input, sign extension, and retained GPR upper64");
+            Check(cpuRegs.cycle > 0 && cpuRegs.pc == EE_TEST_PC + 4,
+                "COP1 MFC1 hot benchmark executes guest work and reaches the expected PC");
+        }
+        EmuCoreXOracleSetEeIrMode(-1);
+        std::sort(hot_ns_per_op.begin(), hot_ns_per_op.end());
+        std::printf("COP1_TRANSFER_BENCH workload=MFC1-only mode=%s cold_reset_setup_compile_median_us=%.3f hot_median_ns_per_op_including_state_reset=%.3f native_block_bytes=%u samples=%u/%u repeats_per_hot_sample=%u\n",
+            mode == 0 ? "legacy" : "shared", cold_setup_compile_us[cold_setup_compile_us.size() / 2],
+            hot_ns_per_op[hot_ns_per_op.size() / 2], native_bytes, cold_samples, hot_samples,
+            hot_repeats_per_sample);
+    }
 }
 
 
@@ -6504,6 +7111,7 @@ void EEIrPackedHiLoTests()
 
 void EEIrExecutionTests()
 {
+    EEIrCop1TransferTests();
     EEIrPackedKernelDceTests();
     EEIrQuadHiLoStateTests();
     EEIrPackedProductBackendTests();

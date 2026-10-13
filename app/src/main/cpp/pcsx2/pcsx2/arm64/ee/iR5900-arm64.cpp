@@ -75,6 +75,12 @@ static DynamicHeapArray<u8, 4096> recRAMCopy;
 static DynamicHeapArray<u8, 4096> recLutReserve_RAM;
 static size_t recLutSize;
 static bool extraRam;
+// Monotonic production compile counts; the self-test accessor reads snapshots
+// so each oracle case can assert exact per-form deltas.
+static u64 s_cop1_mfc1_compiles = 0;
+static u64 s_cop1_mtc1_compiles = 0;
+static u64 s_cop1_cfc1_compiles = 0;
+static u64 s_cop1_ctc1_compiles = 0;
 
 static BASEBLOCK* recRAM = nullptr; // and the ptr to the blocks here
 static BASEBLOCK* recROM = nullptr; // and here
@@ -2429,9 +2435,37 @@ static u8* recShortBlockLink_emit_oaknut(u32 next_pc, u32 scaled_cycles)
 // process so A/B runs only need `adb shell setprop debug.emucorex.ee_ir 1`.
 // The IR is still under development: it is compiled into debug builds only and
 // can never activate in a release build.
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+static int s_oracleEeIrModeOverride = -1;
+extern "C" void EmuCoreXOracleSetEeIrMode(int mode)
+{
+	if (mode >= -1 && mode <= 1)
+		s_oracleEeIrModeOverride = mode;
+}
+
+extern "C" void EmuCoreXOracleGetEeIrCop1Counts(u64* mfc1, u64* mtc1, u64* cfc1, u64* ctc1)
+{
+	if (mfc1) *mfc1 = s_cop1_mfc1_compiles;
+	if (mtc1) *mtc1 = s_cop1_mtc1_compiles;
+	if (cfc1) *cfc1 = s_cop1_cfc1_compiles;
+	if (ctc1) *ctc1 = s_cop1_ctc1_compiles;
+}
+#else
+extern "C" void EmuCoreXOracleSetEeIrMode(int mode) { (void)mode; }
+extern "C" void EmuCoreXOracleGetEeIrCop1Counts(u64* mfc1, u64* mtc1, u64* cfc1, u64* ctc1)
+{
+	if (mfc1) *mfc1 = 0;
+	if (mtc1) *mtc1 = 0;
+	if (cfc1) *cfc1 = 0;
+	if (ctc1) *ctc1 = 0;
+}
+#endif
+
 static bool EeIrEnabled()
 {
 #if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	if (s_oracleEeIrModeOverride >= 0)
+		return s_oracleEeIrModeOverride == 1;
 	static const bool s_enabled = []() {
 		char value[PROP_VALUE_MAX] = {};
 		const bool enabled = __system_property_get("debug.emucorex.ee_ir", value) > 0 && value[0] == '1';
@@ -2655,6 +2689,16 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	{
 		const u32 word = *reinterpret_cast<const u32*>(PSM(pc));
 		const u32 op = word >> 26;
+		if (op == 0x11)
+		{
+			switch ((word >> 21) & 0x1f)
+			{
+				case 0x00: ++s_cop1_mfc1_compiles; break;
+				case 0x02: ++s_cop1_cfc1_compiles; break;
+				case 0x04: ++s_cop1_mtc1_compiles; break;
+				case 0x06: ++s_cop1_ctc1_compiles; break;
+			}
+		}
 		if (op == 0x1c)
 		{
 			const u32 group = word & 0x3f;
@@ -2719,7 +2763,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu fused_multiply_pairs=%llu merge_memory=%llu direct_reads=%u direct_read_operations=%llu packed_narrow=%llu packed_saturating=%llu packed_permutations=%llu hilo_bank1=%llu multiply_accumulate=%llu plzcw=%llu full_hilo_reads=%llu full_hilo_writes=%llu widening_products=%llu variable_shifts=%llu",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu fused_multiply_pairs=%llu merge_memory=%llu direct_reads=%u direct_read_operations=%llu packed_narrow=%llu packed_saturating=%llu packed_permutations=%llu hilo_bank1=%llu multiply_accumulate=%llu plzcw=%llu full_hilo_reads=%llu full_hilo_writes=%llu widening_products=%llu variable_shifts=%llu cop1_mfc1=%llu cop1_mtc1=%llu cop1_cfc1=%llu cop1_ctc1=%llu",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
@@ -2739,7 +2783,9 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			static_cast<unsigned long long>(packed_narrow_operations), static_cast<unsigned long long>(packed_saturating_operations), static_cast<unsigned long long>(packed_permutation_operations),
 			static_cast<unsigned long long>(hilo_bank1_instructions), static_cast<unsigned long long>(multiply_accumulate_instructions), static_cast<unsigned long long>(plzcw_instructions),
 			static_cast<unsigned long long>(full_hilo_reads), static_cast<unsigned long long>(full_hilo_writes),
-			static_cast<unsigned long long>(widening_products), static_cast<unsigned long long>(variable_shifts));
+			static_cast<unsigned long long>(widening_products), static_cast<unsigned long long>(variable_shifts),
+			static_cast<unsigned long long>(s_cop1_mfc1_compiles), static_cast<unsigned long long>(s_cop1_mtc1_compiles),
+			static_cast<unsigned long long>(s_cop1_cfc1_compiles), static_cast<unsigned long long>(s_cop1_ctc1_compiles));
 	}
 #endif
 

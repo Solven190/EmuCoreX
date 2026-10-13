@@ -53,6 +53,8 @@ namespace ir
 				case Op::WriteGpr:
 				case Op::ReadFpr:
 				case Op::WriteFpr:
+				case Op::ReadFprBits:
+				case Op::WriteFprBits:
 				case Op::ReadVf:
 				case Op::WriteVf:
 				case Op::ReadVi:
@@ -61,6 +63,10 @@ namespace ir
 				case Op::WriteAcc:
 					std::snprintf(buffer, sizeof(buffer), "#%u", static_cast<u32>(inst.imm));
 					out += buffer;
+					return;
+				case Op::ReadFcr31:
+				case Op::WriteFcr31:
+					out += "#31";
 					return;
 				case Op::ReadVfLaneBits:
 					std::snprintf(buffer, sizeof(buffer), "#%u lane=%u",

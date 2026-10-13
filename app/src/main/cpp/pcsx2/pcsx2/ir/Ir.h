@@ -129,6 +129,11 @@ namespace ir
 	X(WriteCp0,     StateWrite,  1, 1, Void, false) \
 	X(ReadFpr,      StateRead,   0, 0, F32,  false) \
 	X(WriteFpr,     StateWrite,  1, 1, Void, false) \
+	/* Raw scalar COP1 transfer words. FCR31 is the only architecturally writable FCR here. */ \
+	X(ReadFprBits,  StateRead,   0, 0, I32,  false) \
+	X(WriteFprBits, StateWrite,  1, 1, Void, false) \
+	X(ReadFcr31,    StateRead,   0, 0, I32,  false) \
+	X(WriteFcr31,   StateWrite,  1, 1, Void, false) \
 	X(ReadVf,       StateRead,   0, 0, V4F32, false) \
 	X(WriteVf,      StateWrite,  1, 1, Void, false) \
 	/* Read raw bits from a single VU VF lane; aux selects lane 0..3. */ \

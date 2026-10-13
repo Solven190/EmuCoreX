@@ -329,6 +329,7 @@ namespace ir
 				case Op::CmpLeS: case Op::CmpLeU: case Op::CmpGtS: case Op::CmpGtU:
 				case Op::CmpGeS: case Op::CmpGeU: case Op::Select:
 				case Op::ReadGpr: case Op::ReadHi: case Op::ReadLo: case Op::ReadCp0:
+				case Op::ReadFprBits: case Op::ReadFcr31:
 					return true;
 				default: return false;
 			}

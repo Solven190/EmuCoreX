@@ -351,6 +351,10 @@ namespace Arm64Ir
 				case ir::Op::Store128:
 				case ir::Op::ReadCp0:
 				case ir::Op::WriteCp0:
+				case ir::Op::ReadFprBits:
+				case ir::Op::WriteFprBits:
+				case ir::Op::ReadFcr31:
+				case ir::Op::WriteFcr31:
 				case ir::Op::CheckInterrupts:
 				case ir::Op::ReadGpr:
 				case ir::Op::WriteGpr:
@@ -658,6 +662,12 @@ namespace Arm64Ir
 					return static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.GPR.r[0])) + reg * sizeof(u32);
 				return static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.GPR.r[0])) +
 					static_cast<s64>(reg) * static_cast<s64>(sizeof(GPR_reg));
+			}
+
+			s64 FprBitsOffset(u32 reg) const
+			{
+				return static_cast<s64>(offsetof(cpuRegistersPack, fpuRegs.fpr[0].UL)) +
+					static_cast<s64>(reg) * static_cast<s64>(sizeof(FPRreg));
 			}
 
 			s64 LoOffset(u64 bank) const { return m_guest_state == GuestState::IOP ? offsetof(cpuRegistersPack, psxRegs.GPR.n.lo) : offsetof(cpuRegistersPack, cpuRegs.LO) + bank * sizeof(u64); }
@@ -2249,6 +2259,32 @@ namespace Arm64Ir
 				case ir::Op::WriteCp0:
 					recBeginOaknutEmit();
 					oakStore32(Operand32(a[0], oak::util::W0), {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.CP0) + inst.imm * sizeof(u32))});
+					recEndOaknutEmit();
+					return true;
+
+				case ir::Op::ReadFprBits:
+					recBeginOaknutEmit();
+					oakLoad32(Result32(inst.value), {GuestBase(), FprBitsOffset(static_cast<u32>(inst.imm))});
+					Store32(inst.value, Result32(inst.value));
+					recEndOaknutEmit();
+					return true;
+
+				case ir::Op::WriteFprBits:
+					recBeginOaknutEmit();
+					oakStore32(Operand32(a[0], oak::util::W0), {GuestBase(), FprBitsOffset(static_cast<u32>(inst.imm))});
+					recEndOaknutEmit();
+					return true;
+
+				case ir::Op::ReadFcr31:
+					recBeginOaknutEmit();
+					oakLoad32(Result32(inst.value), {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, fpuRegs.fprc[31]))});
+					Store32(inst.value, Result32(inst.value));
+					recEndOaknutEmit();
+					return true;
+
+				case ir::Op::WriteFcr31:
+					recBeginOaknutEmit();
+					oakStore32(Operand32(a[0], oak::util::W0), {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, fpuRegs.fprc[31]))});
 					recEndOaknutEmit();
 					return true;
 

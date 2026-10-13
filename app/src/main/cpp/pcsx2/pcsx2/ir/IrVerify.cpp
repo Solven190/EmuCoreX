@@ -44,6 +44,12 @@ namespace ir
 
 			if ((inst.op == Op::ReadCp0 || inst.op == Op::WriteCp0) && inst.imm >= 32)
 				return Fail(error, "COP0: register index is out of range");
+			if ((inst.op == Op::ReadFprBits || inst.op == Op::WriteFprBits) &&
+				(inst.imm >= 32 || (inst.aux & ~IF_DELAY_SLOT) != 0))
+				return Fail(error, "FPR bits: register index or flags are out of range");
+			if ((inst.op == Op::ReadFcr31 || inst.op == Op::WriteFcr31) &&
+				(inst.imm != 0 || (inst.aux & ~IF_DELAY_SLOT) != 0))
+				return Fail(error, "FCR31: fixed register or flags are out of range");
 			if ((inst.op == Op::ReadHi || inst.op == Op::ReadLo || inst.op == Op::WriteHi || inst.op == Op::WriteLo) && inst.imm > 1)
 				return Fail(error, "HI/LO: bank index is out of range");
 			if (inst.op == Op::ConstVec && inst.imm >= fn.vec_consts.size())
@@ -196,6 +202,9 @@ namespace ir
 				{
 					if (inst.op == Op::WriteCp0 && fn.ValueType(inst.args[0]) != Type::I32)
 						return Fail(error, "COP0: 32-bit write required");
+					if ((inst.op == Op::WriteFprBits || inst.op == Op::WriteFcr31) &&
+						fn.ValueType(inst.args[0]) != Type::I32)
+						return Fail(error, "COP1 raw state: 32-bit write required");
 					if (inst.args[0] == 0)
 						return Fail(error, std::string(OpName(inst.op)) + ": missing value");
 					break;

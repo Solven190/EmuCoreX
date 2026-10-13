@@ -549,6 +549,47 @@ namespace EeIr
 				case 0x0F: // lui
 					WriteGpr(rt, Const(uimm << 16));
 					return true;
+				case 0x11: // COP1 raw register transfers only
+				{
+					const u32 format = rs;
+					const u32 fs = Rd(word);
+					if ((format != 0x00 && format != 0x02 && format != 0x04 && format != 0x06) ||
+						(word & 0x7ffu) != 0)
+						return Fail(error, "unsupported or malformed COP1 transfer", pc);
+
+					switch (format)
+					{
+						case 0x00: // mfc1: raw word, signed extension to the EE's 64-bit GPR
+							if (rt != 0)
+							{
+								const u32 bits = m_b.Emit(ir::Op::ReadFprBits, ir::Type::I32, {}, fs);
+								WriteGprWide(rt, m_b.Emit1(ir::Op::Sext32, ir::Type::I64, bits));
+							}
+							return true;
+						case 0x02: // cfc1: FCR0 is an architectural constant; only FCR31 is readable
+							if (rt != 0)
+							{
+								u32 value;
+								if (fs == 0)
+									value = m_b.ConstI64(0x2e00);
+								else if (fs == 31)
+									value = m_b.Emit1(ir::Op::Sext32, ir::Type::I64,
+										m_b.Emit0(ir::Op::ReadFcr31, ir::Type::I32));
+								else
+									value = m_b.ConstI64(0);
+								WriteGprWide(rt, value);
+							}
+							return true;
+						case 0x04: // mtc1: preserve the exact low 32 GPR bits
+							m_b.Emit(ir::Op::WriteFprBits, ir::Type::Void, {ReadGpr(rt)}, fs);
+							return true;
+						case 0x06: // ctc1: only FCR31 is writable in this interpreter
+							if (fs == 31)
+								m_b.Emit1(ir::Op::WriteFcr31, ir::Type::Void, ReadGpr(rt));
+							return true;
+					}
+					return false;
+				}
 				case 0x19: // daddiu
 					WriteGprWide(rt, BinWide(ir::Op::Add, ReadGprWide(rs), m_b.ConstI64(static_cast<u64>(static_cast<s64>(simm)))));
 					return true;
