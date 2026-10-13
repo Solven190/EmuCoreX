@@ -87,6 +87,45 @@ enum : u32
 	MAX_TFX_UBO_DESCRIPTOR_SETS = 2,
 };
 
+namespace
+{
+// MaliSX2 support is identified from Vulkan's driverInfo, which distinguishes the custom
+// renderer from stock ARM drivers that report the same vendor and device properties.
+bool IsMaliSX2DriverInfo(std::string_view driver_info)
+{
+	constexpr std::string_view marker = "malisx2";
+	if (driver_info.size() < marker.size())
+		return false;
+
+	for (size_t start = 0; start <= driver_info.size() - marker.size(); start++)
+	{
+		bool matches = true;
+		for (size_t i = 0; i < marker.size(); i++)
+		{
+			char value = driver_info[start + i];
+			if (value >= 'A' && value <= 'Z')
+				value = static_cast<char>(value - 'A' + 'a');
+			matches &= (value == marker[i]);
+		}
+		if (matches)
+			return true;
+	}
+
+	return false;
+}
+
+bool ShouldEnableMaliSX2ROAA(std::string_view driver_info, bool extension_enabled, bool feature_supported)
+{
+	return IsMaliSX2DriverInfo(driver_info) && extension_enabled && feature_supported;
+}
+
+bool ShouldUseMaliSX2PushDescriptors(std::string_view driver_info, bool extension_enabled,
+	u32 available_count, u32 required_count)
+{
+	return IsMaliSX2DriverInfo(driver_info) && extension_enabled && available_count >= required_count;
+}
+} // namespace
+
 static const char* GetVulkanVendorHint(u32 vendor_id)
 {
 	switch (vendor_id)
@@ -159,10 +198,9 @@ static constexpr VkClearValue s_present_clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}
 // We need to synchronize instance creation because of adapter enumeration from the UI thread.
 static std::mutex s_instance_mutex;
 
-// Device extensions that are required for PCSX2.
-static constexpr const char* s_required_device_extensions[] = {
-	VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
-};
+// Surface support requires swapchain separately. The shaders use gl_VertexIndex
+// and an explicit BaseVertex constant, so shader draw parameters are unnecessary.
+static constexpr std::array<const char*, 0> s_required_device_extensions = {};
 
 GSDeviceVK::GSDeviceVK()
 {
@@ -341,6 +379,9 @@ GSDeviceVK::GPUList GSDeviceVK::EnumerateGPUs(VkInstance instance)
 
 	u32 gpu_count = 0;
 	VkResult res = vkEnumeratePhysicalDevices(instance, &gpu_count, nullptr);
+#ifdef __ANDROID__
+	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX", "Vulkan device enumeration: result=%d count=%u", res, gpu_count);
+#endif
 	if ((res != VK_SUCCESS && res != VK_INCOMPLETE) || gpu_count == 0)
 	{
 		LOG_VULKAN_ERROR(res, "vkEnumeratePhysicalDevices (1) failed: ");
@@ -369,6 +410,10 @@ GSDeviceVK::GPUList GSDeviceVK::EnumerateGPUs(VkInstance instance)
 	{
 		VkPhysicalDeviceProperties props = {};
 		vkGetPhysicalDeviceProperties(device, &props);
+#ifdef __ANDROID__
+		__android_log_print(ANDROID_LOG_INFO, "EmuCoreX", "Vulkan device candidate: name=%s api=%u.%u.%u", props.deviceName,
+			VK_API_VERSION_MAJOR(props.apiVersion), VK_API_VERSION_MINOR(props.apiVersion), VK_API_VERSION_PATCH(props.apiVersion));
+#endif
 
 		// Skip GPUs which don't support Vulkan 1.1, since we won't be able to create a device with them anyway.
 		if (VK_API_VERSION_VARIANT(props.apiVersion) == 0 && VK_API_VERSION_MAJOR(props.apiVersion) <= 1 &&
@@ -405,6 +450,9 @@ GSDeviceVK::GPUList GSDeviceVK::EnumerateGPUs(VkInstance instance)
 			{
 				Console.Warning(fmt::format("VK: Ignoring GPU '{}' because is is missing required extension {}",
 					props.deviceName, required_extension_name));
+#ifdef __ANDROID__
+				__android_log_print(ANDROID_LOG_WARN, "EmuCoreX", "Vulkan device rejected: name=%s missing=%s", props.deviceName, required_extension_name);
+#endif
 				has_missing_extension = true;
 			}
 		}
@@ -524,9 +572,12 @@ bool GSDeviceVK::SelectDeviceExtensions(ExtensionList* extension_list, bool enab
 	m_optional_extensions.vk_ext_memory_budget = SupportsExtension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME, false);
 	m_optional_extensions.vk_ext_calibrated_timestamps =
 		SupportsExtension(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME, false);
-	// Keep Vulkan feedback on the explicit-barrier path. The Arm ROAA path is not enabled:
-	// this driver returns wrong/zero input-attachment data with the ROAA subpass opt-in.
-	m_optional_extensions.vk_ext_rasterization_order_attachment_access = false;
+	// ROAA has EXT and ARM spellings with the same feature structure. Enable whichever
+	// advertised alias is available, query its feature, then gate actual use on driverInfo
+	// after physical-device properties have been queried.
+	m_optional_extensions.vk_ext_rasterization_order_attachment_access =
+		SupportsExtension(VK_EXT_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME, false) ||
+		SupportsExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME, false);
 	m_optional_extensions.vk_ext_attachment_feedback_loop_layout =
 		SupportsExtension(VK_EXT_ATTACHMENT_FEEDBACK_LOOP_LAYOUT_EXTENSION_NAME, false);
 	m_optional_extensions.vk_ext_line_rasterization = SupportsExtension(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME, false);
@@ -956,11 +1007,15 @@ bool GSDeviceVK::ProcessDeviceExtensions()
 	// query
 	vkGetPhysicalDeviceProperties2(m_physical_device, &properties2);
 
-	m_use_push_descriptors = m_optional_extensions.vk_khr_push_descriptor;
 #if defined(__ANDROID__)
-	// Descriptor-set binding is the common, driver-agnostic path on mobile.
-	m_use_push_descriptors = false;
+	// Stock ARM drivers can fail inside vkCmdPushDescriptorSetKHR. The custom MaliSX2
+	// driver is enabled only when its Vulkan identity, extension, and full descriptor count
+	// are all confirmed; every other Android driver retains descriptor-set binding.
+	m_use_push_descriptors = ShouldUseMaliSX2PushDescriptors(m_device_driver_properties.driverInfo,
+		m_optional_extensions.vk_khr_push_descriptor, push_descriptor_properties.maxPushDescriptors,
+		NUM_TFX_TEXTURES);
 #else
+	m_use_push_descriptors = m_optional_extensions.vk_khr_push_descriptor;
 	if (m_use_push_descriptors &&
 		(properties2.properties.vendorID == 0x13B5u || properties2.properties.vendorID == 0x1010u))
 	{
@@ -975,6 +1030,13 @@ bool GSDeviceVK::ProcessDeviceExtensions()
 	}
 	if (!m_use_push_descriptors)
 		Console.Warning("VK: Using non-push-descriptor texture binding fallback.");
+	const char* const driver_info = m_optional_extensions.vk_khr_driver_properties ?
+		m_device_driver_properties.driverInfo : "unavailable";
+	Console.WriteLn("VK: Vulkan driverInfo='%s' MaliSX2=%s ROAA=%s pushDescriptors=%s (%u/%u)",
+		driver_info, IsMaliSX2DriverInfo(driver_info) ? "yes" : "no",
+		m_optional_extensions.vk_ext_rasterization_order_attachment_access ? "supported" : "unavailable",
+		m_use_push_descriptors ? "enabled" : "disabled",
+		push_descriptor_properties.maxPushDescriptors, NUM_TFX_TEXTURES);
 
 	if (m_optional_extensions.vk_ext_line_rasterization && !line_rasterization_feature.bresenhamLines)
 	{
@@ -3195,10 +3257,11 @@ bool GSDeviceVK::CheckFeatures()
 {
 	const VkPhysicalDeviceLimits& limits = m_device_properties.limits;
 
-	// ROAA is disabled during extension selection, so this stays false today. Keep the
-	// capability formula so an explicit opt-in would still have to pass through one place.
 	const bool has_framebuffer_fetch_extension = m_optional_extensions.vk_ext_rasterization_order_attachment_access;
-	const bool framebuffer_fetch = has_framebuffer_fetch_extension && !GSConfig.DisableFramebufferFetch;
+	const std::string_view driver_info = m_optional_extensions.vk_khr_driver_properties ?
+		std::string_view(m_device_driver_properties.driverInfo) : std::string_view{};
+	const bool framebuffer_fetch = ShouldEnableMaliSX2ROAA(driver_info, has_framebuffer_fetch_extension,
+		!GSConfig.DisableFramebufferFetch);
 	const bool texture_barrier = (GSConfig.OverrideTextureBarriers != 0);
 
 	m_features.multidraw_fb_copy = false;
@@ -3246,6 +3309,8 @@ bool GSDeviceVK::CheckFeatures()
 
 	// Fbfetch is useless if we don't have barriers enabled.
 	m_features.framebuffer_fetch &= m_features.texture_barrier;
+	Console.WriteLn("VK: MaliSX2 framebuffer fetch=%s texture barrier=%s",
+		m_features.framebuffer_fetch ? "enabled" : "disabled", m_features.texture_barrier ? "enabled" : "disabled");
 
 	// Concurrent depth testing/sampling relies on the same feedback synchronization path.
 	m_features.test_and_sample_depth = m_features.texture_barrier;
@@ -4607,7 +4672,6 @@ static void AddShaderHeader(std::stringstream& ss, const GSDeviceVK::TFXShaderSo
 {
 	ss << "#version 460 core\n";
 	ss << "#extension GL_EXT_samplerless_texture_functions : require\n";
-	ss << "#extension GL_ARB_shader_draw_parameters : require\n";
 	if (capabilities.rov)
 	{
 		ss << "#extension GL_ARB_fragment_shader_interlock : require\n";
@@ -6488,6 +6552,38 @@ bool GSDeviceVK::TestTFXShaderSourceCatalog()
 			return false;
 	}
 	return original.vertex_sources != changed.vertex_sources && original.fragment_sources != changed.fragment_sources;
+}
+
+bool GSDeviceVK::TestMaliSX2Policy()
+{
+	constexpr std::string_view mali_driver = "MaliSX2 0.1.4 (r40p0)";
+	constexpr std::string_view mali_driver_upper = "MALISX2 custom Vulkan driver";
+	constexpr std::string_view stock_mali_driver = "ARM Vulkan driver r40p0";
+	constexpr std::string_view generic_libmali = "libmali.so proprietary driver";
+	constexpr u32 required_push_descriptors = NUM_TFX_TEXTURES;
+
+	if (!IsMaliSX2DriverInfo(mali_driver) || !IsMaliSX2DriverInfo(mali_driver_upper) ||
+		IsMaliSX2DriverInfo(stock_mali_driver) || IsMaliSX2DriverInfo(generic_libmali) ||
+		IsMaliSX2DriverInfo(std::string_view{}))
+	{
+		return false;
+	}
+
+	if (!ShouldEnableMaliSX2ROAA(mali_driver, true, true) ||
+		ShouldEnableMaliSX2ROAA(stock_mali_driver, true, true) ||
+		ShouldEnableMaliSX2ROAA(generic_libmali, true, true) ||
+		ShouldEnableMaliSX2ROAA(mali_driver, false, true) ||
+		ShouldEnableMaliSX2ROAA(mali_driver, true, false))
+	{
+		return false;
+	}
+
+	return ShouldUseMaliSX2PushDescriptors(mali_driver, true, required_push_descriptors, required_push_descriptors) &&
+		ShouldUseMaliSX2PushDescriptors(mali_driver, true, required_push_descriptors + 3, required_push_descriptors) &&
+		!ShouldUseMaliSX2PushDescriptors(mali_driver, false, required_push_descriptors, required_push_descriptors) &&
+		!ShouldUseMaliSX2PushDescriptors(mali_driver, true, required_push_descriptors - 1, required_push_descriptors) &&
+		!ShouldUseMaliSX2PushDescriptors(stock_mali_driver, true, required_push_descriptors, required_push_descriptors) &&
+		!ShouldUseMaliSX2PushDescriptors(generic_libmali, true, required_push_descriptors, required_push_descriptors);
 }
 
 bool GSDeviceVK::TestTFXAlphaFallbackClassifier()

@@ -256,6 +256,7 @@ void ClassifierTests()
     Check(GSDeviceVK::TestTFXShaderSourceCatalog(), "GS pure catalog maps all baseline pipelines to unique canonical sources");
     Check(GSDeviceVK::TestTFXShaderSourceBuilders(), "GS reusable source builders preserve all selector and capability variants");
     Check(GSDeviceVK::TestTFXAlphaFallbackClassifier(), "GS alpha fallback class preserves all other selector and pipeline axes");
+    Check(GSDeviceVK::TestMaliSX2Policy(), "GS MaliSX2 policy enables ROAA and push descriptors only for the identified capable driver");
     Check(GSDeviceVK::TestTFXWarmupOrdering(), "GS learned pipelines precede generic warmup without duplicates");
     Check(JitProfiler::TestSampleRangeSelection(), "profiler nested opcode range selection");
     Check(ir::RunSelfTests(), "IR core self-tests");

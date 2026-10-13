@@ -213,6 +213,12 @@ object GpuDriverCompatibility {
     private val SNAPDRAGON_SOC_PATTERN = Regex("""\bsm[0-9]{3,4}\b""")
 
     private const val DRIVER_VENDOR_METADATA = "driver_vendor.txt"
+    private const val MALI_SX2_CATALOG_ID_PREFIX = "mali-sx2-"
+    private const val MALI_SX2_LIBRARY_NAME = "libvulkan_malisx2.so"
+    private val MALI_SX2_SUPPORTED_MODEL = Regex(
+        """^(?:mali|immortalis)-g(?:57|68|77|78(?:ae)?|615|715)(?:\s+(?:mc|mp)\s*\d{1,2})?$""",
+        RegexOption.IGNORE_CASE
+    )
 
     fun deviceVendor(): GpuDriverVendor = deviceVendor(currentDeviceInfo())
 
@@ -227,6 +233,31 @@ object GpuDriverCompatibility {
     }
 
     fun supportsCustomDrivers(): Boolean = deviceVendor().supportsCustomDrivers
+
+    internal fun supportsCustomDrivers(deviceInfo: String): Boolean =
+        deviceVendor(deviceInfo).supportsCustomDrivers
+
+    internal fun isCatalogDriverCompatible(
+        driver: RemoteGpuDriver,
+        deviceVendor: GpuDriverVendor,
+        deviceGpu: DeviceGpuSnapshot?
+    ): Boolean = isVendorCompatible(driver.vendor, deviceVendor) &&
+        (!driver.id.startsWith(MALI_SX2_CATALOG_ID_PREFIX, ignoreCase = true) || supportsMaliSx2Gpu(deviceGpu))
+
+    internal fun isInstalledDriverCompatible(
+        mainLibraryName: String,
+        driverVendor: GpuDriverVendor,
+        deviceVendor: GpuDriverVendor,
+        deviceGpu: DeviceGpuSnapshot?
+    ): Boolean = isVendorCompatible(driverVendor, deviceVendor) &&
+        (!mainLibraryName.substringAfterLast('/').substringAfterLast('\\')
+            .equals(MALI_SX2_LIBRARY_NAME, ignoreCase = true) || supportsMaliSx2Gpu(deviceGpu))
+
+    internal fun supportsMaliSx2Gpu(deviceGpu: DeviceGpuSnapshot?): Boolean {
+        val model = deviceGpu?.model?.takeIf { deviceGpu.source == GpuInfoSource.GL_RENDERER } ?: return false
+        if (model.vendor != GpuVendor.MALI) return false
+        return MALI_SX2_SUPPORTED_MODEL.matches(model.displayName.trim())
+    }
 
     /** Adreno-only helper kept for callers that explicitly need Turnip support. */
     fun supportsAdrenoToolsCustomDrivers(): Boolean = deviceVendor() == GpuDriverVendor.ADRENO

@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sbro.emucorex.R
 import com.sbro.emucorex.core.AdrenoFamily
+import com.sbro.emucorex.core.DeviceGpuInfoProvider
 import com.sbro.emucorex.core.InstalledGpuDriver
 import com.sbro.emucorex.core.GpuDriverCompatibility
 import com.sbro.emucorex.core.GpuDriverRecommendations
@@ -130,6 +131,9 @@ fun GpuDriverScreen(
     var expandedDriverId by rememberSaveable { mutableStateOf<String?>(null) }
     val deviceProfile = remember { GpuDriverRecommendations.currentDeviceProfile() }
     val deviceVendor = remember { GpuDriverCompatibility.deviceVendor() }
+    val initialDeviceGpu = remember(context) { DeviceGpuInfoProvider.get(context) }
+    val deviceGpuSnapshot by DeviceGpuInfoProvider.snapshot.collectAsState()
+    val deviceGpu = deviceGpuSnapshot ?: initialDeviceGpu
     val deviceSummary = remember { GpuDriverCompatibility.currentDevice() }
     val isAdrenoDevice = deviceVendor == GpuDriverVendor.ADRENO
     val deviceHintRes = if (isAdrenoDevice) {
@@ -150,7 +154,7 @@ fun GpuDriverScreen(
     }
     val remoteDrivers = uiState.remoteGpuDrivers
         .filter { driver ->
-            GpuDriverCompatibility.isVendorCompatible(driver.vendor, deviceVendor) &&
+            GpuDriverCompatibility.isCatalogDriverCompatible(driver, deviceVendor, deviceGpu) &&
                 driver.matchesSearch(searchQuery) &&
                 (variantFilter == GPU_DRIVER_FILTER_ALL || driver.variant.equals(variantFilter, ignoreCase = true)) &&
                 (sourceFilter == GPU_DRIVER_FILTER_ALL || driver.sourceLabel().equals(sourceFilter, ignoreCase = true))
@@ -233,7 +237,7 @@ fun GpuDriverScreen(
             items(uiState.installedGpuDrivers, key = { it.name }) { driver ->
                 InstalledDriverRow(
                     driver = driver,
-                    selected = driver.mainLibraryPath == activeDriverPath,
+                    selected = driver.isUsable && driver.mainLibraryPath == activeDriverPath,
                     onSelect = {
                         onSelectDriverForGame?.invoke(driver.name) ?: viewModel.selectGpuDriver(driver.name)
                     },
@@ -640,6 +644,7 @@ private fun InstalledDriverRow(
         color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.58f)),
         interactionSource = interactionSource,
+        enabled = driver.isUsable,
         onClick = onSelect
     ) {
         Row(

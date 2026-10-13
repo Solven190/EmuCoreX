@@ -123,10 +123,17 @@ object EmulatorBridge {
         // adrenotools/dlopen and crashing inside a third-party Vulkan binary.
         val file = File(path)
         if (!file.isFile || file.length() <= 0L) return ""
-        // A driver built for another GPU vendor must never be loaded: an
-        // Adreno Turnip pack on a Mali device (or the reverse) crashes inside
-        // the third-party driver.
-        if (!GpuDriverCompatibility.isVendorCompatible(GpuDriverCompatibility.installedDriverVendor(file))) {
+        // Refuse cross-vendor packages and Mali SX2 on an unknown or unsupported
+        // renderer before either a saved setting or per-game override can reach native code.
+        val context = getContext()?.applicationContext ?: return ""
+        val vendor = GpuDriverCompatibility.installedDriverVendor(file)
+        if (!GpuDriverCompatibility.isInstalledDriverCompatible(
+                mainLibraryName = file.name,
+                driverVendor = vendor,
+                deviceVendor = GpuDriverCompatibility.deviceVendor(),
+                deviceGpu = DeviceGpuInfoProvider.get(context)
+            )
+        ) {
             return ""
         }
         file.setReadable(true, true)

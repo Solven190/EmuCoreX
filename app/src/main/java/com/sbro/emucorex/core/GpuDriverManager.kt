@@ -36,7 +36,7 @@ class GpuDriverManager(private val context: Context) {
                     mainLibrary = mainLibrary,
                     mainLibraryPath = mainLibraryFile.absolutePath,
                     isUsable = isValidDriverLibrary(mainLibraryFile) &&
-                        GpuDriverCompatibility.isVendorCompatible(vendor),
+                        isCompatibleForCurrentDevice(mainLibraryFile, vendor),
                     vendor = vendor
                 )
             }
@@ -88,7 +88,7 @@ class GpuDriverManager(private val context: Context) {
     }
 
     fun isVendorCompatible(libraryFile: File): Boolean =
-        GpuDriverCompatibility.isVendorCompatible(GpuDriverCompatibility.installedDriverVendor(libraryFile))
+        isCompatibleForCurrentDevice(libraryFile, GpuDriverCompatibility.installedDriverVendor(libraryFile))
 
     fun isVendorCompatible(libraryPath: String?): Boolean {
         val file = libraryPath?.takeIf { it.isNotBlank() }?.let(::File) ?: return false
@@ -156,7 +156,13 @@ class GpuDriverManager(private val context: Context) {
             ?.takeIf { it != GpuDriverVendor.UNKNOWN }
             ?: GpuDriverCompatibility.vendorOfDriverLibrary(driverLibrary)
         val deviceVendor = GpuDriverCompatibility.deviceVendor()
-        if (!GpuDriverCompatibility.isVendorCompatible(detectedVendor, deviceVendor)) {
+        if (!GpuDriverCompatibility.isInstalledDriverCompatible(
+                selectedDriver,
+                detectedVendor,
+                deviceVendor,
+                DeviceGpuInfoProvider.get(context)
+            )
+        ) {
             targetDir.deleteRecursively()
             error(
                 "This driver is for ${detectedVendor.displayName} GPUs and cannot be used on this " +
@@ -170,6 +176,14 @@ class GpuDriverManager(private val context: Context) {
     }
 
     private fun driversRoot(): File = File(context.filesDir, "driver")
+
+    private fun isCompatibleForCurrentDevice(libraryFile: File, vendor: GpuDriverVendor): Boolean =
+        GpuDriverCompatibility.isInstalledDriverCompatible(
+            mainLibraryName = libraryFile.name,
+            driverVendor = vendor,
+            deviceVendor = GpuDriverCompatibility.deviceVendor(),
+            deviceGpu = DeviceGpuInfoProvider.get(context)
+        )
 
     private fun readMainLibraryName(driverDir: File): String? {
         val metadataFile = File(driverDir, "driver_name.txt")
