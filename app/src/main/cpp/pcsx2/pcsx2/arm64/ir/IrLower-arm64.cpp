@@ -272,6 +272,7 @@ namespace Arm64Ir
 				, m_inline_division(options.optimize_ir && options.inline_division)
 				, m_fuse_multiply_pairs(options.optimize_ir)
 				, m_direct_quad_memory(options.optimize_ir && options.direct_quad_memory && (!CHECK_CACHE || CHECK_EEREC))
+				, m_direct_ee_loads(options.guest_state == GuestState::EE && options.optimize_ir && options.direct_ee_loads && (!CHECK_CACHE || CHECK_EEREC))
 				, m_direct_quad_vectors(options.direct_quad_vectors)
 				, m_direct_iop_loads(options.optimize_ir && options.direct_iop_loads)
 				, m_reuse_spill_slots(options.optimize_ir && options.reuse_spill_slots)
@@ -291,9 +292,21 @@ namespace Arm64Ir
 			bool IsVectorBarrier(const ir::Inst& inst) const;
 			bool UsesDirectVectorMemory(const ir::Inst& inst) const
 			{
-				return m_allocate_vectors && m_direct_quad_memory && m_direct_quad_vectors &&
-					(!m_hooks || m_hooks->memory_preserves_vectors) &&
+				const bool scalar = m_direct_ee_loads && (inst.op == ir::Op::Load8U || inst.op == ir::Op::Load8S ||
+					inst.op == ir::Op::Load16U || inst.op == ir::Op::Load16S || inst.op == ir::Op::Load32 || inst.op == ir::Op::Load64);
+				const bool quad = m_direct_quad_memory && m_direct_quad_vectors &&
 					(inst.op == ir::Op::Load128 || inst.op == ir::Op::Store128);
+				return m_allocate_vectors && (!m_hooks || m_hooks->memory_preserves_vectors) && (scalar || quad);
+			}
+			void EmitEeDirectAddress(oak::Label& slow)
+			{
+				// Entries store host_pointer - guest_address. Test the sign only
+				// after adding the zero-extended guest address, including high aliases.
+				oakLoad64(oak::util::X2, {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, vtlbdata.vmap))});
+				oakAsm->LSR(oak::util::W3, oak::util::W0, vtlb_private::VTLB_PAGE_BITS);
+				oakAsm->LDR(oak::util::X2, oak::util::X2, oak::util::X3, oak::IndexExt::LSL, 3);
+				oakAsm->ADD(oak::util::X2, oak::util::X2, oak::util::X0);
+				oakAsm->TBNZ(oak::util::X2, 63, slow);
 			}
 			void SaveVectors(u32 position)
 			{
@@ -485,12 +498,14 @@ namespace Arm64Ir
 			bool m_fuse_multiply_pairs = true;
 			u32 m_fused_multiply_pairs = 0;
 			bool m_direct_quad_memory = true;
+			bool m_direct_ee_loads = true;
 			bool m_direct_quad_vectors = true;
 			bool m_direct_iop_loads = true;
 			bool m_reuse_spill_slots = true;
 			u32 m_iop_memory_operations = 0;
 			u32 m_direct_iop_load_operations = 0;
 			u32 m_direct_quad_operations = 0;
+			u32 m_direct_ee_load_operations = 0;
 			u32 m_direct_quad_vector_operations = 0;
 			std::vector<std::optional<u64>> m_constants;
 			std::vector<u32> m_slots;
@@ -836,6 +851,7 @@ namespace Arm64Ir
 				out->entry = nullptr;
 				out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
 				out->direct_quad_operations = m_direct_quad_operations;
+				out->direct_ee_load_operations = m_direct_ee_load_operations;
 				out->direct_quad_vector_operations = m_direct_quad_vector_operations;
 				out->iop_memory_operations = m_iop_memory_operations;
 				out->direct_iop_load_operations = m_direct_iop_load_operations;
@@ -861,6 +877,7 @@ namespace Arm64Ir
 			out->entry = start;
 			out->host_size = static_cast<u32>(end - start);
 			out->direct_quad_operations = m_direct_quad_operations;
+			out->direct_ee_load_operations = m_direct_ee_load_operations;
 			out->direct_quad_vector_operations = m_direct_quad_vector_operations;
 			out->iop_memory_operations = m_iop_memory_operations;
 			out->direct_iop_load_operations = m_direct_iop_load_operations;
@@ -1612,6 +1629,9 @@ namespace Arm64Ir
 				{
 					const bool iop = m_guest_state == GuestState::IOP;
 					if (iop) ++m_iop_memory_operations;
+					const bool direct = (iop && m_direct_iop_loads) || m_direct_ee_loads;
+					const bool direct_vectors = UsesDirectVectorMemory(inst);
+					const u32 position = m_emit_position - 1;
 					const void* helper = nullptr;
 					switch (inst.op)
 					{
@@ -1652,8 +1672,25 @@ namespace Arm64Ir
 						oakAsm->l(slow);
 						++m_direct_iop_load_operations;
 					}
+					else if (m_direct_ee_loads)
+					{
+						EmitEeDirectAddress(slow);
+						switch (inst.op)
+						{
+							case ir::Op::Load8U: oakAsm->LDRB(oak::util::W0, oak::util::X2); break;
+							case ir::Op::Load8S: oakAsm->LDRSB(oak::util::W0, oak::util::X2); break;
+							case ir::Op::Load16U: oakAsm->LDRH(oak::util::W0, oak::util::X2); break;
+							case ir::Op::Load16S: oakAsm->LDRSH(oak::util::W0, oak::util::X2); break;
+							default: oakAsm->LDR(oak::util::W0, oak::util::X2); break;
+						}
+						oakAsm->B(done);
+						oakAsm->l(slow);
+						++m_direct_ee_load_operations;
+						if (direct_vectors) SaveVectors(position);
+					}
 					call_helper(helper);
-					if (iop && m_direct_iop_loads)
+					if (direct_vectors) RestoreVectors(position);
+					if (direct)
 						oakAsm->l(done);
 					if (m_hooks && m_hooks->after_memory)
 						m_hooks->after_memory(m_hooks->ctx);
@@ -1663,16 +1700,32 @@ namespace Arm64Ir
 				}
 
 				case ir::Op::Load64:
+				{
+					const bool direct_vectors = UsesDirectVectorMemory(inst);
+					const u32 position = m_emit_position - 1;
 					recBeginOaknutEmit();
 					load_a();
 					if (m_hooks && m_hooks->before_memory)
 						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
+					oak::Label slow, done;
+					if (m_direct_ee_loads)
+					{
+						EmitEeDirectAddress(slow);
+						oakAsm->LDR(oak::util::X0, oak::util::X2);
+						oakAsm->B(done);
+						oakAsm->l(slow);
+						++m_direct_ee_load_operations;
+						if (direct_vectors) SaveVectors(position);
+					}
 					call_helper(reinterpret_cast<const void*>(&EeIrMemRead64));
+					if (direct_vectors) RestoreVectors(position);
+					if (m_direct_ee_loads) oakAsm->l(done);
 					if (m_hooks && m_hooks->after_memory)
 						m_hooks->after_memory(m_hooks->ctx);
 					Store64(inst.value, oak::util::X0);
 					recEndOaknutEmit();
 					return true;
+				}
 
 				case ir::Op::Load128:
 				case ir::Op::Store128:
@@ -1686,14 +1739,7 @@ namespace Arm64Ir
 					oak::Label slow, done;
 					if (m_direct_quad_memory)
 					{
-						// VTLBVirtual stores host_pointer - guest_address. Test
-						// the sign AFTER adding the zero-extended address: entries
-						// for high guest aliases can themselves be negative.
-						oakLoad64(oak::util::X2, {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, vtlbdata.vmap))});
-						oakAsm->LSR(oak::util::W3, oak::util::W0, vtlb_private::VTLB_PAGE_BITS);
-						oakAsm->LDR(oak::util::X2, oak::util::X2, oak::util::X3, oak::IndexExt::LSL, 3);
-						oakAsm->ADD(oak::util::X2, oak::util::X2, oak::util::X0);
-						oakAsm->TBNZ(oak::util::X2, 63, slow);
+						EmitEeDirectAddress(slow);
 						if (inst.op == ir::Op::Load128)
 						{
 							const auto dst = Result128(inst.value);

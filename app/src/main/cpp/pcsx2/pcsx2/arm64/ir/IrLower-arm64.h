@@ -13,7 +13,8 @@
 // addressed through pinned X27 in inline mode, or X19 in standalone mode
 // where the prologue pins it and the epilogue restores it.
 //
-// Memory uses small C helpers with interpreter-exact semantics. Optimized
+// Memory checks live mappings for direct reads and uses small C helpers for
+// handlers and cache emulation with interpreter-exact semantics. Optimized
 // 32-bit division/remainder use ARM64 with R5900 edge-case corrections; the
 // unoptimized path retains helpers for differential comparison.
 
@@ -82,6 +83,8 @@ namespace Arm64Ir
 		// Check the live VTLB entry and access mapped memory directly; handler
 		// entries retain the interpreter helper. Disabled for EE cache emulation.
 		bool direct_quad_memory = true;
+		// Direct mapped EE 8/16/32/64-bit reads; retain helpers for handlers/cache.
+		bool direct_ee_loads = true;
 		// Keep SIMD values in registers on direct RAM paths; spill on fallback.
 		bool direct_quad_vectors = true;
 		// Reuse typed spill slots after their SSA values die within a block.
@@ -101,6 +104,7 @@ namespace Arm64Ir
 		u32 spill_values = 0;
 		u32 spill_slots = 0;
 		u32 direct_quad_operations = 0;
+		u32 direct_ee_load_operations = 0;
 		u32 direct_quad_vector_operations = 0;
 		u32 vector_register_values = 0;
 		u32 vector_save_values = 0; // allocated SIMD values needing stack homes

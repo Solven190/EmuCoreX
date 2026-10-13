@@ -2338,7 +2338,10 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
         hooks.ctx = &helper_calls;
         hooks.before_helper = +[](void* ctx) { ++*static_cast<u32*>(ctx); };
         if (division_modes || quad_modes)
+        {
             options.hooks = &hooks;
+            options.direct_ee_loads = false;
+        }
         EeIr::LowerOutput out;
         if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
         {
@@ -2532,6 +2535,7 @@ void EEIrQuadOptimizationsTests()
                         options.reuse_spill_slots = reuse;
                         options.allocate_registers = allocate;
                         options.hooks = &hooks;
+                        if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
                         EeIr::LowerOutput out;
                         std::string error;
                         const bool lowered = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
@@ -2842,6 +2846,7 @@ void EEIrQuadVectorFastPathTests()
             }
             EeIr::LowerOptions options;
             options.hooks = &hooks;
+            if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
             options.direct_quad_vectors = fast;
             EeIr::LowerOutput out;
             std::string error;
@@ -2984,6 +2989,7 @@ void EEIrVectorAllocationTests()
             hooks.before_helper = hooks.after_helper = hooks.after_memory = clobber;
             EeIr::LowerOptions options;
             options.hooks = &hooks;
+            if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
             options.reuse_spill_slots = reuse;
             EeIr::LowerOutput out;
             std::string error;
@@ -3043,6 +3049,7 @@ void EEIrVectorAllocationTests()
                 hooks.before_helper = hooks.after_helper = hooks.after_memory = clobber;
                 EeIr::LowerOptions options;
                 options.hooks = &hooks;
+                if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
                 options.inline_division = native_div;
                 options.direct_quad_memory = direct;
                 EeIr::LowerOutput out;
@@ -3091,6 +3098,7 @@ void EEIrVectorAllocationTests()
         options.optimize_ir = false;
         options.reuse_spill_slots = false;
         options.hooks = &hooks;
+        if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
         EeIr::LowerOutput out;
         std::string error;
         bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
@@ -3297,6 +3305,7 @@ void EEIrVectorForwardTests()
                     hooks.after_memory = mutate;
                 EeIr::LowerOptions options;
                 options.hooks = &hooks;
+                if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
                 options.inline_division = false;
                 options.direct_quad_memory = direct;
                 options.forward_quad_state = forward;
@@ -3572,6 +3581,7 @@ void EEIrPackedWordShiftTests()
                         options.materialize_constants = mode == 1 || mode == 3 || mode == 4;
                         options.allocate_vector_registers = mode != 4;
                         options.hooks = &hooks;
+                        if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
                         EeIr::LowerOutput out;
                         std::string error;
                         if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
@@ -3747,6 +3757,7 @@ void EEIrVectorCompareTests()
                     options.allocate_vector_registers = mode != 4;
                     options.reuse_spill_slots = mode != 3;
                     options.hooks = &hooks;
+                    if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
                     EeIr::LowerOutput out;
                     std::string error;
                     if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
@@ -3843,6 +3854,7 @@ void EEIrWordShuffleTests()
             options.allocate_vector_registers = mode != 4;
             options.reuse_spill_slots = mode != 3;
             options.hooks = &hooks;
+            if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
             EeIr::LowerOutput out;
             std::string error;
             if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
@@ -4109,6 +4121,7 @@ void IRMultiplyPairVectorTests()
             options.allocate_registers = allocate;
             options.reuse_spill_slots = reuse;
             options.hooks = &hooks;
+            if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
             Arm64Ir::LowerOutput out;
             std::string error;
             bool same = Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
@@ -4272,6 +4285,7 @@ void EEIrMergeHandlerTests()
                         };
                         hooks.after_helper = +[](void*) { for (u32 r = 1; r <= 17; ++r) oakAsm->MOV(oak::WReg(r), 0xa5a5a5a5u); };
                         options.hooks = &hooks;
+                        if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
                         EeIr::LowerOutput out;
                         same &= EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
                         if (!same) break;
@@ -4290,6 +4304,223 @@ void EEIrMergeHandlerTests()
                     Check(same, name);
                 }
     vtlb_private::vtlbdata.vmap[base >> 12] = saved;
+}
+
+struct EEIrScalarTrace
+{
+    u32 before = 0, after = 0, helpers = 0, handlers = 0;
+    u32 address = 0, pc = 0, bd = 0;
+};
+EEIrScalarTrace s_eeir_scalar_trace;
+u64 EEIrScalarRecord(u32 address)
+{
+    ++s_eeir_scalar_trace.handlers;
+    s_eeir_scalar_trace.address = address;
+    s_eeir_scalar_trace.pc = cpuRegs.pc;
+    s_eeir_scalar_trace.bd = cpuRegs.IsDelaySlot;
+    return 0x80fedcba76543281ull;
+}
+u8 EEIrScalarRead8(u32 address) { return static_cast<u8>(EEIrScalarRecord(address)); }
+u16 EEIrScalarRead16(u32 address) { return static_cast<u16>(EEIrScalarRecord(address)); }
+u32 EEIrScalarRead32(u32 address) { return static_cast<u32>(EEIrScalarRecord(address)); }
+u64 EEIrScalarRead64(u32 address) { return EEIrScalarRecord(address); }
+
+void EEIrScalarDirectReadTests()
+{
+    const auto saved_config = EmuConfig.Cpu.Recompiler;
+    const auto saved_cpu = Cpu;
+    Cpu = &recCpu;
+    EmuConfig.Cpu.Recompiler.PauseOnTLBMiss = false;
+    alignas(16) std::array<u8, 8192> ram_a, ram_b;
+    for (u32 i = 0; i < ram_a.size(); ++i) { ram_a[i] = static_cast<u8>(0x81 + i * 13); ram_b[i] = ~ram_a[i]; }
+    const vtlbHandler handler = vtlb_RegisterHandler(EEIrScalarRead8, EEIrScalarRead16, EEIrScalarRead32, EEIrScalarRead64, nullptr,
+        nullptr, nullptr, nullptr, nullptr, nullptr);
+    for (u32 base : {0x41000000u, 0xc1000000u, 0xffffe000u})
+    {
+        const auto saved_map = vtlb_private::vtlbdata.vmap[base >> 12];
+        for (ir::Op op : {ir::Op::Load8U, ir::Op::Load8S, ir::Op::Load16U, ir::Op::Load16S, ir::Op::Load32, ir::Op::Load64})
+        for (u32 offset : {0u, 3u, 4095u})
+        for (bool preserve_vectors : {false, true})
+        for (u32 mode = 0; mode < 6; ++mode)
+        {
+            const bool wide = op == ir::Op::Load64;
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 vector = b.Emit(ir::Op::ReadGpr, ir::Type::V4U32, {}, 11);
+            const u32 address = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 22);
+            b.SetGuestPc(EE_TEST_PC + 12);
+            b.SetDelaySlot(true);
+            const u32 value = b.Emit1(op, wide ? ir::Type::I64 : ir::Type::I32, address);
+            b.SetDelaySlot(false);
+            b.Emit(ir::Op::WriteGpr, ir::Type::Void, {value}, 8, wide ? ir::IF_WIDE_WRITE : 0);
+            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, vector, 12);
+            b.Resume(EE_TEST_PC + 16);
+            EeIr::LowerHooks hooks;
+            hooks.ctx = &preserve_vectors;
+            hooks.memory_preserves_vectors = preserve_vectors;
+            hooks.before_memory = +[](void* ctx, u32 pc, bool bd) {
+                oakAsm->MOV(oak::util::W16, pc);
+                oakStore32(oak::util::W16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc))});
+                oakAsm->MOV(oak::util::W16, bd);
+                oakStore32(oak::util::W16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
+                oakMoveAddressToReg(oak::util::X17, &s_eeir_scalar_trace.before);
+                oakLoad32(oak::util::W16, {oak::util::X17, 0});
+                oakAsm->ADD(oak::util::W16, oak::util::W16, 1);
+                oakStore32(oak::util::W16, {oak::util::X17, 0});
+                if (!*static_cast<bool*>(ctx))
+                    for (u32 r = 2; r <= 7; ++r) oakAsm->MOVI(oak::QReg(r).B16(), 0xa5);
+            };
+            hooks.after_memory = +[](void* ctx) {
+                oakMoveAddressToReg(oak::util::X17, &s_eeir_scalar_trace.after);
+                oakLoad32(oak::util::W16, {oak::util::X17, 0});
+                oakAsm->ADD(oak::util::W16, oak::util::W16, 1);
+                oakStore32(oak::util::W16, {oak::util::X17, 0});
+                if (!*static_cast<bool*>(ctx))
+                    for (u32 r = 2; r <= 7; ++r) oakAsm->MOVI(oak::QReg(r).B16(), 0x5a);
+            };
+            hooks.before_helper = +[](void*) {
+                oakMoveAddressToReg(oak::util::X17, &s_eeir_scalar_trace.helpers);
+                oakLoad32(oak::util::W16, {oak::util::X17, 0});
+                oakAsm->ADD(oak::util::W16, oak::util::W16, 1);
+                oakStore32(oak::util::W16, {oak::util::X17, 0});
+                for (u32 r = 2; r <= 7; ++r) oakAsm->MOVI(oak::QReg(r).B16(), 0xa5);
+            };
+            hooks.after_helper = +[](void*) { for (u32 r = 2; r <= 7; ++r) oakAsm->MOVI(oak::QReg(r).B16(), 0x5a); };
+            EeIr::LowerOptions options;
+            options.optimize_ir = mode != 0;
+            options.direct_ee_loads = mode != 5;
+            options.allocate_registers = mode != 2;
+            options.hooks = &hooks;
+            EmuConfig.Cpu.Recompiler.EnableEE = mode != 3;
+            EmuConfig.Cpu.Recompiler.EnableEECache = mode >= 3;
+            EeIr::LowerOutput out;
+            std::string error;
+            bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            const bool direct_expected = mode != 0 && mode != 3 && mode != 5;
+            Check(out.direct_ee_load_operations == (direct_expected ? 1u : 0u), "ir EE scalar read emits selected direct path/cache guard");
+            for (u32 stage = 0; same && stage < 4; ++stage)
+            {
+                if (stage < 2)
+                    vtlb_private::vtlbdata.vmap[base >> 12] = vtlb_private::VTLBVirtual::fromPointer(
+                        reinterpret_cast<uptr>((stage ? ram_b : ram_a).data()), base);
+                else if (stage == 2)
+                    vtlb_private::vtlbdata.vmap[base >> 12] = vtlb_private::VTLBVirtual(
+                        vtlb_private::VTLBPhysical::fromHandler(handler), 0x1ff00000, base);
+                else vtlb_VMapUnmap(base, 0x1000);
+                u64 raw = 0;
+                const u32 width = op == ir::Op::Load8U || op == ir::Op::Load8S ? 1 :
+                    op == ir::Op::Load16U || op == ir::Op::Load16S ? 2 : wide ? 8 : 4;
+                if (stage < 2) std::memcpy(&raw, (stage ? ram_b : ram_a).data() + offset, width);
+                else if (stage == 2) raw = 0x80fedcba76543281ull & (width == 8 ? ~0ull : (1ull << (width * 8)) - 1);
+                u64 expected = raw;
+                if (op == ir::Op::Load8S) expected = static_cast<u64>(static_cast<s64>(static_cast<s8>(raw)));
+                else if (op == ir::Op::Load16S) expected = static_cast<u64>(static_cast<s64>(static_cast<s16>(raw)));
+                else if (!wide) expected = static_cast<u64>(static_cast<s64>(static_cast<s32>(raw)));
+                std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                cpuRegs.GPR.r[22].UD[0] = base + offset;
+                cpuRegs.GPR.r[8].UD[1] = 0x1122334455667788ull;
+                const std::array<u32, 4> vector_data = {0x80000001, 0xffffffff, 0x76543210, 0xabcdef01};
+                std::memcpy(cpuRegs.GPR.r[11].UL, vector_data.data(), 16);
+                cpuRegs.cycle = 0x12345678;
+                s_eeir_scalar_trace = {};
+                reinterpret_cast<void (*)()>(out.entry)();
+                same &= cpuRegs.GPR.r[8].UD[0] == expected && cpuRegs.GPR.r[8].UD[1] == 0x1122334455667788ull &&
+                    std::memcmp(cpuRegs.GPR.r[12].UL, vector_data.data(), 16) == 0 && cpuRegs.cycle == 0x12345678 &&
+                    s_eeir_scalar_trace.before == 1 && s_eeir_scalar_trace.after == 1 &&
+                    s_eeir_scalar_trace.handlers == (stage == 2 ? 1u : 0u);
+                if (stage == 2) same &= s_eeir_scalar_trace.address == 0x1ff00000 + offset &&
+                    s_eeir_scalar_trace.pc == EE_TEST_PC + 12 && s_eeir_scalar_trace.bd == 1;
+                const u32 expected_helpers = stage < 2 && mode != 0 && mode != 3 && mode != 5 ? 0 : 1;
+                char name[144];
+                std::snprintf(name, sizeof(name), "ir EE direct scalar %s alias=%08x offset=%u vectors=%u mode=%u stage=%u helper calls", ir::OpName(op), base, offset, preserve_vectors, mode, stage);
+                CheckBits(s_eeir_scalar_trace.helpers == expected_helpers, s_eeir_scalar_trace.helpers, expected_helpers, name);
+            }
+            Check(same, "ir EE scalar reads preserve widths/remaps/handler PC/BD/vectors/cache policy");
+        }
+        // Discarding a load (including guest $0) must retain MMIO side effects.
+        for (ir::Op op : {ir::Op::Load8U, ir::Op::Load8S, ir::Op::Load16U, ir::Op::Load16S, ir::Op::Load32, ir::Op::Load64})
+        for (bool direct : {false, true})
+        {
+            ir::Function fn;
+            ir::Builder b(fn);
+            b.CreateBlock(EE_TEST_PC);
+            const u32 address = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 22);
+            b.Emit1(op, op == ir::Op::Load64 ? ir::Type::I64 : ir::Type::I32, address);
+            b.Resume(EE_TEST_PC + 4);
+            EeIr::LowerOptions options;
+            options.direct_ee_loads = direct;
+            EmuConfig.Cpu.Recompiler.EnableEE = true;
+            EmuConfig.Cpu.Recompiler.EnableEECache = false;
+            EeIr::LowerOutput out;
+            std::string error;
+            bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                vtlb_private::vtlbdata.vmap[base >> 12] = vtlb_private::VTLBVirtual(
+                    vtlb_private::VTLBPhysical::fromHandler(handler), 0x1ff00000, base);
+                cpuRegs.GPR.r[22].UD[0] = base + 3;
+                s_eeir_scalar_trace = {};
+                reinterpret_cast<void (*)()>(out.entry)();
+                same &= s_eeir_scalar_trace.handlers == 1 && s_eeir_scalar_trace.address == 0x1ff00003;
+            }
+            Check(same, "ir EE discarded scalar read retains MMIO side effect");
+        }
+        vtlb_private::vtlbdata.vmap[base >> 12] = saved_map;
+    }
+    Cpu = saved_cpu;
+    EmuConfig.Cpu.Recompiler = saved_config;
+}
+
+void EEIrScalarReadBenchmark()
+{
+    // Diagnostic only: correctness is asserted, timing is never a pass criterion.
+    const auto saved_config = EmuConfig.Cpu.Recompiler;
+    EmuConfig.Cpu.Recompiler.EnableEE = true;
+    EmuConfig.Cpu.Recompiler.EnableEECache = false;
+    ir::Function fn;
+    ir::Builder b(fn);
+    b.CreateBlock(EE_TEST_PC);
+    const u32 base = b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, 22);
+    u32 sum = b.ConstI32(0);
+    for (u32 i = 0; i < 16; ++i)
+    {
+        const u32 address = b.Emit2(ir::Op::Add, ir::Type::I32, base, b.ConstI32(i * 4));
+        const u32 value = b.Emit1(ir::Op::Load32, ir::Type::I32, address);
+        sum = b.Emit2(ir::Op::Add, ir::Type::I32, sum, value);
+        reinterpret_cast<u32*>(PSM(EE_TEST_SCRATCH))[i] = i + 1;
+    }
+    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, sum, 8);
+    b.Resume(EE_TEST_PC + 4);
+    EeIr::LowerOutput code[2];
+    bool same = true;
+    for (u32 mode = 0; mode < 2; ++mode)
+    {
+        EeIr::LowerOptions options;
+        options.direct_ee_loads = mode != 0;
+        std::string error;
+        same &= EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000 + mode * 0x10000, 0x10000, &code[mode], &error);
+    }
+    Check(same, "ir EE hot RAM read benchmark compiles both paths");
+    if (same)
+    {
+        cpuRegs.GPR.r[22].UD[0] = EE_TEST_SCRATCH;
+        constexpr u32 iterations = 100000;
+        for (u32 round = 0; round < 6; ++round)
+        for (u32 slot = 0; slot < 2; ++slot)
+        {
+            const u32 mode = slot ^ (round & 1);
+            const auto run = reinterpret_cast<void (*)()>(code[mode].entry);
+            for (u32 i = 0; i < 1000; ++i) run();
+            const auto begin = std::chrono::steady_clock::now();
+            for (u32 i = 0; i < iterations; ++i) run();
+            const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - begin).count();
+            Check(cpuRegs.GPR.r[8].UD[0] == 136, "ir EE hot RAM read benchmark result");
+            std::printf("BENCH EE scalar reads direct=%u round=%u loads=16 native_bytes=%u ns_per_call=%.3f\n",
+                mode, round, code[mode].host_size, static_cast<double>(ns) / iterations);
+        }
+    }
+    EmuConfig.Cpu.Recompiler = saved_config;
 }
 
 void EEIrMergeMemoryTests()
@@ -4354,6 +4585,8 @@ void EEIrMergeMemoryTests()
 
 void EEIrExecutionTests()
 {
+    EEIrScalarDirectReadTests();
+    EEIrScalarReadBenchmark();
     EEIrMergeMemoryTests();
     EEIrMergeHandlerTests();
     EEIrMultiplyTests();
@@ -4758,6 +4991,7 @@ void EEIrExecutionTests()
             EeIr::LowerOptions options;
             options.optimize_ir = optimize;
             options.hooks = &hooks;
+            if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
             EeIr::LowerOutput out;
             std::string error;
             if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
