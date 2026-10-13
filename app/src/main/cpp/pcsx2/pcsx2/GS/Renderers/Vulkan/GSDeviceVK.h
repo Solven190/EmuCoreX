@@ -805,11 +805,13 @@ public:
 		const GSHWDrawConfig::PSSelector& selector, const TFXShaderSourceCapabilities& capabilities);
 	static TFXShaderSourceCatalog BuildTFXShaderSourceCatalog(std::string_view tfx_source,
 		const TFXShaderSourceCapabilities& capabilities);
+	static bool TryGetTFXAlphaFallbackKey(const PipelineSelector& selector, PipelineSelector& key);
 
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 	static bool TestTFXWarmupOrdering();
 	static bool TestTFXShaderSourceBuilders();
 	static bool TestTFXShaderSourceCatalog();
+	static bool TestTFXAlphaFallbackClassifier();
 	static bool TestTFXPreparationProgress();
 	static bool TestTFXPreparationPlan();
 	bool TestTFXPreparationResources() const;

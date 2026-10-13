@@ -6243,6 +6243,38 @@ GSDeviceVK::TFXShaderSourceCatalog GSDeviceVK::BuildTFXShaderSourceCatalog(std::
 	return catalog;
 }
 
+bool GSDeviceVK::TryGetTFXAlphaFallbackKey(const PipelineSelector& selector, PipelineSelector& key)
+{
+	// Only the five shader alpha-test modes have a dynamic equivalent, and only the
+	// keep-on-failure path can share a pipeline without changing depth/color writes.
+	switch (selector.ps.atst)
+	{
+		case GSHWDrawConfig::PS_ATST_NONE:
+		case GSHWDrawConfig::PS_ATST_LEQUAL:
+		case GSHWDrawConfig::PS_ATST_GEQUAL:
+		case GSHWDrawConfig::PS_ATST_EQUAL:
+		case GSHWDrawConfig::PS_ATST_NOTEQUAL:
+			break;
+		default:
+			return false;
+	}
+
+	if (selector.ps.afail != GSHWDrawConfig::PS_AFAIL_KEEP || !selector.rt ||
+		selector.ps.no_color || selector.ps.no_color1 || selector.ps.date != 0 ||
+		selector.dss.date || selector.dss.date_one || selector.feedback_loop_flags != FeedbackLoopFlag_None ||
+		selector.ps.color_feedback || selector.ps.depth_feedback || selector.ps.rov_color ||
+		selector.ps.rov_depth != GSHWDrawConfig::PS_ROV_DEPTH::NONE)
+	{
+		return false;
+	}
+
+	// Copy the full selector representation so padding and every non-ATST key bit
+	// stay exactly as supplied. Rejected calls leave the caller's output untouched.
+	std::memcpy(&key, &selector, sizeof(key));
+	key.ps.atst = GSHWDrawConfig::PS_ATST_NONE;
+	return true;
+}
+
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 namespace
 {
@@ -6456,6 +6488,205 @@ bool GSDeviceVK::TestTFXShaderSourceCatalog()
 			return false;
 	}
 	return original.vertex_sources != changed.vertex_sources && original.fragment_sources != changed.fragment_sources;
+}
+
+bool GSDeviceVK::TestTFXAlphaFallbackClassifier()
+{
+	const auto make_selector = [](bool ds = false) {
+		PipelineSelector selector = {};
+		selector.topology = static_cast<u8>(GSHWDrawConfig::Topology::Triangle);
+		selector.rt = true;
+		selector.ds = ds;
+		selector.vs.iip = true;
+		selector.vs.fst = true;
+		selector.vs.tme = true;
+		selector.ps.iip = true;
+		selector.ps.fst = true;
+		selector.ps.tfx = TFX_MODULATE;
+		selector.ps.tcc = true;
+		selector.ps.afail = GSHWDrawConfig::PS_AFAIL_KEEP;
+		selector.ps.ztst = ZTST_ALWAYS;
+		selector.dss.ztst = ZTST_ALWAYS;
+		selector.dss.zwe = ds;
+		return selector;
+	};
+	const auto key_for = [](const PipelineSelector& selector, PipelineSelector& key) {
+		return TryGetTFXAlphaFallbackKey(selector, key);
+	};
+
+	PipelineSelector canonical_key = {};
+	bool have_canonical_key = false;
+	for (const GSHWDrawConfig::PS_ATST atst : {
+			GSHWDrawConfig::PS_ATST_NONE,
+			GSHWDrawConfig::PS_ATST_LEQUAL,
+			GSHWDrawConfig::PS_ATST_GEQUAL,
+			GSHWDrawConfig::PS_ATST_EQUAL,
+			GSHWDrawConfig::PS_ATST_NOTEQUAL})
+	{
+		PipelineSelector selector = make_selector();
+		selector.ps.atst = atst;
+		PipelineSelector key = {};
+		if (!key_for(selector, key) || key.ps.atst != GSHWDrawConfig::PS_ATST_NONE)
+			return false;
+		if (have_canonical_key && key != canonical_key)
+			return false;
+		canonical_key = key;
+		have_canonical_key = true;
+	}
+
+	// Collapsing ATST must not erase any other shader or pipeline selector axis.
+	const PipelineSelector base = make_selector();
+	PipelineSelector base_key = {};
+	if (!key_for(base, base_key))
+		return false;
+	const std::array<PipelineSelector, 12> changed_selectors = {{
+		[&] { PipelineSelector p = base; p.vs.iip = false; return p; }(),
+		[&] { PipelineSelector p = base; p.ps.tfx = TFX_DECAL; return p; }(),
+		[&] { PipelineSelector p = base; p.ps.tcc = false; return p; }(),
+		[&] { PipelineSelector p = base; p.ps.dst_fmt = 1; return p; }(),
+		[&] { PipelineSelector p = base; p.ps.depth_fmt = 2; return p; }(),
+		[&] { PipelineSelector p = base; p.ps.fog = true; return p; }(),
+		[&] { PipelineSelector p = base; p.topology = static_cast<u8>(GSHWDrawConfig::Topology::Point); return p; }(),
+		[&] { PipelineSelector p = base; p.bs.enable = true; return p; }(),
+		[&] { PipelineSelector p = base; p.dss.ztst = ZTST_GEQUAL; return p; }(),
+		[&] { PipelineSelector p = base; p.cms.key = 0x7; return p; }(),
+		[&] { PipelineSelector p = base; p.ps.no_color = true; return p; }(),
+		[&] { PipelineSelector p = base; p.ps.no_color1 = true; return p; }(),
+	}};
+	for (const PipelineSelector& changed : changed_selectors)
+	{
+		PipelineSelector changed_key = {};
+		if (key_for(changed, changed_key) && changed_key == base_key)
+			return false;
+	}
+
+	// Exhaustively toggle every non-ATST selector/key bit. A selector may be outside
+	// this fallback class, but if accepted it must retain its distinct key.
+	std::array<u8, sizeof(PipelineSelector)> base_bytes{};
+	std::array<u8, sizeof(PipelineSelector)> atst_mask{};
+	std::memcpy(base_bytes.data(), &base, sizeof(base));
+	for (const GSHWDrawConfig::PS_ATST atst : {
+			GSHWDrawConfig::PS_ATST_LEQUAL,
+			GSHWDrawConfig::PS_ATST_GEQUAL,
+			GSHWDrawConfig::PS_ATST_EQUAL,
+			GSHWDrawConfig::PS_ATST_NOTEQUAL})
+	{
+		PipelineSelector variant = base;
+		variant.ps.atst = atst;
+		std::array<u8, sizeof(PipelineSelector)> variant_bytes{};
+		std::memcpy(variant_bytes.data(), &variant, sizeof(variant));
+		for (size_t i = 0; i < atst_mask.size(); i++)
+			atst_mask[i] |= (base_bytes[i] ^ variant_bytes[i]);
+	}
+	for (size_t byte_index = 0; byte_index < base_bytes.size(); byte_index++)
+	{
+		for (u32 bit = 0; bit < 8; bit++)
+		{
+			const u8 bit_mask = static_cast<u8>(1u << bit);
+			if ((atst_mask[byte_index] & bit_mask) != 0)
+				continue;
+			std::array<u8, sizeof(PipelineSelector)> changed_bytes = base_bytes;
+			changed_bytes[byte_index] ^= bit_mask;
+			PipelineSelector changed = {};
+			std::memcpy(&changed, changed_bytes.data(), sizeof(changed));
+			PipelineSelector changed_key = {};
+			if (key_for(changed, changed_key) && changed_key == base_key)
+				return false;
+		}
+	}
+
+	PipelineSelector depth_key = {};
+	for (u32 atst_value = 5; atst_value <= 7; atst_value++)
+	{
+		PipelineSelector selector = base;
+		selector.ps.atst = static_cast<GSHWDrawConfig::PS_ATST>(atst_value);
+		if (key_for(selector, depth_key))
+			return false;
+	}
+	PipelineSelector rejected_output = make_selector(true);
+	rejected_output.ps.tfx = TFX_DECAL;
+	const PipelineSelector original_rejected_output = rejected_output;
+	PipelineSelector invalid_selector = base;
+	invalid_selector.ps.atst = static_cast<GSHWDrawConfig::PS_ATST>(5);
+	if (key_for(invalid_selector, rejected_output) || rejected_output != original_rejected_output)
+		return false;
+	for (const bool no_color1 : {false, true})
+	{
+		PipelineSelector selector = base;
+		if (no_color1)
+			selector.ps.no_color1 = true;
+		else
+			selector.ps.no_color = true;
+		if (key_for(selector, depth_key))
+			return false;
+	}
+
+	if (!key_for(make_selector(true), depth_key) || depth_key == base_key)
+		return false;
+
+	for (const GSHWDrawConfig::PS_AFAIL afail : {
+			GSHWDrawConfig::PS_AFAIL_FB_ONLY,
+			GSHWDrawConfig::PS_AFAIL_ZB_ONLY,
+			GSHWDrawConfig::PS_AFAIL_RGB_ONLY,
+			GSHWDrawConfig::PS_AFAIL_RGB_ONLY_DSB,
+			GSShader::PS_AFAIL::RGB_ONLY_SW_Z})
+	{
+		PipelineSelector selector = base;
+		selector.ps.afail = afail;
+		if (key_for(selector, depth_key))
+			return false;
+	}
+
+	PipelineSelector rejected = base;
+	rejected.rt = false;
+	if (key_for(rejected, depth_key))
+		return false;
+	for (const u8 flags : {u8(1), u8(2), u8(4), u8(7)})
+	{
+		rejected = base;
+		rejected.feedback_loop_flags = flags;
+		if (key_for(rejected, depth_key))
+			return false;
+	}
+	rejected = base;
+	rejected.ps.color_feedback = true;
+	if (key_for(rejected, depth_key))
+		return false;
+	rejected = base;
+	rejected.ps.depth_feedback = true;
+	if (key_for(rejected, depth_key))
+		return false;
+	rejected = base;
+	for (u32 date = 1; date <= 7; date++)
+	{
+		rejected = base;
+		rejected.ps.date = date;
+		if (key_for(rejected, depth_key))
+			return false;
+	}
+	rejected = base;
+	rejected.dss.date = true;
+	if (key_for(rejected, depth_key))
+		return false;
+	rejected.dss.date_one = true;
+	if (key_for(rejected, depth_key))
+		return false;
+	rejected = base;
+	rejected.ps.rov_color = true;
+	if (key_for(rejected, depth_key))
+		return false;
+	for (const GSHWDrawConfig::PS_ROV_DEPTH rov_depth : {
+			GSHWDrawConfig::PS_ROV_DEPTH::READ_WRITE,
+			GSHWDrawConfig::PS_ROV_DEPTH::READ_ONLY,
+			static_cast<GSHWDrawConfig::PS_ROV_DEPTH>(3)})
+	{
+		rejected = base;
+		rejected.ps.rov_depth = rov_depth;
+		if (key_for(rejected, depth_key))
+			return false;
+	}
+
+	return true;
 }
 #endif
 
