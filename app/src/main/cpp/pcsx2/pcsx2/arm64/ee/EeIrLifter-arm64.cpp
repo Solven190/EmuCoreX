@@ -55,6 +55,8 @@ namespace EeIr
 			u32 Bin(ir::Op op, u32 a, u32 b) { return m_b.Emit2(op, ir::Type::I32, a, b); }
 			u32 Un(ir::Op op, u32 a) { return m_b.Emit1(op, ir::Type::I32, a); }
 			u32 BinWide(ir::Op op, u32 a, u32 b) { return m_b.Emit2(op, ir::Type::I64, a, b); }
+			void LiftMultiply(u32 rs, u32 rt, u32 rd, bool sign, u32 bank, bool accumulate);
+			void LiftDivide(u32 rs, u32 rt, bool sign, u32 bank);
 
 			bool Fail(std::string* error, const char* what, u32 pc)
 			{
@@ -136,6 +138,41 @@ namespace EeIr
 				default:
 					return Kind::Plain;
 			}
+		}
+
+		void Lifter::LiftMultiply(u32 rs, u32 rt, u32 rd, bool sign, u32 bank, bool accumulate)
+		{
+			const u32 a = ReadGpr(rs), b = ReadGpr(rt);
+			u32 lo = Bin(ir::Op::Mul, a, b);
+			u32 hi = Bin(sign ? ir::Op::MulHiS : ir::Op::MulHiU, a, b);
+			if (accumulate)
+			{
+				const auto join = [&](u32 low, u32 high) {
+					return BinWide(ir::Op::Or, m_b.Emit1(ir::Op::Zext32, ir::Type::I64, low),
+						BinWide(ir::Op::Shl, m_b.Emit1(ir::Op::Zext32, ir::Type::I64, high), m_b.ConstI64(32)));
+				};
+				// Only the low word of each 64-bit HI/LO bank participates. Add
+				// modulo 64 bits, then sign-extend both resulting words separately.
+				const u32 old_lo = m_b.Emit(ir::Op::ReadLo, ir::Type::I32, {}, bank);
+				const u32 old_hi = m_b.Emit(ir::Op::ReadHi, ir::Type::I32, {}, bank);
+				const u32 sum = BinWide(ir::Op::Add, join(lo, hi), join(old_lo, old_hi));
+				lo = m_b.Emit1(ir::Op::Trunc32, ir::Type::I32, sum);
+				hi = m_b.Emit1(ir::Op::Trunc32, ir::Type::I32, BinWide(ir::Op::ShrU, sum, m_b.ConstI64(32)));
+			}
+			m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo, bank);
+			m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi, bank);
+			if (rd != 0)
+				WriteGpr(rd, lo);
+		}
+
+		void Lifter::LiftDivide(u32 rs, u32 rt, bool sign, u32 bank)
+		{
+			const u32 a = ReadGpr(rs), b = ReadGpr(rt);
+			const u32 quotient = Bin(sign ? ir::Op::DivS : ir::Op::DivU, a, b);
+			m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, quotient, bank);
+			// Wrapping a-q*b also gives a for /0 and zero for INT_MIN/-1.
+			const u32 remainder = m_b.Emit3(ir::Op::Msub, ir::Type::I32, quotient, b, a);
+			m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, remainder, bank);
 		}
 
 		bool Lifter::LiftSpecial(u32 word, u32 pc, std::string* error)
@@ -231,35 +268,12 @@ namespace EeIr
 					return true;
 				case 0x18: // mult
 				case 0x19: // multu
-				{
-					const bool sign = (Funct(word) == 0x18);
-					const u32 a = ReadGpr(rs);
-					const u32 b = ReadGpr(rt);
-					const u32 lo = m_b.Emit2(ir::Op::Mul, ir::Type::I32, a, b);
-					const u32 hi = m_b.Emit2(sign ? ir::Op::MulHiS : ir::Op::MulHiU, ir::Type::I32, a, b);
-					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, lo);
-					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, hi);
-					// R5900 quirk: mult/multu also write LO into Rd when Rd != 0.
-					const u32 rd = Rd(word);
-					if (rd != 0)
-						WriteGpr(rd, lo);
+					LiftMultiply(rs, rt, rd, Funct(word) == 0x18, 0, false);
 					return true;
-				}
 				case 0x1A: // div
 				case 0x1B: // divu
-				{
-					const bool sign = (Funct(word) == 0x1A);
-					const u32 a = ReadGpr(rs);
-					const u32 b = ReadGpr(rt);
-					const u32 quotient = Bin(sign ? ir::Op::DivS : ir::Op::DivU, a, b);
-					m_b.Emit1(ir::Op::WriteLo, ir::Type::Void, quotient);
-					// Reuse the quotient instead of dividing a second time. I32
-					// arithmetic wraps: a - q*b also returns a for b == 0 and
-					// zero for INT_MIN / -1, exactly matching R5900 HI.
-					const u32 remainder = m_b.Emit3(ir::Op::Msub, ir::Type::I32, quotient, b, a);
-					m_b.Emit1(ir::Op::WriteHi, ir::Type::Void, remainder);
+					LiftDivide(rs, rt, Funct(word) == 0x1a, 0);
 					return true;
-				}
 				case 0x20: // add (traps on overflow)
 				case 0x22: // sub (traps on overflow)
 					return Fail(error, "trapping arithmetic is not modelled yet", pc);
@@ -422,6 +436,39 @@ namespace EeIr
 					const u32 group = word & 0x3f;
 					const u32 sub = Sa(word);
 					const u32 rd = Rd(word);
+					switch (group)
+					{
+						case 0x00: case 0x01: // MADD/MADDU
+						case 0x20: case 0x21: // MADD1/MADDU1
+							LiftMultiply(rs, rt, rd, (group & 1) == 0, group >> 5, true);
+							return true;
+						case 0x18: case 0x19: // MULT1/MULTU1
+							LiftMultiply(rs, rt, rd, group == 0x18, 1, false);
+							return true;
+						case 0x1a: case 0x1b: // DIV1/DIVU1
+							LiftDivide(rs, rt, group == 0x1a, 1);
+							return true;
+						case 0x10: case 0x12: // MFHI1/MFLO1
+							WriteGprWide(rd, m_b.Emit(group == 0x10 ? ir::Op::ReadHi : ir::Op::ReadLo, ir::Type::I64, {}, 1));
+							return true;
+						case 0x11: case 0x13: // MTHI1/MTLO1
+							m_b.Emit1(group == 0x11 ? ir::Op::WriteHi : ir::Op::WriteLo, ir::Type::Void, ReadGprWide(rs), 1);
+							return true;
+						case 0x04: // PLZCW
+						{
+							if (rd == 0) return true;
+							const u32 source = ReadGprWide(rs);
+							const auto count = [&](u32 word) {
+								const u32 normalized = Bin(ir::Op::Xor, word, Bin(ir::Op::ShrS, word, Const(31)));
+								return m_b.Emit1(ir::Op::Zext32, ir::Type::I64, Bin(ir::Op::Sub, Un(ir::Op::Clz, normalized), Const(1)));
+							};
+							const u32 low = count(m_b.Emit1(ir::Op::Trunc32, ir::Type::I32, source));
+							const u32 high = count(m_b.Emit1(ir::Op::Trunc32, ir::Type::I32,
+								BinWide(ir::Op::ShrU, source, m_b.ConstI64(32))));
+							WriteGprWide(rd, BinWide(ir::Op::Or, low, BinWide(ir::Op::Shl, high, m_b.ConstI64(32))));
+							return true;
+						}
+					}
 					if (group == 0x08 && (sub == 30 || sub == 31)) // pext5 / ppac5
 					{
 						if (rd != 0)

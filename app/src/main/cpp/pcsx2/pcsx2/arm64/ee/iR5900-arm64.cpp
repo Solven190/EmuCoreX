@@ -2649,9 +2649,22 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	static u64 direct_ee_load_operations = 0;
 	static u64 packed_narrow_operations = 0, packed_saturating_operations = 0;
 	static u64 packed_permutation_operations = 0;
+	static u64 hilo_bank1_instructions = 0, multiply_accumulate_instructions = 0, plzcw_instructions = 0;
 	for (u32 pc = startpc; pc < s_nEndBlock; pc += 4)
 	{
-		const u32 op = *reinterpret_cast<const u32*>(PSM(pc)) >> 26;
+		const u32 word = *reinterpret_cast<const u32*>(PSM(pc));
+		const u32 op = word >> 26;
+		if (op == 0x1c)
+		{
+			const u32 group = word & 0x3f;
+			if (group == 0x10 || group == 0x11 || group == 0x12 || group == 0x13 ||
+				group == 0x18 || group == 0x19 || group == 0x1a || group == 0x1b || group == 0x20 || group == 0x21)
+				++hilo_bank1_instructions;
+			if (group == 0x00 || group == 0x01 || group == 0x20 || group == 0x21)
+				++multiply_accumulate_instructions;
+			if (group == 0x04)
+				++plzcw_instructions;
+		}
 		if (op == 0x1a || op == 0x1b || op == 0x22 || op == 0x26 ||
 			op == 0x2a || op == 0x2c || op == 0x2d || op == 0x2e)
 			++merge_memory_instructions;
@@ -2696,7 +2709,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu fused_multiply_pairs=%llu merge_memory=%llu direct_reads=%u direct_read_operations=%llu packed_narrow=%llu packed_saturating=%llu packed_permutations=%llu",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu fused_multiply_pairs=%llu merge_memory=%llu direct_reads=%u direct_read_operations=%llu packed_narrow=%llu packed_saturating=%llu packed_permutations=%llu hilo_bank1=%llu multiply_accumulate=%llu plzcw=%llu",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
@@ -2713,7 +2726,8 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			static_cast<unsigned long long>(merge_memory_instructions),
 			options.optimize_ir && options.direct_ee_loads && (!CHECK_CACHE || CHECK_EEREC) ? 1u : 0u,
 			static_cast<unsigned long long>(direct_ee_load_operations),
-			static_cast<unsigned long long>(packed_narrow_operations), static_cast<unsigned long long>(packed_saturating_operations), static_cast<unsigned long long>(packed_permutation_operations));
+			static_cast<unsigned long long>(packed_narrow_operations), static_cast<unsigned long long>(packed_saturating_operations), static_cast<unsigned long long>(packed_permutation_operations),
+			static_cast<unsigned long long>(hilo_bank1_instructions), static_cast<unsigned long long>(multiply_accumulate_instructions), static_cast<unsigned long long>(plzcw_instructions));
 	}
 #endif
 

@@ -85,6 +85,7 @@ namespace Arm64Ir
 				case ir::Op::Select:
 				case ir::Op::Not:
 				case ir::Op::Neg:
+				case ir::Op::Clz:
 				case ir::Op::Sext8:
 				case ir::Op::Sext16:
 				case ir::Op::Zext8:
@@ -187,7 +188,7 @@ namespace Arm64Ir
 			struct CachedState { u32 narrow = 0, wide = 0; bool sign_extended = false; u32 quad = 0; };
 			for (ir::Block& block : fn.blocks)
 			{
-				std::array<CachedState, 66> cache{}; // GPR[32], HI, LO, CP0[32]
+				std::array<CachedState, 68> cache{}; // GPR[32], HI/LO[2], CP0[32]
 				for (ir::Inst& inst : block.insts)
 				{
 					const auto kind = ir::Info(inst.op).kind;
@@ -202,9 +203,10 @@ namespace Arm64Ir
 					const bool write = inst.op == ir::Op::WriteGpr || inst.op == ir::Op::WriteHi || inst.op == ir::Op::WriteLo || inst.op == ir::Op::WriteCp0;
 					if (!read && !write)
 						continue;
-					const u32 reg = (inst.op == ir::Op::ReadCp0 || inst.op == ir::Op::WriteCp0) ? 34u + static_cast<u32>(inst.imm) :
+					const u32 reg = (inst.op == ir::Op::ReadCp0 || inst.op == ir::Op::WriteCp0) ? 36u + static_cast<u32>(inst.imm) :
 						(inst.op == ir::Op::ReadGpr || inst.op == ir::Op::WriteGpr) ?
-						static_cast<u32>(inst.imm) : (inst.op == ir::Op::ReadHi || inst.op == ir::Op::WriteHi) ? 32u : 33u;
+						static_cast<u32>(inst.imm) : 32u + static_cast<u32>(inst.imm) * 2u +
+						((inst.op == ir::Op::ReadLo || inst.op == ir::Op::WriteLo) ? 1u : 0u);
 					if (reg == 0)
 						continue;
 					CachedState& state = cache[reg];
@@ -480,8 +482,8 @@ namespace Arm64Ir
 					static_cast<s64>(reg) * static_cast<s64>(sizeof(GPR_reg));
 			}
 
-			s64 LoOffset() const { return m_guest_state == GuestState::IOP ? offsetof(cpuRegistersPack, psxRegs.GPR.n.lo) : offsetof(cpuRegistersPack, cpuRegs.LO); }
-			s64 HiOffset() const { return m_guest_state == GuestState::IOP ? offsetof(cpuRegistersPack, psxRegs.GPR.n.hi) : offsetof(cpuRegistersPack, cpuRegs.HI); }
+			s64 LoOffset(u64 bank) const { return m_guest_state == GuestState::IOP ? offsetof(cpuRegistersPack, psxRegs.GPR.n.lo) : offsetof(cpuRegistersPack, cpuRegs.LO) + bank * sizeof(u64); }
+			s64 HiOffset(u64 bank) const { return m_guest_state == GuestState::IOP ? offsetof(cpuRegistersPack, psxRegs.GPR.n.hi) : offsetof(cpuRegistersPack, cpuRegs.HI) + bank * sizeof(u64); }
 			s64 PcOffset() const { return m_guest_state == GuestState::IOP ? offsetof(cpuRegistersPack, psxRegs.pc) : offsetof(cpuRegistersPack, cpuRegs.pc); }
 
 			void EmitFrameAdjust(bool add, u32 amount);
@@ -1071,6 +1073,25 @@ namespace Arm64Ir
 						oakAsm->CMP(oak::util::W0, 0);
 						oakAsm->CSEL(oak::util::W0, oak::util::W1, oak::util::W2, oak::Cond::NE);
 						store_r();
+					}
+					recEndOaknutEmit();
+					return true;
+
+				case ir::Op::Clz:
+					recBeginOaknutEmit();
+					if (inst.type == ir::Type::I64)
+					{
+						const auto src = Operand64(a[0], oak::util::X0);
+						const auto dst = Result64(inst.value);
+						oakAsm->CLZ(dst, src);
+						Store64(inst.value, dst);
+					}
+					else
+					{
+						const auto src = Operand32(a[0], oak::util::W0);
+						const auto dst = Result32(inst.value);
+						oakAsm->CLZ(dst, src);
+						Store32(inst.value, dst);
 					}
 					recEndOaknutEmit();
 					return true;
@@ -1996,12 +2017,12 @@ namespace Arm64Ir
 					recBeginOaknutEmit();
 					if (inst.type == ir::Type::I64)
 					{
-						oakLoad64(Result64(inst.value), {GuestBase(), (inst.op == ir::Op::ReadHi) ? HiOffset() : LoOffset()});
+						oakLoad64(Result64(inst.value), {GuestBase(), (inst.op == ir::Op::ReadHi) ? HiOffset(inst.imm) : LoOffset(inst.imm)});
 						Store64(inst.value, Result64(inst.value));
 					}
 					else
 					{
-						oakLoad32(Result32(inst.value), {GuestBase(), (inst.op == ir::Op::ReadHi) ? HiOffset() : LoOffset()});
+						oakLoad32(Result32(inst.value), {GuestBase(), (inst.op == ir::Op::ReadHi) ? HiOffset(inst.imm) : LoOffset(inst.imm)});
 						Store32(inst.value, Result32(inst.value));
 					}
 					recEndOaknutEmit();
@@ -2013,7 +2034,7 @@ namespace Arm64Ir
 					if (m_fn.ValueType(a[0]) == ir::Type::I64)
 					{
 						const auto value = Operand64(a[0], oak::util::X0);
-						oakStore64(value, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset() : LoOffset()});
+						oakStore64(value, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset(inst.imm) : LoOffset(inst.imm)});
 						recEndOaknutEmit();
 						return true;
 					}
@@ -2022,13 +2043,13 @@ namespace Arm64Ir
 						const auto value = Operand32(a[0], oak::util::W0);
 						if (m_guest_state == GuestState::IOP)
 						{
-							oakStore32(value, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset() : LoOffset()});
+							oakStore32(value, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset(inst.imm) : LoOffset(inst.imm)});
 							recEndOaknutEmit();
 							return true;
 						}
 						oakAsm->SXTW(oak::util::X0, value);
 					}
-					oakStore64(oak::util::X0, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset() : LoOffset()});
+					oakStore64(oak::util::X0, {GuestBase(), (inst.op == ir::Op::WriteHi) ? HiOffset(inst.imm) : LoOffset(inst.imm)});
 					recEndOaknutEmit();
 					return true;
 
@@ -2140,6 +2161,12 @@ namespace Arm64Ir
 				}
 				if (guest_state == GuestState::IOP)
 				{
+					if ((inst.op == ir::Op::ReadHi || inst.op == ir::Op::ReadLo ||
+						inst.op == ir::Op::WriteHi || inst.op == ir::Op::WriteLo) && inst.imm != 0)
+					{
+						if (error) *error = "IOP has only one HI/LO bank";
+						return false;
+					}
 					// IOP accepts 32-bit integer state, memory and control.
 					// EE-specific memory and helpers must never use the IOP layout.
 					bool supported = inst.type == ir::Type::Void || inst.type == ir::Type::I32;
@@ -2151,7 +2178,7 @@ namespace Arm64Ir
 						case ir::Op::Mul: case ir::Op::MulHiS: case ir::Op::MulHiU:
 						case ir::Op::DivS: case ir::Op::DivU: case ir::Op::Msub:
 						case ir::Op::Add: case ir::Op::Sub: case ir::Op::And:
-						case ir::Op::Or: case ir::Op::Xor: case ir::Op::Not:
+						case ir::Op::Or: case ir::Op::Xor: case ir::Op::Not: case ir::Op::Clz:
 						case ir::Op::Shl: case ir::Op::ShrU: case ir::Op::ShrS:
 						case ir::Op::CmpLtS: case ir::Op::CmpLtU:
 						case ir::Op::CmpEq: case ir::Op::CmpNe: case ir::Op::CmpLeS:

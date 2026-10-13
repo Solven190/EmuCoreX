@@ -318,7 +318,7 @@ namespace ir
 				case Op::ConstI32: case Op::ConstI64: case Op::Copy:
 				case Op::Add: case Op::Sub: case Op::Mul: case Op::Msub:
 				case Op::MulHiS: case Op::MulHiU:
-				case Op::And: case Op::Or: case Op::Xor: case Op::Not: case Op::Neg:
+				case Op::And: case Op::Or: case Op::Xor: case Op::Not: case Op::Neg: case Op::Clz:
 				case Op::Shl: case Op::ShrU: case Op::ShrS:
 				case Op::Sext8: case Op::Sext16: case Op::Zext8: case Op::Zext16:
 				case Op::Sext32: case Op::Zext32: case Op::Trunc32:
@@ -369,6 +369,13 @@ namespace ir
 				case Op::Xor: return a ^ b;
 				case Op::Not: return ~a;
 				case Op::Neg: return u64(0) - a;
+				case Op::Clz:
+				{
+					u32 count = 0;
+					for (u64 bit = u64(1) << (bits - 1); bit && !(a & bit); bit >>= 1)
+						++count;
+					return count;
+				}
 				case Op::Shl: return a << shift;
 				case Op::ShrU: return (a & mask) >> shift;
 				case Op::ShrS: return static_cast<u64>(signed_value(a) >> shift);

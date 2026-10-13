@@ -135,6 +135,7 @@ namespace ir
 	X(WriteVi,      StateWrite,  1, 1, Void, false) \
 	X(ReadAcc,      StateRead,   0, 0, V4F32, false) \
 	X(WriteAcc,     StateWrite,  1, 1, Void, false) \
+	/* HI/LO imm selects 64-bit EE bank 0/1; IOP accepts bank 0 only. */ \
 	X(ReadHi,       StateRead,   0, 0, Any,  false) \
 	X(WriteHi,      StateWrite,  1, 1, Void, false) \
 	X(ReadLo,       StateRead,   0, 0, Any,  false) \

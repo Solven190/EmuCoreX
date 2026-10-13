@@ -44,6 +44,8 @@ namespace ir
 
 			if ((inst.op == Op::ReadCp0 || inst.op == Op::WriteCp0) && inst.imm >= 32)
 				return Fail(error, "COP0: register index is out of range");
+			if ((inst.op == Op::ReadHi || inst.op == Op::ReadLo || inst.op == Op::WriteHi || inst.op == Op::WriteLo) && inst.imm > 1)
+				return Fail(error, "HI/LO: bank index is out of range");
 			if (inst.op == Op::ConstVec && inst.imm >= fn.vec_consts.size())
 				return Fail(error, "ConstVec: constant pool index is out of range");
 			if ((inst.op == Op::VShuffle && inst.imm > 0xff) || (inst.op == Op::VShuffle2 && inst.imm > 0xfff))
@@ -65,6 +67,11 @@ namespace ir
 						return Fail(error, std::string(OpName(inst.op)) + ": operand used before definition");
 				}
 			}
+
+			if ((inst.op == Op::ReadHi || inst.op == Op::ReadLo || inst.op == Op::Clz) && !IsIntegerType(inst.type))
+				return Fail(error, "HI/LO reads and CLZ require an integer result");
+			if ((inst.op == Op::WriteHi || inst.op == Op::WriteLo) && !IsIntegerType(fn.ValueType(inst.args[0])))
+				return Fail(error, "HI/LO writes require an integer operand");
 
 			if (IsPackedIntegerOp(inst.op) || IsPackedLanePermutationOp(inst.op))
 			{

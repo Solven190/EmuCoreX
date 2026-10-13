@@ -902,7 +902,7 @@ struct EESnapshot
 {
     u64 gpr[32];
     u64 gpr_upper[32];
-    u64 hi, lo;
+    u64 hi, lo, hi1, lo1;
     u32 pc;
     u32 cycle;
     u32 fpr[32];
@@ -940,6 +940,8 @@ void CaptureEE(EESnapshot& out)
     }
     out.hi = cpuRegs.HI.UD[0];
     out.lo = cpuRegs.LO.UD[0];
+    out.hi1 = cpuRegs.HI.UD[1];
+    out.lo1 = cpuRegs.LO.UD[1];
     out.pc = cpuRegs.pc;
     out.cycle = cpuRegs.cycle;
     out.fcr31 = fpuRegs.fprc[31];
@@ -998,6 +1000,8 @@ void CompareEE(const EESnapshot& expected, const EESnapshot& actual, const char*
     same &= CpuDiff(name, "GPR upper", expected.gpr_upper, actual.gpr_upper, sizeof(expected.gpr_upper));
     same &= CpuDiff(name, "HI", &expected.hi, &actual.hi, sizeof(expected.hi));
     same &= CpuDiff(name, "LO", &expected.lo, &actual.lo, sizeof(expected.lo));
+    same &= CpuDiff(name, "HI1", &expected.hi1, &actual.hi1, sizeof(expected.hi1));
+    same &= CpuDiff(name, "LO1", &expected.lo1, &actual.lo1, sizeof(expected.lo1));
     same &= CpuDiff(name, "PC", &expected.pc, &actual.pc, sizeof(expected.pc));
     same &= CpuDiff(name, "FPR", expected.fpr, actual.fpr, sizeof(expected.fpr));
     same &= CpuDiff(name, "FCR31", &expected.fcr31, &actual.fcr31, sizeof(expected.fcr31));
@@ -2367,12 +2371,18 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
 
         if (quad_modes)
         {
-            u32 memory_calls = 0;
+            u32 memory_calls = 0, division_calls = 0;
             for (const auto& block : fn.blocks)
                 for (const auto& inst : block.insts)
+                {
                     if (ir::Info(inst.op).kind == ir::OpKind::MemLoad || ir::Info(inst.op).kind == ir::OpKind::MemStore)
                         ++memory_calls;
-            same &= helper_calls == memory_calls && out.frame_size >= 16 && out.frame_size % 16 == 0;
+                    if (inst.op == ir::Op::DivS || inst.op == ir::Op::DivU)
+                        ++division_calls;
+                }
+            const u32 expected_helpers = memory_calls +
+                ((options.optimize_ir && options.inline_division) ? 0u : division_calls);
+            same &= helper_calls == expected_helpers && out.frame_size >= 16 && out.frame_size % 16 == 0;
         }
 
         // Both lowering modes and the interpreter start with the same state,
@@ -2400,6 +2410,8 @@ void RunEEIrCase(const char* name, const std::vector<u32>& program, const u64* i
         same &= CpuDiff(name, "GPR upper", interp.gpr_upper, result.gpr_upper, sizeof(interp.gpr_upper));
         same &= CpuDiff(name, "HI", &interp.hi, &result.hi, sizeof(interp.hi));
         same &= CpuDiff(name, "LO", &interp.lo, &result.lo, sizeof(interp.lo));
+        same &= CpuDiff(name, "HI1", &interp.hi1, &result.hi1, sizeof(interp.hi1));
+        same &= CpuDiff(name, "LO1", &interp.lo1, &result.lo1, sizeof(interp.lo1));
         same &= CpuDiff(name, "scratch", interp.scratch, result.scratch, sizeof(interp.scratch));
     }
     Check(same, name);
@@ -3990,7 +4002,7 @@ void EEIrMmiTests()
         }
     }
     // Reject unimplemented MMI operations even when their destination is $0.
-    for (u32 word : {Mmi(40, 27, 8, 9, 0), Mmi(9, 17, 8, 9, 0), Mmi(41, 17, 8, 9, 0), Mmi(0, 0, 8, 9, 0)})
+    for (u32 word : {Mmi(40, 27, 8, 9, 0), Mmi(9, 17, 8, 9, 0), Mmi(41, 17, 8, 9, 0), Mmi(0x30, 0, 8, 9, 0)})
     {
         ir::Function fn;
         u32 end;
@@ -5059,8 +5071,202 @@ void EEIrMergeMemoryTests()
             }
 }
 
+void EEIrHiLoBanksTests()
+{
+    const auto mmi = [](u32 rs, u32 rt, u32 rd, u32 funct) {
+        return (0x1cu << 26) | MipsR(rs, rt, rd, 0, funct);
+    };
+    const u32 edges[] = {0, 1, 0x7fffffff, 0x80000000, 0xffffffff, 0x89abcdef};
+    const u32 aliases[][3] = {{8, 9, 12}, {8, 9, 8}, {8, 9, 9}, {8, 8, 8}, {0, 9, 12}, {8, 0, 0}};
+    for (ir::Type type : {ir::Type::I32, ir::Type::I64})
+        for (bool constants : {false, true})
+            for (u64 value : {0ull, 1ull, 0xffffffffull, 0x80000000ull, 0x8000000000000000ull, ~0ull})
+                for (u32 mode = 0; mode < 5; ++mode)
+                {
+                    ir::Function fn;
+                    ir::Builder b(fn);
+                    b.CreateBlock(EE_TEST_PC);
+                    const u32 source = constants ? (type == ir::Type::I32 ? b.ConstI32(value) : b.ConstI64(value)) :
+                        b.Emit(ir::Op::ReadGpr, type, {}, 8);
+                    b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit1(ir::Op::Clz, type, source), 12);
+                    b.Resume(EE_TEST_PC + 4);
+                    Arm64Ir::LowerOptions options;
+                    options.optimize_ir = mode != 0;
+                    options.allocate_registers = mode != 2;
+                    options.materialize_constants = mode != 3;
+                    options.reuse_spill_slots = mode != 4;
+                    Arm64Ir::LowerOutput out;
+                    std::string error;
+                    const bool lowered = Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000,
+                        0x10000, &out, &error);
+                    const u32 bits = type == ir::Type::I32 ? 32 : 64;
+                    u32 expected = 0;
+                    for (u64 bit = 1ull << (bits - 1); bit && !(value & bit); bit >>= 1)
+                        ++expected;
+                    if (lowered)
+                    {
+                        cpuRegs.GPR.r[8].UD[0] = value;
+                        cpuRegs.GPR.r[12].UD[0] = ~0ull;
+                        reinterpret_cast<void (*)()>(out.entry)();
+                    }
+                    Check(lowered && cpuRegs.GPR.r[12].UD[0] == expected,
+                        "ir CLZ constant/dynamic 32/64-bit native execution");
+                }
+    for (u32 rs : {0u, 8u})
+        for (u32 rd : {0u, 8u, 12u})
+        {
+            u64 initial[32] = {};
+            initial[8] = 0x1234567889abcdefull;
+            const std::vector<u32> code = {mmi(rs, 0, 0, 0x11), mmi(rs, 0, 0, 0x13),
+                mmi(0, 0, rd, 0x10), mmi(0, 0, rd, 0x12)};
+            RunEEIrCase("ir EE second bank full-width moves and zero register", code, initial);
+            CompareEE(RunEEProgram(false, code, false, initial), RunEEProgram(true, code, false, initial),
+                "ir EE second bank moves integrated");
+        }
+    for (bool optimize : {false, true})
+        for (bool regalloc : {false, true})
+            for (ir::Type type : {ir::Type::I32, ir::Type::I64})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const auto write = [&](ir::Op op, u64 value, u64 bank) {
+                    b.Emit1(op, ir::Type::Void, type == ir::Type::I32 ? b.ConstI32(value) : b.ConstI64(value), bank);
+                };
+                write(ir::Op::WriteHi, 0x1234567889abcdefull, 0);
+                write(ir::Op::WriteLo, 0xabcdef0112345678ull, 0);
+                write(ir::Op::WriteHi, 0x9876543280000001ull, 1);
+                write(ir::Op::WriteLo, 0xfedcba9876543210ull, 1);
+                const u32 wide = type == ir::Type::I64 ? ir::IF_WIDE_WRITE : 0;
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadHi, type, {}, 1), 16, wide);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadLo, type, {}, 1), 17, wide);
+                b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadHi, type, {}, 1), 18, wide);
+                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, b.Emit(ir::Op::ReadLo, type, {}, 1), 19, wide);
+                b.Resume(EE_TEST_PC + 4);
+                Arm64Ir::LowerHooks hooks;
+                hooks.after_helper = +[](void*) {
+                    oakAsm->MOV(oak::util::X0, 0xaaaaaaaa80000005ull);
+                    oakStore64(oak::util::X0, {oak::util::X19, offsetof(cpuRegistersPack, cpuRegs.HI) + 8});
+                    oakAsm->MOV(oak::util::X0, 0xbbbbbbbb87654321ull);
+                    oakStore64(oak::util::X0, {oak::util::X19, offsetof(cpuRegistersPack, cpuRegs.LO) + 8});
+                };
+                Arm64Ir::LowerOptions options;
+                options.optimize_ir = optimize;
+                options.allocate_registers = regalloc;
+                options.direct_ee_loads = false;
+                options.hooks = &hooks;
+                Arm64Ir::LowerOutput out;
+                std::string error;
+                const bool lowered = Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000,
+                    0x10000, &out, &error);
+                if (lowered)
+                    reinterpret_cast<void (*)()>(out.entry)();
+                const auto expected = [&](u64 value) {
+                    return type == ir::Type::I32 ? static_cast<u64>(static_cast<s64>(static_cast<s32>(value))) : value;
+                };
+                Check(lowered && cpuRegs.HI.UD[0] == expected(0x1234567889abcdefull) &&
+                    cpuRegs.LO.UD[0] == expected(0xabcdef0112345678ull) &&
+                    cpuRegs.GPR.r[16].UD[0] == expected(0x9876543280000001ull) &&
+                    cpuRegs.GPR.r[17].UD[0] == expected(0xfedcba9876543210ull) &&
+                    cpuRegs.GPR.r[18].UD[0] == expected(0xaaaaaaaa80000005ull) &&
+                    cpuRegs.GPR.r[19].UD[0] == expected(0xbbbbbbbb87654321ull),
+                    "ir EE bank1 helper mutation invalidates forwarded state without changing bank0");
+            }
+    for (u32 funct : {0x00u, 0x01u, 0x18u, 0x19u, 0x1au, 0x1bu, 0x20u, 0x21u})
+        for (u32 lhs : edges)
+            for (u32 rhs : edges)
+                for (const auto& regs : aliases)
+                {
+                    u64 initial[32] = {};
+                    initial[8] = 0xfedcba9800000000ull | lhs;
+                    initial[9] = 0x1234567800000000ull | rhs;
+                    initial[10] = 0xf00dcafeffffffffull;
+                    initial[11] = 0x1234567880000000ull;
+                    initial[12] = 0xdeadbeefcafef00dull;
+                    const std::vector<u32> code = {MipsR(10, 0, 0, 0, 0x11), MipsR(11, 0, 0, 0, 0x13),
+                        mmi(11, 0, 0, 0x11), mmi(10, 0, 0, 0x13),
+                        mmi(regs[0], regs[1], regs[2], funct),
+                        MipsR(0, 0, 16, 0, 0x10), MipsR(0, 0, 17, 0, 0x12),
+                        mmi(0, 0, 18, 0x10), mmi(0, 0, 19, 0x12)};
+                    char name[160];
+                    std::snprintf(name, sizeof(name), "ir EE HI/LO banks fn=%02x rs=%u rt=%u rd=%u lhs=%08x rhs=%08x",
+                        funct, regs[0], regs[1], regs[2], lhs, rhs);
+                    RunEEIrCase(name, code, initial);
+                    CompareEE(RunEEProgram(false, code, false, initial), RunEEProgram(true, code, false, initial), name);
+                }
+    for (u32 funct : {0x00u, 0x01u, 0x04u, 0x10u, 0x11u, 0x12u, 0x13u, 0x18u, 0x19u, 0x1au, 0x1bu, 0x20u, 0x21u})
+        for (u32 branch : {4u, 0x14u})
+            for (bool taken : {false, true})
+            {
+                const std::vector<u32> code = {MipsI(15, 0, 22, EE_TEST_SCRATCH >> 16),
+                    MipsI(13, 22, 22, EE_TEST_SCRATCH & 0xffff),
+                    MipsI(30, 22, 8, 32), MipsI(30, 22, 9, 48), MipsI(30, 22, 12, 64),
+                    MipsR(8, 0, 0, 0, 0x11), MipsR(9, 0, 0, 0, 0x13),
+                    mmi(9, 0, 0, 0x11), mmi(8, 0, 0, 0x13),
+                    MipsI(9, 0, 4, taken ? 1 : 0), MipsI(9, 0, 5, 1),
+                    MipsI(branch, 4, 5, 1), mmi(8, 9, 12, funct)};
+                char name[128];
+                std::snprintf(name, sizeof(name), "ir EE bank state and upper preservation fn=%02x delay=%02x taken=%u",
+                    funct, branch, taken);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+            }
+    for (u32 lhs : edges)
+        for (u32 rhs : edges)
+            for (u32 rd : {0u, 8u, 12u})
+            {
+                u64 initial[32] = {};
+                initial[8] = (static_cast<u64>(rhs) << 32) | lhs;
+                const std::vector<u32> code = {mmi(8, 0, rd, 0x04)};
+                RunEEIrCase("ir EE PLZCW counts both words independently", code, initial);
+                CompareEE(RunEEProgram(false, code, false, initial), RunEEProgram(true, code, false, initial),
+                    "ir EE PLZCW integrated");
+            }
+    for (u32 funct : {0x00u, 0x01u, 0x20u, 0x21u})
+    {
+        // Low-word carry and full 64-bit wrap, then a second accumulated product.
+        const std::vector<u32> code = {MipsI(9, 0, 8, -1), MipsI(9, 0, 9, 1),
+            MipsR(8, 0, 0, 0, 0x11), MipsR(8, 0, 0, 0, 0x13),
+            mmi(8, 0, 0, 0x11), mmi(8, 0, 0, 0x13),
+            mmi(9, 9, 12, funct), mmi(9, 9, 12, funct),
+            mmi(0, 0, 18, 0x10), mmi(0, 0, 19, 0x12)};
+        RunEEIrCase("ir EE MADD accumulator carry and wrap", code);
+        CompareEE(RunEEProgram(false, code), RunEEProgram(true, code), "ir EE MADD carry integrated");
+    }
+    for (u64 bank : {0ull, 1ull, 2ull, ~0ull})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        b.Emit1(ir::Op::WriteHi, ir::Type::Void, b.ConstI32(1), bank);
+        b.Emit(ir::Op::ReadLo, ir::Type::I32, {}, bank);
+        b.Resume(EE_TEST_PC + 4);
+        std::string error;
+        Check(Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::EE) == (bank < 2),
+            "ir EE HI/LO bank bounds checked before emission");
+        Check(Arm64Ir::CanLower(fn, false, &error, Arm64Ir::GuestState::IOP) == (bank == 0),
+            "ir IOP rejects the EE second HI/LO bank");
+    }
+    for (ir::Op op : {ir::Op::ReadHi, ir::Op::ReadLo, ir::Op::WriteHi, ir::Op::WriteLo, ir::Op::Clz})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        if (op == ir::Op::ReadHi || op == ir::Op::ReadLo)
+            b.Emit0(op, ir::Type::V4U32);
+        else
+            b.Emit1(op, op == ir::Op::Clz ? ir::Type::V4U32 : ir::Type::Void, b.ConstVec({0, 0, 0, 0}));
+        b.Resume(EE_TEST_PC + 4);
+        std::string error;
+        Check(!ir::Verify(fn, &error) && !Arm64Ir::CanLower(fn, false, &error),
+            "ir HI/LO and CLZ reject noninteger types before emission");
+    }
+}
+
 void EEIrExecutionTests()
 {
+    EEIrHiLoBanksTests();
     EEIrScalarDirectReadTests();
     EEIrScalarReadBenchmark();
     EEIrPackedLanesTests();
