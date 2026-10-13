@@ -4567,28 +4567,25 @@ static void AddMacro(std::stringstream& ss, const char* name, int value)
 	ss << "#define " << name << " " << value << "\n";
 }
 
-static void AddShaderHeader(std::stringstream& ss)
+static void AddShaderHeader(std::stringstream& ss, const GSDeviceVK::TFXShaderSourceCapabilities& capabilities)
 {
-	const GSDeviceVK* dev = GSDeviceVK::GetInstance();
-	const GSDevice::FeatureSupport features = dev->Features();
-
 	ss << "#version 460 core\n";
 	ss << "#extension GL_EXT_samplerless_texture_functions : require\n";
 	ss << "#extension GL_ARB_shader_draw_parameters : require\n";
-	if (features.rov)
+	if (capabilities.rov)
 	{
 		ss << "#extension GL_ARB_fragment_shader_interlock : require\n";
 		ss << "#extension GL_ARB_shader_image_load_store : require\n";
 	}
 
-	if (!features.texture_barrier)
+	if (!capabilities.texture_barrier)
 		ss << "#define DISABLE_TEXTURE_BARRIER 1\n";
-	if (features.texture_barrier && dev->UseFeedbackLoopLayout())
+	if (capabilities.texture_barrier && capabilities.feedback_loop_layout)
 		ss << "#define HAS_FEEDBACK_LOOP_LAYOUT 1\n";
 
 	// Some ARM proprietary drivers miscompile vector bitwise AND in shaders. Scalarize it on
 	// the whole mobile path rather than tracking individual driver versions.
-	AddMacro(ss, "DRIVER_SCALARIZE_VECTOR_BITWISE_AND", dev->HasMobileGPUProfile() ? 1 : 0);
+	AddMacro(ss, "DRIVER_SCALARIZE_VECTOR_BITWISE_AND", capabilities.scalarize_vector_bitwise_and ? 1 : 0);
 	ss << R"(
 #if DRIVER_SCALARIZE_VECTOR_BITWISE_AND
 uvec2 gpu_bitwise_and(uvec2 a, uvec2 b)
@@ -4616,6 +4613,19 @@ ivec3 gpu_bitwise_and(ivec3 a, ivec3 b)
 
 #define gpu_matrix_element(value, column, row) ((value)[column][row])
 )";
+}
+
+static void AddShaderHeader(std::stringstream& ss)
+{
+	const GSDeviceVK* dev = GSDeviceVK::GetInstance();
+	const GSDevice::FeatureSupport features = dev->Features();
+	const GSDeviceVK::TFXShaderSourceCapabilities capabilities = {
+		features.rov,
+		features.texture_barrier,
+		features.texture_barrier && dev->UseFeedbackLoopLayout(),
+		dev->HasMobileGPUProfile(),
+		features.provoking_vertex_last};
+	AddShaderHeader(ss, capabilities);
 }
 
 static void AddShaderStageMacro(std::stringstream& ss, bool vs, bool gs, bool fs)
@@ -5721,18 +5731,14 @@ VkShaderModule GSDeviceVK::GetTFXVertexShader(GSHWDrawConfig::VSSelector sel)
 			return it->second;
 	}
 
-	std::stringstream ss;
-	AddShaderHeader(ss);
-	AddShaderStageMacro(ss, true, false, false);
-	AddMacro(ss, "VS_TME", sel.tme);
-	AddMacro(ss, "VS_FST", sel.fst);
-	AddMacro(ss, "VS_IIP", sel.iip);
-	AddMacro(ss, "VS_POINT_SIZE", sel.point_size);
-	AddMacro(ss, "VS_EXPAND", static_cast<int>(sel.expand));
-	AddMacro(ss, "VS_PROVOKING_VERTEX_LAST", static_cast<int>(m_features.provoking_vertex_last));
-	ss << m_tfx_source;
-
-	VkShaderModule mod = g_vulkan_shader_cache->GetVertexShader(ss.str());
+	const TFXShaderSourceCapabilities capabilities = {
+		m_features.rov,
+		m_features.texture_barrier,
+		m_features.texture_barrier && UseFeedbackLoopLayout(),
+		HasMobileGPUProfile(),
+		m_features.provoking_vertex_last};
+	VkShaderModule mod = g_vulkan_shader_cache->GetVertexShader(
+		BuildTFXVertexShaderSource(m_tfx_source, sel, capabilities));
 	if (mod)
 		Vulkan::SetObjectName(m_device, mod, "TFX Vertex %08X", sel.key);
 
@@ -5758,77 +5764,14 @@ VkShaderModule GSDeviceVK::GetTFXFragmentShader(const GSHWDrawConfig::PSSelector
 			return it->second;
 	}
 
-	std::stringstream ss;
-	AddShaderHeader(ss);
-	AddShaderStageMacro(ss, false, false, true);
-	AddMacro(ss, "PS_FST", sel.fst);
-	AddMacro(ss, "PS_WMS", sel.wms);
-	AddMacro(ss, "PS_WMT", sel.wmt);
-	AddMacro(ss, "PS_ADJS", sel.adjs);
-	AddMacro(ss, "PS_ADJT", sel.adjt);
-	AddMacro(ss, "PS_AEM_FMT", sel.aem_fmt);
-	AddMacro(ss, "PS_PAL_FMT", sel.pal_fmt);
-	AddMacro(ss, "PS_DST_FMT", sel.dst_fmt);
-	AddMacro(ss, "PS_DEPTH_FMT", sel.depth_fmt);
-	AddMacro(ss, "PS_CHANNEL_FETCH", sel.channel);
-	AddMacro(ss, "PS_URBAN_CHAOS_HLE", sel.urban_chaos_hle);
-	AddMacro(ss, "PS_TALES_OF_ABYSS_HLE", sel.tales_of_abyss_hle);
-	AddMacro(ss, "PS_AEM", sel.aem);
-	AddMacro(ss, "PS_TFX", sel.tfx);
-	AddMacro(ss, "PS_TCC", sel.tcc);
-	AddMacro(ss, "PS_ATST", static_cast<u32>(sel.atst));
-	AddMacro(ss, "PS_AFAIL", static_cast<u32>(sel.afail));
-	AddMacro(ss, "PS_FOG", sel.fog);
-	AddMacro(ss, "PS_BLEND_HW", sel.blend_hw);
-	AddMacro(ss, "PS_A_MASKED", sel.a_masked);
-	AddMacro(ss, "PS_FBA", sel.fba);
-	AddMacro(ss, "PS_LTF", sel.ltf);
-	AddMacro(ss, "PS_AUTOMATIC_LOD", sel.automatic_lod);
-	AddMacro(ss, "PS_MANUAL_LOD", sel.manual_lod);
-	AddMacro(ss, "PS_COLCLIP", sel.colclip);
-	AddMacro(ss, "PS_DATE", sel.date);
-	AddMacro(ss, "PS_TCOFFSETHACK", sel.tcoffsethack);
-	AddMacro(ss, "PS_REGION_RECT", sel.region_rect);
-	AddMacro(ss, "PS_BLEND_A", sel.blend_a);
-	AddMacro(ss, "PS_BLEND_B", sel.blend_b);
-	AddMacro(ss, "PS_BLEND_C", sel.blend_c);
-	AddMacro(ss, "PS_BLEND_D", sel.blend_d);
-	AddMacro(ss, "PS_BLEND_MIX", sel.blend_mix);
-	AddMacro(ss, "PS_ROUND_INV", sel.round_inv);
-	AddMacro(ss, "PS_FIXED_ONE_A", sel.fixed_one_a);
-	AddMacro(ss, "PS_IIP", sel.iip);
-	AddMacro(ss, "PS_SHUFFLE", sel.shuffle);
-	AddMacro(ss, "PS_SHUFFLE_SAME", sel.shuffle_same);
-	AddMacro(ss, "PS_PROCESS_BA", sel.process_ba);
-	AddMacro(ss, "PS_PROCESS_RG", sel.process_rg);
-	AddMacro(ss, "PS_SHUFFLE_ACROSS", sel.shuffle_across);
-	AddMacro(ss, "PS_READ16_SRC", sel.real16src);
-	AddMacro(ss, "PS_WRITE_RG", sel.write_rg);
-	AddMacro(ss, "PS_FBMASK", sel.fbmask);
-	AddMacro(ss, "PS_COLCLIP_HW", sel.colclip_hw);
-	AddMacro(ss, "PS_RTA_CORRECTION", sel.rta_correction);
-	AddMacro(ss, "PS_RTA_SRC_CORRECTION", sel.rta_source_correction);
-	AddMacro(ss, "PS_DITHER", sel.dither);
-	AddMacro(ss, "PS_DITHER_ADJUST", sel.dither_adjust);
-	AddMacro(ss, "PS_ZCLAMP", sel.zclamp);
-	AddMacro(ss, "PS_ZFLOOR", sel.zfloor);
-	AddMacro(ss, "PS_ZWRITE", sel.zwrite);
-	AddMacro(ss, "PS_PABE", sel.pabe);
-	AddMacro(ss, "PS_SCANMSK", sel.scanmsk);
-	AddMacro(ss, "PS_TEX_IS_FB", sel.tex_is_fb);
-	AddMacro(ss, "PS_NO_COLOR", sel.no_color);
-	AddMacro(ss, "PS_NO_COLOR1", sel.no_color1);
-	AddMacro(ss, "PS_ZTST", sel.ztst);
-	AddMacro(ss, "PS_COLOR_FEEDBACK", sel.color_feedback);
-	AddMacro(ss, "PS_DEPTH_FEEDBACK", sel.depth_feedback);
-	AddMacro(ss, "PS_AA1", static_cast<u32>(sel.aa1));
-	AddMacro(ss, "PS_ABE", sel.abe);
-	AddMacro(ss, "PS_ANISOTROPIC_FILTERING", sel.sw_aniso);
-	AddMacro(ss, "PS_ROV_COLOR", sel.rov_color);
-	AddMacro(ss, "PS_ROV_DEPTH", static_cast<u32>(sel.rov_depth));
-	ss << m_tfx_source;
-
-	VkShaderModule mod = g_vulkan_shader_cache->GetFragmentShader(ss.str());
+	const TFXShaderSourceCapabilities capabilities = {
+		m_features.rov,
+		m_features.texture_barrier,
+		m_features.texture_barrier && UseFeedbackLoopLayout(),
+		HasMobileGPUProfile(),
+		m_features.provoking_vertex_last};
+	VkShaderModule mod = g_vulkan_shader_cache->GetFragmentShader(
+		BuildTFXFragmentShaderSource(m_tfx_source, sel, capabilities));
 	if (mod)
 		Vulkan::SetObjectName(m_device, mod, "TFX Fragment %016" PRIX64 "_%016" PRIX64, sel.key_hi, sel.key_lo);
 
@@ -6100,7 +6043,125 @@ size_t BuildTFXWarmupOrder(const std::vector<GSDeviceVK::PipelineSelector>& gene
 }
 } // namespace
 
+std::string GSDeviceVK::BuildTFXVertexShaderSource(std::string_view tfx_source, GSHWDrawConfig::VSSelector selector,
+	const TFXShaderSourceCapabilities& capabilities)
+{
+	std::stringstream ss;
+	AddShaderHeader(ss, capabilities);
+	AddShaderStageMacro(ss, true, false, false);
+	AddMacro(ss, "VS_TME", selector.tme);
+	AddMacro(ss, "VS_FST", selector.fst);
+	AddMacro(ss, "VS_IIP", selector.iip);
+	AddMacro(ss, "VS_POINT_SIZE", selector.point_size);
+	AddMacro(ss, "VS_EXPAND", static_cast<int>(selector.expand));
+	AddMacro(ss, "VS_PROVOKING_VERTEX_LAST", static_cast<int>(capabilities.provoking_vertex_last));
+	ss << tfx_source;
+	return ss.str();
+}
+
+std::string GSDeviceVK::BuildTFXFragmentShaderSource(std::string_view tfx_source,
+	const GSHWDrawConfig::PSSelector& selector, const TFXShaderSourceCapabilities& capabilities)
+{
+	std::stringstream ss;
+	AddShaderHeader(ss, capabilities);
+	AddShaderStageMacro(ss, false, false, true);
+	AddMacro(ss, "PS_FST", selector.fst);
+	AddMacro(ss, "PS_WMS", selector.wms);
+	AddMacro(ss, "PS_WMT", selector.wmt);
+	AddMacro(ss, "PS_ADJS", selector.adjs);
+	AddMacro(ss, "PS_ADJT", selector.adjt);
+	AddMacro(ss, "PS_AEM_FMT", selector.aem_fmt);
+	AddMacro(ss, "PS_PAL_FMT", selector.pal_fmt);
+	AddMacro(ss, "PS_DST_FMT", selector.dst_fmt);
+	AddMacro(ss, "PS_DEPTH_FMT", selector.depth_fmt);
+	AddMacro(ss, "PS_CHANNEL_FETCH", selector.channel);
+	AddMacro(ss, "PS_URBAN_CHAOS_HLE", selector.urban_chaos_hle);
+	AddMacro(ss, "PS_TALES_OF_ABYSS_HLE", selector.tales_of_abyss_hle);
+	AddMacro(ss, "PS_AEM", selector.aem);
+	AddMacro(ss, "PS_TFX", selector.tfx);
+	AddMacro(ss, "PS_TCC", selector.tcc);
+	AddMacro(ss, "PS_ATST", static_cast<u32>(selector.atst));
+	AddMacro(ss, "PS_AFAIL", static_cast<u32>(selector.afail));
+	AddMacro(ss, "PS_FOG", selector.fog);
+	AddMacro(ss, "PS_BLEND_HW", selector.blend_hw);
+	AddMacro(ss, "PS_A_MASKED", selector.a_masked);
+	AddMacro(ss, "PS_FBA", selector.fba);
+	AddMacro(ss, "PS_LTF", selector.ltf);
+	AddMacro(ss, "PS_AUTOMATIC_LOD", selector.automatic_lod);
+	AddMacro(ss, "PS_MANUAL_LOD", selector.manual_lod);
+	AddMacro(ss, "PS_COLCLIP", selector.colclip);
+	AddMacro(ss, "PS_DATE", selector.date);
+	AddMacro(ss, "PS_TCOFFSETHACK", selector.tcoffsethack);
+	AddMacro(ss, "PS_REGION_RECT", selector.region_rect);
+	AddMacro(ss, "PS_BLEND_A", selector.blend_a);
+	AddMacro(ss, "PS_BLEND_B", selector.blend_b);
+	AddMacro(ss, "PS_BLEND_C", selector.blend_c);
+	AddMacro(ss, "PS_BLEND_D", selector.blend_d);
+	AddMacro(ss, "PS_BLEND_MIX", selector.blend_mix);
+	AddMacro(ss, "PS_ROUND_INV", selector.round_inv);
+	AddMacro(ss, "PS_FIXED_ONE_A", selector.fixed_one_a);
+	AddMacro(ss, "PS_IIP", selector.iip);
+	AddMacro(ss, "PS_SHUFFLE", selector.shuffle);
+	AddMacro(ss, "PS_SHUFFLE_SAME", selector.shuffle_same);
+	AddMacro(ss, "PS_PROCESS_BA", selector.process_ba);
+	AddMacro(ss, "PS_PROCESS_RG", selector.process_rg);
+	AddMacro(ss, "PS_SHUFFLE_ACROSS", selector.shuffle_across);
+	AddMacro(ss, "PS_READ16_SRC", selector.real16src);
+	AddMacro(ss, "PS_WRITE_RG", selector.write_rg);
+	AddMacro(ss, "PS_FBMASK", selector.fbmask);
+	AddMacro(ss, "PS_COLCLIP_HW", selector.colclip_hw);
+	AddMacro(ss, "PS_RTA_CORRECTION", selector.rta_correction);
+	AddMacro(ss, "PS_RTA_SRC_CORRECTION", selector.rta_source_correction);
+	AddMacro(ss, "PS_DITHER", selector.dither);
+	AddMacro(ss, "PS_DITHER_ADJUST", selector.dither_adjust);
+	AddMacro(ss, "PS_ZCLAMP", selector.zclamp);
+	AddMacro(ss, "PS_ZFLOOR", selector.zfloor);
+	AddMacro(ss, "PS_ZWRITE", selector.zwrite);
+	AddMacro(ss, "PS_PABE", selector.pabe);
+	AddMacro(ss, "PS_SCANMSK", selector.scanmsk);
+	AddMacro(ss, "PS_TEX_IS_FB", selector.tex_is_fb);
+	AddMacro(ss, "PS_NO_COLOR", selector.no_color);
+	AddMacro(ss, "PS_NO_COLOR1", selector.no_color1);
+	AddMacro(ss, "PS_ZTST", selector.ztst);
+	AddMacro(ss, "PS_COLOR_FEEDBACK", selector.color_feedback);
+	AddMacro(ss, "PS_DEPTH_FEEDBACK", selector.depth_feedback);
+	AddMacro(ss, "PS_AA1", static_cast<u32>(selector.aa1));
+	AddMacro(ss, "PS_ABE", selector.abe);
+	AddMacro(ss, "PS_ANISOTROPIC_FILTERING", selector.sw_aniso);
+	AddMacro(ss, "PS_ROV_COLOR", selector.rov_color);
+	AddMacro(ss, "PS_ROV_DEPTH", static_cast<u32>(selector.rov_depth));
+	ss << tfx_source;
+	return ss.str();
+}
+
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+namespace
+{
+struct TFXSourceHash
+{
+	u64 first = 14695981039346656037ull;
+	u64 second = 7809847782465536322ull;
+	u64 count = 0;
+
+	void Add(std::string_view source)
+	{
+		for (unsigned i = 0; i < sizeof(u64); i++)
+		{
+			const u8 byte = static_cast<u8>(source.size() >> (i * 8));
+			first = (first ^ byte) * 1099511628211ull;
+			second = (second ^ (byte + 0x9d)) * 14029467366897019727ull;
+		}
+		for (const unsigned char byte : source)
+		{
+			first = (first ^ byte) * 1099511628211ull;
+			second = (second ^ (byte + 0x9d)) * 14029467366897019727ull;
+		}
+		count++;
+	}
+};
+
+} // namespace
+
 bool GSDeviceVK::TestTFXWarmupOrdering()
 {
 	const auto make_selector = [](u8 key) {
@@ -6134,6 +6195,56 @@ bool GSDeviceVK::TestTFXWarmupOrdering()
 	if (BuildTFXWarmupOrder(overlapping_generic, learned_only, ordered) != 3)
 		return false;
 	return matches(ordered, {make_selector(2), make_selector(3), make_selector(1), make_selector(4), make_selector(5)});
+}
+
+bool GSDeviceVK::TestTFXShaderSourceBuilders()
+{
+	TFXSourceHash builder_hash;
+	static constexpr u64 EXPECTED_FIRST_HASH = 0x9C23F4A8F1A120BDull;
+	static constexpr u64 EXPECTED_SECOND_HASH = 0x98F5B591D3E37FD2ull;
+	static constexpr u64 EXPECTED_SOURCE_COUNT = 10496;
+	static constexpr std::array<std::string_view, 2> suffixes = {{
+		{}, "// TFX source builder deterministic suffix fixture\nvoid fixture_marker() {}\n"}};
+	for (u32 capability_bits = 0; capability_bits < 32; capability_bits++)
+	{
+		const TFXShaderSourceCapabilities capabilities = {
+			(capability_bits & (1u << 0)) != 0,
+			(capability_bits & (1u << 1)) != 0,
+			(capability_bits & (1u << 2)) != 0,
+			(capability_bits & (1u << 3)) != 0,
+			(capability_bits & (1u << 4)) != 0};
+		for (const std::string_view suffix : suffixes)
+		{
+			for (u32 key = 0; key < 32; key++)
+			{
+				const GSHWDrawConfig::VSSelector selector(static_cast<u8>(key));
+				builder_hash.Add(BuildTFXVertexShaderSource(suffix, selector, capabilities));
+			}
+			for (const u8 key : {static_cast<u8>(0), static_cast<u8>(0xff)})
+			{
+				const GSHWDrawConfig::VSSelector selector(key);
+				builder_hash.Add(BuildTFXVertexShaderSource(suffix, selector, capabilities));
+			}
+			for (u32 bit = 0; bit < 128; bit++)
+			{
+				GSHWDrawConfig::PSSelector selector;
+				if (bit < 64)
+					selector.key_lo = u64(1) << bit;
+				else
+					selector.key_hi = u64(1) << (bit - 64);
+				builder_hash.Add(BuildTFXFragmentShaderSource(suffix, selector, capabilities));
+			}
+			for (const u64 key_word : {u64(0), ~u64(0)})
+			{
+				GSHWDrawConfig::PSSelector selector;
+				selector.key_lo = key_word;
+				selector.key_hi = key_word;
+				builder_hash.Add(BuildTFXFragmentShaderSource(suffix, selector, capabilities));
+			}
+		}
+	}
+	return builder_hash.first == EXPECTED_FIRST_HASH && builder_hash.second == EXPECTED_SECOND_HASH &&
+		builder_hash.count == EXPECTED_SOURCE_COUNT;
 }
 #endif
 

@@ -23,6 +23,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -53,6 +54,15 @@ public:
 		bool vk_khr_shader_non_semantic_info : 1;
 		bool vk_ext_attachment_feedback_loop_layout : 1;
 		bool vk_ext_fragment_shader_interlock : 1;
+	};
+
+	struct TFXShaderSourceCapabilities
+	{
+		bool rov = false;
+		bool texture_barrier = false;
+		bool feedback_loop_layout = false;
+		bool scalarize_vector_bitwise_and = false;
+		bool provoking_vertex_last = false;
 	};
 
 	// Global state accessors
@@ -677,8 +687,14 @@ public:
 	RenderAPI GetRenderAPI() const override;
 	bool HasSurface() const override;
 
+	static std::string BuildTFXVertexShaderSource(std::string_view tfx_source,
+		GSHWDrawConfig::VSSelector selector, const TFXShaderSourceCapabilities& capabilities);
+	static std::string BuildTFXFragmentShaderSource(std::string_view tfx_source,
+		const GSHWDrawConfig::PSSelector& selector, const TFXShaderSourceCapabilities& capabilities);
+
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 	static bool TestTFXWarmupOrdering();
+	static bool TestTFXShaderSourceBuilders();
 #endif
 
 	bool Create(GSVSyncMode vsync_mode, bool allow_present_throttle) override;
