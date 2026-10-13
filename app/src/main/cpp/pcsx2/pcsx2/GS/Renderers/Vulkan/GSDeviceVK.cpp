@@ -6134,6 +6134,43 @@ std::string GSDeviceVK::BuildTFXFragmentShaderSource(std::string_view tfx_source
 	return ss.str();
 }
 
+GSDeviceVK::TFXShaderSourceCatalog GSDeviceVK::BuildTFXShaderSourceCatalog(std::string_view tfx_source,
+	const TFXShaderSourceCapabilities& capabilities)
+{
+	TFXShaderSourceCatalog catalog;
+	catalog.capabilities = capabilities;
+
+	std::vector<PipelineSelector> selectors;
+	BuildWarmupTFXSelectors(selectors);
+	catalog.pipelines.reserve(selectors.size());
+	catalog.vertex_sources.reserve(8);
+	catalog.fragment_sources.reserve(40);
+
+	std::unordered_map<std::string, u32> vertex_source_indices;
+	std::unordered_map<std::string, u32> fragment_source_indices;
+	vertex_source_indices.reserve(8);
+	fragment_source_indices.reserve(40);
+
+	for (const PipelineSelector& selector : selectors)
+	{
+		std::string vertex_source = BuildTFXVertexShaderSource(tfx_source, selector.vs, capabilities);
+		const auto [vertex_it, vertex_inserted] = vertex_source_indices.emplace(
+			vertex_source, static_cast<u32>(catalog.vertex_sources.size()));
+		if (vertex_inserted)
+			catalog.vertex_sources.push_back(std::move(vertex_source));
+
+		std::string fragment_source = BuildTFXFragmentShaderSource(tfx_source, selector.ps, capabilities);
+		const auto [fragment_it, fragment_inserted] = fragment_source_indices.emplace(
+			fragment_source, static_cast<u32>(catalog.fragment_sources.size()));
+		if (fragment_inserted)
+			catalog.fragment_sources.push_back(std::move(fragment_source));
+
+		catalog.pipelines.push_back({selector, vertex_it->second, fragment_it->second});
+	}
+
+	return catalog;
+}
+
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 namespace
 {
@@ -6245,6 +6282,108 @@ bool GSDeviceVK::TestTFXShaderSourceBuilders()
 	}
 	return builder_hash.first == EXPECTED_FIRST_HASH && builder_hash.second == EXPECTED_SECOND_HASH &&
 		builder_hash.count == EXPECTED_SOURCE_COUNT;
+}
+
+bool GSDeviceVK::TestTFXShaderSourceCatalog()
+{
+	static constexpr std::string_view source = "void catalog_fixture() {}\n";
+	for (u32 capability_bits = 0; capability_bits < 32; capability_bits++)
+	{
+		const TFXShaderSourceCapabilities capabilities = {
+			(capability_bits & (1u << 0)) != 0,
+			(capability_bits & (1u << 1)) != 0,
+			(capability_bits & (1u << 2)) != 0,
+			(capability_bits & (1u << 3)) != 0,
+			(capability_bits & (1u << 4)) != 0};
+		const TFXShaderSourceCatalog catalog = BuildTFXShaderSourceCatalog(source, capabilities);
+		const TFXShaderSourceCatalog repeated = BuildTFXShaderSourceCatalog(source, capabilities);
+
+		if (catalog.pipelines.size() != 164 || catalog.vertex_sources.size() != 8 ||
+			catalog.fragment_sources.size() != 40 || catalog.pipelines.size() != repeated.pipelines.size() ||
+			catalog.vertex_sources != repeated.vertex_sources || catalog.fragment_sources != repeated.fragment_sources)
+		{
+			return false;
+		}
+
+		if (catalog.capabilities.rov != capabilities.rov ||
+			catalog.capabilities.texture_barrier != capabilities.texture_barrier ||
+			catalog.capabilities.feedback_loop_layout != capabilities.feedback_loop_layout ||
+			catalog.capabilities.scalarize_vector_bitwise_and != capabilities.scalarize_vector_bitwise_and ||
+			catalog.capabilities.provoking_vertex_last != capabilities.provoking_vertex_last)
+		{
+			return false;
+		}
+
+		std::unordered_set<PipelineSelector, PipelineSelectorHash> unique_selectors;
+		unique_selectors.reserve(catalog.pipelines.size());
+		std::vector<std::string> expected_vertex_sources;
+		std::vector<std::string> expected_fragment_sources;
+		for (size_t i = 0; i < catalog.pipelines.size(); i++)
+		{
+			const TFXShaderSourceCatalog::Pipeline& entry = catalog.pipelines[i];
+			if (!unique_selectors.insert(entry.selector).second || entry.vertex_source >= catalog.vertex_sources.size() ||
+				entry.fragment_source >= catalog.fragment_sources.size() || entry.selector.feedback_loop_flags != 0 ||
+				entry.selector.ps.date != 0 || entry.selector.ps.color_feedback != 0 ||
+				entry.selector.ps.depth_feedback != 0 || entry.selector.ps.rov_color != 0 ||
+				entry.selector.ps.rov_depth != GSHWDrawConfig::PS_ROV_DEPTH::NONE ||
+				!(entry.selector == repeated.pipelines[i].selector) ||
+				entry.vertex_source != repeated.pipelines[i].vertex_source ||
+				entry.fragment_source != repeated.pipelines[i].fragment_source)
+			{
+				return false;
+			}
+
+			const std::string expected_vertex = BuildTFXVertexShaderSource(source, entry.selector.vs, capabilities);
+			const std::string expected_fragment = BuildTFXFragmentShaderSource(source, entry.selector.ps, capabilities);
+			if (catalog.vertex_sources[entry.vertex_source] != expected_vertex ||
+				catalog.fragment_sources[entry.fragment_source] != expected_fragment)
+			{
+				return false;
+			}
+
+			auto vertex_it = std::find(expected_vertex_sources.begin(), expected_vertex_sources.end(), expected_vertex);
+			if (vertex_it == expected_vertex_sources.end())
+			{
+				expected_vertex_sources.push_back(expected_vertex);
+				vertex_it = expected_vertex_sources.end() - 1;
+			}
+			auto fragment_it = std::find(expected_fragment_sources.begin(), expected_fragment_sources.end(), expected_fragment);
+			if (fragment_it == expected_fragment_sources.end())
+			{
+				expected_fragment_sources.push_back(expected_fragment);
+				fragment_it = expected_fragment_sources.end() - 1;
+			}
+			if (entry.vertex_source != static_cast<u32>(vertex_it - expected_vertex_sources.begin()) ||
+				entry.fragment_source != static_cast<u32>(fragment_it - expected_fragment_sources.begin()))
+			{
+				return false;
+			}
+		}
+
+		if (expected_vertex_sources != catalog.vertex_sources || expected_fragment_sources != catalog.fragment_sources)
+			return false;
+	}
+
+	static constexpr std::string_view changed_source = "void catalog_fixture() {}\n// changed source\n";
+	const TFXShaderSourceCapabilities capabilities = {};
+	const TFXShaderSourceCatalog original = BuildTFXShaderSourceCatalog(source, capabilities);
+	const TFXShaderSourceCatalog changed = BuildTFXShaderSourceCatalog(changed_source, capabilities);
+	if (original.vertex_sources.size() != changed.vertex_sources.size() ||
+		original.fragment_sources.size() != changed.fragment_sources.size())
+	{
+		return false;
+	}
+	for (const std::string& generated_source : changed.vertex_sources)
+	{
+		if (generated_source.find("// changed source") == std::string::npos)
+			return false;
+	}
+	for (const std::string& generated_source : changed.fragment_sources)
+	{
+		if (generated_source.find("// changed source") == std::string::npos)
+			return false;
+	}
+	return original.vertex_sources != changed.vertex_sources && original.fragment_sources != changed.fragment_sources;
 }
 #endif
 

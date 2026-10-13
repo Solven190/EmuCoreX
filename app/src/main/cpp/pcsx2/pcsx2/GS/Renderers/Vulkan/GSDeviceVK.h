@@ -473,6 +473,21 @@ public:
 		}
 	};
 
+	struct TFXShaderSourceCatalog
+	{
+		struct Pipeline
+		{
+			PipelineSelector selector;
+			u32 vertex_source = 0;
+			u32 fragment_source = 0;
+		};
+
+		TFXShaderSourceCapabilities capabilities{};
+		std::vector<std::string> vertex_sources;
+		std::vector<std::string> fragment_sources;
+		std::vector<Pipeline> pipelines;
+	};
+
 	enum : u32
 	{
 		NUM_TFX_DYNAMIC_OFFSETS = 2,
@@ -691,10 +706,13 @@ public:
 		GSHWDrawConfig::VSSelector selector, const TFXShaderSourceCapabilities& capabilities);
 	static std::string BuildTFXFragmentShaderSource(std::string_view tfx_source,
 		const GSHWDrawConfig::PSSelector& selector, const TFXShaderSourceCapabilities& capabilities);
+	static TFXShaderSourceCatalog BuildTFXShaderSourceCatalog(std::string_view tfx_source,
+		const TFXShaderSourceCapabilities& capabilities);
 
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 	static bool TestTFXWarmupOrdering();
 	static bool TestTFXShaderSourceBuilders();
+	static bool TestTFXShaderSourceCatalog();
 #endif
 
 	bool Create(GSVSyncMode vsync_mode, bool allow_present_throttle) override;

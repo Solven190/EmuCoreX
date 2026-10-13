@@ -134,6 +134,7 @@ void CheckBits(bool pass, u32 actual, u32 expected, const char* name)
 
 void ClassifierTests()
 {
+    Check(GSDeviceVK::TestTFXShaderSourceCatalog(), "GS pure catalog maps all baseline pipelines to unique canonical sources");
     Check(GSDeviceVK::TestTFXShaderSourceBuilders(), "GS reusable source builders preserve all selector and capability variants");
     Check(GSDeviceVK::TestTFXWarmupOrdering(), "GS learned pipelines precede generic warmup without duplicates");
     Check(JitProfiler::TestSampleRangeSelection(), "profiler nested opcode range selection");
