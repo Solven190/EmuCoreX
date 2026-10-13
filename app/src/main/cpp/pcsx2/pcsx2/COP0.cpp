@@ -347,6 +347,39 @@ void UnmapTLB(const tlbs& t, int i)
 	}
 }
 
+static void CacheTLBEntry(const tlbs& t)
+{
+	if (!t.isSPR() && ((t.EntryLo0.V && t.EntryLo0.isCached()) || (t.EntryLo1.V && t.EntryLo1.isCached())))
+	{
+		const size_t idx = cachedTlbs.count;
+		cachedTlbs.CacheEnabled0[idx] = t.EntryLo0.isCached() ? ~0 : 0;
+		cachedTlbs.CacheEnabled1[idx] = t.EntryLo1.isCached() ? ~0 : 0;
+		cachedTlbs.PFN1s[idx] = t.PFN1();
+		cachedTlbs.PFN0s[idx] = t.PFN0();
+		cachedTlbs.PageMasks[idx] = ConvertPageMask(t.PageMask.UL);
+		cachedTlbs.count++;
+	}
+}
+
+void RestoreTLBMappings(const tlbs (&previous)[48])
+{
+	// A mapping may move between indices, or overlap an unchanged loaded entry.
+	// Remove old mappings first, then restore every loaded entry in table order.
+	for (int i = 0; i < 48; ++i)
+	{
+		if (std::memcmp(&previous[i], &tlb[i], sizeof(tlbs)) != 0)
+			UnmapTLB(previous[i], i);
+	}
+	// This cache is derived from tlb[]. Legacy imports do not serialize it, and
+	// old unmaps can remove matching entries from a native state's loaded cache.
+	cachedTlbs = {};
+	for (int i = 0; i < 48; ++i)
+	{
+		CacheTLBEntry(tlb[i]);
+		MapTLB(tlb[i], i);
+	}
+}
+
 void WriteTLB(int i)
 {
 	tlb[i].PageMask.UL = cpuRegs.CP0.n.PageMask;
@@ -370,18 +403,7 @@ void WriteTLB(int i)
 			tlb[i].EntryLo1.C = 2;
 	}
 
-	if (!tlb[i].isSPR() && ((tlb[i].EntryLo0.V && tlb[i].EntryLo0.isCached()) || (tlb[i].EntryLo1.V && tlb[i].EntryLo1.isCached())))
-	{
-		const size_t idx = cachedTlbs.count;
-		cachedTlbs.CacheEnabled0[idx] = tlb[i].EntryLo0.isCached() ? ~0 : 0;
-		cachedTlbs.CacheEnabled1[idx] = tlb[i].EntryLo1.isCached() ? ~0 : 0;
-		cachedTlbs.PFN1s[idx] = tlb[i].PFN1();
-		cachedTlbs.PFN0s[idx] = tlb[i].PFN0();
-		cachedTlbs.PageMasks[idx] = ConvertPageMask(tlb[i].PageMask.UL);
-
-		cachedTlbs.count++;
-	}
-
+	CacheTLBEntry(tlb[i]);
 	MapTLB(tlb[i], i);
 }
 

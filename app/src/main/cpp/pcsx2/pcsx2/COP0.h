@@ -11,6 +11,7 @@ extern void cpuUpdateOperationMode();
 extern void WriteTLB(int i);
 extern void UnmapTLB(const tlbs& t, int i);
 extern void MapTLB(const tlbs& t, int i);
+extern void RestoreTLBMappings(const tlbs (&previous)[48]);
 
 extern void COP0_UpdatePCCR();
 extern void COP0_DiagnosticPCCR();

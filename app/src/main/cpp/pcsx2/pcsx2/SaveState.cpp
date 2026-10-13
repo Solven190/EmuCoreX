@@ -69,14 +69,7 @@ static void PostLoadPrep()
 {
 	resetCache();
 //	WriteCP0Status(cpuRegs.CP0.n.Status.val);
-	for (int i = 0; i < 48; i++)
-	{
-		if (std::memcmp(&s_tlb_backup[i], &tlb[i], sizeof(tlbs)) != 0)
-		{
-			UnmapTLB(s_tlb_backup[i], i);
-			MapTLB(tlb[i], i);
-		}
-	}
+	RestoreTLBMappings(s_tlb_backup);
 
 	if (EmuConfig.Gamefixes.GoemonTlbHack) GoemonPreloadTlb();
 	CBreakPoints::SetSkipFirst(BREAKPOINT_EE, 0);

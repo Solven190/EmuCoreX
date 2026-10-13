@@ -3,6 +3,7 @@
 #include "IopMem.h"
 #include "IopHw.h"
 #include "Memory.h"
+#include "COP0.h"
 #include "OpcodeFamilies.h"
 #include "JitProfiler.h"
 #include "ir/Ir.h"
@@ -1806,6 +1807,79 @@ void RunEEExceptionCase(const char* name, const std::vector<u32>& code)
     if (jit.pc & 0x80000000u)
         jit.pc = 0x80000000u;
     CompareEE(interp, jit, name);
+}
+
+void EETlbRestoreTests()
+{
+    tlbs saved_tlb[48];
+    std::memcpy(saved_tlb, tlb, sizeof(saved_tlb));
+    const auto saved_cached = cachedTlbs;
+    const auto saved_recompiler = EmuConfig.Cpu.Recompiler;
+    EmuConfig.Cpu.Recompiler.EnableFastmem = false;
+    constexpr u32 a = 0x41000000, b = 0x41002000;
+    std::array<vtlb_private::VTLBVirtual, 4> saved_map;
+    std::array<u32, 4> saved_ppmap;
+    for (u32 i = 0; i < 4; ++i)
+    {
+        saved_map[i] = vtlb_private::vtlbdata.vmap[(a >> 12) + i];
+        if (vtlb_private::vtlbdata.ppmap)
+            saved_ppmap[i] = vtlb_private::vtlbdata.ppmap[(a >> 12) + i];
+    }
+    const auto entry = [](u32 va, u32 pa) {
+        tlbs t{};
+        t.EntryHi.UL = va;
+        t.EntryLo0.UL = ((pa >> 12) << 6) | 0x1f;
+        t.EntryLo1.UL = (((pa + 0x1000) >> 12) << 6) | 0x1f;
+        return t;
+    };
+    for (bool unchanged : {false, true})
+    for (u32 pa : {0x4000u, 0x1000c000u})
+    for (bool legacy_cache : {false, true})
+    {
+        tlbs previous[48]{};
+        previous[1] = entry(a, pa);
+        if (unchanged) previous[0] = previous[1];
+        MapTLB(previous[1], 1);
+        std::memset(tlb, 0, sizeof(tlb));
+        tlb[0] = entry(a, pa);
+        tlb[1] = entry(b, pa + 0x2000);
+        // Native states restore cache metadata; legacy imports retain BIOS data.
+        // Either way, effective cached intervals must come from the loaded TLBs.
+        cachedTlbs = {};
+        cachedTlbs.count = legacy_cache ? 1 : 2;
+        for (u32 j = 0; j < cachedTlbs.count; ++j)
+        {
+            cachedTlbs.PFN0s[j] = legacy_cache ? 0x1fc00000 : pa + j * 0x2000;
+            cachedTlbs.PFN1s[j] = cachedTlbs.PFN0s[j] + 0x1000;
+            cachedTlbs.PageMasks[j] = 0xfff;
+            cachedTlbs.CacheEnabled0[j] = ~0u;
+            cachedTlbs.CacheEnabled1[j] = ~0u;
+        }
+        RestoreTLBMappings(previous);
+        for (u32 offset : {0u, 0x1000u})
+        {
+            const auto actual = vtlb_private::vtlbdata.vmap[(a + offset) >> 12];
+            const auto expected = vtlb_private::VTLBVirtual(
+                vtlb_private::vtlbdata.pmap[(pa + offset) >> 12], pa + offset, a + offset);
+            CheckBits(actual.raw() == expected.raw(), actual.raw(), expected.raw(), "state restore overlapping TLB mapping");
+        }
+        bool cache_ok = cachedTlbs.count == 2;
+        for (u32 j = 0; j < 2; ++j)
+            cache_ok &= cachedTlbs.PFN0s[j] == pa + j * 0x2000 &&
+                cachedTlbs.PFN1s[j] == pa + j * 0x2000 + 0x1000 &&
+                cachedTlbs.PageMasks[j] == 0xfff &&
+                cachedTlbs.CacheEnabled0[j] == ~0u && cachedTlbs.CacheEnabled1[j] == ~0u;
+        CheckBits(cache_ok, cachedTlbs.count, 2, "state restore rebuilds native/legacy cached TLB intervals");
+    }
+    std::memcpy(tlb, saved_tlb, sizeof(tlb));
+    cachedTlbs = saved_cached;
+    for (u32 i = 0; i < 4; ++i)
+    {
+        vtlb_private::vtlbdata.vmap[(a >> 12) + i] = saved_map[i];
+        if (vtlb_private::vtlbdata.ppmap)
+            vtlb_private::vtlbdata.ppmap[(a >> 12) + i] = saved_ppmap[i];
+    }
+    EmuConfig.Cpu.Recompiler = saved_recompiler;
 }
 
 // The EE recompiler deliberately treats an unmapped virtual data access as
@@ -5263,6 +5337,7 @@ void EETests()
     EEIrExecutionTests();
     EEGameCodeTests();
     EEUnmappedCompatibilityTests();
+    EETlbRestoreTests();
 }
 
 void RunIOPCase(const char* name, const std::vector<u32>& code, s32 eeCycles = -1, bool forceGteInterpreter = false)

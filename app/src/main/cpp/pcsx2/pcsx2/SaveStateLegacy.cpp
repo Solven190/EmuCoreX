@@ -661,9 +661,8 @@ bool SaveStateBase::FreezeInternalsLegacy(Error* error)
 		tlb[i].EntryLo0.UL = st.tlb[i].EntryLo0;
 		tlb[i].EntryLo1.UL = st.tlb[i].EntryLo1;
 	}
-	// cachedTlbs is deliberately untouched: PostLoadPrep diffs tlb[] against
-	// the pre-load backup and Unmap/MapTLB maintain the cache incrementally,
-	// exactly as for an in-session TLB rewrite.
+	// cachedTlbs is derived metadata, rebuilt from the restored tlb[] table by
+	// PostLoadPrep rather than retaining the running VM's cache entries.
 
 	AllowParams1 = st.allowParams1;
 	AllowParams2 = st.allowParams2;
