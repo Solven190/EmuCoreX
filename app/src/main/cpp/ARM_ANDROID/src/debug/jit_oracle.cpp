@@ -3404,6 +3404,292 @@ void EEIrVectorForwardTests()
     }
 }
 
+
+
+void EEIrPackedBackendTests()
+{
+    constexpr ir::Op operations[] = {ir::Op::VAddI,    ir::Op::VSubI,    ir::Op::VAddSatS, ir::Op::VAddSatU,
+                                     ir::Op::VSubSatS, ir::Op::VSubSatU, ir::Op::VAbsSatS, ir::Op::VMinS,
+                                     ir::Op::VMinU,    ir::Op::VMaxS,    ir::Op::VMaxU,    ir::Op::VCmpEq,
+                                     ir::Op::VCmpNe,   ir::Op::VCmpLtS,  ir::Op::VCmpLtU,  ir::Op::VCmpLeS,
+                                     ir::Op::VCmpLeU,  ir::Op::VShl,     ir::Op::VShrU,    ir::Op::VShrS};
+    for (ir::Op op : operations)
+        for (u32 bits : {8u, 16u, 32u})
+            for (u32 i = 0; i < 8; ++i)
+                for (u32 j = 0; j < (op == ir::Op::VAbsSatS ? 1u : 8u); ++j)
+                {
+                    const bool shift = op == ir::Op::VShl || op == ir::Op::VShrU || op == ir::Op::VShrS;
+                    const u64 mask = (1ull << bits) - 1, sign = 1ull << (bits - 1);
+                    const u64 edges[] = {0, 1, mask, sign, sign - 1, sign + 1, 2, mask - 1};
+                    const u64 count = j < 4    ? j
+                                      : j == 4 ? bits
+                                      : j == 5 ? bits + 1
+                                      : j == 6 ? 0xffffffffull
+                                               : 0x100000003ull;
+                    std::array<u32, 4> lhs{}, rhs{}, expected{};
+                    for (u32 lane = 0; lane < 128 / bits; ++lane)
+                    {
+                        const u64 a = edges[(i + lane) % 8], other = edges[(j + 3 * lane) % 8];
+                        const s64 sa = static_cast<s64>(a) - ((a & sign) ? (1ll << bits) : 0);
+                        const s64 sb = static_cast<s64>(other) - ((other & sign) ? (1ll << bits) : 0);
+                        u64 value = 0;
+                        const u32 amount = static_cast<u32>(count) & (bits - 1);
+                        switch (op)
+                        {
+                        case ir::Op::VAddI:
+                            value = a + other;
+                            break;
+                        case ir::Op::VSubI:
+                            value = a - other;
+                            break;
+                        case ir::Op::VAddSatS:
+                            value = std::clamp(sa + sb, -static_cast<s64>(sign), static_cast<s64>(sign - 1));
+                            break;
+                        case ir::Op::VSubSatS:
+                            value = std::clamp(sa - sb, -static_cast<s64>(sign), static_cast<s64>(sign - 1));
+                            break;
+                        case ir::Op::VAddSatU:
+                            value = std::min(a + other, mask);
+                            break;
+                        case ir::Op::VSubSatU:
+                            value = a >= other ? a - other : 0;
+                            break;
+                        case ir::Op::VAbsSatS:
+                            value = std::min(sa < 0 ? -sa : sa, static_cast<s64>(sign - 1));
+                            break;
+                        case ir::Op::VMinS:
+                            value = sa < sb ? a : other;
+                            break;
+                        case ir::Op::VMinU:
+                            value = std::min(a, other);
+                            break;
+                        case ir::Op::VMaxS:
+                            value = sa > sb ? a : other;
+                            break;
+                        case ir::Op::VMaxU:
+                            value = std::max(a, other);
+                            break;
+                        case ir::Op::VCmpEq:
+                            value = a == other ? mask : 0;
+                            break;
+                        case ir::Op::VCmpNe:
+                            value = a != other ? mask : 0;
+                            break;
+                        case ir::Op::VCmpLtS:
+                            value = sa < sb ? mask : 0;
+                            break;
+                        case ir::Op::VCmpLtU:
+                            value = a < other ? mask : 0;
+                            break;
+                        case ir::Op::VCmpLeS:
+                            value = sa <= sb ? mask : 0;
+                            break;
+                        case ir::Op::VCmpLeU:
+                            value = a <= other ? mask : 0;
+                            break;
+                        case ir::Op::VShl:
+                            value = a << amount;
+                            break;
+                        case ir::Op::VShrU:
+                            value = a >> amount;
+                            break;
+                        case ir::Op::VShrS:
+                            value = sa >> amount;
+                            break;
+                        default:
+                            break;
+                        }
+                        const u32 at = lane * bits / 8;
+                        value &= mask;
+                        std::memcpy(reinterpret_cast<u8 *>(lhs.data()) + at, &a, bits / 8);
+                        std::memcpy(reinterpret_cast<u8 *>(rhs.data()) + at, &other, bits / 8);
+                        std::memcpy(reinterpret_cast<u8 *>(expected.data()) + at, &value, bits / 8);
+                    }
+                    bool same = true;
+                    for (u32 mode = 0; mode < 6; ++mode)
+                    {
+                        ir::Function fn;
+                        ir::Builder b(fn);
+                        b.CreateBlock(EE_TEST_PC);
+                        std::array<u32, 8> pressure{};
+                        for (u32 k = 0; k < pressure.size(); ++k)
+                            pressure[k] = b.ConstVec({k, k + 1, ~k, 0x80000000u + k});
+                        const u32 a = b.ConstVec(lhs), other = b.ConstVec(rhs);
+                        const u32 amount =
+                            (mode & 1) ? b.Emit(ir::Op::ReadGpr, ir::Type::I64, {}, 22) : b.ConstI64(count);
+                        const u32 result = op == ir::Op::VAbsSatS
+                                               ? b.Emit1(op, ir::Type::V4U32, a, bits)
+                                               : b.Emit2(op, ir::Type::V4U32, a, shift ? amount : other, bits);
+                        b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+                        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 8);
+                        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, a, 9);
+                        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, other, 10);
+                        for (u32 k = 0; k < pressure.size(); ++k)
+                            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, pressure[k], 11 + k);
+                        b.Resume(EE_TEST_PC + 4);
+                        EeIr::LowerHooks hooks;
+                        hooks.before_helper = hooks.after_helper = +[](void *)
+                        {
+                            for (u32 r = 2; r <= 7; ++r)
+                                oakAsm->MOVI(oak::QReg(r).B16(), 0xa5);
+                        };
+                        EeIr::LowerOptions options;
+                        options.optimize_ir = mode != 0;
+                        options.allocate_registers = mode != 2;
+                        options.allocate_vector_registers = mode != 4;
+                        options.reuse_spill_slots = mode != 3;
+                        options.materialize_constants = mode != 5;
+                        options.direct_ee_loads = false;
+                        options.hooks = &hooks;
+                        EeIr::LowerOutput out;
+                        std::string error;
+                        same &= EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        if (!same)
+                            break;
+                        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                        cpuRegs.GPR.r[22].UD[0] = count;
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        same &= std::memcmp(cpuRegs.GPR.r[8].UL, expected.data(), 16) == 0 &&
+                                std::memcmp(cpuRegs.GPR.r[9].UL, lhs.data(), 16) == 0 &&
+                                std::memcmp(cpuRegs.GPR.r[10].UL, rhs.data(), 16) == 0;
+                        for (u32 k = 0; k < pressure.size(); ++k)
+                        {
+                            const std::array<u32, 4> preserved = {k, k + 1, ~k, 0x80000000u + k};
+                            same &= std::memcmp(cpuRegs.GPR.r[11 + k].UL, preserved.data(), 16) == 0;
+                        }
+                    }
+                    char name[144];
+                    std::snprintf(name, sizeof(name),
+                                  "ir packed SIMD %s bits=%u edges=%u,%u scalar oracle/pressure/clobbers/six modes",
+                                  ir::OpName(op), bits, i, j);
+                    Check(same, name);
+                }
+    for (ir::Op op : operations)
+        for (u64 width : {0ull, 8ull, 16ull, 32ull, 1ull, 64ull, 0x100000008ull})
+            for (ir::Type type : {ir::Type::V4U32, ir::Type::V4I32, ir::Type::V4F32, ir::Type::I32})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 input = b.Undef(type);
+                if (op == ir::Op::VAbsSatS)
+                    b.Emit1(op, type, input, width);
+                else
+                    b.Emit2(op, type, input, ir::Info(op).kind == ir::OpKind::Shift ? b.ConstI32(1) : input, width);
+                b.Resume(EE_TEST_PC + 4);
+                std::string error;
+                const bool valid = (width == 0 || width == 8 || width == 16 || width == 32) &&
+                                   (type == ir::Type::V4U32 || type == ir::Type::V4I32);
+                Check(ir::Verify(fn, &error) == valid, "ir packed lane width and integer vector schema validation");
+            }
+    for (u32 bits : {8u, 16u, 32u})
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        const u32 input = b.ConstVec({0xffffffff, 0x80008080, 0x7fff7f7f, 0});
+        for (ir::Op op :
+             {ir::Op::VAddI, ir::Op::VSubI, ir::Op::VAddSatS, ir::Op::VAddSatU, ir::Op::VSubSatS, ir::Op::VSubSatU})
+            b.Emit2(op, ir::Type::V4U32, input, input, bits);
+        b.Emit1(ir::Op::VAbsSatS, ir::Type::V4U32, input, bits);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, input, 8);
+        b.Resume(EE_TEST_PC + 4);
+        u32 baseline = 0;
+        for (bool optimize : {false, true})
+        {
+            EeIr::LowerOptions options;
+            options.optimize_ir = optimize;
+            EeIr::LowerOutput out;
+            std::string error;
+            bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                reinterpret_cast<void (*)()>(out.entry)();
+                const std::array<u32, 4> expected = {0xffffffff, 0x80008080, 0x7fff7f7f, 0};
+                same &= std::memcmp(cpuRegs.GPR.r[8].UL, expected.data(), 16) == 0;
+                if (optimize)
+                    same &= out.host_size < baseline;
+                else
+                    baseline = out.host_size;
+            }
+            Check(same, "ir dead packed operations removed without changing live result");
+        }
+    }
+}
+
+void EEIrPackedLanesTests()
+{
+    struct Operation
+    {
+        const char *name;
+        u32 group, sub, bits;
+        bool shift = false;
+    };
+    constexpr Operation operations[] = {
+        {"paddh", 8, 4, 16},        {"psubh", 8, 5, 16},        {"pcgth", 8, 6, 16},       {"pmaxh", 8, 7, 16},
+        {"paddb", 8, 8, 8},         {"psubb", 8, 9, 8},         {"pcgtb", 8, 10, 8},       {"pceqh", 40, 6, 16},
+        {"pminh", 40, 7, 16},       {"pceqb", 40, 10, 8},       {"paddsw", 8, 16, 32},     {"psubsw", 8, 17, 32},
+        {"paddsh", 8, 20, 16},      {"psubsh", 8, 21, 16},      {"paddsb", 8, 24, 8},      {"psubsb", 8, 25, 8},
+        {"padduw", 40, 16, 32},     {"psubuw", 40, 17, 32},     {"padduh", 40, 20, 16},    {"psubuh", 40, 21, 16},
+        {"paddub", 40, 24, 8},      {"psubub", 40, 25, 8},      {"pabsw", 40, 1, 32},      {"pabsh", 40, 5, 16},
+        {"psllh", 52, 0, 16, true}, {"psrlh", 54, 0, 16, true}, {"psrah", 55, 0, 16, true}};
+    constexpr std::array<u32, 3> aliases[] = {{8, 9, 10}, {8, 9, 8},  {8, 9, 9},  {8, 8, 8},
+                                              {0, 9, 10}, {8, 0, 10}, {0, 0, 10}, {8, 9, 0}};
+    for (const auto &op : operations)
+        for (u32 pattern = 0; pattern < (op.shift ? 32u : 4u); ++pattern)
+        {
+            const u64 mask = (1ull << op.bits) - 1, sign = 1ull << (op.bits - 1);
+            const u64 edges[] = {0, 1, mask, sign, sign - 1, sign + 1, 2, mask - 1};
+            std::array<u64, 4> raw{};
+            for (u32 lane = 0; lane < 128 / op.bits; ++lane)
+            {
+                raw[lane / (64 / op.bits)] |= edges[(pattern + lane) % 8] << ((lane % (64 / op.bits)) * op.bits);
+                raw[2 + lane / (64 / op.bits)] |= edges[(3 * pattern + 3 * lane + 1) % 8]
+                                                  << ((lane % (64 / op.bits)) * op.bits);
+            }
+            for (u32 alias = 0; alias < std::size(aliases); ++alias)
+            {
+                const auto regs = aliases[alias];
+                u64 initial[32] = {};
+                initial[8] = raw[0];
+                initial[9] = raw[1];
+                initial[10] = raw[2];
+                initial[11] = raw[3];
+                initial[22] = EE_TEST_SCRATCH;
+                const std::vector<u32> code = {MipsI(63, 22, 8, 0),
+                                               MipsI(63, 22, 9, 8),
+                                               MipsI(63, 22, 10, 16),
+                                               MipsI(63, 22, 11, 24),
+                                               MipsI(30, 22, 8, 0),
+                                               MipsI(30, 22, 9, 16),
+                                               Mmi(op.group, op.shift ? pattern : op.sub, regs[0], regs[1], regs[2]),
+                                               MipsI(31, 22, regs[2], 96),
+                                               MipsI(9, regs[2], regs[2], -3),
+                                               MipsI(31, 22, regs[2], 112)};
+                char name[144];
+                std::snprintf(name, sizeof(name),
+                              "ir packed %s pattern/shift=%u aliases=%u seven lowering modes/upper preservation",
+                              op.name, pattern, alias);
+                RunEEIrCase(name, code, initial, false, true);
+                CompareEE(RunEEProgram(false, code, false, initial), RunEEProgram(true, code, false, initial), name);
+            }
+        }
+    for (const auto &op : operations)
+        for (u32 branch : {4u, 0x14u})
+            for (bool taken : {false, true})
+            {
+                const std::vector<u32> code = {
+                    MipsI(15, 0, 22, 0x0010),      MipsI(13, 22, 22, 0x1000),
+                    MipsI(30, 22, 8, 32),          MipsI(30, 22, 9, 48),
+                    MipsI(9, 0, 4, taken ? 1 : 0), MipsI(9, 0, 5, 1),
+                    MipsI(branch, 4, 5, 1),        Mmi(op.group, op.shift ? 31 : op.sub, 8, 9, 8)};
+                char name[128];
+                std::snprintf(name, sizeof(name), "ir packed %s delay branch=%02x taken=%u", op.name, branch, taken);
+                RunEEIrCase(name, code, nullptr, false, true);
+                CompareEE(RunEEProgram(false, code, true), RunEEProgram(true, code, true), name);
+            }
+}
+
 void EEIrMmiTests()
 {
     struct Operation { const char* name; u32 group, sub; ir::Op op; bool invert; bool swap = false; };
@@ -3514,7 +3800,7 @@ void EEIrMmiTests()
         }
     }
     // Reject unimplemented MMI operations even when their destination is $0.
-    for (u32 word : {Mmi(8, 4, 8, 9, 0), Mmi(9, 17, 8, 9, 0), Mmi(41, 17, 8, 9, 0), Mmi(0, 0, 8, 9, 0)})
+    for (u32 word : {Mmi(8, 22, 8, 9, 0), Mmi(9, 17, 8, 9, 0), Mmi(41, 17, 8, 9, 0), Mmi(0, 0, 8, 9, 0)})
     {
         ir::Function fn;
         u32 end;
@@ -4587,6 +4873,8 @@ void EEIrExecutionTests()
 {
     EEIrScalarDirectReadTests();
     EEIrScalarReadBenchmark();
+    EEIrPackedLanesTests();
+    EEIrPackedBackendTests();
     EEIrMergeMemoryTests();
     EEIrMergeHandlerTests();
     EEIrMultiplyTests();

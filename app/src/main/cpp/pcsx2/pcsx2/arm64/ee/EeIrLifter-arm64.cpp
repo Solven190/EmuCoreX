@@ -422,12 +422,21 @@ namespace EeIr
 					const u32 group = word & 0x3f;
 					const u32 sub = Sa(word);
 					const u32 rd = Rd(word);
-					if (group == 0x3c || group == 0x3e || group == 0x3f)
+					if (group == 0x34 || group == 0x36 || group == 0x37 || group == 0x3c || group == 0x3e || group == 0x3f)
 					{
 						if (rd != 0)
 						{
-							const ir::Op shift = group == 0x3c ? ir::Op::VShl : group == 0x3e ? ir::Op::VShrU : ir::Op::VShrS;
-							const u32 value = m_b.Emit2(shift, ir::Type::V4U32, ReadGprQuad(rt), Const(sub));
+							const ir::Op shift = (group & 3) == 0 ? ir::Op::VShl : (group & 3) == 2 ? ir::Op::VShrU : ir::Op::VShrS;
+							const u32 value = m_b.Emit2(shift, ir::Type::V4U32, ReadGprQuad(rt), Const(sub), group < 0x38 ? 16 : 32);
+							m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
+						}
+						return true;
+					}
+					if (group == 0x28 && (sub == 1 || sub == 5)) // pabsw / pabsh
+					{
+						if (rd != 0)
+						{
+							const u32 value = m_b.Emit1(ir::Op::VAbsSatS, ir::Type::V4U32, ReadGprQuad(rt), sub == 1 ? 32 : 16);
 							m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
 						}
 						return true;
@@ -462,6 +471,7 @@ namespace EeIr
 						return true;
 					}
 					ir::Op operation;
+					u32 lane_bits = 0;
 					bool invert = false, swap = false;
 					if (group == 0x08 && sub <= 3)
 					{
@@ -469,8 +479,25 @@ namespace EeIr
 						operation = word_ops[sub]; // paddw / psubw / pcgtw / pmaxw
 						swap = sub == 2; // rs > rt is rt < rs
 					}
-					else if (group == 0x28 && (sub == 2 || sub == 3))
-						operation = sub == 2 ? ir::Op::VCmpEq : ir::Op::VMinS; // pceqw / pminw
+					else if (group == 0x08 && sub >= 4 && sub <= 10)
+					{
+						constexpr ir::Op narrow_ops[] = {ir::Op::VAddI, ir::Op::VSubI, ir::Op::VCmpLtS, ir::Op::VMaxS};
+						operation = narrow_ops[sub & 3];
+						lane_bits = sub < 8 ? 16 : 8;
+						swap = (sub & 3) == 2;
+					}
+					else if (group == 0x28 && (sub == 2 || sub == 3 || sub == 6 || sub == 7 || sub == 10))
+					{
+						operation = (sub & 3) == 2 ? ir::Op::VCmpEq : ir::Op::VMinS;
+						lane_bits = sub < 4 ? 32 : sub < 8 ? 16 : 8;
+					}
+					else if ((group == 0x08 || group == 0x28) &&
+						(sub == 16 || sub == 17 || sub == 20 || sub == 21 || sub == 24 || sub == 25))
+					{
+						operation = group == 0x08 ? (sub & 1 ? ir::Op::VSubSatS : ir::Op::VAddSatS) :
+							(sub & 1 ? ir::Op::VSubSatU : ir::Op::VAddSatU);
+						lane_bits = sub < 20 ? 32 : sub < 24 ? 16 : 8;
+					}
 					else if (group == 0x09 && (sub == 0x12 || sub == 0x13))
 						operation = sub == 0x12 ? ir::Op::And : ir::Op::Xor; // pand / pxor
 					else if (group == 0x29 && (sub == 0x12 || sub == 0x13))
@@ -482,7 +509,7 @@ namespace EeIr
 						return Fail(error, "unsupported MMI instruction", pc);
 					if (rd != 0)
 					{
-						u32 value = m_b.Emit2(operation, ir::Type::V4U32, ReadGprQuad(swap ? rt : rs), ReadGprQuad(swap ? rs : rt));
+						u32 value = m_b.Emit2(operation, ir::Type::V4U32, ReadGprQuad(swap ? rt : rs), ReadGprQuad(swap ? rs : rt), lane_bits);
 						if (invert)
 							value = m_b.Emit1(ir::Op::Not, ir::Type::V4U32, value);
 						m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);

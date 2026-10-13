@@ -2647,6 +2647,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	static u64 vector_shuffles = 0, fused_multiply_pairs = 0;
 	static u64 merge_memory_instructions = 0;
 	static u64 direct_ee_load_operations = 0;
+	static u64 packed_narrow_operations = 0, packed_saturating_operations = 0;
 	for (u32 pc = startpc; pc < s_nEndBlock; pc += 4)
 	{
 		const u32 op = *reinterpret_cast<const u32*>(PSM(pc)) >> 26;
@@ -2665,8 +2666,13 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			if (inst.type == ir::Type::V4U32 && (inst.op == ir::Op::Add || inst.op == ir::Op::Sub ||
 				inst.op == ir::Op::And || inst.op == ir::Op::Or || inst.op == ir::Op::Xor || inst.op == ir::Op::Not))
 				++vector_alu_operations;
-			if (inst.op == ir::Op::VShl || inst.op == ir::Op::VShrU || inst.op == ir::Op::VShrS)
+			if ((inst.op == ir::Op::VShl || inst.op == ir::Op::VShrU || inst.op == ir::Op::VShrS) && (inst.imm == 0 || inst.imm == 32))
 				++packed_word_shifts;
+			if (ir::IsPackedIntegerOp(inst.op) && (inst.imm == 8 || inst.imm == 16))
+				++packed_narrow_operations;
+			if (inst.op == ir::Op::VAddSatS || inst.op == ir::Op::VAddSatU || inst.op == ir::Op::VSubSatS ||
+				inst.op == ir::Op::VSubSatU || inst.op == ir::Op::VAbsSatS)
+				++packed_saturating_operations;
 			if (inst.type == ir::Type::V4U32 && (inst.op == ir::Op::VMinS || inst.op == ir::Op::VMinU ||
 				inst.op == ir::Op::VMaxS || inst.op == ir::Op::VMaxU || inst.op == ir::Op::VCmpEq || inst.op == ir::Op::VCmpNe ||
 				inst.op == ir::Op::VCmpLtS || inst.op == ir::Op::VCmpLtU || inst.op == ir::Op::VCmpLeS || inst.op == ir::Op::VCmpLeU))
@@ -2687,7 +2693,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		(compiled_blocks % 4096) == 0)
 	{
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu fused_multiply_pairs=%llu merge_memory=%llu direct_reads=%u direct_read_operations=%llu",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu fused_multiply_pairs=%llu merge_memory=%llu direct_reads=%u direct_read_operations=%llu packed_narrow=%llu packed_saturating=%llu",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
@@ -2703,7 +2709,8 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			static_cast<unsigned long long>(vector_shuffles), static_cast<unsigned long long>(fused_multiply_pairs),
 			static_cast<unsigned long long>(merge_memory_instructions),
 			options.optimize_ir && options.direct_ee_loads && (!CHECK_CACHE || CHECK_EEREC) ? 1u : 0u,
-			static_cast<unsigned long long>(direct_ee_load_operations));
+			static_cast<unsigned long long>(direct_ee_load_operations),
+			static_cast<unsigned long long>(packed_narrow_operations), static_cast<unsigned long long>(packed_saturating_operations));
 	}
 #endif
 

@@ -66,6 +66,15 @@ namespace ir
 				}
 			}
 
+			if (IsPackedIntegerOp(inst.op))
+			{
+				if (inst.imm != 0 && inst.imm != 8 && inst.imm != 16 && inst.imm != 32)
+					return Fail(error, "packed integer: lane width must be 8, 16 or 32 bits");
+				const Type operand = fn.ValueType(inst.args[0]);
+				if (operand != Type::V4U32 && operand != Type::V4I32)
+					return Fail(error, "packed integer: integer vector operand required");
+			}
+
 			// Result/type rules.
 			if (info.result == Type::Void)
 			{

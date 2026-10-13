@@ -272,6 +272,21 @@ namespace ir
 		return Emit(Op::Trap, Type::Void, {});
 	}
 
+	bool IsPackedIntegerOp(Op op)
+	{
+		switch (op)
+		{
+			case Op::VAddI: case Op::VSubI: case Op::VAbsSatS:
+			case Op::VAddSatS: case Op::VAddSatU: case Op::VSubSatS: case Op::VSubSatU:
+			case Op::VShl: case Op::VShrU: case Op::VShrS:
+			case Op::VMinS: case Op::VMinU: case Op::VMaxS: case Op::VMaxU:
+			case Op::VCmpEq: case Op::VCmpNe: case Op::VCmpLtS: case Op::VCmpLtU:
+			case Op::VCmpLeS: case Op::VCmpLeU:
+				return true;
+			default: return false;
+		}
+	}
+
 	u32 ValueOperandCount(const Inst& inst)
 	{
 		if (Info(inst.op).kind == OpKind::Control)
@@ -289,10 +304,7 @@ namespace ir
 				return inst.op == Op::ConstVec || inst.op == Op::Copy || inst.op == Op::ReadGpr ||
 					(inst.type == Type::V4U32 && (inst.op == Op::Add || inst.op == Op::Sub ||
 						inst.op == Op::And || inst.op == Op::Or || inst.op == Op::Xor || inst.op == Op::Not ||
-						inst.op == Op::VShl || inst.op == Op::VShrU || inst.op == Op::VShrS ||
-						inst.op == Op::VMinS || inst.op == Op::VMinU || inst.op == Op::VMaxS || inst.op == Op::VMaxU ||
-						inst.op == Op::VCmpEq || inst.op == Op::VCmpNe || inst.op == Op::VCmpLtS || inst.op == Op::VCmpLtU ||
-						inst.op == Op::VCmpLeS || inst.op == Op::VCmpLeU || inst.op == Op::VShuffle || inst.op == Op::VShuffle2));
+						IsPackedIntegerOp(inst.op) || inst.op == Op::VShuffle || inst.op == Op::VShuffle2));
 			if (!IsIntegerType(inst.type))
 				return false;
 			switch (inst.op)

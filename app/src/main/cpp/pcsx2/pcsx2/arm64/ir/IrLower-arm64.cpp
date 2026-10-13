@@ -113,6 +113,13 @@ namespace Arm64Ir
 				case ir::Op::VShuffle2:
 				case ir::Op::VShrU:
 				case ir::Op::VShrS:
+				case ir::Op::VAddI:
+				case ir::Op::VSubI:
+				case ir::Op::VAddSatS:
+				case ir::Op::VAddSatU:
+				case ir::Op::VSubSatS:
+				case ir::Op::VSubSatU:
+				case ir::Op::VAbsSatS:
 				case ir::Op::VMinS:
 				case ir::Op::VMinU:
 				case ir::Op::VMaxS:
@@ -1348,6 +1355,25 @@ namespace Arm64Ir
 					return true;
 				}
 
+				case ir::Op::VAbsSatS:
+				{
+					recBeginOaknutEmit();
+					const auto source = Operand128(a[0], oak::util::Q0);
+					const auto dst = Result128(inst.value);
+					if (inst.imm == 8) oakAsm->SQABS(dst.B16(), source.B16());
+					else if (inst.imm == 16) oakAsm->SQABS(dst.H8(), source.H8());
+					else oakAsm->SQABS(dst.S4(), source.S4());
+					Store128(inst.value, dst);
+					recEndOaknutEmit();
+					return true;
+				}
+
+				case ir::Op::VAddI:
+				case ir::Op::VSubI:
+				case ir::Op::VAddSatS:
+				case ir::Op::VAddSatU:
+				case ir::Op::VSubSatS:
+				case ir::Op::VSubSatU:
 				case ir::Op::VMinS:
 				case ir::Op::VMinU:
 				case ir::Op::VMaxS:
@@ -1363,23 +1389,31 @@ namespace Arm64Ir
 					const auto lhs = Operand128(a[0], oak::util::Q0);
 					const auto rhs = Operand128(a[1], oak::util::Q1);
 					const auto dst = Result128(inst.value);
-					switch (inst.op)
-					{
-						case ir::Op::VMinS: oakAsm->SMIN(dst.S4(), lhs.S4(), rhs.S4()); break;
-						case ir::Op::VMinU: oakAsm->UMIN(dst.S4(), lhs.S4(), rhs.S4()); break;
-						case ir::Op::VMaxS: oakAsm->SMAX(dst.S4(), lhs.S4(), rhs.S4()); break;
-						case ir::Op::VMaxU: oakAsm->UMAX(dst.S4(), lhs.S4(), rhs.S4()); break;
-						case ir::Op::VCmpEq: oakAsm->CMEQ(dst.S4(), lhs.S4(), rhs.S4()); break;
-						case ir::Op::VCmpNe:
-							oakAsm->CMEQ(dst.S4(), lhs.S4(), rhs.S4());
-							oakAsm->NOT(dst.B16(), dst.B16());
-							break;
-						case ir::Op::VCmpLtS: oakAsm->CMGT(dst.S4(), rhs.S4(), lhs.S4()); break;
-						case ir::Op::VCmpLtU: oakAsm->CMHI(dst.S4(), rhs.S4(), lhs.S4()); break;
-						case ir::Op::VCmpLeS: oakAsm->CMGE(dst.S4(), rhs.S4(), lhs.S4()); break;
-						case ir::Op::VCmpLeU: oakAsm->CMHS(dst.S4(), rhs.S4(), lhs.S4()); break;
-						default: break;
-					}
+					const auto emit = [&](auto d, auto s, auto t) {
+						switch (inst.op)
+						{
+							case ir::Op::VAddI: oakAsm->ADD(d, s, t); break;
+							case ir::Op::VSubI: oakAsm->SUB(d, s, t); break;
+							case ir::Op::VAddSatS: oakAsm->SQADD(d, s, t); break;
+							case ir::Op::VAddSatU: oakAsm->UQADD(d, s, t); break;
+							case ir::Op::VSubSatS: oakAsm->SQSUB(d, s, t); break;
+							case ir::Op::VSubSatU: oakAsm->UQSUB(d, s, t); break;
+							case ir::Op::VMinS: oakAsm->SMIN(d, s, t); break;
+							case ir::Op::VMinU: oakAsm->UMIN(d, s, t); break;
+							case ir::Op::VMaxS: oakAsm->SMAX(d, s, t); break;
+							case ir::Op::VMaxU: oakAsm->UMAX(d, s, t); break;
+							case ir::Op::VCmpEq: oakAsm->CMEQ(d, s, t); break;
+							case ir::Op::VCmpNe: oakAsm->CMEQ(d, s, t); oakAsm->NOT(dst.B16(), dst.B16()); break;
+							case ir::Op::VCmpLtS: oakAsm->CMGT(d, t, s); break;
+							case ir::Op::VCmpLtU: oakAsm->CMHI(d, t, s); break;
+							case ir::Op::VCmpLeS: oakAsm->CMGE(d, t, s); break;
+							case ir::Op::VCmpLeU: oakAsm->CMHS(d, t, s); break;
+							default: break;
+						}
+					};
+					if (inst.imm == 8) emit(dst.B16(), lhs.B16(), rhs.B16());
+					else if (inst.imm == 16) emit(dst.H8(), lhs.H8(), rhs.H8());
+					else emit(dst.S4(), lhs.S4(), rhs.S4());
 					Store128(inst.value, dst);
 					recEndOaknutEmit();
 					return true;
@@ -1392,34 +1426,33 @@ namespace Arm64Ir
 					recBeginOaknutEmit();
 					const auto source = Operand128(a[0], oak::util::Q0);
 					const auto dst = Result128(inst.value);
-					if (m_constants[a[1]])
-					{
-						const u32 amount = static_cast<u32>(*m_constants[a[1]]) & 31u;
-						// ARM64 immediate right shifts require a nonzero amount.
-						if (amount == 0)
+					const u32 bits = inst.imm ? static_cast<u32>(inst.imm) : 32;
+					const auto emit = [&](auto d, auto s, auto count) {
+						if (m_constants[a[1]])
 						{
-							if (dst.index() != source.index())
-								oakAsm->MOV(dst.B16(), source.B16());
+							const u32 amount = static_cast<u32>(*m_constants[a[1]]) & (bits - 1);
+							// ARM64 immediate right shifts require a nonzero amount.
+							if (amount == 0)
+							{
+								if (dst.index() != source.index()) oakAsm->MOV(dst.B16(), source.B16());
+							}
+							else if (inst.op == ir::Op::VShl) oakAsm->SHL(d, s, amount);
+							else if (inst.op == ir::Op::VShrU) oakAsm->USHR(d, s, amount);
+							else oakAsm->SSHR(d, s, amount);
 						}
-						else if (inst.op == ir::Op::VShl)
-							oakAsm->SHL(dst.S4(), source.S4(), amount);
-						else if (inst.op == ir::Op::VShrU)
-							oakAsm->USHR(dst.S4(), source.S4(), amount);
 						else
-							oakAsm->SSHR(dst.S4(), source.S4(), amount);
-					}
-					else
-					{
-						Load32(a[1], oak::util::W0);
-						oakAsm->AND(oak::util::W0, oak::util::W0, 31);
-						if (inst.op != ir::Op::VShl)
-							oakAsm->NEG(oak::util::W0, oak::util::W0);
-						oakAsm->DUP(oak::util::Q1.S4(), oak::util::W0);
-						if (inst.op == ir::Op::VShrS)
-							oakAsm->SSHL(dst.S4(), source.S4(), oak::util::Q1.S4());
-						else
-							oakAsm->USHL(dst.S4(), source.S4(), oak::util::Q1.S4());
-					}
+						{
+							Load32(a[1], oak::util::W0);
+							oakAsm->AND(oak::util::W0, oak::util::W0, bits - 1);
+							if (inst.op != ir::Op::VShl) oakAsm->NEG(oak::util::W0, oak::util::W0);
+							oakAsm->DUP(count, oak::util::W0);
+							if (inst.op == ir::Op::VShrS) oakAsm->SSHL(d, s, count);
+							else oakAsm->USHL(d, s, count);
+						}
+					};
+					if (bits == 8) emit(dst.B16(), source.B16(), oak::util::Q1.B16());
+					else if (bits == 16) emit(dst.H8(), source.H8(), oak::util::Q1.H8());
+					else emit(dst.S4(), source.S4(), oak::util::Q1.S4());
 					Store128(inst.value, dst);
 					recEndOaknutEmit();
 					return true;
@@ -2070,10 +2103,7 @@ namespace Arm64Ir
 				const bool quad_alu = inst.type == ir::Type::V4U32 &&
 					(inst.op == ir::Op::Add || inst.op == ir::Op::Sub || inst.op == ir::Op::And ||
 						inst.op == ir::Op::Or || inst.op == ir::Op::Xor || inst.op == ir::Op::Not ||
-						inst.op == ir::Op::VShl || inst.op == ir::Op::VShrU || inst.op == ir::Op::VShrS ||
-						inst.op == ir::Op::VMinS || inst.op == ir::Op::VMinU || inst.op == ir::Op::VMaxS || inst.op == ir::Op::VMaxU ||
-						inst.op == ir::Op::VCmpEq || inst.op == ir::Op::VCmpNe || inst.op == ir::Op::VCmpLtS || inst.op == ir::Op::VCmpLtU ||
-						inst.op == ir::Op::VCmpLeS || inst.op == ir::Op::VCmpLeU || inst.op == ir::Op::VShuffle || inst.op == ir::Op::VShuffle2);
+						ir::IsPackedIntegerOp(inst.op) || inst.op == ir::Op::VShuffle || inst.op == ir::Op::VShuffle2);
 				const bool quad_result = inst.type == ir::Type::V4U32 &&
 					(inst.op == ir::Op::ConstVec || inst.op == ir::Op::Copy || inst.op == ir::Op::ReadGpr || inst.op == ir::Op::Load128 || quad_alu);
 				for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)

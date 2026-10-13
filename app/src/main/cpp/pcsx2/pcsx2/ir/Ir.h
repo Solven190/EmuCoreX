@@ -181,11 +181,19 @@ namespace ir
 	X(VNot,         VecUnary,    1, 1, Any,  false) \
 	X(VNeg,         VecUnary,    1, 1, Any,  false) \
 	X(VAbs,         VecUnary,    1, 1, Any,  false) \
-	/* Integer 32-bit lanes; scalar I32/I64 count masked with 31. */ \
+	/* Packed integer lanes: imm is 8/16/32 bits (0 means 32); 128-bit storage. */ \
+	X(VAddI,        VecBinary,   2, 2, Any,  false) \
+	X(VSubI,        VecBinary,   2, 2, Any,  false) \
+	X(VAddSatS,     VecBinary,   2, 2, Any,  false) \
+	X(VAddSatU,     VecBinary,   2, 2, Any,  false) \
+	X(VSubSatS,     VecBinary,   2, 2, Any,  false) \
+	X(VSubSatU,     VecBinary,   2, 2, Any,  false) \
+	X(VAbsSatS,     VecUnary,    1, 1, Any,  false) \
+	/* Packed shifts mask scalar I32/I64 count with lane_bits - 1. */ \
 	X(VShl,         Shift,       2, 2, Any,  false) \
 	X(VShrU,        Shift,       2, 2, Any,  false) \
 	X(VShrS,        Shift,       2, 2, Any,  false) \
-	/* Integer min/max uses 32-bit lanes; integer compares return all ones/zero per lane. */ \
+	/* Packed min/max and compares use the same lane width; compares return all ones/zero per lane. */ \
 	X(VMinS,        VecBinary,   2, 2, Any,  false) \
 	X(VMinU,        VecBinary,   2, 2, Any,  false) \
 	X(VMaxS,        VecBinary,   2, 2, Any,  false) \
@@ -277,6 +285,7 @@ namespace ir
 	static_assert(std::size(kOpInfo) == static_cast<size_t>(Op::Count));
 
 	const char* OpName(Op op);
+	bool IsPackedIntegerOp(Op op);
 	inline const OpInfo& Info(Op op) { return kOpInfo[static_cast<size_t>(op)]; }
 	inline bool IsTerminator(Op op) { return Info(op).terminator; }
 
