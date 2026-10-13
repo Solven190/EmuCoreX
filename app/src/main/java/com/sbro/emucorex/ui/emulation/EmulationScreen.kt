@@ -35,6 +35,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -555,6 +556,111 @@ private fun resolveManualTargetFps(currentTargetFps: Int, defaultTargetFps: Int)
     }
 }
 
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun ShaderPreparationDialog(
+    state: ShaderPreparationUiSnapshot,
+    onPrepare: () -> Unit,
+    onSkip: () -> Unit,
+    onCancel: () -> Unit,
+    onResume: () -> Unit,
+    onContinue: () -> Unit
+) {
+    val actions = ShaderPreparationUiPolicy.actions(state)
+    val progress = ShaderPreparationUiPolicy.progress(state)
+    val title = when (state.phase) {
+        ShaderPreparationUiPhase.Offer -> stringResource(R.string.shader_prep_offer_title)
+        ShaderPreparationUiPhase.Completed -> stringResource(R.string.shader_prep_complete)
+        else -> shaderPreparationPhaseLabel(state.phase)
+    }
+
+    AlertDialog(
+        onDismissRequest = {
+            if (state.phase == ShaderPreparationUiPhase.Offer) onSkip()
+        },
+        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.40f).dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (state.phase == ShaderPreparationUiPhase.Offer) {
+                    Text(stringResource(R.string.shader_prep_offer_body))
+                } else {
+                    if (progress.total > 0) {
+                        Text(stringResource(R.string.shader_prep_progress, progress.ready, progress.total))
+                    }
+                    Text(stringResource(R.string.shader_prep_cached, state.alreadyAvailable))
+                    Text(stringResource(R.string.shader_prep_in_flight, state.inFlight))
+                    Text(stringResource(R.string.shader_prep_failures, state.failed))
+                    Text(stringResource(R.string.shader_prep_cancelled, state.cancelled))
+                    state.adapterName?.takeIf(String::isNotBlank)?.let { adapter ->
+                        Text(stringResource(R.string.shader_prep_adapter, adapter))
+                    }
+                    state.error?.let { error ->
+                        Text(shaderPreparationErrorMessage(error), color = MaterialTheme.colorScheme.error)
+                    }
+                    if (ShaderPreparationUiPolicy.isDurablyReady(state)) {
+                        Text(stringResource(R.string.shader_prep_checkpoint_saved))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                if (ShaderPreparationUiAction.Prepare in actions) {
+                    TextButton(onClick = onPrepare) { Text(stringResource(R.string.shader_prep_prepare)) }
+                }
+                if (ShaderPreparationUiAction.Skip in actions) {
+                    TextButton(onClick = onSkip) { Text(stringResource(R.string.shader_prep_skip)) }
+                }
+                if (ShaderPreparationUiAction.Cancel in actions) {
+                    TextButton(onClick = onCancel) { Text(stringResource(R.string.shader_prep_cancel)) }
+                }
+                if (ShaderPreparationUiAction.Resume in actions) {
+                    TextButton(onClick = onResume) { Text(stringResource(R.string.shader_prep_resume)) }
+                }
+                if (ShaderPreparationUiAction.ContinueToGame in actions) {
+                    TextButton(onClick = onContinue) {
+                        Text(stringResource(R.string.shader_prep_continue_game))
+                    }
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun shaderPreparationPhaseLabel(phase: ShaderPreparationUiPhase): String = when (phase) {
+    ShaderPreparationUiPhase.Hidden,
+    ShaderPreparationUiPhase.Offer -> stringResource(R.string.shader_prep_state_idle)
+    ShaderPreparationUiPhase.WaitingForLifecycle -> stringResource(R.string.shader_prep_state_waiting_for_lifecycle)
+    ShaderPreparationUiPhase.Starting -> stringResource(R.string.shader_prep_state_starting)
+    ShaderPreparationUiPhase.Running -> stringResource(R.string.shader_prep_state_running)
+    ShaderPreparationUiPhase.Cancelling -> stringResource(R.string.shader_prep_state_cancelling)
+    ShaderPreparationUiPhase.Completed -> stringResource(R.string.shader_prep_state_completed)
+    ShaderPreparationUiPhase.Cancelled -> stringResource(R.string.shader_prep_state_cancelled)
+    ShaderPreparationUiPhase.Failed -> stringResource(R.string.shader_prep_state_failed)
+    ShaderPreparationUiPhase.Unsupported -> stringResource(R.string.shader_prep_state_unsupported)
+}
+
+@Composable
+private fun shaderPreparationErrorMessage(error: ShaderPreparationUiError): String = when (error) {
+    ShaderPreparationUiError.LifecycleBusy -> stringResource(R.string.shader_prep_error_lifecycle_busy)
+    ShaderPreparationUiError.UnsupportedRenderer -> stringResource(R.string.shader_prep_error_unsupported_renderer)
+    ShaderPreparationUiError.CacheDisabled -> stringResource(R.string.shader_prep_error_cache_disabled)
+    ShaderPreparationUiError.MissingSource -> stringResource(R.string.shader_prep_error_missing_source)
+    ShaderPreparationUiError.DeviceCreationFailed -> stringResource(R.string.shader_prep_error_device_creation_failed)
+    ShaderPreparationUiError.PipelineFailures -> stringResource(R.string.shader_prep_error_pipeline_failures)
+    ShaderPreparationUiError.CheckpointFailed -> stringResource(R.string.shader_prep_error_checkpoint_failed)
+    ShaderPreparationUiError.InternalError -> stringResource(R.string.shader_prep_error_internal_error)
+}
+
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun EmulationScreen(
@@ -579,6 +685,7 @@ fun EmulationScreen(
     viewModel: EmulationViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val shaderPreparationState by viewModel.shaderPreparationUiState.collectAsState()
     val activePatchNotice by viewModel.activePatchNotice.collectAsState()
     val retroAchievementsState by RetroAchievementsLiveStateManager.state.collectAsState()
     val retroAchievementsNotification = retroAchievementsState.notification
@@ -1089,9 +1196,29 @@ fun EmulationScreen(
             gsDumpFrames = gsDumpFrames,
             gsDumpDelayMs = gsDumpDelayMs,
             vu0FamilyMaskOverride = vu0FamilyMaskOverride,
-            vu1FamilyMaskOverride = vu1FamilyMaskOverride
+            vu1FamilyMaskOverride = vu1FamilyMaskOverride,
+            restoredAfterProcessDeath = restoredAfterProcessDeath
         )
         RetroAchievementsLiveStateManager.refreshFromNative()
+    }
+
+    DisposableEffect(viewModel, activity, restoredAfterProcessDeath) {
+        onDispose {
+            if (!restoredAfterProcessDeath && activity?.isChangingConfigurations != true) {
+                viewModel.abortPendingShaderPreparation()
+            }
+        }
+    }
+
+    if (shaderPreparationState.phase != ShaderPreparationUiPhase.Hidden) {
+        ShaderPreparationDialog(
+            state = shaderPreparationState,
+            onPrepare = viewModel::prepareShaders,
+            onSkip = viewModel::skipShaderPreparation,
+            onCancel = viewModel::cancelShaderPreparation,
+            onResume = viewModel::resumeShaderPreparation,
+            onContinue = viewModel::continueLaunchWithoutShaderPreparation
+        )
     }
 
     LaunchedEffect(
@@ -1212,7 +1339,9 @@ fun EmulationScreen(
     DisposableEffect(Unit) {
         onDispose {
             GamepadManager.setEmulationInputEnabled(false)
-            viewModel.stopEmulation()
+            if (ShaderPreparationRouteExitPolicy.shouldStopEmulation(activity?.isChangingConfigurations == true)) {
+                viewModel.stopEmulation()
+            }
         }
     }
 

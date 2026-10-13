@@ -736,6 +736,10 @@ int AndroidRuntime::RunTFXPreparationRuntimeTests()
 	// The isolated native oracle process uses only its own working directory. Do not
 	// initialize the app's persistent Android data root in this test.
 	Initialize(".", 35);
+	{
+		std::lock_guard lock(mutex_);
+		next_tfx_preparation_job_id_ = static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) - 1;
+	}
 	ResetTFXPreparationTestBarrier();
 	if (!StartTFXPreparation())
 	{
@@ -757,6 +761,8 @@ int AndroidRuntime::RunTFXPreparationRuntimeTests()
 
 	TFXPreparationStatus status = GetTFXPreparationStatus();
 	const uint64_t job_id = status.job_id;
+	check(job_id == static_cast<uint64_t>(std::numeric_limits<int64_t>::max()),
+		"last positive Java Long job identity is preserved exactly");
 	check(job_id != 0 && status.attempt == 1 && TFXPreparationJob::IsActiveState(status.state),
 		"start reserves job identity before bridge work");
 	check(!StartTFXPreparation(), "duplicate start is rejected while active");
@@ -865,6 +871,20 @@ int AndroidRuntime::RunTFXPreparationRuntimeTests()
 	}
 	s_tfx_preparation_test_barrier.cv.notify_all();
 
+	const bool exhausted_id_started = StartTFXPreparation();
+	check(!exhausted_id_started, "exhausted positive Long identities reject admission without wraparound");
+	if (exhausted_id_started)
+	{
+		CancelTFXPreparation(GetTFXPreparationStatus().job_id);
+		Shutdown();
+	}
+	check(GetTFXPreparationStatus().job_id == job_id,
+		"rejected identity exhaustion retains the previous job snapshot");
+	{
+		std::lock_guard lock(mutex_);
+		next_tfx_preparation_job_id_ = 0;
+	}
+
 	SetSetting("EmuCore/GS", "Renderer", "int",
 		std::to_string(static_cast<int>(GSRendererType::VK)));
 	const Pcsx2Config::GSOptions previous_gs_config = GSConfig;
@@ -933,7 +953,8 @@ bool AndroidRuntime::StartTFXPreparation()
 	{
 		std::lock_guard lock(mutex_);
 		if (!initialized_ || settings_batch_ || vm_active_ || startup_state_ == VmStartupState::Pending ||
-			IsTFXPreparationActiveLocked())
+			IsTFXPreparationActiveLocked() ||
+			next_tfx_preparation_job_id_ >= static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
 			return false;
 		if (vm_thread_.joinable())
 			finished_vm_thread = std::move(vm_thread_);
@@ -947,10 +968,11 @@ bool AndroidRuntime::StartTFXPreparation()
 
 	std::lock_guard lock(mutex_);
 	if (!initialized_ || settings_batch_ || vm_active_ || startup_state_ == VmStartupState::Pending ||
-		IsTFXPreparationActiveLocked())
+		IsTFXPreparationActiveLocked() ||
+		next_tfx_preparation_job_id_ >= static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
 		return false;
-	if (++next_tfx_preparation_job_id_ == 0)
-		++next_tfx_preparation_job_id_;
+	// JNI cancellation/resume use positive jlong IDs. Never truncate or recycle one.
+	++next_tfx_preparation_job_id_;
 	auto job = std::make_shared<TFXPreparationJob>(next_tfx_preparation_job_id_, 1);
 	VmLaunchConfig config = CreateLaunchConfigLocked({}, false, 0, false);
 	tfx_preparation_job_ = job;

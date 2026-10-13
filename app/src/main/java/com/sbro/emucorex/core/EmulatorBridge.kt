@@ -201,6 +201,43 @@ object EmulatorBridge {
 
     private suspend fun <T> runSerial(block: () -> T): T = withContext(serialDispatcher) { block() }
 
+    suspend fun startShaderPreparation(): Boolean {
+        if (!isNativeLoaded) return false
+        return runSerial { NativeApp.startShaderPreparation() }
+    }
+
+    suspend fun getShaderPreparationStatusSnapshot(): ShaderPreparationStatus? {
+        if (!isNativeLoaded) return null
+        return runSerial { NativeApp.getShaderPreparationStatusSnapshot() }
+            ?.let(ShaderPreparationStatus::parseSnapshot)
+    }
+
+    suspend fun cancelShaderPreparation(jobId: Long): Boolean {
+        if (!isNativeLoaded) return false
+        return runSerial { NativeApp.cancelShaderPreparation(jobId) }
+    }
+
+    suspend fun resumeShaderPreparation(jobId: Long): Boolean {
+        if (!isNativeLoaded) return false
+        return runSerial { NativeApp.resumeShaderPreparation(jobId) }
+    }
+
+    suspend fun shutdownShaderPreparationRuntime(): Boolean {
+        if (!isNativeLoaded) return false
+        return runSerial {
+            if (isVmActive || NativeApp.hasValidVm()) return@runSerial false
+            shutdownRequested = true
+            try {
+                NativeApp.shutdown()
+                !NativeApp.hasValidVm()
+            } catch (_: Exception) {
+                false
+            } finally {
+                shutdownRequested = false
+            }
+        }
+    }
+
     private fun launchSerial(block: suspend () -> Unit) {
         serialScope.launch { block() }
     }

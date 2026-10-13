@@ -588,11 +588,35 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         )
     )
     val uiState: StateFlow<EmulationUiState> = _uiState.asStateFlow()
+    private val _shaderPreparationUiState = MutableStateFlow(
+        ShaderPreparationUiSnapshot(
+            phase = ShaderPreparationUiPhase.Hidden,
+            total = 0,
+            completed = 0,
+            alreadyAvailable = 0,
+            failed = 0,
+            cancelled = 0,
+            inFlight = 0,
+            finished = false,
+            checkpointSaved = false
+        )
+    )
+    val shaderPreparationUiState: StateFlow<ShaderPreparationUiSnapshot> = _shaderPreparationUiState.asStateFlow()
     // Kept outside EmulationUiState: that data class is near the JVM 255-argument limit.
     private val _activePatchNotice = MutableStateFlow<ActivePatchNotice?>(null)
     val activePatchNotice: StateFlow<ActivePatchNotice?> = _activePatchNotice.asStateFlow()
     private val lifecycleMutex = Mutex()
     private val transportMutex = Mutex()
+    private val shaderPreparationLifecycleGate = ShaderPreparationLifecycleGate()
+    private var shaderPreparationMayBeActive: Boolean
+        get() = shaderPreparationLifecycleGate.mayBeActive
+        set(value) = shaderPreparationLifecycleGate.setMayBeActive(value)
+    private val shaderPreparationChoiceGate = ShaderPreparationChoiceGate()
+    @Volatile
+    private var shaderPreparationAbortRequested = false
+    @Volatile
+    private var shaderPreparationCancelRequested = false
+    @Volatile
     private var pausedForBackground = false
     @Volatile
     private var fastForwardRequested = false
@@ -604,6 +628,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private var currentGameTitle: String = ""
     @Volatile
     private var currentGamePath: String? = null
+    private var currentLaunchRequest: ShaderPreparationLaunchRequest? = null
     private var currentAnalyticsAudioBackend: Int = AudioDefaults.BACKEND_DEFAULT
     @Volatile
     private var currentGameSerial: String = ""
@@ -1564,6 +1589,296 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         )
     }
 
+    private fun publishShaderPreparationStatus(status: com.sbro.emucorex.core.ShaderPreparationStatus) {
+        val phase = when (status.state) {
+            com.sbro.emucorex.core.ShaderPreparationStatus.State.IDLE -> ShaderPreparationUiPhase.Hidden
+            com.sbro.emucorex.core.ShaderPreparationStatus.State.WAITING_FOR_LIFECYCLE ->
+                ShaderPreparationUiPhase.WaitingForLifecycle
+            com.sbro.emucorex.core.ShaderPreparationStatus.State.STARTING -> ShaderPreparationUiPhase.Starting
+            com.sbro.emucorex.core.ShaderPreparationStatus.State.RUNNING -> ShaderPreparationUiPhase.Running
+            com.sbro.emucorex.core.ShaderPreparationStatus.State.CANCELLING -> ShaderPreparationUiPhase.Cancelling
+            com.sbro.emucorex.core.ShaderPreparationStatus.State.COMPLETED -> ShaderPreparationUiPhase.Completed
+            com.sbro.emucorex.core.ShaderPreparationStatus.State.CANCELLED -> ShaderPreparationUiPhase.Cancelled
+            com.sbro.emucorex.core.ShaderPreparationStatus.State.FAILED -> ShaderPreparationUiPhase.Failed
+            com.sbro.emucorex.core.ShaderPreparationStatus.State.UNSUPPORTED -> ShaderPreparationUiPhase.Unsupported
+        }
+        val error = when (status.error) {
+            com.sbro.emucorex.core.ShaderPreparationStatus.Error.NONE -> null
+            com.sbro.emucorex.core.ShaderPreparationStatus.Error.LIFECYCLE_BUSY -> ShaderPreparationUiError.LifecycleBusy
+            com.sbro.emucorex.core.ShaderPreparationStatus.Error.UNSUPPORTED_RENDERER -> ShaderPreparationUiError.UnsupportedRenderer
+            com.sbro.emucorex.core.ShaderPreparationStatus.Error.CACHE_DISABLED -> ShaderPreparationUiError.CacheDisabled
+            com.sbro.emucorex.core.ShaderPreparationStatus.Error.MISSING_SOURCE -> ShaderPreparationUiError.MissingSource
+            com.sbro.emucorex.core.ShaderPreparationStatus.Error.DEVICE_CREATION_FAILED -> ShaderPreparationUiError.DeviceCreationFailed
+            com.sbro.emucorex.core.ShaderPreparationStatus.Error.PIPELINE_FAILURES -> ShaderPreparationUiError.PipelineFailures
+            com.sbro.emucorex.core.ShaderPreparationStatus.Error.CHECKPOINT_FAILED -> ShaderPreparationUiError.CheckpointFailed
+            com.sbro.emucorex.core.ShaderPreparationStatus.Error.INTERNAL_ERROR -> ShaderPreparationUiError.InternalError
+        }
+        _shaderPreparationUiState.value = ShaderPreparationUiSnapshot(
+            phase = phase,
+            total = status.total,
+            completed = status.completed,
+            alreadyAvailable = status.alreadyAvailable,
+            failed = status.failed,
+            cancelled = status.cancelled,
+            inFlight = status.inFlight,
+            finished = status.finished,
+            checkpointSaved = status.checkpointSaved,
+            jobId = status.jobId,
+            attempt = status.attempt,
+            error = error,
+            adapterName = status.adapterName,
+            cancelRequested = status.cancelRequested
+        )
+    }
+
+    private fun setShaderPreparationPhase(
+        phase: ShaderPreparationUiPhase,
+        error: ShaderPreparationUiError? = null
+    ) {
+        _shaderPreparationUiState.value = _shaderPreparationUiState.value.copy(phase = phase, error = error)
+    }
+
+    private suspend fun awaitShaderPreparationChoice(
+        phase: ShaderPreparationUiPhase,
+        error: ShaderPreparationUiError? = null
+    ): LaunchPreparationChoice {
+        if (shaderPreparationAbortRequested || cancelPendingStart) {
+            return LaunchPreparationChoice.Abort
+        }
+        return shaderPreparationChoiceGate.await {
+            setShaderPreparationPhase(phase, error)
+            if (shaderPreparationAbortRequested || cancelPendingStart) {
+                shaderPreparationChoiceGate.abort()
+            }
+        }
+    }
+
+    private fun isShaderPreparationTerminal(status: com.sbro.emucorex.core.ShaderPreparationStatus): Boolean =
+        status.state == com.sbro.emucorex.core.ShaderPreparationStatus.State.COMPLETED ||
+            status.state == com.sbro.emucorex.core.ShaderPreparationStatus.State.CANCELLED ||
+            status.state == com.sbro.emucorex.core.ShaderPreparationStatus.State.FAILED ||
+            status.state == com.sbro.emucorex.core.ShaderPreparationStatus.State.UNSUPPORTED
+
+    private suspend fun prepareShadersBeforeLaunch(
+        renderer: Int,
+        bootToBios: Boolean,
+        bootSmokeProbe: Boolean,
+        autotestMode: Boolean,
+        restoredAfterProcessDeath: Boolean
+    ): Boolean {
+        if (!ShaderPreparationUiPolicy.shouldOffer(
+                renderer = RendererDefaults.normalizeAndroidRenderer(renderer),
+                bootToBios = bootToBios,
+                bootSmokeProbe = bootSmokeProbe,
+                autotestMode = autotestMode,
+                restoredAfterProcessDeath = restoredAfterProcessDeath
+            )) {
+            return true
+        }
+
+        shaderPreparationAbortRequested = false
+        shaderPreparationCancelRequested = false
+        shaderPreparationMayBeActive = false
+        shaderPreparationChoiceGate.reset()
+        _shaderPreparationUiState.value = _shaderPreparationUiState.value.copy(
+            phase = ShaderPreparationUiPhase.Offer,
+            error = null,
+            jobId = 0L,
+            attempt = 0,
+            total = 0,
+            completed = 0,
+            alreadyAvailable = 0,
+            failed = 0,
+            cancelled = 0,
+            inFlight = 0,
+            finished = false,
+            checkpointSaved = false,
+            adapterName = null,
+            cancelRequested = false,
+            ownerKnown = true
+        )
+
+        when (awaitShaderPreparationChoice(ShaderPreparationUiPhase.Offer)) {
+            LaunchPreparationChoice.Skip -> {
+                setShaderPreparationPhase(ShaderPreparationUiPhase.Hidden)
+                return true
+            }
+            LaunchPreparationChoice.Abort -> return false
+            LaunchPreparationChoice.Prepare -> Unit
+            else -> return false
+        }
+
+        var firstStart = true
+        while (true) {
+            if (shaderPreparationAbortRequested || cancelPendingStart) {
+                return false
+            }
+
+            val result = shaderPreparationLifecycleGate.admitAndObserve(
+                admit = {
+                    shaderPreparationMayBeActive = true
+                    if (firstStart) {
+                        setShaderPreparationPhase(ShaderPreparationUiPhase.Starting)
+                        firstStart = false
+                        EmulatorBridge.startShaderPreparation()
+                    } else {
+                        val jobId = _shaderPreparationUiState.value.jobId
+                        shaderPreparationCancelRequested = false
+                        jobId > 0L && EmulatorBridge.resumeShaderPreparation(jobId)
+                    }
+                },
+                observe = { started ->
+                    if (!started) {
+                        Log.w(TAG, "Shader preparation start or resume was rejected by native runtime")
+                    }
+                    ShaderPreparationRunCoordinator.awaitKnownTerminal(
+                    startAccepted = started,
+                    readStatus = { EmulatorBridge.getShaderPreparationStatusSnapshot() },
+                    cancellationRequested = {
+                        shaderPreparationAbortRequested || shaderPreparationCancelRequested || cancelPendingStart
+                    },
+                    cancel = { jobId -> EmulatorBridge.cancelShaderPreparation(jobId) },
+                    waitBetweenPolls = { delay(250L) },
+                    onStatus = { status -> publishShaderPreparationStatus(status) },
+                    shutdownIfStatusRemainsUnknown = {
+                        val stopped = EmulatorBridge.shutdownShaderPreparationRuntime()
+                        if (stopped) shaderPreparationMayBeActive = false
+                        stopped
+                    }
+                    )
+                }
+            )
+
+            when (result) {
+                is ShaderPreparationWaitResult.Terminal -> {
+                    shaderPreparationMayBeActive = false
+                    shaderPreparationCancelRequested = false
+                    publishShaderPreparationStatus(result.status)
+                    if (result.status.state == com.sbro.emucorex.core.ShaderPreparationStatus.State.COMPLETED) {
+                        return when (awaitShaderPreparationChoice(ShaderPreparationUiPhase.Completed)) {
+                            LaunchPreparationChoice.ContinueToGame -> {
+                                setShaderPreparationPhase(ShaderPreparationUiPhase.Hidden)
+                                true
+                            }
+                            LaunchPreparationChoice.Abort -> false
+                            else -> false
+                        }
+                    }
+                    if (shaderPreparationAbortRequested || cancelPendingStart) return false
+                    when (awaitShaderPreparationChoice(_shaderPreparationUiState.value.phase)) {
+                        LaunchPreparationChoice.Resume -> continue
+                        LaunchPreparationChoice.ContinueToGame -> {
+                            setShaderPreparationPhase(ShaderPreparationUiPhase.Hidden)
+                            return true
+                        }
+                        LaunchPreparationChoice.Abort -> return false
+                        else -> return false
+                    }
+                }
+                ShaderPreparationWaitResult.NoWorker -> {
+                    shaderPreparationMayBeActive = false
+                    _shaderPreparationUiState.value = _shaderPreparationUiState.value.copy(
+                        phase = ShaderPreparationUiPhase.Failed,
+                        error = ShaderPreparationUiError.InternalError,
+                        jobId = 0L,
+                        ownerKnown = true
+                    )
+                    when (awaitShaderPreparationChoice(ShaderPreparationUiPhase.Failed, ShaderPreparationUiError.InternalError)) {
+                        LaunchPreparationChoice.ContinueToGame -> {
+                            setShaderPreparationPhase(ShaderPreparationUiPhase.Hidden)
+                            return true
+                        }
+                        LaunchPreparationChoice.Abort -> return false
+                        else -> return false
+                    }
+                }
+                ShaderPreparationWaitResult.StatusUnavailable -> {
+                    _shaderPreparationUiState.value = _shaderPreparationUiState.value.copy(
+                        phase = ShaderPreparationUiPhase.Failed,
+                        error = ShaderPreparationUiError.InternalError,
+                        ownerKnown = false
+                    )
+                    when (awaitShaderPreparationChoice(ShaderPreparationUiPhase.Failed, ShaderPreparationUiError.InternalError)) {
+                        LaunchPreparationChoice.Abort -> return false
+                        else -> return false
+                    }
+                }
+                ShaderPreparationWaitResult.RuntimeShutdown -> {
+                    shaderPreparationMayBeActive = false
+                    setShaderPreparationPhase(ShaderPreparationUiPhase.Hidden)
+                    return false
+                }
+            }
+        }
+    }
+
+    fun prepareShaders() {
+        shaderPreparationChoiceGate.choose(LaunchPreparationChoice.Prepare)
+    }
+
+    fun skipShaderPreparation() {
+        shaderPreparationChoiceGate.choose(LaunchPreparationChoice.Skip)
+    }
+
+    fun cancelShaderPreparation() {
+        val jobId = _shaderPreparationUiState.value.jobId
+        if (!_shaderPreparationUiState.value.ownerKnown || jobId <= 0L) {
+            abortPendingShaderPreparation()
+            return
+        }
+        shaderPreparationCancelRequested = true
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { EmulatorBridge.cancelShaderPreparation(jobId) }
+        }
+    }
+
+    fun resumeShaderPreparation() {
+        shaderPreparationChoiceGate.choose(LaunchPreparationChoice.Resume)
+    }
+
+    fun continueLaunchWithoutShaderPreparation() {
+        shaderPreparationChoiceGate.choose(LaunchPreparationChoice.ContinueToGame)
+    }
+
+    fun abortPendingShaderPreparation() {
+        shaderPreparationAbortRequested = true
+        shaderPreparationChoiceGate.abort()
+        val state = _shaderPreparationUiState.value
+        val required = ShaderPreparationExitCleanup.isRequired(
+            hasActiveWorker = shaderPreparationMayBeActive,
+            phase = state.phase
+        )
+        ShaderPreparationExitCleanup.scheduleIfRequired(required, viewModelScope) {
+            cleanupPendingShaderPreparation()
+        }
+    }
+
+    private suspend fun cleanupPendingShaderPreparation() {
+        shaderPreparationLifecycleGate.withCleanup { mayBeActive ->
+            if (!mayBeActive) return@withCleanup
+            val result = ShaderPreparationRunCoordinator.awaitKnownTerminal(
+                startAccepted = true,
+                readStatus = { EmulatorBridge.getShaderPreparationStatusSnapshot() },
+                cancellationRequested = { true },
+                cancel = { activeJobId -> EmulatorBridge.cancelShaderPreparation(activeJobId) },
+                waitBetweenPolls = { delay(250L) },
+                onStatus = { status -> publishShaderPreparationStatus(status) },
+                shutdownIfStatusRemainsUnknown = { EmulatorBridge.shutdownShaderPreparationRuntime() }
+            )
+            if (result is ShaderPreparationWaitResult.Terminal ||
+                result == ShaderPreparationWaitResult.NoWorker ||
+                result == ShaderPreparationWaitResult.RuntimeShutdown) {
+                shaderPreparationMayBeActive = false
+            }
+        }
+        if (!shaderPreparationMayBeActive) {
+            _shaderPreparationUiState.value = _shaderPreparationUiState.value.copy(
+                phase = ShaderPreparationUiPhase.Hidden,
+                ownerKnown = true
+            )
+        }
+    }
+
     fun startEmulation(
         path: String?,
         slotToLoad: Int? = null,
@@ -1580,7 +1895,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         gsDumpFrames: Int? = null,
         gsDumpDelayMs: Int? = null,
         vu0FamilyMaskOverride: Int? = null,
-        vu1FamilyMaskOverride: Int? = null
+        vu1FamilyMaskOverride: Int? = null,
+        restoredAfterProcessDeath: Boolean = false
     ) {
         val analyticsLaunchType = when {
             bootSmokeProbe -> "smoke_test"
@@ -1608,6 +1924,35 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
             return
         }
+        val launchRequest = ShaderPreparationLaunchRequest(
+            path = if (bootToBios) null else path?.takeIf { it.isNotBlank() },
+            slotToLoad = slotToLoad?.let { normalizeSaveSlot(it) },
+            bootToBios = bootToBios,
+            bootSmokeProbe = bootSmokeProbe,
+            autotestMode = autotestMode,
+            enableEeRecompilerOverride = enableEeRecompilerOverride,
+            enableIopRecompilerOverride = enableIopRecompilerOverride,
+            enableVu0RecompilerOverride = enableVu0RecompilerOverride,
+            enableVu1RecompilerOverride = enableVu1RecompilerOverride,
+            enableFastmemOverride = enableFastmemOverride,
+            enableMtvuOverride = enableMtvuOverride,
+            rendererOverride = rendererOverride,
+            gsDumpFrames = gsDumpFrames,
+            gsDumpDelayMs = gsDumpDelayMs,
+            vu0FamilyMaskOverride = vu0FamilyMaskOverride,
+            vu1FamilyMaskOverride = vu1FamilyMaskOverride,
+            restoredAfterProcessDeath = restoredAfterProcessDeath
+        )
+        if (ShaderPreparationLaunchRetention.shouldIgnoreRecreatedLaunch(
+                current = currentLaunchRequest,
+                requested = launchRequest,
+                isStarting = _uiState.value.isStarting,
+                isRunning = _uiState.value.isRunning || EmulatorBridge.hasValidVm(),
+                preparationVisible = _shaderPreparationUiState.value.phase != ShaderPreparationUiPhase.Hidden
+            )) {
+            Log.i(TAG, "Ignoring duplicate launch request retained across route recreation")
+            return
+        }
         if (_uiState.value.isStarting) {
             Log.w(TAG, "startEmulation skipped because another start is in progress")
             return
@@ -1616,6 +1961,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val hasPendingStateLoad = !bootToBios && !bootSmokeProbe && normalizedSlotToLoad != null
         var analyticsPerformanceProfile = PerformanceProfiles.SAFE
         cancelPendingStart = false
+        currentLaunchRequest = launchRequest
         pausedForBackground = false
         if (pendingPlayTimeSyncMs > 0L) {
             runCatching {
@@ -1889,6 +2235,20 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 
                 finalLaunchPath = launchPath
                 Log.i(TAG, "Prepared launch path=$launchPath originalPath=$path bootBios=$bootToBios")
+                val preparationAllowsLaunch = prepareShadersBeforeLaunch(
+                    renderer = renderer,
+                    bootToBios = bootToBios,
+                    bootSmokeProbe = bootSmokeProbe,
+                    autotestMode = autotestMode,
+                    restoredAfterProcessDeath = restoredAfterProcessDeath
+                )
+                if (!preparationAllowsLaunch || cancelPendingStart) {
+                    _uiState.value = _uiState.value.copy(
+                        isStarting = false,
+                        statusMessage = null
+                    )
+                    return@withLock
+                }
                 // Whether a per-game profile exists gates the light-gun context; the effective
                 // gyro mode itself comes from the runtime snapshot applied below.
                 var hasPerGameProfile = false
@@ -4799,8 +5159,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun stopEmulation(onExit: (() -> Unit)? = null) {
         cancelPendingStart = true
+        abortPendingShaderPreparation()
         pausedForBackground = false
         viewModelScope.launch(Dispatchers.IO) {
+            cleanupPendingShaderPreparation()
             if (_uiState.value.autoSaveOnExit && currentGamePath != null) {
                 saveAutoSaveSlot(
                     allowWhileMenu = true,
@@ -4997,6 +5359,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     override fun onCleared() {
+        abortPendingShaderPreparation()
         DiscordIntegration.clearGame()
         androidGamePerformance.update(AndroidGamePhase.Idle)
         if (NativeApp.hasNativeCore) {

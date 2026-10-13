@@ -9,6 +9,7 @@
 #include "common/FileSystem.h"
 #include "common/HostSys.h"
 #include "common/HTTPDownloaderCurl.h"
+#include "common/StringUtil.h"
 #include "arm64/OaknutHelpers-arm64.h"
 #include "emucorex/retro_achievements_android.h"
 #include "pcsx2/Achievements.h"
@@ -63,6 +64,151 @@ Java_com_sbro_emucorex_core_NativeApp_setDisplayRefreshRate(JNIEnv*, jclass, jfl
 namespace
 {
 constexpr const char* LOG_TAG = "EmuCoreX";
+
+const char* TFXPreparationStateToken(emucorex::android::TFXPreparationState state)
+{
+	using State = emucorex::android::TFXPreparationState;
+	switch (state)
+	{
+	case State::Idle: return "idle";
+	case State::WaitingForLifecycle: return "waiting_for_lifecycle";
+	case State::Starting: return "starting";
+	case State::Running: return "running";
+	case State::Cancelling: return "cancelling";
+	case State::Completed: return "completed";
+	case State::Cancelled: return "cancelled";
+	case State::Failed: return "failed";
+	case State::Unsupported: return "unsupported";
+	}
+	return "unknown";
+}
+
+const char* TFXPreparationErrorToken(emucorex::android::TFXPreparationError error)
+{
+	using Error = emucorex::android::TFXPreparationError;
+	switch (error)
+	{
+	case Error::None: return "none";
+	case Error::LifecycleBusy: return "lifecycle_busy";
+	case Error::UnsupportedRenderer: return "unsupported_renderer";
+	case Error::CacheDisabled: return "cache_disabled";
+	case Error::MissingSource: return "missing_source";
+	case Error::DeviceCreationFailed: return "device_creation_failed";
+	case Error::PipelineFailures: return "pipeline_failures";
+	case Error::CheckpointFailed: return "checkpoint_failed";
+	case Error::InternalError: return "internal_error";
+	}
+	return "unknown";
+}
+
+std::string EscapeShaderPreparationJsonString(const std::string& value)
+{
+	static constexpr char HEX[] = "0123456789abcdef";
+	std::string escaped;
+	escaped.reserve(value.size() * 2);
+	const auto append_unicode_escape = [&](u16 code_unit) {
+		escaped += "\\u";
+		escaped += HEX[(code_unit >> 12) & 0x0f];
+		escaped += HEX[(code_unit >> 8) & 0x0f];
+		escaped += HEX[(code_unit >> 4) & 0x0f];
+		escaped += HEX[code_unit & 0x0f];
+	};
+
+	for (size_t offset = 0; offset < value.size();)
+	{
+		char32_t codepoint = 0;
+		const size_t remaining = value.size() - offset;
+		size_t consumed = StringUtil::DecodeUTF8(value.data() + offset, remaining, &codepoint);
+		bool valid = consumed > 0 && consumed <= remaining && codepoint <= 0x10ffff &&
+			!(codepoint >= 0xd800 && codepoint <= 0xdfff);
+		if (valid)
+		{
+			const auto* const bytes = reinterpret_cast<const u8*>(value.data() + offset);
+			for (size_t i = 1; i < consumed; i++)
+			{
+				if ((bytes[i] & 0xc0) != 0x80)
+				{
+					valid = false;
+					break;
+				}
+			}
+			if ((consumed == 2 && codepoint < 0x80) || (consumed == 3 && codepoint < 0x800) ||
+				(consumed == 4 && codepoint < 0x10000))
+			{
+				valid = false;
+			}
+		}
+		if (!valid)
+		{
+			codepoint = 0xfffd;
+			consumed = 1;
+		}
+		offset += consumed;
+
+		switch (codepoint)
+		{
+		case '"': escaped += "\\\""; break;
+		case '\\': escaped += "\\\\"; break;
+		case '\b': escaped += "\\b"; break;
+		case '\f': escaped += "\\f"; break;
+		case '\n': escaped += "\\n"; break;
+		case '\r': escaped += "\\r"; break;
+		case '\t': escaped += "\\t"; break;
+		default:
+			if (codepoint < 0x20)
+			{
+				escaped += "\\u00";
+				escaped += HEX[(codepoint >> 4) & 0x0f];
+				escaped += HEX[codepoint & 0x0f];
+			}
+			else if (codepoint <= 0x7f)
+			{
+				escaped += static_cast<char>(codepoint);
+			}
+			else if (codepoint <= 0xffff)
+			{
+				append_unicode_escape(static_cast<u16>(codepoint));
+			}
+			else
+			{
+				const u32 supplementary = static_cast<u32>(codepoint) - 0x10000;
+				append_unicode_escape(static_cast<u16>(0xd800 + (supplementary >> 10)));
+				append_unicode_escape(static_cast<u16>(0xdc00 + (supplementary & 0x3ff)));
+			}
+			break;
+		}
+	}
+	return escaped;
+}
+
+std::string ShaderPreparationStatusJson(const emucorex::android::TFXPreparationStatus& status)
+{
+	std::string json;
+	json.reserve(status.adapter_name.size() + 320);
+	json += "{\"schemaVersion\":1,\"jobId\":\"";
+	json += std::to_string(status.job_id);
+	json += "\",\"attempt\":" + std::to_string(status.attempt);
+	json += ",\"state\":\"";
+	json += TFXPreparationStateToken(status.state);
+	json += "\",\"error\":\"";
+	json += TFXPreparationErrorToken(status.error);
+	json += "\",\"total\":" + std::to_string(status.total);
+	json += ",\"completed\":" + std::to_string(status.completed);
+	json += ",\"alreadyAvailable\":" + std::to_string(status.already_available);
+	json += ",\"failed\":" + std::to_string(status.failed);
+	json += ",\"cancelled\":" + std::to_string(status.cancelled);
+	json += ",\"inFlight\":" + std::to_string(status.in_flight);
+	json += ",\"finished\":";
+	json += status.finished ? "true" : "false";
+	json += ",\"checkpointSaved\":";
+	json += status.checkpoint_saved ? "true" : "false";
+	json += ",\"cancelRequested\":";
+	json += status.cancel_requested ? "true" : "false";
+	json += ",\"adapterName\":\"";
+	json += EscapeShaderPreparationJsonString(status.adapter_name);
+	json += "\"}";
+	return json;
+}
 
 std::mutex s_callback_mutex;
 JavaVM* s_java_vm = nullptr;
@@ -641,6 +787,58 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_onNative
 	__android_log_write(ANDROID_LOG_DEBUG, "EmuCoreX", "onNativeSurfaceDestroyed: JNI callback");
 	AndroidRuntime::Instance().ClearSurface();
 }
+extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_startShaderPreparation(JNIEnv*, jclass)
+{
+	try
+	{
+		return AndroidRuntime::Instance().StartTFXPreparation() ? JNI_TRUE : JNI_FALSE;
+	}
+	catch (...)
+	{
+		__android_log_write(ANDROID_LOG_ERROR, LOG_TAG, "Unable to start shader preparation job");
+		return JNI_FALSE;
+	}
+}
+extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_cancelShaderPreparation(JNIEnv*, jclass, jlong job_id)
+{
+	if (job_id <= 0)
+		return JNI_FALSE;
+	try
+	{
+		return AndroidRuntime::Instance().CancelTFXPreparation(static_cast<uint64_t>(job_id)) ? JNI_TRUE : JNI_FALSE;
+	}
+	catch (...)
+	{
+		__android_log_write(ANDROID_LOG_ERROR, LOG_TAG, "Unable to cancel shader preparation job");
+		return JNI_FALSE;
+	}
+}
+extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_resumeShaderPreparation(JNIEnv*, jclass, jlong job_id)
+{
+	if (job_id <= 0)
+		return JNI_FALSE;
+	try
+	{
+		return AndroidRuntime::Instance().ResumeTFXPreparation(static_cast<uint64_t>(job_id)) ? JNI_TRUE : JNI_FALSE;
+	}
+	catch (...)
+	{
+		__android_log_write(ANDROID_LOG_ERROR, LOG_TAG, "Unable to resume shader preparation job");
+		return JNI_FALSE;
+	}
+}
+extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getShaderPreparationStatusSnapshot(JNIEnv* env, jclass)
+{
+	try
+	{
+		return StringToJString(env, ShaderPreparationStatusJson(AndroidRuntime::Instance().GetTFXPreparationStatus()));
+	}
+	catch (...)
+	{
+		__android_log_write(ANDROID_LOG_ERROR, LOG_TAG, "Unable to read shader preparation status");
+		return nullptr;
+	}
+}
 extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_runVMThread(JNIEnv* env, jclass, jstring path) { return AndroidRuntime::Instance().StartVm(JStringToString(env, path), false, 0) ? JNI_TRUE : JNI_FALSE; }
 extern "C" JNIEXPORT jstring JNICALL Java_com_sbro_emucorex_core_NativeApp_getLastBootError(JNIEnv* env, jclass)
 {
@@ -790,3 +988,70 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_setNativ
 	emucorex::android::SetNativeCrashLogFilePath(JStringToString(env, path).c_str());
 	emucorex::android::InstallNativeCrashSignalHandler();
 }
+
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+extern "C" __attribute__((visibility("default"))) int EmuCoreXRunTFXPreparationSnapshotTests(const char*)
+{
+	using State = emucorex::android::TFXPreparationState;
+	using Error = emucorex::android::TFXPreparationError;
+	using Status = emucorex::android::TFXPreparationStatus;
+	unsigned checks = 0;
+	unsigned failures = 0;
+	const auto check = [&](bool condition, const char* label) {
+		++checks;
+		if (!condition)
+			++failures;
+		std::printf("%s %s\n", condition ? "PASS" : "FAIL", label);
+	};
+
+	check(std::string(TFXPreparationStateToken(State::Idle)) == "idle", "snapshot maps idle state token");
+	check(std::string(TFXPreparationStateToken(State::WaitingForLifecycle)) == "waiting_for_lifecycle", "snapshot maps waiting state token");
+	check(std::string(TFXPreparationStateToken(State::Starting)) == "starting", "snapshot maps starting state token");
+	check(std::string(TFXPreparationStateToken(State::Running)) == "running", "snapshot maps running state token");
+	check(std::string(TFXPreparationStateToken(State::Cancelling)) == "cancelling", "snapshot maps cancelling state token");
+	check(std::string(TFXPreparationStateToken(State::Completed)) == "completed", "snapshot maps completed state token");
+	check(std::string(TFXPreparationStateToken(State::Cancelled)) == "cancelled", "snapshot maps cancelled state token");
+	check(std::string(TFXPreparationStateToken(State::Failed)) == "failed", "snapshot maps failed state token");
+	check(std::string(TFXPreparationStateToken(State::Unsupported)) == "unsupported", "snapshot maps unsupported state token");
+	check(std::string(TFXPreparationErrorToken(Error::None)) == "none", "snapshot maps no-error token");
+	check(std::string(TFXPreparationErrorToken(Error::LifecycleBusy)) == "lifecycle_busy", "snapshot maps lifecycle error token");
+	check(std::string(TFXPreparationErrorToken(Error::UnsupportedRenderer)) == "unsupported_renderer", "snapshot maps renderer error token");
+	check(std::string(TFXPreparationErrorToken(Error::CacheDisabled)) == "cache_disabled", "snapshot maps cache error token");
+	check(std::string(TFXPreparationErrorToken(Error::MissingSource)) == "missing_source", "snapshot maps source error token");
+	check(std::string(TFXPreparationErrorToken(Error::DeviceCreationFailed)) == "device_creation_failed", "snapshot maps device error token");
+	check(std::string(TFXPreparationErrorToken(Error::PipelineFailures)) == "pipeline_failures", "snapshot maps pipeline error token");
+	check(std::string(TFXPreparationErrorToken(Error::CheckpointFailed)) == "checkpoint_failed", "snapshot maps checkpoint error token");
+	check(std::string(TFXPreparationErrorToken(Error::InternalError)) == "internal_error", "snapshot maps internal error token");
+	check(EscapeShaderPreparationJsonString("ASCII \"quoted\" \\ slash\nline\t\x01") ==
+		R"(ASCII \"quoted\" \\ slash\nline\t\u0001)",
+		"snapshot preserves established ASCII JSON escaping");
+	const std::string unicode_adapter = std::string("GPU ") + "\xc3\xa9" + "\xd0\x96" + "\xf0\x9f\x96\xa5";
+	check(EscapeShaderPreparationJsonString(unicode_adapter) == R"(GPU \u00e9\u0416\ud83d\udda5)",
+		"snapshot converts BMP and supplementary UTF-8 to ASCII JSON escapes");
+	std::string invalid_utf8_adapter = "GPU ";
+	invalid_utf8_adapter.push_back(static_cast<char>(0xff));
+	check(EscapeShaderPreparationJsonString(invalid_utf8_adapter) == R"(GPU \ufffd)",
+		"snapshot replaces invalid UTF-8 bytes with deterministic replacement escape");
+
+	const std::string idle_json = ShaderPreparationStatusJson(Status{});
+	check(idle_json == "{\"schemaVersion\":1,\"jobId\":\"0\",\"attempt\":0,\"state\":\"idle\",\"error\":\"none\",\"total\":0,\"completed\":0,\"alreadyAvailable\":0,\"failed\":0,\"cancelled\":0,\"inFlight\":0,\"finished\":false,\"checkpointSaved\":false,\"cancelRequested\":false,\"adapterName\":\"\"}",
+		"snapshot serializes complete idle schema");
+
+	Status status;
+	status.job_id = 0x7fffffffffffffffULL;
+	status.attempt = 7;
+	status.state = State::Running;
+	status.error = Error::None;
+	status.total = 3;
+	status.completed = 1;
+	status.in_flight = 2;
+	status.adapter_name = "GPU \"name\" \\ path\nline\t";
+	status.adapter_name.push_back(static_cast<char>(0x01));
+	const std::string snapshot = ShaderPreparationStatusJson(status);
+	const std::string expected_snapshot = R"({"schemaVersion":1,"jobId":"9223372036854775807","attempt":7,"state":"running","error":"none","total":3,"completed":1,"alreadyAvailable":0,"failed":0,"cancelled":0,"inFlight":2,"finished":false,"checkpointSaved":false,"cancelRequested":false,"adapterName":"GPU \"name\" \\ path\nline\t\u0001"})";
+	check(snapshot == expected_snapshot, "snapshot serializes identity, counters, and adapter escapes exactly");
+	std::printf("SNAPSHOT %s\n", snapshot.c_str());
+	std::printf("RESULT checks=%u failures=%u\n", checks, failures);
+	return failures ? 1 : 0;
+}
+#endif

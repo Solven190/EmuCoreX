@@ -325,6 +325,10 @@ object NativeApp {
     @JvmStatic external fun isBiosFd(fd: Int): Boolean
     @JvmStatic external fun setPerformanceMetricsEnabled(visible: Boolean, detailed: Boolean, gpuTiming: Boolean)
     @JvmStatic external fun getPerformanceMetricsSnapshot(): String?
+    @JvmStatic external fun startShaderPreparation(): Boolean
+    @JvmStatic external fun cancelShaderPreparation(jobId: Long): Boolean
+    @JvmStatic external fun resumeShaderPreparation(jobId: Long): Boolean
+    @JvmStatic external fun getShaderPreparationStatusSnapshot(): String?
     @JvmStatic external fun getNominalFrameRate(): Float
     @JvmStatic external fun setDisplayRefreshRate(refreshRate: Float)
     @JvmStatic external fun getDisplayDrawRect(): FloatArray?
