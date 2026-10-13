@@ -71,6 +71,7 @@ namespace EeIr
 			u32 Addr(u32 rs, s32 offset);
 			bool LiftPlain(u32 word, u32 pc, std::string* error);
 			bool LiftSpecial(u32 word, u32 pc, std::string* error);
+			bool LiftMergeMemory(u32 word);
 			bool LiftRegimmBranch(u32 word, u32 pc, u32* cond, bool* link, std::string* error);
 
 			// Lifts the delay slot into the current block. Fails when the slot
@@ -316,6 +317,58 @@ namespace EeIr
 			}
 		}
 
+		bool Lifter::LiftMergeMemory(u32 word)
+		{
+			const u32 op = Op(word), rt = Rt(word);
+			const bool wide = op == 0x1a || op == 0x1b || op == 0x2c || op == 0x2d;
+			const bool load = op == 0x1a || op == 0x1b || op == 0x22 || op == 0x26;
+			const bool left = op == 0x1a || op == 0x22 || op == 0x2a || op == 0x2c;
+			const u32 width = wide ? 8 : 4;
+			const u32 address = Addr(Rs(word), Simm(word));
+			const u32 byte = Bin(ir::Op::And, address, Const(width - 1));
+			const u32 shift = Bin(ir::Op::Shl, byte, Const(3));
+			const u32 complement = Bin(ir::Op::Sub, Const((width - 1) * 8), shift);
+			const u32 aligned = Bin(ir::Op::And, address, Const(~(width - 1)));
+			// Keep reads even for $0 and capture the address before base==target
+			// merges. Stores are ordered read/modify/write through existing hooks.
+			const u32 memory = m_b.Emit1(wide ? ir::Op::Load64 : ir::Op::Load32, wide ? ir::Type::I64 : ir::Type::I32, aligned);
+			if (load && rt == 0) return true;
+			const auto constant = [&](u64 value) { return wide ? m_b.ConstI64(value) : Const(static_cast<u32>(value)); };
+			const auto bin = [&](ir::Op operation, u32 a, u32 b) { return wide ? BinWide(operation, a, b) : Bin(operation, a, b); };
+			const u32 reg = wide ? ReadGprWide(rt) : ReadGpr(rt);
+			const u64 low_mask = wide ? 0x00ffffffffffffffull : 0x00ffffff;
+			const u64 high_mask = wide ? 0xffffffffffffff00ull : 0xffffff00;
+			u32 value;
+			if (load)
+				value = left ? bin(ir::Op::Or, bin(ir::Op::And, reg, bin(ir::Op::ShrU, constant(low_mask), shift)),
+					bin(ir::Op::Shl, memory, complement)) :
+					bin(ir::Op::Or, bin(ir::Op::And, reg, bin(ir::Op::Shl, constant(high_mask), complement)),
+						bin(ir::Op::ShrU, memory, shift));
+			else
+				value = left ? bin(ir::Op::Or, bin(ir::Op::ShrU, reg, complement),
+					bin(ir::Op::And, memory, bin(ir::Op::Shl, constant(high_mask), shift))) :
+					bin(ir::Op::Or, bin(ir::Op::Shl, reg, shift),
+						bin(ir::Op::And, memory, bin(ir::Op::ShrU, constant(low_mask), complement)));
+			if (!load)
+				m_b.Emit2(wide ? ir::Op::Store64 : ir::Op::Store32, ir::Type::Void, aligned, value);
+			else if (wide)
+				WriteGprWide(rt, value);
+			else if (left)
+				WriteGpr(rt, value);
+			else
+			{
+				// EE LWR sign extends only at alignment zero. Other alignments
+				// overwrite the low word while preserving bits 63..32 (and 127..64).
+				const u32 sign = m_b.Emit1(ir::Op::Sext32, ir::Type::I64, value);
+				const u32 kept = BinWide(ir::Op::Or,
+					BinWide(ir::Op::And, ReadGprWide(rt), m_b.ConstI64(0xffffffff00000000ull)),
+					m_b.Emit1(ir::Op::Zext32, ir::Type::I64, value));
+				const u32 zero = Bin(ir::Op::CmpEq, byte, Const(0));
+				WriteGprWide(rt, m_b.Emit3(ir::Op::Select, ir::Type::I64, zero, sign, kept));
+			}
+			return true;
+		}
+
 		bool Lifter::LiftPlain(u32 word, u32 pc, std::string* error)
 		{
 			if (word == 0)
@@ -335,6 +388,11 @@ namespace EeIr
 
 			switch (op)
 			{
+				case 0x1a: case 0x1b: // LDL/LDR
+				case 0x22: case 0x26: // LWL/LWR
+				case 0x2a: case 0x2e: // SWL/SWR
+				case 0x2c: case 0x2d: // SDL/SDR
+					return LiftMergeMemory(word);
 				case 0x09: // addiu
 					WriteGpr(rt, Bin(ir::Op::Add, ReadGpr(rs), Const(static_cast<u32>(simm))));
 					return true;
@@ -794,7 +852,7 @@ namespace EeIr
 		// Unsupported instructions must fail so the caller can fall back.
 		{
 			alignas(4) static const u32 code[] = {
-				0x89280000, // lwl t0, 0(t1)
+				0xc5280000, // lwc1 f8, 0(t1)
 			};
 			ir::Function fn;
 			u32 end = 0;

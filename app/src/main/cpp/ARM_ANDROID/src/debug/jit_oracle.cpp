@@ -14,6 +14,7 @@
 #include "arm64/cpuRegistersPack-arm64.h"
 #include "R3000A.h"
 #include "R5900.h"
+#include "R5900OpcodeTables.h"
 #include "VUmicro.h"
 #include "cpuinfo.h"
 #include "Gif_Unit.h"
@@ -4205,8 +4206,156 @@ void EEIrMultiplyTests()
             }
 }
 
+struct EEIrMergeTrace
+{
+    u64 input = 0xfedcba9876543210ull, stored = 0;
+    u32 count = 0, writes = 0;
+    u32 address[2]{}, pc[2]{}, bd[2]{}, kind[2]{};
+};
+EEIrMergeTrace s_eeir_merge_trace;
+void EEIrMergeRecord(u32 address, bool write)
+{
+    auto& t = s_eeir_merge_trace;
+    const u32 i = t.count++;
+    if (i < 2) { t.address[i] = address; t.pc[i] = cpuRegs.pc; t.bd[i] = cpuRegs.IsDelaySlot; t.kind[i] = write ? 1 : 0; }
+    if (write) ++t.writes;
+}
+u32 EEIrMergeRead32(u32 addr) { EEIrMergeRecord(addr, false); return static_cast<u32>(s_eeir_merge_trace.input); }
+u64 EEIrMergeRead64(u32 addr) { EEIrMergeRecord(addr, false); return s_eeir_merge_trace.input; }
+void EEIrMergeWrite32(u32 addr, u32 value) { EEIrMergeRecord(addr, true); s_eeir_merge_trace.stored = value; }
+void EEIrMergeWrite64(u32 addr, u64 value) { EEIrMergeRecord(addr, true); s_eeir_merge_trace.stored = value; }
+
+void EEIrMergeHandlerTests()
+{
+    constexpr u32 base = 0x41000000u, physical = 0x1ff00000u;
+    const auto saved = vtlb_private::vtlbdata.vmap[base >> 12];
+    const vtlbHandler handler = vtlb_RegisterHandler(nullptr, nullptr, EEIrMergeRead32, EEIrMergeRead64, nullptr,
+        nullptr, nullptr, EEIrMergeWrite32, EEIrMergeWrite64, nullptr);
+    vtlb_private::vtlbdata.vmap[base >> 12] = vtlb_private::VTLBVirtual(vtlb_private::VTLBPhysical::fromHandler(handler), physical, base);
+    for (u32 op : {0x22u, 0x26u, 0x2au, 0x2eu, 0x1au, 0x1bu, 0x2cu, 0x2du})
+        for (u32 target : {0u, 8u, 22u})
+            for (bool delay : {false, true})
+                for (u32 offset : {0u, 1u, 3u, 7u})
+                {
+                    const bool store = op == 0x2a || op == 0x2e || op == 0x2c || op == 0x2d;
+                    const u32 word = MipsI(op, 22, target, offset);
+                    std::vector<u32> code;
+                    if (delay) code.push_back(MipsI(4, 0, 0, 1));
+                    code.push_back(word);
+                    ir::Function fn;
+                    std::string error;
+                    u32 end = 0;
+                    bool same = EeIr::LiftBlock(code.data(), {EE_TEST_PC, static_cast<u32>(code.size())}, fn, &end, &error);
+                    std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                    cpuRegs.GPR.r[8].UD[0] = 0x1234567889abcdefull;
+                    cpuRegs.GPR.r[8].UD[1] = cpuRegs.GPR.r[22].UD[1] = 0x1122334455667788ull;
+                    cpuRegs.GPR.r[22].UD[0] = base;
+                    cpuRegs.pc = EE_TEST_PC + (delay ? 4 : 0);
+                    cpuRegs.IsDelaySlot = delay;
+                    cpuRegs.code = word;
+                    s_eeir_merge_trace = {};
+                    R5900::GetCurrentInstruction().interpret();
+                    const auto expected_regs = cpuRegs.GPR;
+                    const auto expected_trace = s_eeir_merge_trace;
+                    for (u32 mode = 0; same && mode < 4; ++mode)
+                    {
+                        EeIr::LowerOptions options;
+                        options.optimize_ir = mode != 0;
+                        options.allocate_registers = mode != 2;
+                        options.materialize_constants = mode != 3;
+                        EeIr::LowerHooks hooks;
+                        hooks.before_memory = +[](void*, u32 pc, bool bd) {
+                            oakAsm->MOV(oak::util::W16, pc);
+                            oakStore32(oak::util::W16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.pc))});
+                            oakAsm->MOV(oak::util::W16, bd ? 1 : 0);
+                            oakStore32(oak::util::W16, {oak::util::X19, static_cast<s64>(offsetof(cpuRegistersPack, cpuRegs.IsDelaySlot))});
+                        };
+                        hooks.after_helper = +[](void*) { for (u32 r = 1; r <= 17; ++r) oakAsm->MOV(oak::WReg(r), 0xa5a5a5a5u); };
+                        options.hooks = &hooks;
+                        EeIr::LowerOutput out;
+                        same &= EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        if (!same) break;
+                        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                        cpuRegs.GPR.r[8].UD[0] = 0x1234567889abcdefull;
+                        cpuRegs.GPR.r[8].UD[1] = cpuRegs.GPR.r[22].UD[1] = 0x1122334455667788ull;
+                        cpuRegs.GPR.r[22].UD[0] = base;
+                        s_eeir_merge_trace = {};
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        same &= std::memcmp(&cpuRegs.GPR, &expected_regs, sizeof(expected_regs)) == 0 &&
+                            std::memcmp(&s_eeir_merge_trace, &expected_trace, sizeof(expected_trace)) == 0 &&
+                            s_eeir_merge_trace.count == (store ? 2u : 1u) && s_eeir_merge_trace.writes == (store ? 1u : 0u);
+                    }
+                    char name[128];
+                    std::snprintf(name, sizeof(name), "ir EE merge handler op=%02x target=%u delay=%u offset=%u four modes/order/PC/BD/clobbers", op, target, delay, offset);
+                    Check(same, name);
+                }
+    vtlb_private::vtlbdata.vmap[base >> 12] = saved;
+}
+
+void EEIrMergeMemoryTests()
+{
+    const u32 ops[] = {0x22, 0x26, 0x2a, 0x2e, 0x1a, 0x1b, 0x2c, 0x2d};
+    for (u32 op : ops)
+    {
+        const bool wide = op == 0x1a || op == 0x1b || op == 0x2c || op == 0x2d;
+        for (u32 offset = 0; offset < (wide ? 8u : 4u); ++offset)
+            for (u32 target : {0u, 8u, 22u})
+                for (bool dynamic : {false, true})
+                {
+                    u64 initial[32] = {};
+                    initial[23] = EE_TEST_SCRATCH + 64;
+                    initial[24] = EE_TEST_SCRATCH + 32 + offset;
+                    std::vector<u32> code = {MipsI(30, 23, target, 0)};
+                    if (dynamic) code.push_back(MipsR(24, 0, 22, 0, 0x2d));
+                    else
+                    {
+                        code.push_back(MipsI(15, 0, 22, initial[24] >> 16));
+                        code.push_back(MipsI(13, 22, 22, initial[24] & 0xffff));
+                    }
+                    code.push_back(MipsI(op, 22, target, 0));
+                    code.push_back(MipsI(31, 23, target, 32));
+                    char name[144];
+                    std::snprintf(name, sizeof(name), "ir EE merge op=%02x alignment=%u target=%u dynamic=%u upper preservation/seven modes", op, offset, target, dynamic);
+                    RunEEIrCase(name, code, initial, false, true);
+                    CompareEE(RunEEProgram(false, code, false, initial), RunEEProgram(true, code, false, initial), name);
+                }
+        for (u32 branch : {4u, 0x14u})
+            for (bool taken : {false, true})
+                for (u32 offset = 0; offset < (wide ? 8u : 4u); ++offset)
+                {
+                    u64 initial[32] = {};
+                    initial[22] = EE_TEST_SCRATCH + 32;
+                    initial[23] = EE_TEST_SCRATCH + 64;
+                    const std::vector<u32> code = {MipsI(30, 23, 8, 0), MipsI(9, 0, 4, taken ? 1 : 0),
+                        MipsI(9, 0, 5, 1), MipsI(branch, 4, 5, 1), MipsI(op, 22, 8, offset)};
+                    char name[128];
+                    std::snprintf(name, sizeof(name), "ir EE merge op=%02x delay branch=%02x taken=%u alignment=%u", op, branch, taken, offset);
+                    RunEEIrCase(name, code, initial, false, true);
+                    CompareEE(RunEEProgram(false, code, true, initial), RunEEProgram(true, code, true, initial), name);
+                }
+    }
+    for (bool wide : {false, true})
+        for (u32 offset = 0; offset < (wide ? 8u : 4u); ++offset)
+            for (bool store : {false, true})
+            {
+                u64 initial[32] = {};
+                initial[22] = EE_TEST_SCRATCH + 32;
+                initial[23] = EE_TEST_SCRATCH + 64;
+                const u32 left = store ? (wide ? 0x2c : 0x2a) : (wide ? 0x1a : 0x22);
+                const u32 right = store ? (wide ? 0x2d : 0x2e) : (wide ? 0x1b : 0x26);
+                const std::vector<u32> code = {MipsI(30, 23, 8, 0), MipsI(left, 22, 8, offset + (wide ? 7 : 3)),
+                    MipsI(right, 22, 8, offset), MipsI(31, 23, 8, 32)};
+                char name[96];
+                std::snprintf(name, sizeof(name), "ir EE unaligned pair wide=%u store=%u alignment=%u", wide, store, offset);
+                RunEEIrCase(name, code, initial, false, true);
+                CompareEE(RunEEProgram(false, code, false, initial), RunEEProgram(true, code, false, initial), name);
+            }
+}
+
 void EEIrExecutionTests()
 {
+    EEIrMergeMemoryTests();
+    EEIrMergeHandlerTests();
     EEIrMultiplyTests();
     EEIrQuadTests();
     EEIrQuadOptimizationsTests();
