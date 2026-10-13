@@ -570,6 +570,9 @@ bool RunUpstreamVm(const VmLaunchConfig& config, VmStartupCallback startup_callb
 		char trace_value[PROP_VALUE_MAX] = {};
 		if (__system_property_get("debug.emucorex.hang_trace", trace_value) > 0 && trace_value[0] == '1')
 		{
+			// HangTrace resets recompilers synchronously through the CPU dispatcher.
+			// Register this thread even when profiler auto-start was opted out.
+			Host::PumpMessagesOnCPUThread();
 			HangTrace::Start();
 			__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Hang trace auto-started for this VM session");
 		}
