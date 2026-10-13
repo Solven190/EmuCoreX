@@ -87,6 +87,26 @@ namespace Arm64Ir
 		LowerOutput* out, std::string* error,
 		BoundViVfDestinationLayout layout = BoundViVfDestinationLayout::GuestLanes);
 
+	// Narrow fixed-selector VU MR32 transfer. The caller owns a live raw VF
+	// source and writable VF destination; only the selected guest lanes commit.
+	struct BoundVfShufflePlan
+	{
+		u8 src_vf = 0;
+		u8 dst_vf = 0;
+		u8 lane_mask = 0;
+		bool delay_slot = false;
+	};
+	enum class BoundVfShuffleLayout : u8
+	{
+		GuestLanes,
+		// Mirrors allocRegId(-1, vf, mask); non-selected host lanes are scratch.
+		MicroVuPartial,
+	};
+	bool PlanBoundVfShuffle(const ir::Function& fn, BoundVfShufflePlan* plan, std::string* error);
+	bool LowerBoundVfShufflePlan(const BoundVfShufflePlan& plan, u32 vf_source, u32 vf_dst,
+		LowerOutput* out, std::string* error,
+		BoundVfShuffleLayout layout = BoundVfShuffleLayout::GuestLanes);
+
 	// Inline-mode exits are emitted through these hooks so the integration can
 	// reuse the legacy block-tail machinery (pc store, event test, linking).
 	struct LowerHooks

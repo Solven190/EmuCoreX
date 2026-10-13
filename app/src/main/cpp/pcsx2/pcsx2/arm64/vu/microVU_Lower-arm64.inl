@@ -2055,12 +2055,56 @@ static void mVU_MR32_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 }
 
+static bool mVUTrySharedMR32(mV)
+{
+	if (!_Ft_ || !mVUSharedIrEnabled(mVU.index)) return false;
+	// The fixed selector is the raw lane rotation [y,z,w,x]. The VU allocator
+	// still owns the source/destination mappings, masked writeback, and hazards.
+	static thread_local ir::Function fn;
+	if (fn.blocks.empty())
+	{
+		ir::Builder init(fn);
+		init.CreateBlock(0);
+		fn.blocks[0].insts.reserve(4);
+		fn.value_types.reserve(3);
+	}
+	fn.blocks[0].insts.clear();
+	fn.blocks[0].guest_start = mVU.prog.IRinfo.curPC * sizeof(u32);
+	fn.value_types.resize(1);
+	fn.next_value = 1;
+	ir::Builder b(fn);
+	b.SetBlock(1);
+	b.SetDelaySlot(mVUinfo.isBdelay);
+	const u32 source = b.Emit(ir::Op::ReadVf, ir::Type::V4F32, {}, _Fs_);
+	const u32 rotated = b.Emit1(ir::Op::VShuffle, ir::Type::V4F32, source, 0x39);
+	b.Emit1(ir::Op::WriteVfMasked, ir::Type::Void, rotated, _Ft_, _X_Y_Z_W);
+	b.Return();
+
+	Arm64Ir::BoundVfShufflePlan plan;
+	std::string error;
+	if (!Arm64Ir::PlanBoundVfShuffle(fn, &plan, &error)) return false;
+	// Match the legacy allocation order: keep the full source live before
+	// requesting the masked writable destination, including Fs == Ft cases.
+	const int source_reg = mVU.regAlloc->allocRegId(plan.src_vf);
+	const int destination_reg = mVU.regAlloc->allocRegId(-1, plan.dst_vf, plan.lane_mask);
+	Arm64Ir::LowerOutput out;
+	const bool lowered = Arm64Ir::LowerBoundVfShufflePlan(plan, source_reg, destination_reg,
+		&out, &error, Arm64Ir::BoundVfShuffleLayout::MicroVuPartial);
+	pxAssertRel(lowered, error.c_str());
+	mVU.regAlloc->clearNeededXmmId(destination_reg);
+	mVU.regAlloc->clearNeededXmmId(source_reg);
+	mVURecordSharedIr(mVU.index, out.host_size);
+	mVURecordSharedMr32(mVU.index, out.host_size);
+	return true;
+}
+
 static void mVU_MR32_emit(mP)
 {
 	pass1 { mVUanalyzeMR32(mVU, _Fs_, _Ft_); }
 	pass2
 	{
-		mVU_MR32_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedMR32(mVU))
+			mVU_MR32_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3 { mVUlog("MR32.%s vf%02d, vf%02d", _XYZW_String, _Ft_, _Fs_); }
 }

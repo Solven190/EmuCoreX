@@ -78,6 +78,11 @@ namespace ir
 						static_cast<u32>(inst.imm), static_cast<u32>(inst.aux & 0x0f));
 					out += buffer;
 					return;
+				case Op::WriteVfMasked:
+					std::snprintf(buffer, sizeof(buffer), "#%u mask=0x%x",
+						static_cast<u32>(inst.imm), static_cast<u32>(inst.aux & 0x0f));
+					out += buffer;
+					return;
 				case Op::VBroadcast:
 					std::snprintf(buffer, sizeof(buffer), "lane=%u", static_cast<u32>(inst.imm));
 					out += buffer;

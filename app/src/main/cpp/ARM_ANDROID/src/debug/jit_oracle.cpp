@@ -66,6 +66,7 @@ extern "C" u64 EmuCoreXOracleVUIRBytes(u32 index);
 extern "C" u64 EmuCoreXOracleVUIRImmediateInstructions(u32 index);
 extern "C" u64 EmuCoreXOracleVUIRTransferInstructions(u32 index);
 extern "C" u64 EmuCoreXOracleVUIRMfirInstructions(u32 index);
+extern "C" u64 EmuCoreXOracleVUIRMr32Instructions(u32 index);
 extern void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 extern void VU0_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 extern void VU1_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
@@ -718,6 +719,245 @@ void VUBoundVfViTransferTests()
         oakAsm->RET();
         oakEndBlock();
     }
+}
+
+ir::Function BoundVfShuffleFixture(u32 src, u32 dst, u32 mask, u32 selectors = 0x39,
+    bool delay_slot = false)
+{
+    ir::Function fn;
+    ir::Builder b(fn);
+    b.CreateBlock(0x80);
+    b.SetDelaySlot(delay_slot);
+    const u32 source = b.Emit(ir::Op::ReadVf, ir::Type::V4F32, {}, src);
+    const u32 rotated = b.Emit1(ir::Op::VShuffle, ir::Type::V4F32, source, selectors);
+    b.Emit1(ir::Op::WriteVfMasked, ir::Type::Void, rotated, dst,
+        static_cast<u16>(mask | (delay_slot ? ir::IF_DELAY_SLOT : 0)));
+    b.Return();
+    return fn;
+}
+
+void VUBoundVfShuffleTests()
+{
+    const std::array<std::array<u32, 4>, 3> raw_sources = {{
+        {{0x00000000u, 0x80000000u, 0x7fc12345u, 0x00000001u}},
+        {{0x0080ffffu, 0x12345678u, 0x80000001u, 0xffffffffu}},
+        {{0x7f800000u, 0xff800000u, 0x7fa00001u, 0xffc00001u}},
+    }};
+    const std::array<u32, 4> destination = {0x13579bdfu, 0x2468ace0u, 0xdeadbeefu, 0x01234567u};
+    for (const std::array<u32, 4>& source : raw_sources)
+    for (u32 mask = 1; mask < 16; ++mask)
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, mask);
+        Arm64Ir::BoundVfShufflePlan plan;
+        std::string error;
+        const bool verified = ir::Verify(fn, &error);
+        const bool accepted = Arm64Ir::PlanBoundVfShuffle(fn, &plan, &error);
+        Check(verified && accepted && plan.src_vf == 7 && plan.dst_vf == 9 &&
+            plan.lane_mask == mask && !plan.delay_slot,
+            "shared VU MR32 preflight accepts the fixed raw rotation for each mask");
+
+        for (Arm64Ir::BoundVfShuffleLayout layout : {Arm64Ir::BoundVfShuffleLayout::GuestLanes,
+            Arm64Ir::BoundVfShuffleLayout::MicroVuPartial})
+            for (u32 alias = 0; alias < 2; ++alias)
+            {
+                std::array<u32, 4> actual{};
+                oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+                u8* entry = oakStartBlock();
+                if (alias)
+                    oakAsm->LDR(oak::QReg(4), oak::util::X0);
+                else
+                {
+                    oakAsm->LDR(oak::QReg(3), oak::util::X0);
+                    oakAsm->LDR(oak::QReg(4), oak::util::X1);
+                }
+                const u8* before = oakGetCurrentCodePointer();
+                Arm64Ir::LowerOutput out;
+                const bool lowered = Arm64Ir::LowerBoundVfShufflePlan(plan, alias ? 4 : 3, 4,
+                    &out, &error, layout);
+                const size_t emitted = static_cast<size_t>(oakGetCurrentCodePointer() - before);
+                oakAsm->STR(oak::QReg(4), oak::util::X2);
+                oakAsm->RET();
+                oakEndBlock();
+                reinterpret_cast<void (*)(const u32*, const u32*, u32*)>(entry)(
+					source.data(), alias ? source.data() : destination.data(), actual.data());
+
+				bool correct = true;
+				const bool one_lane = mask == 1 || mask == 2 || mask == 4 || mask == 8;
+                for (u32 lane = 0; lane < 4; ++lane)
+                {
+					if (layout == Arm64Ir::BoundVfShuffleLayout::GuestLanes)
+                    {
+						const u32 expected = (mask & (8u >> lane)) ? source[(lane + 1) & 3] :
+							(alias ? source[lane] : destination[lane]);
+						correct &= actual[lane] == expected;
+                    }
+					else if (mask & (8u >> lane))
+						correct &= actual[one_lane ? 0 : lane] == source[(lane + 1) & 3];
+                }
+                Check(lowered && emitted > 0 && out.host_size == emitted &&
+                    (layout == Arm64Ir::BoundVfShuffleLayout::MicroVuPartial ? emitted <= 4 : emitted <= 20) &&
+                    out.frame_size == 0 && out.spill_values == 0 && correct,
+                    "shared VU MR32 bound lowering rotates raw lanes, handles aliases, and preserves live lanes");
+            }
+    }
+
+    auto valid_fn = BoundVfShuffleFixture(7, 9, 15);
+    Arm64Ir::BoundVfShufflePlan valid_plan;
+    std::string error;
+    const bool planned = Arm64Ir::PlanBoundVfShuffle(valid_fn, &valid_plan, &error);
+    std::vector<ir::Function> malformed;
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 15, 0x1d);
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 0);
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 16);
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 0, 15);
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(32, 9, 15);
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 32, 15);
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 15);
+        fn.blocks[0].insts[1].args[0] = 0;
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 15);
+        fn.blocks[0].insts[0].type = ir::Type::V4U32;
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 15);
+        fn.blocks[0].insts[1].aux |= ir::IF_DELAY_SLOT;
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 15);
+        fn.blocks[0].insts[0].aux |= 2;
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 15);
+        fn.blocks[0].insts[2].aux |= 0x20;
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 15);
+        fn.blocks[0].insts[1].value = fn.blocks[0].insts[0].value;
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 15);
+        fn.blocks[0].insts[3].type = ir::Type::I32;
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 15);
+        std::swap(fn.blocks[0].insts[0], fn.blocks[0].insts[1]);
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 15);
+        fn.blocks[0].insts.insert(fn.blocks[0].insts.end() - 1,
+            ir::Inst{ir::Op::Nop, ir::Type::Void});
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfShuffleFixture(7, 9, 15);
+        fn.blocks.push_back(ir::Block{});
+        malformed.push_back(std::move(fn));
+    }
+    for (const ir::Function& fn : malformed)
+    {
+        Arm64Ir::BoundVfShufflePlan plan{1, 2, 3, true};
+        oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+        oakStartBlock();
+        const u8* before = oakGetCurrentCodePointer();
+        const bool accepted = Arm64Ir::PlanBoundVfShuffle(fn, &plan, &error);
+        const bool planner_reported_error = !error.empty();
+        Arm64Ir::LowerOutput out;
+        const bool lowered = Arm64Ir::LowerBoundVfShufflePlan(plan, 3, 4, &out, &error);
+        Check(!accepted && planner_reported_error && !plan.src_vf && !plan.dst_vf && !plan.lane_mask &&
+            !plan.delay_slot && !lowered && oakGetCurrentCodePointer() == before && out.host_size == 0,
+            "shared VU MR32 clears and rejects malformed selector/mask/indices/type/SSA/flags/shape before emission");
+        oakAsm->RET();
+        oakEndBlock();
+    }
+
+    auto valid_delay_fn = BoundVfShuffleFixture(7, 9, 15, 0x39, true);
+    Arm64Ir::BoundVfShufflePlan valid_delay_plan;
+    error.clear();
+    const bool valid_delay = Arm64Ir::PlanBoundVfShuffle(valid_delay_fn, &valid_delay_plan, &error) &&
+        valid_delay_plan.delay_slot;
+    oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+    oakStartBlock();
+    const u8* valid_delay_before = oakGetCurrentCodePointer();
+    Arm64Ir::LowerOutput valid_delay_out;
+    const bool valid_delay_lowered = valid_delay && Arm64Ir::LowerBoundVfShufflePlan(
+        valid_delay_plan, 3, 4, &valid_delay_out, &error);
+    Check(valid_delay_lowered && valid_delay_out.host_size > 0 &&
+        oakGetCurrentCodePointer() - valid_delay_before == valid_delay_out.host_size,
+        "shared VU MR32 accepts consistent delay-slot flags on every IR instruction");
+    oakAsm->RET();
+    oakEndBlock();
+
+    if (planned)
+        for (const auto& invalid_binding : {std::array<u32, 2>{31, 4}, {3, 31}, {32, 4},
+            {static_cast<u32>(OAK_QSCRATCH.index()), 4}, {3, static_cast<u32>(OAK_QSCRATCH.index())}})
+        {
+            oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+            oakStartBlock();
+            const u8* before = oakGetCurrentCodePointer();
+            Arm64Ir::LowerOutput out;
+            Check(!Arm64Ir::LowerBoundVfShufflePlan(valid_plan, invalid_binding[0], invalid_binding[1],
+                &out, &error, Arm64Ir::BoundVfShuffleLayout::MicroVuPartial) &&
+                oakGetCurrentCodePointer() == before && out.host_size == 0,
+                "shared VU MR32 invalid host bindings reject without emission");
+            oakAsm->RET();
+            oakEndBlock();
+        }
+    if (planned)
+    {
+        oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+        oakStartBlock();
+        const u8* before = oakGetCurrentCodePointer();
+        Arm64Ir::LowerOutput out;
+        Check(!Arm64Ir::LowerBoundVfShufflePlan(valid_plan, 3, 4, &out, &error,
+            static_cast<Arm64Ir::BoundVfShuffleLayout>(2)) &&
+            oakGetCurrentCodePointer() == before && out.host_size == 0,
+            "shared VU MR32 invalid destination layout rejects without emission");
+        oakAsm->RET();
+        oakEndBlock();
+    }
+    if (planned)
+        for (Arm64Ir::BoundVfShufflePlan invalid_plan : {Arm64Ir::BoundVfShufflePlan{32, 9, 15, false},
+            {7, 0, 15, false}, {7, 9, 0, false}, {7, 9, 16, false}})
+        {
+            oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+            oakStartBlock();
+            const u8* before = oakGetCurrentCodePointer();
+            Arm64Ir::LowerOutput out;
+            Check(!Arm64Ir::LowerBoundVfShufflePlan(invalid_plan, 3, 4, &out, &error,
+                Arm64Ir::BoundVfShuffleLayout::MicroVuPartial) &&
+                oakGetCurrentCodePointer() == before && out.host_size == 0,
+                "shared VU MR32 malformed bound plan rejects without emission");
+            oakAsm->RET();
+            oakEndBlock();
+        }
 }
 
 ir::Function BoundViVfSplatFixture(u32 src, u32 dst, u32 mask, bool delay_slot = false)
@@ -1414,6 +1654,157 @@ void VUSharedMfirProductionTests()
     }
 }
 
+void VUSharedMr32ProductionTests()
+{
+    const auto mr32 = [](u32 fs, u32 ft, u32 mask)
+        { return 0x8000033du | (fs << 11) | (ft << 16) | (mask << 21); };
+    // Distinct raw lane words make the [y,z,w,x] relation observable without
+    // interpreting any lane as a floating-point value.
+    const std::array<u32, 4> source_words = {0x0080ffffu, 0x12345678u, 0x80000001u, 0xffffffffu};
+    for (u32 vu = 0; vu < 2; ++vu)
+    {
+        for (u32 fs : {0u, 7u})
+            for (u32 ft : {0u, 7u, 9u})
+                for (u32 mask = 1; mask < 16; ++mask)
+                {
+                    std::array<u32, 128> vf{};
+                    vf[3] = 0x3f800000u; // VF0 = (0,0,0,1).
+                    for (u32 lane = 0; lane < 4; ++lane)
+                    {
+                        vf[7 * 4 + lane] = source_words[lane];
+                        vf[9 * 4 + lane] = 0x3f812340u + lane;
+                    }
+                    std::array<u32, 16> vi{};
+                    const std::vector<u32> program = {mr32(fs, ft, mask), NOP_U,
+                        NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U};
+                    EmuCoreXOracleSetVUIR(vu, 0);
+                    const u64 legacy_mr32_before = EmuCoreXOracleVUIRMr32Instructions(vu);
+                    const auto interp = RunVU(vu, false, program, 0x80, 0, 128, false,
+                        nullptr, vf.data(), nullptr, vi.data());
+                    const auto legacy = RunVU(vu, true, program, 0x80, 0, 128, false,
+                        nullptr, vf.data(), nullptr, vi.data());
+                    const bool legacy_uncounted = EmuCoreXOracleVUIRMr32Instructions(vu) == legacy_mr32_before;
+                    const u64 shared_mr32_before = EmuCoreXOracleVUIRMr32Instructions(vu);
+                    EmuCoreXOracleSetVUIR(vu, 1);
+                    const auto shared = RunVU(vu, true, program, 0x80, 0, 128, false,
+                        nullptr, vf.data(), nullptr, vi.data());
+                    Compare(interp, shared, "shared MR32 raw rotation matches interpreter");
+                    Compare(legacy, shared, "shared MR32 raw rotation matches legacy");
+                    Check(shared.regs.cycle == legacy.regs.cycle,
+                        "shared MR32 preserves exact legacy cycles");
+
+                    bool independent_bits = true;
+                    for (u32 lane = 0; lane < 4; ++lane)
+                    {
+                        const u32 expected = ft == 0 ? vf[ft * 4 + lane] :
+                            ((mask & (8u >> lane)) ? vf[fs * 4 + ((lane + 1) & 3)] : vf[ft * 4 + lane]);
+                        independent_bits &= interp.regs.VF[ft].UL[lane] == expected &&
+                            legacy.regs.VF[ft].UL[lane] == expected && shared.regs.VF[ft].UL[lane] == expected;
+                    }
+                    const u64 compiled_mr32 = EmuCoreXOracleVUIRMr32Instructions(vu) - shared_mr32_before;
+                    Check(legacy_uncounted && independent_bits,
+                        "MR32 independently verifies every raw lane, partial mask, VF0, and source/destination alias");
+                    Check(ft == 0 ? compiled_mr32 == 0 : compiled_mr32 > 0,
+                        "per-core MR32 counter records only eligible shared destinations");
+                }
+
+        // A lower MOVE creates a dirty VF value; the next pair's MR32 must
+        // consume the scheduled result from the existing live mapping.
+        {
+            std::array<u32, 128> vf{};
+            vf[3] = 0x3f800000u;
+            for (u32 lane = 0; lane < 4; ++lane) vf[7 * 4 + lane] = source_words[lane];
+            std::array<u32, 16> vi{};
+            const u32 move = 0x8000033cu | (7u << 11) | (9u << 16) | (15u << 21);
+            const std::vector<u32> program = {move, NOP_U, mr32(9, 11, 15), NOP_U,
+                NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U};
+            EmuCoreXOracleSetVUIR(vu, 0);
+            const auto interp = RunVU(vu, false, program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            const auto legacy = RunVU(vu, true, program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            const u64 before = EmuCoreXOracleVUIRMr32Instructions(vu);
+            EmuCoreXOracleSetVUIR(vu, 1);
+            const auto shared = RunVU(vu, true, program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            Compare(interp, shared, "MR32 consumes a preceding scheduled MOVE result");
+            Compare(legacy, shared, "MR32 dirty VF producer matches legacy state");
+            Check(shared.regs.cycle == legacy.regs.cycle,
+                "MR32 dirty VF producer preserves exact legacy cycles");
+            Check(EmuCoreXOracleVUIRMr32Instructions(vu) > before,
+                "MR32 dirty VF producer compiles through its production counter");
+            bool expected = true;
+            for (u32 lane = 0; lane < 4; ++lane)
+                expected &= shared.regs.VF[11].UL[lane] == source_words[(lane + 1) & 3];
+            Check(expected, "MR32 dirty producer result matches independently rotated raw words");
+        }
+
+        // MR32 in a branch delay slot must observe the branch backup path and
+        // execute regardless of whether the branch is taken.
+        for (u32 taken = 0; taken < 2; ++taken)
+        {
+            std::array<u32, 128> vf{};
+            vf[3] = 0x3f800000u;
+            for (u32 lane = 0; lane < 4; ++lane) vf[7 * 4 + lane] = source_words[lane];
+            std::array<u32, 16> vi{};
+            vi[1] = 0x1234;
+            vi[2] = taken ? 0x1234 : 0x5678;
+            const u32 branch = (0x28u << 25) | (1u << 11) | (2u << 16) | 2u;
+            const std::vector<u32> program = {branch, NOP_U, mr32(7, 9, 8), NOP_U,
+                NOP_L, NOP_U, NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U};
+            EmuCoreXOracleSetVUIR(vu, 0);
+            const auto interp = RunVU(vu, false, program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            const auto legacy = RunVU(vu, true, program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            const u64 before = EmuCoreXOracleVUIRMr32Instructions(vu);
+            EmuCoreXOracleSetVUIR(vu, 1);
+            const auto shared = RunVU(vu, true, program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            Compare(interp, shared, "MR32 delay-slot transfer matches interpreter");
+            Compare(legacy, shared, "MR32 delay-slot transfer matches legacy");
+            Check(shared.regs.VF[9].UL[0] == source_words[1],
+                "MR32 delay-slot raw output matches the independent rotated lane");
+            Check(shared.regs.cycle == legacy.regs.cycle,
+                "MR32 delay slot preserves exact legacy cycles");
+            Check(EmuCoreXOracleVUIRMr32Instructions(vu) > before,
+                "MR32 delay slot compiles through its production counter");
+        }
+
+        // Same-pair upper writes own the destination VF according to the
+        // scheduler. The lower MR32 must remain suppressed, even for disjoint
+        // lanes, and must not count as a shared transfer.
+        {
+            std::array<u32, 128> vf{};
+            vf[3] = 0x3f800000u;
+            vf[7 * 4 + 1] = 0x3f800000u;
+            vf[9 * 4 + 1] = 0x40000000u;
+            std::array<u32, 16> vi{};
+            const u32 upper_addx_y = (1u << (24 - 1)) | (9u << 6) | (7u << 11);
+            const std::vector<u32> program = {mr32(7, 9, 8), upper_addx_y,
+                NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U};
+            EmuCoreXOracleSetVUIR(vu, 0);
+            const auto interp = RunVU(vu, false, program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            const auto legacy = RunVU(vu, true, program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            const u64 before = EmuCoreXOracleVUIRMr32Instructions(vu);
+            EmuCoreXOracleSetVUIR(vu, 1);
+            const auto shared = RunVU(vu, true, program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            Compare(interp, shared, "MR32 same-pair upper priority matches interpreter");
+            Compare(legacy, shared, "MR32 same-pair upper priority matches legacy");
+            Check(shared.regs.VF[9].UL[0] == vf[9 * 4] &&
+                shared.regs.VF[9].UL[1] == 0x3f800000u &&
+                shared.regs.cycle == legacy.regs.cycle &&
+                EmuCoreXOracleVUIRMr32Instructions(vu) == before,
+                "MR32 same-pair upper write suppresses lower op and shared counter");
+        }
+    }
+    EmuCoreXOracleSetVUIR(0, -1);
+    EmuCoreXOracleSetVUIR(1, -1);
+}
+
 void VUSharedMfirBenchmarks()
 {
     const FPControlRegisterBackup callerFPCR(EmuConfig.Cpu.FPUFPCR);
@@ -1497,6 +1888,90 @@ void VUSharedMfirBenchmarks()
         std::printf("VUIRMFIRBENCH core=%u legacy_fresh_reset_compile_us=%.3f shared_fresh_reset_compile_us=%.3f legacy_hot_median_ns=%.3f shared_hot_median_ns=%.3f legacy_native_block_bytes=%llu shared_native_block_bytes=%llu\n",
             vu, cold_us[0], cold_us[1], hot_median_ns[0], hot_median_ns[1],
             static_cast<unsigned long long>(bytes[0]), static_cast<unsigned long long>(bytes[1]));
+    }
+    EmuCoreXOracleSetVUIR(0, -1);
+    EmuCoreXOracleSetVUIR(1, -1);
+}
+
+void VUSharedMr32Benchmarks()
+{
+    const FPControlRegisterBackup callerFPCR(EmuConfig.Cpu.FPUFPCR);
+    const auto mr32 = [](u32 fs, u32 ft, u32 mask)
+        { return 0x8000033du | (fs << 11) | (ft << 16) | (mask << 21); };
+    std::array<u32, 16> vi{};
+    std::array<u32, 128> vf{};
+    vf[3] = 0x3f800000u;
+    for (u32 r = 1; r < 32; ++r)
+        for (u32 lane = 0; lane < 4; ++lane)
+            vf[r * 4 + lane] = 0x80000000u ^ (r * 0x01010101u) ^ (lane * 0x11111111u);
+
+    for (u32 vu = 0; vu < 2; ++vu)
+    {
+        std::vector<u32> program;
+        for (u32 step = 0; step < 48; ++step)
+            program.insert(program.end(), {mr32(1 + step % 31, 1 + (step + 7) % 31,
+                1 + step % 15), NOP_U});
+        program.insert(program.end(), {NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U});
+
+        std::array<Snapshot, 2> expected;
+        std::array<u64, 2> native_bytes{};
+        std::array<double, 2> cold_us{};
+        std::array<double, 2> hot_median_ns{};
+        for (u32 mode = 0; mode < 2; ++mode)
+        {
+            EmuCoreXOracleSetVUIR(vu, mode ? 1 : 0);
+            const auto cold_start = std::chrono::steady_clock::now();
+            expected[mode] = RunVU(vu, true, program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            cold_us[mode] = std::chrono::duration<double, std::micro>(
+                std::chrono::steady_clock::now() - cold_start).count();
+
+            std::vector<JitBlockProfile> profiles;
+            if (vu) VU1_JitGetBlockProfiles(profiles); else VU0_JitGetBlockProfiles(profiles);
+            bool isolated = !profiles.empty();
+            for (const auto& profile : profiles)
+            {
+                isolated &= profile.startpc >= 0x80 && profile.startpc < 0x80 + program.size() * sizeof(u32);
+                native_bytes[mode] += profile.host_size;
+            }
+            Check(isolated && native_bytes[mode] > 0,
+                "MR32 benchmark reports absolute native bytes from the fresh workload cache");
+
+            VURegs& regs = vu ? VU1 : VU0;
+            BaseVUmicroCPU* cpu = vu ? static_cast<BaseVUmicroCPU*>(&CpuMicroVU1) :
+                static_cast<BaseVUmicroCPU*>(&CpuMicroVU0);
+            std::array<double, 5> samples{};
+            bool same = true;
+            for (u32 sample = 0; sample < samples.size(); ++sample)
+            {
+                constexpr u32 iterations = 128;
+                const auto hot_start = std::chrono::steady_clock::now();
+                for (u32 iteration = 0; iteration < iterations; ++iteration)
+                {
+                    std::memcpy(regs.VF, vf.data(), sizeof(regs.VF));
+                    for (u32 r = 1; r < 16; ++r) regs.VI[r].UL = vi[r];
+                    regs.cycle = 0;
+                    regs.VI[REG_TPC].UL = 0x80 / 8;
+                    VU0.VI[REG_VPU_STAT].UL = vu ? 0x100 : 1;
+                    cpu->SetStartPC(0x80);
+                    for (u32 call = 0; call < 128 && (VU0.VI[REG_VPU_STAT].UL & (vu ? 0x100 : 1)); ++call)
+                        cpu->Execute(128);
+                    same &= VU0.VI[REG_VPU_STAT].UL == 0;
+                }
+                samples[sample] = std::chrono::duration<double, std::nano>(
+                    std::chrono::steady_clock::now() - hot_start).count() / iterations;
+                same &= std::memcmp(regs.VF, expected[mode].regs.VF, sizeof(regs.VF)) == 0 &&
+                    regs.cycle == expected[mode].regs.cycle;
+            }
+            std::sort(samples.begin(), samples.end());
+            hot_median_ns[mode] = samples[samples.size() / 2];
+            Check(same, "MR32 hot benchmark replays cached code with independently checked final VF/cycles");
+        }
+        Compare(expected[0], expected[1], "MR32 benchmark shared/legacy state comparison");
+        std::printf("VUIRMR32BENCH core=%u mr32_ops=48 legacy_fresh_reset_compile_us=%.3f shared_fresh_reset_compile_us=%.3f legacy_hot_median_ns_per_replay=%.3f shared_hot_median_ns_per_replay=%.3f legacy_native_block_bytes=%llu shared_native_block_bytes=%llu\n",
+            vu, cold_us[0], cold_us[1], hot_median_ns[0], hot_median_ns[1],
+            static_cast<unsigned long long>(native_bytes[0]),
+            static_cast<unsigned long long>(native_bytes[1]));
     }
     EmuCoreXOracleSetVUIR(0, -1);
     EmuCoreXOracleSetVUIR(1, -1);
@@ -1686,11 +2161,14 @@ void VUTests()
     VUBoundIrTests();
     VUSharedIrProductionTests();
     VUSharedImmediateTests();
+    VUBoundVfShuffleTests();
     VUBoundVfViTransferTests();
     VUBoundViVfTransferTests();
     VUSharedMtirProductionTests();
     VUSharedMfirProductionTests();
+    VUSharedMr32ProductionTests();
     VUSharedMfirBenchmarks();
+    VUSharedMr32Benchmarks();
     VUSharedIrBenchmarks();
     VUSharedTransferBenchmarks();
     EmuCoreXOracleSetVUIR(0, 1);

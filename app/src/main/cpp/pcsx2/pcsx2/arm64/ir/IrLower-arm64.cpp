@@ -55,6 +55,95 @@ namespace Arm64Ir
 		return true;
 	}
 
+	bool PlanBoundVfShuffle(const ir::Function& fn, BoundVfShufflePlan* plan, std::string* error)
+	{
+		if (plan) *plan = {};
+		const auto fail = [&](const char* message) { if (error) *error = message; return false; };
+		if (!plan) return fail("bound VF shuffle plan output is missing");
+		if (!ir::Verify(fn, error)) return false;
+		if (fn.blocks.size() != 1 || fn.entry != 1 || fn.blocks[0].insts.size() != 4)
+			return fail("bound VF shuffle requires one MR32 transfer slice");
+		const auto& i = fn.blocks[0].insts;
+		if (i[0].op != ir::Op::ReadVf || i[1].op != ir::Op::VShuffle ||
+			i[2].op != ir::Op::WriteVfMasked || i[3].op != ir::Op::Return)
+			return fail("unsupported bound VF shuffle operation shape");
+		if (i[0].imm >= 32 || i[2].imm == 0 || i[2].imm >= 32 ||
+			(i[2].aux & 0x0f) == 0 || i[1].imm != 0x39)
+			return fail("bound VF shuffle register index, mask, or selector is out of range");
+		if (i[0].type != ir::Type::V4F32 || i[1].type != ir::Type::V4F32 ||
+			i[2].type != ir::Type::Void || i[3].type != ir::Type::Void)
+			return fail("bound VF shuffle values require V4F32");
+		const u16 delay = ir::IF_DELAY_SLOT;
+		if ((i[0].aux & ~delay) != 0 || (i[1].aux & ~delay) != 0 ||
+			(i[2].aux & ~(u16(0x0f) | delay)) != 0 || (i[3].aux & ~delay) != 0)
+			return fail("bound VF shuffle has unsupported flags");
+		const bool delay_slot = (i[0].aux & delay) != 0;
+		for (const ir::Inst& inst : i)
+			if (((inst.aux & delay) != 0) != delay_slot)
+				return fail("bound VF shuffle delay-slot flags are inconsistent");
+		if (i[0].value == 0 || i[0].num_args != 0 || i[1].value == 0 || i[1].num_args != 1 ||
+			i[1].args[0] != i[0].value || i[2].value != 0 || i[2].num_args != 1 ||
+			i[2].args[0] != i[1].value || i[3].value != 0 || i[3].num_args != 0 || i[3].imm != 0)
+			return fail("bound VF shuffle SSA links do not match MR32");
+		*plan = {static_cast<u8>(i[0].imm), static_cast<u8>(i[2].imm),
+			static_cast<u8>(i[2].aux & 0x0f), delay_slot};
+		if (error) error->clear();
+		return true;
+	}
+
+	bool LowerBoundVfShufflePlan(const BoundVfShufflePlan& plan, u32 vf_source, u32 vf_dst,
+		LowerOutput* out, std::string* error, BoundVfShuffleLayout layout)
+	{
+		if (out) *out = {};
+		if (!out || !oakHasBlock() || plan.src_vf >= 32 || plan.dst_vf == 0 || plan.dst_vf >= 32 ||
+			plan.lane_mask == 0 || plan.lane_mask > 0x0f || vf_source >= 31 || vf_dst >= 31 ||
+			(layout != BoundVfShuffleLayout::GuestLanes && layout != BoundVfShuffleLayout::MicroVuPartial) ||
+			vf_source == static_cast<u32>(OAK_QSCRATCH.index()) ||
+			vf_dst == static_cast<u32>(OAK_QSCRATCH.index()))
+		{
+			if (error) *error = "invalid bound VF shuffle host register contract";
+			return false;
+		}
+		const u8* start = recBeginOaknutEmit();
+		const oak::QReg src(vf_source);
+		const oak::QReg dst(vf_dst);
+		const auto source_lane = [](u32 output_lane) { return (output_lane + 1) & 3; };
+		const bool one_lane = (plan.lane_mask & (plan.lane_mask - 1)) == 0;
+		if (layout == BoundVfShuffleLayout::MicroVuPartial)
+		{
+			if (one_lane)
+			{
+				u32 lane = 0;
+				while ((plan.lane_mask & (8u >> lane)) == 0) ++lane;
+				oakAsm->DUP(dst.S4(), src.Selem()[source_lane(lane)]);
+			}
+			else
+				oakAsm->EXT(dst.B16(), src.B16(), src.B16(), 4);
+		}
+		else if (plan.lane_mask == 0x0f)
+		{
+			oakAsm->EXT(dst.B16(), src.B16(), src.B16(), 4);
+		}
+		else if (one_lane)
+		{
+			u32 lane = 0;
+			while ((plan.lane_mask & (8u >> lane)) == 0) ++lane;
+			oakAsm->INS(dst.Selem()[lane], src.Selem()[source_lane(lane)]);
+		}
+		else
+		{
+			const oak::QReg scratch = OAK_QSCRATCH;
+			oakAsm->EXT(scratch.B16(), src.B16(), src.B16(), 4);
+			for (u32 lane = 0; lane < 4; ++lane)
+				if (plan.lane_mask & (8u >> lane))
+					oakAsm->INS(dst.Selem()[lane], scratch.Selem()[lane]);
+		}
+		out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
+		recEndOaknutEmit();
+		if (error) error->clear();
+		return true;
+	}
+
 	bool LowerBoundViVfTransferPlan(const BoundViVfTransferPlan& plan, u32 vi_source, u32 vf_dst,
 		LowerOutput* out, std::string* error, BoundViVfDestinationLayout layout)
 	{
