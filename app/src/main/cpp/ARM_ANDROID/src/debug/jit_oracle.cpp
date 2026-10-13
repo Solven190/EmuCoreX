@@ -57,6 +57,7 @@ extern "C" u64 EmuCoreXOracleIOPIRCop0Instructions();
 extern "C" void EmuCoreXOracleSetVUIR(u32 index, int enabled);
 extern "C" u64 EmuCoreXOracleVUIRInstructions(u32 index);
 extern "C" u64 EmuCoreXOracleVUIRBytes(u32 index);
+extern "C" u64 EmuCoreXOracleVUIRImmediateInstructions(u32 index);
 extern void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 extern void VU0_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 extern void VU1_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
@@ -544,6 +545,133 @@ void VUSharedIrProductionTests()
     }
 }
 
+void VUSharedImmediateTests()
+{
+    const auto fixture = [](ir::Op op, u32 immediate, u32 lhs, u32 dst)
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(0x80);
+        const u32 source = b.Emit(ir::Op::ReadVi, ir::Type::I32, {}, lhs);
+        const u32 constant = b.ConstI32(immediate);
+        const u32 sum = b.Emit2(op, ir::Type::I32, source, constant);
+        b.Emit1(ir::Op::WriteVi, ir::Type::Void, b.Emit1(ir::Op::Zext16, ir::Type::I32, sum), dst);
+        b.Return();
+        return fn;
+    };
+    for (ir::Op op : {ir::Op::Add, ir::Op::Sub})
+        for (u32 immediate : {0u, 1u, 15u, 16u, 4095u, 4096u, 0x7fffu, 0xfffffff0u, ~0u})
+            for (u32 lhs_vi : {0u, 1u})
+                for (u32 value : {0u, 1u, 0x7fffu, 0x8000u, 0xffffu})
+                {
+                    auto fn = fixture(op, immediate, lhs_vi, 3);
+                    oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+                    u8* entry = oakStartBlock();
+                    oakAsm->MOV(oak::util::W5, oak::util::W0);
+                    oakAsm->MOV(oak::util::W9, 0x5a17);
+                    Arm64Ir::LowerOutput out;
+                    std::string error;
+                    const bool lowered = Arm64Ir::LowerBoundViBlock(fn, 5, 16, &out, &error);
+                    oakAsm->MOV(oak::util::W0, oak::util::W5);
+                    oakAsm->LSL(oak::util::X9, oak::util::X9, 32);
+                    oakAsm->ORR(oak::util::X0, oak::util::X0, oak::util::X9);
+                    oakAsm->RET();
+                    oakEndBlock();
+                    const u32 left = lhs_vi ? value : 0;
+                    const u32 expected = (op == ir::Op::Add ? left + immediate : left - immediate) & 0xffff;
+                    const u64 actual = reinterpret_cast<u64 (*)(u32)>(entry)(left);
+                    Check(lowered && static_cast<u32>(actual) == expected && (actual >> 32) == 0x5a17 &&
+                        out.frame_size == 0 && out.spill_values == 0 && out.host_size <= 16,
+                        "shared VU immediate native lowering preserves signed constants, VI0 and scratch");
+                }
+    const auto saved_fixes = EmuConfig.Gamefixes;
+    for (u32 vu = 0; vu < 2; ++vu)
+        for (bool ibit : {false, true})
+            for (u32 opcode = 0; opcode < 3; ++opcode)
+            {
+                std::vector<u32> immediates;
+                if (opcode == 0)
+                    for (u32 immediate = 0; immediate < 32; ++immediate) immediates.push_back(immediate);
+                else
+                    immediates = {0, 1, 0x7ff, 0xfff, 0x1000, 0x2000, 0x4000, 0x7800, 0x7fff};
+                for (u32 immediate : immediates)
+                    for (const auto& registers : {std::array<u32, 2>{1, 3}, {1, 1}, {0, 3}, {1, 0}})
+                    {
+                        EmuConfig.Gamefixes.IbitHack = ibit;
+                        const u32 source = registers[0], dst = registers[1];
+                        const u32 instruction = opcode == 0 ?
+                            0x80000032u | ((immediate & 31) << 6) | (source << 11) | (dst << 16) :
+                            ((opcode == 1 ? 8u : 9u) << 25) | ((immediate & 0x7800) << 10) |
+                                (immediate & 0x7ff) | (source << 11) | (dst << 16);
+                        const std::vector<u32> program = {instruction, NOP_U,
+                            NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U};
+                        std::array<u32, 16> vi{};
+                        vi[1] = 0xfffd;
+                        EmuCoreXOracleSetVUIR(vu, 0);
+                        const auto interp = RunVU(vu, false, program, 0x80, 0, 128, false,
+                            nullptr, nullptr, nullptr, vi.data());
+                        const auto legacy = RunVU(vu, true, program, 0x80, 0, 128, false,
+                            nullptr, nullptr, nullptr, vi.data());
+                        const u64 before = EmuCoreXOracleVUIRImmediateInstructions(vu);
+                        EmuCoreXOracleSetVUIR(vu, 1);
+                        const auto shared = RunVU(vu, true, program, 0x80, 0, 128, false,
+                            nullptr, nullptr, nullptr, vi.data());
+                        Compare(interp, shared, "shared VU immediate guest fields/aliases match interpreter");
+                        Compare(legacy, shared, "shared VU immediate matches legacy state and memory");
+                        Check(shared.regs.cycle == legacy.regs.cycle, "shared VU immediate preserves exact legacy cycles");
+                        const u64 compiled = EmuCoreXOracleVUIRImmediateInstructions(vu) - before;
+                        Check(!ibit && dst != 0 ? compiled > 0 : compiled == 0,
+                            "shared VU immediate uses It destination and retains live IbitHack legacy path");
+                    }
+            }
+    EmuConfig.Gamefixes.IbitHack = false;
+    for (u32 vu = 0; vu < 2; ++vu)
+        for (u32 kind = 0; kind < 4; ++kind)
+        {
+            const auto encode = [](u32 opcode, u32 immediate, u32 source, u32 dst)
+            {
+                return opcode == 0 ? 0x80000032u | ((immediate & 31) << 6) | (source << 11) | (dst << 16) :
+                    ((opcode == 1 ? 8u : 9u) << 25) | ((immediate & 0x7800) << 10) |
+                        (immediate & 0x7ff) | (source << 11) | (dst << 16);
+            };
+            std::vector<u32> program;
+            if (kind == 3)
+            {
+                for (u32 step = 0; step < 96; ++step)
+                    program.insert(program.end(), {encode(step % 3, (step * 173 + 0x4000) & 0x7fff,
+                        1 + step % 15, 1 + (step + 7) % 15), NOP_U});
+                program.insert(program.end(), {NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U});
+            }
+            else
+            {
+                program = {encode(kind, 17, 2, 1), NOP_U,
+                    (0x28u << 25) | (1u << 11) | (2u << 16) | 3u, NOP_U,
+                    encode(kind, 0x7fff, kind == 1 ? 0 : 1, 1), NOP_U,
+                    NOP_L, NOP_U, NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U,
+                    NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U};
+            }
+            std::array<u32, 16> vi{};
+            for (u32 r = 1; r < 16; ++r) vi[r] = (r * 983 + 0x8000) & 0xffff;
+            EmuCoreXOracleSetVUIR(vu, 0);
+            const auto interp = RunVU(vu, false, program, 0x80, 0, 128, false,
+                nullptr, nullptr, nullptr, vi.data());
+            const auto legacy = RunVU(vu, true, program, 0x80, 0, 128, false,
+                nullptr, nullptr, nullptr, vi.data());
+            const u64 before = EmuCoreXOracleVUIRImmediateInstructions(vu);
+            EmuCoreXOracleSetVUIR(vu, 1);
+            const auto shared = RunVU(vu, true, program, 0x80, 0, 128, false,
+                nullptr, nullptr, nullptr, vi.data());
+            Compare(interp, shared, "shared VU immediates preserve dirty chains and branch-delay backups");
+            Compare(legacy, shared, "shared VU immediate hazards match legacy state and memory");
+            Check(shared.regs.cycle == legacy.regs.cycle, "shared VU immediate chains preserve exact legacy cycles");
+            Check(EmuCoreXOracleVUIRImmediateInstructions(vu) > before,
+                "shared VU immediate chains compile through the real production path");
+        }
+    EmuConfig.Gamefixes = saved_fixes;
+    EmuCoreXOracleSetVUIR(0, -1);
+    EmuCoreXOracleSetVUIR(1, -1);
+}
+
 void VUSharedIrBenchmarks()
 {
     // Timing includes the real cached microVU dispatcher plus identical VI
@@ -637,6 +765,7 @@ void VUTests()
     CpuMicroVU1.Reserve();
     VUBoundIrTests();
     VUSharedIrProductionTests();
+    VUSharedImmediateTests();
     VUSharedIrBenchmarks();
     EmuCoreXOracleSetVUIR(0, 1);
     EmuCoreXOracleSetVUIR(1, 1);

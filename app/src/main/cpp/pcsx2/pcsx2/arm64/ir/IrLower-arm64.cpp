@@ -23,6 +23,24 @@ namespace Arm64Ir
 
 	namespace
 	{
+		template <typename Reg>
+		bool EmitSimpleAddSubImmediate(ir::Op op, ir::Type type, const Reg& dst, const Reg& src, u64 constant)
+		{
+			if (op != ir::Op::Add && op != ir::Op::Sub) return false;
+			const u64 mask = type == ir::Type::I64 ? ~u64(0) : 0xffffffffull;
+			constant &= mask;
+			bool subtract = op == ir::Op::Sub;
+			if (constant > 4095)
+			{
+				constant = (u64(0) - constant) & mask;
+				subtract = !subtract;
+			}
+			if (constant > 4095) return false;
+			if (subtract) oakAsm->SUB(dst, src, constant);
+			else oakAsm->ADD(dst, src, constant);
+			return true;
+		}
+
 		void EmitSimpleAlu32(ir::Op op, oak::WReg dst, oak::WReg lhs, oak::WReg rhs)
 		{
 			switch (op)
@@ -46,11 +64,14 @@ namespace Arm64Ir
 		if (fn.blocks.size() != 1 || fn.entry != 1 || fn.blocks[0].insts.size() != 6)
 			return fail("bound VI requires a single arithmetic slice");
 		const auto& i = fn.blocks[0].insts;
-		if (i[0].op != ir::Op::ReadVi || i[1].op != ir::Op::ReadVi ||
+		const bool immediate = i[1].op == ir::Op::ConstI32;
+		if (i[0].op != ir::Op::ReadVi || (!immediate && i[1].op != ir::Op::ReadVi) ||
 			(i[2].op != ir::Op::Add && i[2].op != ir::Op::Sub && i[2].op != ir::Op::And && i[2].op != ir::Op::Or) ||
 			i[3].op != ir::Op::Zext16 || i[4].op != ir::Op::WriteVi || i[5].op != ir::Op::Return)
 			return fail("unsupported bound VI operation shape");
-		if (i[0].imm >= 16 || i[1].imm >= 16 || i[4].imm == 0 || i[4].imm >= 16)
+		if (immediate && (i[1].imm > 0xffffffffull || (i[2].op != ir::Op::Add && i[2].op != ir::Op::Sub)))
+			return fail("bound VI immediate requires I32 Add/Sub");
+		if (i[0].imm >= 16 || (!immediate && i[1].imm >= 16) || i[4].imm == 0 || i[4].imm >= 16)
 			return fail("bound VI register index is out of range or writes VI0");
 		for (u32 index = 0; index < 4; ++index)
 			if (i[index].type != ir::Type::I32) return fail("bound VI values require I32");
@@ -60,7 +81,8 @@ namespace Arm64Ir
 			i[2].args[0] != i[0].value || i[2].args[1] != i[1].value ||
 			i[3].args[0] != i[2].value || i[4].args[0] != i[3].value)
 			return fail("bound VI SSA links do not match the arithmetic slice");
-		*plan = {i[2].op, static_cast<u8>(i[0].imm), static_cast<u8>(i[1].imm), static_cast<u8>(i[4].imm)};
+		*plan = {i[2].op, static_cast<u8>(i[0].imm), immediate ? u8(0) : static_cast<u8>(i[1].imm),
+			static_cast<u8>(i[4].imm), immediate, immediate ? static_cast<u32>(i[1].imm) : 0};
 		return true;
 	}
 
@@ -69,8 +91,17 @@ namespace Arm64Ir
 		if (out) *out = {};
 		BoundViPlan plan;
 		if (!PlanBoundViBlock(fn, &plan, error)) return false;
-		if (!out || !oakHasBlock() || lhs_dst >= 31 || rhs >= 31 ||
-			(lhs_dst == rhs && plan.lhs_vi != plan.rhs_vi))
+		return LowerBoundViPlan(plan, lhs_dst, rhs, out, error);
+	}
+
+	bool LowerBoundViPlan(const BoundViPlan& plan, u32 lhs_dst, u32 rhs, LowerOutput* out, std::string* error)
+	{
+		if (out) *out = {};
+		if (!out || !oakHasBlock() || lhs_dst >= 31 || rhs >= 31 || plan.lhs_vi >= 16 || plan.rhs_vi >= 16 ||
+			plan.dst_vi == 0 || plan.dst_vi >= 16 ||
+			(plan.alu != ir::Op::Add && plan.alu != ir::Op::Sub && plan.alu != ir::Op::And && plan.alu != ir::Op::Or) ||
+			(plan.immediate && (lhs_dst == rhs || (plan.alu != ir::Op::Add && plan.alu != ir::Op::Sub))) ||
+			(!plan.immediate && lhs_dst == rhs && plan.lhs_vi != plan.rhs_vi))
 		{
 			if (error) *error = "invalid bound VI host register contract";
 			return false;
@@ -79,7 +110,18 @@ namespace Arm64Ir
 		const oak::WReg dst = oakWRegister(lhs_dst), right = oakWRegister(rhs);
 		// Equal VI operands are architectural identities, independent of host
 		// allocation. Folding these uses no additional scratch register.
-		if (plan.lhs_vi == plan.rhs_vi && plan.alu == ir::Op::Sub)
+		if (plan.immediate && plan.lhs_vi == 0)
+			oakAsm->MOV(dst, (plan.alu == ir::Op::Add ? plan.constant : 0u - plan.constant) & 0xffffu);
+		else if (plan.immediate)
+		{
+			if (plan.constant != 0 && !EmitSimpleAddSubImmediate(plan.alu, ir::Type::I32, dst, dst, plan.constant))
+			{
+				oakAsm->MOV(right, plan.constant);
+				EmitSimpleAlu32(plan.alu, dst, dst, right);
+			}
+			oakAsm->UXTH(dst, dst);
+		}
+		else if (plan.lhs_vi == plan.rhs_vi && plan.alu == ir::Op::Sub)
 			oakAsm->MOV(dst, 0);
 		else
 		{
@@ -451,23 +493,7 @@ namespace Arm64Ir
 			template <typename Reg>
 			bool EmitAddSubImmediate(const ir::Inst& inst, const Reg& dst, const Reg& src, u64 constant)
 			{
-				if (inst.op != ir::Op::Add && inst.op != ir::Op::Sub)
-					return false;
-				const u64 mask = inst.type == ir::Type::I64 ? ~u64(0) : 0xffffffffull;
-				constant &= mask;
-				bool subtract = inst.op == ir::Op::Sub;
-				if (constant > 4095)
-				{
-					constant = (u64(0) - constant) & mask;
-					subtract = !subtract;
-				}
-				if (constant > 4095)
-					return false;
-				if (subtract)
-					oakAsm->SUB(dst, src, constant);
-				else
-					oakAsm->ADD(dst, src, constant);
-				return true;
+				return EmitSimpleAddSubImmediate(inst.op, inst.type, dst, src, constant);
 			}
 
 			u32 Slot(u32 value) const { return m_slots[value]; }

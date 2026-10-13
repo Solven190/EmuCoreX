@@ -44,6 +44,8 @@ namespace Arm64Ir
 		u8 lhs_vi = 0;
 		u8 rhs_vi = 0;
 		u8 dst_vi = 0;
+		bool immediate = false;
+		u32 constant = 0;
 	};
 	bool PlanBoundViBlock(const ir::Function& fn, BoundViPlan* plan, std::string* error);
 
@@ -129,6 +131,11 @@ namespace Arm64Ir
 	// Both host W-register indices must be in [0,30], owned by the caller.
 	// Rejects an unsupported function before changing the active Oaknut buffer.
 	bool LowerBoundViBlock(const ir::Function& fn, u32 lhs_dst, u32 rhs,
+		LowerOutput* out, std::string* error);
+	// Consume a plan produced by PlanBoundViBlock once before guest bindings.
+	// Immediate plans may use rhs as caller-owned constant scratch. No scratch
+	// is needed for VI0 constants or a representable Add/Sub immediate.
+	bool LowerBoundViPlan(const BoundViPlan& plan, u32 lhs_dst, u32 rhs,
 		LowerOutput* out, std::string* error);
 
 	// `code` must point at an executable buffer of `capacity` bytes that is not

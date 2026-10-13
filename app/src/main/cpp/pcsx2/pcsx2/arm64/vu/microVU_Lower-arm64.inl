@@ -1501,9 +1501,10 @@ static void mVU_FSSET_emit(mP)
 // IADD/IADDI/IADDIU/IAND/IOR/ISUB/ISUBIU
 //------------------------------------------------------------------
 
-static bool mVUTrySharedVI(mV, ir::Op op)
+static bool mVUTrySharedVI(mV, ir::Op op, bool immediate = false, u32 constant = 0)
 {
-	if (!_Id_ || !mVUSharedIrEnabled(mVU.index)) return false;
+	const u32 destination = immediate ? _It_ : _Id_;
+	if (!destination || (immediate && EmuConfig.Gamefixes.IbitHack) || !mVUSharedIrEnabled(mVU.index)) return false;
 	// Reuse storage on the VU compiler's thread. No guest values or host
 	// bindings survive this slice; microVU still owns the live VI allocator.
 	static thread_local ir::Function fn;
@@ -1521,25 +1522,27 @@ static bool mVUTrySharedVI(mV, ir::Op op)
 	ir::Builder b(fn);
 	b.SetBlock(1);
 	const u32 lhs = b.Emit(ir::Op::ReadVi, ir::Type::I32, {}, _Is_);
-	const u32 rhs = b.Emit(ir::Op::ReadVi, ir::Type::I32, {}, _It_);
+	const u32 rhs = immediate ? b.ConstI32(constant) : b.Emit(ir::Op::ReadVi, ir::Type::I32, {}, _It_);
 	const u32 value = b.Emit2(op, ir::Type::I32, lhs, rhs);
 	const u32 narrow = b.Emit1(ir::Op::Zext16, ir::Type::I32, value);
-	b.Emit1(ir::Op::WriteVi, ir::Type::Void, narrow, _Id_);
+	b.Emit1(ir::Op::WriteVi, ir::Type::Void, narrow, destination);
 	b.Return();
 	Arm64Ir::BoundViPlan plan;
 	std::string error;
 	if (!Arm64Ir::PlanBoundViBlock(fn, &plan, &error)) return false;
 	// Preserve the old right operand before allocating the writable left
 	// mapping; this also retains microVU's branch-delay VI backup semantics.
-	const bool zero_result = plan.alu == ir::Op::Sub && plan.lhs_vi == plan.rhs_vi;
-	const int right = zero_result ? -1 : mVU.regAlloc->allocGPRId(plan.rhs_vi, -1);
-	const int dst = mVU.regAlloc->allocGPRId(zero_result ? -1 : plan.lhs_vi, plan.dst_vi, mVUlow.backupVI);
+	const bool zero_result = !plan.immediate && plan.alu == ir::Op::Sub && plan.lhs_vi == plan.rhs_vi;
+	const bool constant_result = zero_result || (plan.immediate && plan.lhs_vi == 0);
+	const int right = plan.immediate || zero_result ? -1 : mVU.regAlloc->allocGPRId(plan.rhs_vi, -1);
+	const int dst = mVU.regAlloc->allocGPRId(constant_result ? -1 : plan.lhs_vi, plan.dst_vi, mVUlow.backupVI);
 	Arm64Ir::LowerOutput out;
-	const bool lowered = Arm64Ir::LowerBoundViBlock(fn, dst, zero_result ? dst : right, &out, &error);
+	const int rhs_binding = plan.immediate ? static_cast<int>(OAK_WSCRATCH.index()) : zero_result ? dst : right;
+	const bool lowered = Arm64Ir::LowerBoundViPlan(plan, dst, rhs_binding, &out, &error);
 	pxAssertRel(lowered, error.c_str());
 	mVU.regAlloc->clearNeeded(dst);
 	if (right >= 0) mVU.regAlloc->clearNeeded(right);
-	mVURecordSharedIr(mVU.index, out.host_size);
+	mVURecordSharedIr(mVU.index, out.host_size, plan.immediate);
 	return true;
 }
 
@@ -1637,7 +1640,8 @@ static void mVU_IADDI_emit(mP)
 	pass1 { mVUanalyzeIADDI(mVU, _Is_, _It_, _Imm5_); }
 	pass2
 	{
-		mVU_IADDI_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedVI(mVU, ir::Op::Add, true, static_cast<u32>(static_cast<s32>(_Imm5_))))
+			mVU_IADDI_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3 { mVUlog("IADDI vi%02d, vi%02d, %d", _Ft_, _Fs_, _Imm5_); }
 }
@@ -1704,7 +1708,7 @@ static void mVU_IADDIU_emit(mP)
 	pass1 { mVUanalyzeIADDI(mVU, _Is_, _It_, _Imm15_); }
 	pass2
 	{
-		mVU_IADDIU_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedVI(mVU, ir::Op::Add, true, _Imm15_)) mVU_IADDIU_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3 { mVUlog("IADDIU vi%02d, vi%02d, %d", _Ft_, _Fs_, _Imm15_); }
 }
@@ -1833,7 +1837,7 @@ static void mVU_ISUBIU_emit(mP)
 	pass1 { mVUanalyzeIALU2(mVU, _Is_, _It_); }
 	pass2
 	{
-		mVU_ISUBIU_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedVI(mVU, ir::Op::Sub, true, _Imm15_)) mVU_ISUBIU_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3 { mVUlog("ISUBIU vi%02d, vi%02d, %d", _Ft_, _Fs_, _Imm15_); }
 }
