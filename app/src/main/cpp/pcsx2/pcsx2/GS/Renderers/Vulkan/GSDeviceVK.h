@@ -555,7 +555,6 @@ private:
 	static void BuildWarmupTFXSelectors(std::vector<PipelineSelector>& out);
 
 	void LoadLearnedTFXSelectors();
-	void AppendLearnedTFXSelectors(std::vector<PipelineSelector>& out);
 	void SaveLearnedTFXSelectors();
 	void RecordLearnedTFXSelector(const PipelineSelector& p);
 
@@ -677,6 +676,10 @@ public:
 
 	RenderAPI GetRenderAPI() const override;
 	bool HasSurface() const override;
+
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	static bool TestTFXWarmupOrdering();
+#endif
 
 	bool Create(GSVSyncMode vsync_mode, bool allow_present_throttle) override;
 	void Destroy() override;

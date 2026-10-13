@@ -19,6 +19,7 @@
 #include "cpuinfo.h"
 #include "Gif_Unit.h"
 #include "GS/GSState.h"
+#include "GS/Renderers/Vulkan/GSDeviceVK.h"
 
 #include <array>
 #include <cstdio>
@@ -133,6 +134,7 @@ void CheckBits(bool pass, u32 actual, u32 expected, const char* name)
 
 void ClassifierTests()
 {
+    Check(GSDeviceVK::TestTFXWarmupOrdering(), "GS learned pipelines precede generic warmup without duplicates");
     Check(JitProfiler::TestSampleRangeSelection(), "profiler nested opcode range selection");
     Check(ir::RunSelfTests(), "IR core self-tests");
     Check(EeIr::RunSelfTests(), "EE IR lifter self-tests");

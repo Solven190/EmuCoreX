@@ -4,6 +4,7 @@
 #include "GS/GS.h"
 #include "GS/GSGL.h"
 #include "GS/GSPerfMon.h"
+#include "GS/GSShaderCompileIndicator.h"
 #include "GS/GSUtil.h"
 #include "GS/Renderers/Vulkan/GSDeviceVK.h"
 #include "GS/Renderers/Vulkan/GSLsfg.h"
@@ -5865,8 +5866,9 @@ VkPipeline GSDeviceVK::CreateTFXPipelineWithCache(
 		const double total_ms = std::chrono::duration<double, std::milli>(CompileClock::now() - compile_start).count();
 		const double shader_ms = std::chrono::duration<double, std::milli>(shaders_end - compile_start).count();
 		__android_log_print(ANDROID_LOG_INFO, "GSCompile",
-			"foreground=%u success=%u total_ms=%.3f shader_ms=%.3f driver_ms=%.3f vs=%08x ps=%016" PRIX64 "_%016" PRIX64,
-			lock_pipeline_cache ? 1u : 0u, compile_success ? 1u : 0u, total_ms, shader_ms, driver_ms, p.vs.key, p.ps.key_hi, p.ps.key_lo);
+			"foreground=%u success=%u total_ms=%.3f shader_ms=%.3f driver_ms=%.3f vs=%08x ps=%016" PRIX64 "_%016" PRIX64 " baked_hits_total=%u",
+			lock_pipeline_cache ? 1u : 0u, compile_success ? 1u : 0u, total_ms, shader_ms, driver_ms, p.vs.key, p.ps.key_hi, p.ps.key_lo,
+			GSShaderCompileIndicator::GetBakedHitCount());
 	});
 #endif
 	static constexpr std::array<VkPrimitiveTopology, 3> topology_lookup = {{
@@ -6066,6 +6068,75 @@ VkPipeline GSDeviceVK::GetTFXPipeline(const PipelineSelector& p)
 	return m_last_tfx_pipeline;
 }
 
+namespace
+{
+size_t BuildTFXWarmupOrder(const std::vector<GSDeviceVK::PipelineSelector>& generic,
+	const std::deque<GSDeviceVK::PipelineSelector>& learned,
+	std::vector<GSDeviceVK::PipelineSelector>& out)
+{
+	out.clear();
+	out.reserve(generic.size() + learned.size());
+
+	std::unordered_set<GSDeviceVK::PipelineSelector, GSDeviceVK::PipelineSelectorHash> present;
+	present.reserve(generic.size() + learned.size());
+	size_t learned_count = 0;
+
+	for (auto it = learned.rbegin(); it != learned.rend(); ++it)
+	{
+		if (present.insert(*it).second)
+		{
+			out.push_back(*it);
+			learned_count++;
+		}
+	}
+
+	for (const GSDeviceVK::PipelineSelector& p : generic)
+	{
+		if (present.insert(p).second)
+			out.push_back(p);
+	}
+
+	return learned_count;
+}
+} // namespace
+
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+bool GSDeviceVK::TestTFXWarmupOrdering()
+{
+	const auto make_selector = [](u8 key) {
+		PipelineSelector p = {};
+		p.vs.key = key;
+		return p;
+	};
+	const auto matches = [](const std::vector<PipelineSelector>& actual,
+		const std::vector<PipelineSelector>& expected) {
+		return actual.size() == expected.size() && std::equal(actual.begin(), actual.end(), expected.begin());
+	};
+	std::vector<PipelineSelector> ordered;
+	const std::vector<PipelineSelector> empty;
+	const std::deque<PipelineSelector> no_learned;
+
+	if (BuildTFXWarmupOrder(empty, no_learned, ordered) != 0 || !ordered.empty())
+		return false;
+
+	const std::vector<PipelineSelector> generic_only = {make_selector(1), make_selector(2)};
+	if (BuildTFXWarmupOrder(generic_only, no_learned, ordered) != 0 || !matches(ordered, generic_only))
+		return false;
+
+	const std::deque<PipelineSelector> learned_only = {
+		make_selector(1), make_selector(2), make_selector(3), make_selector(2)};
+	if (BuildTFXWarmupOrder(empty, learned_only, ordered) != 3 ||
+		!matches(ordered, {make_selector(2), make_selector(3), make_selector(1)}))
+		return false;
+
+	const std::vector<PipelineSelector> overlapping_generic = {
+		make_selector(2), make_selector(4), make_selector(4), make_selector(5)};
+	if (BuildTFXWarmupOrder(overlapping_generic, learned_only, ordered) != 3)
+		return false;
+	return matches(ordered, {make_selector(2), make_selector(3), make_selector(1), make_selector(4), make_selector(5)});
+}
+#endif
+
 void GSDeviceVK::BuildWarmupTFXSelectors(std::vector<PipelineSelector>& out)
 {
 	out.clear();
@@ -6209,8 +6280,11 @@ void GSDeviceVK::StartAsyncTFXCompilation()
 	StopAsyncTFXCompilation();
 
 	LoadLearnedTFXSelectors();
-	BuildWarmupTFXSelectors(m_tfx_compile_queue);
-	AppendLearnedTFXSelectors(m_tfx_compile_queue);
+	std::vector<PipelineSelector> generic_selectors;
+	BuildWarmupTFXSelectors(generic_selectors);
+	const size_t learned_count = BuildTFXWarmupOrder(generic_selectors, m_tfx_learned_order, m_tfx_compile_queue);
+	if (learned_count > 0)
+		Console.WriteLn("VK: Replaying %zu learned TFX pipelines in the background.", learned_count);
 	m_tfx_compile_next.store(0, std::memory_order_relaxed);
 	m_tfx_compile_quit.store(false, std::memory_order_relaxed);
 
@@ -6375,25 +6449,6 @@ void GSDeviceVK::LoadLearnedTFXSelectors()
 
 	if (!m_tfx_learned_order.empty())
 		Console.WriteLn("VK: Loaded %zu learned TFX pipelines from previous sessions.", m_tfx_learned_order.size());
-}
-
-void GSDeviceVK::AppendLearnedTFXSelectors(std::vector<PipelineSelector>& out)
-{
-	if (m_tfx_learned_order.empty())
-		return;
-
-	std::unordered_set<PipelineSelector, PipelineSelectorHash> present(out.begin(), out.end());
-	size_t appended = 0;
-	for (auto it = m_tfx_learned_order.rbegin(); it != m_tfx_learned_order.rend(); ++it)
-	{
-		if (present.insert(*it).second)
-		{
-			out.push_back(*it);
-			appended++;
-		}
-	}
-
-	Console.WriteLn("VK: Replaying %zu learned TFX pipelines in the background.", appended);
 }
 
 void GSDeviceVK::SaveLearnedTFXSelectors()
