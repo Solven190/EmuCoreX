@@ -31,6 +31,7 @@ static std::atomic<int> s_vuSharedIrOverride[2] = {-1, -1};
 static std::atomic<u64> s_vuSharedIrInstructions[2] = {};
 static std::atomic<u64> s_vuSharedIrBytes[2] = {};
 static std::atomic<u64> s_vuSharedIrImmediates[2] = {};
+static std::atomic<u64> s_vuSharedIrTransfers[2] = {};
 extern "C" void EmuCoreXOracleSetVUIR(u32 index, int enabled)
 {
 	if (index < 2) s_vuSharedIrOverride[index].store(enabled < 0 ? -1 : (enabled != 0), std::memory_order_relaxed);
@@ -46,6 +47,10 @@ extern "C" u64 EmuCoreXOracleVUIRBytes(u32 index)
 extern "C" u64 EmuCoreXOracleVUIRImmediateInstructions(u32 index)
 {
 	return index < 2 ? s_vuSharedIrImmediates[index].load(std::memory_order_relaxed) : 0;
+}
+extern "C" u64 EmuCoreXOracleVUIRTransferInstructions(u32 index)
+{
+	return index < 2 ? s_vuSharedIrTransfers[index].load(std::memory_order_relaxed) : 0;
 }
 #endif
 
@@ -72,18 +77,20 @@ bool mVUSharedIrEnabled(u32 index)
 #endif
 }
 
-void mVURecordSharedIr(u32 index, u32 host_bytes, bool immediate)
+void mVURecordSharedIr(u32 index, u32 host_bytes, bool immediate, bool transfer)
 {
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 	const u64 bytes = s_vuSharedIrBytes[index].fetch_add(host_bytes, std::memory_order_relaxed) + host_bytes;
 	const u64 count = s_vuSharedIrInstructions[index].fetch_add(1, std::memory_order_relaxed) + 1;
 	const u64 immediates = immediate ? s_vuSharedIrImmediates[index].fetch_add(1, std::memory_order_relaxed) + 1 :
 		s_vuSharedIrImmediates[index].load(std::memory_order_relaxed);
+	const u64 transfers = transfer ? s_vuSharedIrTransfers[index].fetch_add(1, std::memory_order_relaxed) + 1 :
+		s_vuSharedIrTransfers[index].load(std::memory_order_relaxed);
 #if defined(__ANDROID__)
 	if ((count & (count - 1)) == 0)
-		__android_log_print(ANDROID_LOG_INFO, "VUIR", "core=%u compiled_instructions=%llu native_bytes=%llu bound_vi=1 immediate_instructions=%llu",
+		__android_log_print(ANDROID_LOG_INFO, "VUIR", "core=%u compiled_instructions=%llu native_bytes=%llu bound_vi=1 immediate_instructions=%llu vf_to_vi_transfer_instructions=%llu",
 			index, static_cast<unsigned long long>(count), static_cast<unsigned long long>(bytes),
-			static_cast<unsigned long long>(immediates));
+			static_cast<unsigned long long>(immediates), static_cast<unsigned long long>(transfers));
 #endif
 #endif
 }

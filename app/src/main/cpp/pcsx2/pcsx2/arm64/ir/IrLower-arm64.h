@@ -49,6 +49,23 @@ namespace Arm64Ir
 	};
 	bool PlanBoundViBlock(const ir::Function& fn, BoundViPlan* plan, std::string* error);
 
+	// Narrow cross-domain VU transfer. The caller owns both bindings; vf_source
+	// contains the selected VF lane in S0, as produced by microVU's lane-aware
+	// allocRegId(Fs, 0, component_mask) path.
+	struct BoundVfViTransferPlan
+	{
+		u8 vf = 0;
+		u8 lane = 0;
+		u8 dst_vi = 0;
+		bool delay_slot = false;
+	};
+	struct LowerOutput;
+	bool PlanBoundVfViTransfer(const ir::Function& fn, BoundVfViTransferPlan* plan, std::string* error);
+	bool LowerBoundVfViTransfer(const ir::Function& fn, u32 vf_source, u32 vi_dst,
+		LowerOutput* out, std::string* error);
+	bool LowerBoundVfViTransferPlan(const BoundVfViTransferPlan& plan, u32 vf_source, u32 vi_dst,
+		LowerOutput* out, std::string* error);
+
 	// Inline-mode exits are emitted through these hooks so the integration can
 	// reuse the legacy block-tail machinery (pc store, event test, linking).
 	struct LowerHooks

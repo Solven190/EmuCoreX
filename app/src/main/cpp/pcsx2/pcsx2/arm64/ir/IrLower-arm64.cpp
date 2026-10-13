@@ -134,6 +134,70 @@ namespace Arm64Ir
 		return true;
 	}
 
+	bool PlanBoundVfViTransfer(const ir::Function& fn, BoundVfViTransferPlan* plan, std::string* error)
+	{
+		if (plan) *plan = {};
+		const auto fail = [&](const char* message) { if (error) *error = message; return false; };
+		if (!plan) return fail("bound VF-to-VI plan output is missing");
+		if (!ir::Verify(fn, error)) return false;
+		if (fn.blocks.size() != 1 || fn.entry != 1 || fn.blocks[0].insts.size() != 4)
+			return fail("bound VF-to-VI requires one lane transfer slice");
+		const auto& i = fn.blocks[0].insts;
+		if (i[0].op != ir::Op::ReadVfLaneBits || i[1].op != ir::Op::Zext16 ||
+			i[2].op != ir::Op::WriteVi || i[3].op != ir::Op::Return)
+			return fail("unsupported bound VF-to-VI operation shape");
+		if (i[0].imm >= 32 || i[2].imm == 0 || i[2].imm >= 16)
+			return fail("bound VF-to-VI register index is out of range or writes VI0");
+		if (i[0].type != ir::Type::I32 || i[1].type != ir::Type::I32 ||
+			i[2].type != ir::Type::Void || i[3].type != ir::Type::Void)
+			return fail("bound VF-to-VI values require I32");
+		const u16 allowed_read_aux = 3 | ir::IF_DELAY_SLOT;
+		if ((i[0].aux & ~allowed_read_aux) != 0 ||
+			(i[1].aux & ~ir::IF_DELAY_SLOT) != 0 ||
+			(i[2].aux & ~ir::IF_DELAY_SLOT) != 0 ||
+			(i[3].aux & ~ir::IF_DELAY_SLOT) != 0)
+			return fail("bound VF-to-VI has unsupported instruction flags");
+		const bool delay_slot = (i[0].aux & ir::IF_DELAY_SLOT) != 0;
+		for (const ir::Inst& inst : i)
+			if (((inst.aux & ir::IF_DELAY_SLOT) != 0) != delay_slot)
+				return fail("bound VF-to-VI delay-slot flags are inconsistent");
+		if (i[1].imm != 0 || i[2].args[0] != i[1].value ||
+			i[1].args[0] != i[0].value || i[3].imm != 0)
+			return fail("bound VF-to-VI SSA links do not match the transfer slice");
+		*plan = {static_cast<u8>(i[0].imm), static_cast<u8>(i[0].aux & 3),
+			static_cast<u8>(i[2].imm), delay_slot};
+		if (error) error->clear();
+		return true;
+	}
+
+	bool LowerBoundVfViTransfer(const ir::Function& fn, u32 vf_source, u32 vi_dst,
+		LowerOutput* out, std::string* error)
+	{
+		if (out) *out = {};
+		BoundVfViTransferPlan plan;
+		if (!PlanBoundVfViTransfer(fn, &plan, error)) return false;
+		return LowerBoundVfViTransferPlan(plan, vf_source, vi_dst, out, error);
+	}
+
+	bool LowerBoundVfViTransferPlan(const BoundVfViTransferPlan& plan, u32 vf_source, u32 vi_dst,
+		LowerOutput* out, std::string* error)
+	{
+		if (out) *out = {};
+		if (!out || !oakHasBlock() || plan.vf >= 32 || plan.lane >= 4 ||
+			plan.dst_vi == 0 || plan.dst_vi >= 16 || vf_source >= 32 || vi_dst >= 31)
+		{
+			if (error) *error = "invalid bound VF-to-VI host register contract";
+			return false;
+		}
+		const u8* start = recBeginOaknutEmit();
+		oakAsm->FMOV(oakWRegister(vi_dst), oakSRegister(vf_source));
+		oakAsm->UXTH(oakWRegister(vi_dst), oakWRegister(vi_dst));
+		out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
+		recEndOaknutEmit();
+		if (error) error->clear();
+		return true;
+	}
+
 	namespace
 	{
 		// C++ helpers referenced by the lowered code. ABI: integer arguments in

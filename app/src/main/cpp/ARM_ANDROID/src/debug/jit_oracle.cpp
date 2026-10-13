@@ -59,6 +59,7 @@ extern "C" void EmuCoreXOracleSetVUIR(u32 index, int enabled);
 extern "C" u64 EmuCoreXOracleVUIRInstructions(u32 index);
 extern "C" u64 EmuCoreXOracleVUIRBytes(u32 index);
 extern "C" u64 EmuCoreXOracleVUIRImmediateInstructions(u32 index);
+extern "C" u64 EmuCoreXOracleVUIRTransferInstructions(u32 index);
 extern void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 extern void VU0_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 extern void VU1_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
@@ -485,6 +486,131 @@ void VUBoundIrTests()
     }
 }
 
+ir::Function BoundVfLaneViFixture(u32 vf, u32 lane, u32 dst)
+{
+    ir::Function fn;
+    ir::Builder b(fn);
+    b.CreateBlock(0x80);
+    const u32 source = b.Emit(ir::Op::ReadVfLaneBits, ir::Type::I32, {}, vf, lane);
+    const u32 narrow = b.Emit1(ir::Op::Zext16, ir::Type::I32, source);
+    b.Emit1(ir::Op::WriteVi, ir::Type::Void, narrow, dst);
+    b.Return();
+    return fn;
+}
+
+void VUBoundVfViTransferTests()
+{
+    const u32 patterns[] = {0, 0x80000000, 0x7fc12345, 0xffffffff, 0x12348000};
+    for (u32 lane = 0; lane < 4; ++lane)
+    {
+        auto fn = BoundVfLaneViFixture(7, lane, 9);
+        Arm64Ir::BoundVfViTransferPlan plan;
+        std::string error;
+        const bool accepted = Arm64Ir::PlanBoundVfViTransfer(fn, &plan, &error);
+        Check(accepted && plan.vf == 7 && plan.lane == lane && plan.dst_vi == 9,
+            "shared VU MTIR preflight accepts VF lane transfer");
+        for (u32 bits : patterns)
+        {
+            oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+            u8* entry = oakStartBlock();
+            oakAsm->FMOV(oakSRegister(2), oak::util::W0);
+            oakAsm->MOV(oak::util::W9, 0x5a17);
+            Arm64Ir::LowerOutput out;
+            const bool lowered = accepted && Arm64Ir::LowerBoundVfViTransferPlan(plan, 2, 5, &out, &error);
+            oakAsm->MOV(oak::util::W0, oak::util::W5);
+            oakAsm->LSL(oak::util::X9, oak::util::X9, 32);
+            oakAsm->ORR(oak::util::X0, oak::util::X0, oak::util::X9);
+            oakAsm->RET();
+            oakEndBlock();
+            const u64 actual = reinterpret_cast<u64 (*)(u32)>(entry)(bits);
+            Check(lowered && static_cast<u32>(actual) == (bits & 0xffff) && (actual >> 32) == 0x5a17 &&
+                out.host_size <= 8 && out.frame_size == 0 && out.spill_values == 0,
+                "shared VU MTIR native lowering moves raw lane bits and narrows VI");
+        }
+    }
+
+    for (const std::array<u32, 3>& bad : {std::array<u32, 3>{32, 0, 1}, {1, 4, 1}, {1, 0, 0}})
+    {
+        auto fn = BoundVfLaneViFixture(bad[0], bad[1], bad[2]);
+        Arm64Ir::BoundVfViTransferPlan plan;
+        std::string error;
+        const bool verified = ir::Verify(fn, &error);
+        const bool accepted = Arm64Ir::PlanBoundVfViTransfer(fn, &plan, &error);
+        Check(bad[2] == 0 ? (verified && !accepted) : (!verified && !accepted),
+            "shared VU MTIR rejects invalid VF, lane, and VI fields");
+        oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+        oakStartBlock();
+        const u8* before = oakGetCurrentCodePointer();
+        Arm64Ir::LowerOutput out;
+        Check(!Arm64Ir::LowerBoundVfViTransfer(fn, 2, 5, &out, &error) &&
+            oakGetCurrentCodePointer() == before && out.host_size == 0,
+            "shared VU MTIR invalid plan emits no native bytes");
+        oakAsm->RET();
+        oakEndBlock();
+    }
+
+    std::vector<ir::Function> malformed;
+    {
+        auto fn = BoundVfLaneViFixture(7, 2, 9);
+        fn.blocks[0].insts[0].type = ir::Type::I64;
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfLaneViFixture(7, 2, 9);
+        fn.blocks[0].insts[1].args[0] = 0;
+        malformed.push_back(std::move(fn));
+    }
+    {
+        auto fn = BoundVfLaneViFixture(7, 2, 9);
+        fn.blocks[0].insts[0].aux |= 0x400;
+        malformed.push_back(std::move(fn));
+    }
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(0x80);
+        const u32 source = b.Emit(ir::Op::ReadVfLaneBits, ir::Type::I32, {}, 7, 2);
+        const u32 narrow = b.Emit1(ir::Op::Zext16, ir::Type::I32, source);
+        b.Emit0(ir::Op::Nop, ir::Type::Void);
+        b.Emit1(ir::Op::WriteVi, ir::Type::Void, narrow, 9);
+        b.Return();
+        malformed.push_back(std::move(fn));
+    }
+    for (const ir::Function& fn : malformed)
+    {
+        Arm64Ir::BoundVfViTransferPlan plan;
+        std::string error;
+        const bool accepted = Arm64Ir::PlanBoundVfViTransfer(fn, &plan, &error);
+        oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+        oakStartBlock();
+        const u8* before = oakGetCurrentCodePointer();
+        Arm64Ir::LowerOutput out;
+        Check(!accepted && !Arm64Ir::LowerBoundVfViTransfer(fn, 2, 5, &out, &error) &&
+            oakGetCurrentCodePointer() == before && out.host_size == 0,
+            "shared VU MTIR rejects malformed type/SSA/aux/extra-op before emission");
+        oakAsm->RET();
+        oakEndBlock();
+    }
+
+    for (u32 invalid_host : {32u, ~0u})
+    {
+        auto fn = BoundVfLaneViFixture(7, 2, 9);
+        Arm64Ir::BoundVfViTransferPlan plan;
+        std::string error;
+        const bool accepted = Arm64Ir::PlanBoundVfViTransfer(fn, &plan, &error);
+        oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+        oakStartBlock();
+        const u8* before = oakGetCurrentCodePointer();
+        Arm64Ir::LowerOutput out;
+        Check(!accepted || !Arm64Ir::LowerBoundVfViTransferPlan(plan, invalid_host, 5, &out, &error),
+            "shared VU MTIR rejects invalid SIMD host bindings");
+        Check(oakGetCurrentCodePointer() == before && out.host_size == 0,
+            "shared VU MTIR host rejection emits no native bytes");
+        oakAsm->RET();
+        oakEndBlock();
+    }
+}
+
 void VUSharedIrProductionTests()
 {
     const u32 opcodes[] = {0x30, 0x31, 0x34, 0x35}; // IADD, ISUB, IAND, IOR
@@ -675,6 +801,144 @@ void VUSharedImmediateTests()
     EmuCoreXOracleSetVUIR(1, -1);
 }
 
+void VUSharedMtirProductionTests()
+{
+    const auto mtir = [](u32 fs, u32 lane, u32 it)
+    {
+        // Lower opcode 0x3c / LOWEROP_T3_00 subopcode 15.
+        return 0x800003fcu | (fs << 11) | (it << 16) | (lane << 21);
+    };
+    const u32 patterns[] = {0, 0x80000000, 0x7fc12345, 0xffffffff};
+    for (u32 vu = 0; vu < 2; ++vu)
+        for (u32 fs : {0u, 7u})
+            for (u32 lane = 0; lane < 4; ++lane)
+                for (u32 dst : {0u, 7u})
+                    for (u32 pattern = 0; pattern < std::size(patterns); ++pattern)
+                    {
+                        std::array<u32, 128> vf{};
+                        vf[3] = 0x3f800000; // Architectural VF0 is (0,0,0,1).
+                        for (u32 n = 0; n < 4; ++n)
+                            vf[7 * 4 + n] = patterns[(pattern + n) % std::size(patterns)];
+                        std::array<u32, 16> vi{};
+                        for (u32 r = 1; r < 16; ++r) vi[r] = (r * 977 + 0x8000) & 0xffff;
+                        const std::vector<u32> program = {mtir(fs, lane, dst), NOP_U,
+                            NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U};
+                        EmuCoreXOracleSetVUIR(vu, 0);
+                        const auto interp = RunVU(vu, false, program, 0x80, 0, 128, false,
+                            nullptr, vf.data(), nullptr, vi.data());
+                        const auto legacy = RunVU(vu, true, program, 0x80, 0, 128, false,
+                            nullptr, vf.data(), nullptr, vi.data());
+                        const u64 before = EmuCoreXOracleVUIRInstructions(vu);
+                        const u64 transfers_before = EmuCoreXOracleVUIRTransferInstructions(vu);
+                        EmuCoreXOracleSetVUIR(vu, 1);
+                        const auto shared = RunVU(vu, true, program, 0x80, 0, 128, false,
+                            nullptr, vf.data(), nullptr, vi.data());
+                        Compare(interp, shared, "shared VU MTIR raw lane/VF0/VI0 matches interpreter");
+                        Compare(legacy, shared, "shared VU MTIR state and memory match legacy");
+                        Check(shared.regs.cycle == legacy.regs.cycle,
+                            "shared VU MTIR preserves exact legacy cycles");
+                        const u64 compiled = EmuCoreXOracleVUIRInstructions(vu) - before;
+                        const u64 transfers = EmuCoreXOracleVUIRTransferInstructions(vu) - transfers_before;
+                        Check(dst == 0 ? compiled == 0 : compiled > 0,
+                            "shared VU MTIR production gate counts only writable VI destinations");
+                        Check(dst == 0 ? transfers == 0 : transfers > 0,
+                            "per-core shared VU counter isolates compiled MTIR transfers");
+                        if (dst != 0)
+                        {
+                            const u32 source_bits = fs == 0 ? (lane == 3 ? 0x3f800000u : 0u) :
+                                patterns[(pattern + lane) % std::size(patterns)];
+                            Check(shared.regs.VI[dst].UL == (source_bits & 0xffff),
+                                "shared MTIR writes the independently expected raw lane low16");
+                        }
+                    }
+
+    for (u32 vu = 0; vu < 2; ++vu)
+    {
+        for (u32 lane = 0; lane < 4; ++lane)
+        {
+            std::array<u32, 128> vf{};
+            vf[3] = 0x3f800000;
+            // Finite exact floats: ADDx with VF0.x (+0) preserves these raw bits.
+            const u32 old_bits = 0x3f812340u + lane;
+            const u32 new_bits = 0x40023450u + lane;
+            vf[9 * 4 + lane] = old_bits;
+            vf[7 * 4 + lane] = new_bits;
+            std::array<u32, 16> vi{};
+            // Upper opcode 0 is ADDx: vf9[lane] = vf7[lane] + vf0.x.
+            const u32 addx = (1u << (24 - lane)) | (9u << 6) | (7u << 11);
+            const std::vector<u32> vf_hazard_program = {mtir(9, lane, 1), addx,
+                mtir(9, lane, 2), NOP_U, NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U};
+            EmuCoreXOracleSetVUIR(vu, 0);
+            const auto vf_interp = RunVU(vu, false, vf_hazard_program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            const auto vf_legacy = RunVU(vu, true, vf_hazard_program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            EmuCoreXOracleSetVUIR(vu, 1);
+            const auto vf_shared = RunVU(vu, true, vf_hazard_program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            Compare(vf_interp, vf_shared, "shared MTIR reads scheduled VF lane across same-pair upper write");
+            Compare(vf_legacy, vf_shared, "shared MTIR dirty VF source matches legacy lane hazards");
+            Check(vf_interp.regs.VI[1].UL == (old_bits & 0xffff) &&
+                vf_interp.regs.VI[2].UL == (new_bits & 0xffff),
+                "interpreter sees old lower MTIR lane then upper ADDx result");
+            Check(vf_legacy.regs.VI[1].UL == (old_bits & 0xffff) &&
+                vf_legacy.regs.VI[2].UL == (new_bits & 0xffff),
+                "legacy JIT sees old lower MTIR lane then upper ADDx result");
+            Check(vf_shared.regs.VI[1].UL == (old_bits & 0xffff) &&
+                vf_shared.regs.VI[2].UL == (new_bits & 0xffff),
+                "shared MTIR preserves old-lower/new-next-pair VF lane ordering");
+            Check(vf_shared.regs.cycle == vf_legacy.regs.cycle,
+                "shared MTIR dirty VF lane preserves exact legacy cycles");
+        }
+
+        std::array<u32, 128> vf{};
+        vf[3] = 0x3f800000;
+        vf[7 * 4 + 2] = 0xdeadbeef;
+        std::array<u32, 16> vi{};
+        vi[1] = 0xffff;
+        vi[2] = 0x8001;
+        vi[3] = 0x7fff;
+        vi[7] = 0x1234;
+        const u32 iaddi = 0x80000032u | (3u << 6) | (2u << 11) | (7u << 16);
+        const std::vector<u32> dirty_program = {iaddi, NOP_U, mtir(7, 2, 7), NOP_U,
+            NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U};
+        EmuCoreXOracleSetVUIR(vu, 0);
+        const auto dirty_interp = RunVU(vu, false, dirty_program, 0x80, 0, 128, false,
+            nullptr, vf.data(), nullptr, vi.data());
+        const auto dirty_legacy = RunVU(vu, true, dirty_program, 0x80, 0, 128, false,
+            nullptr, vf.data(), nullptr, vi.data());
+        EmuCoreXOracleSetVUIR(vu, 1);
+        const auto dirty_shared = RunVU(vu, true, dirty_program, 0x80, 0, 128, false,
+            nullptr, vf.data(), nullptr, vi.data());
+        Compare(dirty_interp, dirty_shared, "shared MTIR handles a dirty VI producer and destination alias");
+        Compare(dirty_legacy, dirty_shared, "shared MTIR dirty VI alias matches legacy");
+        Check(dirty_shared.regs.cycle == dirty_legacy.regs.cycle,
+            "shared MTIR dirty VI alias preserves exact cycles");
+
+        for (u32 branch_taken = 0; branch_taken < 2; ++branch_taken)
+        {
+            vi[1] = 0x1234;
+            vi[2] = branch_taken ? 0x1234 : 0x5678;
+            const u32 branch = (0x28u << 25) | (1u << 11) | (2u << 16) | 2u;
+            const std::vector<u32> branch_program = {branch, NOP_U, mtir(7, 2, 1), NOP_U,
+                NOP_L, NOP_U, NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U};
+            EmuCoreXOracleSetVUIR(vu, 0);
+            const auto branch_interp = RunVU(vu, false, branch_program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            const auto branch_legacy = RunVU(vu, true, branch_program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            EmuCoreXOracleSetVUIR(vu, 1);
+            const auto branch_shared = RunVU(vu, true, branch_program, 0x80, 0, 128, false,
+                nullptr, vf.data(), nullptr, vi.data());
+            Compare(branch_interp, branch_shared, "shared MTIR preserves branch-delay VI backup");
+            Compare(branch_legacy, branch_shared, "shared MTIR branch-delay state matches legacy");
+            Check(branch_shared.regs.cycle == branch_legacy.regs.cycle,
+                "shared MTIR branch-delay exact cycle count");
+        }
+        EmuCoreXOracleSetVUIR(vu, -1);
+    }
+}
+
 void VUSharedIrBenchmarks()
 {
     // Timing includes the real cached microVU dispatcher plus identical VI
@@ -745,6 +1009,96 @@ void VUSharedIrBenchmarks()
         }
 }
 
+void VUSharedTransferBenchmarks()
+{
+    const FPControlRegisterBackup callerFPCR(EmuConfig.Cpu.FPUFPCR);
+    const auto vi_alu = [](u32 op, u32 lhs, u32 rhs, u32 dst)
+        { return 0x80000000u | op | (lhs << 11) | (rhs << 16) | (dst << 6); };
+    const auto mtir = [](u32 fs, u32 lane, u32 it)
+        // Lower opcode 0x3c / LOWEROP_T3_00 subopcode 15.
+        { return 0x800003fcu | (fs << 11) | (it << 16) | (lane << 21); };
+    std::array<u32, 16> vi{};
+    for (u32 r = 1; r < 16; ++r) vi[r] = (r * 719 + 0x8000) & 0xffff;
+    std::array<u32, 128> vf{};
+    vf[3] = 0x3f800000;
+    for (u32 r = 1; r < 32; ++r)
+        for (u32 lane = 0; lane < 4; ++lane)
+            vf[r * 4 + lane] = 0x7fc12000u + r * 16 + lane;
+
+    for (u32 vu = 0; vu < 2; ++vu)
+        for (u32 workload = 0; workload < 2; ++workload)
+        {
+            std::vector<u32> program;
+            for (u32 step = 0; step < 64; ++step)
+            {
+                const u32 dst = 1 + step % 15;
+                if (workload == 1)
+                    program.insert(program.end(), {vi_alu(0x30u, dst, 1 + (step + 5) % 15, dst), NOP_U});
+                program.insert(program.end(), {mtir(1 + step % 31, step % 4, dst), NOP_U});
+            }
+            program.insert(program.end(), {NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U});
+
+            std::array<Snapshot, 2> results;
+            std::array<double, 2> cold_us{};
+            std::array<double, 2> hot_ns{};
+            std::array<u64, 2> code_bytes{};
+            std::array<u64, 2> transfer_bytes{};
+            for (u32 mode = 0; mode < 2; ++mode)
+            {
+                EmuCoreXOracleSetVUIR(vu, mode ? 1 : 0);
+                const u64 before_ir_bytes = EmuCoreXOracleVUIRBytes(vu);
+                const auto cold_start = std::chrono::steady_clock::now();
+                results[mode] = RunVU(vu, true, program, 0x80, 0, 128, false,
+                    nullptr, vf.data(), nullptr, vi.data());
+                cold_us[mode] = std::chrono::duration<double, std::micro>(
+                    std::chrono::steady_clock::now() - cold_start).count();
+                transfer_bytes[mode] = mode ? EmuCoreXOracleVUIRBytes(vu) - before_ir_bytes : 0;
+
+                VURegs& regs = vu ? VU1 : VU0;
+                BaseVUmicroCPU* cpu = vu ? static_cast<BaseVUmicroCPU*>(&CpuMicroVU1) :
+                    static_cast<BaseVUmicroCPU*>(&CpuMicroVU0);
+                constexpr u32 iterations = 1024;
+                const auto hot_start = std::chrono::steady_clock::now();
+                bool same = true;
+                for (u32 iteration = 0; iteration < iterations; ++iteration)
+                {
+                    for (u32 r = 1; r < 16; ++r) regs.VI[r].UL = vi[r];
+                    std::memcpy(regs.VF, vf.data(), sizeof(regs.VF));
+                    regs.cycle = 0;
+                    regs.VI[REG_TPC].UL = 0x80 / 8;
+                    VU0.VI[REG_VPU_STAT].UL = vu ? 0x100 : 1;
+                    cpu->SetStartPC(0x80);
+                    for (u32 call = 0; call < 128 && (VU0.VI[REG_VPU_STAT].UL & (vu ? 0x100 : 1)); ++call)
+                        cpu->Execute(128);
+                    same &= VU0.VI[REG_VPU_STAT].UL == 0;
+                }
+                hot_ns[mode] = std::chrono::duration<double, std::nano>(
+                    std::chrono::steady_clock::now() - hot_start).count() / iterations;
+                for (u32 r = 1; r < 16; ++r) same &= regs.VI[r].UL == results[mode].regs.VI[r].UL;
+                Check(same, "shared/legacy MTIR benchmark replays cached blocks with identical final VI state");
+                // RunVU reset this core's entire microVU program cache before
+                // compiling the workload. Sum the current cache after replay;
+                // subtracting the previous workload's cache gives a false delta.
+                std::vector<JitBlockProfile> profiles;
+                if (vu) VU1_JitGetBlockProfiles(profiles); else VU0_JitGetBlockProfiles(profiles);
+                bool isolated = !profiles.empty();
+                for (const auto& profile : profiles)
+                {
+                    isolated &= profile.startpc >= 0x80 && profile.startpc < 0x80 + program.size() * sizeof(u32);
+                    code_bytes[mode] += profile.host_size;
+                }
+                Check(isolated && code_bytes[mode] > 0, "MTIR benchmark code bytes belong to the freshly reset workload cache");
+            }
+            Compare(results[0], results[1], "shared MTIR-heavy/mixed benchmark matches legacy state");
+            std::printf("VUIRTRANSFERBENCH core=%u workload=%s legacy_cold_us=%.3f shared_cold_us=%.3f legacy_hot_ns=%.3f shared_hot_ns=%.3f legacy_native_block_bytes=%llu shared_native_block_bytes=%llu shared_ir_bytes=%llu\n",
+                vu, workload ? "mixed" : "mtir", cold_us[0], cold_us[1], hot_ns[0], hot_ns[1],
+                static_cast<unsigned long long>(code_bytes[0]), static_cast<unsigned long long>(code_bytes[1]),
+                static_cast<unsigned long long>(transfer_bytes[1]));
+        }
+    EmuCoreXOracleSetVUIR(0, -1);
+    EmuCoreXOracleSetVUIR(1, -1);
+}
+
 void VUTests()
 {
     struct VUOverrideReset
@@ -769,7 +1123,10 @@ void VUTests()
     VUBoundIrTests();
     VUSharedIrProductionTests();
     VUSharedImmediateTests();
+    VUBoundVfViTransferTests();
+    VUSharedMtirProductionTests();
     VUSharedIrBenchmarks();
+    VUSharedTransferBenchmarks();
     EmuCoreXOracleSetVUIR(0, 1);
     EmuCoreXOracleSetVUIR(1, 1);
     // VU1 must use its own operand clamp policy, independent of VU0.

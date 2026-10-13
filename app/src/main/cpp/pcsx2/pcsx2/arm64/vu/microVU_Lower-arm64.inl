@@ -1946,6 +1946,46 @@ static void mVU_MTIR_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 }
 
+static bool mVUTrySharedMTIR(mV)
+{
+	if (!_It_ || !mVUSharedIrEnabled(mVU.index)) return false;
+	// Reuse storage on the VU compiler's thread. The IR records the source lane
+	// as a raw bit read; the allocator below still owns every live VF/VI mapping.
+	static thread_local ir::Function fn;
+	if (fn.blocks.empty())
+	{
+		ir::Builder init(fn);
+		init.CreateBlock(0);
+		fn.blocks[0].insts.reserve(4);
+		fn.value_types.reserve(3);
+	}
+	fn.blocks[0].insts.clear();
+	fn.blocks[0].guest_start = mVU.prog.IRinfo.curPC * sizeof(u32);
+	fn.value_types.resize(1);
+	fn.next_value = 1;
+	ir::Builder b(fn);
+	b.SetBlock(1);
+	b.SetDelaySlot(mVUinfo.isBdelay);
+	const u32 source = b.Emit(ir::Op::ReadVfLaneBits, ir::Type::I32, {}, _Fs_, _Fsf_);
+	const u32 narrow = b.Emit1(ir::Op::Zext16, ir::Type::I32, source);
+	b.Emit1(ir::Op::WriteVi, ir::Type::Void, narrow, _It_);
+	b.Return();
+	Arm64Ir::BoundVfViTransferPlan plan;
+	std::string error;
+	if (!Arm64Ir::PlanBoundVfViTransfer(fn, &plan, &error)) return false;
+	// Match legacy MTIR's lane-aware source binding and bind it before the
+	// writable VI allocation so allocator alias/backup decisions stay intact.
+	const int Fs = mVU.regAlloc->allocRegId(_Fs_, 0, (1 << (3 - _Fsf_)));
+	const int regT = mVU.regAlloc->allocGPRId(-1, _It_, mVUlow.backupVI);
+	Arm64Ir::LowerOutput out;
+	const bool lowered = Arm64Ir::LowerBoundVfViTransferPlan(plan, Fs, regT, &out, &error);
+	pxAssertRel(lowered, error.c_str());
+	mVU.regAlloc->clearNeeded(regT);
+	mVU.regAlloc->clearNeededXmmId(Fs);
+	mVURecordSharedIr(mVU.index, out.host_size, false, true);
+	return true;
+}
+
 static void mVU_MR32_direct_emit_oaknut(mP)
 {
 	const int Fs = mVU.regAlloc->allocRegId(_Fs_);
@@ -1994,7 +2034,8 @@ static void mVU_MTIR_emit(mP)
 	}
 	pass2
 	{
-		mVU_MTIR_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedMTIR(mVU))
+			mVU_MTIR_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3 { mVUlog("MTIR vi%02d, vf%02d%s", _Ft_, _Fs_, _Fsf_String); }
 }

@@ -62,6 +62,11 @@ namespace ir
 					std::snprintf(buffer, sizeof(buffer), "#%u", static_cast<u32>(inst.imm));
 					out += buffer;
 					return;
+				case Op::ReadVfLaneBits:
+					std::snprintf(buffer, sizeof(buffer), "#%u lane=%u",
+						static_cast<u32>(inst.imm), static_cast<u32>(inst.aux & 3));
+					out += buffer;
+					return;
 				case Op::VBroadcast:
 					std::snprintf(buffer, sizeof(buffer), "lane=%u", static_cast<u32>(inst.imm));
 					out += buffer;

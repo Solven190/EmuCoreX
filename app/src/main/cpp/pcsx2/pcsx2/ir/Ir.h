@@ -131,6 +131,8 @@ namespace ir
 	X(WriteFpr,     StateWrite,  1, 1, Void, false) \
 	X(ReadVf,       StateRead,   0, 0, V4F32, false) \
 	X(WriteVf,      StateWrite,  1, 1, Void, false) \
+	/* Read raw bits from a single VU VF lane; aux selects lane 0..3. */ \
+	X(ReadVfLaneBits, StateRead, 0, 0, I32, false) \
 	X(ReadVi,       StateRead,   0, 0, I32,  false) \
 	X(WriteVi,      StateWrite,  1, 1, Void, false) \
 	X(ReadAcc,      StateRead,   0, 0, V4F32, false) \

@@ -48,6 +48,9 @@ namespace ir
 				return Fail(error, "HI/LO: bank index is out of range");
 			if (inst.op == Op::ConstVec && inst.imm >= fn.vec_consts.size())
 				return Fail(error, "ConstVec: constant pool index is out of range");
+			if (inst.op == Op::ReadVfLaneBits &&
+				(inst.imm >= 32 || (inst.aux & ~(u16(3) | IF_DELAY_SLOT)) != 0))
+				return Fail(error, "ReadVfLaneBits: VF index or lane flags are out of range");
 			if ((inst.op == Op::VShuffle && inst.imm > 0xff) || (inst.op == Op::VShuffle2 && inst.imm > 0xfff))
 				return Fail(error, "vector shuffle: lane selectors are out of range");
 
