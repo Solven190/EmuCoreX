@@ -544,6 +544,30 @@ public:
 		std::vector<Pipeline> pipelines;
 	};
 
+	struct TFXPreparationRenderPassPlanEntry
+	{
+		bool rt = false;
+		bool ds = false;
+		bool colclip = false;
+		bool date = false;
+		bool feedback_loop = false;
+		bool depth_sampling = false;
+		VkAttachmentLoadOp rt_op = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		VkAttachmentLoadOp ds_op = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	};
+
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	enum class TFXPreparationFailureStage : u8
+	{
+		None,
+		AfterLibraryLoad,
+		AfterInstanceCreate,
+		AfterDeviceCreate,
+		AfterTFXLayouts,
+		AfterTFXRenderPasses,
+	};
+#endif
+
 	enum : u32
 	{
 		NUM_TFX_DYNAMIC_OFFSETS = 2,
@@ -630,10 +654,13 @@ private:
 	static constexpr u32 MAX_LEARNED_TFX_SELECTORS = 4096;
 
 	void StartAsyncTFXCompilation();
+	void StartAsyncTFXCompilation(std::vector<PipelineSelector> selectors, size_t learned_count);
 	void StopAsyncTFXCompilation();
 	void TFXCompileThreadEntryPoint();
 	VkPipeline PublishTFXPipeline(const PipelineSelector& p, VkPipeline pipeline);
 	static void BuildWarmupTFXSelectors(std::vector<PipelineSelector>& out);
+	static void BuildTFXPreparationSelectors(std::vector<PipelineSelector>& out, bool vs_expand_available);
+	static std::array<TFXPreparationRenderPassPlanEntry, 2> BuildTFXPreparationRenderPassPlan();
 
 	void LoadLearnedTFXSelectors();
 	void SaveLearnedTFXSelectors();
@@ -652,6 +679,12 @@ private:
 	std::unordered_set<PipelineSelector, PipelineSelectorHash> m_tfx_learned_set;
 	std::deque<PipelineSelector> m_tfx_learned_order;
 	bool m_tfx_learned_dirty = false;
+	bool m_tfx_preparation_device = false;
+	bool m_tfx_preparation_library_loaded = false;
+	bool m_tfx_preparation_cache_created = false;
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	TFXPreparationFailureStage m_tfx_preparation_failure_stage = TFXPreparationFailureStage::None;
+#endif
 
 	VkRenderPass m_utility_color_render_pass_load = VK_NULL_HANDLE;
 	VkRenderPass m_utility_color_render_pass_clear = VK_NULL_HANDLE;
@@ -709,12 +742,16 @@ private:
 	VkShaderModule GetUtilityFragmentShader(const std::string& source, const char* replace_main);
 
 	bool CreateDeviceAndSwapChain();
+	bool CreateVulkanInstanceAndDevice(bool force_surfaceless, VkSurfaceKHR* surface,
+		bool enable_debug_utils, bool enable_validation_layer);
 	bool CheckFeatures();
 	bool CreateNullTexture();
 	bool CreateBuffers();
 	void FlushStreamRingWrites();
 	bool CreatePipelineLayouts();
+	bool CreateTFXPipelineLayouts();
 	bool CreateRenderPasses();
+	bool CreateTFXPreparationRenderPasses();
 
 	bool CompileConvertPipelines();
 	bool CompilePresentPipelines();
@@ -774,10 +811,22 @@ public:
 	static bool TestTFXShaderSourceBuilders();
 	static bool TestTFXShaderSourceCatalog();
 	static bool TestTFXPreparationProgress();
+	static bool TestTFXPreparationPlan();
+	bool TestTFXPreparationResources() const;
+	void SetTFXPreparationFailureStageForTesting(TFXPreparationFailureStage stage)
+	{
+		m_tfx_preparation_failure_stage = stage;
+	}
 #endif
 
 	bool Create(GSVSyncMode vsync_mode, bool allow_present_throttle) override;
 	void Destroy() override;
+
+	// The caller owns g_gs_device, GSConfig, and lifecycle serialization. This
+	// temporary device compiles only the generic baseline and owns no guest state.
+	bool CreateTFXPreparationDevice(std::string tfx_source);
+	bool StartTFXPreparationBatch();
+	void DestroyTFXPreparationDevice();
 
 	bool UpdateWindow() override;
 	void ResizeWindow(u32 new_window_width, u32 new_window_height, float new_window_scale) override;

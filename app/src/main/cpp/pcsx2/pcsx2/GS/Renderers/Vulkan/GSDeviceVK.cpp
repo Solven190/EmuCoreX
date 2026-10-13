@@ -3013,11 +3013,12 @@ void GSDeviceVK::InsertDebugMessage(DebugMessageCategory category, const char* f
 #endif
 }
 
-bool GSDeviceVK::CreateDeviceAndSwapChain()
+bool GSDeviceVK::CreateVulkanInstanceAndDevice(bool force_surfaceless, VkSurfaceKHR* out_surface,
+	bool enable_debug_utils, bool enable_validation_layer)
 {
-	std::unique_lock lock(s_instance_mutex);
-	bool enable_debug_utils = GSConfig.UseDebugDevice;
-	bool enable_validation_layer = GSConfig.UseDebugDevice;
+	if (!out_surface)
+		return false;
+	*out_surface = VK_NULL_HANDLE;
 
 	Error error;
 	if (!Vulkan::LoadVulkanLibrary(&error))
@@ -3026,9 +3027,24 @@ bool GSDeviceVK::CreateDeviceAndSwapChain()
 		Host::ReportErrorAsync("Error", error.GetDescription());
 		return false;
 	}
+	if (force_surfaceless)
+	{
+		m_tfx_preparation_library_loaded = true;
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+		if (m_tfx_preparation_failure_stage == TFXPreparationFailureStage::AfterLibraryLoad)
+			return false;
+#endif
+	}
 
-	if (!AcquireWindow(true))
+	if (force_surfaceless)
+	{
+		m_window_info = {};
+		m_window_info.type = WindowInfo::Type::Surfaceless;
+	}
+	else if (!AcquireWindow(true))
+	{
 		return false;
+	}
 
 	m_instance = CreateVulkanInstance(m_window_info, &m_optional_extensions, enable_debug_utils, enable_validation_layer);
 	if (m_instance == VK_NULL_HANDLE)
@@ -3054,6 +3070,10 @@ bool GSDeviceVK::CreateDeviceAndSwapChain()
 		ERROR_LOG("Failed to load Vulkan instance functions");
 		return false;
 	}
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	if (force_surfaceless && m_tfx_preparation_failure_stage == TFXPreparationFailureStage::AfterInstanceCreate)
+		return false;
+#endif
 
 	GPUList gpus = EnumerateGPUs(m_instance);
 	if (gpus.empty())
@@ -3110,10 +3130,6 @@ bool GSDeviceVK::CreateDeviceAndSwapChain()
 		EnableDebugUtils();
 
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
-	ScopedGuard surface_cleanup = [this, &surface]() {
-		if (surface != VK_NULL_HANDLE)
-			vkDestroySurfaceKHR(m_instance, surface, nullptr);
-	};
 	if (m_window_info.type != WindowInfo::Type::Surfaceless)
 	{
 		surface = VKSwapChain::CreateVulkanSurface(m_instance, m_physical_device, &m_window_info);
@@ -3121,8 +3137,28 @@ bool GSDeviceVK::CreateDeviceAndSwapChain()
 			return false;
 	}
 
-	// Attempt to create the device.
 	if (!CreateDevice(surface, enable_validation_layer))
+	{
+		if (surface != VK_NULL_HANDLE)
+			vkDestroySurfaceKHR(m_instance, surface, nullptr);
+		return false;
+	}
+
+	*out_surface = surface;
+	return true;
+}
+
+bool GSDeviceVK::CreateDeviceAndSwapChain()
+{
+	std::unique_lock lock(s_instance_mutex);
+	const bool enable_debug_utils = GSConfig.UseDebugDevice;
+	const bool enable_validation_layer = GSConfig.UseDebugDevice;
+	VkSurfaceKHR surface = VK_NULL_HANDLE;
+	ScopedGuard surface_cleanup = [this, &surface]() {
+		if (surface != VK_NULL_HANDLE)
+			vkDestroySurfaceKHR(m_instance, surface, nullptr);
+	};
+	if (!CreateVulkanInstanceAndDevice(false, &surface, enable_debug_utils, enable_validation_layer))
 		return false;
 
 	// And critical resources.
@@ -4782,7 +4818,15 @@ bool GSDeviceVK::CreatePipelineLayouts()
 	if ((m_utility_pipeline_layout = plb.Create(dev)) == VK_NULL_HANDLE)
 		return false;
 	Vulkan::SetObjectName(dev, m_utility_pipeline_layout, "Convert pipeline layout");
+	return CreateTFXPipelineLayouts();
+}
 
+
+bool GSDeviceVK::CreateTFXPipelineLayouts()
+{
+	VkDevice dev = m_device;
+	Vulkan::DescriptorSetLayoutBuilder dslb;
+	Vulkan::PipelineLayoutBuilder plb;
 	//////////////////////////////////////////////////////////////////////////
 	// Draw/TFX Pipeline Layout
 	//////////////////////////////////////////////////////////////////////////
@@ -4909,6 +4953,34 @@ bool GSDeviceVK::CreateRenderPasses()
 #undef GET
 
 	return true;
+}
+
+bool GSDeviceVK::CreateTFXPreparationRenderPasses()
+{
+	const VkFormat color_format = LookupNativeFormat(GSTexture::Format::Color);
+	const VkFormat depth_format = LookupNativeFormat(GSTexture::Format::DepthStencil);
+	m_depth_format = depth_format;
+
+	for (const TFXPreparationRenderPassPlanEntry& pass : BuildTFXPreparationRenderPassPlan())
+	{
+		const VkFormat rt_format = pass.rt ? color_format : VK_FORMAT_UNDEFINED;
+		const VkFormat ds_format = pass.ds ? depth_format : VK_FORMAT_UNDEFINED;
+		const VkRenderPass render_pass = GetRenderPass(
+			rt_format, ds_format,
+			pass.rt ? pass.rt_op : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			pass.rt ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			pass.ds ? pass.ds_op : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			pass.ds ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			pass.feedback_loop, pass.depth_sampling);
+		if (render_pass == VK_NULL_HANDLE)
+			return false;
+
+		m_tfx_render_pass[pass.rt][pass.ds][pass.colclip][pass.date][pass.feedback_loop][pass.depth_sampling]
+			[pass.rt_op][pass.ds_op] = render_pass;
+	}
+
+	return m_render_pass_cache.size() == 2;
 }
 
 bool GSDeviceVK::CompileConvertPipelines()
@@ -6665,6 +6737,62 @@ bool GSDeviceVK::TestTFXPreparationProgress()
 		concurrent.failed == 1 && concurrent.cancelled == 9 && concurrent.in_flight == 0 &&
 		concurrent.cancel_requested && concurrent.finished && !concurrent.checkpoint_saved;
 }
+
+bool GSDeviceVK::TestTFXPreparationPlan()
+{
+	const auto passes = BuildTFXPreparationRenderPassPlan();
+	if (passes[0].rt != true || passes[0].ds != false || passes[0].colclip || passes[0].date ||
+		passes[0].feedback_loop || passes[0].depth_sampling || passes[0].rt_op != VK_ATTACHMENT_LOAD_OP_LOAD ||
+		passes[0].ds_op != VK_ATTACHMENT_LOAD_OP_DONT_CARE)
+	{
+		return false;
+	}
+	if (passes[1].rt != true || passes[1].ds != true || passes[1].colclip || passes[1].date ||
+		passes[1].feedback_loop || passes[1].depth_sampling || passes[1].rt_op != VK_ATTACHMENT_LOAD_OP_LOAD ||
+		passes[1].ds_op != VK_ATTACHMENT_LOAD_OP_LOAD)
+	{
+		return false;
+	}
+
+	std::vector<PipelineSelector> selectors;
+	BuildTFXPreparationSelectors(selectors, true);
+	if (selectors.size() != 164)
+		return false;
+
+	u32 without_depth = 0;
+	u32 with_depth = 0;
+	for (const PipelineSelector& selector : selectors)
+	{
+		if (!selector.rt || selector.ps.colclip_hw || selector.dss.date || selector.feedback_loop_flags != 0 ||
+			selector.IsTestingAndSamplingDepth())
+		{
+			return false;
+		}
+		selector.ds ? ++with_depth : ++without_depth;
+	}
+	if (without_depth != 82 || with_depth != 82)
+		return false;
+
+	// Point expansion reads vertices through TFX UBO layout binding 2, which
+	// is absent when GSConfig.DisableVertexShaderExpand disables that feature.
+	// The capability-off baseline must therefore omit those selectors rather
+	// than compile pipelines against a layout missing their declared binding.
+	BuildTFXPreparationSelectors(selectors, false);
+	if (selectors.size() != 84)
+		return false;
+	without_depth = 0;
+	with_depth = 0;
+	for (const PipelineSelector& selector : selectors)
+	{
+		if (selector.vs.expand != GSHWDrawConfig::VSExpand::None || !selector.rt || selector.ps.colclip_hw ||
+			selector.dss.date || selector.feedback_loop_flags != 0 || selector.IsTestingAndSamplingDepth())
+		{
+			return false;
+		}
+		selector.ds ? ++with_depth : ++without_depth;
+	}
+	return without_depth == 42 && with_depth == 42;
+}
 #endif
 
 void GSDeviceVK::BuildWarmupTFXSelectors(std::vector<PipelineSelector>& out)
@@ -6795,6 +6923,28 @@ void GSDeviceVK::BuildWarmupTFXSelectors(std::vector<PipelineSelector>& out)
 	}
 }
 
+void GSDeviceVK::BuildTFXPreparationSelectors(std::vector<PipelineSelector>& out, bool vs_expand_available)
+{
+	// Preparation intentionally starts from the pure baseline only. Learned
+	// selectors are runtime state and may require render-pass variants this
+	// temporary device does not create.
+	BuildWarmupTFXSelectors(out);
+	if (!vs_expand_available)
+	{
+		out.erase(std::remove_if(out.begin(), out.end(), [](const PipelineSelector& selector) {
+			return selector.vs.expand != GSHWDrawConfig::VSExpand::None;
+		}), out.end());
+	}
+}
+
+std::array<GSDeviceVK::TFXPreparationRenderPassPlanEntry, 2> GSDeviceVK::BuildTFXPreparationRenderPassPlan()
+{
+	return {{
+		{true, false, false, false, false, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_LOAD_OP_DONT_CARE},
+		{true, true, false, false, false, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_LOAD_OP_LOAD},
+	}};
+}
+
 namespace
 {
 	void LogTFXPreparationProgress(const GSDeviceVK::TFXPreparationProgressSnapshot& progress)
@@ -6827,6 +6977,247 @@ void GSDeviceVK::WarmupCommonTFXPipelines()
 	Console.WriteLn("VK: Warmed %zu common TFX pipelines.", selectors.size());
 }
 
+bool GSDeviceVK::CreateTFXPreparationDevice(std::string tfx_source)
+{
+	if (GetInstance() != this || Vulkan::IsVulkanLibraryLoaded() || g_vulkan_shader_cache || m_instance != VK_NULL_HANDLE ||
+		m_device != VK_NULL_HANDLE || tfx_source.empty())
+	{
+		return false;
+	}
+
+	bool created = false;
+	try
+	{
+		created = [this, &tfx_source]() {
+			std::unique_lock lock(s_instance_mutex);
+			m_optional_extensions = {};
+			m_features = {};
+			m_device_features = {};
+			m_device_properties = {};
+			VkSurfaceKHR surface = VK_NULL_HANDLE;
+			if (!CreateVulkanInstanceAndDevice(true, &surface, GSConfig.UseDebugDevice, GSConfig.UseDebugDevice))
+				return false;
+			if (surface != VK_NULL_HANDLE)
+			{
+				vkDestroySurfaceKHR(m_instance, surface, nullptr);
+				return false;
+			}
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+			if (m_tfx_preparation_failure_stage == TFXPreparationFailureStage::AfterDeviceCreate)
+				return false;
+#endif
+			if (!CheckFeatures())
+				return false;
+
+			VKShaderCache::Create();
+			m_tfx_preparation_cache_created = static_cast<bool>(g_vulkan_shader_cache);
+			if (!m_tfx_preparation_cache_created)
+				return false;
+			m_tfx_source = std::move(tfx_source);
+			if (!CreateTFXPipelineLayouts())
+				return false;
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+			if (m_tfx_preparation_failure_stage == TFXPreparationFailureStage::AfterTFXLayouts)
+				return false;
+#endif
+			if (!CreateTFXPreparationRenderPasses())
+				return false;
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+			if (m_tfx_preparation_failure_stage == TFXPreparationFailureStage::AfterTFXRenderPasses)
+				return false;
+#endif
+			m_tfx_preparation_device = true;
+			return true;
+		}();
+	}
+	catch (...)
+	{
+		created = false;
+	}
+
+	if (!created)
+		DestroyTFXPreparationDevice();
+	return created;
+}
+
+bool GSDeviceVK::StartTFXPreparationBatch()
+{
+	if (!m_tfx_preparation_device || !g_vulkan_shader_cache)
+		return false;
+
+	StopAsyncTFXCompilation();
+	std::vector<PipelineSelector> selectors;
+	BuildTFXPreparationSelectors(selectors, m_features.vs_expand);
+	StartAsyncTFXCompilation(std::move(selectors), 0);
+	return true;
+}
+
+void GSDeviceVK::DestroyTFXPreparationDevice()
+{
+	if (!m_tfx_preparation_device && !m_tfx_preparation_library_loaded &&
+		!m_tfx_preparation_cache_created && m_instance == VK_NULL_HANDLE && m_device == VK_NULL_HANDLE)
+	{
+		return;
+	}
+
+	if (m_tfx_preparation_device || !m_tfx_compile_threads.empty())
+		StopAsyncTFXCompilation();
+
+	std::unique_lock lock(s_instance_mutex);
+	if (m_device != VK_NULL_HANDLE)
+	{
+		for (auto& entry : m_tfx_pipelines)
+		{
+			if (entry.second != VK_NULL_HANDLE)
+				vkDestroyPipeline(m_device, entry.second, nullptr);
+		}
+		m_tfx_pipelines.clear();
+		for (auto& entry : m_tfx_fragment_shaders)
+		{
+			if (entry.second != VK_NULL_HANDLE)
+				vkDestroyShaderModule(m_device, entry.second, nullptr);
+		}
+		m_tfx_fragment_shaders.clear();
+		for (auto& entry : m_tfx_vertex_shaders)
+		{
+			if (entry.second != VK_NULL_HANDLE)
+				vkDestroyShaderModule(m_device, entry.second, nullptr);
+		}
+		m_tfx_vertex_shaders.clear();
+
+		m_last_tfx_pipeline_valid = false;
+		m_last_tfx_pipeline = VK_NULL_HANDLE;
+		if (m_tfx_pipeline_layout != VK_NULL_HANDLE)
+		{
+			vkDestroyPipelineLayout(m_device, m_tfx_pipeline_layout, nullptr);
+			m_tfx_pipeline_layout = VK_NULL_HANDLE;
+		}
+		if (m_tfx_texture_ds_layout != VK_NULL_HANDLE)
+		{
+			vkDestroyDescriptorSetLayout(m_device, m_tfx_texture_ds_layout, nullptr);
+			m_tfx_texture_ds_layout = VK_NULL_HANDLE;
+		}
+		if (m_tfx_ubo_ds_layout != VK_NULL_HANDLE)
+		{
+			vkDestroyDescriptorSetLayout(m_device, m_tfx_ubo_ds_layout, nullptr);
+			m_tfx_ubo_ds_layout = VK_NULL_HANDLE;
+		}
+
+		for (const auto& entry : m_render_pass_cache)
+		{
+			if (entry.second != VK_NULL_HANDLE)
+				vkDestroyRenderPass(m_device, entry.second, nullptr);
+		}
+		m_render_pass_cache.clear();
+	}
+
+	if (m_tfx_preparation_cache_created)
+	{
+		VKShaderCache::Destroy();
+		m_tfx_preparation_cache_created = false;
+	}
+
+	if (m_device != VK_NULL_HANDLE)
+	{
+		vkDestroyDevice(m_device, nullptr);
+		m_device = VK_NULL_HANDLE;
+	}
+	if (m_debug_messenger_callback != VK_NULL_HANDLE)
+		DisableDebugUtils();
+	if (m_instance != VK_NULL_HANDLE)
+	{
+		vkDestroyInstance(m_instance, nullptr);
+		m_instance = VK_NULL_HANDLE;
+	}
+	if (m_tfx_preparation_library_loaded)
+	{
+		Vulkan::UnloadVulkanLibrary();
+		m_tfx_preparation_library_loaded = false;
+	}
+
+	std::memset(m_tfx_render_pass, 0, sizeof(m_tfx_render_pass));
+	m_physical_device = VK_NULL_HANDLE;
+	m_optional_extensions = {};
+	m_features = {};
+	m_device_features = {};
+	m_device_properties = {};
+	m_current_render_pass = VK_NULL_HANDLE;
+	m_current_command_buffer = VK_NULL_HANDLE;
+	m_current_framebuffer = VK_NULL_HANDLE;
+	m_index_buffer = VK_NULL_HANDLE;
+	m_tfx_source.clear();
+	m_name.clear();
+	m_tfx_preparation_device = false;
+}
+
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+bool GSDeviceVK::TestTFXPreparationResources() const
+{
+	if (!m_tfx_preparation_device || m_instance == VK_NULL_HANDLE || m_device == VK_NULL_HANDLE ||
+		!g_vulkan_shader_cache || m_tfx_preparation_cache_created == false || m_tfx_pipeline_layout == VK_NULL_HANDLE ||
+		m_tfx_ubo_ds_layout == VK_NULL_HANDLE || m_tfx_texture_ds_layout == VK_NULL_HANDLE ||
+		m_render_pass_cache.size() != 2 || m_allocator != VK_NULL_HANDLE ||
+		m_global_descriptor_pool != VK_NULL_HANDLE || m_null_framebuffer != VK_NULL_HANDLE || m_null_texture ||
+		m_swap_chain || m_current_framebuffer != VK_NULL_HANDLE || m_index_buffer != VK_NULL_HANDLE)
+	{
+		return false;
+	}
+
+	for (const FrameResources& frame : m_frame_resources)
+	{
+		if (frame.fence != VK_NULL_HANDLE || frame.command_pool != VK_NULL_HANDLE ||
+			frame.descriptor_pool != VK_NULL_HANDLE || frame.command_buffers[0] != VK_NULL_HANDLE ||
+			frame.command_buffers[1] != VK_NULL_HANDLE || !frame.extra_descriptor_pools.empty() ||
+			!frame.cleanup_resources.empty())
+		{
+			return false;
+		}
+	}
+	for (const SpinResources& spin : m_spin_resources)
+	{
+		if (spin.command_pool != VK_NULL_HANDLE || spin.command_buffer != VK_NULL_HANDLE ||
+			spin.semaphore != VK_NULL_HANDLE || spin.fence != VK_NULL_HANDLE)
+		{
+			return false;
+		}
+	}
+	if (m_spin_buffer != VK_NULL_HANDLE || m_expand_index_buffer != VK_NULL_HANDLE ||
+		m_timestamp_query_pool != VK_NULL_HANDLE || m_pipeline_statistics_query_pool != VK_NULL_HANDLE ||
+		m_vertex_stream_buffer.IsValid() || m_index_stream_buffer.IsValid() || m_expand_index_stream_buffer.IsValid() ||
+		m_vertex_uniform_stream_buffer.IsValid() || m_fragment_uniform_stream_buffer.IsValid() ||
+		m_texture_stream_buffer.IsValid())
+	{
+		return false;
+	}
+
+	u32 pass_count = 0;
+	for (const auto& rt : m_tfx_render_pass)
+	{
+		for (const auto& ds : rt)
+		{
+			for (const auto& colclip : ds)
+			{
+				for (const auto& date : colclip)
+				{
+					for (const auto& feedback : date)
+					{
+						for (const auto& depth_sampling : feedback)
+						{
+							for (const auto& rt_op : depth_sampling)
+							{
+								for (const VkRenderPass pass : rt_op)
+									pass_count += (pass != VK_NULL_HANDLE);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return pass_count == 2;
+}
+#endif
+
 void GSDeviceVK::StartAsyncTFXCompilation()
 {
 	StopAsyncTFXCompilation();
@@ -6834,7 +7225,14 @@ void GSDeviceVK::StartAsyncTFXCompilation()
 	LoadLearnedTFXSelectors();
 	std::vector<PipelineSelector> generic_selectors;
 	BuildWarmupTFXSelectors(generic_selectors);
-	const size_t learned_count = BuildTFXWarmupOrder(generic_selectors, m_tfx_learned_order, m_tfx_compile_queue);
+	std::vector<PipelineSelector> selectors;
+	const size_t learned_count = BuildTFXWarmupOrder(generic_selectors, m_tfx_learned_order, selectors);
+	StartAsyncTFXCompilation(std::move(selectors), learned_count);
+}
+
+void GSDeviceVK::StartAsyncTFXCompilation(std::vector<PipelineSelector> selectors, size_t learned_count)
+{
+	m_tfx_compile_queue = std::move(selectors);
 	if (learned_count > 0)
 		Console.WriteLn("VK: Replaying %zu learned TFX pipelines in the background.", learned_count);
 	m_tfx_compile_quit.store(false, std::memory_order_relaxed);
@@ -7145,7 +7543,7 @@ void GSDeviceVK::LoadLearnedTFXSelectors()
 
 void GSDeviceVK::SaveLearnedTFXSelectors()
 {
-	if (!m_tfx_learned_dirty || m_tfx_learned_order.empty())
+	if (m_tfx_preparation_device || !m_tfx_learned_dirty || m_tfx_learned_order.empty())
 		return;
 
 	LearnedTFXSelectorsHeader header = {};
@@ -7174,6 +7572,8 @@ void GSDeviceVK::SaveLearnedTFXSelectors()
 
 void GSDeviceVK::RecordLearnedTFXSelector(const PipelineSelector& p)
 {
+	if (m_tfx_preparation_device)
+		return;
 	if (!m_tfx_learned_set.insert(p).second)
 		return;
 

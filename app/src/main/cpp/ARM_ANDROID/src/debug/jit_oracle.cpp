@@ -19,14 +19,18 @@
 #include "cpuinfo.h"
 #include "Gif_Unit.h"
 #include "GS/GSState.h"
+#include "GS/GS.h"
 #include "GS/Renderers/Vulkan/GSDeviceVK.h"
 #include "GS/Renderers/Vulkan/VKShaderCache.h"
+#include "common/FileSystem.h"
+#include "common/ScopedGuard.h"
 
 #include <array>
 #include <cstdio>
 #include <cstring>
 #include <vector>
 #include <chrono>
+#include <thread>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <android/log.h>
@@ -140,8 +144,108 @@ void CheckBits(bool pass, u32 actual, u32 expected, const char* name)
         std::printf("FAIL %s actual=%08x expected=%08x\n", name, actual, expected);
 }
 
+void GSPreparationDeviceTests()
+{
+    Check(!g_gs_device && !g_vulkan_shader_cache && !Vulkan::IsVulkanLibraryLoaded(),
+        "GS preparation oracle starts without a VM graphics device");
+    if (g_gs_device || g_vulkan_shader_cache || Vulkan::IsVulkanLibraryLoaded()) return;
+    const auto source = FileSystem::ReadFileToString("resources/shaders/vulkan/tfx.glsl");
+    Check(source.has_value() && !source->empty(), "GS preparation reads canonical TFX source");
+    if (!source.has_value() || source->empty()) return;
+    Check(FileSystem::EnsureDirectoryExists("artifacts/gs-prepare-cache", false),
+        "GS preparation uses an isolated oracle cache directory");
+    if (!FileSystem::DirectoryExists("artifacts/gs-prepare-cache")) return;
+    const auto previous_config = GSConfig;
+    const auto previous_cache = EmuFolders::Cache;
+    const auto previous_resources = EmuFolders::Resources;
+    const auto previous_logs = EmuFolders::Logs;
+    ScopedGuard cleanup([&]() {
+        if (g_gs_device)
+        {
+            static_cast<GSDeviceVK*>(g_gs_device.get())->DestroyTFXPreparationDevice();
+            g_gs_device.reset();
+        }
+        GSConfig = previous_config;
+        EmuFolders::Cache = previous_cache;
+        EmuFolders::Resources = previous_resources;
+        EmuFolders::Logs = previous_logs;
+    });
+    GSConfig = Pcsx2Config::GSOptions();
+    GSConfig.Renderer = GSRendererType::VK;
+    GSConfig.DisableShaderCache = false;
+    GSConfig.UseDebugDevice = false;
+    EmuFolders::Cache = "artifacts/gs-prepare-cache";
+    EmuFolders::Resources = "resources";
+    EmuFolders::Logs = "artifacts";
+    const auto released = [](const GSDeviceVK& device) {
+        return device.GetDevice() == VK_NULL_HANDLE && device.GetVulkanInstance() == VK_NULL_HANDLE &&
+            device.GetAllocator() == nullptr && !device.HasSurface() && !g_vulkan_shader_cache &&
+            !Vulkan::IsVulkanLibraryLoaded();
+    };
+    const auto wait = [](GSDeviceVK& device) {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+        while (!device.GetTFXPreparationProgress().finished && std::chrono::steady_clock::now() < deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        return device.GetTFXPreparationProgress();
+    };
+    g_gs_device = std::make_unique<GSDeviceVK>();
+    auto& uncreated = *static_cast<GSDeviceVK*>(g_gs_device.get());
+    Check(!uncreated.StartTFXPreparationBatch(), "GS preparation rejects starting before device creation");
+    Check(Vulkan::LoadVulkanLibrary(nullptr), "GS preparation ownership fixture loads the Vulkan library");
+    Check(!uncreated.CreateTFXPreparationDevice(*source) && Vulkan::IsVulkanLibraryLoaded(),
+        "GS preparation rejects a Vulkan library owned by another caller");
+    uncreated.DestroyTFXPreparationDevice();
+    Check(Vulkan::IsVulkanLibraryLoaded(), "GS preparation rejection preserves another caller's Vulkan library");
+    Vulkan::UnloadVulkanLibrary();
+    g_gs_device.reset();
+    for (u32 run = 0; run < 4; ++run)
+    {
+        GSConfig.DisableVertexShaderExpand = (run == 3);
+        g_gs_device = std::make_unique<GSDeviceVK>();
+        auto& device = *static_cast<GSDeviceVK*>(g_gs_device.get());
+        const bool created = device.CreateTFXPreparationDevice(*source);
+        Check(created, "GS preparation creates a real temporary Vulkan device");
+        if (!created) return;
+        Check(device.TestTFXPreparationResources(), "GS preparation owns only TFX layouts and two passes");
+        const bool started = device.StartTFXPreparationBatch();
+        Check(started, "GS preparation accepts a batch only with a valid temporary device");
+        if (!started) return;
+        if (run == 1) device.RequestTFXPreparationCancel();
+        const auto progress = wait(device);
+        std::printf("GSPREP run=%u total=%u completed=%u available=%u failed=%u cancelled=%u in_flight=%u cancel_requested=%u finished=%u checkpoint_saved=%u\n",
+            run, progress.total, progress.completed, progress.already_available, progress.failed,
+            progress.cancelled, progress.in_flight, progress.cancel_requested, progress.finished, progress.checkpoint_saved);
+        Check(progress.total == (run == 3 ? 84u : 164u) && progress.finished && progress.in_flight == 0 && progress.failed == 0 &&
+            progress.completed + progress.already_available + progress.cancelled == progress.total,
+            "GS preparation accounts the real baseline batch exactly once");
+        Check(progress.checkpoint_saved, "GS preparation flushes a usable local pipeline checkpoint");
+        Check(run == 1 ? progress.cancel_requested : (progress.cancelled == 0),
+            "GS preparation cancellation closes claims and recreate completes");
+        device.DestroyTFXPreparationDevice();
+        Check(released(device), "GS preparation releases cache and every Vulkan lifetime before reuse");
+        Check(!device.StartTFXPreparationBatch(), "GS preparation rejects starting after device destruction");
+        device.DestroyTFXPreparationDevice();
+        Check(released(device), "GS preparation teardown is idempotent");
+        g_gs_device.reset();
+    }
+    using FailureStage = GSDeviceVK::TFXPreparationFailureStage;
+    for (FailureStage stage : {FailureStage::AfterLibraryLoad, FailureStage::AfterInstanceCreate,
+        FailureStage::AfterDeviceCreate, FailureStage::AfterTFXLayouts, FailureStage::AfterTFXRenderPasses})
+    {
+        g_gs_device = std::make_unique<GSDeviceVK>();
+        auto& device = *static_cast<GSDeviceVK*>(g_gs_device.get());
+        device.SetTFXPreparationFailureStageForTesting(stage);
+        Check(!device.CreateTFXPreparationDevice(*source) && released(device),
+            "GS preparation failure at each creation prefix rolls back immediately");
+        device.DestroyTFXPreparationDevice();
+        Check(released(device), "GS preparation failed-prefix teardown is idempotent");
+        g_gs_device.reset();
+    }
+}
+
 void ClassifierTests()
 {
+    Check(GSDeviceVK::TestTFXPreparationPlan(), "GS temporary preparation uses only two compatible baseline passes");
     Check(VKShaderCache::TestPipelineCachePersistence("artifacts/tfx-cache-checkpoint.bin"), "GS checkpoint persists same-size changed bytes and rejects failed writes");
     Check(GSDeviceVK::TestTFXPreparationProgress(), "GS preparation counts completion and cancellation after worker checkpoint");
     Check(GSDeviceVK::TestTFXShaderSourceCatalog(), "GS pure catalog maps all baseline pipelines to unique canonical sources");
@@ -9563,6 +9667,8 @@ extern "C" __attribute__((visibility("default"))) int EmuCoreXRunJitOracle(const
         EETests();
     else if (std::strcmp(suite, "iop") == 0)
         IOPTests();
+    else if (std::strcmp(suite, "gs-prepare") == 0)
+        GSPreparationDeviceTests();
     else
         return 2;
     std::printf("RESULT checks=%d failures=%d\n", checks, failures);
