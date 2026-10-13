@@ -4973,10 +4973,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         currentGameSerial = ""
         currentGameCoverArtPath = null
         currentGameCrc = ""
+        // The sidebar can still be drawing its exit animation after shutdown.
+        // Keep its game identity until navigation disposes the screen; the next
+        // launch replaces it while the menu is hidden.
         _uiState.value = _uiState.value.copy(
-            currentGameTitle = "",
-            currentGameSubtitle = "",
-            currentGameCoverArtPath = null,
             ps2GunProfileActive = false,
             gameSettingsProfileActive = false
         )
