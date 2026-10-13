@@ -862,6 +862,10 @@ static void recLDL_emit_oaknut()
 		return;
 
 #ifdef REC_LOADS
+	// Allocating Rt for a write clears its constant flag. Snapshot the base
+	// first, including Rs==Rt, so the merge never uses an unset dynamic shift.
+	const bool constant_base = GPR_IS_CONST1(_Rs_);
+	const u32 constant_address = constant_base ? g_cpuConstRegs[_Rs_].UL[0] + _Imm_ : 0;
 	// avoid flushing and immediately reading back
 	if (_Rt_)
 		_addNeededX86reg(X86TYPE_GPR, _Rt_);
@@ -873,9 +877,9 @@ static void recLDL_emit_oaknut()
 	_freeX86reg(EE_HOST_RCX);
 	_freeX86reg(EE_HOST_RDX);
 
-	if (GPR_IS_CONST1(_Rs_))
+	if (constant_base)
 	{
-		u32 srcadr = g_cpuConstRegs[_Rs_].UL[0] + _Imm_;
+		u32 srcadr = constant_address;
 		srcadr &= ~0x07;
 		vtlb_DynGenReadNonQuad_Const(64, false, false, srcadr, RETURN_READ_IN_RAX);
 	}
@@ -898,9 +902,9 @@ static void recLDL_emit_oaknut()
 	const int treg = _allocX86reg(X86TYPE_GPR, _Rt_, MODE_READ | MODE_WRITE);
 	recBeginOaknutEmit();
 
-	if (GPR_IS_CONST1(_Rs_))
+	if (constant_base)
 	{
-		u32 shift = g_cpuConstRegs[_Rs_].UL[0] + _Imm_;
+		u32 shift = constant_address;
 		shift = ((shift & 0x7) + 1) * 8;
 		if (shift != 64)
 		{
@@ -961,6 +965,8 @@ static void recLDR_emit_oaknut()
 		return;
 
 #ifdef REC_LOADS
+	const bool constant_base = GPR_IS_CONST1(_Rs_);
+	const u32 constant_address = constant_base ? g_cpuConstRegs[_Rs_].UL[0] + _Imm_ : 0;
 	// avoid flushing and immediately reading back
 	if (_Rt_)
 		_addNeededX86reg(X86TYPE_GPR, _Rt_);
@@ -972,9 +978,9 @@ static void recLDR_emit_oaknut()
 	_freeX86reg(EE_HOST_RCX);
 	_freeX86reg(EE_HOST_RDX);
 
-	if (GPR_IS_CONST1(_Rs_))
+	if (constant_base)
 	{
-		u32 srcadr = g_cpuConstRegs[_Rs_].UL[0] + _Imm_;
+		u32 srcadr = constant_address;
 		srcadr &= ~0x07;
 		vtlb_DynGenReadNonQuad_Const(64, false, false, srcadr, RETURN_READ_IN_RAX);
 	}
@@ -997,9 +1003,9 @@ static void recLDR_emit_oaknut()
 	const int treg = _allocX86reg(X86TYPE_GPR, _Rt_, MODE_READ | MODE_WRITE);
 	recBeginOaknutEmit();
 
-	if (GPR_IS_CONST1(_Rs_))
+	if (constant_base)
 	{
-		u32 shift = g_cpuConstRegs[_Rs_].UL[0] + _Imm_;
+		u32 shift = constant_address;
 		shift = (shift & 0x7) * 8;
 		if (shift != 0)
 		{
