@@ -9,6 +9,11 @@
 #include "pcsx2/Host.h"
 #include "pcsx2/ImGui/ImGuiManager.h"
 #include "pcsx2/OpcodeFamilies.h"
+#include "pcsx2/GS/GSUtil.h"
+#include "pcsx2/GS/Renderers/Common/GSDevice.h"
+#include "pcsx2/GS/Renderers/Vulkan/GSDeviceVK.h"
+#include "pcsx2/GS/Renderers/Vulkan/VKLoader.h"
+#include "pcsx2/GS/Renderers/Vulkan/VKShaderCache.h"
 #include "pcsx2/MTVU.h"
 #include "pcsx2/VUmicro.h"
 #include "pcsx2/PerformanceMetrics.h"
@@ -22,6 +27,7 @@
 #include "common/FileSystem.h"
 #include "common/MemorySettingsInterface.h"
 #include "common/Path.h"
+#include "common/SettingsWrapper.h"
 #include "common/StringUtil.h"
 #include "common/Threading.h"
 
@@ -32,11 +38,14 @@
 #endif
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <mutex>
+#include <optional>
 #include <string_view>
 #include <thread>
+#include <utility>
 
 namespace emucorex::android
 {
@@ -258,7 +267,7 @@ void ApplyAngleOpenGLLibraryHints(const VmLaunchConfig& config)
 	}
 }
 
-void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config)
+void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config, bool apply_vm_side_effects = true)
 {
 	const bool autotest_mode = GetBoolSetting(config.settings, "EmuCoreX", "AutotestMode", false);
 	const std::string data_root = config.paths.data_root.empty() ? EmuFolders::DataRoot : config.paths.data_root;
@@ -274,7 +283,8 @@ void ApplyOldCoreJitSettings(SettingsInterface& si, const VmLaunchConfig& config
 	for (const auto& [key, value] : config.settings)
 		SetStringSetting(si, key, value);
 
-	ApplyOpcodeFamilyBlocklists(config.settings);
+	if (apply_vm_side_effects)
+		ApplyOpcodeFamilyBlocklists(config.settings);
 
 	si.SetBoolValue("EmuCore/CPU/Recompiler", "EnableEE",
 		GetBoolSetting(config.settings, "EmuCore/CPU/Recompiler", "EnableEE", true));
@@ -416,9 +426,15 @@ void ConfigureImGuiFonts()
 		ImGuiManager::SetFonts(std::move(fonts));
 }
 
-void InstallHostSettings(const VmLaunchConfig& config)
+bool InstallHostSettings(const VmLaunchConfig& config, bool initialize_frontend = true)
 {
-	ApplyAngleOpenGLLibraryHints(config);
+	if (initialize_frontend)
+		ApplyAngleOpenGLLibraryHints(config);
+
+	if (!config.paths.native_library_dir.empty())
+		setenv("ANDROID_NATIVE_LIB_DIR", config.paths.native_library_dir.c_str(), 1);
+	else
+		unsetenv("ANDROID_NATIVE_LIB_DIR");
 
 	const auto driver_it = config.settings.find("EmuCoreX\nCustomDriverPath");
 	if (driver_it != config.settings.end() && !driver_it->second.empty())
@@ -435,12 +451,25 @@ void InstallHostSettings(const VmLaunchConfig& config)
 	}
 
 	std::unique_lock settings_lock = Host::GetSettingsLock();
-	if (!Host::Internal::GetBaseSettingsLayer())
-		Host::Internal::SetBaseSettingsLayer(&s_base_settings);
+	if (initialize_frontend)
+	{
+		if (!Host::Internal::GetBaseSettingsLayer())
+			Host::Internal::SetBaseSettingsLayer(&s_base_settings);
+	}
+	else if (Host::Internal::GetBaseSettingsLayer() != &s_base_settings)
+	{
+		// Preparation temporarily overlays the initialized app-lifetime base layer.
+		// It must not install or replace a set-once Host layer of its own.
+		return false;
+	}
 	s_base_settings.Clear();
-	ApplyOldCoreJitSettings(s_base_settings, config);
-	ConfigureImGuiFonts();
+	ApplyOldCoreJitSettings(s_base_settings, config, initialize_frontend);
+	if (initialize_frontend)
+		ConfigureImGuiFonts();
 	settings_lock.unlock();
+
+	if (!initialize_frontend)
+		return true;
 
 	std::unique_lock secrets_lock = Host::GetSecretsSettingsLock();
 	if (!Host::Internal::GetSecretsSettingsLayer())
@@ -453,6 +482,7 @@ void InstallHostSettings(const VmLaunchConfig& config)
 		s_secrets_settings.SetStringValue("Achievements", "Token", it->second.c_str());
 	}
 	secrets_lock.unlock();
+	return true;
 }
 
 VMBootParameters CreateBootParameters(const VmLaunchConfig& config)
@@ -493,6 +523,115 @@ VMBootParameters CreateBootParameters(const VmLaunchConfig& config)
 
 	return params;
 }
+
+using TFXPreparationFolderSnapshot = std::array<std::string, 20>;
+
+TFXPreparationFolderSnapshot CaptureTFXPreparationFolders()
+{
+	return {{EmuFolders::AppRoot, EmuFolders::DataRoot, EmuFolders::Settings, EmuFolders::Bios,
+		EmuFolders::Snapshots, EmuFolders::Savestates, EmuFolders::MemoryCards, EmuFolders::Logs,
+		EmuFolders::Cheats, EmuFolders::Patches, EmuFolders::Resources, EmuFolders::UserResources,
+		EmuFolders::Cache, EmuFolders::Covers, EmuFolders::GameSettings, EmuFolders::Textures,
+		EmuFolders::InputProfiles, EmuFolders::Videos, EmuFolders::DebuggerLayouts,
+		EmuFolders::DebuggerSettings}};
+}
+
+void RestoreTFXPreparationFolders(const TFXPreparationFolderSnapshot& folders)
+{
+	EmuFolders::AppRoot = folders[0];
+	EmuFolders::DataRoot = folders[1];
+	EmuFolders::Settings = folders[2];
+	EmuFolders::Bios = folders[3];
+	EmuFolders::Snapshots = folders[4];
+	EmuFolders::Savestates = folders[5];
+	EmuFolders::MemoryCards = folders[6];
+	EmuFolders::Logs = folders[7];
+	EmuFolders::Cheats = folders[8];
+	EmuFolders::Patches = folders[9];
+	EmuFolders::Resources = folders[10];
+	EmuFolders::UserResources = folders[11];
+	EmuFolders::Cache = folders[12];
+	EmuFolders::Covers = folders[13];
+	EmuFolders::GameSettings = folders[14];
+	EmuFolders::Textures = folders[15];
+	EmuFolders::InputProfiles = folders[16];
+	EmuFolders::Videos = folders[17];
+	EmuFolders::DebuggerLayouts = folders[18];
+	EmuFolders::DebuggerSettings = folders[19];
+}
+
+std::optional<std::string> CaptureEnvironmentVariable(const char* name)
+{
+	const char* value = std::getenv(name);
+	if (!value)
+		return std::nullopt;
+	return std::string(value);
+}
+
+void RestoreEnvironmentVariable(const char* name, const std::optional<std::string>& value)
+{
+	if (value.has_value())
+		setenv(name, value->c_str(), 1);
+	else
+		unsetenv(name);
+}
+
+class ScopedTFXPreparationGlobals
+{
+public:
+	ScopedTFXPreparationGlobals()
+		: m_gs_config(GSConfig), m_folders(CaptureTFXPreparationFolders()),
+		  m_custom_driver_path(CaptureEnvironmentVariable("LIBVULKAN_PATH")),
+		  m_native_library_dir(CaptureEnvironmentVariable("ANDROID_NATIVE_LIB_DIR"))
+	{
+		{
+			std::unique_lock lock = Host::GetSettingsLock();
+			m_base_settings = s_base_settings;
+			m_base_settings_layer = Host::Internal::GetBaseSettingsLayer();
+		}
+		{
+			std::unique_lock lock = Host::GetSecretsSettingsLock();
+			m_secrets_settings_layer = Host::Internal::GetSecretsSettingsLayer();
+		}
+	}
+
+	~ScopedTFXPreparationGlobals()
+	{
+		if (g_gs_device)
+		{
+			static_cast<GSDeviceVK*>(g_gs_device.get())->DestroyTFXPreparationDevice();
+			g_gs_device.reset();
+		}
+
+		GSConfig = m_gs_config;
+		RestoreTFXPreparationFolders(m_folders);
+		RestoreEnvironmentVariable("LIBVULKAN_PATH", m_custom_driver_path);
+		RestoreEnvironmentVariable("ANDROID_NATIVE_LIB_DIR", m_native_library_dir);
+		{
+			std::unique_lock lock = Host::GetSettingsLock();
+			s_base_settings = m_base_settings;
+			pxAssertRel(Host::Internal::GetBaseSettingsLayer() == m_base_settings_layer,
+				"TFX preparation must preserve the app-lifetime base settings layer");
+		}
+		{
+			std::unique_lock lock = Host::GetSecretsSettingsLock();
+			pxAssertRel(Host::Internal::GetSecretsSettingsLayer() == m_secrets_settings_layer,
+				"TFX preparation must preserve the app-lifetime secrets settings layer");
+		}
+	}
+
+	ScopedTFXPreparationGlobals(const ScopedTFXPreparationGlobals&) = delete;
+	ScopedTFXPreparationGlobals& operator=(const ScopedTFXPreparationGlobals&) = delete;
+
+private:
+	Pcsx2Config::GSOptions m_gs_config;
+	TFXPreparationFolderSnapshot m_folders;
+	std::optional<std::string> m_custom_driver_path;
+	std::optional<std::string> m_native_library_dir;
+	MemorySettingsInterface m_base_settings;
+	SettingsInterface* m_base_settings_layer = nullptr;
+	SettingsInterface* m_secrets_settings_layer = nullptr;
+};
 
 }
 
@@ -618,6 +757,129 @@ bool RunUpstreamVm(const VmLaunchConfig& config, VmStartupCallback startup_callb
 	PerformanceMetrics::SetGSSWThreadCount(0);
 	ClearPendingHostCpuTasks();
 	return true;
+}
+
+TFXPreparationBridgeResult RunTFXPreparation(const VmLaunchConfig& config, TFXPreparationJob& job)
+{
+	TFXPreparationBridgeResult result{TFXPreparationState::Idle, TFXPreparationError::None};
+	std::unique_lock bridge_lock(s_vm_bridge_mutex, std::defer_lock);
+	while (!bridge_lock.try_lock())
+	{
+		if (job.CancellationRequested())
+			return {TFXPreparationState::Cancelled, TFXPreparationError::None};
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
+
+	if (job.CancellationRequested())
+		return {TFXPreparationState::Cancelled, TFXPreparationError::None};
+	if (!job.PublishStage(TFXPreparationState::Starting))
+		return {TFXPreparationState::Failed, TFXPreparationError::InternalError};
+
+	if (VMManager::GetState() != VMState::Shutdown || VMManager::HasValidVM() || g_gs_device ||
+		g_vulkan_shader_cache || Vulkan::IsVulkanLibraryLoaded())
+	{
+		return {TFXPreparationState::Failed, TFXPreparationError::LifecycleBusy};
+	}
+
+	try
+	{
+		result = [&]() -> TFXPreparationBridgeResult {
+			ScopedTFXPreparationGlobals restore_globals;
+			if (!InstallHostSettings(config, false))
+				return {TFXPreparationState::Failed, TFXPreparationError::LifecycleBusy};
+
+			if (job.CancellationRequested())
+				return {TFXPreparationState::Cancelled, TFXPreparationError::None};
+
+			Pcsx2Config::GSOptions effective_gs_config;
+			{
+				std::unique_lock settings_lock = Host::GetSettingsLock();
+				SettingsInterface* settings = Host::GetSettingsInterface();
+				if (!settings)
+					return {TFXPreparationState::Failed, TFXPreparationError::InternalError};
+
+				SettingsLoadWrapper wrapper(*settings);
+				effective_gs_config.LoadSave(wrapper);
+			}
+			effective_gs_config.MaskUserHacks();
+			effective_gs_config.MaskUpscalingHacks();
+			if (effective_gs_config.Renderer == GSRendererType::Auto)
+				effective_gs_config.Renderer = GSUtil::GetPreferredRenderer();
+			if (effective_gs_config.Renderer != GSRendererType::VK)
+				return {TFXPreparationState::Unsupported, TFXPreparationError::UnsupportedRenderer};
+			if (effective_gs_config.DisableShaderCache)
+				return {TFXPreparationState::Unsupported, TFXPreparationError::CacheDisabled};
+
+			const std::optional<std::string> tfx_source = GSDevice::ReadShaderSource("shaders/vulkan/tfx.glsl");
+			if (!tfx_source.has_value() || tfx_source->empty())
+				return {TFXPreparationState::Failed, TFXPreparationError::MissingSource};
+			if (job.CancellationRequested())
+				return {TFXPreparationState::Cancelled, TFXPreparationError::None};
+
+			GSConfig = effective_gs_config;
+			g_gs_device = std::make_unique<GSDeviceVK>();
+			GSDeviceVK* const device = static_cast<GSDeviceVK*>(g_gs_device.get());
+			if (!device->CreateTFXPreparationDevice(*tfx_source))
+				return {TFXPreparationState::Failed, TFXPreparationError::DeviceCreationFailed};
+
+			const std::string adapter_name = device->GetName();
+			if (job.CancellationRequested())
+				return {TFXPreparationState::Cancelled, TFXPreparationError::None};
+
+			if (!device->StartTFXPreparationBatch())
+				return {TFXPreparationState::Failed, TFXPreparationError::DeviceCreationFailed};
+			if (!job.CancellationRequested() && !job.PublishStage(TFXPreparationState::Running))
+				return {TFXPreparationState::Failed, TFXPreparationError::InternalError};
+
+			bool cancellation_sent = false;
+			GSDeviceVK::TFXPreparationProgressSnapshot progress;
+			for (;;)
+			{
+				if (job.CancellationRequested() && !cancellation_sent)
+				{
+					device->RequestTFXPreparationCancel();
+					cancellation_sent = true;
+				}
+
+				progress = device->GetTFXPreparationProgress();
+				TFXPreparationProgress published_progress;
+				published_progress.total = progress.total;
+				published_progress.completed = progress.completed;
+				published_progress.already_available = progress.already_available;
+				published_progress.failed = progress.failed;
+				published_progress.cancelled = progress.cancelled;
+				published_progress.in_flight = progress.in_flight;
+				published_progress.finished = progress.finished;
+				published_progress.checkpoint_saved = progress.checkpoint_saved;
+				if (!job.PublishProgress(published_progress, adapter_name))
+				{
+					device->RequestTFXPreparationCancel();
+					cancellation_sent = true;
+					result = {TFXPreparationState::Failed, TFXPreparationError::InternalError};
+				}
+				if (progress.finished)
+					break;
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			}
+
+			if (result.error == TFXPreparationError::InternalError)
+				return result;
+			if (progress.failed)
+				return {TFXPreparationState::Failed, TFXPreparationError::PipelineFailures};
+			if (!progress.checkpoint_saved)
+				return {TFXPreparationState::Failed, TFXPreparationError::CheckpointFailed};
+			if (job.CancellationRequested())
+				return {TFXPreparationState::Cancelled, TFXPreparationError::None};
+			return {TFXPreparationState::Completed, TFXPreparationError::None};
+		}();
+	}
+	catch (...)
+	{
+		result = {TFXPreparationState::Failed, TFXPreparationError::InternalError};
+	}
+
+	bridge_lock.unlock();
+	return result;
 }
 
 void ApplyRuntimeSettingsToUpstream(const VmLaunchConfig& config)

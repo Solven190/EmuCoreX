@@ -1,6 +1,7 @@
 #pragma once
 
 #include "emucorex/android_runtime.h"
+#include "emucorex/tfx_preparation_job.h"
 
 #include <string>
 
@@ -10,6 +11,13 @@ using VmStartupCallback = void (*)(void* userdata, bool succeeded);
 
 bool IsUpstreamVmBridgeAvailable();
 bool RunUpstreamVm(const VmLaunchConfig& config, VmStartupCallback startup_callback = nullptr, void* startup_userdata = nullptr);
+struct TFXPreparationBridgeResult
+{
+	TFXPreparationState state = TFXPreparationState::Failed;
+	TFXPreparationError error = TFXPreparationError::InternalError;
+};
+
+TFXPreparationBridgeResult RunTFXPreparation(const VmLaunchConfig& config, TFXPreparationJob& job);
 void ApplyRuntimeSettingsToUpstream(const VmLaunchConfig& config);
 void InitializeSettingsLayer();
 

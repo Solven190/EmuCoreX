@@ -13,7 +13,7 @@ int main(int argc, char** argv)
     const bool replay = argc == 4 && (fallback || std::strcmp(argv[2], "replay-vu1") == 0);
     if (argc != 3 && !replay)
     {
-        std::fprintf(stderr, "usage: %s /absolute/path/libemucore_4k.so classifier|vu|vectors|sqrt-flags|div-edges|ee|iop|gs-prepare|replay-vu1 [capture.vuo]\n", argv[0]);
+        std::fprintf(stderr, "usage: %s /absolute/path/libemucore_4k.so classifier|vu|vectors|sqrt-flags|div-edges|ee|iop|gs-prepare|gs-job|gs-job-bridge|gs-job-runtime|replay-vu1 [capture.vuo]\n", argv[0]);
         return 2;
     }
     setvbuf(stdout, nullptr, _IONBF, 0);
@@ -34,7 +34,7 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "dlopen: %s\n", dlerror());
         return 2;
     }
-    const char* symbol = fallback ? "EmuCoreXReplayVU1Fallback" : (replay ? "EmuCoreXReplayVU1" : "EmuCoreXRunJitOracle");
+    const char* symbol = std::strcmp(argv[2], "gs-job-runtime") == 0 ? "EmuCoreXRunTFXPreparationRuntimeTests" : std::strcmp(argv[2], "gs-job-bridge") == 0 ? "EmuCoreXRunTFXPreparationBridgeTests" : std::strcmp(argv[2], "gs-job") == 0 ? "EmuCoreXRunTFXPreparationJobTests" : fallback ? "EmuCoreXReplayVU1Fallback" : (replay ? "EmuCoreXReplayVU1" : "EmuCoreXRunJitOracle");
     auto run = reinterpret_cast<int (*)(const char*)>(dlsym(library, symbol));
     if (!run)
     {

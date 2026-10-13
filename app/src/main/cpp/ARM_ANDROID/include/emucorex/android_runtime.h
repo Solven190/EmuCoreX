@@ -2,7 +2,10 @@
 
 #include <jni.h>
 
+#include "emucorex/tfx_preparation_job.h"
+
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -48,6 +51,13 @@ public:
 	bool GetNativeSurface(void** window, int* width, int* height, float* refresh_rate) const;
 
 	bool StartVm(std::string path, bool boot_elf, int probe_steps, bool boot_irx = false);
+	bool StartTFXPreparation();
+	bool CancelTFXPreparation(uint64_t job_id);
+	bool ResumeTFXPreparation(uint64_t job_id);
+	TFXPreparationStatus GetTFXPreparationStatus() const;
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	int RunTFXPreparationRuntimeTests();
+#endif
 	bool ChangeDisc(std::string path);
 	void Pause();
 	void Resume();
@@ -85,8 +95,11 @@ private:
 	AndroidRuntime() = default;
 	~AndroidRuntime();
 
+	bool IsTFXPreparationActiveLocked() const;
+	void ApplyDeferredRuntimeGlobalsLocked();
 	VmLaunchConfig CreateLaunchConfigLocked(std::string path, bool boot_elf, int probe_steps, bool boot_irx) const;
 	void VmThreadMain(VmLaunchConfig config);
+	void TFXPreparationThreadMain(VmLaunchConfig config, std::shared_ptr<TFXPreparationJob> job);
 	void NotifyVmStartup(bool succeeded);
 	static void NotifyVmStartupThunk(void* userdata, bool succeeded);
 
@@ -106,6 +119,15 @@ private:
 	std::string current_path_;
 	RuntimeSettings settings_;
 	std::thread vm_thread_;
+	std::shared_ptr<TFXPreparationJob> tfx_preparation_job_;
+	std::thread tfx_preparation_thread_;
+	VmLaunchConfig tfx_preparation_config_;
+	uint64_t next_tfx_preparation_job_id_ = 0;
+	bool deferred_settings_layer_init_ = false;
+	bool deferred_data_root_apply_ = false;
+	bool deferred_native_library_environment_ = false;
+	bool deferred_custom_driver_environment_ = false;
+	bool deferred_app_version_environment_ = false;
 };
 
 std::string JStringToString(JNIEnv* env, jstring value);

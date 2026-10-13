@@ -322,6 +322,7 @@ add_library(emucore SHARED
 	src/runtime/android_input_services.cpp
 	src/runtime/android_host_services.cpp
 	src/runtime/android_runtime.cpp
+	src/runtime/tfx_preparation_job.cpp
 	src/runtime/upstream_vm_bridge.cpp
 )
 
@@ -364,7 +365,7 @@ target_compile_definitions(emucore
 if(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 	target_compile_definitions(emucore PRIVATE EMUCOREX_ENABLE_NATIVE_SELF_TESTS=1)
 	target_compile_definitions(PCSX2_FLAGS INTERFACE EMUCOREX_ENABLE_NATIVE_SELF_TESTS=1)
-	target_sources(emucore PRIVATE src/debug/jit_oracle.cpp)
+	target_sources(emucore PRIVATE src/debug/jit_oracle.cpp src/debug/tfx_preparation_bridge_oracle.cpp)
 	add_executable(emucorex_jit_oracle src/debug/jit_oracle_main.cpp)
 	target_link_libraries(emucorex_jit_oracle PRIVATE dl)
 endif()

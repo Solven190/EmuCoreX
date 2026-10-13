@@ -19,6 +19,12 @@
 #include "pcsx2/USB/USB.h"
 #include "pcsx2/Host.h"
 #include "pcsx2/VMManager.h"
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+#include "pcsx2/GS/GS.h"
+#include "pcsx2/GS/Renderers/Vulkan/GSDeviceVK.h"
+#include "pcsx2/GS/Renderers/Vulkan/VKLoader.h"
+#include "pcsx2/GS/Renderers/Vulkan/VKShaderCache.h"
+#endif
 
 #include <SDL3/SDL_main.h>
 
@@ -31,8 +37,11 @@
 #include <atomic>
 #include <bit>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
+#include <future>
 #include <iomanip>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -46,6 +55,57 @@ constexpr const char* LOG_TAG = "EmuCoreX";
 // reader. Keep them mutually exclusive so a library scan cannot close or replace the
 // reader while another thread is detecting a disc or while the VM is starting/stopping.
 std::mutex s_disc_access_mutex;
+
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+struct TFXPreparationTestBarrier
+{
+	std::mutex mutex;
+	std::condition_variable cv;
+	bool enabled = false;
+	bool reached = false;
+	bool released = false;
+};
+
+TFXPreparationTestBarrier s_tfx_preparation_test_barrier;
+
+void ResetTFXPreparationTestBarrier()
+{
+	std::lock_guard lock(s_tfx_preparation_test_barrier.mutex);
+	s_tfx_preparation_test_barrier.enabled = true;
+	s_tfx_preparation_test_barrier.reached = false;
+	s_tfx_preparation_test_barrier.released = false;
+}
+
+bool WaitForTFXPreparationTestBarrier()
+{
+	std::unique_lock lock(s_tfx_preparation_test_barrier.mutex);
+	return s_tfx_preparation_test_barrier.cv.wait_for(lock, std::chrono::seconds(5), [] {
+		return s_tfx_preparation_test_barrier.reached;
+	});
+}
+
+void ReleaseTFXPreparationTestBarrier()
+{
+	{
+		std::lock_guard lock(s_tfx_preparation_test_barrier.mutex);
+		s_tfx_preparation_test_barrier.released = true;
+	}
+	s_tfx_preparation_test_barrier.cv.notify_all();
+}
+
+bool WaitAtTFXPreparationTestBarrier()
+{
+	std::unique_lock lock(s_tfx_preparation_test_barrier.mutex);
+	if (!s_tfx_preparation_test_barrier.enabled)
+		return false;
+	s_tfx_preparation_test_barrier.reached = true;
+	s_tfx_preparation_test_barrier.cv.notify_all();
+	s_tfx_preparation_test_barrier.cv.wait(lock, [] {
+		return s_tfx_preparation_test_barrier.released;
+	});
+	return true;
+}
+#endif
 
 // Android input callbacks run on UI/Binder threads while the emulated pad is
 // owned by the CPU thread. Publish only compact values here and consume them at
@@ -332,13 +392,69 @@ AndroidRuntime::~AndroidRuntime()
 	ClearSurface();
 }
 
+bool AndroidRuntime::IsTFXPreparationActiveLocked() const
+{
+	return tfx_preparation_job_ && TFXPreparationJob::IsActiveState(tfx_preparation_job_->Snapshot().state);
+}
+
+void AndroidRuntime::ApplyDeferredRuntimeGlobalsLocked()
+{
+	if (deferred_data_root_apply_)
+	{
+		ApplyAndroidEmuFolders(paths_.data_root);
+		deferred_data_root_apply_ = false;
+	}
+	if (deferred_settings_layer_init_)
+	{
+		emucorex::android::InitializeSettingsLayer();
+		deferred_settings_layer_init_ = false;
+	}
+	if (deferred_native_library_environment_)
+	{
+		if (paths_.native_library_dir.empty())
+		{
+			unsetenv("ANDROID_NATIVE_LIB_DIR");
+			__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Native library directory environment cleared");
+		}
+		else
+		{
+			setenv("ANDROID_NATIVE_LIB_DIR", paths_.native_library_dir.c_str(), 1);
+			__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Native library directory environment set");
+		}
+		deferred_native_library_environment_ = false;
+	}
+	if (deferred_custom_driver_environment_)
+	{
+		const auto it = settings_.find(SettingKey("EmuCoreX", "CustomDriverPath"));
+		ApplyCustomDriverPathEnvironment(it != settings_.end() ? it->second : std::string());
+		deferred_custom_driver_environment_ = false;
+	}
+	if (deferred_app_version_environment_)
+	{
+		const auto it = settings_.find(SettingKey("EmuCoreX", "AppVersion"));
+		if (it == settings_.end())
+			unsetenv("EMUCOREX_APP_VERSION");
+		else
+			setenv("EMUCOREX_APP_VERSION", it->second.c_str(), 1);
+		deferred_app_version_environment_ = false;
+	}
+}
+
 void AndroidRuntime::Initialize(std::string data_root, int api_version)
 {
 	std::lock_guard lock(mutex_);
 	SDL_SetMainReady();
 	paths_.data_root = std::move(data_root);
-	ApplyAndroidEmuFolders(paths_.data_root);
-	emucorex::android::InitializeSettingsLayer();
+	if (IsTFXPreparationActiveLocked())
+	{
+		deferred_data_root_apply_ = true;
+		deferred_settings_layer_init_ = true;
+	}
+	else
+	{
+		ApplyAndroidEmuFolders(paths_.data_root);
+		emucorex::android::InitializeSettingsLayer();
+	}
 	api_version_ = api_version;
 	initialized_ = true;
 	__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Android runtime initialized for PCSX2 v2.8.0 adapter");
@@ -348,14 +464,21 @@ void AndroidRuntime::ReloadDataRoot(std::string data_root)
 {
 	std::lock_guard lock(mutex_);
 	paths_.data_root = std::move(data_root);
-	ApplyAndroidEmuFolders(paths_.data_root);
+	if (IsTFXPreparationActiveLocked())
+		deferred_data_root_apply_ = true;
+	else
+		ApplyAndroidEmuFolders(paths_.data_root);
 }
 
 void AndroidRuntime::SetNativeLibraryDir(std::string path)
 {
 	std::lock_guard lock(mutex_);
 	paths_.native_library_dir = std::move(path);
-	if (!paths_.native_library_dir.empty())
+	if (IsTFXPreparationActiveLocked())
+	{
+		deferred_native_library_environment_ = true;
+	}
+	else if (!paths_.native_library_dir.empty())
 	{
 		setenv("ANDROID_NATIVE_LIB_DIR", paths_.native_library_dir.c_str(), 1);
 		__android_log_write(ANDROID_LOG_INFO, LOG_TAG, "Native library directory environment set");
@@ -398,10 +521,8 @@ void AndroidRuntime::EndSettingsBatch()
 void AndroidRuntime::SetSetting(std::string section, std::string key, std::string, std::string value)
 {
 	std::lock_guard lock(mutex_);
-	if (section == "EmuCoreX" && key == "CustomDriverPath")
-		ApplyCustomDriverPathEnvironment(value);
-	if (section == "EmuCoreX" && key == "AppVersion")
-		setenv("EMUCOREX_APP_VERSION", value.c_str(), 1);
+	const bool custom_driver_changed = section == "EmuCoreX" && key == "CustomDriverPath";
+	const bool app_version_changed = section == "EmuCoreX" && key == "AppVersion";
 	const auto hardcore_it = settings_.find(SettingKey("Achievements", "ChallengeMode"));
 	const bool hardcore_requested =
 		(section == "Achievements" && key == "ChallengeMode" && IsTrueSettingValue(value)) ||
@@ -417,6 +538,21 @@ void AndroidRuntime::SetSetting(std::string section, std::string key, std::strin
 	if (hardcore_requested)
 	{
 		settings_[SettingKey("EmuCore", "EnableCheats")] = "false";
+	}
+
+	if (custom_driver_changed)
+	{
+		if (IsTFXPreparationActiveLocked())
+			deferred_custom_driver_environment_ = true;
+		else
+			ApplyCustomDriverPathEnvironment(settings_[SettingKey("EmuCoreX", "CustomDriverPath")]);
+	}
+	if (app_version_changed)
+	{
+		if (IsTFXPreparationActiveLocked())
+			deferred_app_version_environment_ = true;
+		else
+			setenv("EMUCOREX_APP_VERSION", settings_[SettingKey("EmuCoreX", "AppVersion")].c_str(), 1);
 	}
 }
 
@@ -585,9 +721,405 @@ bool AndroidRuntime::GetNativeSurface(void** window, int* width, int* height, fl
 	return true;
 }
 
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+int AndroidRuntime::RunTFXPreparationRuntimeTests()
+{
+	unsigned checks = 0;
+	unsigned failures = 0;
+	const auto check = [&](bool condition, const char* name) {
+		++checks;
+		if (!condition)
+			++failures;
+		std::printf("%s %s\n", condition ? "PASS" : "FAIL", name);
+	};
+
+	// The isolated native oracle process uses only its own working directory. Do not
+	// initialize the app's persistent Android data root in this test.
+	Initialize(".", 35);
+	ResetTFXPreparationTestBarrier();
+	if (!StartTFXPreparation())
+	{
+		check(false, "runtime admits a headless preparation job");
+		std::printf("RESULT checks=%u failures=%u\n", checks, failures);
+		return 1;
+	}
+	check(true, "runtime admits a headless preparation job");
+
+	const bool reached = WaitForTFXPreparationTestBarrier();
+	check(reached, "worker pauses at deterministic pre-bridge barrier");
+	if (!reached)
+	{
+		ReleaseTFXPreparationTestBarrier();
+		Shutdown();
+		std::printf("RESULT checks=%u failures=%u\n", checks, failures);
+		return 1;
+	}
+
+	TFXPreparationStatus status = GetTFXPreparationStatus();
+	const uint64_t job_id = status.job_id;
+	check(job_id != 0 && status.attempt == 1 && TFXPreparationJob::IsActiveState(status.state),
+		"start reserves job identity before bridge work");
+	check(!StartTFXPreparation(), "duplicate start is rejected while active");
+	check(!ResumeTFXPreparation(job_id), "resume is rejected while the current attempt is active");
+	check(!CancelTFXPreparation(job_id + 1), "cancel rejects a stale job id");
+
+	VmStartupState startup_before;
+	bool vm_thread_before;
+	{
+		std::lock_guard lock(mutex_);
+		startup_before = startup_state_;
+		vm_thread_before = vm_thread_.joinable();
+	}
+	const bool vm_started = StartVm(".invalid-test-game", false, 0);
+	bool vm_admission_unchanged;
+	{
+		std::lock_guard lock(mutex_);
+		vm_admission_unchanged = !vm_active_ && startup_state_ == startup_before &&
+			vm_thread_.joinable() == vm_thread_before;
+	}
+	check(!vm_started && vm_admission_unchanged,
+		"VM start is rejected during preparation before startup state changes");
+
+	auto status_future = std::async(std::launch::async, [this]() { return GetTFXPreparationStatus(); });
+	const bool status_responsive = status_future.wait_for(std::chrono::seconds(1)) == std::future_status::ready;
+	if (!status_responsive)
+		ReleaseTFXPreparationTestBarrier();
+	status = status_future.get();
+	check(status_responsive && status.job_id == job_id,
+		"status polling remains responsive while worker is before bridge");
+
+	auto cancel_future = std::async(std::launch::async, [this, job_id]() {
+		return CancelTFXPreparation(job_id);
+	});
+	const bool cancel_responsive = cancel_future.wait_for(std::chrono::seconds(1)) == std::future_status::ready;
+	if (!cancel_responsive)
+		ReleaseTFXPreparationTestBarrier();
+	const bool cancel_accepted = cancel_future.get();
+	check(cancel_responsive && cancel_accepted, "cancel remains responsive and is accepted at pre-bridge barrier");
+	ReleaseTFXPreparationTestBarrier();
+
+	const auto wait_for_terminal = [this]() {
+		const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+		TFXPreparationStatus current;
+		do
+		{
+			current = GetTFXPreparationStatus();
+			if (!TFXPreparationJob::IsActiveState(current.state))
+				return current;
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		} while (std::chrono::steady_clock::now() < deadline);
+		return current;
+	};
+	status = wait_for_terminal();
+	check(status.state == TFXPreparationState::Cancelled && status.cancel_requested,
+		"cancel before bridge reaches terminal status after barrier release");
+	check(ResumeTFXPreparation(job_id), "terminal cancelled job starts a fresh resume attempt");
+	ResetTFXPreparationTestBarrier();
+	const bool resume_reached = WaitForTFXPreparationTestBarrier();
+	status = GetTFXPreparationStatus();
+	check(resume_reached && status.job_id == job_id && status.attempt == 2 &&
+		TFXPreparationJob::IsActiveState(status.state), "resume resets attempt progress and reuses the job identity");
+
+	check(CancelTFXPreparation(job_id), "resumed attempt accepts cancellation");
+	ReleaseTFXPreparationTestBarrier();
+	status = wait_for_terminal();
+	check(status.state == TFXPreparationState::Cancelled, "resumed attempt reaches terminal cancellation");
+
+	ResetTFXPreparationTestBarrier();
+	check(ResumeTFXPreparation(job_id), "terminal resumed attempt can start shutdown test attempt");
+	const bool shutdown_barrier_reached = WaitForTFXPreparationTestBarrier();
+	check(shutdown_barrier_reached, "shutdown test worker reaches pre-bridge barrier");
+	auto shutdown_future = std::async(std::launch::async, [this]() { Shutdown(); });
+	auto shutdown_status_future = std::async(std::launch::async, [this]() {
+		const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+		TFXPreparationStatus current;
+		do
+		{
+			current = GetTFXPreparationStatus();
+			if (current.cancel_requested)
+				return current;
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		} while (std::chrono::steady_clock::now() < deadline);
+		return current;
+	});
+	const bool status_during_shutdown =
+		shutdown_status_future.wait_for(std::chrono::seconds(1)) == std::future_status::ready;
+	if (!status_during_shutdown)
+		ReleaseTFXPreparationTestBarrier();
+	const TFXPreparationStatus shutdown_status = shutdown_status_future.get();
+	check(status_during_shutdown && shutdown_status.cancel_requested,
+		"shutdown requests cancellation without holding runtime mutex across join");
+	ReleaseTFXPreparationTestBarrier();
+	const bool shutdown_joined = shutdown_future.wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+	if (!shutdown_joined)
+		ReleaseTFXPreparationTestBarrier();
+	if (shutdown_joined)
+		shutdown_future.get();
+	status = GetTFXPreparationStatus();
+	check(shutdown_joined && status.state == TFXPreparationState::Cancelled,
+		"shutdown joins preparation worker after cancellation cleanup");
+	{
+		std::lock_guard lock(s_tfx_preparation_test_barrier.mutex);
+		s_tfx_preparation_test_barrier.enabled = false;
+		s_tfx_preparation_test_barrier.released = true;
+	}
+	s_tfx_preparation_test_barrier.cv.notify_all();
+
+	SetSetting("EmuCore/GS", "Renderer", "int",
+		std::to_string(static_cast<int>(GSRendererType::VK)));
+	const Pcsx2Config::GSOptions previous_gs_config = GSConfig;
+	const bool start_real_job = StartTFXPreparation();
+	check(start_real_job, "runtime starts the real asynchronous Vulkan bridge job");
+	if (start_real_job)
+	{
+		const uint64_t real_job_id = GetTFXPreparationStatus().job_id;
+		const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+		TFXPreparationStatus real_status;
+		do
+		{
+			real_status = GetTFXPreparationStatus();
+			if (!TFXPreparationJob::IsActiveState(real_status.state))
+				break;
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		} while (std::chrono::steady_clock::now() < deadline);
+
+		const bool real_job_finished = !TFXPreparationJob::IsActiveState(real_status.state);
+		if (!real_job_finished)
+		{
+			CancelTFXPreparation(real_job_id);
+			Shutdown();
+			real_status = GetTFXPreparationStatus();
+		}
+		else
+		{
+			// Terminal status follows bridge cleanup. Shutdown also joins the finished
+			// thread so this checks that no worker lifetime remains.
+			Shutdown();
+			real_status = GetTFXPreparationStatus();
+		}
+
+		check(real_job_finished && real_status.state == TFXPreparationState::Completed &&
+			real_status.total == 164 && real_status.finished && real_status.in_flight == 0 &&
+			real_status.failed == 0 && real_status.cancelled == 0 &&
+			real_status.completed + real_status.already_available == real_status.total,
+			"real runtime job compiles and accounts all 164 canonical TFX selectors");
+		check(real_status.checkpoint_saved && !real_status.adapter_name.empty(),
+			"real runtime job reports its adapter and persisted pipeline checkpoint");
+		bool runtime_has_no_worker_threads;
+		{
+			std::lock_guard lock(mutex_);
+			runtime_has_no_worker_threads = !vm_active_ && !vm_thread_.joinable() &&
+				!tfx_preparation_thread_.joinable();
+		}
+		check(runtime_has_no_worker_threads, "real preparation leaves no VM or preparation worker thread");
+		check(!g_gs_device && !g_vulkan_shader_cache && !Vulkan::IsVulkanLibraryLoaded() &&
+			VMManager::GetState() == VMState::Shutdown && !VMManager::HasValidVM() &&
+			GSConfig == previous_gs_config,
+			"real preparation releases Vulkan and restores GS state without initializing a VM");
+	}
+
+	std::printf("RESULT checks=%u failures=%u\n", checks, failures);
+	return failures ? 1 : 0;
+}
+#endif
+
+bool AndroidRuntime::StartTFXPreparation()
+{
+	// Serialize only admission with VM start/stop. The worker owns the bridge lock;
+	// this disc lock is released before any Vulkan preparation begins.
+	std::unique_lock disc_access_lock(s_disc_access_mutex);
+	std::thread finished_vm_thread;
+	std::thread finished_preparation_thread;
+	{
+		std::lock_guard lock(mutex_);
+		if (!initialized_ || settings_batch_ || vm_active_ || startup_state_ == VmStartupState::Pending ||
+			IsTFXPreparationActiveLocked())
+			return false;
+		if (vm_thread_.joinable())
+			finished_vm_thread = std::move(vm_thread_);
+		if (tfx_preparation_thread_.joinable())
+			finished_preparation_thread = std::move(tfx_preparation_thread_);
+	}
+	if (finished_vm_thread.joinable())
+		finished_vm_thread.join();
+	if (finished_preparation_thread.joinable())
+		finished_preparation_thread.join();
+
+	std::lock_guard lock(mutex_);
+	if (!initialized_ || settings_batch_ || vm_active_ || startup_state_ == VmStartupState::Pending ||
+		IsTFXPreparationActiveLocked())
+		return false;
+	if (++next_tfx_preparation_job_id_ == 0)
+		++next_tfx_preparation_job_id_;
+	auto job = std::make_shared<TFXPreparationJob>(next_tfx_preparation_job_id_, 1);
+	VmLaunchConfig config = CreateLaunchConfigLocked({}, false, 0, false);
+	tfx_preparation_job_ = job;
+	tfx_preparation_config_ = config;
+	try
+	{
+		tfx_preparation_thread_ = std::thread(&AndroidRuntime::TFXPreparationThreadMain, this,
+			std::move(config), std::move(job));
+	}
+	catch (...)
+	{
+		if (tfx_preparation_job_)
+			tfx_preparation_job_->Finish(TFXPreparationState::Failed, TFXPreparationError::InternalError);
+		return false;
+	}
+	return true;
+}
+
+bool AndroidRuntime::CancelTFXPreparation(uint64_t job_id)
+{
+	std::lock_guard lock(mutex_);
+	if (!tfx_preparation_job_ || tfx_preparation_job_->Snapshot().job_id != job_id)
+		return false;
+	return tfx_preparation_job_->RequestCancel();
+}
+
+bool AndroidRuntime::ResumeTFXPreparation(uint64_t job_id)
+{
+	std::unique_lock disc_access_lock(s_disc_access_mutex);
+	std::thread finished_vm_thread;
+	std::thread finished_preparation_thread;
+	std::shared_ptr<TFXPreparationJob> original_job;
+	uint32_t attempt = 0;
+	{
+		std::lock_guard lock(mutex_);
+		if (!tfx_preparation_job_ || tfx_preparation_job_->Snapshot().job_id != job_id ||
+			vm_active_ || startup_state_ == VmStartupState::Pending || settings_batch_)
+			return false;
+		const TFXPreparationStatus status = tfx_preparation_job_->Snapshot();
+		if (status.state != TFXPreparationState::Cancelled && status.state != TFXPreparationState::Failed)
+			return false;
+		if (status.attempt == std::numeric_limits<uint32_t>::max())
+			return false;
+		attempt = status.attempt + 1;
+		original_job = tfx_preparation_job_;
+		if (vm_thread_.joinable())
+			finished_vm_thread = std::move(vm_thread_);
+		if (tfx_preparation_thread_.joinable())
+			finished_preparation_thread = std::move(tfx_preparation_thread_);
+	}
+	if (finished_vm_thread.joinable())
+		finished_vm_thread.join();
+	if (finished_preparation_thread.joinable())
+		finished_preparation_thread.join();
+
+	std::lock_guard lock(mutex_);
+	if (tfx_preparation_job_ != original_job || !tfx_preparation_job_ ||
+		tfx_preparation_job_->Snapshot().job_id != job_id || vm_active_ ||
+		startup_state_ == VmStartupState::Pending || settings_batch_)
+		return false;
+	const TFXPreparationStatus status = tfx_preparation_job_->Snapshot();
+	if ((status.state != TFXPreparationState::Cancelled && status.state != TFXPreparationState::Failed) ||
+		status.attempt + 1 != attempt)
+		return false;
+
+	auto job = std::make_shared<TFXPreparationJob>(job_id, attempt);
+	tfx_preparation_job_ = job;
+	try
+	{
+		tfx_preparation_thread_ = std::thread(&AndroidRuntime::TFXPreparationThreadMain, this,
+			tfx_preparation_config_, std::move(job));
+	}
+	catch (...)
+	{
+		tfx_preparation_job_->Finish(TFXPreparationState::Failed, TFXPreparationError::InternalError);
+		return false;
+	}
+	return true;
+}
+
+TFXPreparationStatus AndroidRuntime::GetTFXPreparationStatus() const
+{
+	std::lock_guard lock(mutex_);
+	return tfx_preparation_job_ ? tfx_preparation_job_->Snapshot() : TFXPreparationStatus{};
+}
+
+void AndroidRuntime::TFXPreparationThreadMain(VmLaunchConfig config, std::shared_ptr<TFXPreparationJob> job)
+{
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	const bool used_test_barrier = WaitAtTFXPreparationTestBarrier();
+	TFXPreparationBridgeResult result;
+	if (used_test_barrier)
+	{
+		// Lifecycle state-machine cases intentionally stop before Vulkan and
+		// never enter the bridge, even when a test fails.
+		result = job->CancellationRequested() ?
+			TFXPreparationBridgeResult{TFXPreparationState::Cancelled, TFXPreparationError::None} :
+			TFXPreparationBridgeResult{TFXPreparationState::Failed, TFXPreparationError::InternalError};
+	}
+	else if (job->CancellationRequested())
+	{
+		result = {TFXPreparationState::Cancelled, TFXPreparationError::None};
+	}
+	else
+	{
+		result = RunTFXPreparation(config, *job);
+	}
+#else
+	TFXPreparationBridgeResult result;
+	if (job->CancellationRequested())
+	{
+		result = {TFXPreparationState::Cancelled, TFXPreparationError::None};
+	}
+	else
+	{
+		result = RunTFXPreparation(config, *job);
+	}
+#endif
+
+	{
+		std::lock_guard lock(mutex_);
+		if (tfx_preparation_job_ == job)
+		{
+			// Serialize terminal publication with CancelTFXPreparation(). If a
+			// completion races a cancel, whichever acquires mutex_ first decides
+			// whether cancellation was accepted for this attempt.
+			if (job->CancellationRequested())
+			{
+				if (!job->Finish(TFXPreparationState::Cancelled))
+					job->Finish(TFXPreparationState::Failed, TFXPreparationError::InternalError);
+			}
+			else if (result.state == TFXPreparationState::Completed)
+			{
+				if (!job->Finish(TFXPreparationState::Completed))
+					job->Finish(TFXPreparationState::Failed, TFXPreparationError::InternalError);
+			}
+			else if (result.state == TFXPreparationState::Cancelled)
+			{
+				job->RequestCancel();
+				if (!job->Finish(TFXPreparationState::Cancelled, result.error))
+					job->Finish(TFXPreparationState::Failed, TFXPreparationError::InternalError);
+			}
+			else if (result.state == TFXPreparationState::Unsupported)
+			{
+				if (!job->Finish(TFXPreparationState::Unsupported, result.error))
+					job->Finish(TFXPreparationState::Failed, TFXPreparationError::InternalError);
+			}
+			else
+			{
+				if (!job->Finish(TFXPreparationState::Failed,
+					result.error == TFXPreparationError::None ? TFXPreparationError::InternalError : result.error))
+					job->Finish(TFXPreparationState::Failed, TFXPreparationError::InternalError);
+			}
+			ApplyDeferredRuntimeGlobalsLocked();
+		}
+	}
+}
+
 bool AndroidRuntime::StartVm(std::string path, bool boot_elf, int probe_steps, bool boot_irx)
 {
 	std::lock_guard disc_access_lock(s_disc_access_mutex);
+	{
+		std::lock_guard lock(mutex_);
+		if (IsTFXPreparationActiveLocked())
+		{
+			__android_log_write(ANDROID_LOG_ERROR, LOG_TAG, "VM start refused: TFX preparation is active");
+			return false;
+		}
+	}
 
 	std::thread finished_thread;
 	{
@@ -601,6 +1133,12 @@ bool AndroidRuntime::StartVm(std::string path, bool boot_elf, int probe_steps, b
 
 	{
 		std::lock_guard lock(mutex_);
+		if (IsTFXPreparationActiveLocked())
+		{
+			__android_log_write(ANDROID_LOG_ERROR, LOG_TAG, "VM start refused: TFX preparation is active");
+			return false;
+		}
+
 		if (!initialized_)
 		{
 			__android_log_write(ANDROID_LOG_ERROR, LOG_TAG, "VM start refused: runtime is not initialized");
@@ -727,6 +1265,7 @@ void AndroidRuntime::Shutdown()
 	std::lock_guard disc_access_lock(s_disc_access_mutex);
 
 	std::thread thread_to_join;
+	std::thread preparation_thread_to_join;
 	{
 		std::lock_guard lock(mutex_);
 		__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "VM shutdown requested active=%d joinable=%d",
@@ -741,6 +1280,11 @@ void AndroidRuntime::Shutdown()
 		current_path_.clear();
 		if (vm_thread_.joinable() && vm_thread_.get_id() != std::this_thread::get_id())
 			thread_to_join = std::move(vm_thread_);
+		if (tfx_preparation_job_ && TFXPreparationJob::IsActiveState(tfx_preparation_job_->Snapshot().state))
+			tfx_preparation_job_->RequestCancel();
+		if (tfx_preparation_thread_.joinable() &&
+			tfx_preparation_thread_.get_id() != std::this_thread::get_id())
+			preparation_thread_to_join = std::move(tfx_preparation_thread_);
 	}
 
 	if (thread_to_join.joinable())
@@ -751,6 +1295,8 @@ void AndroidRuntime::Shutdown()
 		thread_to_join.join();
 		ClearPendingHostCpuTasks();
 	}
+	if (preparation_thread_to_join.joinable())
+		preparation_thread_to_join.join();
 }
 
 bool AndroidRuntime::HasValidVm() const
@@ -767,14 +1313,16 @@ std::string AndroidRuntime::GetGameTitle(const std::string& path) const
 	std::lock_guard disc_access_lock(s_disc_access_mutex);
 
 	std::string data_root;
+	bool apply_folders = false;
 	{
 		std::lock_guard lock(mutex_);
 		if (vm_active_)
 			return BasenameWithoutExtension(path);
 		data_root = paths_.data_root;
+		apply_folders = !IsTFXPreparationActiveLocked();
 	}
 
-	if (!data_root.empty())
+	if (apply_folders && !data_root.empty())
 	{
 		ApplyAndroidEmuFolders(data_root);
 	}
@@ -1223,3 +1771,10 @@ jstring StringToJString(JNIEnv* env, const std::string& value)
 	return env->NewStringUTF(value.c_str());
 }
 }
+
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+extern "C" __attribute__((visibility("default"))) int EmuCoreXRunTFXPreparationRuntimeTests(const char*)
+{
+	return emucorex::android::AndroidRuntime::Instance().RunTFXPreparationRuntimeTests();
+}
+#endif
