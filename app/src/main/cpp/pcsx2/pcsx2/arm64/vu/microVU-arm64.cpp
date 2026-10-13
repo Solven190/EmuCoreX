@@ -8,6 +8,12 @@
 #include "JitProfiler.h"
 
 #include <unordered_set>
+#include <atomic>
+
+#if defined(__ANDROID__)
+#include <android/log.h>
+#include <sys/system_properties.h>
+#endif
 
 #include "common/AlignedMalloc.h"
 #include "common/Perf.h"
@@ -19,6 +25,60 @@
 
 alignas(64) vuRegistersPack g_vuRegistersPack;
 VU_Thread& vu1Thread = g_vuRegistersPack.vu1Thread;
+
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+static std::atomic<int> s_vuSharedIrOverride[2] = {-1, -1};
+static std::atomic<u64> s_vuSharedIrInstructions[2] = {};
+static std::atomic<u64> s_vuSharedIrBytes[2] = {};
+extern "C" void EmuCoreXOracleSetVUIR(u32 index, int enabled)
+{
+	if (index < 2) s_vuSharedIrOverride[index].store(enabled < 0 ? -1 : (enabled != 0), std::memory_order_relaxed);
+}
+extern "C" u64 EmuCoreXOracleVUIRInstructions(u32 index)
+{
+	return index < 2 ? s_vuSharedIrInstructions[index].load(std::memory_order_relaxed) : 0;
+}
+extern "C" u64 EmuCoreXOracleVUIRBytes(u32 index)
+{
+	return index < 2 ? s_vuSharedIrBytes[index].load(std::memory_order_relaxed) : 0;
+}
+#endif
+
+bool mVUSharedIrEnabled(u32 index)
+{
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	if (index >= 2) return false;
+	const int override_value = s_vuSharedIrOverride[index].load(std::memory_order_relaxed);
+	if (override_value >= 0) return override_value != 0;
+	static const std::array<bool, 2> enabled = []() {
+		std::array<bool, 2> result{};
+		for (u32 vu = 0; vu < 2; ++vu)
+		{
+			char value[PROP_VALUE_MAX] = {};
+			const char* property = vu ? "debug.emucorex.vu1_ir" : "debug.emucorex.vu0_ir";
+			result[vu] = __system_property_get(property, value) > 0 && value[0] == '1';
+			__android_log_print(ANDROID_LOG_INFO, "VUIR", "core=%u enabled=%u property=%s", vu, result[vu] ? 1u : 0u, property);
+		}
+		return result;
+	}();
+	return enabled[index];
+#else
+	return false;
+#endif
+}
+
+void mVURecordSharedIr(u32 index, u32 host_bytes)
+{
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	const u64 bytes = s_vuSharedIrBytes[index].fetch_add(host_bytes, std::memory_order_relaxed) + host_bytes;
+	const u64 count = s_vuSharedIrInstructions[index].fetch_add(1, std::memory_order_relaxed) + 1;
+#if defined(__ANDROID__)
+	if ((count & (count - 1)) == 0)
+		__android_log_print(ANDROID_LOG_INFO, "VUIR", "core=%u compiled_instructions=%llu native_bytes=%llu bound_vi=1",
+			index, static_cast<unsigned long long>(count), static_cast<unsigned long long>(bytes));
+#endif
+#endif
+}
 
 //------------------------------------------------------------------
 // Micro VU - Main Functions

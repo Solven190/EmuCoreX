@@ -34,6 +34,19 @@ namespace Arm64Ir
 {
 	enum class GuestState : u8 { EE, IOP };
 
+	// Narrow inline VU slice. microVU owns the VI mappings and backup/dirty
+	// bookkeeping; lhs_dst is already initialized from lhs_vi. No frame or
+	// guest-memory access is emitted, and IR Return emits no machine RET.
+	// Sub with equal VI operands folds to zero and requires no input binding.
+	struct BoundViPlan
+	{
+		ir::Op alu = ir::Op::Nop;
+		u8 lhs_vi = 0;
+		u8 rhs_vi = 0;
+		u8 dst_vi = 0;
+	};
+	bool PlanBoundViBlock(const ir::Function& fn, BoundViPlan* plan, std::string* error);
+
 	// Inline-mode exits are emitted through these hooks so the integration can
 	// reuse the legacy block-tail machinery (pc store, event test, linking).
 	struct LowerHooks
@@ -112,6 +125,11 @@ namespace Arm64Ir
 		u32 direct_iop_load_operations = 0;
 		u32 fused_multiply_pairs = 0;
 	};
+
+	// Both host W-register indices must be in [0,30], owned by the caller.
+	// Rejects an unsupported function before changing the active Oaknut buffer.
+	bool LowerBoundViBlock(const ir::Function& fn, u32 lhs_dst, u32 rhs,
+		LowerOutput* out, std::string* error);
 
 	// `code` must point at an executable buffer of `capacity` bytes that is not
 	// in use. The function pointer in `out` remains valid until the buffer is

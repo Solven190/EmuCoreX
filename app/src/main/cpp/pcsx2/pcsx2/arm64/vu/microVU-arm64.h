@@ -17,6 +17,7 @@
 #include "GS.h"
 #include "Gif_Unit.h"
 #include "arm64/ee/iR5900-arm64.h"
+#include "arm64/ir/IrLower-arm64.h"
 #include "R5900OpcodeTables.h"
 #include "common/emitter/x86emitter.h"
 #include "arm64/vu/microVU_Misc-arm64.h"
@@ -424,6 +425,9 @@ void sortVector(T& v)
 {
 	sort(v.begin(), v.end());
 }
+
+bool mVUSharedIrEnabled(u32 index);
+void mVURecordSharedIr(u32 index, u32 host_bytes);
 
 // Include all the *.inl files (microVU compiles as 1 Translation Unit)
 #include "microVU_Misc-arm64.inl"

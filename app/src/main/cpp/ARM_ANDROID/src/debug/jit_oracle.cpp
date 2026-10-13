@@ -54,7 +54,12 @@ extern "C" u64 EmuCoreXOracleIOPIRDirectLoads();
 extern "C" u64 EmuCoreXOracleIOPIRMulDivInstructions();
 extern "C" u64 EmuCoreXOracleIOPIRBranches();
 extern "C" u64 EmuCoreXOracleIOPIRCop0Instructions();
+extern "C" void EmuCoreXOracleSetVUIR(u32 index, int enabled);
+extern "C" u64 EmuCoreXOracleVUIRInstructions(u32 index);
+extern "C" u64 EmuCoreXOracleVUIRBytes(u32 index);
 extern void IOP_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
+extern void VU0_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
+extern void VU1_JitGetBlockProfiles(std::vector<JitBlockProfile>& out);
 
 namespace
 {
@@ -374,8 +379,247 @@ void Compare(const Snapshot& expected, const Snapshot& actual, const char* name)
     Check(same, name);
 }
 
+ir::Function BoundViFixture(ir::Op op, u32 lhs = 1, u32 rhs = 2, u32 dst = 3)
+{
+    ir::Function fn;
+    ir::Builder b(fn);
+    b.CreateBlock(0x80);
+    const u32 a = b.Emit(ir::Op::ReadVi, ir::Type::I32, {}, lhs);
+    const u32 c = b.Emit(ir::Op::ReadVi, ir::Type::I32, {}, rhs);
+    const u32 v = b.Emit2(op, ir::Type::I32, a, c);
+    const u32 narrow = b.Emit1(ir::Op::Zext16, ir::Type::I32, v);
+    b.Emit1(ir::Op::WriteVi, ir::Type::Void, narrow, dst);
+    b.Return();
+    return fn;
+}
+
+void VUBoundIrTests()
+{
+    const ir::Op ops[] = {ir::Op::Add, ir::Op::Sub, ir::Op::And, ir::Op::Or};
+    const u32 edges[] = {0, 1, 0x7fff, 0x8000, 0xffff};
+    for (ir::Op op : ops)
+        for (u32 alias = 0; alias < 4; ++alias)
+        {
+            const u32 lhs_vi = alias == 3 ? 0 : 1;
+            const u32 rhs_vi = alias == 2 ? lhs_vi : 2;
+            auto fn = BoundViFixture(op, lhs_vi, rhs_vi, alias == 1 ? lhs_vi : 3);
+            Arm64Ir::BoundViPlan plan;
+            std::string error;
+            const bool accepted = Arm64Ir::PlanBoundViBlock(fn, &plan, &error);
+            Check(accepted && plan.alu == op && plan.lhs_vi == lhs_vi && plan.rhs_vi == rhs_vi,
+                "shared VU IR preflight accepts VI aliases and zero source");
+            for (u32 a : edges)
+                for (u32 c : edges)
+                {
+                    const u32 left = lhs_vi ? a : 0;
+                    const u32 right = rhs_vi == lhs_vi ? left : c;
+                    const u32 expected = (op == ir::Op::Add ? left + right :
+                        op == ir::Op::Sub ? left - right : op == ir::Op::And ? left & right : left | right) & 0xffff;
+                    for (u32 host_mode = 0; host_mode < 3; ++host_mode)
+                    {
+                        const u32 dst_reg = host_mode == 0 ? 0 : host_mode == 1 ? 5 : 16;
+                        const u32 rhs_reg = alias == 2 ? dst_reg : host_mode == 0 ? 1 : host_mode == 1 ? 7 : 17;
+                        oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+                        u8* entry = oakStartBlock();
+                        oakAsm->MOV(oakWRegister(dst_reg), oak::util::W0);
+                        if (rhs_reg != dst_reg) oakAsm->MOV(oakWRegister(rhs_reg), oak::util::W1);
+                        oakAsm->MOV(oak::util::W9, 0x5a17);
+                        Arm64Ir::LowerOutput out;
+                        const bool lowered = Arm64Ir::LowerBoundViBlock(fn, dst_reg, rhs_reg, &out, &error);
+                        oakAsm->MOV(oak::util::W0, oakWRegister(dst_reg));
+                        // Marker confirms the bound emitter does not own extra scratch registers.
+                        oakAsm->LSL(oak::util::X9, oak::util::X9, 32);
+                        oakAsm->ORR(oak::util::X0, oak::util::X0, oak::util::X9);
+                        oakAsm->RET();
+                        oakEndBlock();
+                        const u64 result = reinterpret_cast<u64 (*)(u32, u32)>(entry)(left, right);
+                        Check(lowered && out.host_size <= 8 && out.frame_size == 0 && out.spill_values == 0 &&
+                            static_cast<u32>(result) == expected && (result >> 32) == 0x5a17,
+                            "shared VU IR native bound arithmetic preserves aliases and caller scratch");
+                    }
+                }
+        }
+    for (u32 mutation = 0; mutation < 9; ++mutation)
+    {
+        auto fn = BoundViFixture(ir::Op::Add);
+        auto& inst = fn.blocks[0].insts;
+        if (mutation == 0) inst[0].imm = 16;
+        if (mutation == 1) inst[4].imm = 0;
+        if (mutation == 2) inst[2].op = ir::Op::Mul;
+        if (mutation == 3) inst[3].op = ir::Op::Copy;
+        if (mutation == 4) inst[4].args[0] = inst[2].value;
+        if (mutation == 5) inst[2].args[0] = inst[1].value;
+        if (mutation == 6) inst[5].op = ir::Op::Trap;
+        if (mutation == 7) inst[1].imm = 0x100;
+        if (mutation == 8) inst[3].type = ir::Type::I64;
+        oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+        oakStartBlock();
+        const u8* before = oakGetCurrentCodePointer();
+        Arm64Ir::LowerOutput out;
+        Arm64Ir::BoundViPlan plan;
+        std::string error;
+        const bool rejected = !Arm64Ir::PlanBoundViBlock(fn, &plan, &error) &&
+            !Arm64Ir::LowerBoundViBlock(fn, 0, 1, &out, &error);
+        Check(rejected && oakGetCurrentCodePointer() == before && out.host_size == 0,
+            "shared VU IR rejects unsupported shapes before any native emission");
+        oakAsm->RET();
+        oakEndBlock();
+    }
+    for (u32 invalid_register : {31u, 32u, ~0u})
+    {
+        auto fn = BoundViFixture(ir::Op::Add);
+        oakSetAsmPtr(SysMemory::GetEERec() + 0x2000000, 0x10000);
+        oakStartBlock();
+        const u8* before = oakGetCurrentCodePointer();
+        Arm64Ir::LowerOutput out;
+        std::string error;
+        Check(!Arm64Ir::LowerBoundViBlock(fn, invalid_register, 1, &out, &error) &&
+            !Arm64Ir::LowerBoundViBlock(fn, 0, invalid_register, &out, &error) && oakGetCurrentCodePointer() == before,
+            "shared VU IR rejects zero/SP and out-of-range host bindings");
+        oakAsm->RET();
+        oakEndBlock();
+    }
+}
+
+void VUSharedIrProductionTests()
+{
+    const u32 opcodes[] = {0x30, 0x31, 0x34, 0x35}; // IADD, ISUB, IAND, IOR
+    const std::array<u32, 3> aliases[] = {
+        {1, 2, 3}, {1, 1, 3}, {1, 2, 1}, {1, 2, 2}, {1, 1, 1},
+        {0, 2, 3}, {1, 0, 3}, {0, 0, 3}, {1, 2, 0}};
+    const u32 edges[] = {0, 1, 0x7fff, 0x8000, 0xffff};
+    const auto encode = [](u32 op, u32 lhs, u32 rhs, u32 dst)
+        { return 0x80000000u | op | (lhs << 11) | (rhs << 16) | (dst << 6); };
+    for (u32 vu = 0; vu < 2; ++vu)
+    {
+        const auto run_case = [&](const std::vector<u32>& program, const std::array<u32, 16>& vi,
+                                  bool should_compile, const char* label)
+        {
+            EmuCoreXOracleSetVUIR(vu, 0);
+            const u64 legacy_count = EmuCoreXOracleVUIRInstructions(vu);
+            const auto interp = RunVU(vu, false, program, 0x80, 0, 128, false, nullptr, nullptr, nullptr, vi.data());
+            const auto legacy = RunVU(vu, true, program, 0x80, 0, 128, false, nullptr, nullptr, nullptr, vi.data());
+            Check(EmuCoreXOracleVUIRInstructions(vu) == legacy_count, "legacy VU is never counted as shared IR");
+            EmuCoreXOracleSetVUIR(vu, 1);
+            const auto shared = RunVU(vu, true, program, 0x80, 0, 128, false, nullptr, nullptr, nullptr, vi.data());
+            Compare(interp, shared, label);
+            Compare(legacy, shared, "shared VU IR matches legacy state and memory");
+            Check(shared.regs.cycle == legacy.regs.cycle, "shared VU IR preserves exact legacy cycle count");
+            const u64 compiled = EmuCoreXOracleVUIRInstructions(vu) - legacy_count;
+            Check(should_compile ? compiled > 0 : compiled == 0,
+                "production VU uses real shared IR only for supported nonzero VI destinations");
+        };
+        for (u32 opcode : opcodes)
+            for (const auto& regs : aliases)
+                for (u32 edge = 0; edge < 5; ++edge)
+                {
+                    std::array<u32, 16> vi{};
+                    for (u32 r = 1; r < 16; ++r) vi[r] = edges[(edge + r) % 5];
+                    const std::vector<u32> program = {encode(opcode, regs[0], regs[1], regs[2]), NOP_U,
+                        NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U};
+                    run_case(program, vi, regs[2] != 0, "shared VU IR guest VI zero/aliases/wrap");
+                }
+        std::array<u32, 16> vi{};
+        for (u32 r = 1; r < 16; ++r) vi[r] = (r * 971 + 0x8000) & 0xffff;
+        std::vector<u32> chain;
+        for (u32 step = 0; step < 96; ++step)
+            chain.insert(chain.end(), {encode(opcodes[step % 4], 1 + step % 15, 1 + (step + 3) % 15,
+                1 + (step + 7) % 15), NOP_U});
+        chain.insert(chain.end(), {NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U});
+        run_case(chain, vi, true, "shared VU IR mixed dirty VI chain under register pressure");
+        // The branch reads the VI written by the preceding arithmetic pair;
+        // its delay writes it again, requiring the scheduler's VI backup.
+        for (u32 opcode : opcodes)
+        {
+            const std::vector<u32> program = {
+                encode(opcode, 2, 3, 1), NOP_U,
+                (0x28u << 25) | (1u << 11) | (2u << 16) | 3u, NOP_U,
+                encode(0x30, 1, 2, 1), NOP_U,
+                encode(0x35, 1, 3, 4), NOP_U,
+                NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U,
+                encode(0x31, 1, 2, 5), NOP_U | 0x40000000u, NOP_L, NOP_U};
+            run_case(program, vi, true, "shared VU IR preserves branch-delay VI backup and hazards");
+        }
+        EmuCoreXOracleSetVUIR(vu, -1);
+    }
+}
+
+void VUSharedIrBenchmarks()
+{
+    // Timing includes the real cached microVU dispatcher plus identical VI
+    // input setup. Cold timing includes Reset/compile and is reported separately.
+    const FPControlRegisterBackup callerFPCR(EmuConfig.Cpu.FPUFPCR);
+    const auto encode = [](u32 op, u32 lhs, u32 rhs, u32 dst)
+        { return 0x80000000u | op | (lhs << 11) | (rhs << 16) | (dst << 6); };
+    std::array<u32, 16> vi{};
+    for (u32 r = 1; r < 16; ++r) vi[r] = (r * 719 + 0x8000) & 0xffff;
+    for (u32 vu = 0; vu < 2; ++vu)
+        for (bool identities : {false, true})
+        {
+            std::vector<u32> program;
+            const u32 ops[] = {0x30, 0x31, 0x34, 0x35};
+            for (u32 step = 0; step < 64; ++step)
+            {
+                const u32 lhs = 1 + step % 15;
+                const u32 rhs = identities ? lhs : 1 + (step + 3) % 15;
+                program.insert(program.end(), {encode(ops[step % 4], lhs, rhs, 1 + (step + 7) % 15), NOP_U});
+            }
+            program.insert(program.end(), {NOP_L, NOP_U | 0x40000000u, NOP_L, NOP_U});
+            u64 identity_bytes[2] = {};
+            for (u32 round = 0; round < 4; ++round)
+                for (u32 order = 0; order < 2; ++order)
+                {
+                    const bool shared_ir = (order ^ (round & 1)) != 0;
+                    EmuCoreXOracleSetVUIR(vu, shared_ir ? 1 : 0);
+                    const auto cold_start = std::chrono::steady_clock::now();
+                    const auto expected = RunVU(vu, true, program, 0x80, 0, 128, false,
+                        nullptr, nullptr, nullptr, vi.data());
+                    const auto cold_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::steady_clock::now() - cold_start).count();
+                    VURegs& regs = vu ? VU1 : VU0;
+                    BaseVUmicroCPU* cpu = vu ? static_cast<BaseVUmicroCPU*>(&CpuMicroVU1) :
+                        static_cast<BaseVUmicroCPU*>(&CpuMicroVU0);
+                    constexpr u32 iterations = 2048;
+                    bool same = true;
+                    const auto start = std::chrono::steady_clock::now();
+                    for (u32 iteration = 0; iteration < iterations; ++iteration)
+                    {
+                        for (u32 r = 1; r < 16; ++r) regs.VI[r].UL = vi[r];
+                        regs.cycle = 0;
+                        regs.VI[REG_TPC].UL = 0x80 / 8;
+                        VU0.VI[REG_VPU_STAT].UL = vu ? 0x100 : 1;
+                        cpu->SetStartPC(0x80);
+                        for (u32 call = 0; call < 128 && (VU0.VI[REG_VPU_STAT].UL & (vu ? 0x100 : 1)); ++call)
+                            cpu->Execute(128);
+                        same &= VU0.VI[REG_VPU_STAT].UL == 0;
+                    }
+                    const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::steady_clock::now() - start).count();
+                    for (u32 r = 1; r < 16; ++r) same &= regs.VI[r].UL == expected.regs.VI[r].UL;
+                    Check(same, "shared/legacy VU benchmark replays cached code and preserves final VI state");
+                    std::vector<JitBlockProfile> profiles;
+                    if (vu) VU1_JitGetBlockProfiles(profiles); else VU0_JitGetBlockProfiles(profiles);
+                    u64 bytes = 0;
+                    for (const auto& profile : profiles) bytes += profile.host_size;
+                    identity_bytes[shared_ir ? 1 : 0] = bytes;
+                    std::printf("VUIRBENCH core=%u identities=%u round=%u shared=%u iterations=%u hot_ns=%.3f cold_us=%.3f native_bytes=%llu blocks=%zu\n",
+                        vu, identities ? 1u : 0u, round, shared_ir ? 1u : 0u, iterations,
+                        static_cast<double>(ns) / iterations, static_cast<double>(cold_ns) / 1000,
+                        static_cast<unsigned long long>(bytes), profiles.size());
+                }
+            if (identities)
+                Check(identity_bytes[1] < identity_bytes[0],
+                    "shared VU folded VI identities reduce real block bytes without redundant source bindings");
+            EmuCoreXOracleSetVUIR(vu, -1);
+        }
+}
+
 void VUTests()
 {
+    struct VUOverrideReset
+    {
+        ~VUOverrideReset() { EmuCoreXOracleSetVUIR(0, -1); EmuCoreXOracleSetVUIR(1, -1); }
+    } override_reset;
     cpuinfo_initialize();
     EmuConfig = Pcsx2Config();
     EmuConfig.Speedhacks.vuThread = false;
@@ -391,6 +635,11 @@ void VUTests()
     CpuVU1 = &CpuMicroVU1;
     CpuMicroVU0.Reserve();
     CpuMicroVU1.Reserve();
+    VUBoundIrTests();
+    VUSharedIrProductionTests();
+    VUSharedIrBenchmarks();
+    EmuCoreXOracleSetVUIR(0, 1);
+    EmuCoreXOracleSetVUIR(1, 1);
     // VU1 must use its own operand clamp policy, independent of VU0.
     const std::vector<u32> clampProbe = {0x7f800000, NOP_U | 0x80000000,
         NOP_L, (15u << 21) | (3u << 6) | 0x22,

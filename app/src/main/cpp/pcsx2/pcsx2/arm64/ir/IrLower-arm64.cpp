@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "arm64/ir/IrLower-arm64.h"
+#include "common/Assertions.h"
 
 #include "arm64/OaknutHelpers-arm64.h"
 #include "arm64/cpuRegistersPack-arm64.h"
@@ -19,6 +20,77 @@ namespace Arm64Ir
 {
 	extern "C" u32 g_eeir_exit_pc = 0;
 	extern "C" u32 g_eeir_exit_valid = 0;
+
+	namespace
+	{
+		void EmitSimpleAlu32(ir::Op op, oak::WReg dst, oak::WReg lhs, oak::WReg rhs)
+		{
+			switch (op)
+			{
+				case ir::Op::Add: oakAsm->ADD(dst, lhs, rhs); break;
+				case ir::Op::Sub: oakAsm->SUB(dst, lhs, rhs); break;
+				case ir::Op::And: oakAsm->AND(dst, lhs, rhs); break;
+				case ir::Op::Or: oakAsm->ORR(dst, lhs, rhs); break;
+				case ir::Op::Xor: oakAsm->EOR(dst, lhs, rhs); break;
+				default: pxFail("invalid simple scalar IR operation"); break;
+			}
+		}
+	}
+
+	bool PlanBoundViBlock(const ir::Function& fn, BoundViPlan* plan, std::string* error)
+	{
+		if (plan) *plan = {};
+		const auto fail = [&](const char* message) { if (error) *error = message; return false; };
+		if (!plan) return fail("bound VI plan output is missing");
+		if (!ir::Verify(fn, error)) return false;
+		if (fn.blocks.size() != 1 || fn.entry != 1 || fn.blocks[0].insts.size() != 6)
+			return fail("bound VI requires a single arithmetic slice");
+		const auto& i = fn.blocks[0].insts;
+		if (i[0].op != ir::Op::ReadVi || i[1].op != ir::Op::ReadVi ||
+			(i[2].op != ir::Op::Add && i[2].op != ir::Op::Sub && i[2].op != ir::Op::And && i[2].op != ir::Op::Or) ||
+			i[3].op != ir::Op::Zext16 || i[4].op != ir::Op::WriteVi || i[5].op != ir::Op::Return)
+			return fail("unsupported bound VI operation shape");
+		if (i[0].imm >= 16 || i[1].imm >= 16 || i[4].imm == 0 || i[4].imm >= 16)
+			return fail("bound VI register index is out of range or writes VI0");
+		for (u32 index = 0; index < 4; ++index)
+			if (i[index].type != ir::Type::I32) return fail("bound VI values require I32");
+		for (const ir::Inst& inst : i)
+			if (inst.aux != 0) return fail("bound VI does not accept auxiliary flags");
+		if (i[2].imm != 0 || i[3].imm != 0 || i[5].imm != 0 ||
+			i[2].args[0] != i[0].value || i[2].args[1] != i[1].value ||
+			i[3].args[0] != i[2].value || i[4].args[0] != i[3].value)
+			return fail("bound VI SSA links do not match the arithmetic slice");
+		*plan = {i[2].op, static_cast<u8>(i[0].imm), static_cast<u8>(i[1].imm), static_cast<u8>(i[4].imm)};
+		return true;
+	}
+
+	bool LowerBoundViBlock(const ir::Function& fn, u32 lhs_dst, u32 rhs, LowerOutput* out, std::string* error)
+	{
+		if (out) *out = {};
+		BoundViPlan plan;
+		if (!PlanBoundViBlock(fn, &plan, error)) return false;
+		if (!out || !oakHasBlock() || lhs_dst >= 31 || rhs >= 31 ||
+			(lhs_dst == rhs && plan.lhs_vi != plan.rhs_vi))
+		{
+			if (error) *error = "invalid bound VI host register contract";
+			return false;
+		}
+		const u8* start = recBeginOaknutEmit();
+		const oak::WReg dst = oakWRegister(lhs_dst), right = oakWRegister(rhs);
+		// Equal VI operands are architectural identities, independent of host
+		// allocation. Folding these uses no additional scratch register.
+		if (plan.lhs_vi == plan.rhs_vi && plan.alu == ir::Op::Sub)
+			oakAsm->MOV(dst, 0);
+		else
+		{
+			if (plan.lhs_vi != plan.rhs_vi || (plan.alu != ir::Op::And && plan.alu != ir::Op::Or))
+				EmitSimpleAlu32(plan.alu, dst, dst, right);
+			oakAsm->UXTH(dst, dst);
+		}
+		out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
+		recEndOaknutEmit();
+		return true;
+	}
 
 	namespace
 	{
@@ -1248,11 +1320,13 @@ namespace Arm64Ir
 						const auto rhs = Operand32(a[1], oak::util::W1);
 						switch (inst.op)
 						{
-							case ir::Op::Add: oakAsm->ADD(dst, lhs, rhs); break;
-							case ir::Op::Sub: oakAsm->SUB(dst, lhs, rhs); break;
-							case ir::Op::And: oakAsm->AND(dst, lhs, rhs); break;
-							case ir::Op::Or: oakAsm->ORR(dst, lhs, rhs); break;
-							case ir::Op::Xor: oakAsm->EOR(dst, lhs, rhs); break;
+							case ir::Op::Add:
+							case ir::Op::Sub:
+							case ir::Op::And:
+							case ir::Op::Or:
+							case ir::Op::Xor:
+								EmitSimpleAlu32(inst.op, dst, lhs, rhs);
+								break;
 							case ir::Op::MinS:
 								oakAsm->CMP(lhs, rhs);
 								oakAsm->CSEL(dst, lhs, rhs, oak::Cond::LT);
