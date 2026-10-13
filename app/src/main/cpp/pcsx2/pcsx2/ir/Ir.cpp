@@ -272,6 +272,11 @@ namespace ir
 		return Emit(Op::Trap, Type::Void, {});
 	}
 
+	bool IsPackedLanePermutationOp(Op op)
+	{
+		return op == Op::VZipLo || op == Op::VZipHi || op == Op::VPackEven || op == Op::VInterleaveEven;
+	}
+
 	bool IsPackedIntegerOp(Op op)
 	{
 		switch (op)
@@ -304,7 +309,8 @@ namespace ir
 				return inst.op == Op::ConstVec || inst.op == Op::Copy || inst.op == Op::ReadGpr ||
 					(inst.type == Type::V4U32 && (inst.op == Op::Add || inst.op == Op::Sub ||
 						inst.op == Op::And || inst.op == Op::Or || inst.op == Op::Xor || inst.op == Op::Not ||
-						IsPackedIntegerOp(inst.op) || inst.op == Op::VShuffle || inst.op == Op::VShuffle2));
+						IsPackedIntegerOp(inst.op) || IsPackedLanePermutationOp(inst.op) || inst.op == Op::VShuffleBytes ||
+						inst.op == Op::VShuffle || inst.op == Op::VShuffle2));
 			if (!IsIntegerType(inst.type))
 				return false;
 			switch (inst.op)

@@ -3406,6 +3406,190 @@ void EEIrVectorForwardTests()
 
 
 
+
+void EEIrPermutationBackendTests()
+{
+    constexpr ir::Op ops[] = {ir::Op::VZipLo, ir::Op::VZipHi, ir::Op::VPackEven, ir::Op::VInterleaveEven,
+                              ir::Op::VShuffleBytes};
+    std::vector<u64> selectors = {0xfe98badc76103254ull, 0x98badcfe10325476ull, 0xfebadc9876325410ull,
+                                  0x9898989810101010ull};
+    u64 random = 0x123456789abcdef0ull;
+    for (u32 i = 0; i < 16; ++i)
+    {
+        u64 rotate = 0;
+        for (u32 k = 0; k < 16; ++k)
+            rotate |= static_cast<u64>((k + i) & 15) << (k * 4);
+        selectors.push_back(rotate);
+        selectors.push_back(i * 0x1111111111111111ull);
+        random = random * 6364136223846793005ull + 1442695040888963407ull;
+        selectors.push_back(random);
+    }
+    for (ir::Op op : ops)
+        for (u32 bits : {8u, 16u, 32u})
+            for (u32 pattern = 0; pattern < (op == ir::Op::VShuffleBytes ? selectors.size() : 2); ++pattern)
+                for (u32 live = 0; live < 5; ++live)
+                {
+                    if (op == ir::Op::VShuffleBytes && bits != 8)
+                        continue;
+                    std::array<u32, 4> lhs{}, rhs{}, expected{};
+                    auto *a = reinterpret_cast<u8 *>(lhs.data());
+                    auto *c = reinterpret_cast<u8 *>(rhs.data());
+                    auto *e = reinterpret_cast<u8 *>(expected.data());
+                    for (u32 byte = 0; byte < 16; ++byte)
+                    {
+                        a[byte] = pattern & 1 ? static_cast<u8>(byte * 17 + 0x81) : byte;
+                        c[byte] = pattern & 1 ? static_cast<u8>(byte * 13 + 0xf7) : byte + 16;
+                    }
+                    const u64 imm = op == ir::Op::VShuffleBytes ? selectors[pattern] : bits;
+                    if (op == ir::Op::VShuffleBytes)
+                        for (u32 byte = 0; byte < 16; ++byte)
+                            e[byte] = a[(imm >> (byte * 4)) & 15];
+                    else
+                    {
+                        const u32 size = bits / 8, lanes = 16 / size;
+                        for (u32 lane = 0; lane < lanes; ++lane)
+                        {
+                            const bool right = op == ir::Op::VPackEven ? lane >= lanes / 2 : lane & 1;
+                            const u32 index = op == ir::Op::VPackEven ? 2 * (lane % (lanes / 2))
+                                              : op == ir::Op::VInterleaveEven
+                                                  ? lane & ~1u
+                                                  : (lane / 2) + (op == ir::Op::VZipHi ? lanes / 2 : 0);
+                            std::memcpy(e + lane * size, (right ? c : a) + index * size, size);
+                        }
+                    }
+                    bool same = true;
+                    for (u32 mode = 0; mode < 6; ++mode)
+                    {
+                        ir::Function fn;
+                        ir::Builder b(fn);
+                        b.CreateBlock(EE_TEST_PC);
+                        std::array<u32, 8> pressure{};
+                        if (live == 4)
+                            for (u32 k = 0; k < 8; ++k)
+                                pressure[k] = b.ConstVec({k, ~k, k + 1, 0x80000000u + k});
+                        const u32 left = b.ConstVec(lhs), right = b.ConstVec(rhs);
+                        const u32 result = op == ir::Op::VShuffleBytes ? b.Emit1(op, ir::Type::V4U32, left, imm)
+                                                                       : b.Emit2(op, ir::Type::V4U32, left, right, imm);
+                        b.Emit1(ir::Op::Load32, ir::Type::I32, b.ConstI32(EE_TEST_SCRATCH));
+                        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, 8);
+                        if (live & 1 || live == 4)
+                            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, left, 9);
+                        if (live & 2 || live == 4)
+                            b.Emit1(ir::Op::WriteGpr, ir::Type::Void, right, 10);
+                        if (live == 4)
+                            for (u32 k = 0; k < 8; ++k)
+                                b.Emit1(ir::Op::WriteGpr, ir::Type::Void, pressure[k], 11 + k);
+                        b.Resume(EE_TEST_PC + 4);
+                        EeIr::LowerHooks hooks;
+                        hooks.before_helper = hooks.after_helper = +[](void *)
+                        {
+                            for (u32 r = 2; r <= 7; ++r)
+                                oakAsm->MOVI(oak::QReg(r).B16(), 0xa5);
+                        };
+                        EeIr::LowerOptions options;
+                        options.optimize_ir = mode != 0;
+                        options.allocate_registers = mode != 2;
+                        options.allocate_vector_registers = mode != 4;
+                        options.reuse_spill_slots = mode != 3;
+                        options.materialize_constants = mode != 5;
+                        options.direct_ee_loads = false;
+                        options.hooks = &hooks;
+                        EeIr::LowerOutput out;
+                        std::string error;
+                        same &= EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+                        if (!same)
+                            break;
+                        std::memset(&cpuRegs, 0, sizeof(cpuRegs));
+                        reinterpret_cast<void (*)()>(out.entry)();
+                        same &= std::memcmp(cpuRegs.GPR.r[8].UL, expected.data(), 16) == 0;
+                        if (live & 1 || live == 4)
+                            same &= std::memcmp(cpuRegs.GPR.r[9].UL, lhs.data(), 16) == 0;
+                        if (live & 2 || live == 4)
+                            same &= std::memcmp(cpuRegs.GPR.r[10].UL, rhs.data(), 16) == 0;
+                        if (live == 4)
+                            for (u32 k = 0; k < 8; ++k)
+                            {
+                                const std::array<u32, 4> ref = {k, ~k, k + 1, 0x80000000u + k};
+                                same &= std::memcmp(cpuRegs.GPR.r[11 + k].UL, ref.data(), 16) == 0;
+                            }
+                    }
+                    char name[128];
+                    std::snprintf(name, sizeof(name),
+                                  "ir packed permutation %s width=%u pattern=%u live=%u six modes/pressure/clobbers",
+                                  ir::OpName(op), bits, pattern, live);
+                    Check(same, name);
+                }
+    for (ir::Op op : ops)
+        for (u64 width : {0ull, 8ull, 16ull, 32ull, 1ull, 64ull, 0x100000008ull})
+            for (ir::Type type : {ir::Type::V4U32, ir::Type::V4I32, ir::Type::V4F32, ir::Type::I32})
+            {
+                ir::Function fn;
+                ir::Builder b(fn);
+                b.CreateBlock(EE_TEST_PC);
+                const u32 input = b.Undef(type);
+                if (op == ir::Op::VShuffleBytes)
+                    b.Emit1(op, type, input, width);
+                else
+                    b.Emit2(op, type, input, input, width);
+                b.Resume(EE_TEST_PC + 4);
+                std::string error;
+                const bool valid = ir::IsVectorType(type) && (op == ir::Op::VShuffleBytes || width == 0 || width == 8 ||
+                                                              width == 16 || width == 32);
+                Check(ir::Verify(fn, &error) == valid, "ir bit-preserving permutation schema/width validation");
+                if (valid)
+                    Check(!Arm64Ir::CanLower(fn, true, &error, Arm64Ir::GuestState::IOP),
+                          "ir IOP rejects packed permutations before emission");
+            }
+
+    for (ir::Op op : ops)
+    {
+        ir::Function fn;
+        ir::Builder b(fn);
+        b.CreateBlock(EE_TEST_PC);
+        const std::array<u32, 4> expected = {0x12345678, 0x80000001, 0xffffffff, 0};
+        const u32 input = b.ConstVec(expected);
+        if (op == ir::Op::VShuffleBytes)
+            b.Emit1(op, ir::Type::V4U32, input, 0xfe98badc76103254ull);
+        else
+            b.Emit2(op, ir::Type::V4U32, input, input, 16);
+        b.Emit1(ir::Op::WriteGpr, ir::Type::Void, input, 8);
+        b.Resume(EE_TEST_PC + 4);
+        u32 baseline = 0;
+        for (bool optimize : {false, true})
+        {
+            EeIr::LowerOptions options;
+            options.optimize_ir = optimize;
+            EeIr::LowerOutput out;
+            std::string error;
+            bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
+            if (same)
+            {
+                reinterpret_cast<void (*)()>(out.entry)();
+                same &= std::memcmp(cpuRegs.GPR.r[8].UL, expected.data(), 16) == 0;
+                if (optimize)
+                    same &= out.host_size < baseline;
+                else
+                    baseline = out.host_size;
+            }
+            Check(same, "ir dead packed permutation removed with smaller native code");
+        }
+    }
+    for (u32 sub : {30u, 31u})
+        for (u32 bit = 0; bit < 32; ++bit)
+        {
+            u64 initial[32] = {};
+            initial[22] = EE_TEST_SCRATCH;
+            const u32 data = 1u << bit;
+            initial[8] = initial[9] = static_cast<u64>(data) | (static_cast<u64>(~data) << 32);
+            const std::vector<u32> code = {MipsI(63, 22, 8, 0), MipsI(63, 22, 9, 8), MipsI(30, 22, 8, 0),
+                                           Mmi(8, sub, 9, 8, 8), MipsI(31, 22, 8, 32)};
+            char name[96];
+            std::snprintf(name, sizeof(name), "ir packed color sub=%u basis bit=%u and complement", sub, bit);
+            RunEEIrCase(name, code, initial, false, true);
+            CompareEE(RunEEProgram(false, code, false, initial), RunEEProgram(true, code, false, initial), name);
+        }
+}
+
 void EEIrPackedBackendTests()
 {
     constexpr ir::Op operations[] = {ir::Op::VAddI,    ir::Op::VSubI,    ir::Op::VAddSatS, ir::Op::VAddSatU,
@@ -3626,13 +3810,17 @@ void EEIrPackedLanesTests()
         bool shift = false;
     };
     constexpr Operation operations[] = {
-        {"paddh", 8, 4, 16},        {"psubh", 8, 5, 16},        {"pcgth", 8, 6, 16},       {"pmaxh", 8, 7, 16},
-        {"paddb", 8, 8, 8},         {"psubb", 8, 9, 8},         {"pcgtb", 8, 10, 8},       {"pceqh", 40, 6, 16},
-        {"pminh", 40, 7, 16},       {"pceqb", 40, 10, 8},       {"paddsw", 8, 16, 32},     {"psubsw", 8, 17, 32},
-        {"paddsh", 8, 20, 16},      {"psubsh", 8, 21, 16},      {"paddsb", 8, 24, 8},      {"psubsb", 8, 25, 8},
-        {"padduw", 40, 16, 32},     {"psubuw", 40, 17, 32},     {"padduh", 40, 20, 16},    {"psubuh", 40, 21, 16},
-        {"paddub", 40, 24, 8},      {"psubub", 40, 25, 8},      {"pabsw", 40, 1, 32},      {"pabsh", 40, 5, 16},
-        {"psllh", 52, 0, 16, true}, {"psrlh", 54, 0, 16, true}, {"psrah", 55, 0, 16, true}};
+        {"paddh", 8, 4, 16},        {"psubh", 8, 5, 16},        {"pcgth", 8, 6, 16},        {"pmaxh", 8, 7, 16},
+        {"paddb", 8, 8, 8},         {"psubb", 8, 9, 8},         {"pcgtb", 8, 10, 8},        {"pceqh", 40, 6, 16},
+        {"pminh", 40, 7, 16},       {"pceqb", 40, 10, 8},       {"paddsw", 8, 16, 32},      {"psubsw", 8, 17, 32},
+        {"paddsh", 8, 20, 16},      {"psubsh", 8, 21, 16},      {"paddsb", 8, 24, 8},       {"psubsb", 8, 25, 8},
+        {"padduw", 40, 16, 32},     {"psubuw", 40, 17, 32},     {"padduh", 40, 20, 16},     {"psubuh", 40, 21, 16},
+        {"paddub", 40, 24, 8},      {"psubub", 40, 25, 8},      {"pabsw", 40, 1, 32},       {"pabsh", 40, 5, 16},
+        {"psllh", 52, 0, 16, true}, {"psrlh", 54, 0, 16, true}, {"psrah", 55, 0, 16, true}, {"pextlh", 8, 22, 16},
+        {"ppach", 8, 23, 16},       {"pextlb", 8, 26, 8},       {"ppacb", 8, 27, 8},        {"pextuh", 40, 22, 16},
+        {"pextub", 40, 26, 8},      {"pinth", 9, 10, 16},       {"pinteh", 41, 10, 16},     {"pexeh", 9, 26, 16},
+        {"prevh", 9, 27, 16},       {"pexch", 41, 26, 16},      {"pcpyh", 41, 27, 16},      {"pext5", 8, 30, 32},
+        {"ppac5", 8, 31, 32},       {"padsbh", 40, 4, 16}};
     constexpr std::array<u32, 3> aliases[] = {{8, 9, 10}, {8, 9, 8},  {8, 9, 9},  {8, 8, 8},
                                               {0, 9, 10}, {8, 0, 10}, {0, 0, 10}, {8, 9, 0}};
     for (const auto &op : operations)
@@ -3800,7 +3988,7 @@ void EEIrMmiTests()
         }
     }
     // Reject unimplemented MMI operations even when their destination is $0.
-    for (u32 word : {Mmi(8, 22, 8, 9, 0), Mmi(9, 17, 8, 9, 0), Mmi(41, 17, 8, 9, 0), Mmi(0, 0, 8, 9, 0)})
+    for (u32 word : {Mmi(40, 27, 8, 9, 0), Mmi(9, 17, 8, 9, 0), Mmi(41, 17, 8, 9, 0), Mmi(0, 0, 8, 9, 0)})
     {
         ir::Function fn;
         u32 end;
@@ -4174,7 +4362,7 @@ void EEIrWordShuffleTests()
     for (u32 selectors : {0xe4u, 0x00u, 0x55u, 0xaau, 0xffu, 0xc6u, 0xc9u, 0xd8u, 0x1bu})
         for (u32 live = 0; live < 7; ++live)
             run(false, selectors, live, true);
-    for (u32 selectors : {0xa60u, 0xef2u, 0xefau, 0xd10u, 0xb08u, 0x6beu, 0xfacu, 0x688u, 0xfedu, 0x249u})
+    for (u32 selectors : {0xa60u, 0xef2u, 0xefau, 0xd10u, 0xb08u, 0x6beu, 0xfacu, 0x688u, 0xf88u, 0xfedu, 0x249u})
         for (u32 live = 0; live < 7; ++live)
             run(true, selectors, live, true);
 
@@ -4875,6 +5063,7 @@ void EEIrExecutionTests()
     EEIrScalarReadBenchmark();
     EEIrPackedLanesTests();
     EEIrPackedBackendTests();
+    EEIrPermutationBackendTests();
     EEIrMergeMemoryTests();
     EEIrMergeHandlerTests();
     EEIrMultiplyTests();

@@ -417,11 +417,76 @@ namespace EeIr
 				case 0x19: // daddiu
 					WriteGprWide(rt, BinWide(ir::Op::Add, ReadGprWide(rs), m_b.ConstI64(static_cast<u64>(static_cast<s64>(simm)))));
 					return true;
-				case 0x1C: // MMI: packed word arithmetic, shifts, permutations and bitwise operations
+				case 0x1C: // MMI: packed arithmetic, shifts, permutations and bitwise operations
 				{
 					const u32 group = word & 0x3f;
 					const u32 sub = Sa(word);
 					const u32 rd = Rd(word);
+					if (group == 0x08 && (sub == 30 || sub == 31)) // pext5 / ppac5
+					{
+						if (rd != 0)
+						{
+							const u32 source = ReadGprQuad(rt);
+							constexpr u32 masks[] = {0x1f, 0x3e0, 0x7c00, 0x8000};
+							constexpr u32 shifts[] = {3, 6, 9, 16};
+							u32 result = 0;
+							for (u32 field = 0; field < 4; ++field)
+							{
+								const u32 mask = m_b.ConstVec({masks[field], masks[field], masks[field], masks[field]});
+								u32 value = source;
+								if (sub == 30) value = m_b.Emit2(ir::Op::And, ir::Type::V4U32, value, mask);
+								value = m_b.Emit2(sub == 30 ? ir::Op::VShl : ir::Op::VShrU, ir::Type::V4U32, value, Const(shifts[field]));
+								if (sub == 31) value = m_b.Emit2(ir::Op::And, ir::Type::V4U32, value, mask);
+								result = result ? m_b.Emit2(ir::Op::Or, ir::Type::V4U32, result, value) : value;
+							}
+							m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, result, rd);
+						}
+						return true;
+					}
+					if (group == 0x28 && sub == 4) // padsbh: lower subtract, upper add
+					{
+						if (rd != 0)
+						{
+							const u32 lhs = ReadGprQuad(rs), rhs = ReadGprQuad(rt);
+							const u32 low = m_b.Emit2(ir::Op::VSubI, ir::Type::V4U32, lhs, rhs, 16);
+							const u32 high = m_b.Emit2(ir::Op::VAddI, ir::Type::V4U32, lhs, rhs, 16);
+							const u32 value = m_b.Emit2(ir::Op::VShuffle2, ir::Type::V4U32, low, high, 0xf88);
+							m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
+						}
+						return true;
+					}
+					u64 byte_selectors = 0;
+					if (group == 0x09 && sub == 26) byte_selectors = 0xfe98badc76103254ull; // pexeh
+					else if (group == 0x09 && sub == 27) byte_selectors = 0x98badcfe10325476ull; // prevh
+					else if (group == 0x29 && sub == 26) byte_selectors = 0xfebadc9876325410ull; // pexch
+					else if (group == 0x29 && sub == 27) byte_selectors = 0x9898989810101010ull; // pcpyh
+					if (byte_selectors)
+					{
+						if (rd != 0)
+							m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void,
+								m_b.Emit1(ir::Op::VShuffleBytes, ir::Type::V4U32, ReadGprQuad(rt), byte_selectors), rd);
+						return true;
+					}
+					ir::Op permutation = ir::Op::Nop;
+					u32 permutation_bits = 16;
+					if (group == 0x08 && (sub == 22 || sub == 26)) permutation = ir::Op::VZipLo;
+					else if (group == 0x08 && (sub == 23 || sub == 27)) permutation = ir::Op::VPackEven;
+					else if (group == 0x28 && (sub == 22 || sub == 26)) permutation = ir::Op::VZipHi;
+					else if (group == 0x09 && sub == 10) permutation = ir::Op::VZipLo; // pinth
+					else if (group == 0x29 && sub == 10) permutation = ir::Op::VInterleaveEven; // pinteh
+					if (permutation != ir::Op::Nop)
+					{
+						if (rd != 0)
+						{
+							if (sub == 26 || sub == 27) permutation_bits = 8;
+							u32 second = ReadGprQuad(rs);
+							if (group == 0x09 && sub == 10)
+								second = m_b.Emit1(ir::Op::VShuffle, ir::Type::V4U32, second, 0x4e);
+							const u32 value = m_b.Emit2(permutation, ir::Type::V4U32, ReadGprQuad(rt), second, permutation_bits);
+							m_b.Emit1(ir::Op::WriteGpr, ir::Type::Void, value, rd);
+						}
+						return true;
+					}
 					if (group == 0x34 || group == 0x36 || group == 0x37 || group == 0x3c || group == 0x3e || group == 0x3f)
 					{
 						if (rd != 0)

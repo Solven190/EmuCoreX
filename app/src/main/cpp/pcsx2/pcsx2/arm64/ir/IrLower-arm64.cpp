@@ -109,6 +109,11 @@ namespace Arm64Ir
 				case ir::Op::ShrU:
 				case ir::Op::ShrS:
 				case ir::Op::VShl:
+				case ir::Op::VZipLo:
+				case ir::Op::VZipHi:
+				case ir::Op::VPackEven:
+				case ir::Op::VInterleaveEven:
+				case ir::Op::VShuffleBytes:
 				case ir::Op::VShuffle:
 				case ir::Op::VShuffle2:
 				case ir::Op::VShrU:
@@ -1273,6 +1278,69 @@ namespace Arm64Ir
 					return true;
 				}
 
+				case ir::Op::VShuffleBytes:
+				{
+					recBeginOaknutEmit();
+					const auto src = Operand128(a[0], oak::util::Q0);
+					const auto dst = Result128(inst.value);
+					if (inst.imm == 0xfedcba9876543210ull)
+					{
+						if (src.index() != dst.index()) oakAsm->MOV(dst.B16(), src.B16());
+					}
+					else if (inst.imm == (inst.imm & 15) * 0x1111111111111111ull)
+						oakAsm->DUP(dst.B16(), src.Belem()[inst.imm & 15]);
+					else if (inst.imm == 0x98badcfe10325476ull) // PREVH
+						oakAsm->REV64(dst.H8(), src.H8());
+					else if (inst.imm == 0x9898989810101010ull) // PCPYH
+					{
+						// Snapshot upper half first: dst may reuse src.
+						oakAsm->DUP(oak::util::Q1.H8(), src.Helem()[4]);
+						oakAsm->DUP(dst.H8(), src.Helem()[0]);
+						oakAsm->INS(dst.Delem()[1], oak::util::Q1.Delem()[0]);
+					}
+					else
+					{
+						u64 table[2] = {};
+						for (u32 byte = 0; byte < 16; ++byte)
+							table[byte / 8] |= ((inst.imm >> (byte * 4)) & 15) << ((byte % 8) * 8);
+						oakAsm->MOV(oak::util::X0, table[0]);
+						oakAsm->MOV(oak::util::X1, table[1]);
+						oakAsm->FMOV(oak::util::Q1.toD(), oak::util::X0);
+						oakAsm->INS(oak::util::Q1.Delem()[1], oak::util::X1);
+						oakAsm->TBL(dst.B16(), oak::List(src.B16()), oak::util::Q1.B16());
+					}
+					Store128(inst.value, dst);
+					recEndOaknutEmit();
+					return true;
+				}
+
+				case ir::Op::VZipLo:
+				case ir::Op::VZipHi:
+				case ir::Op::VPackEven:
+				case ir::Op::VInterleaveEven:
+				{
+					recBeginOaknutEmit();
+					const auto lhs = Operand128(a[0], oak::util::Q0);
+					const auto rhs = Operand128(a[1], oak::util::Q1);
+					const auto dst = Result128(inst.value);
+					const auto emit = [&](auto d, auto s, auto t) {
+						switch (inst.op)
+						{
+							case ir::Op::VZipLo: oakAsm->ZIP1(d, s, t); break;
+							case ir::Op::VZipHi: oakAsm->ZIP2(d, s, t); break;
+							case ir::Op::VPackEven: oakAsm->UZP1(d, s, t); break;
+							case ir::Op::VInterleaveEven: oakAsm->TRN1(d, s, t); break;
+							default: break;
+						}
+					};
+					if (inst.imm == 8) emit(dst.B16(), lhs.B16(), rhs.B16());
+					else if (inst.imm == 16) emit(dst.H8(), lhs.H8(), rhs.H8());
+					else emit(dst.S4(), lhs.S4(), rhs.S4());
+					Store128(inst.value, dst);
+					recEndOaknutEmit();
+					return true;
+				}
+
 				case ir::Op::VShuffle:
 				{
 					recBeginOaknutEmit();
@@ -1286,6 +1354,8 @@ namespace Arm64Ir
 					}
 					else if (selectors == (selectors & 3) * 0x55) // broadcast
 						oakAsm->DUP(dst.S4(), src.Selem()[selectors & 3]);
+					else if (selectors == 0x4e) // swap 64-bit halves (PINTH source)
+						oakAsm->EXT(dst.B16(), src.B16(), src.B16(), 8);
 					else if (selectors == 0xc6) // 2,1,0,3 (PEXEW)
 					{
 						oakAsm->REV64(dst.S4(), src.S4());
@@ -1333,6 +1403,10 @@ namespace Arm64Ir
 						case 0xd10: oakAsm->UZP1(dst.S4(), lhs.S4(), rhs.S4()); break; // 0,2,4,6
 						case 0xb08: oakAsm->ZIP1(dst.D2(), lhs.D2(), rhs.D2()); break; // 0,1,4,5
 						case 0x6be: oakAsm->ZIP2(dst.D2(), rhs.D2(), lhs.D2()); break; // 6,7,2,3
+						case 0xf88: // a0,a1,b2,b3 (PADSBH)
+							oakAsm->INS(dst.Delem()[0], lhs.Delem()[0]);
+							oakAsm->INS(dst.Delem()[1], rhs.Delem()[1]);
+							break;
 						case 0x688: // 0,1,2,3
 							if (dst.index() != lhs.index()) oakAsm->MOV(dst.B16(), lhs.B16());
 							break;
@@ -2103,7 +2177,8 @@ namespace Arm64Ir
 				const bool quad_alu = inst.type == ir::Type::V4U32 &&
 					(inst.op == ir::Op::Add || inst.op == ir::Op::Sub || inst.op == ir::Op::And ||
 						inst.op == ir::Op::Or || inst.op == ir::Op::Xor || inst.op == ir::Op::Not ||
-						ir::IsPackedIntegerOp(inst.op) || inst.op == ir::Op::VShuffle || inst.op == ir::Op::VShuffle2);
+						ir::IsPackedIntegerOp(inst.op) || ir::IsPackedLanePermutationOp(inst.op) || inst.op == ir::Op::VShuffleBytes ||
+						inst.op == ir::Op::VShuffle || inst.op == ir::Op::VShuffle2);
 				const bool quad_result = inst.type == ir::Type::V4U32 &&
 					(inst.op == ir::Op::ConstVec || inst.op == ir::Op::Copy || inst.op == ir::Op::ReadGpr || inst.op == ir::Op::Load128 || quad_alu);
 				for (u32 arg = 0; arg < ir::ValueOperandCount(inst); ++arg)

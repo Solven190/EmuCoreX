@@ -205,6 +205,13 @@ namespace ir
 	X(VCmpLeS,      VecCompare,  2, 2, Any,  false) \
 	X(VCmpLeU,      VecCompare,  2, 2, Any,  false) \
 	X(VBroadcast,   VecLane,     1, 1, Any,  false) \
+	/* Bit-preserving packed permutations. imm is lane width 8/16/32 (0=32). */ \
+	X(VZipLo,       VecBinary,   2, 2, Any,  false) \
+	X(VZipHi,       VecBinary,   2, 2, Any,  false) \
+	X(VPackEven,    VecBinary,   2, 2, Any,  false) \
+	X(VInterleaveEven, VecBinary, 2, 2, Any, false) \
+	/* VShuffleBytes: sixteen 4-bit byte selectors packed in imm, low byte first. */ \
+	X(VShuffleBytes, VecLane,    1, 1, Any,  false) \
 	/* Bit-preserving 32-bit lanes. imm packs four selectors, low lane first: */ \
 	/* VShuffle uses 2 bits/lane (0..3); VShuffle2 uses 3 (a:0..3,b:4..7). */ \
 	X(VShuffle,     VecLane,     1, 1, Any,  false) \
@@ -286,6 +293,7 @@ namespace ir
 
 	const char* OpName(Op op);
 	bool IsPackedIntegerOp(Op op);
+	bool IsPackedLanePermutationOp(Op op);
 	inline const OpInfo& Info(Op op) { return kOpInfo[static_cast<size_t>(op)]; }
 	inline bool IsTerminator(Op op) { return Info(op).terminator; }
 
