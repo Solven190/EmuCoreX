@@ -1666,13 +1666,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         autotestMode: Boolean,
         restoredAfterProcessDeath: Boolean
     ): Boolean {
-        if (!ShaderPreparationUiPolicy.shouldOffer(
+        fun shouldOffer(readiness: ShaderPreparationReadiness) = ShaderPreparationUiPolicy.shouldOffer(
                 renderer = RendererDefaults.normalizeAndroidRenderer(renderer),
                 bootToBios = bootToBios,
                 bootSmokeProbe = bootSmokeProbe,
                 autotestMode = autotestMode,
-                restoredAfterProcessDeath = restoredAfterProcessDeath
-            )) {
+                restoredAfterProcessDeath = restoredAfterProcessDeath,
+                readiness = readiness
+            )
+
+        if (!shouldOffer(ShaderPreparationReadiness.NeedsPreparation)) {
             return true
         }
 
@@ -1680,6 +1683,26 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         shaderPreparationCancelRequested = false
         shaderPreparationMayBeActive = false
         shaderPreparationChoiceGate.reset()
+        _shaderPreparationUiState.value = _shaderPreparationUiState.value.copy(
+            phase = ShaderPreparationUiPhase.Hidden,
+            error = null,
+            ownerKnown = true
+        )
+
+        val readiness = ShaderPreparationReadinessCoordinator.check(
+            lifecycleGate = shaderPreparationLifecycleGate,
+            isAborted = { shaderPreparationAbortRequested || cancelPendingStart },
+            probe = { EmulatorBridge.checkShaderPreparationReadiness() }
+        )
+        if (readiness == ShaderPreparationReadinessResult.Aborted ||
+            shaderPreparationAbortRequested || cancelPendingStart) {
+            return false
+        }
+        if (readiness == ShaderPreparationReadinessResult.Prepared &&
+            !shouldOffer(ShaderPreparationReadiness.ValidatedPrepared)) {
+            return !shaderPreparationAbortRequested && !cancelPendingStart
+        }
+
         _shaderPreparationUiState.value = _shaderPreparationUiState.value.copy(
             phase = ShaderPreparationUiPhase.Offer,
             error = null,
@@ -1845,7 +1868,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         shaderPreparationChoiceGate.abort()
         val state = _shaderPreparationUiState.value
         val required = ShaderPreparationExitCleanup.isRequired(
-            hasActiveWorker = shaderPreparationMayBeActive,
+            hasActiveWorker = shaderPreparationMayBeActive || shaderPreparationLifecycleGate.mayBeActive,
             phase = state.phase
         )
         ShaderPreparationExitCleanup.scheduleIfRequired(required, viewModelScope) {
@@ -2235,14 +2258,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 
                 finalLaunchPath = launchPath
                 Log.i(TAG, "Prepared launch path=$launchPath originalPath=$path bootBios=$bootToBios")
-                val preparationAllowsLaunch = prepareShadersBeforeLaunch(
-                    renderer = renderer,
-                    bootToBios = bootToBios,
-                    bootSmokeProbe = bootSmokeProbe,
-                    autotestMode = autotestMode,
-                    restoredAfterProcessDeath = restoredAfterProcessDeath
-                )
-                if (!preparationAllowsLaunch || cancelPendingStart) {
+                // Vulkan prepares common pipelines on the render device itself.
+                // Game launches never show a preparation dialog or create a second device.
+                if (cancelPendingStart) {
                     _uiState.value = _uiState.value.copy(
                         isStarting = false,
                         statusMessage = null

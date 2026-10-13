@@ -1,6 +1,9 @@
 package com.sbro.emucorex.core
 
 import android.content.Context
+import android.system.Os
+import android.system.OsConstants
+import android.util.Log
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sbro.emucorex.data.AppPreferences
@@ -32,6 +35,30 @@ class MaliSx2DriverDeviceTest {
         assertEquals("libvulkan_malisx2.so", File(path).name)
         assertEquals(path, GpuDriverManager(context).resolveUsableDriverPath(path))
         prefs.setGpuDriverType(1)
+    }
+
+    @Test
+    fun probeSelectedDriverWithMesaDiagnostics() = runBlocking {
+        assertFalse(NativeApp.hasValidVm())
+        val prefs = AppPreferences(context)
+        val path = requireNotNull(prefs.customDriverPath.first())
+        val previousLevel = Os.getenv("MESA_LOG_LEVEL")
+        try {
+            Log.i("MaliKernelProbe", "mali0 exists=${File("/dev/mali0").exists()} access=${Os.access("/dev/mali0", OsConstants.F_OK)}")
+            val fd = Os.open("/dev/mali0", OsConstants.O_RDWR or OsConstants.O_NONBLOCK or OsConstants.O_CLOEXEC, 0)
+            try { Log.i("MaliKernelProbe", "mali0 opened mode=${Os.fstat(fd).st_mode}") }
+            finally { Os.close(fd) }
+            Os.setenv("MESA_LOG_LEVEL", "debug", true)
+            NativeApp.initializeOnce(context)
+            NativeApp.setNativeLibraryDir(context.applicationInfo.nativeLibraryDir)
+            NativeApp.setCustomDriverPath(path)
+            NativeApp.setSetting("EmuCore/GS", "Renderer", "int", "14")
+            NativeApp.checkShaderPreparationReadiness()
+        } finally {
+            if (previousLevel == null) Os.unsetenv("MESA_LOG_LEVEL")
+            else Os.setenv("MESA_LOG_LEVEL", previousLevel, true)
+        }
+        Unit
     }
 
     @Test

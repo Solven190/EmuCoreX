@@ -257,6 +257,8 @@ void ClassifierTests()
     Check(GSDeviceVK::TestTFXShaderSourceBuilders(), "GS reusable source builders preserve all selector and capability variants");
     Check(GSDeviceVK::TestTFXAlphaFallbackClassifier(), "GS alpha fallback class preserves all other selector and pipeline axes");
     Check(GSDeviceVK::TestMaliSX2Policy(), "GS MaliSX2 policy enables ROAA and push descriptors only for the identified capable driver");
+    Check(GSDeviceVK::TestTFXPreparationIdentity(), "GS preparation identity binds source catalog, driver, device, and capability facts");
+    Check(VKShaderCache::TestTFXPreparationReceipt("artifacts/tfx-receipt-cache.bin"), "GS preparation receipt survives valid cache growth and rejects stale or invalid caches");
     Check(GSDeviceVK::TestTFXWarmupOrdering(), "GS learned pipelines precede generic warmup without duplicates");
     Check(JitProfiler::TestSampleRangeSelection(), "profiler nested opcode range selection");
     Check(ir::RunSelfTests(), "IR core self-tests");

@@ -2877,11 +2877,11 @@
     <string name="game_serial_dialog_cancel">Batal</string>
     <string name="game_serial_dialog_saved">Nomor seri game diperbarui</string>
 
-    <string name="shader_prep_offer_title">Siapkan shader Vulkan?</string>
-    <string name="shader_prep_offer_body">Siapkan shader Vulkan yang tersedia pada perangkat grafis saat ini sebelum memulai. Ini mungkin memerlukan waktu.</string>
+    <string name="shader_prep_offer_title">Siapkan shader Vulkan umum?</string>
+    <string name="shader_prep_offer_body">Siapkan shader Vulkan umum pada perangkat grafis saat ini sebelum memulai. Game mungkin memerlukan varian shader tambahan. Proses ini mungkin memerlukan waktu.</string>
     <string name="shader_prep_prepare">Siapkan</string>
     <string name="shader_prep_skip">Lewati</string>
-    <string name="shader_prep_progress">%1$d dari %2$d shader siap</string>
+    <string name="shader_prep_progress">%1$d dari %2$d shader umum siap</string>
     <string name="shader_prep_cached">Sudah tersedia: %1$d</string>
     <string name="shader_prep_in_flight">Sedang dikompilasi: %1$d</string>
     <string name="shader_prep_failures">Gagal: %1$d</string>
@@ -2890,7 +2890,7 @@
     <string name="shader_prep_cancel">Batalkan persiapan</string>
     <string name="shader_prep_resume">Lanjutkan persiapan</string>
     <string name="shader_prep_continue_game">Lanjut ke game</string>
-    <string name="shader_prep_complete">Persiapan shader selesai</string>
+    <string name="shader_prep_complete">Persiapan shader umum selesai</string>
     <string name="shader_prep_checkpoint_saved">Cache shader disimpan</string>
     <string name="shader_prep_error_unsupported">Persiapan shader tidak tersedia untuk konfigurasi ini.</string>
     <string name="shader_prep_error_generic">Persiapan shader tidak dapat diselesaikan.</string>

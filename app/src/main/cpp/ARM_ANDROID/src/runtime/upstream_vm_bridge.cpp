@@ -10,6 +10,7 @@
 #include "pcsx2/ImGui/ImGuiManager.h"
 #include "pcsx2/OpcodeFamilies.h"
 #include "pcsx2/GS/GSUtil.h"
+#include "pcsx2/GS/GSXXH.h"
 #include "pcsx2/GS/Renderers/Common/GSDevice.h"
 #include "pcsx2/GS/Renderers/Vulkan/GSDeviceVK.h"
 #include "pcsx2/GS/Renderers/Vulkan/VKLoader.h"
@@ -688,14 +689,14 @@ bool RunUpstreamVm(const VmLaunchConfig& config, VmStartupCallback startup_callb
 		startup_callback(startup_userdata, true);
 	VMManager::SetState(VMState::Running);
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
-	// Debug-only: profile every VM session automatically so perf runs do not need
-	// any UI interaction. PumpMessagesOnCPUThread() first registers this thread as
+	// Debug-only profiling is opt-in so ordinary debug sessions retain normal speed.
+	// PumpMessagesOnCPUThread() first registers this thread as
 	// the CPU thread, which makes the profiler's Host::RunOnCPUThread tasks run
 	// inline instead of waiting on a queue that this thread pumps.
 	// IR integration tests can opt out: the IOP IR preserves opcode profiling
 	// by retaining the legacy compiler whenever the profiler is active.
 	char profile_value[PROP_VALUE_MAX] = {};
-	const bool auto_profile = __system_property_get("debug.emucorex.jit_profile", profile_value) != 1 || profile_value[0] != '0';
+	const bool auto_profile = __system_property_get("debug.emucorex.jit_profile", profile_value) == 1 && profile_value[0] == '1';
 	if (auto_profile && !JitProfiler::IsActive())
 	{
 		Host::PumpMessagesOnCPUThread();
@@ -759,7 +760,7 @@ bool RunUpstreamVm(const VmLaunchConfig& config, VmStartupCallback startup_callb
 	return true;
 }
 
-TFXPreparationBridgeResult RunTFXPreparation(const VmLaunchConfig& config, TFXPreparationJob& job)
+TFXPreparationBridgeResult RunTFXPreparation(const VmLaunchConfig& config, TFXPreparationJob& job, bool validation_only)
 {
 	TFXPreparationBridgeResult result{TFXPreparationState::Idle, TFXPreparationError::None};
 	std::unique_lock bridge_lock(s_vm_bridge_mutex, std::defer_lock);
@@ -822,6 +823,28 @@ TFXPreparationBridgeResult RunTFXPreparation(const VmLaunchConfig& config, TFXPr
 			if (!device->CreateTFXPreparationDevice(*tfx_source))
 				return {TFXPreparationState::Failed, TFXPreparationError::DeviceCreationFailed};
 
+			std::string driver_identity = "system";
+			if (const char* path = std::getenv("LIBVULKAN_PATH"); path && *path)
+			{
+				driver_identity = std::string("requested:") + path;
+				const auto binary = FileSystem::ReadBinaryFile(path);
+				if (binary.has_value())
+				{
+					const auto hash = XXH3_128bits(binary->data(), binary->size());
+					driver_identity += fmt::format(":{:016x}{:016x}", hash.high64, hash.low64);
+				}
+				else driver_identity += ":missing";
+			}
+			const std::string receipt_identity = device->GetTFXPreparationIdentity(driver_identity);
+			if (validation_only)
+			{
+				const bool prepared = !receipt_identity.empty() && g_vulkan_shader_cache &&
+					g_vulkan_shader_cache->IsTFXPreparationReceiptValid(receipt_identity);
+				return {prepared ? TFXPreparationState::Completed : TFXPreparationState::Idle,
+					TFXPreparationError::None};
+			}
+			const std::string receipt_path = g_vulkan_shader_cache ?
+				g_vulkan_shader_cache->GetTFXPreparationReceiptPath() : std::string();
 			const std::string adapter_name = device->GetName();
 			if (job.CancellationRequested())
 				return {TFXPreparationState::Cancelled, TFXPreparationError::None};
@@ -870,7 +893,7 @@ TFXPreparationBridgeResult RunTFXPreparation(const VmLaunchConfig& config, TFXPr
 				return {TFXPreparationState::Failed, TFXPreparationError::CheckpointFailed};
 			if (job.CancellationRequested())
 				return {TFXPreparationState::Cancelled, TFXPreparationError::None};
-			return {TFXPreparationState::Completed, TFXPreparationError::None};
+			return {TFXPreparationState::Completed, TFXPreparationError::None, receipt_path, receipt_identity};
 		}();
 	}
 	catch (...)

@@ -2862,11 +2862,11 @@
     <string name="game_serial_dialog_cancel">취소</string>
     <string name="game_serial_dialog_saved">게임 시리얼 번호가 업데이트되었습니다</string>
 
-    <string name="shader_prep_offer_title">Vulkan 셰이더를 준비할까요?</string>
-    <string name="shader_prep_offer_body">시작하기 전에 현재 그래픽 장치에서 사용 가능한 Vulkan 셰이더를 준비합니다. 시간이 걸릴 수 있습니다.</string>
+    <string name="shader_prep_offer_title">공통 Vulkan 셰이더를 준비할까요?</string>
+    <string name="shader_prep_offer_body">시작하기 전에 현재 그래픽 장치에서 공통 Vulkan 셰이더를 준비합니다. 게임에 따라 추가 셰이더 변형이 필요할 수 있습니다. 시간이 걸릴 수 있습니다.</string>
     <string name="shader_prep_prepare">준비</string>
     <string name="shader_prep_skip">건너뛰기</string>
-    <string name="shader_prep_progress">%2$d개 중 %1$d개 셰이더 준비됨</string>
+    <string name="shader_prep_progress">%2$d개 중 %1$d개 공통 셰이더 준비됨</string>
     <string name="shader_prep_cached">이미 사용 가능: %1$d</string>
     <string name="shader_prep_in_flight">컴파일 중: %1$d</string>
     <string name="shader_prep_failures">실패: %1$d</string>
@@ -2875,7 +2875,7 @@
     <string name="shader_prep_cancel">준비 취소</string>
     <string name="shader_prep_resume">준비 재개</string>
     <string name="shader_prep_continue_game">게임으로 계속</string>
-    <string name="shader_prep_complete">셰이더 준비 완료</string>
+    <string name="shader_prep_complete">공통 셰이더 준비 완료</string>
     <string name="shader_prep_checkpoint_saved">셰이더 캐시 저장됨</string>
     <string name="shader_prep_error_unsupported">이 구성에서는 셰이더 준비를 사용할 수 없습니다.</string>
     <string name="shader_prep_error_generic">셰이더 준비를 완료하지 못했습니다.</string>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "GS/GS.h"
+#include "GS/GSXXH.h"
 #include "GS/GSGL.h"
 #include "GS/GSPerfMon.h"
 #include "GS/GSShaderCompileIndicator.h"
@@ -6307,6 +6308,66 @@ GSDeviceVK::TFXShaderSourceCatalog GSDeviceVK::BuildTFXShaderSourceCatalog(std::
 	return catalog;
 }
 
+std::string GSDeviceVK::BuildTFXPreparationIdentity(std::string_view source,
+	const TFXShaderSourceCapabilities& capabilities, const VkPhysicalDeviceProperties& properties,
+	bool vertex_expansion, u32 cache_version, std::string_view driver_identity)
+{
+	if (source.empty()) return {};
+	// Length framing keeps identity components unambiguous. These are cache
+	// change fingerprints, not cryptographic authentication of external data.
+	const auto append_u32 = [](std::string& out, u32 value) {
+		for (u32 shift = 0; shift < 32; shift += 8) out.push_back(static_cast<char>(value >> shift));
+	};
+	const auto append_string = [&](std::string& out, std::string_view value) {
+		append_u32(out, static_cast<u32>(value.size()));
+		out.append(value);
+	};
+	const auto digest = [](std::string_view value) {
+		const XXH128_hash_t hash = XXH3_128bits(value.data(), value.size());
+		return fmt::format("{:016x}{:016x}", hash.high64, hash.low64);
+	};
+	std::string device;
+	append_u32(device, 1); // receipt identity schema
+	append_u32(device, cache_version);
+	append_u32(device, properties.vendorID);
+	append_u32(device, properties.deviceID);
+	append_u32(device, properties.driverVersion);
+	append_u32(device, properties.apiVersion);
+	device.append(reinterpret_cast<const char*>(properties.pipelineCacheUUID), VK_UUID_SIZE);
+	append_string(device, driver_identity);
+	device.push_back(vertex_expansion ? 1 : 0);
+	for (bool value : {capabilities.rov, capabilities.texture_barrier, capabilities.feedback_loop_layout,
+		capabilities.scalarize_vector_bitwise_and, capabilities.provoking_vertex_last})
+		device.push_back(value ? 1 : 0);
+
+	const TFXShaderSourceCatalog catalog = BuildTFXShaderSourceCatalog(source, capabilities);
+	std::string sources;
+	append_u32(sources, 1); // catalog receipt schema
+	append_string(sources, source);
+	for (const auto* list : {&catalog.vertex_sources, &catalog.fragment_sources})
+	{
+		append_u32(sources, static_cast<u32>(list->size()));
+		for (const std::string& shader : *list) append_string(sources, shader);
+	}
+	append_u32(sources, static_cast<u32>(catalog.pipelines.size()));
+	for (const TFXShaderSourceCatalog::Pipeline& pipeline : catalog.pipelines)
+	{
+		append_string(sources, std::string_view(reinterpret_cast<const char*>(&pipeline.selector), sizeof(pipeline.selector)));
+		append_u32(sources, pipeline.vertex_source);
+		append_u32(sources, pipeline.fragment_source);
+	}
+	return digest(sources) + digest(device);
+}
+
+std::string GSDeviceVK::GetTFXPreparationIdentity(std::string_view driver_identity) const
+{
+	const TFXShaderSourceCapabilities capabilities = {
+		m_features.rov, m_features.texture_barrier, m_features.texture_barrier && UseFeedbackLoopLayout(),
+		HasMobileGPUProfile(), m_features.provoking_vertex_last};
+	return BuildTFXPreparationIdentity(m_tfx_source, capabilities, m_device_properties,
+		m_features.vs_expand, VKShaderCache::GetTFXPreparationCacheVersion(), driver_identity);
+}
+
 bool GSDeviceVK::TryGetTFXAlphaFallbackKey(const PipelineSelector& selector, PipelineSelector& key)
 {
 	// Only the five shader alpha-test modes have a dynamic equivalent, and only the
@@ -6584,6 +6645,51 @@ bool GSDeviceVK::TestMaliSX2Policy()
 		!ShouldUseMaliSX2PushDescriptors(mali_driver, true, required_push_descriptors - 1, required_push_descriptors) &&
 		!ShouldUseMaliSX2PushDescriptors(stock_mali_driver, true, required_push_descriptors, required_push_descriptors) &&
 		!ShouldUseMaliSX2PushDescriptors(generic_libmali, true, required_push_descriptors, required_push_descriptors);
+}
+
+bool GSDeviceVK::TestTFXPreparationIdentity()
+{
+	TFXShaderSourceCapabilities capabilities{};
+	VkPhysicalDeviceProperties properties{};
+	properties.vendorID = 0x1234;
+	properties.deviceID = 0x5678;
+	properties.driverVersion = 42;
+	properties.apiVersion = VK_API_VERSION_1_1;
+	properties.pipelineCacheUUID[0] = 17;
+	const auto identity = [&](const TFXShaderSourceCapabilities& caps, const VkPhysicalDeviceProperties& props,
+		bool expansion = true, u32 version = 1, std::string_view driver = "system") {
+		return BuildTFXPreparationIdentity("shader source", caps, props, expansion, version, driver);
+	};
+	const std::string base = identity(capabilities, properties);
+	if (base.size() != 64 || base != identity(capabilities, properties) ||
+		!std::all_of(base.begin(), base.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); }))
+		return false;
+	if (base == BuildTFXPreparationIdentity("changed source", capabilities, properties, true, 1, "system") ||
+		base == identity(capabilities, properties, false) || base == identity(capabilities, properties, true, 2) ||
+		base == identity(capabilities, properties, true, 1, "changed driver"))
+		return false;
+	for (bool TFXShaderSourceCapabilities::* field : {&TFXShaderSourceCapabilities::rov,
+		&TFXShaderSourceCapabilities::texture_barrier, &TFXShaderSourceCapabilities::feedback_loop_layout,
+		&TFXShaderSourceCapabilities::scalarize_vector_bitwise_and, &TFXShaderSourceCapabilities::provoking_vertex_last})
+	{
+		auto changed = capabilities;
+		changed.*field = true;
+		if (identity(changed, properties) == base) return false;
+	}
+	for (u32 VkPhysicalDeviceProperties::* field : {&VkPhysicalDeviceProperties::vendorID,
+		&VkPhysicalDeviceProperties::deviceID, &VkPhysicalDeviceProperties::driverVersion, &VkPhysicalDeviceProperties::apiVersion})
+	{
+		auto changed = properties;
+		++(changed.*field);
+		if (identity(capabilities, changed) == base) return false;
+	}
+	auto changed_uuid = properties;
+	++changed_uuid.pipelineCacheUUID[15];
+	if (identity(capabilities, changed_uuid) == base) return false;
+	auto renamed = properties;
+	std::strcpy(renamed.deviceName, "cosmetic GPU name");
+	return identity(capabilities, renamed) == base &&
+		BuildTFXPreparationIdentity({}, capabilities, properties, true, 1, "system").empty();
 }
 
 bool GSDeviceVK::TestTFXAlphaFallbackClassifier()
@@ -8079,13 +8185,21 @@ void GSDeviceVK::ExecuteCommandBufferAndRestartRenderPass(bool wait_for_completi
 
 void GSDeviceVK::ExecuteCommandBufferAndRestartPresent(bool wait_for_completion, const char* reason, ...)
 {
-	std::va_list ap;
-	va_start(ap, reason);
-	const std::string reason_str(StringUtil::StdStringFromFormatV(reason, ap));
-	va_end(ap);
-
-#if defined(__ANDROID__)
-	__android_log_print(ANDROID_LOG_INFO, "EmuCoreX", "Vulkan present pass restart: %s", reason_str.c_str());
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	static const bool trace_present = []() {
+		char value[PROP_VALUE_MAX]{};
+		return __system_property_get("debug.emucorex.gs_compile_trace", value) == 1 && value[0] == '1';
+	}();
+	if (trace_present)
+	{
+		std::va_list ap;
+		va_start(ap, reason);
+		const std::string reason_str(StringUtil::StdStringFromFormatV(reason, ap));
+		va_end(ap);
+		__android_log_print(ANDROID_LOG_INFO, "EmuCoreX", "Vulkan present pass restart: %s", reason_str.c_str());
+	}
+#else
+	(void)reason;
 #endif
 
 	pxAssert(m_is_presenting);

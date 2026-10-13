@@ -1,5 +1,6 @@
 #include "emucorex/android_runtime.h"
 #include "emucorex/upstream_vm_bridge.h"
+#include "pcsx2/GS/Renderers/Vulkan/VKShaderCache.h"
 
 #include "common/Error.h"
 #include "common/FileSystem.h"
@@ -394,7 +395,8 @@ AndroidRuntime::~AndroidRuntime()
 
 bool AndroidRuntime::IsTFXPreparationActiveLocked() const
 {
-	return tfx_preparation_job_ && TFXPreparationJob::IsActiveState(tfx_preparation_job_->Snapshot().state);
+	return tfx_readiness_probe_active_ ||
+		(tfx_preparation_job_ && TFXPreparationJob::IsActiveState(tfx_preparation_job_->Snapshot().state));
 }
 
 void AndroidRuntime::ApplyDeferredRuntimeGlobalsLocked()
@@ -925,6 +927,8 @@ int AndroidRuntime::RunTFXPreparationRuntimeTests()
 			"real runtime job compiles and accounts all 164 canonical TFX selectors");
 		check(real_status.checkpoint_saved && !real_status.adapter_name.empty(),
 			"real runtime job reports its adapter and persisted pipeline checkpoint");
+		check(CheckTFXPreparationReadiness(), "real completed preparation validates its durable receipt before another game");
+
 		bool runtime_has_no_worker_threads;
 		{
 			std::lock_guard lock(mutex_);
@@ -942,6 +946,48 @@ int AndroidRuntime::RunTFXPreparationRuntimeTests()
 	return failures ? 1 : 0;
 }
 #endif
+
+bool AndroidRuntime::CheckTFXPreparationReadiness()
+{
+	// A short surfaceless probe runs on the caller's IO thread. Disc admission
+	// excludes VM/start/shutdown while the probe owns restored upstream globals;
+	// the runtime mutex remains free for status and deferred settings updates.
+	std::unique_lock disc_access_lock(s_disc_access_mutex);
+	std::thread old_vm_thread, old_preparation_thread;
+	{
+		std::lock_guard lock(mutex_);
+		if (!initialized_ || settings_batch_ || vm_active_ || startup_state_ == VmStartupState::Pending ||
+			IsTFXPreparationActiveLocked()) return false;
+		if (vm_thread_.joinable()) old_vm_thread = std::move(vm_thread_);
+		if (tfx_preparation_thread_.joinable()) old_preparation_thread = std::move(tfx_preparation_thread_);
+	}
+	if (old_vm_thread.joinable()) old_vm_thread.join();
+	if (old_preparation_thread.joinable()) old_preparation_thread.join();
+	VmLaunchConfig config;
+	{
+		std::lock_guard lock(mutex_);
+		if (!initialized_ || settings_batch_ || vm_active_ || startup_state_ == VmStartupState::Pending ||
+			IsTFXPreparationActiveLocked()) return false;
+		config = CreateLaunchConfigLocked({}, false, 0, false);
+		tfx_readiness_probe_active_ = true;
+	}
+	bool prepared = false;
+	try
+	{
+		TFXPreparationJob probe(1, 1);
+		prepared = RunTFXPreparation(config, probe, true).state == TFXPreparationState::Completed;
+	}
+	catch (...) { prepared = false; }
+	{
+		std::lock_guard lock(mutex_);
+		// Settings/data-root changes during the probe invalidate its answer.
+		prepared &= !settings_batch_ && paths_.data_root == config.paths.data_root &&
+			paths_.native_library_dir == config.paths.native_library_dir && settings_ == config.settings;
+		tfx_readiness_probe_active_ = false;
+		ApplyDeferredRuntimeGlobalsLocked();
+	}
+	return prepared;
+}
 
 bool AndroidRuntime::StartTFXPreparation()
 {
@@ -1106,7 +1152,11 @@ void AndroidRuntime::TFXPreparationThreadMain(VmLaunchConfig config, std::shared
 			}
 			else if (result.state == TFXPreparationState::Completed)
 			{
-				if (!job->Finish(TFXPreparationState::Completed))
+				const bool committed = job->CommitCompleted([&result]() {
+					return !result.receipt_path.empty() &&
+						VKShaderCache::SaveTFXPreparationReceipt(result.receipt_path, result.receipt_identity);
+				});
+				if (!committed && TFXPreparationJob::IsActiveState(job->Snapshot().state))
 					job->Finish(TFXPreparationState::Failed, TFXPreparationError::InternalError);
 			}
 			else if (result.state == TFXPreparationState::Cancelled)

@@ -29,6 +29,7 @@
 #include "fmt/format.h"
 #include "shaderc/shaderc.h"
 
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <memory>
@@ -74,6 +75,20 @@ namespace
 	// Real pipeline caches are kilobytes to low megabytes. Anything beyond this
 	// cannot be a valid blob, so reject it before the driver touches it.
 	static constexpr size_t MAX_PIPELINE_CACHE_SIZE = 256 * 1024 * 1024;
+	static constexpr std::string_view TFX_PREPARATION_RECEIPT_HEADER = "EMUCOREX-TFX-PREP/1\n";
+	static constexpr size_t TFX_PREPARATION_IDENTITY_LENGTH = 64;
+	static constexpr size_t TFX_PREPARATION_RECEIPT_SIZE = TFX_PREPARATION_RECEIPT_HEADER.size() +
+		TFX_PREPARATION_IDENTITY_LENGTH + 1;
+
+	static bool IsValidTFXPreparationIdentity(std::string_view identity)
+	{
+		if (identity.size() != TFX_PREPARATION_IDENTITY_LENGTH)
+			return false;
+
+		return std::all_of(identity.begin(), identity.end(), [](char ch) {
+			return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
+		});
+	}
 } // namespace
 
 static bool ValidatePipelineCacheHeader(const VK_PIPELINE_CACHE_HEADER& header)
@@ -485,6 +500,7 @@ void VKShaderCache::Destroy()
 
 void VKShaderCache::Open()
 {
+	m_pipeline_cache_loaded_from_disk = false;
 	if (!GSConfig.DisableShaderCache)
 	{
 		m_pipeline_cache_filename = GetPipelineCacheBaseFileName(GSConfig.UseDebugDevice);
@@ -665,6 +681,9 @@ void VKShaderCache::CloseShaderCache()
 
 bool VKShaderCache::CreateNewPipelineCache()
 {
+	m_pipeline_cache_loaded_from_disk = false;
+	InvalidateTFXPreparationReceipt();
+
 	if (!m_pipeline_cache_filename.empty() && FileSystem::FileExists(m_pipeline_cache_filename.c_str()))
 	{
 		Console.Warning("Removing existing pipeline cache '%s'", m_pipeline_cache_filename.c_str());
@@ -685,6 +704,8 @@ bool VKShaderCache::CreateNewPipelineCache()
 
 bool VKShaderCache::ReadExistingPipelineCache()
 {
+	m_pipeline_cache_loaded_from_disk = false;
+
 	// If a previous run died inside vkCreatePipelineCache below, the blob is
 	// suspect: some drivers (observed Adreno memcpy SIGSEGV) read past the end
 	// of torn data instead of failing. The sentinel survives the crash while a
@@ -737,7 +758,64 @@ bool VKShaderCache::ReadExistingPipelineCache()
 		return false;
 	}
 
+	m_pipeline_cache_loaded_from_disk = true;
 	return true;
+}
+
+std::string VKShaderCache::GetTFXPreparationReceiptPath() const
+{
+	return m_pipeline_cache_filename.empty() ? std::string() : (m_pipeline_cache_filename + ".tfxprep");
+}
+
+bool VKShaderCache::IsTFXPreparationReceiptValid(std::string_view identity) const
+{
+	if (!m_pipeline_cache_loaded_from_disk || m_pipeline_cache_filename.empty() ||
+		!IsValidTFXPreparationIdentity(identity) || !FileSystem::FileExists(m_pipeline_cache_filename.c_str()))
+	{
+		return false;
+	}
+
+	const std::string path = GetTFXPreparationReceiptPath();
+	if (FileSystem::GetPathFileSize(path.c_str()) != static_cast<s64>(TFX_PREPARATION_RECEIPT_SIZE))
+		return false;
+
+	const std::optional<std::vector<u8>> contents = FileSystem::ReadBinaryFile(path.c_str());
+	if (!contents.has_value() || contents->size() != TFX_PREPARATION_RECEIPT_SIZE)
+		return false;
+
+	const std::string_view receipt(reinterpret_cast<const char*>(contents->data()), contents->size());
+	return receipt.substr(0, TFX_PREPARATION_RECEIPT_HEADER.size()) == TFX_PREPARATION_RECEIPT_HEADER &&
+		receipt.substr(TFX_PREPARATION_RECEIPT_HEADER.size(), TFX_PREPARATION_IDENTITY_LENGTH) == identity &&
+		receipt.back() == '\n';
+}
+
+bool VKShaderCache::SaveTFXPreparationReceipt(const std::string& path, std::string_view identity)
+{
+	if (path.empty() || !IsValidTFXPreparationIdentity(identity))
+		return false;
+
+	std::vector<u8> contents;
+	contents.reserve(TFX_PREPARATION_RECEIPT_SIZE);
+	contents.insert(contents.end(), TFX_PREPARATION_RECEIPT_HEADER.begin(), TFX_PREPARATION_RECEIPT_HEADER.end());
+	contents.insert(contents.end(), identity.begin(), identity.end());
+	contents.push_back('\n');
+	return SavePipelineCacheDataIfChanged(path, contents);
+}
+
+u32 VKShaderCache::GetTFXPreparationCacheVersion()
+{
+	return SHADER_CACHE_VERSION;
+}
+
+void VKShaderCache::InvalidateTFXPreparationReceipt() const
+{
+	const std::string path = GetTFXPreparationReceiptPath();
+	if (path.empty())
+		return;
+
+	FileSystem::DeleteFilePath(path.c_str());
+	const std::string tmp_path = path + ".tmp";
+	FileSystem::DeleteFilePath(tmp_path.c_str());
 }
 
 bool VKShaderCache::FlushPipelineCache(bool force)
@@ -914,6 +992,83 @@ bool VKShaderCache::TestPipelineCachePersistence(const char* test_filename)
 		return fail("regular-file parent source/temp integrity");
 	return true;
 }
+
+bool VKShaderCache::TestTFXPreparationReceipt(const char* test_filename)
+{
+	if (!test_filename || !*test_filename)
+		return false;
+
+	const std::string filename(test_filename);
+	const std::string receipt_path = filename + ".tfxprep";
+	ScopedGuard cleanup([&]() {
+		FileSystem::DeleteFilePath(filename.c_str());
+		FileSystem::DeleteFilePath((filename + ".tmp").c_str());
+		FileSystem::DeleteFilePath(receipt_path.c_str());
+		FileSystem::DeleteFilePath((receipt_path + ".tmp").c_str());
+	});
+	FileSystem::DeleteFilePath(filename.c_str());
+	FileSystem::DeleteFilePath((filename + ".tmp").c_str());
+	FileSystem::DeleteFilePath(receipt_path.c_str());
+	FileSystem::DeleteFilePath((receipt_path + ".tmp").c_str());
+
+	const std::string identity = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+	const std::string changed_identity = "1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+	const std::vector<u8> cache_data{0x10, 0x20, 0x30, 0x40};
+	const std::vector<u8> changed_cache_data{0x10, 0x20, 0x30, 0x41, 0x50};
+	const auto fail = [](const char* stage) {
+		std::fprintf(stderr, "TFX preparation receipt test failed at %s (errno=%d)\n", stage, errno);
+		return false;
+	};
+
+	if (!FileSystem::WriteBinaryFile(filename.c_str(), cache_data.data(), cache_data.size()))
+		return fail("pipeline cache fixture");
+	VKShaderCache cache;
+	cache.m_pipeline_cache_filename = filename;
+	if (cache.GetTFXPreparationReceiptPath() != receipt_path)
+		return fail("receipt path");
+	if (cache.IsTFXPreparationReceiptValid(identity))
+		return fail("missing receipt rejected");
+	if (!SaveTFXPreparationReceipt(receipt_path, identity))
+		return fail("write receipt");
+	if (cache.IsTFXPreparationReceiptValid(identity))
+		return fail("not-loaded cache rejected");
+	cache.m_pipeline_cache_loaded_from_disk = true;
+	if (!cache.IsTFXPreparationReceiptValid(identity))
+		return fail("matching receipt accepted");
+	if (!FileSystem::WriteBinaryFile(filename.c_str(), changed_cache_data.data(), changed_cache_data.size()) ||
+		!cache.IsTFXPreparationReceiptValid(identity))
+	{
+		return fail("ordinary cache growth preserves receipt");
+	}
+	FileSystem::DeleteFilePath(filename.c_str());
+	if (cache.IsTFXPreparationReceiptValid(identity))
+		return fail("late cache deletion rejected");
+	if (!FileSystem::WriteBinaryFile(filename.c_str(), changed_cache_data.data(), changed_cache_data.size()))
+		return fail("restore cache fixture");
+	if (cache.IsTFXPreparationReceiptValid(changed_identity))
+		return fail("identity mismatch rejected");
+	if (SaveTFXPreparationReceipt(receipt_path, "invalid"))
+		return fail("malformed identity rejected");
+	const char malformed_receipt[] = "TFXPREP/1\ninvalid\n";
+	if (!FileSystem::WriteBinaryFile(receipt_path.c_str(), malformed_receipt, sizeof(malformed_receipt) - 1))
+		return fail("malformed sidecar fixture");
+	if (cache.IsTFXPreparationReceiptValid(identity))
+		return fail("malformed sidecar rejected");
+	if (!SaveTFXPreparationReceipt(receipt_path, identity))
+		return fail("restore valid receipt");
+	cache.InvalidateTFXPreparationReceipt();
+	if (cache.IsTFXPreparationReceiptValid(identity) || FileSystem::FileExists(receipt_path.c_str()))
+		return fail("new-cache invalidation");
+	if (SaveTFXPreparationReceipt(receipt_path, ""))
+		return fail("empty identity rejected");
+	FileSystem::DeleteFilePath(filename.c_str());
+	if (cache.IsTFXPreparationReceiptValid(identity))
+		return fail("missing cache rejected");
+	cache.m_pipeline_cache_filename.clear();
+	if (!cache.GetTFXPreparationReceiptPath().empty() || cache.IsTFXPreparationReceiptValid(identity))
+		return fail("disabled cache rejected");
+	return true;
+}
 #endif
 
 VkPipelineCache VKShaderCache::CreateTransientPipelineCache()
@@ -972,12 +1127,16 @@ std::mutex& VKShaderCache::GetPipelineCacheMutex()
 void VKShaderCache::ClosePipelineCache()
 {
 	if (m_pipeline_cache == VK_NULL_HANDLE)
+	{
+		m_pipeline_cache_loaded_from_disk = false;
 		return;
+	}
 
 	std::lock_guard lock(m_pipeline_cache_mutex);
 
 	vkDestroyPipelineCache(GSDeviceVK::GetInstance()->GetDevice(), m_pipeline_cache, nullptr);
 	m_pipeline_cache = VK_NULL_HANDLE;
+	m_pipeline_cache_loaded_from_disk = false;
 }
 
 std::string VKShaderCache::GetShaderCacheBaseFileName(bool debug)

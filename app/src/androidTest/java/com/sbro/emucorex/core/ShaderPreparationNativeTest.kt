@@ -53,6 +53,8 @@ class ShaderPreparationNativeTest {
             assertFalse("Zero is not a valid preparation job ID", NativeApp.resumeShaderPreparation(0L))
             assertFalse("Negative IDs cannot be converted to native job IDs", NativeApp.resumeShaderPreparation(-1L))
 
+            assertFalse("A fresh isolated cache has no prepared receipt", NativeApp.checkShaderPreparationReadiness())
+
             assertTrue("Native runtime should admit an asynchronous preparation job", NativeApp.startShaderPreparation())
             val first = awaitStatus(START_TIMEOUT_MS) { status -> status.jobId != previousStatus.jobId }
             assertTrue("Accepted job must have a positive bounded ID", first.jobId > 0L)
@@ -65,6 +67,7 @@ class ShaderPreparationNativeTest {
             if (cancellationAccepted) {
                 assertEquals("An accepted cancellation must finish cancelled", ShaderPreparationStatus.State.CANCELLED, terminal.state)
                 assertTrue("Terminal cancellation retains the accepted request", terminal.cancelRequested)
+                assertFalse("Accepted cancellation must not persist a prepared receipt", NativeApp.checkShaderPreparationReadiness())
                 assertTrue("The cancelled job should resume under the same identity", NativeApp.resumeShaderPreparation(first.jobId))
                 terminal = awaitTerminal(first.jobId, first.attempt + 1, JOB_TIMEOUT_MS)
                 assertEquals("Resume increments the attempt without changing job identity", first.jobId, terminal.jobId)
@@ -82,6 +85,30 @@ class ShaderPreparationNativeTest {
             assertTrue("The Vulkan device should report its selected adapter", terminal.adapterName.isNotBlank())
             assertFalse("Headless preparation must not start a CPU VM", NativeApp.hasValidVm())
             assertNull("No VM draw rectangle is exposed without a running VM", NativeApp.getDisplayDrawRect())
+            assertTrue("A completed checkpoint validates from persistent cache metadata", NativeApp.checkShaderPreparationReadiness())
+            NativeApp.shutdown()
+            assertTrue("A fresh device probe still validates after the preparation worker is joined", NativeApp.checkShaderPreparationReadiness())
+            assertFalse("Readiness validation must not start a VM", NativeApp.hasValidVm())
+
+            val originalShader = shaderFile.readBytes()
+            shaderFile.appendText("\n// receipt identity invalidation test\n")
+            assertFalse("Changed shader source invalidates the receipt", NativeApp.checkShaderPreparationReadiness())
+            shaderFile.writeBytes(originalShader)
+            assertTrue("Restoring matching source keeps a valid existing checkpoint", NativeApp.checkShaderPreparationReadiness())
+
+            val receipt = File(isolatedRoot, "cache").walkTopDown().firstOrNull { it.isFile && it.name.endsWith(".tfxprep") }
+            requireNotNull(receipt) { "The completed job must persist a bounded cache receipt" }
+            val originalReceipt = receipt.readBytes()
+            receipt.writeText("invalid receipt")
+            assertFalse("Corrupted receipt must not suppress preparation", NativeApp.checkShaderPreparationReadiness())
+            receipt.writeBytes(originalReceipt)
+            assertTrue("Matching receipt and driver-accepted cache remain ready", NativeApp.checkShaderPreparationReadiness())
+            val pipelineCache = File(receipt.absolutePath.removeSuffix(".tfxprep"))
+            assertTrue("Receipt must reference a real pipeline checkpoint", pipelineCache.isFile)
+            assertTrue("Only the isolated pipeline cache is deleted", pipelineCache.delete())
+            assertFalse("Deleted pipeline cache invalidates readiness despite a completed old job", NativeApp.checkShaderPreparationReadiness())
+            assertFalse("Cache recreation removes the stale receipt", receipt.exists())
+
         } finally {
             try {
                 if (initializedForTest)

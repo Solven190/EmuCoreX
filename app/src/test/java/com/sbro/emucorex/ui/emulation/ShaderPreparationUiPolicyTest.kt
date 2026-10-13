@@ -8,6 +8,30 @@ import org.junit.Test
 
 class ShaderPreparationUiPolicyTest {
     @Test
+    fun onlyNativeValidatedReadinessSuppressesTheOffer() {
+        val launch = mapOf(
+            "renderer" to RendererDefaults.VULKAN,
+            "bootToBios" to 0,
+            "bootSmokeProbe" to 0,
+            "autotestMode" to 0,
+            "restoredAfterProcessDeath" to 0
+        )
+
+        fun offer(readiness: ShaderPreparationReadiness) = ShaderPreparationUiPolicy.shouldOffer(
+            renderer = launch.getValue("renderer"),
+            bootToBios = launch.getValue("bootToBios") != 0,
+            bootSmokeProbe = launch.getValue("bootSmokeProbe") != 0,
+            autotestMode = launch.getValue("autotestMode") != 0,
+            restoredAfterProcessDeath = launch.getValue("restoredAfterProcessDeath") != 0,
+            readiness = readiness
+        )
+
+        assertFalse(offer(ShaderPreparationReadiness.ValidatedPrepared))
+        assertTrue(offer(ShaderPreparationReadiness.NeedsPreparation))
+        assertTrue(offer(ShaderPreparationReadiness.Unavailable))
+    }
+
+    @Test
     fun preparationOfferIsLimitedToOrdinaryVulkanGameLaunches() {
         assertTrue(ShaderPreparationUiPolicy.shouldOffer(
             renderer = RendererDefaults.VULKAN,

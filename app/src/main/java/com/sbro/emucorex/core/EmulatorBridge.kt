@@ -213,6 +213,11 @@ object EmulatorBridge {
         return runSerial { NativeApp.startShaderPreparation() }
     }
 
+    suspend fun checkShaderPreparationReadiness(): Boolean {
+        if (!isNativeLoaded) return false
+        return withContext(Dispatchers.IO) { NativeApp.checkShaderPreparationReadiness() }
+    }
+
     suspend fun getShaderPreparationStatusSnapshot(): ShaderPreparationStatus? {
         if (!isNativeLoaded) return null
         return runSerial { NativeApp.getShaderPreparationStatusSnapshot() }

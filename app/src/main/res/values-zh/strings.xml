@@ -2864,11 +2864,11 @@
     <string name="game_serial_dialog_cancel">取消</string>
     <string name="game_serial_dialog_saved">游戏序列号已更新</string>
 
-    <string name="shader_prep_offer_title">准备 Vulkan 着色器？</string>
-    <string name="shader_prep_offer_body">启动前，在当前图形设备上准备可用的 Vulkan 着色器。这可能需要一些时间。</string>
+    <string name="shader_prep_offer_title">准备通用 Vulkan 着色器？</string>
+    <string name="shader_prep_offer_body">启动前，在当前图形设备上准备通用 Vulkan 着色器。游戏可能还需要其他着色器变体。这可能需要一些时间。</string>
     <string name="shader_prep_prepare">准备</string>
     <string name="shader_prep_skip">跳过</string>
-    <string name="shader_prep_progress">已准备 %1$d / %2$d 个着色器</string>
+    <string name="shader_prep_progress">已准备 %1$d / %2$d 个通用着色器</string>
     <string name="shader_prep_cached">已可用：%1$d</string>
     <string name="shader_prep_in_flight">正在编译：%1$d</string>
     <string name="shader_prep_failures">失败：%1$d</string>
@@ -2877,7 +2877,7 @@
     <string name="shader_prep_cancel">取消准备</string>
     <string name="shader_prep_resume">继续准备</string>
     <string name="shader_prep_continue_game">进入游戏</string>
-    <string name="shader_prep_complete">着色器准备完成</string>
+    <string name="shader_prep_complete">通用着色器准备完成</string>
     <string name="shader_prep_checkpoint_saved">着色器缓存已保存</string>
     <string name="shader_prep_error_unsupported">此配置无法使用着色器准备功能。</string>
     <string name="shader_prep_error_generic">无法完成着色器准备。</string>

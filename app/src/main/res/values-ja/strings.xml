@@ -2862,11 +2862,11 @@
     <string name="game_serial_dialog_cancel">キャンセル</string>
     <string name="game_serial_dialog_saved">ゲームのシリアル番号を更新しました</string>
 
-    <string name="shader_prep_offer_title">Vulkanシェーダーを準備しますか？</string>
-    <string name="shader_prep_offer_body">起動前に、現在のグラフィックスデバイスで利用可能なVulkanシェーダーを準備します。時間がかかる場合があります。</string>
+    <string name="shader_prep_offer_title">共通の Vulkan シェーダーを準備しますか？</string>
+    <string name="shader_prep_offer_body">起動前に、現在のグラフィックスデバイスで共通の Vulkan シェーダーを準備します。ゲームによっては追加のシェーダーバリアントが必要です。時間がかかる場合があります。</string>
     <string name="shader_prep_prepare">準備する</string>
     <string name="shader_prep_skip">スキップ</string>
-    <string name="shader_prep_progress">%2$d個中%1$d個のシェーダーを準備済み</string>
+    <string name="shader_prep_progress">%2$d 個中 %1$d 個の共通シェーダーを準備済み</string>
     <string name="shader_prep_cached">既に利用可能：%1$d</string>
     <string name="shader_prep_in_flight">コンパイル中：%1$d</string>
     <string name="shader_prep_failures">失敗：%1$d</string>
@@ -2875,7 +2875,7 @@
     <string name="shader_prep_cancel">準備をキャンセル</string>
     <string name="shader_prep_resume">準備を再開</string>
     <string name="shader_prep_continue_game">ゲームへ進む</string>
-    <string name="shader_prep_complete">シェーダーの準備が完了しました</string>
+    <string name="shader_prep_complete">共通シェーダーの準備が完了しました</string>
     <string name="shader_prep_checkpoint_saved">シェーダーキャッシュを保存しました</string>
     <string name="shader_prep_error_unsupported">この設定ではシェーダーの準備を利用できません。</string>
     <string name="shader_prep_error_generic">シェーダーの準備を完了できませんでした。</string>

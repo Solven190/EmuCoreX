@@ -51,6 +51,7 @@ public:
 	bool GetNativeSurface(void** window, int* width, int* height, float* refresh_rate) const;
 
 	bool StartVm(std::string path, bool boot_elf, int probe_steps, bool boot_irx = false);
+	bool CheckTFXPreparationReadiness();
 	bool StartTFXPreparation();
 	bool CancelTFXPreparation(uint64_t job_id);
 	bool ResumeTFXPreparation(uint64_t job_id);
@@ -119,6 +120,7 @@ private:
 	std::string current_path_;
 	RuntimeSettings settings_;
 	std::thread vm_thread_;
+	bool tfx_readiness_probe_active_ = false;
 	std::shared_ptr<TFXPreparationJob> tfx_preparation_job_;
 	std::thread tfx_preparation_thread_;
 	VmLaunchConfig tfx_preparation_config_;

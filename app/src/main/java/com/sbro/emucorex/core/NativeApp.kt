@@ -329,6 +329,7 @@ object NativeApp {
     @JvmStatic external fun cancelShaderPreparation(jobId: Long): Boolean
     @JvmStatic external fun resumeShaderPreparation(jobId: Long): Boolean
     @JvmStatic external fun getShaderPreparationStatusSnapshot(): String?
+    @JvmStatic external fun checkShaderPreparationReadiness(): Boolean
     @JvmStatic external fun getNominalFrameRate(): Float
     @JvmStatic external fun setDisplayRefreshRate(refreshRate: Float)
     @JvmStatic external fun getDisplayDrawRect(): FloatArray?

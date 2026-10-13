@@ -35,8 +35,17 @@ public:
 	/// the whole cache, so non-forced calls are rate-limited; force=true is for teardown.
 	bool FlushPipelineCache(bool force = false);
 	bool HasPipelineCacheFile() const { return !m_pipeline_cache_filename.empty(); }
+	/// Returns the sidecar path associated with this pipeline cache, or empty when caching is disabled.
+	std::string GetTFXPreparationReceiptPath() const;
+	/// True only when this process loaded the current pipeline cache through the driver and the
+	/// sidecar matches the caller's deterministic 64-character lowercase-hex identity.
+	bool IsTFXPreparationReceiptValid(std::string_view identity) const;
+	/// Atomically persists an opaque TFX preparation identity at the supplied sidecar path.
+	static bool SaveTFXPreparationReceipt(const std::string& path, std::string_view identity);
+	static u32 GetTFXPreparationCacheVersion();
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 	static bool TestPipelineCachePersistence(const char* test_filename);
+	static bool TestTFXPreparationReceipt(const char* test_filename);
 #endif
 
 	/// Creates a pipeline cache seeded with the contents of the shared cache, for use on a
@@ -105,6 +114,7 @@ private:
 
 	bool CreateNewPipelineCache();
 	bool ReadExistingPipelineCache();
+	void InvalidateTFXPreparationReceipt() const;
 	void ClosePipelineCache();
 	static bool SavePipelineCacheDataIfChanged(const std::string& filename, const std::vector<u8>& data,
 		bool* written = nullptr);
@@ -123,6 +133,7 @@ private:
 	std::mutex m_pipeline_cache_mutex;
 
 	VkPipelineCache m_pipeline_cache = VK_NULL_HANDLE;
+	bool m_pipeline_cache_loaded_from_disk = false;
 	std::atomic<bool> m_pipeline_cache_dirty{false};
 	std::chrono::steady_clock::time_point m_last_pipeline_cache_flush{};
 

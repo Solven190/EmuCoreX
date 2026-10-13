@@ -805,6 +805,10 @@ public:
 		const GSHWDrawConfig::PSSelector& selector, const TFXShaderSourceCapabilities& capabilities);
 	static TFXShaderSourceCatalog BuildTFXShaderSourceCatalog(std::string_view tfx_source,
 		const TFXShaderSourceCapabilities& capabilities);
+	static std::string BuildTFXPreparationIdentity(std::string_view source,
+		const TFXShaderSourceCapabilities& capabilities, const VkPhysicalDeviceProperties& properties,
+		bool vertex_expansion, u32 cache_version, std::string_view driver_identity);
+	std::string GetTFXPreparationIdentity(std::string_view driver_identity = {}) const;
 	static bool TryGetTFXAlphaFallbackKey(const PipelineSelector& selector, PipelineSelector& key);
 
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
@@ -813,6 +817,7 @@ public:
 	static bool TestTFXShaderSourceCatalog();
 	static bool TestTFXAlphaFallbackClassifier();
 	static bool TestMaliSX2Policy();
+	static bool TestTFXPreparationIdentity();
 	static bool TestTFXPreparationProgress();
 	static bool TestTFXPreparationPlan();
 	bool TestTFXPreparationResources() const;

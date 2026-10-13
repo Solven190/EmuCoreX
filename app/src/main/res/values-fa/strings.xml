@@ -2878,11 +2878,11 @@
     <string name="game_serial_dialog_cancel">لغو</string>
     <string name="game_serial_dialog_saved">شماره سریال بازی به‌روزرسانی شد</string>
 
-    <string name="shader_prep_offer_title">سایه‌زن‌های Vulkan آماده شوند؟</string>
-    <string name="shader_prep_offer_body">پیش از شروع، سایه‌زن‌های Vulkan موجود را روی دستگاه گرافیکی فعلی آماده کنید. این کار ممکن است کمی زمان ببرد.</string>
+    <string name="shader_prep_offer_title">سایه‌زن‌های مشترک Vulkan آماده شوند؟</string>
+    <string name="shader_prep_offer_body">پیش از شروع، سایه‌زن‌های مشترک Vulkan را روی دستگاه گرافیکی فعلی آماده کنید. ممکن است بازی‌ها به نسخه‌های بیشتری از سایه‌زن‌ها نیاز داشته باشند. این کار ممکن است کمی زمان ببرد.</string>
     <string name="shader_prep_prepare">آماده‌سازی</string>
     <string name="shader_prep_skip">رد کردن</string>
-    <string name="shader_prep_progress">%1$d از %2$d سایه‌زن آماده است</string>
+    <string name="shader_prep_progress">%1$d از %2$d سایه‌زن مشترک آماده است</string>
     <string name="shader_prep_cached">از پیش موجود: %1$d</string>
     <string name="shader_prep_in_flight">در حال کامپایل: %1$d</string>
     <string name="shader_prep_failures">ناموفق: %1$d</string>
@@ -2891,7 +2891,7 @@
     <string name="shader_prep_cancel">لغو آماده‌سازی</string>
     <string name="shader_prep_resume">ادامه آماده‌سازی</string>
     <string name="shader_prep_continue_game">ادامه به بازی</string>
-    <string name="shader_prep_complete">آماده‌سازی سایه‌زن‌ها کامل شد</string>
+    <string name="shader_prep_complete">آماده‌سازی سایه‌زن‌های مشترک کامل شد</string>
     <string name="shader_prep_checkpoint_saved">حافظه نهان سایه‌زن‌ها ذخیره شد</string>
     <string name="shader_prep_error_unsupported">آماده‌سازی سایه‌زن‌ها برای این پیکربندی در دسترس نیست.</string>
     <string name="shader_prep_error_generic">آماده‌سازی سایه‌زن‌ها کامل نشد.</string>

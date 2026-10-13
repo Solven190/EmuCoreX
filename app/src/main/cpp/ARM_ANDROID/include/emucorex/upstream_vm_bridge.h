@@ -15,9 +15,11 @@ struct TFXPreparationBridgeResult
 {
 	TFXPreparationState state = TFXPreparationState::Failed;
 	TFXPreparationError error = TFXPreparationError::InternalError;
+	std::string receipt_path;
+	std::string receipt_identity;
 };
 
-TFXPreparationBridgeResult RunTFXPreparation(const VmLaunchConfig& config, TFXPreparationJob& job);
+TFXPreparationBridgeResult RunTFXPreparation(const VmLaunchConfig& config, TFXPreparationJob& job, bool validation_only = false);
 void ApplyRuntimeSettingsToUpstream(const VmLaunchConfig& config);
 void InitializeSettingsLayer();
 

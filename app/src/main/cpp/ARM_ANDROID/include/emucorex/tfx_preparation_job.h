@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <string>
 
@@ -54,6 +55,9 @@ public:
     bool PublishProgress(const TFXPreparationProgress& progress, std::string adapter_name = {});
     // The lifecycle owner calls this only after device teardown and lock release.
     bool Finish(TFXPreparationState state, TFXPreparationError error = TFXPreparationError::None);
+    // Atomically publishes a successful terminal state with durable receipt persistence.
+    // Cancellation/status readers serialize behind the receipt writer.
+    bool CommitCompleted(const std::function<bool()>& persist_receipt);
 
 private:
     mutable std::mutex mutex_;

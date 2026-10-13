@@ -23,12 +23,54 @@ internal class ShaderPreparationLifecycleGate {
         block(mayBeActive)
     }
 
+    suspend fun <T> withReadinessProbe(block: suspend () -> T): T = mutex.withLock {
+        mayBeActive = true
+        try {
+            block()
+        } finally {
+            mayBeActive = false
+        }
+    }
+
     fun markInactive() {
         mayBeActive = false
     }
 
     fun setMayBeActive(value: Boolean) {
         mayBeActive = value
+    }
+}
+
+internal enum class ShaderPreparationReadinessResult {
+    Prepared,
+    Offer,
+    Aborted
+}
+
+/** Testable seam for native cache validation and route-exit serialization. */
+internal object ShaderPreparationReadinessCoordinator {
+    suspend fun check(
+        lifecycleGate: ShaderPreparationLifecycleGate,
+        isAborted: () -> Boolean,
+        probe: suspend () -> Boolean
+    ): ShaderPreparationReadinessResult {
+        if (isAborted()) return ShaderPreparationReadinessResult.Aborted
+        val validatedPrepared = try {
+            lifecycleGate.withReadinessProbe {
+                if (isAborted()) return@withReadinessProbe false
+                probe()
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            false
+        }
+        if (isAborted()) return ShaderPreparationReadinessResult.Aborted
+        return if (validatedPrepared) {
+            ShaderPreparationReadinessResult.Prepared
+        } else {
+            ShaderPreparationReadinessResult.Offer
+        }
     }
 }
 

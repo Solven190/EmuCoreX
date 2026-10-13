@@ -2867,11 +2867,11 @@
     <string name="game_serial_dialog_cancel">Отмена</string>
     <string name="game_serial_dialog_saved">Серийный номер игры обновлён</string>
 
-    <string name="shader_prep_offer_title">Подготовить шейдеры Vulkan?</string>
-    <string name="shader_prep_offer_body">Перед запуском подготовьте доступные шейдеры Vulkan на текущем графическом устройстве. Это может занять некоторое время.</string>
+    <string name="shader_prep_offer_title">Подготовить общие шейдеры Vulkan?</string>
+    <string name="shader_prep_offer_body">Перед запуском подготовьте общие шейдеры Vulkan на текущем графическом устройстве. Играм могут понадобиться дополнительные варианты шейдеров. Это может занять некоторое время.</string>
     <string name="shader_prep_prepare">Подготовить</string>
     <string name="shader_prep_skip">Пропустить</string>
-    <string name="shader_prep_progress">Готово шейдеров: %1$d из %2$d</string>
+    <string name="shader_prep_progress">Готово общих шейдеров: %1$d из %2$d</string>
     <string name="shader_prep_cached">Уже доступны: %1$d</string>
     <string name="shader_prep_in_flight">Компилируются: %1$d</string>
     <string name="shader_prep_failures">Ошибки: %1$d</string>
@@ -2880,7 +2880,7 @@
     <string name="shader_prep_cancel">Отменить подготовку</string>
     <string name="shader_prep_resume">Продолжить подготовку</string>
     <string name="shader_prep_continue_game">Перейти к игре</string>
-    <string name="shader_prep_complete">Подготовка шейдеров завершена</string>
+    <string name="shader_prep_complete">Подготовка общих шейдеров завершена</string>
     <string name="shader_prep_checkpoint_saved">Кеш шейдеров сохранён</string>
     <string name="shader_prep_error_unsupported">Подготовка шейдеров недоступна для этой конфигурации.</string>
     <string name="shader_prep_error_generic">Не удалось завершить подготовку шейдеров.</string>

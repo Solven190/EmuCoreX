@@ -2867,11 +2867,11 @@
     <string name="game_serial_dialog_cancel">إلغاء</string>
     <string name="game_serial_dialog_saved">تم تحديث الرقم التسلسلي للعبة</string>
 
-    <string name="shader_prep_offer_title">هل تريد تحضير مظللات Vulkan؟</string>
-    <string name="shader_prep_offer_body">حضّر مظللات Vulkan المتاحة على جهاز الرسومات الحالي قبل البدء. قد يستغرق ذلك بعض الوقت.</string>
+    <string name="shader_prep_offer_title">هل تريد تحضير مظللات Vulkan الشائعة؟</string>
+    <string name="shader_prep_offer_body">حضّر مظللات Vulkan الشائعة على جهاز الرسومات الحالي قبل البدء. قد تحتاج الألعاب إلى متغيرات إضافية من المظللات. قد يستغرق ذلك بعض الوقت.</string>
     <string name="shader_prep_prepare">تحضير</string>
     <string name="shader_prep_skip">تخطي</string>
-    <string name="shader_prep_progress">%1$d من %2$d مظلل جاهز</string>
+    <string name="shader_prep_progress">%1$d من %2$d من المظللات الشائعة جاهزة</string>
     <string name="shader_prep_cached">متاحة مسبقًا: %1$d</string>
     <string name="shader_prep_in_flight">قيد التجميع: %1$d</string>
     <string name="shader_prep_failures">فشلت: %1$d</string>
@@ -2880,7 +2880,7 @@
     <string name="shader_prep_cancel">إلغاء التحضير</string>
     <string name="shader_prep_resume">استئناف التحضير</string>
     <string name="shader_prep_continue_game">المتابعة إلى اللعبة</string>
-    <string name="shader_prep_complete">اكتمل تحضير المظللات</string>
+    <string name="shader_prep_complete">اكتمل تحضير المظللات الشائعة</string>
     <string name="shader_prep_checkpoint_saved">حُفظت ذاكرة المظللات المؤقتة</string>
     <string name="shader_prep_error_unsupported">تحضير المظللات غير متاح لهذا الإعداد.</string>
     <string name="shader_prep_error_generic">تعذر إكمال تحضير المظللات.</string>

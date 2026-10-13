@@ -58,18 +58,26 @@ data class ShaderPreparationUiProgress(
     val fraction: Float?
 )
 
+enum class ShaderPreparationReadiness {
+    ValidatedPrepared,
+    NeedsPreparation,
+    Unavailable
+}
+
 object ShaderPreparationUiPolicy {
     fun shouldOffer(
         renderer: Int,
         bootToBios: Boolean,
         bootSmokeProbe: Boolean,
         autotestMode: Boolean,
-        restoredAfterProcessDeath: Boolean
+        restoredAfterProcessDeath: Boolean,
+        readiness: ShaderPreparationReadiness = ShaderPreparationReadiness.NeedsPreparation
     ): Boolean = renderer == RendererDefaults.VULKAN &&
         !bootToBios &&
         !bootSmokeProbe &&
         !autotestMode &&
-        !restoredAfterProcessDeath
+        !restoredAfterProcessDeath &&
+        readiness != ShaderPreparationReadiness.ValidatedPrepared
 
     fun progress(snapshot: ShaderPreparationUiSnapshot): ShaderPreparationUiProgress {
         val ready = snapshot.completed + snapshot.alreadyAvailable

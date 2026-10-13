@@ -787,6 +787,11 @@ extern "C" JNIEXPORT void JNICALL Java_com_sbro_emucorex_core_NativeApp_onNative
 	__android_log_write(ANDROID_LOG_DEBUG, "EmuCoreX", "onNativeSurfaceDestroyed: JNI callback");
 	AndroidRuntime::Instance().ClearSurface();
 }
+extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_checkShaderPreparationReadiness(JNIEnv*, jclass)
+{
+	try { return AndroidRuntime::Instance().CheckTFXPreparationReadiness() ? JNI_TRUE : JNI_FALSE; }
+	catch (...) { return JNI_FALSE; }
+}
 extern "C" JNIEXPORT jboolean JNICALL Java_com_sbro_emucorex_core_NativeApp_startShaderPreparation(JNIEnv*, jclass)
 {
 	try

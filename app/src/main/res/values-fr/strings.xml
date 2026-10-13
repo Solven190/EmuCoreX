@@ -2865,11 +2865,11 @@
     <string name="game_serial_dialog_cancel">Annuler</string>
     <string name="game_serial_dialog_saved">Numéro de série du jeu mis à jour</string>
 
-    <string name="shader_prep_offer_title">Préparer les shaders Vulkan ?</string>
-    <string name="shader_prep_offer_body">Préparez les shaders Vulkan disponibles sur le périphérique graphique actuel avant le lancement. Cela peut prendre un moment.</string>
+    <string name="shader_prep_offer_title">Préparer les shaders Vulkan communs ?</string>
+    <string name="shader_prep_offer_body">Préparez les shaders Vulkan communs sur le périphérique graphique actuel avant le lancement. Les jeux peuvent nécessiter des variantes de shaders supplémentaires. Cela peut prendre un moment.</string>
     <string name="shader_prep_prepare">Préparer</string>
     <string name="shader_prep_skip">Ignorer</string>
-    <string name="shader_prep_progress">%1$d shaders prêts sur %2$d</string>
+    <string name="shader_prep_progress">%1$d shaders communs prêts sur %2$d</string>
     <string name="shader_prep_cached">Déjà disponibles : %1$d</string>
     <string name="shader_prep_in_flight">En compilation : %1$d</string>
     <string name="shader_prep_failures">Échecs : %1$d</string>
@@ -2878,7 +2878,7 @@
     <string name="shader_prep_cancel">Annuler la préparation</string>
     <string name="shader_prep_resume">Reprendre la préparation</string>
     <string name="shader_prep_continue_game">Accéder au jeu</string>
-    <string name="shader_prep_complete">Préparation des shaders terminée</string>
+    <string name="shader_prep_complete">Préparation des shaders communs terminée</string>
     <string name="shader_prep_checkpoint_saved">Cache des shaders enregistré</string>
     <string name="shader_prep_error_unsupported">La préparation des shaders est indisponible pour cette configuration.</string>
     <string name="shader_prep_error_generic">La préparation des shaders n’a pas pu être terminée.</string>

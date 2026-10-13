@@ -2883,11 +2883,11 @@
     <string name="game_serial_dialog_cancel">Zrušit</string>
     <string name="game_serial_dialog_saved">Sériové číslo hry bylo aktualizováno</string>
 
-    <string name="shader_prep_offer_title">Připravit shadery Vulkan?</string>
-    <string name="shader_prep_offer_body">Před spuštěním připravte dostupné shadery Vulkan na aktuálním grafickém zařízení. Může to chvíli trvat.</string>
+    <string name="shader_prep_offer_title">Připravit společné shadery Vulkan?</string>
+    <string name="shader_prep_offer_body">Před spuštěním připravte společné shadery Vulkan na aktuálním grafickém zařízení. Hry mohou potřebovat další varianty shaderů. Může to chvíli trvat.</string>
     <string name="shader_prep_prepare">Připravit</string>
     <string name="shader_prep_skip">Přeskočit</string>
-    <string name="shader_prep_progress">Připraveno shaderů: %1$d z %2$d</string>
+    <string name="shader_prep_progress">Připraveno společných shaderů: %1$d z %2$d</string>
     <string name="shader_prep_cached">Již dostupné: %1$d</string>
     <string name="shader_prep_in_flight">Kompilují se: %1$d</string>
     <string name="shader_prep_failures">Selhalo: %1$d</string>
@@ -2896,7 +2896,7 @@
     <string name="shader_prep_cancel">Zrušit přípravu</string>
     <string name="shader_prep_resume">Pokračovat v přípravě</string>
     <string name="shader_prep_continue_game">Přejít do hry</string>
-    <string name="shader_prep_complete">Příprava shaderů dokončena</string>
+    <string name="shader_prep_complete">Příprava společných shaderů dokončena</string>
     <string name="shader_prep_checkpoint_saved">Mezipaměť shaderů uložena</string>
     <string name="shader_prep_error_unsupported">Příprava shaderů není pro tuto konfiguraci dostupná.</string>
     <string name="shader_prep_error_generic">Přípravu shaderů se nepodařilo dokončit.</string>

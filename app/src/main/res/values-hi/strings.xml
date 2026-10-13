@@ -2863,11 +2863,11 @@
     <string name="game_serial_dialog_cancel">रद्द करें</string>
     <string name="game_serial_dialog_saved">गेम सीरियल अपडेट हुआ</string>
 
-    <string name="shader_prep_offer_title">Vulkan शेडर तैयार करें?</string>
-    <string name="shader_prep_offer_body">शुरू करने से पहले उपलब्ध Vulkan शेडर को वर्तमान ग्राफ़िक्स डिवाइस पर तैयार करें। इसमें कुछ समय लग सकता है।</string>
+    <string name="shader_prep_offer_title">सामान्य Vulkan शेडर तैयार करें?</string>
+    <string name="shader_prep_offer_body">शुरू करने से पहले वर्तमान ग्राफ़िक्स डिवाइस पर सामान्य Vulkan शेडर तैयार करें। गेम को शेडर के अतिरिक्त रूपों की ज़रूरत पड़ सकती है। इसमें कुछ समय लग सकता है।</string>
     <string name="shader_prep_prepare">तैयार करें</string>
     <string name="shader_prep_skip">छोड़ें</string>
-    <string name="shader_prep_progress">%2$d में से %1$d शेडर तैयार</string>
+    <string name="shader_prep_progress">%2$d में से %1$d सामान्य शेडर तैयार</string>
     <string name="shader_prep_cached">पहले से उपलब्ध: %1$d</string>
     <string name="shader_prep_in_flight">कंपाइल हो रहे हैं: %1$d</string>
     <string name="shader_prep_failures">विफल: %1$d</string>
@@ -2876,7 +2876,7 @@
     <string name="shader_prep_cancel">तैयारी रद्द करें</string>
     <string name="shader_prep_resume">तैयारी जारी रखें</string>
     <string name="shader_prep_continue_game">गेम पर जाएँ</string>
-    <string name="shader_prep_complete">शेडर की तैयारी पूरी हुई</string>
+    <string name="shader_prep_complete">सामान्य शेडर की तैयारी पूरी हुई</string>
     <string name="shader_prep_checkpoint_saved">शेडर कैश सहेजा गया</string>
     <string name="shader_prep_error_unsupported">इस कॉन्फ़िगरेशन में शेडर की तैयारी उपलब्ध नहीं है।</string>
     <string name="shader_prep_error_generic">शेडर की तैयारी पूरी नहीं हो सकी।</string>

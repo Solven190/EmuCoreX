@@ -2863,11 +2863,11 @@
     <string name="game_serial_dialog_cancel">İptal</string>
     <string name="game_serial_dialog_saved">Oyun seri numarası güncellendi</string>
 
-    <string name="shader_prep_offer_title">Vulkan gölgelendiricileri hazırlansın mı?</string>
-    <string name="shader_prep_offer_body">Başlatmadan önce mevcut grafik aygıtında kullanılabilir Vulkan gölgelendiricilerini hazırlayın. Bu biraz zaman alabilir.</string>
+    <string name="shader_prep_offer_title">Ortak Vulkan gölgelendiricileri hazırlansın mı?</string>
+    <string name="shader_prep_offer_body">Başlatmadan önce mevcut grafik aygıtında ortak Vulkan gölgelendiricilerini hazırlayın. Oyunlar ek gölgelendirici çeşitlerine ihtiyaç duyabilir. Bu biraz zaman alabilir.</string>
     <string name="shader_prep_prepare">Hazırla</string>
     <string name="shader_prep_skip">Atla</string>
-    <string name="shader_prep_progress">%2$d gölgelendiriciden %1$d tanesi hazır</string>
+    <string name="shader_prep_progress">%2$d ortak gölgelendiriciden %1$d tanesi hazır</string>
     <string name="shader_prep_cached">Zaten kullanılabilir: %1$d</string>
     <string name="shader_prep_in_flight">Derleniyor: %1$d</string>
     <string name="shader_prep_failures">Başarısız: %1$d</string>
@@ -2876,7 +2876,7 @@
     <string name="shader_prep_cancel">Hazırlığı iptal et</string>
     <string name="shader_prep_resume">Hazırlığa devam et</string>
     <string name="shader_prep_continue_game">Oyuna devam et</string>
-    <string name="shader_prep_complete">Gölgelendirici hazırlığı tamamlandı</string>
+    <string name="shader_prep_complete">Ortak gölgelendirici hazırlığı tamamlandı</string>
     <string name="shader_prep_checkpoint_saved">Gölgelendirici önbelleği kaydedildi</string>
     <string name="shader_prep_error_unsupported">Bu yapılandırmada gölgelendirici hazırlığı kullanılamıyor.</string>
     <string name="shader_prep_error_generic">Gölgelendirici hazırlığı tamamlanamadı.</string>
