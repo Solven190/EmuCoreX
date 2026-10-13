@@ -53,6 +53,10 @@
 #if defined(__ANDROID__)
 #include <android/log.h>
 #include <sys/resource.h>
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+#include <chrono>
+#include <sys/system_properties.h>
+#endif
 #endif
 
 // Tweakables
@@ -5843,6 +5847,28 @@ VkShaderModule GSDeviceVK::GetTFXFragmentShader(const GSHWDrawConfig::PSSelector
 VkPipeline GSDeviceVK::CreateTFXPipelineWithCache(
 	const PipelineSelector& p, VkPipelineCache pipeline_cache, bool lock_pipeline_cache)
 {
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	static const bool trace_compile = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.gs_compile_trace", value) == 1 && value[0] == '1';
+	}();
+	using CompileClock = std::chrono::steady_clock;
+	const auto compile_start = trace_compile ? CompileClock::now() : CompileClock::time_point{};
+	auto shaders_end = compile_start;
+	double driver_ms = 0;
+	bool compile_success = false;
+	ScopedGuard compile_trace([&]() {
+		if (!trace_compile) return;
+		static std::atomic<u32> foreground_records{0}, background_records{0};
+		auto& records = lock_pipeline_cache ? foreground_records : background_records;
+		if (records.fetch_add(1, std::memory_order_relaxed) >= (lock_pipeline_cache ? 512u : 128u)) return;
+		const double total_ms = std::chrono::duration<double, std::milli>(CompileClock::now() - compile_start).count();
+		const double shader_ms = std::chrono::duration<double, std::milli>(shaders_end - compile_start).count();
+		__android_log_print(ANDROID_LOG_INFO, "GSCompile",
+			"foreground=%u success=%u total_ms=%.3f shader_ms=%.3f driver_ms=%.3f vs=%08x ps=%016" PRIX64 "_%016" PRIX64,
+			lock_pipeline_cache ? 1u : 0u, compile_success ? 1u : 0u, total_ms, shader_ms, driver_ms, p.vs.key, p.ps.key_hi, p.ps.key_lo);
+	});
+#endif
 	static constexpr std::array<VkPrimitiveTopology, 3> topology_lookup = {{
 		VK_PRIMITIVE_TOPOLOGY_POINT_LIST, // Point
 		VK_PRIMITIVE_TOPOLOGY_LINE_LIST, // Line
@@ -5860,6 +5886,9 @@ VkPipeline GSDeviceVK::CreateTFXPipelineWithCache(
 
 	VkShaderModule vs = GetTFXVertexShader(p.vs);
 	VkShaderModule fs = GetTFXFragmentShader(pps);
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	if (trace_compile) shaders_end = CompileClock::now();
+#endif
 	if (vs == VK_NULL_HANDLE || fs == VK_NULL_HANDLE)
 		return VK_NULL_HANDLE;
 
@@ -5970,11 +5999,23 @@ VkPipeline GSDeviceVK::CreateTFXPipelineWithCache(
 	if (lock_pipeline_cache)
 	{
 		std::lock_guard cache_lock(g_vulkan_shader_cache->GetPipelineCacheMutex());
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+		const auto driver_start = trace_compile ? CompileClock::now() : CompileClock::time_point{};
+#endif
 		pipeline = gpb.Create(m_device, pipeline_cache);
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+		if (trace_compile) driver_ms = std::chrono::duration<double, std::milli>(CompileClock::now() - driver_start).count();
+#endif
 	}
 	else
 	{
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+		const auto driver_start = trace_compile ? CompileClock::now() : CompileClock::time_point{};
+#endif
 		pipeline = gpb.Create(m_device, pipeline_cache);
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+		if (trace_compile) driver_ms = std::chrono::duration<double, std::milli>(CompileClock::now() - driver_start).count();
+#endif
 	}
 
 	if (pipeline)
@@ -5983,6 +6024,9 @@ VkPipeline GSDeviceVK::CreateTFXPipelineWithCache(
 			m_device, pipeline, "TFX Pipeline %08X/%016" PRIX64 "_%016" PRIX64, p.vs.key, p.ps.key_hi, p.ps.key_lo);
 	}
 
+#if defined(__ANDROID__) && defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	compile_success = pipeline != VK_NULL_HANDLE;
+#endif
 	return pipeline;
 }
 
