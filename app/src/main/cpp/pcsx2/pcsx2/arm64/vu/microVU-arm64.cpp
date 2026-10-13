@@ -32,6 +32,7 @@ static std::atomic<u64> s_vuSharedIrInstructions[2] = {};
 static std::atomic<u64> s_vuSharedIrBytes[2] = {};
 static std::atomic<u64> s_vuSharedIrImmediates[2] = {};
 static std::atomic<u64> s_vuSharedIrTransfers[2] = {};
+static std::atomic<u64> s_vuSharedIrMfirTransfers[2] = {};
 extern "C" void EmuCoreXOracleSetVUIR(u32 index, int enabled)
 {
 	if (index < 2) s_vuSharedIrOverride[index].store(enabled < 0 ? -1 : (enabled != 0), std::memory_order_relaxed);
@@ -51,6 +52,10 @@ extern "C" u64 EmuCoreXOracleVUIRImmediateInstructions(u32 index)
 extern "C" u64 EmuCoreXOracleVUIRTransferInstructions(u32 index)
 {
 	return index < 2 ? s_vuSharedIrTransfers[index].load(std::memory_order_relaxed) : 0;
+}
+extern "C" u64 EmuCoreXOracleVUIRMfirInstructions(u32 index)
+{
+	return index < 2 ? s_vuSharedIrMfirTransfers[index].load(std::memory_order_relaxed) : 0;
 }
 #endif
 
@@ -92,6 +97,22 @@ void mVURecordSharedIr(u32 index, u32 host_bytes, bool immediate, bool transfer)
 			index, static_cast<unsigned long long>(count), static_cast<unsigned long long>(bytes),
 			static_cast<unsigned long long>(immediates), static_cast<unsigned long long>(transfers));
 #endif
+#endif
+}
+
+void mVURecordSharedMfir(u32 index, u32 host_bytes)
+{
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	if (index >= 2) return;
+	const u64 count = s_vuSharedIrMfirTransfers[index].fetch_add(1, std::memory_order_relaxed) + 1;
+#if defined(__ANDROID__)
+	if ((count & (count - 1)) == 0)
+		__android_log_print(ANDROID_LOG_INFO, "VUIR", "core=%u compiled_mfir_transfers=%llu last_native_bytes=%u",
+			index, static_cast<unsigned long long>(count), host_bytes);
+#endif
+#else
+	(void)index;
+	(void)host_bytes;
 #endif
 }
 

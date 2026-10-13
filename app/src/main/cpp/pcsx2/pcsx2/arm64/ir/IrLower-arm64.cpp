@@ -18,6 +18,87 @@
 
 namespace Arm64Ir
 {
+	bool PlanBoundViVfTransfer(const ir::Function& fn, BoundViVfTransferPlan* plan, std::string* error)
+	{
+		if (plan) *plan = {};
+		const auto fail = [&](const char* message) { if (error) *error = message; return false; };
+		if (!plan) return fail("bound VI-to-VF plan output is missing");
+		if (!ir::Verify(fn, error)) return false;
+		if (fn.blocks.size() != 1 || fn.entry != 1 || fn.blocks[0].insts.size() != 4)
+			return fail("bound VI-to-VF requires one MFIR transfer slice");
+		const auto& i = fn.blocks[0].insts;
+		if (i[0].op != ir::Op::ReadVi || i[1].op != ir::Op::Sext16 ||
+			i[2].op != ir::Op::WriteVfLaneSplatBits || i[3].op != ir::Op::Return)
+			return fail("unsupported bound VI-to-VF operation shape");
+		if (i[0].imm >= 16 || i[2].imm == 0 || i[2].imm >= 32 ||
+			(i[2].aux & 0x0f) == 0)
+			return fail("bound VI-to-VF register index or lane mask is out of range");
+		if (i[0].type != ir::Type::I32 || i[1].type != ir::Type::I32 ||
+			i[2].type != ir::Type::Void || i[3].type != ir::Type::Void)
+			return fail("bound VI-to-VF values require I32");
+		const u16 delay = ir::IF_DELAY_SLOT;
+		if ((i[0].aux & ~delay) != 0 || (i[1].aux & ~delay) != 0 ||
+			(i[2].aux & ~(u16(0x0f) | delay)) != 0 || (i[3].aux & ~delay) != 0)
+			return fail("bound VI-to-VF has unsupported instruction flags");
+		const bool delay_slot = (i[0].aux & delay) != 0;
+		for (const ir::Inst& inst : i)
+			if (((inst.aux & delay) != 0) != delay_slot)
+				return fail("bound VI-to-VF delay-slot flags are inconsistent");
+		if (i[0].value == 0 || i[0].num_args != 0 || i[0].imm >= 16 ||
+			i[1].value == 0 || i[1].num_args != 1 || i[1].imm != 0 ||
+			i[1].args[0] != i[0].value || i[2].value != 0 || i[2].num_args != 1 ||
+			i[2].args[0] != i[1].value || i[3].value != 0 || i[3].num_args != 0 || i[3].imm != 0)
+			return fail("bound VI-to-VF SSA links do not match the MFIR slice");
+		*plan = {static_cast<u8>(i[0].imm), static_cast<u8>(i[2].imm),
+			static_cast<u8>(i[2].aux & 0x0f), delay_slot};
+		if (error) error->clear();
+		return true;
+	}
+
+	bool LowerBoundViVfTransferPlan(const BoundViVfTransferPlan& plan, u32 vi_source, u32 vf_dst,
+		LowerOutput* out, std::string* error, BoundViVfDestinationLayout layout)
+	{
+		if (out) *out = {};
+		if (!out || !oakHasBlock() || plan.src_vi >= 16 || plan.dst_vf == 0 || plan.dst_vf >= 32 ||
+			plan.lane_mask == 0 || plan.lane_mask > 0x0f ||
+			(plan.src_vi == 0 ? vi_source != ~u32(0) :
+				(vi_source >= 31 || vi_source == static_cast<u32>(OAK_WSCRATCH.index()))) || vf_dst >= 32 ||
+			(layout != BoundViVfDestinationLayout::GuestLanes &&
+				layout != BoundViVfDestinationLayout::MicroVuPartial))
+		{
+			if (error) *error = "invalid bound VI-to-VF host register contract";
+			return false;
+		}
+		const u8* start = recBeginOaknutEmit();
+		if (plan.src_vi == 0)
+			oakAsm->EOR(OAK_WSCRATCH, OAK_WSCRATCH, OAK_WSCRATCH);
+		else
+			oakAsm->SXTH(OAK_WSCRATCH, oak::WReg(vi_source));
+		const oak::QReg dst(vf_dst);
+		if (layout == BoundViVfDestinationLayout::MicroVuPartial)
+		{
+			// The allocator consumes only lanes selected by lane_mask. For a
+			// one-lane write its packed destination is S0; for multiple lanes,
+			// preserve the architectural positions and broadcast the raw bits.
+			oakAsm->FMOV(oakSRegister(vf_dst), OAK_WSCRATCH);
+			if ((plan.lane_mask & (plan.lane_mask - 1)) != 0)
+				oakAsm->DUP(dst.S4(), dst.Selem()[0]);
+			out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
+			recEndOaknutEmit();
+			if (error) error->clear();
+			return true;
+		}
+		for (u32 lane = 0; lane < 4; ++lane)
+			if (plan.lane_mask & (8u >> lane))
+			{
+				oakAsm->INS(dst.Selem()[lane], OAK_WSCRATCH);
+			}
+		out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
+		recEndOaknutEmit();
+		if (error) error->clear();
+		return true;
+	}
+
 	extern "C" u32 g_eeir_exit_pc = 0;
 	extern "C" u32 g_eeir_exit_valid = 0;
 

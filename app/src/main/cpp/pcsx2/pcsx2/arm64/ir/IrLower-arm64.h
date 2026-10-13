@@ -66,6 +66,27 @@ namespace Arm64Ir
 	bool LowerBoundVfViTransferPlan(const BoundVfViTransferPlan& plan, u32 vf_source, u32 vi_dst,
 		LowerOutput* out, std::string* error);
 
+	// Narrow VU VI-to-VF raw sign-extend/splat transfer. Caller owns the live
+	// W source and writable Q destination bindings; the planner is MFIR-only.
+	struct BoundViVfTransferPlan
+	{
+		u8 src_vi = 0;
+		u8 dst_vf = 0;
+		u8 lane_mask = 0;
+		bool delay_slot = false;
+	};
+	enum class BoundViVfDestinationLayout : u8
+	{
+		GuestLanes,
+		// Models allocRegId(-1, vf, mask). Only lanes in the guest mask are
+		// consumed by allocator merge/writeback; all other host lanes are unspecified.
+		MicroVuPartial,
+	};
+	bool PlanBoundViVfTransfer(const ir::Function& fn, BoundViVfTransferPlan* plan, std::string* error);
+	bool LowerBoundViVfTransferPlan(const BoundViVfTransferPlan& plan, u32 vi_source, u32 vf_dst,
+		LowerOutput* out, std::string* error,
+		BoundViVfDestinationLayout layout = BoundViVfDestinationLayout::GuestLanes);
+
 	// Inline-mode exits are emitted through these hooks so the integration can
 	// reuse the legacy block-tail machinery (pc store, event test, linking).
 	struct LowerHooks

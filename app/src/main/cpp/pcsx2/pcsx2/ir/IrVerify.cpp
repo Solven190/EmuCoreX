@@ -57,6 +57,9 @@ namespace ir
 			if (inst.op == Op::ReadVfLaneBits &&
 				(inst.imm >= 32 || (inst.aux & ~(u16(3) | IF_DELAY_SLOT)) != 0))
 				return Fail(error, "ReadVfLaneBits: VF index or lane flags are out of range");
+			if (inst.op == Op::WriteVfLaneSplatBits &&
+				(inst.imm >= 32 || !(inst.aux & 0x0f) || (inst.aux & ~(u16(0x0f) | IF_DELAY_SLOT)) != 0))
+				return Fail(error, "WriteVfLaneSplatBits: VF index, lane mask, or flags are out of range");
 			if ((inst.op == Op::VShuffle && inst.imm > 0xff) || (inst.op == Op::VShuffle2 && inst.imm > 0xfff))
 				return Fail(error, "vector shuffle: lane selectors are out of range");
 
@@ -205,6 +208,8 @@ namespace ir
 					if ((inst.op == Op::WriteFprBits || inst.op == Op::WriteFcr31) &&
 						fn.ValueType(inst.args[0]) != Type::I32)
 						return Fail(error, "COP1 raw state: 32-bit write required");
+					if (inst.op == Op::WriteVfLaneSplatBits && fn.ValueType(inst.args[0]) != Type::I32)
+						return Fail(error, "VU raw lane write: 32-bit write required");
 					if (inst.args[0] == 0)
 						return Fail(error, std::string(OpName(inst.op)) + ": missing value");
 					break;

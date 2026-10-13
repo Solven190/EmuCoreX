@@ -1873,6 +1873,48 @@ static void mVU_MFIR_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Ft);
 }
 
+static bool mVUTrySharedMFIR(mV)
+{
+	if (!_Ft_ || !mVUSharedIrEnabled(mVU.index)) return false;
+	// Keep this as a fixed-shape function. The microVU scheduler owns VI/VF
+	// liveness and hazards; the lowerer only consumes those live bindings.
+	static thread_local ir::Function fn;
+	if (fn.blocks.empty())
+	{
+		ir::Builder init(fn);
+		init.CreateBlock(0);
+		fn.blocks[0].insts.reserve(4);
+		fn.value_types.reserve(3);
+	}
+	fn.blocks[0].insts.clear();
+	fn.blocks[0].guest_start = mVU.prog.IRinfo.curPC * sizeof(u32);
+	fn.value_types.resize(1);
+	fn.next_value = 1;
+	ir::Builder b(fn);
+	b.SetBlock(1);
+	b.SetDelaySlot(mVUinfo.isBdelay);
+	const u32 source = b.Emit(ir::Op::ReadVi, ir::Type::I32, {}, _Is_);
+	const u32 extended = b.Emit1(ir::Op::Sext16, ir::Type::I32, source);
+	b.Emit1(ir::Op::WriteVfLaneSplatBits, ir::Type::Void, extended, _Ft_, _X_Y_Z_W);
+	b.Return();
+
+	Arm64Ir::BoundViVfTransferPlan plan;
+	std::string error;
+	if (!Arm64Ir::PlanBoundViVfTransfer(fn, &plan, &error)) return false;
+	const int vi_source = plan.src_vi ? mVU.regAlloc->allocGPRId(plan.src_vi, -1) : -1;
+	const int vf_dst = mVU.regAlloc->allocRegId(-1, plan.dst_vf, plan.lane_mask);
+	Arm64Ir::LowerOutput out;
+	const bool lowered = Arm64Ir::LowerBoundViVfTransferPlan(plan,
+		vi_source >= 0 ? static_cast<u32>(vi_source) : ~u32(0), static_cast<u32>(vf_dst), &out, &error,
+		Arm64Ir::BoundViVfDestinationLayout::MicroVuPartial);
+	pxAssertRel(lowered, error.c_str());
+	if (vi_source >= 0) mVU.regAlloc->clearNeeded(vi_source);
+	mVU.regAlloc->clearNeededXmmId(vf_dst);
+	mVURecordSharedIr(mVU.index, out.host_size);
+	mVURecordSharedMfir(mVU.index, out.host_size);
+	return true;
+}
+
 static void mVU_MFIR_emit(mP)
 {
 	pass1
@@ -1886,7 +1928,8 @@ static void mVU_MFIR_emit(mP)
 	}
 	pass2
 	{
-		mVU_MFIR_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedMFIR(mVU))
+			mVU_MFIR_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3 { mVUlog("MFIR.%s vf%02d, vi%02d", _XYZW_String, _Ft_, _Fs_); }
 }
