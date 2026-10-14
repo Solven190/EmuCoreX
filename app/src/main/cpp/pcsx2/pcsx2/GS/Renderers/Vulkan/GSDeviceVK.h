@@ -819,6 +819,7 @@ public:
 	static bool TestTFXShaderSourceCatalog();
 	static bool TestTFXAlphaFallbackClassifier();
 	static bool TestMaliSX2Policy();
+	static bool TestOptionalQueryPoolFallback();
 	static bool TestTFXPreparationIdentity();
 	static bool TestTFXPreparationProgress();
 	static bool TestTFXPreparationPlan();

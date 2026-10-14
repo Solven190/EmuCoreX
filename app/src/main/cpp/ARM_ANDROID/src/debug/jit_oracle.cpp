@@ -258,6 +258,7 @@ void ClassifierTests()
     Check(GSDeviceVK::TestTFXShaderSourceBuilders(), "GS reusable source builders preserve all selector and capability variants");
     Check(GSDeviceVK::TestTFXAlphaFallbackClassifier(), "GS alpha fallback class preserves all other selector and pipeline axes");
     Check(GSDeviceVK::TestMaliSX2Policy(), "GS MaliSX2 policy enables ROAA and push descriptors only for the identified capable driver");
+    Check(GSDeviceVK::TestOptionalQueryPoolFallback(), "GS optional query failures preserve rendering and disable dependent timing while keeping fatal errors fatal");
     Check(Vulkan::TestSwapchainPresentModeFallback(), "GS swapchain recovers from rejected present-mode lists without changing unrelated settings or errors");
     Check(GSDeviceVK::TestTFXPreparationIdentity(), "GS preparation identity binds source catalog, driver, device, and capability facts");
     Check(VKShaderCache::TestTFXPreparationReceipt("artifacts/tfx-receipt-cache.bin"), "GS preparation receipt survives valid cache growth and rejects stale or invalid caches");

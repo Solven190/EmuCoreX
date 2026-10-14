@@ -1275,9 +1275,16 @@ bool GSDeviceVK::CreateGlobalDescriptorPool()
 		res = vkCreateQueryPool(m_device, &query_create_info, nullptr, &m_timestamp_query_pool);
 		if (res != VK_SUCCESS)
 		{
-			LOG_VULKAN_ERROR(res, "vkCreateQueryPool failed: ");
+			LOG_VULKAN_ERROR(res, "vkCreateQueryPool (timestamp) failed: ");
+			m_timestamp_query_pool = VK_NULL_HANDLE;
 			m_gpu_timing_supported = false;
-			return false;
+			m_gpu_timing_enabled = false;
+			// Timing is optional. Some drivers advertise timestamps but reject the
+			// pool. Present/readback spinning also needs this pool, so disable both.
+			m_spinning_supported = false;
+			m_spin_timer = 0;
+			if (res != VK_ERROR_FEATURE_NOT_PRESENT)
+				return false;
 		}
 	}
 
@@ -1289,9 +1296,12 @@ bool GSDeviceVK::CreateGlobalDescriptorPool()
 		res = vkCreateQueryPool(m_device, &query_create_info, nullptr, &m_pipeline_statistics_query_pool);
 		if (res != VK_SUCCESS)
 		{
-			LOG_VULKAN_ERROR(res, "vkCreateQueryPool failed: ");
+			LOG_VULKAN_ERROR(res, "vkCreateQueryPool (pipeline statistics) failed: ");
+			m_pipeline_statistics_query_pool = VK_NULL_HANDLE;
 			m_gpu_pipeline_statistics_supported = false;
-			return false;
+			m_gpu_pipeline_statistics_enabled = false;
+			if (res != VK_ERROR_FEATURE_NOT_PRESENT)
+				return false;
 		}
 	}
 
@@ -6631,6 +6641,57 @@ bool GSDeviceVK::TestTFXShaderSourceCatalog()
 			return false;
 	}
 	return original.vertex_sources != changed.vertex_sources && original.fragment_sources != changed.fragment_sources;
+}
+
+bool GSDeviceVK::TestOptionalQueryPoolFallback()
+{
+	const auto saved_descriptor = vkCreateDescriptorPool;
+	const auto saved_query = vkCreateQueryPool;
+	const auto saved_name = vkSetDebugUtilsObjectNameEXT;
+	ScopedGuard restore = [&]() {
+		vkCreateDescriptorPool = saved_descriptor;
+		vkCreateQueryPool = saved_query;
+		vkSetDebugUtilsObjectNameEXT = saved_name;
+	};
+	static VkResult descriptor_result, timestamp_result, statistics_result;
+	static u32 query_calls;
+	vkSetDebugUtilsObjectNameEXT = nullptr;
+	vkCreateDescriptorPool = [](VkDevice, const VkDescriptorPoolCreateInfo*, const VkAllocationCallbacks*, VkDescriptorPool* pool) -> VkResult {
+		*pool = reinterpret_cast<VkDescriptorPool>(1);
+		return descriptor_result;
+	};
+	vkCreateQueryPool = [](VkDevice, const VkQueryPoolCreateInfo* info, const VkAllocationCallbacks*, VkQueryPool* pool) -> VkResult {
+		query_calls++;
+		// Failed Vulkan calls do not guarantee the contents of output handles.
+		*pool = reinterpret_cast<VkQueryPool>(2);
+		return info->queryType == VK_QUERY_TYPE_TIMESTAMP ? timestamp_result : statistics_result;
+	};
+	for (const bool timestamp : {true, false})
+	{
+		for (const VkResult result : {VK_SUCCESS, VK_ERROR_FEATURE_NOT_PRESENT, VK_ERROR_OUT_OF_DEVICE_MEMORY, VK_ERROR_DEVICE_LOST})
+		{
+			GSDeviceVK device;
+			device.m_gpu_timing_supported = device.m_gpu_pipeline_statistics_supported = device.m_spinning_supported = true;
+			descriptor_result = VK_SUCCESS;
+			timestamp_result = timestamp ? result : VK_SUCCESS;
+			statistics_result = timestamp ? VK_SUCCESS : result;
+			query_calls = 0;
+			const bool can_render = result == VK_SUCCESS || result == VK_ERROR_FEATURE_NOT_PRESENT;
+			if (device.CreateGlobalDescriptorPool() != can_render)
+				return false;
+			if (result == VK_ERROR_FEATURE_NOT_PRESENT &&
+				((timestamp && (device.m_gpu_timing_supported || device.m_spinning_supported || device.m_timestamp_query_pool != VK_NULL_HANDLE)) ||
+				 (!timestamp && (device.m_gpu_pipeline_statistics_supported || device.m_pipeline_statistics_query_pool != VK_NULL_HANDLE))))
+				return false;
+			if (can_render && (query_calls != 2 ||
+				(timestamp ? !device.m_gpu_pipeline_statistics_supported : (!device.m_gpu_timing_supported || !device.m_spinning_supported))))
+				return false;
+		}
+	}
+	GSDeviceVK device;
+	descriptor_result = VK_ERROR_OUT_OF_DEVICE_MEMORY;
+	query_calls = 0;
+	return !device.CreateGlobalDescriptorPool() && query_calls == 0;
 }
 
 bool GSDeviceVK::TestMaliSX2Policy()
