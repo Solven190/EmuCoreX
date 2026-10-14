@@ -399,7 +399,7 @@ object EmulatorBridge {
         vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
         vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
         enableGameFixes: Boolean = true,
-        autoGsHardwareFixes: Boolean = true,
+        autoGsHardwareFixes: Boolean = AppPreferences.DEFAULT_AUTO_GS_HARDWARE_FIXES,
         eeTimingHack: Boolean = false,
         enableFastmem: Boolean = true,
         waitLoopSpeedhack: Boolean = true,

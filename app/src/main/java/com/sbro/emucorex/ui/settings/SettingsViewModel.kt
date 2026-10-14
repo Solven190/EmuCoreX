@@ -193,7 +193,7 @@ data class SettingsUiState(
     val vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
     val vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
     val enableGameFixes: Boolean = true,
-    val autoGsHardwareFixes: Boolean = true,
+    val autoGsHardwareFixes: Boolean = AppPreferences.DEFAULT_AUTO_GS_HARDWARE_FIXES,
     val enableEeTimingHack: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,

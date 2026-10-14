@@ -151,7 +151,7 @@ data class SettingsSnapshot(
     val vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
     val vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
     val enableGameFixes: Boolean = true,
-    val autoGsHardwareFixes: Boolean = true,
+    val autoGsHardwareFixes: Boolean = AppPreferences.DEFAULT_AUTO_GS_HARDWARE_FIXES,
     val enableEeTimingHack: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
@@ -419,6 +419,7 @@ class AppPreferences(private val context: Context) {
         private const val CURRENT_OVERLAY_LAYOUT_VERSION = 16
         const val DEFAULT_NTSC_FRAMERATE = 59.94f
         const val DEFAULT_THREAD_PINNING = false
+        const val DEFAULT_AUTO_GS_HARDWARE_FIXES = false
         const val DEFAULT_PAL_FRAMERATE = 50f
         const val DEFAULT_FAST_FORWARD_SPEED = 2.0f
         const val DEFAULT_APP_FONT_SCALE = 1.0f
@@ -1911,7 +1912,7 @@ class AppPreferences(private val context: Context) {
                 vu0ClampingMode = sanitizeClampingMode(prefs[VU0_CLAMPING_MODE], DEFAULT_VU0_CLAMPING_MODE),
                 vu1ClampingMode = sanitizeClampingMode(prefs[VU1_CLAMPING_MODE], DEFAULT_VU1_CLAMPING_MODE),
                 enableGameFixes = prefs[ENABLE_GAME_FIXES] ?: true,
-                autoGsHardwareFixes = prefs[AUTO_GS_HARDWARE_FIXES] ?: true,
+                autoGsHardwareFixes = prefs[AUTO_GS_HARDWARE_FIXES] ?: DEFAULT_AUTO_GS_HARDWARE_FIXES,
                 enableEeTimingHack = prefs[ENABLE_EE_TIMING_HACK] ?: false,
                 enableWaitLoopSpeedhack = prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true,
                 enableIntcStatSpeedhack = prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true,
@@ -3078,7 +3079,7 @@ class AppPreferences(private val context: Context) {
     }
 
     val autoGsHardwareFixes: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[AUTO_GS_HARDWARE_FIXES] ?: true
+        prefs[AUTO_GS_HARDWARE_FIXES] ?: DEFAULT_AUTO_GS_HARDWARE_FIXES
     }
 
     suspend fun setAutoGsHardwareFixes(enabled: Boolean) {
@@ -4349,7 +4350,7 @@ class AppPreferences(private val context: Context) {
             put("vu0ClampingMode", sanitizeClampingMode(prefs[VU0_CLAMPING_MODE], DEFAULT_VU0_CLAMPING_MODE))
             put("vu1ClampingMode", sanitizeClampingMode(prefs[VU1_CLAMPING_MODE], DEFAULT_VU1_CLAMPING_MODE))
             put("enableGameFixes", prefs[ENABLE_GAME_FIXES] ?: true)
-            put("autoGsHardwareFixes", prefs[AUTO_GS_HARDWARE_FIXES] ?: true)
+            put("autoGsHardwareFixes", prefs[AUTO_GS_HARDWARE_FIXES] ?: DEFAULT_AUTO_GS_HARDWARE_FIXES)
             put("enableEeTimingHack", prefs[ENABLE_EE_TIMING_HACK] ?: false)
             put("enableWaitLoopSpeedhack", prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true)
             put("enableIntcStatSpeedhack", prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true)
@@ -4811,7 +4812,7 @@ class AppPreferences(private val context: Context) {
             prefs[VU0_CLAMPING_MODE] = sanitizeClampingMode(json.optInt("vu0ClampingMode", legacyVuClampingMode), DEFAULT_VU0_CLAMPING_MODE)
             prefs[VU1_CLAMPING_MODE] = sanitizeClampingMode(json.optInt("vu1ClampingMode", DEFAULT_VU1_CLAMPING_MODE), DEFAULT_VU1_CLAMPING_MODE)
             prefs[ENABLE_GAME_FIXES] = json.optBoolean("enableGameFixes", true)
-            prefs[AUTO_GS_HARDWARE_FIXES] = json.optBoolean("autoGsHardwareFixes", true)
+            prefs[AUTO_GS_HARDWARE_FIXES] = json.optBoolean("autoGsHardwareFixes", DEFAULT_AUTO_GS_HARDWARE_FIXES)
             prefs[ENABLE_EE_TIMING_HACK] = json.optBoolean("enableEeTimingHack", false)
             prefs[ENABLE_WAIT_LOOP_SPEEDHACK] = json.optBoolean("enableWaitLoopSpeedhack", true)
             prefs[ENABLE_INTC_STAT_SPEEDHACK] = json.optBoolean("enableIntcStatSpeedhack", true)
