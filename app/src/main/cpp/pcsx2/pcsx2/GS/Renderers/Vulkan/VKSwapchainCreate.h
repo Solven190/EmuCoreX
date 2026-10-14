@@ -8,6 +8,13 @@
 
 namespace Vulkan
 {
+inline bool ShouldUseSwapchainPresentModes(bool maintenance_enabled, bool mali_sx2)
+{
+	// MaliSX2 must use the ordinary create path from the first attempt. Keep
+	// maintenance1 enabled for present fences and releasing acquired images.
+	return maintenance_enabled && !mali_sx2;
+}
+
 template <typename Create>
 VkResult CreateSwapchainWithPresentModeFallback(const VkSwapchainCreateInfoKHR& info, Create&& create, bool* retried)
 {
@@ -35,6 +42,10 @@ VkResult CreateSwapchainWithPresentModeFallback(const VkSwapchainCreateInfoKHR& 
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 inline bool TestSwapchainPresentModeFallback()
 {
+	if (ShouldUseSwapchainPresentModes(true, true) ||
+		!ShouldUseSwapchainPresentModes(true, false) ||
+		ShouldUseSwapchainPresentModes(false, true) || ShouldUseSwapchainPresentModes(false, false))
+		return false;
 	const VkPresentModeKHR mode = VK_PRESENT_MODE_FIFO_KHR;
 	VkSwapchainPresentModesCreateInfoKHR modes = {
 		VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODES_CREATE_INFO_KHR, nullptr, 1, &mode};

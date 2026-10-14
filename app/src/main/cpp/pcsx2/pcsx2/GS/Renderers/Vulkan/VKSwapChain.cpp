@@ -173,7 +173,12 @@ std::unique_ptr<VKSwapChain> VKSwapChain::Create(const WindowInfo& wi, VkSurface
 	std::unique_ptr<VKSwapChain> swap_chain =
 		std::unique_ptr<VKSwapChain>(new VKSwapChain(wi, surface, present_mode, exclusive_fullscreen_control));
 	if (!swap_chain->CreateSwapChain())
+	{
+		// The caller still owns the surface on failure and releases it through
+		// its cleanup guard. Destroy only the partial swapchain here.
+		swap_chain->m_surface = VK_NULL_HANDLE;
 		return nullptr;
+	}
 
 	return swap_chain;
 }
@@ -466,10 +471,13 @@ bool VKSwapChain::CreateSwapChain()
 
 	// VK_EXT_swapchain_maintenance1 types/enums are aliases of VK_KHR_swapchain_maintenance1 types/enums.
 	const VkSwapchainPresentModesCreateInfoKHR modes_info{VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODES_CREATE_INFO_KHR, nullptr, 1u, &m_present_mode};
+	const bool use_present_modes = Vulkan::ShouldUseSwapchainPresentModes(
+		GSDeviceVK::GetInstance()->GetOptionalExtensions().vk_swapchain_maintenance1,
+		GSDeviceVK::GetInstance()->IsMaliSX2());
 
 	// Now we can actually create the swap chain
 	VkSwapchainCreateInfoKHR swap_chain_info = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, 
-		GSDeviceVK::GetInstance()->GetOptionalExtensions().vk_swapchain_maintenance1 ? &modes_info : nullptr, 0, m_surface,
+		use_present_modes ? &modes_info : nullptr, 0, m_surface,
 		image_count, surface_format->format, surface_format->colorSpace, size, 1u, image_usage,
 		VK_SHARING_MODE_EXCLUSIVE, 0, nullptr, transform, alpha, m_present_mode, VK_TRUE, old_swap_chain};
 	std::array<uint32_t, 2> indices = {{

@@ -214,6 +214,11 @@ GSDeviceVK::GSDeviceVK()
 
 GSDeviceVK::~GSDeviceVK() = default;
 
+bool GSDeviceVK::IsMaliSX2() const
+{
+	return IsMaliSX2DriverInfo(m_device_driver_properties.driverInfo);
+}
+
 VkInstance GSDeviceVK::CreateVulkanInstance(const WindowInfo& wi, OptionalExtensions* oe, bool enable_debug_utils,
 	bool enable_validation_layer)
 {

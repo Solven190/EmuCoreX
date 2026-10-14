@@ -318,6 +318,7 @@ void Host::ReportInfoAsync(const std::string_view title, const std::string_view 
 void Host::ReportErrorAsync(const std::string_view title, const std::string_view message)
 {
 	LogHostMessage(ANDROID_LOG_ERROR, title, message);
+	emucorex::android::RecordNativeErrorForCrashDiagnostics(title, message);
 }
 
 void Host::OpenURL(const std::string_view url)

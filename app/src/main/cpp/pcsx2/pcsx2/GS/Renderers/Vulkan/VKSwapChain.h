@@ -30,6 +30,7 @@ public:
 	static void DestroyVulkanSurface(VkInstance instance, WindowInfo* wi, VkSurfaceKHR surface);
 
 	// Create a new swap chain from a pre-existing surface.
+	// Takes ownership of the surface on success; the caller retains it on failure.
 	static std::unique_ptr<VKSwapChain> Create(const WindowInfo& wi, VkSurfaceKHR surface, VkPresentModeKHR present_mode,
 		std::optional<bool> exclusive_fullscreen_control);
 

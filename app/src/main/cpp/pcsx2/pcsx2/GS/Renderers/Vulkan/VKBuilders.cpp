@@ -7,6 +7,10 @@
 #include "common/Assertions.h"
 #include "common/Console.h"
 
+#if defined(__ANDROID__)
+#include "Host.h"
+#endif
+
 #include <limits>
 
 void Vulkan::AddPointerToChain(void* head, const void* ptr)
@@ -113,6 +117,10 @@ void Vulkan::LogVulkanResult(const char* func_name, VkResult res, const char* ms
 	va_end(ap);
 
 	Console.Error("(%s) %s (%d: %s)", func_name, real_msg.c_str(), static_cast<int>(res), VkResultToString(res));
+#if defined(__ANDROID__)
+	Host::ReportErrorAsync("Vulkan", StringUtil::StdStringFromFormat("(%s) %s (%d: %s)",
+		func_name, real_msg.c_str(), static_cast<int>(res), VkResultToString(res)));
+#endif
 }
 
 Vulkan::DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder()
