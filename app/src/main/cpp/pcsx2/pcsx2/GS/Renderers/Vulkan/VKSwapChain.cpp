@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "GS/Renderers/Vulkan/GSDeviceVK.h"
+#include "GS/Renderers/Vulkan/VKSwapchainCreate.h"
 #include "GS/Renderers/Vulkan/VKBuilders.h"
 #include "GS/Renderers/Vulkan/VKSwapChain.h"
 #include "VMManager.h"
@@ -513,17 +514,23 @@ bool VKSwapChain::CreateSwapChain()
 		Console.Error("Exclusive fullscreen control requested, but is not supported on this platform.");
 #endif
 
-	res = vkCreateSwapchainKHR(GSDeviceVK::GetInstance()->GetDevice(), &swap_chain_info, nullptr, &m_swap_chain);
+	bool retried_without_present_modes = false;
+	res = Vulkan::CreateSwapchainWithPresentModeFallback(swap_chain_info,
+		[this](const VkSwapchainCreateInfoKHR& info) {
+			m_swap_chain = VK_NULL_HANDLE;
+			return vkCreateSwapchainKHR(GSDeviceVK::GetInstance()->GetDevice(), &info, nullptr, &m_swap_chain);
+		}, &retried_without_present_modes);
+	if (retried_without_present_modes)
+		Console.Warning("VK: Swapchain rejected the maintenance1 present-mode list; ordinary creation returned %d.", res);
+	// The first create attempt retires the old swapchain even on failure. Resize
+	// has already waited for its work, so release it on both success and failure.
+	if (old_swap_chain != VK_NULL_HANDLE)
+		vkDestroySwapchainKHR(GSDeviceVK::GetInstance()->GetDevice(), old_swap_chain, nullptr);
 	if (res != VK_SUCCESS)
 	{
 		LOG_VULKAN_ERROR(res, "vkCreateSwapchainKHR failed: ");
 		return false;
 	}
-
-	// Now destroy the old swap chain, since it's been recreated.
-	// We can do this immediately since all work should have been completed before calling resize.
-	if (old_swap_chain != VK_NULL_HANDLE)
-		vkDestroySwapchainKHR(GSDeviceVK::GetInstance()->GetDevice(), old_swap_chain, nullptr);
 
 	m_window_info.surface_width = std::max(1u, size.width);
 	m_window_info.surface_height = std::max(1u, size.height);
