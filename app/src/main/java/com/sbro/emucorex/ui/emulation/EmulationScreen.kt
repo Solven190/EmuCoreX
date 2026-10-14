@@ -233,6 +233,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.util.Date
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import com.sbro.emucorex.ui.theme.neon.LocalNeonTheme
@@ -301,7 +302,7 @@ private data class OverlayAchievementsContentState(
     val gameData: RetroAchievementGameData? = null
 )
 
-private data class TouchButtonSpec(
+internal data class TouchButtonSpec(
     val id: String,
     val drawableRes: Int? = null,
     val width: Dp,
@@ -312,12 +313,25 @@ private data class TouchButtonSpec(
     val opacity: Float = 1f,
     val customControl: CustomTouchControl? = null,
     val haptics: Boolean = true,
-    val onPressChange: ((Boolean) -> Unit)? = null,
+    val pressActions: List<TouchButtonPressAction> = emptyList(),
     val onClick: (() -> Unit)? = null,
     val tapToHold: Boolean = false,
     val longPressDelayMs: Long = 0L,
     val onLongPressChange: ((Boolean) -> Unit)? = null
 )
+
+internal data class TouchButtonPressAction(
+    val ownerId: String,
+    val onPressChange: (Boolean) -> Unit
+)
+
+internal fun touchButtonActionOwner(actionId: String): String = when (actionId) {
+    "dpad_up" -> "up"
+    "dpad_down" -> "down"
+    "dpad_left" -> "left"
+    "dpad_right" -> "right"
+    else -> actionId
+}
 
 private data class TouchButtonLayoutKey(
     val id: String,
@@ -2931,9 +2945,11 @@ private fun OnScreenControls(
 
         fun runtimeSpecs(specs: List<com.sbro.emucorex.ui.common.OverlayCanvasButtonSpec>): List<TouchButtonSpec> {
             return specs.filter { it.visible }.map { spec ->
-                val pressHandlers = listOfNotNull(
-                    buttonPressHandler(spec.id),
-                    controlLayouts[spec.id]?.secondaryActionId?.let(::buttonPressHandler)
+                val pressActions = listOfNotNull(
+                    buttonPressHandler(spec.id)?.let { TouchButtonPressAction(touchButtonActionOwner(spec.id), it) },
+                    controlLayouts[spec.id]?.secondaryActionId?.let { actionId ->
+                        buttonPressHandler(actionId)?.let { TouchButtonPressAction(touchButtonActionOwner(actionId), it) }
+                    }
                 )
                 TouchButtonSpec(
                     id = spec.id,
@@ -2944,11 +2960,7 @@ private fun OnScreenControls(
                     y = spec.y,
                     shape = spec.shape,
                     opacity = spec.opacity / 100f,
-                    onPressChange = if (pressHandlers.isNotEmpty()) {
-                        { pressed -> pressHandlers.forEach { handler -> handler(pressed) } }
-                    } else {
-                        null
-                    },
+                    pressActions = pressActions,
                     onClick = if (spec.id == "left_input_toggle") onToggleSelectedStick else null,
                     tapToHold = (racingMode && isRacingTapToHoldButton(spec.id)) ||
                         spec.id in stickyButtons,
@@ -2991,9 +3003,13 @@ private fun OnScreenControls(
                 val height = control.heightDp.dp
                 val travelX = (maxWidth - safeLeft - safeRight - width).coerceAtLeast(0.dp)
                 val travelY = (maxHeight - safeTop - safeBottom - height).coerceAtLeast(0.dp)
-                val pressHandlers = listOfNotNull(
-                    buttonPressHandler(control.actionId),
-                    control.secondaryActionId?.let(::buttonPressHandler)
+                val pressActions = listOfNotNull(
+                    buttonPressHandler(control.actionId)?.let {
+                        TouchButtonPressAction(touchButtonActionOwner(control.actionId), it)
+                    },
+                    control.secondaryActionId?.let { actionId ->
+                        buttonPressHandler(actionId)?.let { TouchButtonPressAction(touchButtonActionOwner(actionId), it) }
+                    }
                 )
                 TouchButtonSpec(
                     id = "custom:${control.id}",
@@ -3004,11 +3020,7 @@ private fun OnScreenControls(
                     shape = control.composeShape(),
                     customControl = control,
                     haptics = control.haptics,
-                    onPressChange = if (pressHandlers.isNotEmpty()) {
-                        { pressed -> pressHandlers.forEach { handler -> handler(pressed) } }
-                    } else {
-                        null
-                    },
+                    pressActions = pressActions,
                     tapToHold = control.pressMode == CustomTouchControlPressMode.TOGGLE
                 )
             }
@@ -3211,7 +3223,7 @@ private fun RetroAchievementsNotificationToast(
 }
 
 @Composable
-private fun TouchButtonGroup(
+internal fun TouchButtonGroup(
     specs: List<TouchButtonSpec>,
     inputWidth: Dp,
     inputHeight: Dp,
@@ -3227,11 +3239,14 @@ private fun TouchButtonGroup(
 ) {
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
-    val activeTargets = remember { mutableStateMapOf<Long, String>() }
-    val downTargets = remember { mutableMapOf<Long, String?>() }
+    val activeTargets = remember { mutableStateMapOf<Long, Set<String>>() }
+    val downTargets = remember { mutableMapOf<Long, Set<String>>() }
     val latchedTargets = remember { mutableStateMapOf<String, Boolean>() }
-    val longPressJobs = remember { mutableMapOf<Long, Job>() }
-    val longPressActiveTargets = remember { mutableStateMapOf<Long, String>() }
+    val longPressJobs = remember { mutableMapOf<Pair<Long, String>, Job>() }
+    val longPressActiveTargets = remember { mutableStateMapOf<Long, Set<String>>() }
+    val shortTapSequence = remember { AtomicLong() }
+    val shortTapJobs = remember { mutableMapOf<String, Job>() }
+    val shortTapActionOwners = remember { mutableMapOf<String, Set<String>>() }
     val specById = specs.associateBy { it.id }
     val currentSpecById by rememberUpdatedState(specById)
     val currentOnPadInput by rememberUpdatedState(onPadInput)
@@ -3252,6 +3267,19 @@ private fun TouchButtonGroup(
             hasLongPressAction = spec.onLongPressChange != null && spec.longPressDelayMs > 0L
         )
     }
+    val actionOwnersByTarget = specs.associate { spec ->
+        spec.id to spec.pressActions.mapTo(LinkedHashSet(), TouchButtonPressAction::ownerId)
+    }
+    val pointerActionTargets = specs.asSequence()
+        .filterNot { it.tapToHold || (it.onLongPressChange != null && it.longPressDelayMs > 0L) }
+        .mapTo(LinkedHashSet(), TouchButtonSpec::id)
+    val pointerState = remember(layoutKey, actionOwnersByTarget, pointerActionTargets) {
+        TouchButtonPointerState(actionOwnersByTarget, pointerActionTargets)
+    }
+    val routingKey = Triple(layoutKey, actionOwnersByTarget, pointerActionTargets)
+    val pressActionsByOwner = specs.flatMap(TouchButtonSpec::pressActions)
+        .associateBy(TouchButtonPressAction::ownerId)
+    val currentPressActionsByOwner by rememberUpdatedState(pressActionsByOwner)
     val bounds = remember(layoutKey, density) {
         with(density) {
             val rects = specs.associate { spec ->
@@ -3279,97 +3307,113 @@ private fun TouchButtonGroup(
     val groupWidth = inputWidth
     val groupHeight = inputHeight
 
-    fun hitTarget(x: Float, y: Float): String? =
-        specs.lastOrNull { spec -> rects.getValue(spec.id).contains(Offset(x, y)) }?.id
+    fun hitTargets(x: Float, y: Float): List<String> =
+        selectTouchButtonHitTargets(
+            specs.asSequence()
+                .filter { spec -> rects.getValue(spec.id).contains(Offset(x, y)) }
+                .map { spec ->
+                    TouchButtonHitCandidate(
+                        id = spec.id,
+                        clickOnlyUtility = spec.onClick != null && spec.pressActions.isEmpty()
+                    )
+                }
+                .toList()
+        )
 
     fun TouchButtonSpec.hasLongPressAction(): Boolean {
         return onLongPressChange != null && longPressDelayMs > 0L
     }
 
     fun TouchButtonSpec.hasTapToHoldAction(): Boolean {
-        return tapToHold && onPressChange != null
+        return tapToHold && pressActions.isNotEmpty()
     }
 
-    fun toggleLatchedTarget(spec: TouchButtonSpec) {
-        val press = spec.onPressChange ?: return
-        if (latchedTargets.remove(spec.id) == true) {
-            press(false)
-        } else {
-            latchedTargets[spec.id] = true
-            press(true)
-        }
+    fun dispatchActionTransition(
+        transition: TouchButtonPointerTransition,
+        handlers: Map<String, TouchButtonPressAction> = currentPressActionsByOwner
+    ) {
+        transition.releasedActionOwners.forEach { ownerId -> handlers[ownerId]?.onPressChange?.invoke(false) }
+        transition.pressedActionOwners.forEach { ownerId -> handlers[ownerId]?.onPressChange?.invoke(true) }
     }
 
-    fun cancelLongPress(pointerId: Long) {
-        longPressJobs.remove(pointerId)?.cancel()
-        val activeTarget = longPressActiveTargets.remove(pointerId)
-        if (activeTarget != null && !longPressActiveTargets.containsValue(activeTarget)) {
-            currentSpecById[activeTarget]?.onLongPressChange?.invoke(false)
+    fun cancelLongPress(pointerId: Long, targetId: String) {
+        longPressJobs.remove(pointerId to targetId)?.cancel()
+        val activeForPointer = longPressActiveTargets[pointerId].orEmpty()
+        if (targetId in activeForPointer) {
+            val remaining = activeForPointer - targetId
+            if (remaining.isEmpty()) longPressActiveTargets.remove(pointerId) else longPressActiveTargets[pointerId] = remaining
+            if (longPressActiveTargets.values.none { targetId in it }) {
+                currentSpecById[targetId]?.onLongPressChange?.invoke(false)
+            }
         }
     }
 
     fun startLongPress(pointerId: Long, targetId: String) {
         val spec = currentSpecById[targetId] ?: return
         if (!spec.hasLongPressAction()) return
-        longPressJobs.remove(pointerId)?.cancel()
-        longPressJobs[pointerId] = coroutineScope.launch {
+        val key = pointerId to targetId
+        longPressJobs.remove(key)?.cancel()
+        longPressJobs[key] = coroutineScope.launch {
             delay(spec.longPressDelayMs.milliseconds)
-            if (activeTargets[pointerId] != targetId) return@launch
-            val wasAlreadyActive = longPressActiveTargets.containsValue(targetId)
-            longPressActiveTargets[pointerId] = targetId
+            if (targetId !in activeTargets[pointerId].orEmpty()) return@launch
+            val wasAlreadyActive = longPressActiveTargets.values.any { targetId in it }
+            longPressActiveTargets[pointerId] = longPressActiveTargets[pointerId].orEmpty() + targetId
             if (!wasAlreadyActive) {
                 spec.onLongPressChange?.invoke(true)
             }
         }
     }
 
-    fun sendShortTap(spec: TouchButtonSpec) {
-        val press = spec.onPressChange ?: return
-        coroutineScope.launch {
-            press(true)
+    fun scheduleShortTapRelease(sourceId: String) {
+        shortTapJobs[sourceId] = coroutineScope.launch {
             delay(70.milliseconds)
-            press(false)
+            dispatchActionTransition(pointerState.setTransientActionOwners(sourceId, emptySet()))
+            shortTapActionOwners.remove(sourceId)
+            shortTapJobs.remove(sourceId)
         }
     }
 
-    fun updatePointerTarget(pointerId: Long, newTarget: String?, emitReleaseHaptic: Boolean = true) {
-        val oldTarget = activeTargets[pointerId]
-        if (oldTarget == newTarget) return
+    fun completePointerTargets(
+        pointerId: Long,
+        latchedUpdates: Map<String, Boolean> = emptyMap(),
+        transientActionOwners: Map<String, Set<String>> = emptyMap()
+    ) {
+        val transition = pointerState.completePointer(pointerId, latchedUpdates, transientActionOwners)
+        activeTargets.remove(pointerId)
+        downTargets.remove(pointerId)
+        transition.exitedTargets.forEach { targetId -> cancelLongPress(pointerId, targetId) }
+        latchedUpdates.forEach { (targetId, latched) ->
+            if (latched) latchedTargets[targetId] = true else latchedTargets.remove(targetId)
+        }
+        transientActionOwners.forEach { (sourceId, owners) ->
+            shortTapActionOwners[sourceId] = owners
+        }
+        dispatchActionTransition(transition)
+        if (transition.deactivatedTargets.any { currentSpecById[it]?.haptics != false }) {
+            onTouchHaptic(ButtonPhase.RELEASE)
+        }
+        transientActionOwners.keys.forEach(::scheduleShortTapRelease)
+    }
 
-        if (oldTarget != null) {
+    fun updatePointerTargets(pointerId: Long, newTargets: Collection<String>, emitHaptics: Boolean = true) {
+        val transition = pointerState.update(pointerId, newTargets)
+        if (newTargets.isEmpty()) {
             activeTargets.remove(pointerId)
-            val oldSpec = currentSpecById[oldTarget]
-            if (oldSpec?.hasLongPressAction() == true) {
-                cancelLongPress(pointerId)
-            } else if (oldSpec?.hasTapToHoldAction() == true) {
-                // Tap-to-hold buttons are toggled on release, not while the pointer is moving.
-            } else if (!activeTargets.containsValue(oldTarget)) {
-                oldSpec?.onPressChange?.invoke(false)
-            }
-            if (
-                newTarget == null &&
-                emitReleaseHaptic &&
-                oldSpec?.haptics != false &&
-                !activeTargets.containsValue(oldTarget)
-            ) {
-                onTouchHaptic(ButtonPhase.RELEASE)
-            }
+        } else {
+            activeTargets[pointerId] = newTargets.toCollection(LinkedHashSet())
         }
 
-        if (newTarget != null) {
-            val alreadyActive = activeTargets.containsValue(newTarget)
-            activeTargets[pointerId] = newTarget
-            val newSpec = currentSpecById[newTarget]
-            if (!alreadyActive && newSpec?.haptics != false) {
-                onTouchHaptic(ButtonPhase.PRESS)
-            }
-            if (newSpec?.hasLongPressAction() == true) {
-                startLongPress(pointerId, newTarget)
-            } else if (newSpec?.hasTapToHoldAction() == true) {
-                // Tap-to-hold buttons are toggled on release, not on pointer entry.
-            } else if (!alreadyActive) {
-                newSpec?.onPressChange?.invoke(true)
-            }
+        transition.exitedTargets.forEach { targetId -> cancelLongPress(pointerId, targetId) }
+        transition.enteredTargets.forEach { targetId ->
+            if (currentSpecById[targetId]?.hasLongPressAction() == true) startLongPress(pointerId, targetId)
+        }
+        dispatchActionTransition(transition)
+
+        if (emitHaptics && transition.activatedTargets.any { currentSpecById[it]?.haptics != false }) {
+            onTouchHaptic(ButtonPhase.PRESS)
+        }
+        if (emitHaptics && transition.deactivatedTargets.any { currentSpecById[it]?.haptics != false }) {
+            onTouchHaptic(ButtonPhase.RELEASE)
         }
     }
 
@@ -3383,20 +3427,31 @@ private fun TouchButtonGroup(
         gesturePointerId = null
     }
 
-    DisposableEffect(layoutKey, touchscreenRightStick) {
+    DisposableEffect(routingKey, touchscreenRightStick) {
+        val stateAtStart = pointerState
+        val specsAtStart = specById
+        val pressActionsAtStart = pressActionsByOwner
         onDispose {
             longPressJobs.values.forEach { it.cancel() }
-            longPressActiveTargets.values.toSet().forEach { targetId ->
-                currentSpecById[targetId]?.onLongPressChange?.invoke(false)
+            longPressActiveTargets.values.flatten().toSet().forEach { targetId ->
+                specsAtStart[targetId]?.onLongPressChange?.invoke(false)
             }
+            longPressActiveTargets.clear()
+            shortTapJobs.values.forEach { it.cancel() }
+            shortTapActionOwners.keys.toList().forEach { sourceId ->
+                dispatchActionTransition(
+                    stateAtStart.setTransientActionOwners(sourceId, emptySet()),
+                    pressActionsAtStart
+                )
+            }
+            shortTapActionOwners.clear()
+            shortTapJobs.clear()
             latchedTargets.keys.toList().forEach { targetId ->
-                currentSpecById[targetId]?.onPressChange?.invoke(false)
+                dispatchActionTransition(stateAtStart.setLatched(targetId, latched = false), pressActionsAtStart)
             }
-            activeTargets.values.toSet().forEach { targetId ->
-                val spec = currentSpecById[targetId]
-                if (spec?.hasLongPressAction() != true && spec?.hasTapToHoldAction() != true) {
-                    spec?.onPressChange?.invoke(false)
-                }
+            latchedTargets.clear()
+            (activeTargets.keys + downTargets.keys).toSet().forEach { pointerId ->
+                dispatchActionTransition(stateAtStart.update(pointerId, emptyList()), pressActionsAtStart)
             }
             activeTargets.clear()
             downTargets.clear()
@@ -3417,19 +3472,20 @@ private fun TouchButtonGroup(
             // - pointerInput delivers proper per-pointer press/move/release events and cancellation
             // - pointerInteropFilter could miss ACTION_UP under rapid multitouch / Samsung OneUI
             //   which caused stuck keys and completely dead overlay on some devices (e.g., Samsung S26)
-            .pointerInput(layoutKey, touchscreenRightStick) {
+            .pointerInput(routingKey, touchscreenRightStick) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
+                        val isNativeCancel = event.motionEvent?.actionMasked == MotionEvent.ACTION_CANCEL
                         event.changes.forEach { change ->
                             val pointerId = change.id.value
                             val isDown = change.pressed && !change.previousPressed
                             val isUp = !change.pressed && change.previousPressed
                             if (isDown && !change.isConsumed) {
-                                val target = hitTarget(change.position.x, change.position.y)
-                                if (target != null) {
-                                    downTargets[pointerId] = target
-                                    updatePointerTarget(pointerId, target)
+                                val targets = hitTargets(change.position.x, change.position.y)
+                                if (targets.isNotEmpty()) {
+                                    downTargets[pointerId] = targets.toCollection(LinkedHashSet())
+                                    updatePointerTargets(pointerId, targets)
                                     change.consume()
                                 } else if (touchscreenRightStick && gesturePointerId == null) {
                                     gesturePointerId = pointerId
@@ -3437,20 +3493,35 @@ private fun TouchButtonGroup(
                                     change.consume()
                                 }
                             } else if (isUp) {
-                                val downTarget = downTargets.remove(pointerId)
-                                if (downTarget != null) {
-                                    val upTarget = hitTarget(change.position.x, change.position.y)
-                                    val downSpec = currentSpecById[downTarget]
-                                    val consumedByLongPress = longPressActiveTargets[pointerId] == downTarget
-                                    updatePointerTarget(pointerId, null)
-                                    if (downTarget == upTarget) {
-                                        if (downSpec?.hasLongPressAction() == true) {
-                                            if (!consumedByLongPress) sendShortTap(downSpec)
-                                        } else if (downSpec?.hasTapToHoldAction() == true) {
-                                            toggleLatchedTarget(downSpec)
-                                        } else {
-                                            downSpec?.onClick?.invoke()
+                                val downTargetSet = downTargets.remove(pointerId)
+                                if (downTargetSet != null) {
+                                    // Compose synthesizes cancellation changes with isConsumed=true and
+                                    // no native MotionEvent; use both cancellation signals before consuming this up.
+                                    if (isNativeCancel || change.isConsumed) {
+                                        completePointerTargets(pointerId)
+                                    } else {
+                                        val upTargets = hitTargets(change.position.x, change.position.y).toSet()
+                                        val matchingTargets = matchingTouchButtonReleaseTargets(downTargetSet, upTargets)
+                                        val consumedByLongPress = longPressActiveTargets[pointerId].orEmpty()
+                                        val latchedUpdates = mutableMapOf<String, Boolean>()
+                                        val transientOwners = mutableMapOf<String, Set<String>>()
+                                        val clickTargets = mutableListOf<TouchButtonSpec>()
+                                        matchingTargets.forEach { targetId ->
+                                            val downSpec = currentSpecById[targetId] ?: return@forEach
+                                            if (downSpec.hasLongPressAction()) {
+                                                if (targetId !in consumedByLongPress && downSpec.pressActions.isNotEmpty()) {
+                                                    val sourceId = "tap:$pointerId:${downSpec.id}:${shortTapSequence.incrementAndGet()}"
+                                                    transientOwners[sourceId] = downSpec.pressActions
+                                                        .mapTo(LinkedHashSet(), TouchButtonPressAction::ownerId)
+                                                }
+                                            } else if (downSpec.hasTapToHoldAction()) {
+                                                latchedUpdates[targetId] = latchedTargets[targetId] != true
+                                            } else if (downSpec.onClick != null) {
+                                                clickTargets += downSpec
+                                            }
                                         }
+                                        completePointerTargets(pointerId, latchedUpdates, transientOwners)
+                                        clickTargets.forEach { it.onClick?.invoke() }
                                     }
                                     change.consume()
                                 } else if (gesturePointerId == pointerId) {
@@ -3459,8 +3530,8 @@ private fun TouchButtonGroup(
                                 }
                             } else if (change.pressed) {
                                 if (downTargets.containsKey(pointerId)) {
-                                    val newTarget = hitTarget(change.position.x, change.position.y)
-                                    updatePointerTarget(pointerId, newTarget)
+                                    val newTargets = hitTargets(change.position.x, change.position.y)
+                                    updatePointerTargets(pointerId, newTargets)
                                     change.consume()
                                 } else if (gesturePointerId == pointerId) {
                                     val value = calculateRightStickGestureValue(
@@ -3480,10 +3551,10 @@ private fun TouchButtonGroup(
                         }
                         // Stuck-key guard: clean up pointers that disappeared without explicit up (missed cancel)
                         val presentIds = event.changes.map { it.id.value }.toSet()
-                        val staleActive = activeTargets.keys.filter { it !in presentIds }
+                        val staleActive = (activeTargets.keys + downTargets.keys).toSet().filter { it !in presentIds }
                         if (staleActive.isNotEmpty()) {
                             staleActive.forEach { pid ->
-                                updatePointerTarget(pid, null, emitReleaseHaptic = false)
+                                updatePointerTargets(pid, emptyList(), emitHaptics = false)
                                 downTargets.remove(pid)
                             }
                         }
@@ -3501,7 +3572,7 @@ private fun TouchButtonGroup(
                         (spec.y.roundToPx() - groupRect.top.roundToInt())
                     )
                 }
-            val pressed = activeTargets.containsValue(spec.id) || latchedTargets[spec.id] == true
+            val pressed = activeTargets.values.any { spec.id in it } || latchedTargets[spec.id] == true
             val vectorDrawable = spec.customControl
                 ?.takeIf { it.usesVectorStyle }
                 ?.let { actionDrawableRes(it.actionId) }
