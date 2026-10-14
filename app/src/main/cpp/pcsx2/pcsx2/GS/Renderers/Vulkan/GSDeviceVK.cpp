@@ -6466,6 +6466,19 @@ bool GSDeviceVK::TestTFXWarmupOrdering()
 bool GSDeviceVK::TestTFXShaderSourceBuilders()
 {
 	TFXSourceHash builder_hash;
+	bool compatible_header = true;
+	const auto AddComparedSource = [&builder_hash, &compatible_header](std::string source) {
+		constexpr std::string_view prefix =
+			"#version 460 core\n#extension GL_EXT_samplerless_texture_functions : require\n";
+		constexpr std::string_view removed_requirement = "#extension GL_ARB_shader_draw_parameters : require\n";
+		compatible_header &= source.starts_with(prefix) && source.find(removed_requirement) == std::string::npos;
+		// Preserve the established 10,496-source oracle after intentionally removing
+		// the unused draw-parameter requirement for MaliSX2. Everything else must
+		// remain byte-identical to the pre-removal shader fixtures.
+		if (source.starts_with(prefix))
+			source.insert(prefix.size(), removed_requirement);
+		builder_hash.Add(source);
+	};
 	static constexpr u64 EXPECTED_FIRST_HASH = 0x9C23F4A8F1A120BDull;
 	static constexpr u64 EXPECTED_SECOND_HASH = 0x98F5B591D3E37FD2ull;
 	static constexpr u64 EXPECTED_SOURCE_COUNT = 10496;
@@ -6484,12 +6497,12 @@ bool GSDeviceVK::TestTFXShaderSourceBuilders()
 			for (u32 key = 0; key < 32; key++)
 			{
 				const GSHWDrawConfig::VSSelector selector(static_cast<u8>(key));
-				builder_hash.Add(BuildTFXVertexShaderSource(suffix, selector, capabilities));
+				AddComparedSource(BuildTFXVertexShaderSource(suffix, selector, capabilities));
 			}
 			for (const u8 key : {static_cast<u8>(0), static_cast<u8>(0xff)})
 			{
 				const GSHWDrawConfig::VSSelector selector(key);
-				builder_hash.Add(BuildTFXVertexShaderSource(suffix, selector, capabilities));
+				AddComparedSource(BuildTFXVertexShaderSource(suffix, selector, capabilities));
 			}
 			for (u32 bit = 0; bit < 128; bit++)
 			{
@@ -6498,18 +6511,18 @@ bool GSDeviceVK::TestTFXShaderSourceBuilders()
 					selector.key_lo = u64(1) << bit;
 				else
 					selector.key_hi = u64(1) << (bit - 64);
-				builder_hash.Add(BuildTFXFragmentShaderSource(suffix, selector, capabilities));
+				AddComparedSource(BuildTFXFragmentShaderSource(suffix, selector, capabilities));
 			}
 			for (const u64 key_word : {u64(0), ~u64(0)})
 			{
 				GSHWDrawConfig::PSSelector selector;
 				selector.key_lo = key_word;
 				selector.key_hi = key_word;
-				builder_hash.Add(BuildTFXFragmentShaderSource(suffix, selector, capabilities));
+				AddComparedSource(BuildTFXFragmentShaderSource(suffix, selector, capabilities));
 			}
 		}
 	}
-	return builder_hash.first == EXPECTED_FIRST_HASH && builder_hash.second == EXPECTED_SECOND_HASH &&
+	return compatible_header && builder_hash.first == EXPECTED_FIRST_HASH && builder_hash.second == EXPECTED_SECOND_HASH &&
 		builder_hash.count == EXPECTED_SOURCE_COUNT;
 }
 
