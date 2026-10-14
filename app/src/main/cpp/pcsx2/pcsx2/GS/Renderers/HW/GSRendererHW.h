@@ -207,6 +207,9 @@ private:
 	template <bool linear>
 	void RoundSpriteOffset();
 
+	bool SnapSpriteEdgesToPixelGrid();
+	void CorrectSpriteCoverageForUpscale(GSTextureCache::Target* rt);
+
 	void DrawPrims(GSTextureCache::Target* rt, GSTextureCache::Target* ds, GSTextureCache::Source* tex, const TextureMinMaxResult& tmm);
 
 	void ResetStates();
@@ -310,6 +313,9 @@ private:
 	u32 m_last_channel_shuffle_fbp = 0;
 	u32 m_last_channel_shuffle_tbp = 0;
 	u32 m_last_channel_shuffle_end_block = 0;
+	bool m_channel_shuffle_rebuilt_quad = false;
+	bool m_sprite_edge_clamp = false;
+	std::vector<GSVector2> m_sprite_edge_limits;
 	u32 m_channel_shuffle_width = 0;
 	GSVector4i m_channel_shuffle_src_valid = GSVector4i::zero();
 	bool m_full_screen_shuffle = false;

@@ -23,6 +23,8 @@
 #include "GS/Renderers/Vulkan/GSDeviceVK.h"
 #include "GS/Renderers/Vulkan/VKShaderCache.h"
 #include "GS/Renderers/Vulkan/VKSwapchainCreate.h"
+#include "GS/Renderers/HW/GSSpriteEdgeSnap.h"
+#include "GameDatabase.h"
 #include "common/FileSystem.h"
 #include "common/ScopedGuard.h"
 
@@ -221,7 +223,7 @@ void GSPreparationDeviceTests()
         std::printf("GSPREP run=%u total=%u completed=%u available=%u failed=%u cancelled=%u in_flight=%u cancel_requested=%u finished=%u checkpoint_saved=%u\n",
             run, progress.total, progress.completed, progress.already_available, progress.failed,
             progress.cancelled, progress.in_flight, progress.cancel_requested, progress.finished, progress.checkpoint_saved);
-        Check(progress.total == (run == 3 ? 84u : 164u) && progress.finished && progress.in_flight == 0 && progress.failed == 0 &&
+        Check(progress.total == (run == 3 ? 86u : 168u) && progress.finished && progress.in_flight == 0 && progress.failed == 0 &&
             progress.completed + progress.already_available + progress.cancelled == progress.total,
             "GS preparation accounts the real baseline batch exactly once");
         Check(progress.checkpoint_saved, "GS preparation flushes a usable local pipeline checkpoint");
@@ -251,6 +253,8 @@ void GSPreparationDeviceTests()
 
 void ClassifierTests()
 {
+    Check(GSSpriteEdgeSnap::TestCoverageMath(), "GS upscale sprite coverage preserves sample limits and abutting edges");
+    Check(GameDatabaseSchema::GameEntry::TestUpscaleAlignmentPolicy(), "GS graphics opt-out allows only upscale alignment and respects manual overrides");
     Check(GSDeviceVK::TestTFXPreparationPlan(), "GS temporary preparation uses only two compatible baseline passes");
     Check(VKShaderCache::TestPipelineCachePersistence("artifacts/tfx-cache-checkpoint.bin"), "GS checkpoint persists same-size changed bytes and rejects failed writes");
     Check(GSDeviceVK::TestTFXPreparationProgress(), "GS preparation counts completion and cancellation after worker checkpoint");

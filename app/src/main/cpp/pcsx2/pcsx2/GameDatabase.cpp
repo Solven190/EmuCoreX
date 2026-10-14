@@ -713,6 +713,37 @@ bool GameDatabaseSchema::GameEntry::configMatchesHWFix(const Pcsx2Config::GSOpti
 	}
 }
 
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+bool GameDatabaseSchema::GameEntry::TestUpscaleAlignmentPolicy()
+{
+	GameEntry entry;
+	entry.gsHWFixes = {{GSHWFixId::AlignSprite, 1}, {GSHWFixId::AutoFlush, 1}, {GSHWFixId::HalfPixelOffset, 4}};
+	for (const float scale : {1.0f, 2.0f, 3.0f})
+	{
+		for (const bool automatic_alignment : {false, true})
+		{
+			Pcsx2Config::GSOptions config;
+			config.ManualUserHacks = true;
+			config.AutoUpscaleAlignment = automatic_alignment;
+			config.UpscaleMultiplier = scale;
+			entry.applyGSHardwareFixes(config);
+			if (config.UserHacks_AlignSpriteX != (automatic_alignment && scale > 1.0f) ||
+				config.UserHacks_AutoFlush != GSHWAutoFlushLevel::Disabled || config.UserHacks_HalfPixelOffset != GSHalfPixelOffset::Off)
+				return false;
+			config.MaskUpscalingHacks();
+			if (scale <= 1.0f && config.UserHacks_AlignSpriteX)
+				return false;
+		}
+	}
+	Pcsx2Config::GSOptions full;
+	full.UpscaleMultiplier = 2.0f;
+	full.ManualUserHacks = false;
+	entry.applyGSHardwareFixes(full);
+	return full.UserHacks_AlignSpriteX && full.UserHacks_AutoFlush != GSHWAutoFlushLevel::Disabled &&
+		full.UserHacks_HalfPixelOffset != GSHalfPixelOffset::Off;
+}
+#endif
+
 void GameDatabaseSchema::GameEntry::applyGSHardwareFixes(Pcsx2Config::GSOptions& config) const
 {
 	std::string disabled_fixes;
@@ -725,7 +756,11 @@ void GameDatabaseSchema::GameEntry::applyGSHardwareFixes(Pcsx2Config::GSOptions&
 
 	for (const auto& [id, value] : gsHWFixes)
 	{
-		if (isUserHackHWFix(id) && !apply_auto_fixes)
+		// Only the known sprite alignment rule survives the graphics opt-out.
+		// Actual manual hardware settings disable this exception in the bridge.
+		const bool upscale_alignment = config.AutoUpscaleAlignment && config.UpscaleMultiplier > 1.0f &&
+			id == GSHWFixId::AlignSprite;
+		if (isUserHackHWFix(id) && !apply_auto_fixes && !upscale_alignment)
 		{
 			if (configMatchesHWFix(config, id, value))
 				continue;

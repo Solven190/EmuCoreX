@@ -3295,6 +3295,7 @@ bool GSDeviceVK::CheckFeatures()
 	m_features.prefer_new_textures = true;
 	m_features.provoking_vertex_last = m_optional_extensions.vk_ext_provoking_vertex;
 	m_features.vs_expand = !GSConfig.DisableVertexShaderExpand;
+	m_features.sprite_edge_clamp = true;
 
 	if (!m_features.texture_barrier)
 		Console.WriteLn("VK: Using render-target snapshots for framebuffer feedback.");
@@ -6206,6 +6207,7 @@ std::string GSDeviceVK::BuildTFXVertexShaderSource(std::string_view tfx_source, 
 	AddMacro(ss, "VS_IIP", selector.iip);
 	AddMacro(ss, "VS_POINT_SIZE", selector.point_size);
 	AddMacro(ss, "VS_EXPAND", static_cast<int>(selector.expand));
+	AddMacro(ss, "VS_SPRITE_EDGE_CLAMP", selector.sprite_edge_clamp);
 	AddMacro(ss, "VS_PROVOKING_VERTEX_LAST", static_cast<int>(capabilities.provoking_vertex_last));
 	ss << tfx_source;
 	return ss.str();
@@ -6245,6 +6247,7 @@ std::string GSDeviceVK::BuildTFXFragmentShaderSource(std::string_view tfx_source
 	AddMacro(ss, "PS_DATE", selector.date);
 	AddMacro(ss, "PS_TCOFFSETHACK", selector.tcoffsethack);
 	AddMacro(ss, "PS_REGION_RECT", selector.region_rect);
+	AddMacro(ss, "PS_SPRITE_EDGE_CLAMP", selector.sprite_edge_clamp);
 	AddMacro(ss, "PS_BLEND_A", selector.blend_a);
 	AddMacro(ss, "PS_BLEND_B", selector.blend_b);
 	AddMacro(ss, "PS_BLEND_C", selector.blend_c);
@@ -6480,6 +6483,15 @@ bool GSDeviceVK::TestTFXWarmupOrdering()
 
 bool GSDeviceVK::TestTFXShaderSourceBuilders()
 {
+	// A snapped FST sprite must carry its sample limit through every vertex path.
+	const GSHWDrawConfig::VSSelector edge_selector(0x80);
+	if (BuildTFXVertexShaderSource({}, edge_selector, {}).find("#define VS_SPRITE_EDGE_CLAMP 1") == std::string::npos)
+		return false;
+	GSHWDrawConfig::PSSelector edge_pixel;
+	edge_pixel.fst = 1;
+	edge_pixel.sprite_edge_clamp = 1;
+	if (BuildTFXFragmentShaderSource({}, edge_pixel, {}).find("#define PS_SPRITE_EDGE_CLAMP 1") == std::string::npos)
+		return false;
 	TFXSourceHash builder_hash;
 	bool compatible_header = true;
 	const auto AddComparedSource = [&builder_hash, &compatible_header](std::string source) {
@@ -6492,6 +6504,13 @@ bool GSDeviceVK::TestTFXShaderSourceBuilders()
 		// remain byte-identical to the pre-removal shader fixtures.
 		if (source.starts_with(prefix))
 			source.insert(prefix.size(), removed_requirement);
+		// The new selector has its own checks below; preserve all pre-port fixtures.
+		for (const std::string_view macro : {"#define VS_SPRITE_EDGE_CLAMP ", "#define PS_SPRITE_EDGE_CLAMP "})
+		{
+			const size_t at = source.find(macro);
+			if (at != std::string::npos)
+				source.erase(at, source.find('\n', at) - at + 1);
+		}
 		builder_hash.Add(source);
 	};
 	static constexpr u64 EXPECTED_FIRST_HASH = 0x9C23F4A8F1A120BDull;
@@ -6555,8 +6574,8 @@ bool GSDeviceVK::TestTFXShaderSourceCatalog()
 		const TFXShaderSourceCatalog catalog = BuildTFXShaderSourceCatalog(source, capabilities);
 		const TFXShaderSourceCatalog repeated = BuildTFXShaderSourceCatalog(source, capabilities);
 
-		if (catalog.pipelines.size() != 164 || catalog.vertex_sources.size() != 8 ||
-			catalog.fragment_sources.size() != 40 || catalog.pipelines.size() != repeated.pipelines.size() ||
+		if (catalog.pipelines.size() != 168 || catalog.vertex_sources.size() != 10 ||
+			catalog.fragment_sources.size() != 42 || catalog.pipelines.size() != repeated.pipelines.size() ||
 			catalog.vertex_sources != repeated.vertex_sources || catalog.fragment_sources != repeated.fragment_sources)
 		{
 			return false;
@@ -7268,7 +7287,7 @@ bool GSDeviceVK::TestTFXPreparationPlan()
 
 	std::vector<PipelineSelector> selectors;
 	BuildTFXPreparationSelectors(selectors, true);
-	if (selectors.size() != 164)
+	if (selectors.size() != 168)
 		return false;
 
 	u32 without_depth = 0;
@@ -7282,7 +7301,7 @@ bool GSDeviceVK::TestTFXPreparationPlan()
 		}
 		selector.ds ? ++with_depth : ++without_depth;
 	}
-	if (without_depth != 82 || with_depth != 82)
+	if (without_depth != 84 || with_depth != 84)
 		return false;
 
 	// Point expansion reads vertices through TFX UBO layout binding 2, which
@@ -7290,7 +7309,7 @@ bool GSDeviceVK::TestTFXPreparationPlan()
 	// The capability-off baseline must therefore omit those selectors rather
 	// than compile pipelines against a layout missing their declared binding.
 	BuildTFXPreparationSelectors(selectors, false);
-	if (selectors.size() != 84)
+	if (selectors.size() != 86)
 		return false;
 	without_depth = 0;
 	with_depth = 0;
@@ -7303,14 +7322,14 @@ bool GSDeviceVK::TestTFXPreparationPlan()
 		}
 		selector.ds ? ++with_depth : ++without_depth;
 	}
-	return without_depth == 42 && with_depth == 42;
+	return without_depth == 43 && with_depth == 43;
 }
 #endif
 
 void GSDeviceVK::BuildWarmupTFXSelectors(std::vector<PipelineSelector>& out)
 {
 	out.clear();
-	out.reserve(164);
+	out.reserve(168);
 
 	static constexpr std::array<u8, 5> tfx_modes = {{TFX_NONE, TFX_MODULATE, TFX_DECAL, TFX_HIGHLIGHT, TFX_HIGHLIGHT2}};
 	static constexpr std::array<u8, 2> topologies = {{
@@ -7432,6 +7451,22 @@ void GSDeviceVK::BuildWarmupTFXSelectors(std::vector<PipelineSelector>& out)
 			pipe.bs.dst_factor_alpha = INV_SRC_ALPHA;
 			out.push_back(pipe);
 		}
+	}
+
+	// Compile the new sample-limit paths during one-time preparation as well.
+	// One textured baseline per depth mode, with CPU and VS sprite expansion.
+	for (const bool depth : {false, true})
+	{
+		const auto found = std::find_if(out.begin(), out.end(), [depth](const PipelineSelector& p) {
+			return p.ds == depth && p.vs.tme && p.vs.fst && p.ps.fst && p.vs.expand == GSHWDrawConfig::VSExpand::None;
+		});
+		pxAssert(found != out.end());
+		PipelineSelector base = *found;
+		base.vs.iip = base.ps.iip = 0;
+		base.vs.sprite_edge_clamp = base.ps.sprite_edge_clamp = 1;
+		out.push_back(base);
+		base.vs.expand = GSHWDrawConfig::VSExpand::Sprite;
+		out.push_back(base);
 	}
 }
 

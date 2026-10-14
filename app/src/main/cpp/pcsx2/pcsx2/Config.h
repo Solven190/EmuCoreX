@@ -903,6 +903,7 @@ struct Pcsx2Config
 		GSHWAutoFlushLevel UserHacks_AutoFlush = GSHWAutoFlushLevel::Disabled;
 		GSHalfPixelOffset UserHacks_HalfPixelOffset = GSHalfPixelOffset::Off;
 		s8 UserHacks_RoundSprite = 0;
+		bool AutoUpscaleAlignment = true;
 		GSNativeScaling UserHacks_NativeScaling = GSNativeScaling::Off;
 		s32 UserHacks_TCOffsetX = 0;
 		s32 UserHacks_TCOffsetY = 0;

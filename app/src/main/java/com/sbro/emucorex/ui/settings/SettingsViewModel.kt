@@ -2244,6 +2244,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private suspend fun refreshManualHardwareFixes(state: SettingsUiState = _uiState.value) {
         val manual = manualHardwareFixesEnabled(state)
         EmulatorBridge.setSetting("EmuCore/GS", "UserHacks", "bool", (manual || !state.autoGsHardwareFixes).toString())
+        EmulatorBridge.setSetting("EmuCore/GS", "AutoUpscaleAlignment", "bool", (!manual).toString())
     }
 
     // Overlay

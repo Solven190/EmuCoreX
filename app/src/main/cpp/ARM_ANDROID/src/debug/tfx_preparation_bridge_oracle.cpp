@@ -142,7 +142,7 @@ extern "C" __attribute__((visibility("default"))) int EmuCoreXRunTFXPreparationB
 			"canonical TFX source completes a Vulkan baseline bridge run");
 		const TFXPreparationStatus status = job.Snapshot();
 		Check(status.job_id == 101 && status.attempt == 1 && status.state == TFXPreparationState::Completed &&
-			status.total == 164 && status.completed + status.already_available == 164 && !status.failed &&
+			status.total == 168 && status.completed + status.already_available == 168 && !status.failed &&
 			!status.cancelled && !status.in_flight && status.finished && status.checkpoint_saved,
 			"bridge returns real completed counts and durable checkpoint status");
 		Check(RuntimeGlobalsRestored(old_gs_config, old_folders, old_settings),

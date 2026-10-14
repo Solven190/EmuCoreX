@@ -709,7 +709,7 @@ struct alignas(16) GSHWDrawConfig
 				u8 iip : 1;
 				u8 point_size : 1;		///< Set when points need to be expanded without VS expanding.
 				VSExpand expand : 3;
-				u8 _free : 1;
+				u8 sprite_edge_clamp : 1; // FST ST stores the last native sample coordinate.
 			};
 			u8 key;
 		};
@@ -831,6 +831,7 @@ struct alignas(16) GSHWDrawConfig
 				// Rasterizer ordered views
 				u32 rov_color : 1;
 				PS_ROV_DEPTH rov_depth : 2;
+				u32 sprite_edge_clamp : 1;
 			};
 
 			struct
@@ -1429,6 +1430,7 @@ public:
 	struct FeatureSupport
 	{
 		bool broken_point_sampler : 1; ///< Issue with AMD cards, see tfx shader for details
+		bool sprite_edge_clamp    : 1; ///< Shader can clamp snapped sprites to their last native sample.
 		bool vs_expand            : 1; ///< Supports expanding points/lines/sprites in the vertex shader
 		bool primitive_id         : 1; ///< Supports primitive ID for use with prim tracking destination alpha algorithm
 		bool texture_barrier      : 1; ///< Supports sampling rt and hopefully texture barrier

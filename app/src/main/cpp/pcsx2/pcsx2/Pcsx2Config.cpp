@@ -833,6 +833,7 @@ bool Pcsx2Config::GSOptions::OptionsAreEqual(const GSOptions& right) const
 
 		OpEqu(Renderer) &&
 		OpEqu(UpscaleMultiplier) &&
+		OpEqu(AutoUpscaleAlignment) &&
 
 		OpEqu(AccurateBlendingUnit) &&
 		OpEqu(TextureFiltering) &&
@@ -1008,6 +1009,7 @@ void Pcsx2Config::GSOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapBitBoolEx(PreloadFrameWithGSData, "preload_frame_with_gs_data");
 	SettingsWrapBitBoolEx(Mipmap, "mipmap");
 	SettingsWrapBitBoolEx(ManualUserHacks, "UserHacks");
+	SettingsWrapBitBoolEx(AutoUpscaleAlignment, "AutoUpscaleAlignment");
 	SettingsWrapBitBoolEx(UserHacks_AlignSpriteX, "UserHacks_align_sprite_X");
 	SettingsWrapIntEnumEx(UserHacks_AutoFlush, "UserHacks_AutoFlushLevel");
 	SettingsWrapBitBoolEx(UserHacks_CPUFBConversion, "UserHacks_CPU_FB_Conversion");

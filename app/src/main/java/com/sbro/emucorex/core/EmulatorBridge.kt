@@ -754,6 +754,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore", "EnableWideScreenPatches", "bool", widescreenPatches.toString()))
                 add(settingOp("EmuCore", "EnableNoInterlacingPatches", "bool", noInterlacingPatches.toString()))
                 add(settingOp("EmuCore/GS", "UserHacks", "bool", (manualHardwareFixes || !autoGsHardwareFixes).toString()))
+                add(settingOp("EmuCore/GS", "AutoUpscaleAlignment", "bool", (!manualHardwareFixes).toString()))
                 if (manualHardwareFixes) {
                     // Leave per-game GameIndex GS fixes as the only hack layer unless manual fixes are explicitly active.
                     add(settingOp("EmuCore/GS", "UserHacks_CPUSpriteRenderBW", "int", cpuSpriteRenderSize.toString()))
