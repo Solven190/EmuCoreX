@@ -913,7 +913,7 @@ public:
 	void SetPSConstantBuffer(const GSHWDrawConfig::PSConstantBuffer& cb);
 	bool BindDrawPipeline(const PipelineSelector& p);
 
-	void RenderHW(GSHWDrawConfig& config) override;
+	void DoRenderHW(GSHWDrawConfig& config) override;
 	void UpdateHWPipelineSelector(GSHWDrawConfig& config, PipelineSelector& pipe);
 	void UploadHWDrawVerticesAndIndices(GSHWDrawConfig& config);
 	VkImageMemoryBarrier GetColorBufferFeedbackBarrier(GSTextureVK* rt) const;

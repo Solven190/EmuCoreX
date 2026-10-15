@@ -26,6 +26,8 @@ GSTextureMTL::GSTextureMTL(GSDeviceMTL* dev, MRCOwned<id<MTLTexture>> texture, M
 }
 GSTextureMTL::~GSTextureMTL()
 {
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
 }
 
 void GSTextureMTL::FlushClears()
@@ -43,7 +45,7 @@ void* GSTextureMTL::GetNativeHandle() const
 	return (__bridge void*)m_texture;
 }
 
-bool GSTextureMTL::Update(const GSVector4i& r, const void* data, int pitch, int layer)
+bool GSTextureMTL::DoUpdate(const GSVector4i& r, const void* data, int pitch, int layer)
 {
 	if (void* buffer = MapWithPitch(r, pitch, layer))
 	{
@@ -53,7 +55,7 @@ bool GSTextureMTL::Update(const GSVector4i& r, const void* data, int pitch, int 
 	return false;
 }
 
-bool GSTextureMTL::Map(GSMap& m, const GSVector4i* _r, int layer)
+bool GSTextureMTL::DoMap(GSMap& m, const GSVector4i* _r, int layer)
 {
 	GSVector4i r = _r ? *_r : GSVector4i(0, 0, m_size.x, m_size.y);
 	u32 block_size = GetCompressedBlockSize();
@@ -176,7 +178,7 @@ std::unique_ptr<GSDownloadTextureMTL> GSDownloadTextureMTL::Create(GSDeviceMTL* 
 	return std::unique_ptr<GSDownloadTextureMTL>(new GSDownloadTextureMTL(dev, buffer, width, height, format));
 }}
 
-void GSDownloadTextureMTL::CopyFromTexture(
+void GSDownloadTextureMTL::DoCopyFromTexture(
 	const GSVector4i& drc, GSTexture* stex, const GSVector4i& src, u32 src_level, bool use_transfer_pitch)
 { @autoreleasepool {
 	GSTextureMTL* const mtlTex = static_cast<GSTextureMTL*>(stex);

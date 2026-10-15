@@ -234,7 +234,11 @@ void GSTextureCache::ReadbackAll()
 	for (int type = 0; type < 2; type++)
 	{
 		for (auto t : m_dst[type])
-			Read(t, t->m_drawn_since_read);
+		{
+			// CSR reset, savestate freeze, and renderer swap consume local memory immediately.
+			// Match ARMSX2: these boundary reads must finish even in asynchronous mode.
+			Read(t, t->m_drawn_since_read, true);
+		}
 	}
 }
 
@@ -7517,6 +7521,7 @@ std::shared_ptr<GSTextureCache::Palette> GSTextureCache::LookupPaletteObject(con
 
 void GSTextureCache::Read(Target* t, const GSVector4i& r, bool force_synchronous)
 {
+	g_gs_device->FlushBeforeReadback();
 	if ((!t->m_dirty.empty() && !t->m_dirty.GetTotalRect(t->m_TEX0, t->m_unscaled_size).rintersect(r).rempty()) || r.width() == 0 || r.height() == 0)
 		return;
 
@@ -7680,6 +7685,7 @@ void GSTextureCache::Read(Target* t, const GSVector4i& r, bool force_synchronous
 
 void GSTextureCache::Read(Source* t, const GSVector4i& r)
 {
+	g_gs_device->FlushBeforeReadback();
 	if (r.rempty())
 		return;
 

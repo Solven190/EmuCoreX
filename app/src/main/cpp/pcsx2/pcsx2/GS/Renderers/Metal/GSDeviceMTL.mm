@@ -1356,7 +1356,8 @@ void GSDeviceMTL::UpdateTexture(id<MTLTexture> texture, u32 x, u32 y, u32 width,
 static bool s_capture_next = false;
 
 GSDevice::PresentResult GSDeviceMTL::BeginPresent(bool frame_skip)
-{ @autoreleasepool {
+{
+	FlushDeferredDraws(); @autoreleasepool {
 	if (m_capture_start_frame && FrameNo() == m_capture_start_frame)
 		s_capture_next = true;
 	if (frame_skip || m_window_info.type == WindowInfo::Type::Surfaceless || !g_gs_device)
@@ -1383,7 +1384,8 @@ GSDevice::PresentResult GSDeviceMTL::BeginPresent(bool frame_skip)
 }}
 
 void GSDeviceMTL::EndPresent()
-{ @autoreleasepool {
+{
+	FlushDeferredDraws(); @autoreleasepool {
 	pxAssertMsg(m_current_render.encoder && m_current_render_cmdbuf, "BeginPresent cmdbuf was destroyed");
 	ImGui::Render();
 	RenderImGui(ImGui::GetDrawData());
@@ -1520,7 +1522,8 @@ void GSDeviceMTL::ClearSamplerCache()
 }}
 
 void GSDeviceMTL::CopyRect(GSTexture* sTex, GSTexture* dTex, const GSVector4i& r, u32 destX, u32 destY)
-{ @autoreleasepool {
+{
+	FlushDeferredDraws(); @autoreleasepool {
 	// Empty rect, abort copy.
 	if (r.rempty())
 	{
@@ -1675,7 +1678,8 @@ static_assert(offsetof(DisplayConstantBuffer, RcpSourceResolution) == offsetof(G
 static_assert(offsetof(DisplayConstantBuffer, TimeAndPad.x)        == offsetof(GSMTLPresentPSUniform, time));
 
 void GSDeviceMTL::PresentRect(GSTexture* sTex, const GSVector4& sRect, GSTexture* dTex, const GSVector4& dRect, PresentShader shader, float shaderTime, Filter filter)
-{ @autoreleasepool {
+{
+	FlushDeferredDraws(); @autoreleasepool {
 	GSVector2i ds = dTex ? dTex->GetSize() : GetWindowSize();
 	DisplayConstantBuffer cb;
 	cb.SetSource(sRect, sTex->GetSize());
@@ -1699,7 +1703,8 @@ void GSDeviceMTL::PresentRect(GSTexture* sTex, const GSVector4& sRect, GSTexture
 }}
 
 void GSDeviceMTL::DrawMultiStretchRects(const MultiStretchRect* rects, u32 num_rects, GSTexture* dTex, ShaderConvertSelector shader)
-{ @autoreleasepool {
+{
+	FlushDeferredDraws(); @autoreleasepool {
 	BeginStretchRect(@"MultiStretchRect", dTex, MTLLoadActionLoad);
 
 	id<MTLRenderPipelineState> pipeline = nullptr;
@@ -1758,6 +1763,7 @@ void GSDeviceMTL::DrawMultiStretchRects(const MultiStretchRect* rects, u32 num_r
 
 void GSDeviceMTL::UpdateCLUTTexture(GSTexture* sTex, float sScale, u32 offsetX, u32 offsetY, GSTexture* dTex, u32 dOffset, u32 dSize)
 {
+	FlushDeferredDraws();
 	GSMTLCLUTConvertPSUniform uniform = { sScale, {offsetX, offsetY}, dOffset };
 
 	const bool is_clut4 = dSize == 16;
@@ -1769,7 +1775,8 @@ void GSDeviceMTL::UpdateCLUTTexture(GSTexture* sTex, float sScale, u32 offsetX, 
 }
 
 void GSDeviceMTL::ConvertToIndexedTexture(GSTexture* sTex, float sScale, u32 offsetX, u32 offsetY, u32 SBW, u32 SPSM, GSTexture* dTex, u32 DBW, u32 DPSM)
-{ @autoreleasepool {
+{
+	FlushDeferredDraws(); @autoreleasepool {
 	const ShaderConvert shader = ((SPSM & 0xE) == 0) ? ShaderConvert::RGBA_TO_8I : ShaderConvert::RGB5A1_TO_8I;
 	id<MTLRenderPipelineState> pipeline = GetConvertPipeline(shader);
 	if (!pipeline)
@@ -1782,7 +1789,8 @@ void GSDeviceMTL::ConvertToIndexedTexture(GSTexture* sTex, float sScale, u32 off
 }}
 
 void GSDeviceMTL::FilteredDownsampleTexture(GSTexture* sTex, GSTexture* dTex, u32 downsample_factor, const GSVector2i& clamp_min, const GSVector4& dRect)
-{ @autoreleasepool {
+{
+	FlushDeferredDraws(); @autoreleasepool {
 	const ShaderConvert shader = ShaderConvert::DOWNSAMPLE_COPY;
 	id<MTLRenderPipelineState> pipeline = GetConvertPipeline(shader);
 	if (!pipeline)
@@ -2190,7 +2198,7 @@ __fi void GSDeviceMTL::PrepareROVTexture(GSTexture** ptex)
 	*ptex = nullptr;
 }
 
-void GSDeviceMTL::RenderHW(GSHWDrawConfig& config)
+void GSDeviceMTL::DoRenderHW(GSHWDrawConfig& config)
 { @autoreleasepool {
 	if (config.tex && (config.ds == config.tex || config.rt == config.tex))
 		EndRenderPass(); // Barrier

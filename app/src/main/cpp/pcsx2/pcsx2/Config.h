@@ -885,10 +885,15 @@ struct Pcsx2Config
 		float UpscaleMultiplier = DEFAULT_UPSCALE_MULTIPLIER;
 
 		AccBlendLevel AccurateBlendingUnit = DEFAULT_BLENDING_ACCURACY;
+		// Applied only on the copy road after the GS device has been created.
+		s8 CopyRoadMaximumBlendingLevel = -1;
+		bool CoalesceRenderPasses = false;
+		bool HWDownloadModeUserOverride = false;
+		bool BlendingAccuracyUserOverride = false;
 		BiFiltering TextureFiltering = DEFAULT_TEXTURE_FILTERING_MODE;
 		TexturePreloadingLevel TexturePreloading = TexturePreloadingLevel::Full;
 		GSDumpCompressionMethod GSDumpCompression = GSDumpCompressionMethod::Zstandard;
-		GSHardwareDownloadMode HWDownloadMode = GSHardwareDownloadMode::NoReadbacks;
+		GSHardwareDownloadMode HWDownloadMode = GSHardwareDownloadMode::Enabled;
 		GSCASMode CASMode = DEFAULT_CAS_MODE;
 		GSSGSRMode SGSRMode = DEFAULT_SGSR_MODE;
 		u8 Dithering = 2;

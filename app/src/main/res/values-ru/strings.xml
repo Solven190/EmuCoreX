@@ -2901,4 +2901,6 @@
     <string name="shader_prep_error_pipeline_failures">Не удалось подготовить некоторые шейдеры.</string>
     <string name="shader_prep_error_checkpoint_failed">Не удалось сохранить кеш шейдеров.</string>
     <string name="shader_prep_error_internal_error">Во время подготовки шейдеров произошла ошибка.</string>
+    <string name="gamedb_setting_coalesce_render_passes">Объединение проходов рендеринга</string>
+    <string name="gamedb_setting_copy_road_maximum_blending">Максимальный уровень смешивания при копировании цели рендеринга</string>
 </resources>

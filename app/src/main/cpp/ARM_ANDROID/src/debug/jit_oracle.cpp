@@ -25,6 +25,7 @@
 #include "GS/Renderers/Vulkan/VKSwapchainCreate.h"
 #include "GS/Renderers/HW/GSSpriteEdgeSnap.h"
 #include "GameDatabase.h"
+#include "GS/Renderers/Common/GSPassScheduler.h"
 #include "common/FileSystem.h"
 #include "common/ScopedGuard.h"
 
@@ -253,6 +254,9 @@ void GSPreparationDeviceTests()
 
 void ClassifierTests()
 {
+    Check(GSPassScheduler::TestQueueSafety(), "GS deferred pass scheduler preserves attachment and sampling dependencies");
+    Check(GameDatabaseSchema::GameEntry::TestBundledMobileDatabase(), "GameDB all bundled mobile overrides resolve against the real base database");
+    Check(GameDatabaseSchema::GameEntry::TestMobileOverlayPolicy(), "GameDB mobile overlay replaces graphics maps and preserves independent core settings");
     Check(GSSpriteEdgeSnap::TestCoverageMath(), "GS upscale sprite coverage preserves sample limits and abutting edges");
     Check(GameDatabaseSchema::GameEntry::TestUpscaleAlignmentPolicy(), "GS graphics opt-out allows only upscale alignment and respects manual overrides");
     Check(GSDeviceVK::TestTFXPreparationPlan(), "GS temporary preparation uses only two compatible baseline passes");

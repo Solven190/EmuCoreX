@@ -2873,6 +2873,7 @@ void GSDeviceVK::SetVSyncMode(GSVSyncMode mode, bool allow_present_throttle)
 
 GSDevice::PresentResult GSDeviceVK::BeginPresent(bool frame_skip)
 {
+	FlushDeferredDraws();
 	m_present_has_new_frame = false;
 
 	EndRenderPass();
@@ -2987,6 +2988,7 @@ GSDevice::PresentResult GSDeviceVK::BeginPresent(bool frame_skip)
 
 void GSDeviceVK::EndPresent()
 {
+	FlushDeferredDraws();
 #ifndef __ANDROID__
 	RenderImGui();
 #endif
@@ -3618,6 +3620,7 @@ std::unique_ptr<GSDownloadTexture> GSDeviceVK::CreateDownloadTexture(u32 width, 
 
 void GSDeviceVK::CopyRect(GSTexture* sTex, GSTexture* dTex, const GSVector4i& r, u32 destX, u32 destY)
 {
+	FlushDeferredDraws();
 
 	// Empty rect, abort copy.
 	if (r.rempty())
@@ -3714,6 +3717,7 @@ void GSDeviceVK::DoStretchRect(GSTexture* sTex, const GSVector4& sRect, const GS
 void GSDeviceVK::PresentRect(GSTexture* sTex, const GSVector4& sRect, GSTexture* dTex, const GSVector4& dRect,
 	PresentShader shader, float shaderTime, Filter filter)
 {
+	FlushDeferredDraws();
 	DisplayConstantBuffer cb;
 	cb.SetSource(sRect, sTex->GetSize());
 	cb.SetTarget(dRect, dTex ? dTex->GetSize() : GSVector2i(GetWindowWidth(), GetWindowHeight()));
@@ -3727,6 +3731,7 @@ void GSDeviceVK::PresentRect(GSTexture* sTex, const GSVector4& sRect, GSTexture*
 void GSDeviceVK::DrawMultiStretchRects(
 	const MultiStretchRect* rects, u32 num_rects, GSTexture* dTex, ShaderConvertSelector shader)
 {
+	FlushDeferredDraws();
 	GSTexture* last_tex = rects[0].src;
 	Filter last_filter = rects[0].filter;
 	u8 last_wmask = rects[0].wmask.wrgba;
@@ -3975,6 +3980,7 @@ void GSDeviceVK::BlitRect(GSTexture* sTex, const GSVector4i& sRect, u32 sLevel, 
 void GSDeviceVK::UpdateCLUTTexture(
 	GSTexture* sTex, float sScale, u32 offsetX, u32 offsetY, GSTexture* dTex, u32 dOffset, u32 dSize)
 {
+	FlushDeferredDraws();
 	// Super annoying, but apparently NVIDIA doesn't like floats/ints packed together in the same vec4?
 	struct alignas(16) Uniforms
 	{
@@ -3995,6 +4001,7 @@ void GSDeviceVK::UpdateCLUTTexture(
 void GSDeviceVK::ConvertToIndexedTexture(
 	GSTexture* sTex, float sScale, u32 offsetX, u32 offsetY, u32 SBW, u32 SPSM, GSTexture* dTex, u32 DBW, u32 DPSM)
 {
+	FlushDeferredDraws();
 	struct alignas(16) Uniforms
 	{
 		u32 SBW;
@@ -4016,6 +4023,7 @@ void GSDeviceVK::ConvertToIndexedTexture(
 
 void GSDeviceVK::FilteredDownsampleTexture(GSTexture* sTex, GSTexture* dTex, u32 downsample_factor, const GSVector2i& clamp_min, const GSVector4& dRect)
 {
+	FlushDeferredDraws();
 	struct alignas(16) Uniforms
 	{
 		GSVector2i clamp_min;
@@ -9118,7 +9126,7 @@ GSTextureVK* GSDeviceVK::SetupPrimitiveTrackingDATE(GSHWDrawConfig& config)
 	return image;
 }
 
-void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
+void GSDeviceVK::DoRenderHW(GSHWDrawConfig& config)
 {
 
 	m_draws_in_command_buffer++;

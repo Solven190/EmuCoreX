@@ -1027,6 +1027,7 @@ bool GSDevice11::SupportsExclusiveFullscreen() const
 
 GSDevice::PresentResult GSDevice11::BeginPresent(bool frame_skip)
 {
+	FlushDeferredDraws();
 	if (frame_skip || !m_swap_chain)
 		return PresentResult::FrameSkipped;
 
@@ -1076,6 +1077,7 @@ GSDevice::PresentResult GSDevice11::BeginPresent(bool frame_skip)
 
 void GSDevice11::EndPresent()
 {
+	FlushDeferredDraws();
 	RenderImGui();
 
 	// See note in BeginPresent() for why it's conditional on vsync-off.
@@ -1441,6 +1443,7 @@ std::unique_ptr<GSDownloadTexture> GSDevice11::CreateDownloadTexture(u32 width, 
 
 void GSDevice11::CopyRect(GSTexture* sTex, GSTexture* dTex, const GSVector4i& r, u32 destX, u32 destY)
 {
+	FlushDeferredDraws();
 	// Empty rect, abort copy.
 	if (r.rempty())
 	{
@@ -1586,6 +1589,7 @@ void GSDevice11::DoStretchRect(GSTexture* sTex, const GSVector4& sRect, GSTextur
 
 void GSDevice11::PresentRect(GSTexture* sTex, const GSVector4& sRect, GSTexture* dTex, const GSVector4& dRect, PresentShader shader, float shaderTime, Filter filter)
 {
+	FlushDeferredDraws();
 	g_perfmon.Put(GSPerfMon::TextureCopies, 1);
 
 	CommitClear(sTex);
@@ -1658,6 +1662,7 @@ void GSDevice11::PresentRect(GSTexture* sTex, const GSVector4& sRect, GSTexture*
 
 void GSDevice11::UpdateCLUTTexture(GSTexture* sTex, float sScale, u32 offsetX, u32 offsetY, GSTexture* dTex, u32 dOffset, u32 dSize)
 {
+	FlushDeferredDraws();
 	// match merge cb
 	struct alignas(16) Uniforms
 	{
@@ -1676,6 +1681,7 @@ void GSDevice11::UpdateCLUTTexture(GSTexture* sTex, float sScale, u32 offsetX, u
 
 void GSDevice11::ConvertToIndexedTexture(GSTexture* sTex, float sScale, u32 offsetX, u32 offsetY, u32 SBW, u32 SPSM, GSTexture* dTex, u32 DBW, u32 DPSM)
 {
+	FlushDeferredDraws();
 	// match merge cb
 	struct alignas(16) Uniforms
 	{
@@ -1695,6 +1701,7 @@ void GSDevice11::ConvertToIndexedTexture(GSTexture* sTex, float sScale, u32 offs
 
 void GSDevice11::FilteredDownsampleTexture(GSTexture* sTex, GSTexture* dTex, u32 downsample_factor, const GSVector2i& clamp_min, const GSVector4& dRect)
 {
+	FlushDeferredDraws();
 	struct alignas(16) Uniforms
 	{
 		float weight;
@@ -1715,6 +1722,7 @@ void GSDevice11::FilteredDownsampleTexture(GSTexture* sTex, GSTexture* dTex, u32
 
 void GSDevice11::DrawMultiStretchRects(const MultiStretchRect* rects, u32 num_rects, GSTexture* dTex, ShaderConvertSelector shader)
 {
+	FlushDeferredDraws();
 	shader = shader.SetMask(); // Mask is handled separately from program.
 
 	IASetInputLayout(m_convert.il.get());
@@ -2907,7 +2915,7 @@ D3D_SHADER_MACRO* GSDevice11::ShaderMacro::GetPtr()
 	return (D3D_SHADER_MACRO*)mout.data();
 }
 
-void GSDevice11::RenderHW(GSHWDrawConfig& config)
+void GSDevice11::DoRenderHW(GSHWDrawConfig& config)
 {
 	const GSVector2i rtsize = (config.rt ? config.rt : config.ds)->GetSize();
 	GSTexture* colclip_rt = g_gs_device->GetColorClipTexture();

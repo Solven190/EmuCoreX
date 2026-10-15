@@ -78,6 +78,8 @@ GSTextureVK::GSTextureVK(Usage usage, Format format, int width, int height, int 
 
 GSTextureVK::~GSTextureVK()
 {
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
 	Destroy(true);
 }
 
@@ -198,6 +200,8 @@ std::unique_ptr<GSTextureVK> GSTextureVK::Adopt(
 
 void GSTextureVK::Destroy(bool defer)
 {
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
 	GSDeviceVK* dev = GSDeviceVK::GetInstance();
 
 	// Device may already be destroyed during a renderer switch (GSreopen).
@@ -344,7 +348,7 @@ void GSTextureVK::UpdateFromBuffer(VkCommandBuffer cmdbuf, int level, u32 x, u32
 		TransitionSubresourcesToLayout(cmdbuf, level, 1, Layout::TransferDst, old_layout);
 }
 
-bool GSTextureVK::Update(const GSVector4i& r, const void* data, int pitch, int layer)
+bool GSTextureVK::DoUpdate(const GSVector4i& r, const void* data, int pitch, int layer)
 {
 	if (layer >= m_mipmap_levels)
 		return false;
@@ -423,7 +427,7 @@ bool GSTextureVK::Update(const GSVector4i& r, const void* data, int pitch, int l
 	return true;
 }
 
-bool GSTextureVK::Map(GSMap& m, const GSVector4i* r, int layer)
+bool GSTextureVK::DoMap(GSMap& m, const GSVector4i* r, int layer)
 {
 	if (layer >= m_mipmap_levels || IsCompressedFormat())
 		return false;
@@ -592,6 +596,9 @@ void GSTextureVK::CommitClear(VkCommandBuffer cmdbuf)
 
 void GSTextureVK::OverrideImageLayout(Layout new_layout)
 {
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
+	AssertNoQueuedObserver("Overriding the image layout of a texture with deferred draws queued against it");
 	m_layout = new_layout;
 }
 
@@ -604,6 +611,9 @@ void GSTextureVK::TransitionToLayout(VkCommandBuffer command_buffer, Layout new_
 {
 	if (m_layout == new_layout)
 		return;
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
+	AssertNoQueuedObserver("Image layout change on a texture with deferred draws queued against it");
 
 	TransitionSubresourcesToLayout(command_buffer, 0, m_mipmap_levels, m_layout, new_layout);
 
@@ -916,7 +926,7 @@ std::unique_ptr<GSDownloadTextureVK> GSDownloadTextureVK::Create(u32 width, u32 
 	return tex;
 }
 
-void GSDownloadTextureVK::CopyFromTexture(
+void GSDownloadTextureVK::DoCopyFromTexture(
 	const GSVector4i& drc, GSTexture* stex, const GSVector4i& src, u32 src_level, bool use_transfer_pitch)
 {
 	GSTextureVK* const vkTex = static_cast<GSTextureVK*>(stex);

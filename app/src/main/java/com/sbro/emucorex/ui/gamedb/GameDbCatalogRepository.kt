@@ -3,6 +3,8 @@ package com.sbro.emucorex.ui.gamedb
 import android.content.Context
 import com.sbro.emucorex.data.AppPreferences
 import com.sbro.emucorex.data.CoverArtRepository
+import com.sbro.emucorex.data.pcsx2.GameIndexOverlay
+import com.sbro.emucorex.data.pcsx2.GameIndexOverlayEntry
 import java.util.Locale
 
 enum class GameDbSettingCategory {
@@ -80,16 +82,22 @@ class GameDbCatalogRepository(context: Context) {
         var region: String? = null
         var activeSection: String? = null
         val settings = ArrayList<GameDbSettingItem>(8)
+        val overlays = GameIndexOverlay.load(appContext)
+        val visited = hashSetOf<String>()
 
         fun flush() {
             val currentSerial = serial ?: return
-            if (settings.isNotEmpty()) {
+            visited += currentSerial
+            val overlay = overlays[currentSerial]
+            val effectiveSettings = applyOverlaySettings(settings, overlay)
+            if (effectiveSettings.isNotEmpty()) {
                 entries += GameDbCatalogEntry(
                     serial = currentSerial,
-                    title = englishName ?: name ?: currentSerial,
-                    region = region,
+                    title = overlay?.scalars?.get("name-en") ?: englishName
+                        ?: overlay?.scalars?.get("name") ?: name ?: currentSerial,
+                    region = overlay?.scalars?.get("region") ?: region,
                     coverUrl = "$coverBaseUrl/$currentSerial.$coverExtension",
-                    settings = settings.toList()
+                    settings = effectiveSettings
                 )
             }
         }
@@ -161,11 +169,72 @@ class GameDbCatalogRepository(context: Context) {
         }
         flush()
 
+        overlays.values.asSequence().filter { it.serial !in visited }.forEach { overlay ->
+            val overlaySettings = applyOverlaySettings(emptyList(), overlay)
+            if (overlaySettings.isNotEmpty()) {
+                entries += GameDbCatalogEntry(
+                    serial = overlay.serial,
+                    title = overlay.scalars["name-en"] ?: overlay.scalars["name"] ?: overlay.serial,
+                    region = overlay.scalars["region"],
+                    coverUrl = "$coverBaseUrl/${overlay.serial}.$coverExtension",
+                    settings = overlaySettings
+                )
+            }
+        }
+
         return entries.sortedWith(
             compareBy<GameDbCatalogEntry> { it.title.lowercase(Locale.ROOT) }
                 .thenBy { it.serial }
         )
     }
+
+    private fun applyOverlaySettings(
+        base: List<GameDbSettingItem>,
+        overlay: GameIndexOverlayEntry?
+    ): List<GameDbSettingItem> {
+        if (overlay == null) return base.toList()
+        val result = base.toMutableList()
+        overlay.sections.forEach { (section, values) ->
+            when (section) {
+                "gsHWFixes" -> {
+                    result.removeAll { it.category == GameDbSettingCategory.GRAPHICS_FIX }
+                    result += values.values.map { (key, value) ->
+                        setting(GameDbSettingCategory.GRAPHICS_FIX, key, value, controlled = false)
+                    }
+                }
+                "roundModes", "clampModes" -> {
+                    val category = section.toCategory()
+                    values.values.forEach { (key, value) ->
+                        result.removeAll { it.category == category && it.key == key }
+                        result += setting(category, key, value, controlled = true)
+                    }
+                }
+                "gameFixes" -> if (values.items.isNotEmpty()) {
+                    result.removeAll { it.category == GameDbSettingCategory.CORE_FIX }
+                    result += values.items.map { fix ->
+                        setting(GameDbSettingCategory.CORE_FIX, fix, "Enabled", controlled = true)
+                    }
+                }
+                "speedHacks" -> if (values.values.isNotEmpty() || values.items.isNotEmpty()) {
+                    result.removeAll { it.category == GameDbSettingCategory.SPEED_HACK }
+                    result += values.values.map { (key, value) ->
+                        setting(GameDbSettingCategory.SPEED_HACK, key, value, controlled = true)
+                    }
+                    result += values.items.map { item ->
+                        setting(GameDbSettingCategory.SPEED_HACK, item, "Enabled", controlled = true)
+                    }
+                }
+            }
+        }
+        return result
+    }
+
+    private fun setting(
+        category: GameDbSettingCategory,
+        key: String,
+        value: String,
+        controlled: Boolean
+    ) = GameDbSettingItem(category, key, value, note = null, controlledByGameFixesToggle = controlled)
 
     private fun String.toCategory(): GameDbSettingCategory = when (this) {
         "roundModes" -> GameDbSettingCategory.ROUND_MODE

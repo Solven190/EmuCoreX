@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import com.sbro.emucorex.core.GsHackDefaults
 import com.sbro.emucorex.ui.settings.SettingsUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -73,31 +74,36 @@ class GameDbFixDefaultsInstrumentedTest {
     }
 
     @Test
-    fun freshSettingsAndExportDisableGraphicsButKeepCoreFixes() = runBlocking {
-        assertFalse(SettingsSnapshot().autoGsHardwareFixes)
-        assertFalse(SettingsUiState().autoGsHardwareFixes)
-        assertFalse(PerGameSettings("test", "Test").autoGsHardwareFixes)
-        assertFalse(preferences.autoGsHardwareFixes.first())
+    fun freshSettingsAndExportEnableGraphicsAndKeepCoreFixes() = runBlocking {
+        assertTrue(AppPreferences.DEFAULT_AUTO_GS_HARDWARE_FIXES)
+        assertTrue(SettingsSnapshot().autoGsHardwareFixes)
+        assertTrue(SettingsUiState().autoGsHardwareFixes)
+        assertTrue(PerGameSettings("test", "Test").autoGsHardwareFixes)
+        assertTrue(preferences.autoGsHardwareFixes.first())
         val settings = preferences.settingsSnapshot.first()
-        assertFalse(settings.autoGsHardwareFixes)
+        assertTrue(settings.autoGsHardwareFixes)
+        assertFalse(settings.hwDownloadModeUserOverride)
+        assertFalse(settings.blendingAccuracyUserOverride)
         assertTrue(settings.enableGameFixes)
         assertEquals(AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE, settings.eeFpuClampingMode)
         val backup = preferences.exportJson()
-        assertFalse(backup.getBoolean("autoGsHardwareFixes"))
+        assertTrue(backup.getBoolean("autoGsHardwareFixes"))
         assertTrue(backup.getBoolean("enableGameFixes"))
     }
 
     @Test
     fun legacyBackupAndResetUseGraphicsDefaultWithoutChangingClampOverrides() = runBlocking {
         preferences.importJson(JSONObject().put("eeFpuClampingMode", 3).put("vu0ClampingMode", 2))
-        assertFalse(preferences.autoGsHardwareFixes.first())
+        assertTrue(preferences.autoGsHardwareFixes.first())
         val imported = preferences.settingsSnapshot.first()
         assertTrue(imported.enableGameFixes)
+        assertFalse(imported.hwDownloadModeUserOverride)
+        assertFalse(imported.blendingAccuracyUserOverride)
         assertEquals(3, imported.eeFpuClampingMode)
         assertEquals(2, imported.vu0ClampingMode)
         preferences.setAutoGsHardwareFixes(true)
         preferences.resetAllSettings()
-        assertFalse(preferences.autoGsHardwareFixes.first())
+        assertTrue(preferences.autoGsHardwareFixes.first())
         assertTrue(preferences.settingsSnapshot.first().enableGameFixes)
     }
 
@@ -116,13 +122,64 @@ class GameDbFixDefaultsInstrumentedTest {
     }
 
     @Test
+    fun gsModeOwnershipDistinguishesAbsentDefaultsFromExplicitNeutralValues() = runBlocking {
+        val fresh = preferences.settingsSnapshot.first()
+        assertFalse(fresh.hwDownloadModeUserOverride)
+        assertFalse(fresh.blendingAccuracyUserOverride)
+
+        val freshBackup = preferences.exportJson()
+        assertFalse(freshBackup.getBoolean("hwDownloadModeUserOverride"))
+        assertFalse(freshBackup.getBoolean("blendingAccuracyUserOverride"))
+        preferences.importJson(freshBackup)
+        val restoredDefaults = preferences.settingsSnapshot.first()
+        assertFalse(restoredDefaults.hwDownloadModeUserOverride)
+        assertFalse(restoredDefaults.blendingAccuracyUserOverride)
+
+        preferences.setHwDownloadMode(0)
+        preferences.setBlendingAccuracy(2)
+        val setterChoices = preferences.settingsSnapshot.first()
+        assertTrue(setterChoices.hwDownloadModeUserOverride)
+        assertTrue(setterChoices.blendingAccuracyUserOverride)
+
+        preferences.importJson(freshBackup)
+        val importedDefaults = preferences.settingsSnapshot.first()
+        assertFalse(importedDefaults.hwDownloadModeUserOverride)
+        assertFalse(importedDefaults.blendingAccuracyUserOverride)
+
+        preferences.importJson(
+            JSONObject()
+                .put("hwDownloadMode", 0)
+                .put("blendingAccuracy", 2)
+        )
+        val legacyExplicitValues = preferences.settingsSnapshot.first()
+        assertTrue(legacyExplicitValues.hwDownloadModeUserOverride)
+        assertTrue(legacyExplicitValues.blendingAccuracyUserOverride)
+        assertEquals(0, legacyExplicitValues.hwDownloadMode)
+        assertEquals(2, legacyExplicitValues.blendingAccuracy)
+
+        val explicitBackup = preferences.exportJson()
+        preferences.resetAllSettings()
+        preferences.importJson(explicitBackup)
+        val restoredExplicit = preferences.settingsSnapshot.first()
+        assertTrue(restoredExplicit.hwDownloadModeUserOverride)
+        assertTrue(restoredExplicit.blendingAccuracyUserOverride)
+
+        preferences.resetAllSettings()
+        val reset = preferences.settingsSnapshot.first()
+        assertFalse(reset.hwDownloadModeUserOverride)
+        assertFalse(reset.blendingAccuracyUserOverride)
+        assertEquals(0, reset.hwDownloadMode)
+        assertEquals(GsHackDefaults.BLENDING_ACCURACY_DEFAULT, reset.blendingAccuracy)
+    }
+
+    @Test
     fun legacyAndExplicitGameProfilesPreserveIndependentCoreSettings() {
         val repository = PerGameSettingsRepository(context)
         val legacy = JSONObject().put("gameKey", "legacy").put("gameTitle", "Legacy")
             .put("eeFpuClampingMode", 3)
         repository.importJson(JSONObject().put("profiles", JSONArray().put(legacy)))
         val loaded = requireNotNull(repository.get("legacy"))
-        assertFalse(loaded.autoGsHardwareFixes)
+        assertTrue(loaded.autoGsHardwareFixes)
         assertTrue(loaded.enableGameFixes)
         assertEquals(3, loaded.eeFpuClampingMode)
         for (enabled in listOf(true, false)) {

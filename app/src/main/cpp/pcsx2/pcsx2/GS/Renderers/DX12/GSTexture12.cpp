@@ -42,11 +42,15 @@ GSTexture12::GSTexture12(Usage usage, Format format, int width, int height, int 
 
 GSTexture12::~GSTexture12()
 {
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
 	Destroy(true);
 }
 
 void GSTexture12::Destroy(bool defer)
 {
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
 	GSDevice12* const dev = GSDevice12::GetInstance();
 	dev->UnbindTexture(this);
 
@@ -578,7 +582,7 @@ void GSTexture12::CopyTextureDataForUpload(void* dst, const void* src, u32 pitch
 	StringUtil::StrideMemCpy(dst, upload_pitch, src, pitch, std::min(upload_pitch, pitch), count);
 }
 
-bool GSTexture12::Update(const GSVector4i& r, const void* data, int pitch, int layer)
+bool GSTexture12::DoUpdate(const GSVector4i& r, const void* data, int pitch, int layer)
 {
 	if (layer >= m_mipmap_levels)
 		return false;
@@ -666,7 +670,7 @@ bool GSTexture12::Update(const GSVector4i& r, const void* data, int pitch, int l
 	return true;
 }
 
-bool GSTexture12::Map(GSMap& m, const GSVector4i* r, int layer)
+bool GSTexture12::DoMap(GSMap& m, const GSVector4i* r, int layer)
 {
 	if (layer >= m_mipmap_levels || IsCompressedFormat())
 		return false;
@@ -1209,7 +1213,7 @@ std::unique_ptr<GSDownloadTexture12> GSDownloadTexture12::Create(u32 width, u32 
 	return tex;
 }
 
-void GSDownloadTexture12::CopyFromTexture(
+void GSDownloadTexture12::DoCopyFromTexture(
 	const GSVector4i& drc, GSTexture* stex, const GSVector4i& src, u32 src_level, bool use_transfer_pitch)
 {
 	GSTexture12* const tex12 = static_cast<GSTexture12*>(stex);

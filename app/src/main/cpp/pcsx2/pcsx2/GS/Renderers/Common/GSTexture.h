@@ -119,8 +119,10 @@ public:
 	// Returns the native handle of a texture.
 	virtual void* GetNativeHandle() const = 0;
 
-	virtual bool Update(const GSVector4i& r, const void* data, int pitch, int layer = 0) = 0;
-	virtual bool Map(GSMap& m, const GSVector4i* r = nullptr, int layer = 0) = 0;
+	bool Update(const GSVector4i& r, const void* data, int pitch, int layer = 0);
+	bool Map(GSMap& m, const GSVector4i* r = nullptr, int layer = 0);
+	virtual bool DoUpdate(const GSVector4i& r, const void* data, int pitch, int layer = 0) = 0;
+	virtual bool DoMap(GSMap& m, const GSVector4i* r, int layer) = 0;
 	virtual void Unmap() = 0;
 	virtual void GenerateMipmap() = 0;
 
@@ -244,7 +246,10 @@ public:
 	}
 
 	__fi State GetState() const { return m_state; }
-	__fi void SetState(State state) { m_state = state; }
+	void SetState(State state);
+	// The scheduler updates the state observed by the texture cache while keeping the
+	// original clear/load state for Emit(). This bypasses the normal observer flush.
+	__fi void SetStateForDeferral(State state) { m_state = state; }
 
 	__fi u32 GetLastFrameUsed() const { return m_last_frame_used; }
 	void SetLastFrameUsed(u32 frame) { m_last_frame_used = frame; }
@@ -257,19 +262,17 @@ public:
 		return IsDepthLike() ? GSVector4(m_clear_value.depth, 0.0f, 0.0f, 0.0f) : GetUNormClearColor();
 	}
 
-	__fi void SetClearColor(u32 color)
-	{
-		m_state = State::Cleared;
-		m_clear_value.color = color;
-	}
-	__fi void SetClearDepth(float depth)
-	{
-		m_state = State::Cleared;
-		m_clear_value.depth = depth;
-	}
+	void SetClearColor(u32 color);
+	void SetClearDepth(float depth);
 
 	void GenerateMipmapsIfNeeded();
 	void ClearMipmapGenerationFlag() { m_needs_mipmaps_generated = false; }
+
+#if defined(PCSX2_DEBUG) || defined(PCSX2_DEVBUILD)
+	void AssertNoQueuedObserver(const char* what) const;
+#else
+	__fi void AssertNoQueuedObserver(const char*) const {}
+#endif
 
 	// Typical size of a RGBA texture
 	u32 GetMemUsage() const;
@@ -303,8 +306,10 @@ public:
 	/// Does not complete immediately, you should flush before accessing the buffer.
 	/// use_transfer_pitch should be true if there's only a single texture being copied to this buffer before
 	/// it will be used. This allows the image to be packed tighter together, and buffer reuse.
-	virtual void CopyFromTexture(
-		const GSVector4i& drc, GSTexture* stex, const GSVector4i& src, u32 src_level, bool use_transfer_pitch = true) = 0;
+	void CopyFromTexture(const GSVector4i& drc, GSTexture* stex, const GSVector4i& src, u32 src_level,
+		bool use_transfer_pitch = true);
+	virtual void DoCopyFromTexture(
+		const GSVector4i& drc, GSTexture* stex, const GSVector4i& src, u32 src_level, bool use_transfer_pitch) = 0;
 
 	/// Maps the texture into the CPU address space, enabling it to read the contents.
 	/// The Map call may not perform synchronization. If the contents of the staging texture

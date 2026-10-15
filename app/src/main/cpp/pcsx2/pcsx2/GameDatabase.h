@@ -86,6 +86,9 @@ namespace GameDatabaseSchema
 		GetSkipCount,
 		BeforeDraw,
 		MoveHandler,
+		HWDownloadMode,
+		CoalesceRenderPasses,
+		CopyRoadMaximumBlendingLevel,
 
 		Count
 	};
@@ -126,6 +129,8 @@ namespace GameDatabaseSchema
 
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 		static bool TestUpscaleAlignmentPolicy();
+		static bool TestMobileOverlayPolicy();
+		static bool TestBundledMobileDatabase();
 #endif
 
 		/// Returns true if the current config value for the specified hw fix id matches the value.

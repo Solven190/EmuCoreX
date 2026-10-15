@@ -22,6 +22,7 @@
 #include <fstream>
 #include <mutex>
 #include <optional>
+#include <unordered_set>
 
 namespace GameDatabaseSchema
 {
@@ -32,11 +33,16 @@ namespace GameDatabaseSchema
 
 namespace GameDatabase
 {
+	static void populateEntry(GameDatabaseSchema::GameEntry& entry, const std::string_view serial, const ryml::NodeRef& node, bool is_override);
 	static void parseAndInsert(const std::string_view serial, const ryml::NodeRef& node);
+	static void mergeOverride(const std::string_view serial, const ryml::NodeRef& node);
+	static void loadFile(const std::string& path, const std::string& name, bool is_override);
 	static void initDatabase();
 } // namespace GameDatabase
 
 static constexpr char GAMEDB_YAML_FILE_NAME[] = "GameIndex.yaml";
+// Mobile tuning from ARMSX2 is applied after the base database. Missing overlay is harmless.
+static constexpr char GAMEDB_OVERRIDE_YAML_FILE_NAME[] = "emucorex_overrides.yaml";
 
 static std::unordered_map<std::string, GameDatabaseSchema::GameEntry> s_game_db;
 static std::once_flag s_load_once_flag;
@@ -83,9 +89,8 @@ const char* GameDatabaseSchema::GameEntry::compatAsString() const
 	}
 }
 
-void GameDatabase::parseAndInsert(const std::string_view serial, const ryml::NodeRef& node)
+void GameDatabase::populateEntry(GameDatabaseSchema::GameEntry& gameEntry, const std::string_view serial, const ryml::NodeRef& node, bool is_override)
 {
-	GameDatabaseSchema::GameEntry gameEntry;
 	if (node.has_child("bootprog"))
 		node["bootprog"] >> gameEntry.arcadeBootProgram;
 	if (node.has_child("name"))
@@ -209,6 +214,8 @@ void GameDatabase::parseAndInsert(const std::string_view serial, const ryml::Nod
 	// Validate game fixes, invalid ones will be dropped!
 	if (node.has_child("gameFixes") && node["gameFixes"].has_children())
 	{
+		if (is_override)
+			gameEntry.gameFixes.clear();
 		for (const auto& n : node["gameFixes"].children())
 		{
 			bool fixValidated = false;
@@ -239,6 +246,8 @@ void GameDatabase::parseAndInsert(const std::string_view serial, const ryml::Nod
 
 	if (node.has_child("speedHacks") && node["speedHacks"].has_children())
 	{
+		if (is_override)
+			gameEntry.speedHacks.clear();
 		for (const auto& n : node["speedHacks"].children())
 		{
 			const std::string_view id_view = std::string_view(n.key().str, n.key().len);
@@ -262,6 +271,8 @@ void GameDatabase::parseAndInsert(const std::string_view serial, const ryml::Nod
 
 	if (node.has_child("gsHWFixes"))
 	{
+		if (is_override)
+			gameEntry.gsHWFixes.clear();
 		for (const auto& n : node["gsHWFixes"].children())
 		{
 			const std::string_view id_name(n.key().data(), n.key().size());
@@ -303,6 +314,8 @@ void GameDatabase::parseAndInsert(const std::string_view serial, const ryml::Nod
 	// - currently they are used as a '\n' delimited string in the app
 	if (node.has_child("memcardFilters") && node["memcardFilters"].has_children())
 	{
+		if (is_override)
+			gameEntry.memcardFilters.clear();
 		for (const auto& n : node["memcardFilters"].children())
 		{
 			auto memcardFilter = std::string(n.val().str, n.val().len);
@@ -313,6 +326,8 @@ void GameDatabase::parseAndInsert(const std::string_view serial, const ryml::Nod
 	// Game Patches
 	if (node.has_child("patches") && node["patches"].has_children())
 	{
+		if (is_override)
+			gameEntry.patches.clear();
 		for (const auto& n : node["patches"].children())
 		{
 			// use a crc of 0 for default patches
@@ -338,6 +353,8 @@ void GameDatabase::parseAndInsert(const std::string_view serial, const ryml::Nod
 
 	if (node.has_child("dynaPatches") && node["dynaPatches"].has_children())
 	{
+		if (is_override)
+			gameEntry.dynaPatches.clear();
 		for (const auto& n : node["dynaPatches"].children())
 		{
 			Patch::DynamicPatch patch;
@@ -365,7 +382,18 @@ void GameDatabase::parseAndInsert(const std::string_view serial, const ryml::Nod
 		}
 	}
 
-	s_game_db.emplace(std::move(serial), std::move(gameEntry));
+}
+
+void GameDatabase::parseAndInsert(const std::string_view serial, const ryml::NodeRef& node)
+{
+	GameDatabaseSchema::GameEntry entry;
+	populateEntry(entry, serial, node, false);
+	s_game_db.emplace(std::string(serial), std::move(entry));
+}
+
+void GameDatabase::mergeOverride(const std::string_view serial, const ryml::NodeRef& node)
+{
+	populateEntry(s_game_db[std::string(serial)], serial, node, true);
 }
 
 static const char* s_round_modes[static_cast<u32>(FPRoundMode::MaxCount)] = {
@@ -415,6 +443,9 @@ static const char* s_gs_hw_fix_names[] = {
 	"getSkipCount",
 	"beforeDraw",
 	"moveHandler",
+	"hwDownloadMode",
+	"coalesceRenderPasses",
+	"copyRoadMaximumBlendingLevel",
 };
 static_assert(std::size(s_gs_hw_fix_names) == static_cast<u32>(GameDatabaseSchema::GSHWFixId::Count), "HW fix name lookup is correct size");
 
@@ -425,6 +456,9 @@ const char* GameDatabaseSchema::getHWFixName(GSHWFixId id)
 
 static std::optional<GameDatabaseSchema::GSHWFixId> GameDatabaseSchema::parseHWFixName(const std::string_view name)
 {
+	// ARMSX2 names the same existing dirty-target sampling policy explicitly.
+	if (name == "bilinearDirtyUpscale")
+		return GSHWFixId::BilinearUpscale;
 	for (u32 i = 0; i < std::size(s_gs_hw_fix_names); i++)
 	{
 		if (name.compare(s_gs_hw_fix_names[i]) == 0)
@@ -444,6 +478,7 @@ bool GameDatabaseSchema::isUserHackHWFix(GSHWFixId id)
 		case GSHWFixId::TrilinearFiltering:
 		case GSHWFixId::MinimumBlendingLevel:
 		case GSHWFixId::MaximumBlendingLevel:
+		case GSHWFixId::CopyRoadMaximumBlendingLevel:
 		case GSHWFixId::RecommendedBlendingLevel:
 		case GSHWFixId::PCRTCOffsets:
 		case GSHWFixId::PCRTCOverscan:
@@ -699,6 +734,13 @@ bool GameDatabaseSchema::GameEntry::configMatchesHWFix(const Pcsx2Config::GSOpti
 		case GSHWFixId::RecommendedBlendingLevel:
 			return true;
 
+		case GSHWFixId::HWDownloadMode:
+			return config.HWDownloadModeUserOverride || static_cast<int>(config.HWDownloadMode) == value;
+		case GSHWFixId::CoalesceRenderPasses:
+			return config.CoalesceRenderPasses == (value > 0);
+		case GSHWFixId::CopyRoadMaximumBlendingLevel:
+			return config.BlendingAccuracyUserOverride || config.CopyRoadMaximumBlendingLevel == value;
+
 		case GSHWFixId::GetSkipCount:
 			return (static_cast<int>(config.GetSkipCountFunctionId) == value);
 
@@ -714,6 +756,103 @@ bool GameDatabaseSchema::GameEntry::configMatchesHWFix(const Pcsx2Config::GSOpti
 }
 
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+bool GameDatabaseSchema::GameEntry::TestMobileOverlayPolicy()
+{
+	for (const std::string_view name : {"hwDownloadMode", "coalesceRenderPasses", "copyRoadMaximumBlendingLevel", "bilinearDirtyUpscale"})
+		if (!parseHWFixName(name).has_value())
+			return false;
+
+	// Use the real YAML parser without changing the loaded game database.
+	const std::string serial = "emucorex-overlay-selftest";
+	const auto previous = s_game_db.find(serial);
+	const std::optional<GameEntry> saved = previous != s_game_db.end() ? std::optional<GameEntry>(previous->second) : std::nullopt;
+	const auto restore = [&]() {
+		s_game_db.erase(serial);
+		if (saved)
+			s_game_db.emplace(serial, *saved);
+	};
+	s_game_db.erase(serial);
+	Error error;
+	const auto parse = [&](const char* yaml) {
+		auto tree = ParseYAMLFromString(ryml::to_csubstr(yaml), ryml::to_csubstr("overlay-selftest"), &error, true);
+		if (!tree)
+			return false;
+		if (s_game_db.contains(serial))
+			GameDatabase::mergeOverride(serial, tree->rootref());
+		else
+			GameDatabase::parseAndInsert(serial, tree->rootref());
+		return true;
+	};
+	bool ok = parse("name: Base\nregion: NTSC-U\nclampModes:\n  eeClampMode: 2\n  vuClampMode: 3\ngsHWFixes:\n  autoFlush: 1\n  halfPixelOffset: 5\ngameFixes:\n  - BlitInternalFPSHack\n");
+	ok &= parse("name: Mobile\nclampModes:\n  vu0ClampMode: 1\ngsHWFixes:\n  hwDownloadMode: 5\n  bilinearDirtyUpscale: 2\n  coalesceRenderPasses: 1\n  copyRoadMaximumBlendingLevel: 1\n");
+	const auto& entry = s_game_db.at(serial);
+	ok &= entry.name == "Mobile" && entry.region == "NTSC-U" && entry.eeClampMode == ClampMode::Extra &&
+		entry.vu0ClampMode == ClampMode::Normal && entry.vu1ClampMode == ClampMode::Full && entry.gsHWFixes.size() == 4 && entry.gameFixes.size() == 1;
+	for (const auto mode : {GSHardwareDownloadMode::Enabled, GSHardwareDownloadMode::NoReadbacks, GSHardwareDownloadMode::Disabled})
+	{
+		for (const bool claimed : {false, true})
+		{
+			Pcsx2Config::GSOptions config;
+			config.ManualUserHacks = false;
+			config.HWDownloadMode = mode;
+			config.HWDownloadModeUserOverride = claimed;
+			config.BlendingAccuracyUserOverride = claimed;
+			entry.applyGSHardwareFixes(config);
+			ok &= config.CoalesceRenderPasses && config.CopyRoadMaximumBlendingLevel == (claimed ? -1 : 1) &&
+				config.UserHacks_BilinearHack == static_cast<GSBilinearDirtyMode>(2) &&
+				config.HWDownloadMode == (claimed ? mode : GSHardwareDownloadMode::Asynchronous);
+		}
+	}
+	GameEntry invalid;
+	invalid.gsHWFixes = {{GSHWFixId::HWDownloadMode, 6}, {GSHWFixId::BilinearUpscale, -1}, {GSHWFixId::CopyRoadMaximumBlendingLevel, 128}};
+	Pcsx2Config::GSOptions untouched;
+	untouched.ManualUserHacks = false;
+	untouched.HWDownloadMode = GSHardwareDownloadMode::Enabled;
+	invalid.applyGSHardwareFixes(untouched);
+	ok &= untouched.HWDownloadMode == GSHardwareDownloadMode::Enabled && untouched.UserHacks_BilinearHack == GSBilinearDirtyMode::Automatic && untouched.CopyRoadMaximumBlendingLevel == -1;
+	ok &= parse("gsHWFixes: {}\ngameFixes: []\n");
+	ok &= s_game_db.at(serial).gsHWFixes.empty() && s_game_db.at(serial).gameFixes.size() == 1;
+	restore();
+	return ok;
+}
+
+bool GameDatabaseSchema::GameEntry::TestBundledMobileDatabase()
+{
+	const auto overlay = FileSystem::ReadFileToString("resources/emucorex_overrides.yaml");
+	if (!overlay || !FileSystem::FileExists("resources/GameIndex.yaml"))
+		return false;
+	Error error;
+	auto tree = ParseYAMLFromString(ryml::to_csubstr(*overlay), ryml::to_csubstr("bundled-overlay"), &error, true);
+	if (!tree)
+		return false;
+	auto saved = std::move(s_game_db);
+	s_game_db.clear();
+	GameDatabase::loadFile("resources/GameIndex.yaml", "GameIndex.yaml", false);
+	GameDatabase::loadFile("resources/emucorex_overrides.yaml", "emucorex_overrides.yaml", true);
+	bool ok = tree->rootref().num_children() == 147;
+	for (const auto& n : tree->rootref().children())
+	{
+		const auto serial = StringUtil::toLower(std::string(n.key().str, n.key().len));
+		const auto entry = s_game_db.find(serial);
+		ok &= entry != s_game_db.end();
+		if (entry != s_game_db.end() && n.has_child("gsHWFixes"))
+			ok &= entry->second.gsHWFixes.size() == n["gsHWFixes"].num_children();
+	}
+	const auto gta = s_game_db.find("slus-20946");
+	ok &= gta != s_game_db.end() && gta->second.eeClampMode == ClampMode::Extra && gta->second.gsHWFixes.size() == 4;
+	const auto splash = s_game_db.find("slus-20686");
+	ok &= splash != s_game_db.end();
+	if (splash != s_game_db.end())
+	{
+		Pcsx2Config::GSOptions config;
+		config.ManualUserHacks = false;
+		splash->second.applyGSHardwareFixes(config);
+		ok &= config.CopyRoadMaximumBlendingLevel == 0;
+	}
+	s_game_db = std::move(saved);
+	return ok;
+}
+
 bool GameDatabaseSchema::GameEntry::TestUpscaleAlignmentPolicy()
 {
 	GameEntry entry;
@@ -793,6 +932,23 @@ void GameDatabaseSchema::GameEntry::applyGSHardwareFixes(Pcsx2Config::GSOptions&
 
 			case GSHWFixId::PreloadFrameData:
 				config.PreloadFrameWithGSData = (value > 0);
+				break;
+
+			case GSHWFixId::HWDownloadMode:
+				// Apply mobile defaults only while the player has not claimed this setting.
+				if (!config.HWDownloadModeUserOverride &&
+					value >= static_cast<int>(GSHardwareDownloadMode::Enabled) &&
+					value <= static_cast<int>(GSHardwareDownloadMode::Asynchronous))
+					config.HWDownloadMode = static_cast<GSHardwareDownloadMode>(value);
+				break;
+			case GSHWFixId::CoalesceRenderPasses:
+				config.CoalesceRenderPasses = value > 0;
+				break;
+			case GSHWFixId::CopyRoadMaximumBlendingLevel:
+				// The GS device chooses the actual road after configuration reaches its thread.
+				if (!config.ManualUserHacks && !config.BlendingAccuracyUserOverride &&
+					value >= 0 && value <= static_cast<int>(AccBlendLevel::Maximum))
+					config.CopyRoadMaximumBlendingLevel = static_cast<s8>(value);
 				break;
 
 			case GSHWFixId::DisablePartialInvalidation:
@@ -1066,15 +1222,14 @@ void GameDatabaseSchema::GameEntry::applyGSHardwareFixes(Pcsx2Config::GSOptions&
 	}
 }
 
-void GameDatabase::initDatabase()
+void GameDatabase::loadFile(const std::string& path, const std::string& name, bool is_override)
 {
-	const std::string path(Path::Combine(EmuFolders::Resources, GAMEDB_YAML_FILE_NAME));
-	const std::string name(GAMEDB_YAML_FILE_NAME);
 
 	const std::optional<std::string> buffer = FileSystem::ReadFileToString(path.c_str());
 	if (!buffer.has_value())
 	{
-		Console.Error("GameDB: Unable to open GameDB file, file does not exist.");
+		if (!is_override)
+			Console.Error("GameDB: Unable to open GameDB file, file does not exist.");
 		return;
 	}
 
@@ -1090,6 +1245,7 @@ void GameDatabase::initDatabase()
 	}
 
 	ryml::NodeRef root = tree->rootref();
+	std::unordered_set<std::string> serials;
 
 	for (const ryml::NodeRef& n : root.children())
 	{
@@ -1099,7 +1255,7 @@ void GameDatabase::initDatabase()
 		// this is because the application may pass a lowercase CRC or serial along
 		//
 		// However, YAML's keys are as expected case-sensitive, so we have to explicitly do our own duplicate checking
-		if (s_game_db.count(serial) == 1)
+		if (!serials.emplace(serial).second || (!is_override && s_game_db.contains(serial)))
 		{
 			Console.ErrorFmt("GameDB: Duplicate serial '{}' found in GameDB. Skipping, Serials are case-insensitive!", serial);
 			continue;
@@ -1107,9 +1263,18 @@ void GameDatabase::initDatabase()
 
 		if (n.is_map())
 		{
-			parseAndInsert(serial, n);
+			if (is_override)
+				mergeOverride(serial, n);
+			else
+				parseAndInsert(serial, n);
 		}
 	}
+}
+
+void GameDatabase::initDatabase()
+{
+	loadFile(Path::Combine(EmuFolders::Resources, GAMEDB_YAML_FILE_NAME), GAMEDB_YAML_FILE_NAME, false);
+	loadFile(Path::Combine(EmuFolders::Resources, GAMEDB_OVERRIDE_YAML_FILE_NAME), GAMEDB_OVERRIDE_YAML_FILE_NAME, true);
 }
 
 void GameDatabase::ensureLoaded()

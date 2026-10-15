@@ -14,7 +14,60 @@
 
 GSTexture::GSTexture() = default;
 
-GSTexture::~GSTexture() = default;
+GSTexture::~GSTexture()
+{
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
+	AssertNoQueuedObserver("Destroying a texture with deferred draws queued against it");
+}
+
+bool GSTexture::Update(const GSVector4i& r, const void* data, int pitch, int layer)
+{
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
+	return DoUpdate(r, data, pitch, layer);
+}
+
+bool GSTexture::Map(GSMap& m, const GSVector4i* r, int layer)
+{
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
+	return DoMap(m, r, layer);
+}
+
+void GSTexture::SetState(State state)
+{
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
+	AssertNoQueuedObserver("SetState on a texture with deferred draws queued against it");
+	m_state = state;
+}
+
+void GSTexture::SetClearColor(u32 color)
+{
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
+	AssertNoQueuedObserver("SetClearColor on a texture with deferred draws queued against it");
+	m_state = State::Cleared;
+	m_clear_value.color = color;
+}
+
+void GSTexture::SetClearDepth(float depth)
+{
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
+	AssertNoQueuedObserver("SetClearDepth on a texture with deferred draws queued against it");
+	m_state = State::Cleared;
+	m_clear_value.depth = depth;
+}
+
+#if defined(PCSX2_DEBUG) || defined(PCSX2_DEVBUILD)
+void GSTexture::AssertNoQueuedObserver(const char* what) const
+{
+	// The device is null while its final resources are being torn down.
+	pxAssertMsg(!g_gs_device || !g_gs_device->DeferredDrawsWouldObserve(this), what);
+}
+#endif
 
 bool GSTexture::ValidateUsageAndFormat(Usage usage, Format format)
 {
@@ -249,6 +302,8 @@ void GSTexture::GenerateMipmapsIfNeeded()
 		return;
 
 	m_needs_mipmaps_generated = false;
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDrawsFor(this);
 	GenerateMipmap();
 }
 
@@ -260,6 +315,14 @@ GSDownloadTexture::GSDownloadTexture(u32 width, u32 height, GSTexture::Format fo
 }
 
 GSDownloadTexture::~GSDownloadTexture() = default;
+
+void GSDownloadTexture::CopyFromTexture(
+	const GSVector4i& drc, GSTexture* stex, const GSVector4i& src, u32 src_level, bool use_transfer_pitch)
+{
+	if (g_gs_device)
+		g_gs_device->FlushDeferredDraws();
+	DoCopyFromTexture(drc, stex, src, src_level, use_transfer_pitch);
+}
 
 u32 GSDownloadTexture::GetBufferSize(u32 width, u32 height, GSTexture::Format format, u32 pitch_align /* = 1 */)
 {

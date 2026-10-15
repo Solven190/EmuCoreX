@@ -85,6 +85,24 @@ import java.io.File
 import java.util.Locale
 import kotlin.time.Duration.Companion.milliseconds
 
+    private val PER_GAME_GS_SETTING_KEYS = setOf("hwDownloadMode", "blendingAccuracy")
+
+    internal fun isPerGameGsSettingOwned(providedKeys: Set<String>?, key: String, globalOwned: Boolean): Boolean =
+        providedKeys == null || key in providedKeys || globalOwned
+
+    internal fun mergePerGameGsProvidedKeys(
+        runtimeKeys: Set<String>?,
+        existingKeys: Set<String>?,
+        explicitlyClaimedGsKeys: Set<String> = emptySet()
+    ): Set<String>? {
+        if (runtimeKeys == null) return null
+        return buildSet {
+            addAll(runtimeKeys)
+            addAll((existingKeys ?: PER_GAME_GS_SETTING_KEYS).intersect(PER_GAME_GS_SETTING_KEYS))
+            addAll(explicitlyClaimedGsKeys.intersect(PER_GAME_GS_SETTING_KEYS))
+        }
+    }
+
     internal fun EmulationLaunchConfig.applyProfile(profile: PerGameSettings?): EmulationLaunchConfig {
         if (profile == null) return this
         val resolvedShaderChain = profile.resolveShaderChain(
@@ -134,6 +152,11 @@ import kotlin.time.Duration.Companion.milliseconds
             vu0ClampingMode = pick("vu0ClampingMode", vu0ClampingMode) { vu0ClampingMode },
             vu1ClampingMode = pick("vu1ClampingMode", vu1ClampingMode) { vu1ClampingMode },
             hwDownloadMode = pick("hwDownloadMode", hwDownloadMode) { hwDownloadMode },
+            hwDownloadModeUserOverride = isPerGameGsSettingOwned(
+                profile.providedKeys,
+                "hwDownloadMode",
+                hwDownloadModeUserOverride
+            ),
             eeCycleRate = pick("eeCycleRate", eeCycleRate) { eeCycleRate },
             eeCycleSkip = pick("eeCycleSkip", eeCycleSkip) { eeCycleSkip },
             frameSkip = pick("frameSkip", frameSkip) { frameSkip },
@@ -146,6 +169,11 @@ import kotlin.time.Duration.Companion.milliseconds
             textureFiltering = pick("textureFiltering", textureFiltering) { textureFiltering },
             trilinearFiltering = pick("trilinearFiltering", trilinearFiltering) { trilinearFiltering },
             blendingAccuracy = pick("blendingAccuracy", blendingAccuracy) { blendingAccuracy },
+            blendingAccuracyUserOverride = isPerGameGsSettingOwned(
+                profile.providedKeys,
+                "blendingAccuracy",
+                blendingAccuracyUserOverride
+            ),
             texturePreloading = pick("texturePreloading", texturePreloading) { texturePreloading },
             shaderChainEnabled = resolvedShaderChain.enabled,
             shaderChainPreset = resolvedShaderChain.preset,

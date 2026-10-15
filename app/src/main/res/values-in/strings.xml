@@ -2911,4 +2911,6 @@
     <string name="shader_prep_error_pipeline_failures">Beberapa shader tidak dapat disiapkan.</string>
     <string name="shader_prep_error_checkpoint_failed">Cache shader tidak dapat disimpan.</string>
     <string name="shader_prep_error_internal_error">Terjadi kesalahan saat menyiapkan shader.</string>
+    <string name="gamedb_setting_coalesce_render_passes">Gabungkan tahap render</string>
+    <string name="gamedb_setting_copy_road_maximum_blending">Level blending maksimum saat menyalin target render</string>
 </resources>
