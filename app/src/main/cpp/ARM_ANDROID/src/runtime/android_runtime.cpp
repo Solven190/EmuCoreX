@@ -921,10 +921,10 @@ int AndroidRuntime::RunTFXPreparationRuntimeTests()
 		}
 
 		check(real_job_finished && real_status.state == TFXPreparationState::Completed &&
-			real_status.total == 164 && real_status.finished && real_status.in_flight == 0 &&
+			real_status.total == 168 && real_status.finished && real_status.in_flight == 0 &&
 			real_status.failed == 0 && real_status.cancelled == 0 &&
 			real_status.completed + real_status.already_available == real_status.total,
-			"real runtime job compiles and accounts all 164 canonical TFX selectors");
+			"real runtime job compiles and accounts all 168 canonical TFX selectors");
 		check(real_status.checkpoint_saved && !real_status.adapter_name.empty(),
 			"real runtime job reports its adapter and persisted pipeline checkpoint");
 		check(CheckTFXPreparationReadiness(), "real completed preparation validates its durable receipt before another game");

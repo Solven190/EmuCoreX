@@ -2897,4 +2897,6 @@
     <string name="shader_prep_error_pipeline_failures">Bazı gölgelendiriciler hazırlanamadı.</string>
     <string name="shader_prep_error_checkpoint_failed">Gölgelendirici önbelleği kaydedilemedi.</string>
     <string name="shader_prep_error_internal_error">Gölgelendirici hazırlığı sırasında bir hata oluştu.</string>
+    <string name="gamedb_setting_coalesce_render_passes">İşleme geçişlerini birleştir</string>
+    <string name="gamedb_setting_copy_road_maximum_blending">İşleme hedefi kopyalanırken en yüksek harmanlama düzeyi</string>
 </resources>

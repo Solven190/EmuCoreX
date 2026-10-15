@@ -86,6 +86,9 @@ namespace GameDatabaseSchema
 		GetSkipCount,
 		BeforeDraw,
 		MoveHandler,
+		HWDownloadMode,
+		CoalesceRenderPasses,
+		CopyRoadMaximumBlendingLevel,
 
 		Count
 	};
@@ -123,6 +126,12 @@ namespace GameDatabaseSchema
 
 		/// Applies GS hardware fixes to an existing config.
 		void applyGSHardwareFixes(Pcsx2Config::GSOptions& config) const;
+
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+		static bool TestUpscaleAlignmentPolicy();
+		static bool TestMobileOverlayPolicy();
+		static bool TestBundledMobileDatabase();
+#endif
 
 		/// Returns true if the current config value for the specified hw fix id matches the value.
 		static bool configMatchesHWFix(const Pcsx2Config::GSOptions& config, GSHWFixId id, int value);

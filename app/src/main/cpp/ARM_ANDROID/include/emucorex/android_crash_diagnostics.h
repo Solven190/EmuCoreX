@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 #include "common/Pcsx2Defs.h"
 
@@ -13,6 +14,8 @@ void RecordGameForCrashDiagnostics(const std::string& title, const std::string& 
 // Set the path to the log file where native crashes will be written.
 // Call this once from JNI before starting emulation.
 void SetNativeCrashLogFilePath(const char* path);
+
+void RecordNativeErrorForCrashDiagnostics(std::string_view title, std::string_view message);
 
 // Install SIGSEGV/SIGABRT/SIGBUS/SIGFPE handlers that write crash info to the log file.
 // Safe to call multiple times — installs only once.

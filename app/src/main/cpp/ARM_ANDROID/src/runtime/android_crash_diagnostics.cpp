@@ -460,6 +460,12 @@ void RecordGameForCrashDiagnostics(const std::string& title, const std::string& 
 	s_current_crc.store(current_crc, std::memory_order_relaxed);
 }
 
+void RecordNativeErrorForCrashDiagnostics(std::string_view title, std::string_view message)
+{
+	WriteToLogFileFmt("NATIVE_ERROR", "%.*s: %.*s", static_cast<int>(title.size()), title.empty() ? "" : title.data(),
+		static_cast<int>(message.size()), message.empty() ? "" : message.data());
+}
+
 void SetNativeCrashLogFilePath(const char* path)
 {
 	if (!path)

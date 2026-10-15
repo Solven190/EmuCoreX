@@ -22,13 +22,14 @@ class GSTexture11 final : public GSTexture
 public:
 	explicit GSTexture11(wil::com_ptr_nothrow<ID3D11Texture2D> texture, const D3D11_TEXTURE2D_DESC& desc,
 		Usage usage, Format format);
+	~GSTexture11() override;
 
 	static DXGI_FORMAT GetDXGIFormat(Format format);
 
 	void* GetNativeHandle() const override;
 
-	bool Update(const GSVector4i& r, const void* data, int pitch, int layer = 0) override;
-	bool Map(GSMap& m, const GSVector4i* r = NULL, int layer = 0) override;
+	bool DoUpdate(const GSVector4i& r, const void* data, int pitch, int layer = 0) override;
+	bool DoMap(GSMap& m, const GSVector4i* r, int layer) override;
 	void Unmap() override;
 	void GenerateMipmap() override;
 
@@ -52,7 +53,7 @@ public:
 
 	static std::unique_ptr<GSDownloadTexture11> Create(u32 width, u32 height, GSTexture::Format format);
 
-	void CopyFromTexture(
+	void DoCopyFromTexture(
 		const GSVector4i& drc, GSTexture* stex, const GSVector4i& src, u32 src_level, bool use_transfer_pitch) override;
 
 	bool Map(const GSVector4i& rc) override;

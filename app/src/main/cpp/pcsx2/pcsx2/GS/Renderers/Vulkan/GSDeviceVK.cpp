@@ -214,6 +214,11 @@ GSDeviceVK::GSDeviceVK()
 
 GSDeviceVK::~GSDeviceVK() = default;
 
+bool GSDeviceVK::IsMaliSX2() const
+{
+	return IsMaliSX2DriverInfo(m_device_driver_properties.driverInfo);
+}
+
 VkInstance GSDeviceVK::CreateVulkanInstance(const WindowInfo& wi, OptionalExtensions* oe, bool enable_debug_utils,
 	bool enable_validation_layer)
 {
@@ -1270,9 +1275,16 @@ bool GSDeviceVK::CreateGlobalDescriptorPool()
 		res = vkCreateQueryPool(m_device, &query_create_info, nullptr, &m_timestamp_query_pool);
 		if (res != VK_SUCCESS)
 		{
-			LOG_VULKAN_ERROR(res, "vkCreateQueryPool failed: ");
+			LOG_VULKAN_ERROR(res, "vkCreateQueryPool (timestamp) failed: ");
+			m_timestamp_query_pool = VK_NULL_HANDLE;
 			m_gpu_timing_supported = false;
-			return false;
+			m_gpu_timing_enabled = false;
+			// Timing is optional. Some drivers advertise timestamps but reject the
+			// pool. Present/readback spinning also needs this pool, so disable both.
+			m_spinning_supported = false;
+			m_spin_timer = 0;
+			if (res != VK_ERROR_FEATURE_NOT_PRESENT)
+				return false;
 		}
 	}
 
@@ -1284,9 +1296,12 @@ bool GSDeviceVK::CreateGlobalDescriptorPool()
 		res = vkCreateQueryPool(m_device, &query_create_info, nullptr, &m_pipeline_statistics_query_pool);
 		if (res != VK_SUCCESS)
 		{
-			LOG_VULKAN_ERROR(res, "vkCreateQueryPool failed: ");
+			LOG_VULKAN_ERROR(res, "vkCreateQueryPool (pipeline statistics) failed: ");
+			m_pipeline_statistics_query_pool = VK_NULL_HANDLE;
 			m_gpu_pipeline_statistics_supported = false;
-			return false;
+			m_gpu_pipeline_statistics_enabled = false;
+			if (res != VK_ERROR_FEATURE_NOT_PRESENT)
+				return false;
 		}
 	}
 
@@ -2858,6 +2873,7 @@ void GSDeviceVK::SetVSyncMode(GSVSyncMode mode, bool allow_present_throttle)
 
 GSDevice::PresentResult GSDeviceVK::BeginPresent(bool frame_skip)
 {
+	FlushDeferredDraws();
 	m_present_has_new_frame = false;
 
 	EndRenderPass();
@@ -2972,6 +2988,7 @@ GSDevice::PresentResult GSDeviceVK::BeginPresent(bool frame_skip)
 
 void GSDeviceVK::EndPresent()
 {
+	FlushDeferredDraws();
 #ifndef __ANDROID__
 	RenderImGui();
 #endif
@@ -3280,6 +3297,7 @@ bool GSDeviceVK::CheckFeatures()
 	m_features.prefer_new_textures = true;
 	m_features.provoking_vertex_last = m_optional_extensions.vk_ext_provoking_vertex;
 	m_features.vs_expand = !GSConfig.DisableVertexShaderExpand;
+	m_features.sprite_edge_clamp = true;
 
 	if (!m_features.texture_barrier)
 		Console.WriteLn("VK: Using render-target snapshots for framebuffer feedback.");
@@ -3602,6 +3620,7 @@ std::unique_ptr<GSDownloadTexture> GSDeviceVK::CreateDownloadTexture(u32 width, 
 
 void GSDeviceVK::CopyRect(GSTexture* sTex, GSTexture* dTex, const GSVector4i& r, u32 destX, u32 destY)
 {
+	FlushDeferredDraws();
 
 	// Empty rect, abort copy.
 	if (r.rempty())
@@ -3698,6 +3717,7 @@ void GSDeviceVK::DoStretchRect(GSTexture* sTex, const GSVector4& sRect, const GS
 void GSDeviceVK::PresentRect(GSTexture* sTex, const GSVector4& sRect, GSTexture* dTex, const GSVector4& dRect,
 	PresentShader shader, float shaderTime, Filter filter)
 {
+	FlushDeferredDraws();
 	DisplayConstantBuffer cb;
 	cb.SetSource(sRect, sTex->GetSize());
 	cb.SetTarget(dRect, dTex ? dTex->GetSize() : GSVector2i(GetWindowWidth(), GetWindowHeight()));
@@ -3711,6 +3731,7 @@ void GSDeviceVK::PresentRect(GSTexture* sTex, const GSVector4& sRect, GSTexture*
 void GSDeviceVK::DrawMultiStretchRects(
 	const MultiStretchRect* rects, u32 num_rects, GSTexture* dTex, ShaderConvertSelector shader)
 {
+	FlushDeferredDraws();
 	GSTexture* last_tex = rects[0].src;
 	Filter last_filter = rects[0].filter;
 	u8 last_wmask = rects[0].wmask.wrgba;
@@ -3959,6 +3980,7 @@ void GSDeviceVK::BlitRect(GSTexture* sTex, const GSVector4i& sRect, u32 sLevel, 
 void GSDeviceVK::UpdateCLUTTexture(
 	GSTexture* sTex, float sScale, u32 offsetX, u32 offsetY, GSTexture* dTex, u32 dOffset, u32 dSize)
 {
+	FlushDeferredDraws();
 	// Super annoying, but apparently NVIDIA doesn't like floats/ints packed together in the same vec4?
 	struct alignas(16) Uniforms
 	{
@@ -3979,6 +4001,7 @@ void GSDeviceVK::UpdateCLUTTexture(
 void GSDeviceVK::ConvertToIndexedTexture(
 	GSTexture* sTex, float sScale, u32 offsetX, u32 offsetY, u32 SBW, u32 SPSM, GSTexture* dTex, u32 DBW, u32 DPSM)
 {
+	FlushDeferredDraws();
 	struct alignas(16) Uniforms
 	{
 		u32 SBW;
@@ -4000,6 +4023,7 @@ void GSDeviceVK::ConvertToIndexedTexture(
 
 void GSDeviceVK::FilteredDownsampleTexture(GSTexture* sTex, GSTexture* dTex, u32 downsample_factor, const GSVector2i& clamp_min, const GSVector4& dRect)
 {
+	FlushDeferredDraws();
 	struct alignas(16) Uniforms
 	{
 		GSVector2i clamp_min;
@@ -6191,6 +6215,7 @@ std::string GSDeviceVK::BuildTFXVertexShaderSource(std::string_view tfx_source, 
 	AddMacro(ss, "VS_IIP", selector.iip);
 	AddMacro(ss, "VS_POINT_SIZE", selector.point_size);
 	AddMacro(ss, "VS_EXPAND", static_cast<int>(selector.expand));
+	AddMacro(ss, "VS_SPRITE_EDGE_CLAMP", selector.sprite_edge_clamp);
 	AddMacro(ss, "VS_PROVOKING_VERTEX_LAST", static_cast<int>(capabilities.provoking_vertex_last));
 	ss << tfx_source;
 	return ss.str();
@@ -6230,6 +6255,7 @@ std::string GSDeviceVK::BuildTFXFragmentShaderSource(std::string_view tfx_source
 	AddMacro(ss, "PS_DATE", selector.date);
 	AddMacro(ss, "PS_TCOFFSETHACK", selector.tcoffsethack);
 	AddMacro(ss, "PS_REGION_RECT", selector.region_rect);
+	AddMacro(ss, "PS_SPRITE_EDGE_CLAMP", selector.sprite_edge_clamp);
 	AddMacro(ss, "PS_BLEND_A", selector.blend_a);
 	AddMacro(ss, "PS_BLEND_B", selector.blend_b);
 	AddMacro(ss, "PS_BLEND_C", selector.blend_c);
@@ -6465,6 +6491,15 @@ bool GSDeviceVK::TestTFXWarmupOrdering()
 
 bool GSDeviceVK::TestTFXShaderSourceBuilders()
 {
+	// A snapped FST sprite must carry its sample limit through every vertex path.
+	const GSHWDrawConfig::VSSelector edge_selector(0x80);
+	if (BuildTFXVertexShaderSource({}, edge_selector, {}).find("#define VS_SPRITE_EDGE_CLAMP 1") == std::string::npos)
+		return false;
+	GSHWDrawConfig::PSSelector edge_pixel;
+	edge_pixel.fst = 1;
+	edge_pixel.sprite_edge_clamp = 1;
+	if (BuildTFXFragmentShaderSource({}, edge_pixel, {}).find("#define PS_SPRITE_EDGE_CLAMP 1") == std::string::npos)
+		return false;
 	TFXSourceHash builder_hash;
 	bool compatible_header = true;
 	const auto AddComparedSource = [&builder_hash, &compatible_header](std::string source) {
@@ -6477,6 +6512,13 @@ bool GSDeviceVK::TestTFXShaderSourceBuilders()
 		// remain byte-identical to the pre-removal shader fixtures.
 		if (source.starts_with(prefix))
 			source.insert(prefix.size(), removed_requirement);
+		// The new selector has its own checks below; preserve all pre-port fixtures.
+		for (const std::string_view macro : {"#define VS_SPRITE_EDGE_CLAMP ", "#define PS_SPRITE_EDGE_CLAMP "})
+		{
+			const size_t at = source.find(macro);
+			if (at != std::string::npos)
+				source.erase(at, source.find('\n', at) - at + 1);
+		}
 		builder_hash.Add(source);
 	};
 	static constexpr u64 EXPECTED_FIRST_HASH = 0x9C23F4A8F1A120BDull;
@@ -6540,8 +6582,8 @@ bool GSDeviceVK::TestTFXShaderSourceCatalog()
 		const TFXShaderSourceCatalog catalog = BuildTFXShaderSourceCatalog(source, capabilities);
 		const TFXShaderSourceCatalog repeated = BuildTFXShaderSourceCatalog(source, capabilities);
 
-		if (catalog.pipelines.size() != 164 || catalog.vertex_sources.size() != 8 ||
-			catalog.fragment_sources.size() != 40 || catalog.pipelines.size() != repeated.pipelines.size() ||
+		if (catalog.pipelines.size() != 168 || catalog.vertex_sources.size() != 10 ||
+			catalog.fragment_sources.size() != 42 || catalog.pipelines.size() != repeated.pipelines.size() ||
 			catalog.vertex_sources != repeated.vertex_sources || catalog.fragment_sources != repeated.fragment_sources)
 		{
 			return false;
@@ -6626,6 +6668,57 @@ bool GSDeviceVK::TestTFXShaderSourceCatalog()
 			return false;
 	}
 	return original.vertex_sources != changed.vertex_sources && original.fragment_sources != changed.fragment_sources;
+}
+
+bool GSDeviceVK::TestOptionalQueryPoolFallback()
+{
+	const auto saved_descriptor = vkCreateDescriptorPool;
+	const auto saved_query = vkCreateQueryPool;
+	const auto saved_name = vkSetDebugUtilsObjectNameEXT;
+	ScopedGuard restore = [&]() {
+		vkCreateDescriptorPool = saved_descriptor;
+		vkCreateQueryPool = saved_query;
+		vkSetDebugUtilsObjectNameEXT = saved_name;
+	};
+	static VkResult descriptor_result, timestamp_result, statistics_result;
+	static u32 query_calls;
+	vkSetDebugUtilsObjectNameEXT = nullptr;
+	vkCreateDescriptorPool = [](VkDevice, const VkDescriptorPoolCreateInfo*, const VkAllocationCallbacks*, VkDescriptorPool* pool) -> VkResult {
+		*pool = reinterpret_cast<VkDescriptorPool>(1);
+		return descriptor_result;
+	};
+	vkCreateQueryPool = [](VkDevice, const VkQueryPoolCreateInfo* info, const VkAllocationCallbacks*, VkQueryPool* pool) -> VkResult {
+		query_calls++;
+		// Failed Vulkan calls do not guarantee the contents of output handles.
+		*pool = reinterpret_cast<VkQueryPool>(2);
+		return info->queryType == VK_QUERY_TYPE_TIMESTAMP ? timestamp_result : statistics_result;
+	};
+	for (const bool timestamp : {true, false})
+	{
+		for (const VkResult result : {VK_SUCCESS, VK_ERROR_FEATURE_NOT_PRESENT, VK_ERROR_OUT_OF_DEVICE_MEMORY, VK_ERROR_DEVICE_LOST})
+		{
+			GSDeviceVK device;
+			device.m_gpu_timing_supported = device.m_gpu_pipeline_statistics_supported = device.m_spinning_supported = true;
+			descriptor_result = VK_SUCCESS;
+			timestamp_result = timestamp ? result : VK_SUCCESS;
+			statistics_result = timestamp ? VK_SUCCESS : result;
+			query_calls = 0;
+			const bool can_render = result == VK_SUCCESS || result == VK_ERROR_FEATURE_NOT_PRESENT;
+			if (device.CreateGlobalDescriptorPool() != can_render)
+				return false;
+			if (result == VK_ERROR_FEATURE_NOT_PRESENT &&
+				((timestamp && (device.m_gpu_timing_supported || device.m_spinning_supported || device.m_timestamp_query_pool != VK_NULL_HANDLE)) ||
+				 (!timestamp && (device.m_gpu_pipeline_statistics_supported || device.m_pipeline_statistics_query_pool != VK_NULL_HANDLE))))
+				return false;
+			if (can_render && (query_calls != 2 ||
+				(timestamp ? !device.m_gpu_pipeline_statistics_supported : (!device.m_gpu_timing_supported || !device.m_spinning_supported))))
+				return false;
+		}
+	}
+	GSDeviceVK device;
+	descriptor_result = VK_ERROR_OUT_OF_DEVICE_MEMORY;
+	query_calls = 0;
+	return !device.CreateGlobalDescriptorPool() && query_calls == 0;
 }
 
 bool GSDeviceVK::TestMaliSX2Policy()
@@ -7202,7 +7295,7 @@ bool GSDeviceVK::TestTFXPreparationPlan()
 
 	std::vector<PipelineSelector> selectors;
 	BuildTFXPreparationSelectors(selectors, true);
-	if (selectors.size() != 164)
+	if (selectors.size() != 168)
 		return false;
 
 	u32 without_depth = 0;
@@ -7216,7 +7309,7 @@ bool GSDeviceVK::TestTFXPreparationPlan()
 		}
 		selector.ds ? ++with_depth : ++without_depth;
 	}
-	if (without_depth != 82 || with_depth != 82)
+	if (without_depth != 84 || with_depth != 84)
 		return false;
 
 	// Point expansion reads vertices through TFX UBO layout binding 2, which
@@ -7224,7 +7317,7 @@ bool GSDeviceVK::TestTFXPreparationPlan()
 	// The capability-off baseline must therefore omit those selectors rather
 	// than compile pipelines against a layout missing their declared binding.
 	BuildTFXPreparationSelectors(selectors, false);
-	if (selectors.size() != 84)
+	if (selectors.size() != 86)
 		return false;
 	without_depth = 0;
 	with_depth = 0;
@@ -7237,14 +7330,14 @@ bool GSDeviceVK::TestTFXPreparationPlan()
 		}
 		selector.ds ? ++with_depth : ++without_depth;
 	}
-	return without_depth == 42 && with_depth == 42;
+	return without_depth == 43 && with_depth == 43;
 }
 #endif
 
 void GSDeviceVK::BuildWarmupTFXSelectors(std::vector<PipelineSelector>& out)
 {
 	out.clear();
-	out.reserve(164);
+	out.reserve(168);
 
 	static constexpr std::array<u8, 5> tfx_modes = {{TFX_NONE, TFX_MODULATE, TFX_DECAL, TFX_HIGHLIGHT, TFX_HIGHLIGHT2}};
 	static constexpr std::array<u8, 2> topologies = {{
@@ -7366,6 +7459,22 @@ void GSDeviceVK::BuildWarmupTFXSelectors(std::vector<PipelineSelector>& out)
 			pipe.bs.dst_factor_alpha = INV_SRC_ALPHA;
 			out.push_back(pipe);
 		}
+	}
+
+	// Compile the new sample-limit paths during one-time preparation as well.
+	// One textured baseline per depth mode, with CPU and VS sprite expansion.
+	for (const bool depth : {false, true})
+	{
+		const auto found = std::find_if(out.begin(), out.end(), [depth](const PipelineSelector& p) {
+			return p.ds == depth && p.vs.tme && p.vs.fst && p.ps.fst && p.vs.expand == GSHWDrawConfig::VSExpand::None;
+		});
+		pxAssert(found != out.end());
+		PipelineSelector base = *found;
+		base.vs.iip = base.ps.iip = 0;
+		base.vs.sprite_edge_clamp = base.ps.sprite_edge_clamp = 1;
+		out.push_back(base);
+		base.vs.expand = GSHWDrawConfig::VSExpand::Sprite;
+		out.push_back(base);
 	}
 }
 
@@ -9017,7 +9126,7 @@ GSTextureVK* GSDeviceVK::SetupPrimitiveTrackingDATE(GSHWDrawConfig& config)
 	return image;
 }
 
-void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
+void GSDeviceVK::DoRenderHW(GSHWDrawConfig& config)
 {
 
 	m_draws_in_command_buffer++;

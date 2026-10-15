@@ -107,6 +107,49 @@ namespace Arm64Ir
 		LowerOutput* out, std::string* error,
 		BoundVfShuffleLayout layout = BoundVfShuffleLayout::GuestLanes);
 
+	// Narrow raw-bit VU VABS slice. The caller binds the full raw VF source
+	// before the writable destination; VAbs clears selected sign bits. In
+	// MicroVuPartial layout a single selected source lane is packed to S0 by
+	// the lowerer, matching allocRegId(-1, vf, mask).
+	struct BoundVfUnaryPlan
+	{
+		u8 src_vf = 0;
+		u8 dst_vf = 0;
+		u8 lane_mask = 0;
+		bool delay_slot = false;
+	};
+	enum class BoundVfUnaryLayout : u8
+	{
+		GuestLanes,
+		// Mirrors allocRegId(-1, vf, mask). Only selected guest lanes are consumed.
+		MicroVuPartial,
+	};
+	bool PlanBoundVfUnary(const ir::Function& fn, BoundVfUnaryPlan* plan, std::string* error);
+	bool LowerBoundVfUnaryPlan(const BoundVfUnaryPlan& plan, u32 vf_source, u32 vf_dst,
+		LowerOutput* out, std::string* error,
+		BoundVfUnaryLayout layout = BoundVfUnaryLayout::GuestLanes);
+
+	// Strict raw integer-to-float VF conversion slice. The caller binds a full
+	// V4I32 source before the masked V4F32 destination; MicroVuPartial performs
+	// the allocator's one-lane S0 extraction inside the lowerer.
+	struct BoundVfConvertPlan
+	{
+		u8 src_vf = 0;
+		u8 dst_vf = 0;
+		u8 lane_mask = 0;
+		u8 fractional_bits = 0;
+		bool delay_slot = false;
+	};
+	enum class BoundVfConvertLayout : u8
+	{
+		GuestLanes,
+		MicroVuPartial,
+	};
+	bool PlanBoundVfConvert(const ir::Function& fn, BoundVfConvertPlan* plan, std::string* error);
+	bool LowerBoundVfConvertPlan(const BoundVfConvertPlan& plan, u32 vf_source, u32 vf_dst,
+		LowerOutput* out, std::string* error,
+		BoundVfConvertLayout layout = BoundVfConvertLayout::GuestLanes);
+
 	// Inline-mode exits are emitted through these hooks so the integration can
 	// reuse the legacy block-tail machinery (pc store, event test, linking).
 	struct LowerHooks
@@ -158,6 +201,8 @@ namespace Arm64Ir
 		bool direct_quad_memory = true;
 		// Direct mapped EE 8/16/32/64-bit reads; retain helpers for handlers/cache.
 		bool direct_ee_loads = true;
+		// Direct mapped EE scalar writes; handlers/cache retain their helpers.
+		bool direct_ee_stores = true;
 		// Keep SIMD values in registers on direct RAM paths; spill on fallback.
 		bool direct_quad_vectors = true;
 		// Reuse typed spill slots after their SSA values die within a block.
@@ -178,6 +223,7 @@ namespace Arm64Ir
 		u32 spill_slots = 0;
 		u32 direct_quad_operations = 0;
 		u32 direct_ee_load_operations = 0;
+		u32 direct_ee_store_operations = 0;
 		u32 direct_quad_vector_operations = 0;
 		u32 vector_register_values = 0;
 		u32 vector_save_values = 0; // allocated SIMD values needing stack homes

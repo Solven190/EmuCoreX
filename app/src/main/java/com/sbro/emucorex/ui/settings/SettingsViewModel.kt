@@ -79,6 +79,13 @@ import com.sbro.emucorex.core.vendor
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+private const val GS_SETTING_OVERRIDE_HW_DOWNLOAD_MODE = 1
+private const val GS_SETTING_OVERRIDE_BLENDING_ACCURACY = 1 shl 1
+
+internal fun settingsGsOverrideFlags(hwDownloadMode: Boolean, blendingAccuracy: Boolean): Int =
+    (if (hwDownloadMode) GS_SETTING_OVERRIDE_HW_DOWNLOAD_MODE else 0) or
+        (if (blendingAccuracy) GS_SETTING_OVERRIDE_BLENDING_ACCURACY else 0)
+
 data class SettingsUiState(
     val isLoaded: Boolean = false,
     val showMediatekCompatibilityNotice: Boolean = false,
@@ -193,7 +200,7 @@ data class SettingsUiState(
     val vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
     val vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
     val enableGameFixes: Boolean = true,
-    val autoGsHardwareFixes: Boolean = true,
+    val autoGsHardwareFixes: Boolean = AppPreferences.DEFAULT_AUTO_GS_HARDWARE_FIXES,
     val enableEeTimingHack: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
@@ -205,6 +212,7 @@ data class SettingsUiState(
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
     val hwDownloadMode: Int = GsHackDefaults.HW_DOWNLOAD_MODE_DEFAULT,
+    val gsSettingOverrideFlags: Int = 0,
     val frameSkip: Int = 0,
     val skipDuplicateFrames: Boolean = true,
     val lowLatencyMode: Boolean = false,
@@ -328,6 +336,11 @@ data class SettingsUiState(
     val ntscFramerate: Float = AppPreferences.DEFAULT_NTSC_FRAMERATE,
     val palFramerate: Float = AppPreferences.DEFAULT_PAL_FRAMERATE
 ) {
+    val hwDownloadModeUserOverride: Boolean
+        get() = (gsSettingOverrideFlags and GS_SETTING_OVERRIDE_HW_DOWNLOAD_MODE) != 0
+    val blendingAccuracyUserOverride: Boolean
+        get() = (gsSettingOverrideFlags and GS_SETTING_OVERRIDE_BLENDING_ACCURACY) != 0
+
     // Compatibility read-only views over the nested [gyro] group.
     val gyroMode: Int get() = gyro.mode
     val gyroSensitivity: Int get() = gyro.sensitivity
@@ -524,6 +537,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             enableFastCdvd = snapshot.enableFastCdvd,
             enableCheats = snapshot.enableCheats,
             hwDownloadMode = snapshot.hwDownloadMode,
+            gsSettingOverrideFlags = settingsGsOverrideFlags(
+                hwDownloadMode = snapshot.hwDownloadModeUserOverride,
+                blendingAccuracy = snapshot.blendingAccuracyUserOverride
+            ),
             frameSkip = snapshot.frameSkip,
             skipDuplicateFrames = snapshot.skipDuplicateFrames,
             lowLatencyMode = snapshot.lowLatencyMode,
@@ -1663,6 +1680,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             markPerformancePresetCustom()
             preferences.setHwDownloadMode(value)
             EmulatorBridge.setSetting("EmuCore/GS", "HWDownloadMode", "int", value.toString())
+            EmulatorBridge.setSetting("EmuCore/GS", "HWDownloadModeUserOverride", "bool", "true")
         }
     }
 
@@ -1752,6 +1770,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             markPerformancePresetCustom()
             preferences.setBlendingAccuracy(value)
             EmulatorBridge.setSetting("EmuCore/GS", "accurate_blending_unit", "int", value.toString())
+            EmulatorBridge.setSetting("EmuCore/GS", "BlendingAccuracyUserOverride", "bool", "true")
         }
     }
 
@@ -2244,6 +2263,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private suspend fun refreshManualHardwareFixes(state: SettingsUiState = _uiState.value) {
         val manual = manualHardwareFixesEnabled(state)
         EmulatorBridge.setSetting("EmuCore/GS", "UserHacks", "bool", (manual || !state.autoGsHardwareFixes).toString())
+        EmulatorBridge.setSetting("EmuCore/GS", "AutoUpscaleAlignment", "bool", (!manual).toString())
     }
 
     // Overlay
@@ -2352,6 +2372,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 enableThreadPinning = _uiState.value.enableThreadPinning,
                 enableFastBoot = _uiState.value.enableFastBoot,
                 hwDownloadMode = _uiState.value.hwDownloadMode,
+                hwDownloadModeUserOverride = _uiState.value.hwDownloadModeUserOverride,
                 frameLimitEnabled = _uiState.value.frameLimitEnabled,
                 vSyncEnabled = _uiState.value.vSyncEnabled,
                 targetFps = _uiState.value.targetFps,
@@ -2360,6 +2381,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 textureFiltering = _uiState.value.textureFiltering,
                 trilinearFiltering = _uiState.value.trilinearFiltering,
                 blendingAccuracy = _uiState.value.blendingAccuracy,
+                blendingAccuracyUserOverride = _uiState.value.blendingAccuracyUserOverride,
                 texturePreloading = _uiState.value.texturePreloading,
                 enableFxaa = _uiState.value.enableFxaa,
                 sgsrMode = _uiState.value.sgsrMode,

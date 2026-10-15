@@ -44,6 +44,10 @@ namespace ir
 
 			if ((inst.op == Op::ReadCp0 || inst.op == Op::WriteCp0) && inst.imm >= 32)
 				return Fail(error, "COP0: register index is out of range");
+			if ((inst.op == Op::ReadCp2Data || inst.op == Op::WriteCp2Data ||
+				inst.op == Op::ReadCp2Control || inst.op == Op::WriteCp2Control) &&
+				(inst.imm >= 32 || (inst.aux & ~IF_DELAY_SLOT) != 0))
+				return Fail(error, "COP2: register index or flags are out of range");
 			if ((inst.op == Op::ReadFprBits || inst.op == Op::WriteFprBits) &&
 				(inst.imm >= 32 || (inst.aux & ~IF_DELAY_SLOT) != 0))
 				return Fail(error, "FPR bits: register index or flags are out of range");
@@ -60,6 +64,9 @@ namespace ir
 			if (inst.op == Op::ReadVf &&
 				(inst.imm >= 32 || (inst.aux & ~IF_DELAY_SLOT) != 0))
 				return Fail(error, "ReadVf: VF index or flags are out of range");
+			if (inst.op == Op::ReadVfBits &&
+				(inst.imm >= 32 || (inst.aux & ~IF_DELAY_SLOT) != 0))
+				return Fail(error, "ReadVfBits: VF index or flags are out of range");
 			if (inst.op == Op::WriteVfLaneSplatBits &&
 				(inst.imm >= 32 || !(inst.aux & 0x0f) || (inst.aux & ~(u16(0x0f) | IF_DELAY_SLOT)) != 0))
 				return Fail(error, "WriteVfLaneSplatBits: VF index, lane mask, or flags are out of range");
@@ -211,6 +218,9 @@ namespace ir
 				{
 					if (inst.op == Op::WriteCp0 && fn.ValueType(inst.args[0]) != Type::I32)
 						return Fail(error, "COP0: 32-bit write required");
+					if ((inst.op == Op::WriteCp2Data || inst.op == Op::WriteCp2Control) &&
+						fn.ValueType(inst.args[0]) != Type::I32)
+						return Fail(error, "COP2: 32-bit write required");
 					if ((inst.op == Op::WriteFprBits || inst.op == Op::WriteFcr31) &&
 						fn.ValueType(inst.args[0]) != Type::I32)
 						return Fail(error, "COP1 raw state: 32-bit write required");
@@ -279,6 +289,17 @@ namespace ir
 					const Type t0 = fn.ValueType(inst.args[0]);
 					if (!IsVectorType(t0))
 						return Fail(error, std::string(OpName(inst.op)) + ": vector operand required");
+					if (inst.op == Op::VI2F0 || inst.op == Op::VI2F4 ||
+						inst.op == Op::VI2F12 || inst.op == Op::VI2F15)
+					{
+						if (t0 != Type::V4I32 || inst.type != Type::V4F32 || inst.imm != 0)
+							return Fail(error, std::string(OpName(inst.op)) + ": V4I32 input, V4F32 result, and zero immediate required");
+					}
+					else if (inst.op == Op::VF2I4 || inst.op == Op::VF2I12 || inst.op == Op::VF2I15)
+					{
+						if (t0 != Type::V4F32 || inst.type != Type::V4I32 || inst.imm != 0)
+							return Fail(error, std::string(OpName(inst.op)) + ": V4F32 input, V4I32 result, and zero immediate required");
+					}
 					break;
 				}
 				case OpKind::VecLane:

@@ -96,6 +96,92 @@ namespace IopIr
                         }
                         default: return false;
                     }
+                case 18: // COP2 register transfers; nonzero funct encodings dispatch GTE commands.
+                {
+                    if (word & 63u) return false;
+                    const auto read_data = [&](u32 reg) {
+                        return b.Emit(ir::Op::ReadCp2Data, ir::Type::I32, {}, reg);
+                    };
+                    const auto write_data = [&](u32 reg, u32 value) {
+                        b.Emit1(ir::Op::WriteCp2Data, ir::Type::Void, value, reg);
+                    };
+                    switch (rs)
+                    {
+                        case 0: // MFC2; $0 suppresses both the GPR write and rd29's ORGB side effect.
+                            if (rt != 0)
+                            {
+                                u32 value;
+                                if (rd == 29)
+                                {
+                                    const u32 ir1 = b.Emit2(ir::Op::And, ir::Type::I32,
+                                        b.Emit2(ir::Op::ShrU, ir::Type::I32, read_data(9), b.ConstI32(7)), b.ConstI32(31));
+                                    const u32 ir2 = b.Emit2(ir::Op::Shl, ir::Type::I32,
+                                        b.Emit2(ir::Op::And, ir::Type::I32,
+                                            b.Emit2(ir::Op::ShrU, ir::Type::I32, read_data(10), b.ConstI32(7)), b.ConstI32(31)), b.ConstI32(5));
+                                    const u32 ir3 = b.Emit2(ir::Op::Shl, ir::Type::I32,
+                                        b.Emit2(ir::Op::And, ir::Type::I32,
+                                            b.Emit2(ir::Op::ShrU, ir::Type::I32, read_data(11), b.ConstI32(7)), b.ConstI32(31)), b.ConstI32(10));
+                                    value = b.Emit2(ir::Op::Or, ir::Type::I32, b.Emit2(ir::Op::Or, ir::Type::I32, ir1, ir2), ir3);
+                                    write_data(29, value);
+                                }
+                                else
+                                    value = read_data(rd);
+                                write(rt, value);
+                            }
+                            return true;
+                        case 2: // CFC2; no read or write for $0.
+                            if (rt != 0)
+                                write(rt, b.Emit(ir::Op::ReadCp2Control, ir::Type::I32, {}, rd));
+                            return true;
+                        case 4: // MTC2: compose the R3000A register-specific transforms from raw state ops.
+                        {
+                            const u32 value = read(rt);
+                            if (rd >= 8 && rd <= 11)
+                            {
+                                const u32 extended = b.Emit2(ir::Op::ShrS, ir::Type::I32,
+                                    b.Emit2(ir::Op::Shl, ir::Type::I32, value, b.ConstI32(16)), b.ConstI32(16));
+                                write_data(rd, extended);
+                            }
+                            else if (rd == 15)
+                            {
+                                const u32 sxy1 = read_data(13), sxy2 = read_data(14);
+                                write_data(12, sxy1);
+                                write_data(13, sxy2);
+                                write_data(14, value);
+                                write_data(15, value);
+                            }
+                            else if (rd >= 16 && rd <= 19)
+                                write_data(rd, b.Emit2(ir::Op::And, ir::Type::I32, value, b.ConstI32(0xffff)));
+                            else if (rd == 28)
+                            {
+                                write_data(28, value);
+                                write_data(9, b.Emit2(ir::Op::Shl, ir::Type::I32,
+                                    b.Emit2(ir::Op::And, ir::Type::I32, value, b.ConstI32(31)), b.ConstI32(7)));
+                                write_data(10, b.Emit2(ir::Op::Shl, ir::Type::I32,
+                                    b.Emit2(ir::Op::And, ir::Type::I32,
+                                        b.Emit2(ir::Op::ShrU, ir::Type::I32, value, b.ConstI32(5)), b.ConstI32(31)), b.ConstI32(7)));
+                                write_data(11, b.Emit2(ir::Op::Shl, ir::Type::I32,
+                                    b.Emit2(ir::Op::And, ir::Type::I32,
+                                        b.Emit2(ir::Op::ShrU, ir::Type::I32, value, b.ConstI32(10)), b.ConstI32(31)), b.ConstI32(7)));
+                            }
+                            else if (rd == 30)
+                            {
+                                write_data(30, value);
+                                const u32 sign = b.Emit2(ir::Op::ShrS, ir::Type::I32, value, b.ConstI32(31));
+                                write_data(31, b.Emit1(ir::Op::Clz, ir::Type::I32,
+                                    b.Emit2(ir::Op::Xor, ir::Type::I32, value, sign)));
+                            }
+                            else
+                                write_data(rd, value);
+                            return true;
+                        }
+                        case 6: // CTC2 is an unmodified 32-bit control-register write.
+                            b.Emit1(ir::Op::WriteCp2Control, ir::Type::Void, read(rt), rd);
+                            return true;
+                        default:
+                            return false;
+                    }
+                }
                 case 0:
                 {
                     switch (word & 63)

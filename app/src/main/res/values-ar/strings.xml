@@ -2901,4 +2901,6 @@
     <string name="shader_prep_error_pipeline_failures">تعذر تحضير بعض المظللات.</string>
     <string name="shader_prep_error_checkpoint_failed">تعذر حفظ ذاكرة المظللات المؤقتة.</string>
     <string name="shader_prep_error_internal_error">حدث خطأ أثناء تحضير المظللات.</string>
+    <string name="gamedb_setting_coalesce_render_passes">دمج مراحل العرض</string>
+    <string name="gamedb_setting_copy_road_maximum_blending">أقصى مستوى مزج عند نسخ هدف العرض</string>
 </resources>

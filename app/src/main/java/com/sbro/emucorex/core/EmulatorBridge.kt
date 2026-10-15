@@ -399,7 +399,7 @@ object EmulatorBridge {
         vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
         vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
         enableGameFixes: Boolean = true,
-        autoGsHardwareFixes: Boolean = true,
+        autoGsHardwareFixes: Boolean = AppPreferences.DEFAULT_AUTO_GS_HARDWARE_FIXES,
         eeTimingHack: Boolean = false,
         enableFastmem: Boolean = true,
         waitLoopSpeedhack: Boolean = true,
@@ -412,6 +412,7 @@ object EmulatorBridge {
         fastCdvd: Boolean = false,
         enableCheats: Boolean = false,
         hwDownloadMode: Int = GsHackDefaults.HW_DOWNLOAD_MODE_DEFAULT,
+        hwDownloadModeUserOverride: Boolean = false,
         eeCycleRate: Int = 0,
         eeCycleSkip: Int = 0,
         frameSkip: Int = 0,
@@ -426,6 +427,7 @@ object EmulatorBridge {
         textureFiltering: Int = GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
         trilinearFiltering: Int = GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
         blendingAccuracy: Int = GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
+        blendingAccuracyUserOverride: Boolean = false,
         texturePreloading: Int = GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
         shaderChainEnabled: Boolean = false,
         shaderChainPreset: String = "",
@@ -692,6 +694,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/Speedhacks", "fastCDVD", "bool", fastCdvd.toString()))
                 add(settingOp("EmuCore", "EnableCheats", "bool", effectiveEnableCheats.toString()))
                 add(settingOp("EmuCore/GS", "HWDownloadMode", "int", hwDownloadMode.toString()))
+                add(settingOp("EmuCore/GS", "HWDownloadModeUserOverride", "bool", hwDownloadModeUserOverride.toString()))
                 add(settingOp("EmuCore/GS", "deinterlace_mode", "int", GsHackDefaults.coerceDeinterlaceMode(deinterlaceMode).toString()))
                 add(settingOp("EmuCore/GS", "dithering_ps2", "int", GsHackDefaults.coerceDithering(dithering).toString()))
                 add(settingOp("EmuCore/GS", "AndroidUseAngleOpenGL", "bool", effectiveMediatekAngleOpenGl.toString()))
@@ -728,6 +731,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/GS", "filter", "int", textureFiltering.toString()))
                 add(settingOp("EmuCore/GS", "TriFilter", "int", trilinearFiltering.toString()))
                 add(settingOp("EmuCore/GS", "accurate_blending_unit", "int", blendingAccuracy.toString()))
+                add(settingOp("EmuCore/GS", "BlendingAccuracyUserOverride", "bool", blendingAccuracyUserOverride.toString()))
                 add(settingOp("EmuCore/GS", "texture_preloading", "int", texturePreloading.toString()))
                 add(settingOp("EmuCore/GS", "ShaderChainEnabled", "bool", (shaderChainEnabled && shaderChainPreset.isNotBlank()).toString()))
                 add(settingOp("EmuCore/GS", "ShaderChainPreset", "string", shaderChainPreset.trim()))
@@ -754,6 +758,7 @@ object EmulatorBridge {
                 add(settingOp("EmuCore", "EnableWideScreenPatches", "bool", widescreenPatches.toString()))
                 add(settingOp("EmuCore", "EnableNoInterlacingPatches", "bool", noInterlacingPatches.toString()))
                 add(settingOp("EmuCore/GS", "UserHacks", "bool", (manualHardwareFixes || !autoGsHardwareFixes).toString()))
+                add(settingOp("EmuCore/GS", "AutoUpscaleAlignment", "bool", (!manualHardwareFixes).toString()))
                 if (manualHardwareFixes) {
                     // Leave per-game GameIndex GS fixes as the only hack layer unless manual fixes are explicitly active.
                     add(settingOp("EmuCore/GS", "UserHacks_CPUSpriteRenderBW", "int", cpuSpriteRenderSize.toString()))

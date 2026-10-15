@@ -1400,6 +1400,7 @@ bool GSDeviceOGL::HasDrawableSurface() const
 
 GSDevice::PresentResult GSDeviceOGL::BeginPresent(bool frame_skip)
 {
+	FlushDeferredDraws();
 	if (frame_skip || !HasDrawableSurface())
 		return PresentResult::FrameSkipped;
 
@@ -1424,6 +1425,7 @@ GSDevice::PresentResult GSDeviceOGL::BeginPresent(bool frame_skip)
 
 void GSDeviceOGL::EndPresent()
 {
+	FlushDeferredDraws();
 #ifndef __ANDROID__
 	RenderImGui();
 #endif
@@ -2163,6 +2165,7 @@ void GSDeviceOGL::BlitRect(GSTexture* sTex, const GSVector4i& r, const GSVector2
 // Copy a sub part of a texture into another
 void GSDeviceOGL::CopyRect(GSTexture* sTex, GSTexture* dTex, const GSVector4i& r, u32 destX, u32 destY)
 {
+	FlushDeferredDraws();
 	// Empty rect, abort copy.
 	if (r.rempty())
 	{
@@ -2305,6 +2308,7 @@ void GSDeviceOGL::DoStretchRect(GSTexture* sTex, const GSVector4& sRect, GSTextu
 
 void GSDeviceOGL::PresentRect(GSTexture* sTex, const GSVector4& sRect, GSTexture* dTex, const GSVector4& dRect, PresentShader shader, float shaderTime, Filter filter)
 {
+	FlushDeferredDraws();
 	CommitClear(sTex, true);
 
 	const GSVector2i ds(dTex ? dTex->GetSize() : GSVector2i(GetWindowWidth(), GetWindowHeight()));
@@ -2343,6 +2347,7 @@ void GSDeviceOGL::PresentRect(GSTexture* sTex, const GSVector4& sRect, GSTexture
 
 void GSDeviceOGL::UpdateCLUTTexture(GSTexture* sTex, float sScale, u32 offsetX, u32 offsetY, GSTexture* dTex, u32 dOffset, u32 dSize)
 {
+	FlushDeferredDraws();
 	CommitClear(sTex, false);
 
 	const ShaderConvert shader = (dSize == 16) ? ShaderConvert::CLUT_4 : ShaderConvert::CLUT_8;
@@ -2365,6 +2370,7 @@ void GSDeviceOGL::UpdateCLUTTexture(GSTexture* sTex, float sScale, u32 offsetX, 
 
 void GSDeviceOGL::ConvertToIndexedTexture(GSTexture* sTex, float sScale, u32 offsetX, u32 offsetY, u32 SBW, u32 SPSM, GSTexture* dTex, u32 DBW, u32 DPSM)
 {
+	FlushDeferredDraws();
 	CommitClear(sTex, false);
 
 	const ShaderConvert shader = ((SPSM & 0xE) == 0) ? ShaderConvert::RGBA_TO_8I : ShaderConvert::RGB5A1_TO_8I;
@@ -2389,6 +2395,7 @@ void GSDeviceOGL::ConvertToIndexedTexture(GSTexture* sTex, float sScale, u32 off
 
 void GSDeviceOGL::FilteredDownsampleTexture(GSTexture* sTex, GSTexture* dTex, u32 downsample_factor, const GSVector2i& clamp_min, const GSVector4& dRect)
 {
+	FlushDeferredDraws();
 	CommitClear(sTex, false);
 
 	constexpr ShaderConvert shader = ShaderConvert::DOWNSAMPLE_COPY;
@@ -2440,6 +2447,7 @@ void GSDeviceOGL::DrawStretchRect(const GSVector4& sRect, const GSVector4& dRect
 void GSDeviceOGL::DrawMultiStretchRects(
 	const MultiStretchRect* rects, u32 num_rects, GSTexture* dTex, ShaderConvertSelector shader)
 {
+	FlushDeferredDraws();
 	shader = shader.SetMask(); // Mask is handled separately from program.
 
 	IASetVAO(m_vao);
@@ -3719,7 +3727,7 @@ static constexpr std::array<GLenum, 3> s_gl_blend_ops = { {
 } };
 // clang-format on
 
-void GSDeviceOGL::RenderHW(GSHWDrawConfig& config)
+void GSDeviceOGL::DoRenderHW(GSHWDrawConfig& config)
 {
 	if (!GLState::scissor.eq(config.scissor))
 	{

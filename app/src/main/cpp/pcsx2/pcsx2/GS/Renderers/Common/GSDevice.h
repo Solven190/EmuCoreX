@@ -709,7 +709,7 @@ struct alignas(16) GSHWDrawConfig
 				u8 iip : 1;
 				u8 point_size : 1;		///< Set when points need to be expanded without VS expanding.
 				VSExpand expand : 3;
-				u8 _free : 1;
+				u8 sprite_edge_clamp : 1; // FST ST stores the last native sample coordinate.
 			};
 			u8 key;
 		};
@@ -831,6 +831,7 @@ struct alignas(16) GSHWDrawConfig
 				// Rasterizer ordered views
 				u32 rov_color : 1;
 				PS_ROV_DEPTH rov_depth : 2;
+				u32 sprite_edge_clamp : 1;
 			};
 
 			struct
@@ -1399,8 +1400,11 @@ static inline u32 GetVertexAlignment(GSHWDrawConfig::VSExpand expand)
 	}
 }
 
+class GSPassScheduler;
+
 class GSDevice : public GSAlignedClass<32>
 {
+	friend class GSPassScheduler;
 public:
 	enum class PresentResult
 	{
@@ -1429,6 +1433,7 @@ public:
 	struct FeatureSupport
 	{
 		bool broken_point_sampler : 1; ///< Issue with AMD cards, see tfx shader for details
+		bool sprite_edge_clamp    : 1; ///< Shader can clamp snapped sprites to their last native sample.
 		bool vs_expand            : 1; ///< Supports expanding points/lines/sprites in the vertex shader
 		bool primitive_id         : 1; ///< Supports primitive ID for use with prim tracking destination alpha algorithm
 		bool texture_barrier      : 1; ///< Supports sampling rt and hopefully texture barrier
@@ -1542,6 +1547,14 @@ protected:
 	GSTexture* m_colclip_rt = nullptr; ///< Temp hw colclip texture
 	GSTexture* m_ds_as_rt = nullptr; ///< Depth as color
 
+	std::unique_ptr<GSPassScheduler> m_pass_scheduler;
+	u32 m_deferred_draw_count = 0;
+	bool m_flushing = false;
+	std::vector<GSTexture*> m_deferred_recycle;
+
+	void FlushDeferredDrawsImpl();
+	bool DeferredDrawsReference(const GSTexture* tex) const;
+
 	bool AcquireWindow(bool recreate_window);
 
 	virtual GSTexture* CreateSurface(GSTexture::Usage usage, int width, int height, int levels, GSTexture::Format format) = 0;
@@ -1568,6 +1581,7 @@ protected:
 
 protected:
 	// Entry point to the renderer-specific StretchRect code.
+	virtual void DoRenderHW(GSHWDrawConfig& config) = 0;
 	virtual void DoStretchRect(GSTexture* sTex, const GSVector4& sRect, GSTexture* dTex, const GSVector4& dRect,
 		ShaderConvertSelector shader, Filter filter) = 0;
 	virtual void DoStretchRect(GSTexture* sTex, const GSVector4& sRect, const GSVector4& dRect,
@@ -1674,6 +1688,14 @@ public:
 	/// displayed, but the GPU command queue will still be flushed.
 	virtual PresentResult BeginPresent(bool frame_skip) = 0;
 
+	void FlushDeferredDraws()
+	{
+		if (m_deferred_draw_count != 0 && !m_flushing)
+			FlushDeferredDrawsImpl();
+	}
+	void FlushDeferredDrawsFor(const GSTexture* tex);
+	bool DeferredDrawsWouldObserve(const GSTexture* tex) const;
+
 	void NotePresentHasNewFrame() { m_present_has_new_frame = true; }
 
 	/// Presents the frame to the display.
@@ -1736,6 +1758,7 @@ public:
 	GSTexture* CreateCompatible(GSTexture* tex, int w, int h, bool clear = true, bool prefer_reuse = true);
 
 	virtual std::unique_ptr<GSDownloadTexture> CreateDownloadTexture(u32 width, u32 height, GSTexture::Format format) = 0;
+	void FlushBeforeReadback() { FlushDeferredDraws(); }
 
 	virtual void CopyRect(GSTexture* sTex, GSTexture* dTex, const GSVector4i& r, u32 destX, u32 destY) = 0;
 
@@ -1791,7 +1814,7 @@ public:
 	/// Uses box downsampling to resize a texture.
 	virtual void FilteredDownsampleTexture(GSTexture* sTex, GSTexture* dTex, u32 downsample_factor, const GSVector2i& clamp_min, const GSVector4& dRect) = 0;
 
-	virtual void RenderHW(GSHWDrawConfig& config) = 0;
+	void RenderHW(GSHWDrawConfig& config);
 
 	virtual void ClearSamplerCache() = 0;
 

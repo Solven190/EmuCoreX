@@ -26,9 +26,9 @@ object GsHackDefaults {
     const val HW_MIPMAPPING_DEFAULT = true
     // Preserve the sharper PS2 output used before the mobile profile rollout.
     const val ANTI_BLUR_DEFAULT = true
-    // Keep EE/GS download requests ordered while avoiding the cost of GPU readbacks.
-    // Fully disabling downloads can hang games which depend on this synchronization.
-    const val HW_DOWNLOAD_MODE_DEFAULT = 2
+    // Match Android ARMS: accurate ordered downloads are the default, and an unowned
+    // GameDB recommendation may select a different per-game mode when needed.
+    const val HW_DOWNLOAD_MODE_DEFAULT = 0
     const val HW_DOWNLOAD_MODE_MIN = 0
     const val HW_DOWNLOAD_MODE_MAX = 5
     const val FRAME_SKIP_DEFAULT = 0

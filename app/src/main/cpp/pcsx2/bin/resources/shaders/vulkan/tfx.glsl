@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
+// SPDX-FileCopyrightText: 2026 ARMSX2 Contributors
 // SPDX-License-Identifier: GPL-3.0+
 
 //////////////////////////////////////////////////////////////////////
@@ -84,6 +85,10 @@ void main()
 
 		// Float coords
 		vsOut.t.xy = st;
+		#if VS_SPRITE_EDGE_CLAMP
+			// An FST sprite's ST carries its far-edge sample limit, normalised like the UV.
+			vsOut.t.xy = st * TextureScale;
+		#endif
 		vsOut.t.w = a_q;
 	#else
 		vsOut.t = vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -177,6 +182,10 @@ ProcessedVertex load_vertex(uint index)
 		#endif
 
 		vtx.t.xy = st;
+		#if VS_SPRITE_EDGE_CLAMP
+			// An FST sprite's ST carries its far-edge sample limit, normalised like the UV.
+			vtx.t.xy = st * TextureScale;
+		#endif
 		vtx.t.w = a_q;
 	#else
 		vtx.t = vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -1399,6 +1408,17 @@ vec4 ps_color()
 #else
 	vec2 st = vsIn.ti.xy;
 	vec2 st_int = vsIn.ti.zw;
+#endif
+
+#if PS_SPRITE_EDGE_CLAMP
+	// No device pixel of a snapped sprite samples past what its last native pixel sampled
+	// (vsIn.t.xy, per sprite). The limit is on the far side, which is above the coordinate
+	// where it grows with the screen axis and below it where it shrinks.
+	{
+		vec2 limit = vsIn.t.xy;
+		st.x = (dFdx(vsIn.ti.x) >= 0.0f) ? min(st.x, limit.x) : max(st.x, limit.x);
+		st.y = (dFdy(vsIn.ti.y) >= 0.0f) ? min(st.y, limit.y) : max(st.y, limit.y);
+	}
 #endif
 
 #if !NEEDS_TEX

@@ -68,6 +68,9 @@ object GameDbSettingPresentationMapper {
         "autoFlush" -> R.string.settings_auto_flush_hardware
         "beforeDraw" -> R.string.gamedb_setting_before_draw
         "bilinearUpscale" -> R.string.settings_bilinear_upscale
+        "bilinearDirtyUpscale" -> R.string.settings_bilinear_upscale
+        "coalesceRenderPasses" -> R.string.gamedb_setting_coalesce_render_passes
+        "copyRoadMaximumBlendingLevel" -> R.string.gamedb_setting_copy_road_maximum_blending
         "cpuCLUTRender" -> R.string.settings_software_clut_render
         "cpuFramebufferConversion" -> R.string.settings_cpu_framebuffer_conversion
         "cpuSpriteRenderBW" -> R.string.settings_cpu_sprite_render_size
@@ -79,6 +82,7 @@ object GameDbSettingPresentationMapper {
         "getSkipCount" -> R.string.gamedb_setting_skip_draw_handler
         "gpuPaletteConversion" -> R.string.settings_gpu_palette_conversion
         "gpuTargetCLUT" -> R.string.settings_gpu_target_clut
+        "hwDownloadMode" -> R.string.settings_hw_download_mode
         "halfPixelOffset" -> R.string.settings_half_pixel_offset
         "limit24BitDepth" -> R.string.gamedb_setting_limit_24_bit_depth
         "maximumBlendingLevel" -> R.string.gamedb_setting_maximum_blending
@@ -127,17 +131,25 @@ object GameDbSettingPresentationMapper {
 
         return when (setting.key) {
             "eeCycleRate" -> text(R.string.gamedb_setting_value_rate, setting.value)
-            "instantVU1", "mtvu", "mvuFlag", "mipmap" -> booleanValue(number)
+            "instantVU1", "mtvu", "mvuFlag", "mipmap", "coalesceRenderPasses" -> booleanValue(number)
             "beforeDraw", "getSkipCount", "moveHandler" -> text(R.string.gamedb_setting_value_builtin_rule)
             "autoFlush" -> enumValue(number, mapOf(
                 0 to R.string.settings_disabled_short,
                 1 to R.string.settings_auto_flush_sprites,
                 2 to R.string.settings_auto_flush_all
             ), setting.value)
-            "bilinearUpscale" -> enumValue(number, mapOf(
+            "bilinearUpscale", "bilinearDirtyUpscale" -> enumValue(number, mapOf(
                 0 to R.string.settings_trilinear_filtering_auto,
                 1 to R.string.settings_bilinear_upscale_force_bilinear,
                 2 to R.string.settings_bilinear_upscale_force_nearest
+            ), setting.value)
+            "hwDownloadMode" -> enumValue(number, mapOf(
+                0 to R.string.settings_hw_download_mode_accurate,
+                1 to R.string.settings_hw_download_mode_force_full,
+                2 to R.string.settings_hw_download_mode_no_readbacks,
+                3 to R.string.settings_hw_download_mode_unsynchronized,
+                4 to R.string.settings_hw_download_mode_disabled,
+                5 to R.string.settings_hw_download_mode_asynchronous
             ), setting.value)
             "cpuCLUTRender" -> enumValue(number, mapOf(
                 0 to R.string.settings_disabled_short,
@@ -184,7 +196,8 @@ object GameDbSettingPresentationMapper {
                 1 to R.string.settings_texture_preloading_partial,
                 2 to R.string.settings_texture_preloading_full
             ), setting.value)
-            "minimumBlendingLevel", "recommendedBlendingLevel", "maximumBlendingLevel" -> enumValue(number, mapOf(
+            "minimumBlendingLevel", "recommendedBlendingLevel", "maximumBlendingLevel",
+            "copyRoadMaximumBlendingLevel" -> enumValue(number, mapOf(
                 0 to R.string.settings_blending_accuracy_minimum,
                 1 to R.string.settings_blending_accuracy_basic,
                 2 to R.string.settings_blending_accuracy_medium,

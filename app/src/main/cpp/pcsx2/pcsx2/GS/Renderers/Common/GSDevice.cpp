@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "GS/Renderers/Common/GSDevice.h"
+#include "GS/Renderers/Common/GSPassScheduler.h"
 #include "GS/GSGL.h"
 #include "GS/GS.h"
 #include "GS/GSUtil.h"
@@ -275,6 +276,7 @@ static const char* TextureLabelString(TextureLabel label)
 std::unique_ptr<GSDevice> g_gs_device;
 
 GSDevice::GSDevice()
+	: m_pass_scheduler(std::make_unique<GSPassScheduler>())
 {
 #ifdef PCSX2_DEVBUILD
 	s_texture_counts.fill(0);
@@ -420,6 +422,12 @@ bool GSDevice::Create(GSVSyncMode vsync_mode, bool allow_present_throttle)
 
 void GSDevice::Destroy()
 {
+	m_pass_scheduler->Clear();
+	m_deferred_draw_count = 0;
+	std::vector<GSTexture*> pending;
+	pending.swap(m_deferred_recycle);
+	for (GSTexture* tex : pending)
+		Recycle(tex);
 	ClearCurrent();
 	PurgePool();
 }
@@ -478,16 +486,19 @@ void GSDevice::ThrottlePresentation()
 
 void GSDevice::ClearRenderTarget(GSTexture* t, u32 c)
 {
+	FlushDeferredDrawsFor(t);
 	t->SetClearColor(c);
 }
 
 void GSDevice::ClearDepth(GSTexture* t, float d)
 {
+	FlushDeferredDrawsFor(t);
 	t->SetClearDepth(d);
 }
 
 bool GSDevice::ProcessClearsBeforeCopy(GSTexture* sTex, GSTexture* dTex, const bool full_copy)
 {
+	FlushDeferredDraws();
 	pxAssert(sTex->GetState() == GSTexture::State::Cleared && dTex->IsRenderTargetOrDepthStencil());
 
 	// Pass it forward if we're clearing the whole thing.
@@ -523,6 +534,7 @@ bool GSDevice::ProcessClearsBeforeCopy(GSTexture* sTex, GSTexture* dTex, const b
 
 void GSDevice::InvalidateRenderTarget(GSTexture* t)
 {
+	FlushDeferredDrawsFor(t);
 	t->SetState(GSTexture::State::Invalidated);
 }
 
@@ -715,6 +727,11 @@ void GSDevice::Recycle(GSTexture* t)
 {
 	if (!t)
 		return;
+	if (m_deferred_draw_count != 0 && !m_flushing && DeferredDrawsReference(t))
+	{
+		m_deferred_recycle.push_back(t);
+		return;
+	}
 
 	t->SetLastFrameUsed(m_frame);
 	
@@ -751,6 +768,7 @@ bool GSDevice::UsesLowerLeftOrigin() const
 
 void GSDevice::AgePool()
 {
+	FlushDeferredDraws();
 	m_frame++;
 
 	// Toss out textures when they're not too-recently used.
@@ -786,6 +804,7 @@ u32 GSDevice::GetPoolMaxAge(bool texture) const
 
 void GSDevice::PurgePool()
 {
+	FlushDeferredDraws();
 	for (FastList<GSTexture*>& pool : m_pool)
 	{
 		for (GSTexture* t : pool)
@@ -882,6 +901,7 @@ void GSDevice::DoStretchRectWithAssertions(GSTexture* sTex, const GSVector4& sRe
 void GSDevice::StretchRect(GSTexture* sTex, const GSVector4& sRect, GSTexture* dTex, const GSVector4& dRect,
 	ShaderConvertSelector shader, Filter filter)
 {
+	FlushDeferredDraws();
 	DoStretchRectWithAssertions(sTex, sRect, dTex, dRect, shader, filter);
 }
 
@@ -935,6 +955,61 @@ void GSDevice::StretchRectAutoMask(GSTexture* sTex, GSTexture* dTex, bool red, b
 	StretchRectAutoMask(sTex, dTex, GSVector4(dTex->GetRect()), red, green, blue, alpha, src_bpp, dst_bpp);
 }
 
+bool GSDevice::DeferredDrawsReference(const GSTexture* tex) const
+{
+	return m_pass_scheduler->References(tex);
+}
+
+void GSDevice::FlushDeferredDrawsFor(const GSTexture* tex)
+{
+	if (m_pass_scheduler->ShouldFlushForTextureMutation(tex, m_flushing))
+		FlushDeferredDrawsImpl();
+}
+
+bool GSDevice::DeferredDrawsWouldObserve(const GSTexture* tex) const
+{
+	return m_pass_scheduler->ShouldFlushForTextureMutation(tex, m_flushing);
+}
+
+void GSDevice::FlushDeferredDrawsImpl()
+{
+	pxAssert(!m_flushing);
+	m_flushing = true;
+	m_pass_scheduler->Emit(this);
+	m_flushing = false;
+	m_deferred_draw_count = 0;
+	if (!m_deferred_recycle.empty())
+	{
+		std::vector<GSTexture*> pending;
+		pending.swap(m_deferred_recycle);
+		for (GSTexture* tex : pending)
+			Recycle(tex);
+	}
+}
+
+void GSDevice::RenderHW(GSHWDrawConfig& config)
+{
+	if (!GSConfig.CoalesceRenderPasses || m_flushing || config.ds_as_rt ||
+		!GSPassScheduler::IsDeferrable(config))
+	{
+		FlushDeferredDraws();
+		DoRenderHW(config);
+		return;
+	}
+
+	if (m_pass_scheduler->TryEnqueue(config) != GSPassScheduler::Disposition::Queued)
+	{
+		FlushDeferredDraws();
+		if (m_pass_scheduler->TryEnqueue(config) != GSPassScheduler::Disposition::Queued)
+		{
+			DoRenderHW(config);
+			return;
+		}
+	}
+
+	m_deferred_draw_count = m_pass_scheduler->GetCount();
+}
+
 void GSDevice::DrawMultiStretchRects(
 	const MultiStretchRect* rects, u32 num_rects, GSTexture* dTex, ShaderConvertSelector shader)
 {
@@ -956,6 +1031,7 @@ void GSDevice::SortMultiStretchRects(MultiStretchRect* rects, u32 num_rects)
 
 void GSDevice::ClearCurrent()
 {
+	FlushDeferredDraws();
 	m_current = nullptr;
 
 	delete m_merge;

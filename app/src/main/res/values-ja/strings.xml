@@ -2896,4 +2896,6 @@
     <string name="shader_prep_error_pipeline_failures">一部のシェーダーを準備できませんでした。</string>
     <string name="shader_prep_error_checkpoint_failed">シェーダーキャッシュを保存できませんでした。</string>
     <string name="shader_prep_error_internal_error">シェーダーの準備中にエラーが発生しました。</string>
+    <string name="gamedb_setting_coalesce_render_passes">レンダーパスを統合</string>
+    <string name="gamedb_setting_copy_road_maximum_blending">レンダーターゲットのコピー時の最大ブレンドレベル</string>
 </resources>

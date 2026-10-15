@@ -151,7 +151,7 @@ data class SettingsSnapshot(
     val vu0ClampingMode: Int = AppPreferences.DEFAULT_VU0_CLAMPING_MODE,
     val vu1ClampingMode: Int = AppPreferences.DEFAULT_VU1_CLAMPING_MODE,
     val enableGameFixes: Boolean = true,
-    val autoGsHardwareFixes: Boolean = true,
+    val autoGsHardwareFixes: Boolean = AppPreferences.DEFAULT_AUTO_GS_HARDWARE_FIXES,
     val enableEeTimingHack: Boolean = false,
     val enableWaitLoopSpeedhack: Boolean = true,
     val enableIntcStatSpeedhack: Boolean = true,
@@ -162,12 +162,14 @@ data class SettingsSnapshot(
     val enableFastCdvd: Boolean = false,
     val enableCheats: Boolean = false,
     val hwDownloadMode: Int = PerformanceProfiles.safeConfig.hwDownloadMode,
+    val hwDownloadModeUserOverride: Boolean = false,
     val frameSkip: Int = 0,
     val skipDuplicateFrames: Boolean = true,
     val lowLatencyMode: Boolean = false,
     val textureFiltering: Int = GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
     val trilinearFiltering: Int = GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
     val blendingAccuracy: Int = GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
+    val blendingAccuracyUserOverride: Boolean = false,
     val texturePreloading: Int = GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
     val hwRov: Boolean = false,
     val enableFxaa: Boolean = false,
@@ -419,6 +421,7 @@ class AppPreferences(private val context: Context) {
         private const val CURRENT_OVERLAY_LAYOUT_VERSION = 16
         const val DEFAULT_NTSC_FRAMERATE = 59.94f
         const val DEFAULT_THREAD_PINNING = false
+        const val DEFAULT_AUTO_GS_HARDWARE_FIXES = true
         const val DEFAULT_PAL_FRAMERATE = 50f
         const val DEFAULT_FAST_FORWARD_SPEED = 2.0f
         const val DEFAULT_APP_FONT_SCALE = 1.0f
@@ -716,12 +719,14 @@ class AppPreferences(private val context: Context) {
         private val ENABLE_FAST_CDVD = booleanPreferencesKey("enable_fast_cdvd")
         private val ENABLE_CHEATS = booleanPreferencesKey("enable_cheats")
         private val HW_DOWNLOAD_MODE = intPreferencesKey("hw_download_mode")
+        private val HW_DOWNLOAD_MODE_USER_OVERRIDE = booleanPreferencesKey("hw_download_mode_user_override")
         private val FRAME_SKIP = intPreferencesKey("frame_skip")
         private val SKIP_DUPLICATE_FRAMES = booleanPreferencesKey("skip_duplicate_frames")
         private val LOW_LATENCY_MODE = booleanPreferencesKey("low_latency_mode")
         private val TEXTURE_FILTERING = intPreferencesKey("texture_filtering")
         private val TRILINEAR_FILTERING = intPreferencesKey("trilinear_filtering")
         private val BLENDING_ACCURACY = intPreferencesKey("blending_accuracy")
+        private val BLENDING_ACCURACY_USER_OVERRIDE = booleanPreferencesKey("blending_accuracy_user_override")
         private val TEXTURE_PRELOADING = intPreferencesKey("texture_preloading")
         private val TEXTURE_REPLACEMENTS_ENABLED = booleanPreferencesKey("texture_replacements_enabled")
         private val TEXTURE_REPLACEMENTS_ASYNC = booleanPreferencesKey("texture_replacements_async")
@@ -1911,7 +1916,7 @@ class AppPreferences(private val context: Context) {
                 vu0ClampingMode = sanitizeClampingMode(prefs[VU0_CLAMPING_MODE], DEFAULT_VU0_CLAMPING_MODE),
                 vu1ClampingMode = sanitizeClampingMode(prefs[VU1_CLAMPING_MODE], DEFAULT_VU1_CLAMPING_MODE),
                 enableGameFixes = prefs[ENABLE_GAME_FIXES] ?: true,
-                autoGsHardwareFixes = prefs[AUTO_GS_HARDWARE_FIXES] ?: true,
+                autoGsHardwareFixes = prefs[AUTO_GS_HARDWARE_FIXES] ?: DEFAULT_AUTO_GS_HARDWARE_FIXES,
                 enableEeTimingHack = prefs[ENABLE_EE_TIMING_HACK] ?: false,
                 enableWaitLoopSpeedhack = prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true,
                 enableIntcStatSpeedhack = prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true,
@@ -1924,6 +1929,8 @@ class AppPreferences(private val context: Context) {
                 hwDownloadMode = GsHackDefaults.coerceHardwareDownloadMode(
                     prefs[HW_DOWNLOAD_MODE] ?: profileConfig.hwDownloadMode
                 ),
+                hwDownloadModeUserOverride = prefs[HW_DOWNLOAD_MODE_USER_OVERRIDE]
+                    ?: (prefs[HW_DOWNLOAD_MODE] != null),
                 frameSkip = GsHackDefaults.coerceFrameSkip(
                     prefs[FRAME_SKIP] ?: GsHackDefaults.FRAME_SKIP_DEFAULT
                 ),
@@ -1937,6 +1944,8 @@ class AppPreferences(private val context: Context) {
                 blendingAccuracy = GsHackDefaults.coerceBlendingAccuracy(
                     prefs[BLENDING_ACCURACY] ?: GsHackDefaults.BLENDING_ACCURACY_DEFAULT
                 ),
+                blendingAccuracyUserOverride = prefs[BLENDING_ACCURACY_USER_OVERRIDE]
+                    ?: (prefs[BLENDING_ACCURACY] != null),
                 texturePreloading = GsHackDefaults.coerceTexturePreloading(
                     prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT
                 ),
@@ -3078,7 +3087,7 @@ class AppPreferences(private val context: Context) {
     }
 
     val autoGsHardwareFixes: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[AUTO_GS_HARDWARE_FIXES] ?: true
+        prefs[AUTO_GS_HARDWARE_FIXES] ?: DEFAULT_AUTO_GS_HARDWARE_FIXES
     }
 
     suspend fun setAutoGsHardwareFixes(enabled: Boolean) {
@@ -3169,7 +3178,14 @@ class AppPreferences(private val context: Context) {
     }
 
     suspend fun setHwDownloadMode(value: Int) {
-        context.dataStore.edit { it[HW_DOWNLOAD_MODE] = GsHackDefaults.coerceHardwareDownloadMode(value) }
+        context.dataStore.edit { prefs ->
+            prefs[HW_DOWNLOAD_MODE] = GsHackDefaults.coerceHardwareDownloadMode(value)
+            prefs[HW_DOWNLOAD_MODE_USER_OVERRIDE] = true
+        }
+    }
+
+    val hwDownloadModeUserOverride: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[HW_DOWNLOAD_MODE_USER_OVERRIDE] ?: (prefs[HW_DOWNLOAD_MODE] != null)
     }
 
     // Frame Skip: 0 = off, 1-4
@@ -3208,7 +3224,14 @@ class AppPreferences(private val context: Context) {
     }
 
     suspend fun setBlendingAccuracy(value: Int) {
-        context.dataStore.edit { it[BLENDING_ACCURACY] = GsHackDefaults.coerceBlendingAccuracy(value) }
+        context.dataStore.edit { prefs ->
+            prefs[BLENDING_ACCURACY] = GsHackDefaults.coerceBlendingAccuracy(value)
+            prefs[BLENDING_ACCURACY_USER_OVERRIDE] = true
+        }
+    }
+
+    val blendingAccuracyUserOverride: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[BLENDING_ACCURACY_USER_OVERRIDE] ?: (prefs[BLENDING_ACCURACY] != null)
     }
 
     val mediatekAngleOpenGl: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -4349,7 +4372,7 @@ class AppPreferences(private val context: Context) {
             put("vu0ClampingMode", sanitizeClampingMode(prefs[VU0_CLAMPING_MODE], DEFAULT_VU0_CLAMPING_MODE))
             put("vu1ClampingMode", sanitizeClampingMode(prefs[VU1_CLAMPING_MODE], DEFAULT_VU1_CLAMPING_MODE))
             put("enableGameFixes", prefs[ENABLE_GAME_FIXES] ?: true)
-            put("autoGsHardwareFixes", prefs[AUTO_GS_HARDWARE_FIXES] ?: true)
+            put("autoGsHardwareFixes", prefs[AUTO_GS_HARDWARE_FIXES] ?: DEFAULT_AUTO_GS_HARDWARE_FIXES)
             put("enableEeTimingHack", prefs[ENABLE_EE_TIMING_HACK] ?: false)
             put("enableWaitLoopSpeedhack", prefs[ENABLE_WAIT_LOOP_SPEEDHACK] ?: true)
             put("enableIntcStatSpeedhack", prefs[ENABLE_INTC_STAT_SPEEDHACK] ?: true)
@@ -4361,6 +4384,8 @@ class AppPreferences(private val context: Context) {
             put("hwDownloadMode", GsHackDefaults.coerceHardwareDownloadMode(
                 prefs[HW_DOWNLOAD_MODE] ?: GsHackDefaults.HW_DOWNLOAD_MODE_DEFAULT
             ))
+            put("hwDownloadModeUserOverride", prefs[HW_DOWNLOAD_MODE_USER_OVERRIDE]
+                ?: (prefs[HW_DOWNLOAD_MODE] != null))
             put("frameSkip", GsHackDefaults.coerceFrameSkip(
                 prefs[FRAME_SKIP] ?: GsHackDefaults.FRAME_SKIP_DEFAULT
             ))
@@ -4377,6 +4402,8 @@ class AppPreferences(private val context: Context) {
             put("blendingAccuracy", GsHackDefaults.coerceBlendingAccuracy(
                 prefs[BLENDING_ACCURACY] ?: GsHackDefaults.BLENDING_ACCURACY_DEFAULT
             ))
+            put("blendingAccuracyUserOverride", prefs[BLENDING_ACCURACY_USER_OVERRIDE]
+                ?: (prefs[BLENDING_ACCURACY] != null))
             put("texturePreloading", GsHackDefaults.coerceTexturePreloading(
                 prefs[TEXTURE_PRELOADING] ?: GsHackDefaults.TEXTURE_PRELOADING_DEFAULT
             ))
@@ -4811,7 +4838,7 @@ class AppPreferences(private val context: Context) {
             prefs[VU0_CLAMPING_MODE] = sanitizeClampingMode(json.optInt("vu0ClampingMode", legacyVuClampingMode), DEFAULT_VU0_CLAMPING_MODE)
             prefs[VU1_CLAMPING_MODE] = sanitizeClampingMode(json.optInt("vu1ClampingMode", DEFAULT_VU1_CLAMPING_MODE), DEFAULT_VU1_CLAMPING_MODE)
             prefs[ENABLE_GAME_FIXES] = json.optBoolean("enableGameFixes", true)
-            prefs[AUTO_GS_HARDWARE_FIXES] = json.optBoolean("autoGsHardwareFixes", true)
+            prefs[AUTO_GS_HARDWARE_FIXES] = json.optBoolean("autoGsHardwareFixes", DEFAULT_AUTO_GS_HARDWARE_FIXES)
             prefs[ENABLE_EE_TIMING_HACK] = json.optBoolean("enableEeTimingHack", false)
             prefs[ENABLE_WAIT_LOOP_SPEEDHACK] = json.optBoolean("enableWaitLoopSpeedhack", true)
             prefs[ENABLE_INTC_STAT_SPEEDHACK] = json.optBoolean("enableIntcStatSpeedhack", true)
@@ -4823,6 +4850,8 @@ class AppPreferences(private val context: Context) {
             prefs[HW_DOWNLOAD_MODE] = GsHackDefaults.coerceHardwareDownloadMode(
                 json.optInt("hwDownloadMode", GsHackDefaults.HW_DOWNLOAD_MODE_DEFAULT)
             )
+            prefs[HW_DOWNLOAD_MODE_USER_OVERRIDE] = json.has("hwDownloadMode") &&
+                json.optBoolean("hwDownloadModeUserOverride", true)
             prefs[FRAME_SKIP] = GsHackDefaults.coerceFrameSkip(
                 json.optInt("frameSkip", GsHackDefaults.FRAME_SKIP_DEFAULT)
             )
@@ -4840,6 +4869,8 @@ class AppPreferences(private val context: Context) {
                 GsHackDefaults.BLENDING_ACCURACY_DEFAULT
             }
             prefs[BLENDING_ACCURACY] = GsHackDefaults.coerceBlendingAccuracy(importedBlendingAccuracy)
+            prefs[BLENDING_ACCURACY_USER_OVERRIDE] = json.has("blendingAccuracy") &&
+                json.optBoolean("blendingAccuracyUserOverride", true)
             prefs[TEXTURE_PRELOADING] = GsHackDefaults.coerceTexturePreloading(
                 json.optInt("texturePreloading", GsHackDefaults.TEXTURE_PRELOADING_DEFAULT)
             )

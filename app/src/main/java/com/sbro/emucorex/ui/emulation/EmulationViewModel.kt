@@ -232,6 +232,7 @@ data class EmulationUiState(
     val enableFastBoot: Boolean = true,
     val enableCheats: Boolean = false,
     val hwDownloadMode: Int = GsHackDefaults.HW_DOWNLOAD_MODE_DEFAULT,
+    val hwDownloadModeUserOverride: Boolean = false,
     val eeCycleRate: Int = PerformanceProfiles.safeConfig.eeCycleRate,
     val eeCycleSkip: Int = PerformanceProfiles.safeConfig.eeCycleSkip,
     val frameSkip: Int = 0,
@@ -240,6 +241,7 @@ data class EmulationUiState(
     val textureFiltering: Int = GsHackDefaults.BILINEAR_FILTERING_DEFAULT,
     val trilinearFiltering: Int = GsHackDefaults.TRILINEAR_FILTERING_DEFAULT,
     val blendingAccuracy: Int = GsHackDefaults.BLENDING_ACCURACY_DEFAULT,
+    val blendingAccuracyUserOverride: Boolean = false,
     val texturePreloading: Int = GsHackDefaults.TEXTURE_PRELOADING_DEFAULT,
     val enableFxaa: Boolean = false,
     val casMode: Int = 0,
@@ -355,6 +357,7 @@ internal data class EmulationLaunchConfig(
     val enableFastBoot: Boolean,
     val enableCheats: Boolean,
     val hwDownloadMode: Int,
+    val hwDownloadModeUserOverride: Boolean,
     val eeCycleRate: Int,
     val eeCycleSkip: Int,
     val frameSkip: Int,
@@ -369,6 +372,7 @@ internal data class EmulationLaunchConfig(
     val textureFiltering: Int,
     val trilinearFiltering: Int,
     val blendingAccuracy: Int,
+    val blendingAccuracyUserOverride: Boolean,
     val texturePreloading: Int,
     val shaderChainEnabled: Boolean,
     val shaderChainPreset: String,
@@ -459,6 +463,7 @@ internal data class LiveRuntimeSnapshot(
     val enableFastBoot: Boolean,
     val enableCheats: Boolean,
     val hwDownloadMode: Int,
+    val hwDownloadModeUserOverride: Boolean,
     val eeCycleRate: Int,
     val eeCycleSkip: Int,
     val frameSkip: Int,
@@ -506,6 +511,7 @@ internal data class LiveRuntimeSnapshot(
     val textureFiltering: Int,
     val trilinearFiltering: Int,
     val blendingAccuracy: Int,
+    val blendingAccuracyUserOverride: Boolean,
     val texturePreloading: Int,
     val enableFxaa: Boolean,
     val casMode: Int,
@@ -960,6 +966,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         viewModelScope.launch {
+            preferences.hwDownloadModeUserOverride.collect { owned ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(hwDownloadModeUserOverride = owned) }
+            }
+        }
+        viewModelScope.launch {
             preferences.eeCycleRate.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(eeCycleRate = value) }
             }
@@ -1052,6 +1063,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.blendingAccuracy.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(blendingAccuracy = value) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.blendingAccuracyUserOverride.collect { owned ->
+                applyGlobalRuntimePreferenceUpdate { it.copy(blendingAccuracyUserOverride = owned) }
             }
         }
         viewModelScope.launch {
@@ -2126,6 +2142,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     fastCdvd = config.fastCdvd,
                     enableCheats = config.enableCheats,
                     hwDownloadMode = config.hwDownloadMode,
+                    hwDownloadModeUserOverride = config.hwDownloadModeUserOverride,
                     eeCycleRate = config.eeCycleRate,
                     eeCycleSkip = config.eeCycleSkip,
                     frameSkip = config.frameSkip,
@@ -2140,6 +2157,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     textureFiltering = config.textureFiltering,
                     trilinearFiltering = config.trilinearFiltering,
                     blendingAccuracy = config.blendingAccuracy,
+                    blendingAccuracyUserOverride = config.blendingAccuracyUserOverride,
                     texturePreloading = config.texturePreloading,
                     shaderChainEnabled = config.shaderChainEnabled,
                     shaderChainPreset = config.shaderChainPreset,
@@ -2402,6 +2420,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     enableFastBoot = liveRuntime.enableFastBoot,
                     enableCheats = liveRuntime.enableCheats,
                     hwDownloadMode = liveRuntime.hwDownloadMode,
+                    hwDownloadModeUserOverride = liveRuntime.hwDownloadModeUserOverride,
                     eeCycleRate = liveRuntime.eeCycleRate,
                     eeCycleSkip = liveRuntime.eeCycleSkip,
                     frameSkip = liveRuntime.frameSkip,
@@ -2410,6 +2429,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     textureFiltering = liveRuntime.textureFiltering,
                     trilinearFiltering = liveRuntime.trilinearFiltering,
                     blendingAccuracy = liveRuntime.blendingAccuracy,
+                    blendingAccuracyUserOverride = liveRuntime.blendingAccuracyUserOverride,
                     texturePreloading = liveRuntime.texturePreloading,
                     enableFxaa = liveRuntime.enableFxaa,
                     casMode = liveRuntime.casMode,
@@ -3478,12 +3498,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setHwDownloadMode(value: Int) {
         viewModelScope.launch {
-            val newState = markPerformancePresetCustom(_uiState.value).copy(hwDownloadMode = value)
-            persistRuntimeState(newState) {
+            val newState = markPerformancePresetCustom(_uiState.value).copy(
+                hwDownloadMode = value,
+                hwDownloadModeUserOverride = true
+            )
+            persistRuntimeState(newState, explicitlyClaimedGsKeys = setOf("hwDownloadMode")) {
                 preferences.setPerformancePreset(PerformancePresets.CUSTOM)
                 preferences.setHwDownloadMode(value)
             }
             EmulatorBridge.setSetting("EmuCore/GS", "HWDownloadMode", "int", value.toString())
+            EmulatorBridge.setSetting("EmuCore/GS", "HWDownloadModeUserOverride", "bool", "true")
             updateCrashContext()
         }
     }
@@ -3631,12 +3655,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setBlendingAccuracy(value: Int) {
         viewModelScope.launch {
-            val newState = markPerformancePresetCustom(_uiState.value).copy(blendingAccuracy = value)
-            persistRuntimeState(newState) {
+            val newState = markPerformancePresetCustom(_uiState.value).copy(
+                blendingAccuracy = value,
+                blendingAccuracyUserOverride = true
+            )
+            persistRuntimeState(newState, explicitlyClaimedGsKeys = setOf("blendingAccuracy")) {
                 preferences.setPerformancePreset(PerformancePresets.CUSTOM)
                 preferences.setBlendingAccuracy(value)
             }
             EmulatorBridge.setSetting("EmuCore/GS", "accurate_blending_unit", "int", value.toString())
+            EmulatorBridge.setSetting("EmuCore/GS", "BlendingAccuracyUserOverride", "bool", "true")
             updateCrashContext()
         }
     }
@@ -4405,6 +4433,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     private suspend fun persistRuntimeState(
         updatedState: EmulationUiState,
+        explicitlyClaimedGsKeys: Set<String> = emptySet(),
         persistGlobal: suspend () -> Unit = {}
     ): EmulationUiState {
         val gameKey = activePerGameKey()
@@ -4445,15 +4474,19 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
             val providedKeys = when {
                 runtimeProfile.providedKeys == null -> null
-                else -> buildSet<String> {
-                    addAll(runtimeProfile.providedKeys)
-                    addAll(visualOverrideKeys)
-                    addAll(driverOverrideKeys)
-                    addAll(memoryCardOverrideKeys)
-                    addAll(dedicatedCardOverrideKeys)
-                    if (touchControlsLayout != null) add(PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY)
-                    if (customTouchControls != null) add(PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY)
-                }
+                else -> mergePerGameGsProvidedKeys(
+                    runtimeKeys = buildSet<String> {
+                        addAll(runtimeProfile.providedKeys)
+                        addAll(visualOverrideKeys)
+                        addAll(driverOverrideKeys)
+                        addAll(memoryCardOverrideKeys)
+                        addAll(dedicatedCardOverrideKeys)
+                        if (touchControlsLayout != null) add(PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY)
+                        if (customTouchControls != null) add(PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY)
+                    },
+                    existingKeys = if (existingProfile == null) emptySet() else existingProfile.providedKeys,
+                    explicitlyClaimedGsKeys = explicitlyClaimedGsKeys
+                )
             }
             perGameSettingsRepository.save(
                 runtimeProfile.copy(
@@ -4619,6 +4652,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             enableFastBoot = settings.enableFastBoot,
             enableCheats = settings.enableCheats,
             hwDownloadMode = settings.hwDownloadMode,
+            hwDownloadModeUserOverride = settings.hwDownloadModeUserOverride,
             eeCycleRate = settings.eeCycleRate,
             eeCycleSkip = settings.eeCycleSkip,
             frameSkip = settings.frameSkip,
@@ -4633,6 +4667,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             textureFiltering = settings.textureFiltering,
             trilinearFiltering = settings.trilinearFiltering,
             blendingAccuracy = settings.blendingAccuracy,
+            blendingAccuracyUserOverride = settings.blendingAccuracyUserOverride,
             texturePreloading = settings.texturePreloading,
             shaderChainEnabled = settings.shaderChainEnabled,
             shaderChainPreset = settings.shaderChainPreset,
@@ -4752,6 +4787,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             enableFastBoot = settings.enableFastBoot,
             enableCheats = settings.enableCheats,
             hwDownloadMode = settings.hwDownloadMode,
+            hwDownloadModeUserOverride = settings.hwDownloadModeUserOverride,
             eeCycleRate = settings.eeCycleRate,
             eeCycleSkip = settings.eeCycleSkip,
             frameSkip = settings.frameSkip,
@@ -4799,6 +4835,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             textureFiltering = settings.textureFiltering,
             trilinearFiltering = settings.trilinearFiltering,
             blendingAccuracy = settings.blendingAccuracy,
+            blendingAccuracyUserOverride = settings.blendingAccuracyUserOverride,
             texturePreloading = settings.texturePreloading,
             enableFxaa = settings.enableFxaa,
             casMode = settings.casMode,

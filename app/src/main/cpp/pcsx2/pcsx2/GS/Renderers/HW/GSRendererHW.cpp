@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
+// SPDX-FileCopyrightText: 2026 ARMSX2 Contributors
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "GS/Renderers/HW/GSRendererHW.h"
+#include "GS/Renderers/HW/GSSpriteEdgeSnap.h"
 #include "GS/Renderers/HW/GSHwHack.h"
 #include "GS/Renderers/HW/GSTextureReplacements.h"
 #include "GS/GSGL.h"
@@ -2332,6 +2334,162 @@ bool GSRendererHW::CanUseSwSpriteRender()
 	// In that case, either the condition can be added here to discard the draw, or the
 	// SwSpriteRender can be improved by adding the missing features.
 	return true;
+}
+
+bool GSRendererHW::SnapSpriteEdgesToPixelGrid()
+{
+	// STQ sprites interpolate through Q; leave those alone rather than guess a gradient.
+	if (m_process_texture && (!PRIM->FST || !g_gs_device->Features().sprite_edge_clamp))
+		return false;
+
+	const bool adjust_uv = m_process_texture && PRIM->FST;
+	const int ox = static_cast<int>(m_context->XYOFFSET.OFX);
+	const int oy = static_cast<int>(m_context->XYOFFSET.OFY);
+	const u32 count = m_vertex.next;
+	GSVertex* v = &m_vertex.buff[0];
+
+	// Where a sprite starts, taken off both its corners because the two are not stored in a fixed
+	// order. Only the sprites either side are ever asked: a batch that tiles emits its sprites in
+	// order, and reaching past them would cost a scan of the whole batch on every draw.
+	const auto near_corner = [&](u32 j) {
+		return GSSpriteEdgeSnap::NearCorner{
+			std::min(static_cast<int>(v[j].XYZ.X), static_cast<int>(v[j + 1].XYZ.X)) - ox,
+			std::min(static_cast<int>(v[j].XYZ.Y), static_cast<int>(v[j + 1].XYZ.Y)) - oy, true};
+	};
+
+	const bool limit_uv = adjust_uv && g_gs_device->Features().sprite_edge_clamp;
+
+	// The Native half-pixel offset maps native coordinate n to the middle of its device block
+	// (DetermineVSConfig: ox2 = -1 / unscaled, so device = scale * (n + 0.5)), so the edge that
+	// stops on a block boundary is half a pixel short of the whole coordinate.
+	const int grid_shift = (GSConfig.UserHacks_HalfPixelOffset == GSHalfPixelOffset::Native) ? 8 : 0;
+	if (limit_uv)
+		m_sprite_edge_limits.resize(count / 2);
+	bool moved = false;
+
+	for (u32 i = 0; i + 1 < count; i += 2)
+	{
+		const GSSpriteEdgeSnap::NearCorner prev = (i >= 2) ? near_corner(i - 2) : GSSpriteEdgeSnap::NearCorner{};
+		const GSSpriteEdgeSnap::NearCorner next = (i + 3 < count) ? near_corner(i + 2) : GSSpriteEdgeSnap::NearCorner{};
+
+		const int x0 = static_cast<int>(v[i].XYZ.X) - ox;
+		const int y0 = static_cast<int>(v[i].XYZ.Y) - oy;
+		const int x1 = static_cast<int>(v[i + 1].XYZ.X) - ox;
+		const int y1 = static_cast<int>(v[i + 1].XYZ.Y) - oy;
+		const GSSpriteEdgeSnap::Delta d = GSSpriteEdgeSnap::DropAbuttingAxes(
+			GSSpriteEdgeSnap::FarEdge(x0, y0, x1, y1, static_cast<int>(v[i].U), static_cast<int>(v[i].V),
+				static_cast<int>(v[i + 1].U), static_cast<int>(v[i + 1].V), adjust_uv, grid_shift),
+			x1, y1, prev, next);
+
+		if (!d.IsZero())
+		{
+			moved = true;
+			v[i + 1].XYZ.X = static_cast<u16>(static_cast<int>(v[i + 1].XYZ.X) + d.dx);
+			v[i + 1].XYZ.Y = static_cast<u16>(static_cast<int>(v[i + 1].XYZ.Y) + d.dy);
+			v[i + 1].U = static_cast<u16>(static_cast<int>(v[i + 1].U) + d.du);
+			v[i + 1].V = static_cast<u16>(static_cast<int>(v[i + 1].V) + d.dv);
+		}
+
+		if (limit_uv)
+		{
+			m_sprite_edge_limits[i / 2] = GSVector2(
+				GSSpriteEdgeSnap::FarSampleLimit(x0, x1 + d.dx, static_cast<int>(v[i].U), static_cast<int>(v[i + 1].U), d.dx != 0),
+				GSSpriteEdgeSnap::FarSampleLimit(y0, y1 + d.dy, static_cast<int>(v[i].V), static_cast<int>(v[i + 1].V), d.dy != 0));
+		}
+	}
+
+	if (!moved || !limit_uv)
+		return false;
+
+	for (u32 i = 0; i + 1 < count; i += 2)
+	{
+		const GSVector2& limit = m_sprite_edge_limits[i / 2];
+		v[i].ST.S = v[i + 1].ST.S = limit.x;
+		v[i].ST.T = v[i + 1].ST.T = limit.y;
+	}
+	return true;
+}
+
+void GSRendererHW::CorrectSpriteCoverageForUpscale(GSTextureCache::Target* rt)
+{
+	// Be careful to not correct downscaled targets, this can get messy and break post processing
+	// but it still needs to adjust native stuff from memory as it's not been compensated for
+	// upscaling (Dragon Quest 8 font for example).
+	// Nor the quad a texture or channel shuffle rebuilt in place of the game's sprites: it is on
+	// whole native pixels and whole texels already, and RoundSprite would still resample its UV
+	// under a bilinear sampler. When the correction ran before the rebuilds it never saw them.
+	if (!CanUpscale() || m_vt.m_primclass != GS_SPRITE_CLASS || !rt || rt->GetScale() <= 1.0f || m_texture_shuffle ||
+		m_channel_shuffle_rebuilt_quad)
+		return;
+
+	// Every pass below reads the first sprite, and the rebuilds upstream set the count themselves.
+	const u32 count = m_vertex.next;
+	if (count < 2)
+		return;
+
+	GSVertex* v = &m_vertex.buff[0];
+
+	// Hack to avoid vertical black line in various games (ace combat/tekken)
+	//
+	// This runs before SnapSpriteEdgesToPixelGrid because its one decision is read off the
+	// first sprite's coordinates, and the snap moves exactly those.
+	bool align_sprite_x = false;
+	if (GSConfig.UserHacks_AlignSpriteX)
+	{
+		// Note for performance reason I do the check only once on the first
+		// primitive
+		const bool unaligned_texture = ((v[1].U & 0xF) == 0) && PRIM->FST; // I'm not sure this check is useful
+		const int win_position = v[1].XYZ.X - m_context->XYOFFSET.OFX;
+		// v[2] only exists, and is only asked about, when the batch has a second sprite.
+		align_sprite_x = GSSpriteEdgeSnap::AlignSpriteXApplies(win_position, v[1].U, PRIM->FST, count,
+			v[1].XYZ.X, (count >= 4) ? v[2].XYZ.X : 0);
+		if (align_sprite_x)
+		{
+			// Normaly vertex are aligned on full pixels and texture in half
+			// pixels. Let's extend the coverage of an half-pixel to avoid
+			// hole after upscaling
+			for (u32 i = 0; i < count; i += 2)
+			{
+				v[i + 1].XYZ.X += 8;
+				// I really don't know if it is a good idea. Neither what to do for !PRIM->FST
+				if (unaligned_texture)
+					v[i + 1].U += 8;
+			}
+		}
+	}
+
+	// The GS rasterises a sprite in whole pixels, so a sprite whose far edge sits part way
+	// into a pixel covers exactly what one ending on the boundary covers. Upscaling
+	// multiplies that edge before rasterising and the sprite loses the pixel. NASCAR
+	// Thunder 2002 writes its alpha plane with a sprite ending at x=319.5 and reads it
+	// straight back through DATE with one ending at x=320: identical at 1x, one device
+	// column apart at 2x, and that column is the bright line down the middle of the screen.
+	//
+	// The hack above has already pushed every far X in this batch out by half a pixel for
+	// the same reason, on a batch-wide decision the snap does not get to second-guess per
+	// sprite. Snapping on top of that would move some of them a second time, so leave the
+	// batch alone when it fired.
+	if (!align_sprite_x)
+		m_sprite_edge_clamp = SnapSpriteEdgesToPixelGrid();
+
+	// Noting to do if no texture is sampled
+	const bool draw_sprite_tex = PRIM->TME && (m_vt.m_primclass == GS_SPRITE_CLASS);
+	if (PRIM->FST && draw_sprite_tex && m_process_texture)
+	{
+		if ((GSConfig.UserHacks_RoundSprite > 1) || (GSConfig.UserHacks_RoundSprite == 1 && !m_vt.IsLinear()))
+		{
+			// It rewrites the UVs the limits were taken from.
+			m_sprite_edge_clamp = false;
+			if (m_vt.IsLinear())
+				RoundSpriteOffset<true>();
+			else
+				RoundSpriteOffset<false>();
+		}
+	}
+	else
+	{
+		; // vertical line in Yakuza (note check m_userhacks_align_sprite_X behavior)
+	}
 }
 
 template <bool linear>
@@ -4859,58 +5017,6 @@ void GSRendererHW::Draw()
 		return;
 	}
 
-	// A couple of hack to avoid upscaling issue. So far it seems to impacts mostly sprite
-	// Note: first hack corrects both position and texture coordinate
-	// Note: second hack corrects only the texture coordinate
-	// Be careful to not correct downscaled targets, this can get messy and break post processing
-	// but it still needs to adjust native stuff from memory as it's not been compensated for upscaling (Dragon Quest 8 font for example).
-	if (CanUpscale() && (m_vt.m_primclass == GS_SPRITE_CLASS) && rt && rt->GetScale() > 1.0f)
-	{
-		const u32 count = m_vertex.next;
-		GSVertex* v = &m_vertex.buff[0];
-
-		// Hack to avoid vertical black line in various games (ace combat/tekken)
-		if (GSConfig.UserHacks_AlignSpriteX)
-		{
-			// Note for performance reason I do the check only once on the first
-			// primitive
-			const int win_position = v[1].XYZ.X - context->XYOFFSET.OFX;
-			const bool unaligned_position = ((win_position & 0xF) == 8);
-			const bool unaligned_texture = ((v[1].U & 0xF) == 0) && PRIM->FST; // I'm not sure this check is useful
-			const bool hole_in_vertex = (count < 4) || (v[1].XYZ.X != v[2].XYZ.X);
-			if (hole_in_vertex && unaligned_position && (unaligned_texture || !PRIM->FST))
-			{
-				// Normaly vertex are aligned on full pixels and texture in half
-				// pixels. Let's extend the coverage of an half-pixel to avoid
-				// hole after upscaling
-				for (u32 i = 0; i < count; i += 2)
-				{
-					v[i + 1].XYZ.X += 8;
-					// I really don't know if it is a good idea. Neither what to do for !PRIM->FST
-					if (unaligned_texture)
-						v[i + 1].U += 8;
-				}
-			}
-		}
-
-		// Noting to do if no texture is sampled
-		if (PRIM->FST && draw_sprite_tex && m_process_texture)
-		{
-			if ((GSConfig.UserHacks_RoundSprite > 1) || (GSConfig.UserHacks_RoundSprite == 1 && !m_vt.IsLinear()))
-			{
-				if (m_vt.IsLinear())
-					RoundSpriteOffset<true>();
-				else
-					RoundSpriteOffset<false>();
-			}
-		}
-		else
-		{
-			; // vertical line in Yakuza (note check m_userhacks_align_sprite_X behavior)
-		}
-	}
-
-	//
 	const GSVector4i real_rect = m_r;
 
 	if (!skip_draw)
@@ -5787,6 +5893,7 @@ __ri u32 GSRendererHW::EmulateChannelShuffle(GSTextureCache::Target* src, bool t
 
 		m_vertex.head = m_vertex.tail = m_vertex.next = 2;
 		m_index.tail = 2;
+		m_channel_shuffle_rebuilt_quad = true;
 	}
 	else
 	{
@@ -5826,6 +5933,7 @@ __ri u32 GSRendererHW::EmulateChannelShuffle(GSTextureCache::Target* src, bool t
 			s[1].V = m_r.w << 4;
 			m_vertex.head = m_vertex.tail = m_vertex.next = 2;
 			m_index.tail = 2;
+		m_channel_shuffle_rebuilt_quad = true;
 		}
 
 		// If we're doing per page copying, then set the valid 1 frame ahead if we're continuing, as this will save the target lookup making a new target for the new row.
@@ -5851,6 +5959,7 @@ __ri u32 GSRendererHW::EmulateChannelShuffle(GSTextureCache::Target* src, bool t
 
 	m_vertex.head = m_vertex.tail = m_vertex.next = 2;
 	m_index.tail = 2;
+		m_channel_shuffle_rebuilt_quad = true;
 
 	m_primitive_covers_without_gaps = NoGapsType::FullCover;
 	m_conf.cb_ps.ChannelShuffleOffset = GSVector2(0, 0);
@@ -8532,6 +8641,7 @@ __ri void GSRendererHW::DrawPrims(GSTextureCache::Target* rt, GSTextureCache::Ta
 	// Warning it must be done at the begining because it will change the
 	// vertex list (it will interact with PrimitiveOverlap and accurate
 	// blending)
+	m_channel_shuffle_rebuilt_quad = false;
 	if (m_channel_shuffle && tex && tex->m_from_target)
 		EmulateChannelShuffle(tex->m_from_target, false, rt);
 
@@ -8549,6 +8659,10 @@ __ri void GSRendererHW::DrawPrims(GSTextureCache::Target* rt, GSTextureCache::Ta
 			return;
 		}
 	}
+
+	// Correct only after every shuffle/merge that can rebuild the vertices.
+	m_sprite_edge_clamp = false;
+	CorrectSpriteCoverageForUpscale(rt);
 
 	const GSDevice::FeatureSupport features = g_gs_device->Features();
 
@@ -9074,12 +9188,14 @@ __ri void GSRendererHW::DrawPrims(GSTextureCache::Target* rt, GSTextureCache::Ta
 			if (m_vt.m_primclass == GS_SPRITE_CLASS && rtscale > 1.0f && (tex && PRIM->FST))
 			{
 				const GSVertex* v = &m_vertex.buff[0];
+				const int x0_frac = ((v[0].XYZ.X - m_context->XYOFFSET.OFX) & 0xf);
+				const int y0_frac = ((v[0].XYZ.Y - m_context->XYOFFSET.OFY) & 0xf);
 				const int x1_frac = ((v[1].XYZ.X - m_context->XYOFFSET.OFX) & 0xf);
 				const int y1_frac = ((v[1].XYZ.Y - m_context->XYOFFSET.OFY) & 0xf);
-				if (x1_frac & 8)
+				if (GSSpriteEdgeSnap::NativeSpritePushApplies(x0_frac, x1_frac, v[0].XYZ.X <= v[1].XYZ.X))
 					ox2 *= 1.0f + ((static_cast<float>(16 - x1_frac) / 8.0f) * rtscale);
 
-				if (y1_frac & 8)
+				if (GSSpriteEdgeSnap::NativeSpritePushApplies(y0_frac, y1_frac, v[0].XYZ.Y <= v[1].XYZ.Y))
 					oy2 *= 1.0f + ((static_cast<float>(16 - y1_frac) / 8.0f) * rtscale);
 			}
 		}
@@ -9097,6 +9213,11 @@ __ri void GSRendererHW::DrawPrims(GSTextureCache::Target* rt, GSTextureCache::Ta
 	// GS_SPRITE_CLASS are already flat (either by CPU or the GS)
 	m_conf.ps.iip = (m_vt.m_primclass == GS_SPRITE_CLASS) ? 0 : PRIM->IIP;
 	m_conf.vs.iip = m_conf.ps.iip;
+	if (m_sprite_edge_clamp && m_conf.vs.tme && m_conf.vs.fst && m_conf.ps.fst)
+	{
+		m_conf.vs.sprite_edge_clamp = 1;
+		m_conf.ps.sprite_edge_clamp = 1;
+	}
 
 	if (DATE_BARRIER)
 	{

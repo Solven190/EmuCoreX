@@ -171,6 +171,8 @@ public:
 	/// Returns true if running on an AMD GPU.
 	__fi bool IsDeviceAMD() const { return (m_device_properties.vendorID == 0x1002); }
 
+	bool IsMaliSX2() const;
+
 	// Creates a simple render pass.
 	VkRenderPass GetRenderPass(VkFormat color_format, VkFormat depth_format,
 		VkAttachmentLoadOp color_load_op = VK_ATTACHMENT_LOAD_OP_LOAD,
@@ -817,6 +819,7 @@ public:
 	static bool TestTFXShaderSourceCatalog();
 	static bool TestTFXAlphaFallbackClassifier();
 	static bool TestMaliSX2Policy();
+	static bool TestOptionalQueryPoolFallback();
 	static bool TestTFXPreparationIdentity();
 	static bool TestTFXPreparationProgress();
 	static bool TestTFXPreparationPlan();
@@ -910,7 +913,7 @@ public:
 	void SetPSConstantBuffer(const GSHWDrawConfig::PSConstantBuffer& cb);
 	bool BindDrawPipeline(const PipelineSelector& p);
 
-	void RenderHW(GSHWDrawConfig& config) override;
+	void DoRenderHW(GSHWDrawConfig& config) override;
 	void UpdateHWPipelineSelector(GSHWDrawConfig& config, PipelineSelector& pipe);
 	void UploadHWDrawVerticesAndIndices(GSHWDrawConfig& config);
 	VkImageMemoryBarrier GetColorBufferFeedbackBarrier(GSTextureVK* rt) const;

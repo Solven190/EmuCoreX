@@ -2898,4 +2898,6 @@
     <string name="shader_prep_error_pipeline_failures">部分着色器无法准备。</string>
     <string name="shader_prep_error_checkpoint_failed">无法保存着色器缓存。</string>
     <string name="shader_prep_error_internal_error">准备着色器时发生错误。</string>
+    <string name="gamedb_setting_coalesce_render_passes">合并渲染阶段</string>
+    <string name="gamedb_setting_copy_road_maximum_blending">复制渲染目标时的最大混合级别</string>
 </resources>

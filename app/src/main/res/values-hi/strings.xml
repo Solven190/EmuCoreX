@@ -2897,4 +2897,6 @@
     <string name="shader_prep_error_pipeline_failures">कुछ शेडर तैयार नहीं हो सके।</string>
     <string name="shader_prep_error_checkpoint_failed">शेडर कैश सहेजा नहीं जा सका।</string>
     <string name="shader_prep_error_internal_error">शेडर तैयार करते समय त्रुटि हुई।</string>
+    <string name="gamedb_setting_coalesce_render_passes">रेंडर पास को संयोजित करें</string>
+    <string name="gamedb_setting_copy_road_maximum_blending">रेंडर लक्ष्य कॉपी करते समय अधिकतम ब्लेंडिंग स्तर</string>
 </resources>

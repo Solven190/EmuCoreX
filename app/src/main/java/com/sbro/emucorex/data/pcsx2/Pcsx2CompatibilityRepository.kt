@@ -50,7 +50,7 @@ class Pcsx2CompatibilityRepository(private val context: Context) {
         cachedIndex?.let { return it }
         synchronized(cacheLock) {
             cachedIndex?.let { return it }
-            val parsed = parseIndex()
+            val parsed = applyOverlay(parseSerialIndex().ifEmpty { parseIndex() })
             cachedIndex = parsed
             return parsed
         }
@@ -60,7 +60,7 @@ class Pcsx2CompatibilityRepository(private val context: Context) {
         cachedIgdbIndex?.let { return it }
         synchronized(cacheLock) {
             cachedIgdbIndex?.let { return it }
-            val parsed = parseIgdbIndex()
+            val parsed = applyOverlay(parseIgdbIndex(), addMissingSerials = false)
             cachedIgdbIndex = parsed
             return parsed
         }
@@ -70,7 +70,7 @@ class Pcsx2CompatibilityRepository(private val context: Context) {
         cachedTitleIndex?.let { return it }
         synchronized(cacheLock) {
             cachedTitleIndex?.let { return it }
-            val parsed = parseTitleIndex() ?: buildTitleIndex(loadIndex().values)
+            val parsed = buildTitleIndex(loadIndex().values)
             cachedTitleIndex = parsed
             return parsed
         }
@@ -88,23 +88,7 @@ class Pcsx2CompatibilityRepository(private val context: Context) {
         }
     }
 
-    private fun parseTitleIndex(): Map<String, Pcsx2CompatibilityEntry>? {
-        val json = loadPrecomputedJson() ?: return null
-        val titleObject = json.optJSONObject("title") ?: return null
-        return buildMap {
-            val keys = titleObject.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                parseJsonEntry(titleObject.optJSONObject(key))?.let { put(key, it) }
-            }
-        }
-    }
-
     private fun parseIndex(): Map<String, Pcsx2CompatibilityEntry> {
-        val precomputed = parseSerialIndex()
-        if (precomputed.isNotEmpty()) {
-            return precomputed
-        }
         val entries = linkedMapOf<String, Pcsx2CompatibilityEntry>()
         context.assets.open(GAME_INDEX_ASSET_PATH).bufferedReader().useLines { lines ->
             var currentSerial: String? = null
@@ -165,6 +149,42 @@ class Pcsx2CompatibilityRepository(private val context: Context) {
             flushCurrent()
         }
         return entries
+    }
+
+    private fun applyOverlay(
+        base: Map<String, Pcsx2CompatibilityEntry>,
+        addMissingSerials: Boolean = true
+    ): Map<String, Pcsx2CompatibilityEntry> {
+        val overlays = GameIndexOverlay.load(context)
+        val effective = base.mapValuesTo(linkedMapOf()) { (_, existing) ->
+            val overlay = overlays[existing.serial] ?: return@mapValuesTo existing
+            val title = overlay.scalars["name-en"] ?: overlay.scalars["name"] ?: existing.title
+            val region = overlay.scalars["region"] ?: existing.region
+            val status = overlay.scalars["compat"]?.toStatus() ?: existing.status
+            Pcsx2CompatibilityEntry(
+                serial = overlay.serial,
+                title = title,
+                region = region,
+                status = status,
+                matchedBy = existing.matchedBy
+            )
+        }
+        if (addMissingSerials) {
+            overlays.values.forEach { overlay ->
+                val hasCompatibilityMetadata = overlay.scalars.keys.any {
+                    it == "name" || it == "name-en" || it == "region" || it == "compat"
+                }
+                if (overlay.serial !in effective && hasCompatibilityMetadata) {
+                    effective[overlay.serial] = Pcsx2CompatibilityEntry(
+                        serial = overlay.serial,
+                        title = overlay.scalars["name-en"] ?: overlay.scalars["name"],
+                        region = overlay.scalars["region"],
+                        status = overlay.scalars["compat"]?.toStatus() ?: Pcsx2CompatibilityStatus.UNKNOWN
+                    )
+                }
+            }
+        }
+        return effective
     }
 
     private fun parseSerialIndex(): Map<String, Pcsx2CompatibilityEntry> {
@@ -245,6 +265,7 @@ class Pcsx2CompatibilityRepository(private val context: Context) {
     }
 
     private fun String?.toStatus(): Pcsx2CompatibilityStatus {
+        this?.toIntOrNull()?.let { return it.toStatus() }
         return when (this?.uppercase(Locale.ROOT)) {
             "NOTHING" -> Pcsx2CompatibilityStatus.NOTHING
             "INTRO" -> Pcsx2CompatibilityStatus.INTRO

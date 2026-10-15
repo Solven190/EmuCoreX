@@ -19,6 +19,8 @@
 #include "MTGS.h"
 #include "pcsx2/GS.h"
 #include "GS/Renderers/Null/GSRendererNull.h"
+#include "GS/Renderers/Common/GSDevice.h"
+#include "GS/Renderers/Common/GSCopyRoadBlendingPolicy.h"
 #include "GS/Renderers/HW/GSRendererHW.h"
 #include "GS/Renderers/HW/GSHwHack.h"
 #include "GS/Renderers/HW/GSTextureReplacements.h"
@@ -239,6 +241,35 @@ static void GSClampUpscaleMultiplier(Pcsx2Config::GSOptions& config)
 	config.UpscaleMultiplier = static_cast<float>(max_upscale_multiplier);
 }
 
+static void GSApplyCopyRoadBlendingCap(Pcsx2Config::GSOptions& config)
+{
+	if (!g_gs_device || GSCurrentRenderer == GSRendererType::Null || GSCurrentRenderer == GSRendererType::SW ||
+		config.CopyRoadMaximumBlendingLevel < 0 || config.BlendingAccuracyUserOverride)
+	{
+		return;
+	}
+
+	const GSDevice::FeatureSupport& features = g_gs_device->Features();
+	// ROV performs destination reads directly in the blend unit, so a read-road cap does not apply.
+	if (GSConfig.HWROV && features.rov)
+		return;
+
+	GSCopyRoadBlendingInputs inputs;
+	inputs.road = GSSelfReadRoadFromPublishedBits(features.framebuffer_fetch, features.texture_barrier, false);
+	inputs.multidraw_fb_copy = features.multidraw_fb_copy;
+	// The pinned backend publishes no measured per-draw barrier cost. Keep the title cap limited to
+	// the per-draw copy road until a backend exposes a measured barrier-cost fact.
+	inputs.title_cap = config.CopyRoadMaximumBlendingLevel;
+	inputs.configured_level = static_cast<int>(config.AccurateBlendingUnit);
+
+	const int level = CopyRoadBlendingLevel(inputs);
+	if (level < inputs.configured_level)
+	{
+		config.AccurateBlendingUnit = static_cast<AccBlendLevel>(level);
+		Console.WriteLn("GS: Capping blending accuracy to %d for this device readback road", level);
+	}
+}
+
 static bool IsHauntingGroundSerial(std::string_view serial)
 {
 	// Haunting Ground (PAL/NTSC-U) and its Japanese releases, titled Demento.
@@ -330,6 +361,7 @@ static bool OpenGSRenderer(GSRendererType renderer, u8* basemem)
 	else if (renderer != GSRendererType::SW)
 	{
 		GSClampUpscaleMultiplier(GSConfig);
+		GSApplyCopyRoadBlendingCap(GSConfig);
 		g_gs_renderer = std::make_unique<GSRendererHW>();
 	}
 	else
@@ -952,6 +984,8 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 
 	if (!g_gs_renderer)
 		return;
+
+	GSApplyCopyRoadBlendingCap(GSConfig);
 
 #ifndef __ANDROID__
 	// Handle OSD scale changes by pushing a window resize through.

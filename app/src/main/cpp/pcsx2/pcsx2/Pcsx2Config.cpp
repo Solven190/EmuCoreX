@@ -749,7 +749,7 @@ Pcsx2Config::GSOptions::GSOptions()
 	OsdShowInputRec = true;
 	OsdShowTextureReplacements = false;
 
-	HWDownloadMode = GSHardwareDownloadMode::NoReadbacks;
+	HWDownloadMode = GSHardwareDownloadMode::Enabled;
 	HWSpinGPUForReadbacks = false;
 	HWSpinCPUForReadbacks = false;
 	GPUPaletteConversion = false;
@@ -833,8 +833,13 @@ bool Pcsx2Config::GSOptions::OptionsAreEqual(const GSOptions& right) const
 
 		OpEqu(Renderer) &&
 		OpEqu(UpscaleMultiplier) &&
+		OpEqu(AutoUpscaleAlignment) &&
 
 		OpEqu(AccurateBlendingUnit) &&
+		OpEqu(CopyRoadMaximumBlendingLevel) &&
+		OpEqu(CoalesceRenderPasses) &&
+		OpEqu(HWDownloadModeUserOverride) &&
+		OpEqu(BlendingAccuracyUserOverride) &&
 		OpEqu(TextureFiltering) &&
 		OpEqu(TexturePreloading) &&
 		OpEqu(GSDumpCompression) &&
@@ -1007,7 +1012,11 @@ void Pcsx2Config::GSOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapBitBoolEx(AutoFlushSW, "autoflush_sw");
 	SettingsWrapBitBoolEx(PreloadFrameWithGSData, "preload_frame_with_gs_data");
 	SettingsWrapBitBoolEx(Mipmap, "mipmap");
+	SettingsWrapBitBool(CoalesceRenderPasses);
+	SettingsWrapBitBool(HWDownloadModeUserOverride);
+	SettingsWrapBitBool(BlendingAccuracyUserOverride);
 	SettingsWrapBitBoolEx(ManualUserHacks, "UserHacks");
+	SettingsWrapBitBoolEx(AutoUpscaleAlignment, "AutoUpscaleAlignment");
 	SettingsWrapBitBoolEx(UserHacks_AlignSpriteX, "UserHacks_align_sprite_X");
 	SettingsWrapIntEnumEx(UserHacks_AutoFlush, "UserHacks_AutoFlushLevel");
 	SettingsWrapBitBoolEx(UserHacks_CPUFBConversion, "UserHacks_CPU_FB_Conversion");

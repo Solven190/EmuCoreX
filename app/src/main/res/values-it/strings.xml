@@ -2897,4 +2897,6 @@
     <string name="shader_prep_error_pipeline_failures">Impossibile preparare alcuni shader.</string>
     <string name="shader_prep_error_checkpoint_failed">Impossibile salvare la cache degli shader.</string>
     <string name="shader_prep_error_internal_error">Si è verificato un errore durante la preparazione degli shader.</string>
+    <string name="gamedb_setting_coalesce_render_passes">Unisci i passaggi di rendering</string>
+    <string name="gamedb_setting_copy_road_maximum_blending">Livello massimo di blending durante la copia del render target</string>
 </resources>

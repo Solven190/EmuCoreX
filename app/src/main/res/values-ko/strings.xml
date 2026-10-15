@@ -2896,4 +2896,6 @@
     <string name="shader_prep_error_pipeline_failures">일부 셰이더를 준비하지 못했습니다.</string>
     <string name="shader_prep_error_checkpoint_failed">셰이더 캐시를 저장하지 못했습니다.</string>
     <string name="shader_prep_error_internal_error">셰이더 준비 중 오류가 발생했습니다.</string>
+    <string name="gamedb_setting_coalesce_render_passes">렌더 패스 병합</string>
+    <string name="gamedb_setting_copy_road_maximum_blending">렌더 타깃 복사 시 최대 블렌딩 단계</string>
 </resources>
