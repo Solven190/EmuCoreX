@@ -4121,6 +4121,55 @@ static void mVU_OPMSUB_emit(mP)
 
 
 // FTOI0 Opcode
+static bool mVUTrySharedFTOI(mV, u32 fractional_bits)
+{
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU) || !mVUSharedIrEnabled(mVU.index)) return false;
+	static thread_local ir::Function fn;
+	if (fn.blocks.empty())
+	{
+		ir::Builder init(fn);
+		init.CreateBlock(0);
+		fn.blocks[0].insts.reserve(4);
+		fn.value_types.reserve(3);
+	}
+	fn.blocks[0].insts.clear();
+	fn.blocks[0].guest_start = mVU.prog.IRinfo.curPC * sizeof(u32);
+	fn.value_types.resize(1);
+	fn.next_value = 1;
+	ir::Builder b(fn);
+	b.SetBlock(1);
+	b.SetDelaySlot(mVUinfo.isBdelay);
+	const u32 source = b.Emit(ir::Op::ReadVf, ir::Type::V4F32, {}, _Fs_);
+	ir::Op convert_op = ir::Op::VF2I0;
+	switch (fractional_bits)
+	{
+		case 0: convert_op = ir::Op::VF2I0; break;
+		case 4: convert_op = ir::Op::VF2I4; break;
+		case 12: convert_op = ir::Op::VF2I12; break;
+		case 15: convert_op = ir::Op::VF2I15; break;
+		default: return false;
+	}
+	const u32 converted = b.Emit1(convert_op, ir::Type::V4I32, source);
+	b.Emit1(ir::Op::WriteVfBitsMasked, ir::Type::Void, converted, _Ft_, _X_Y_Z_W);
+	b.Return();
+	Arm64Ir::BoundVfToIntPlan plan;
+	std::string error;
+	if (!Arm64Ir::PlanBoundVfToInt(fn, &plan, &error)) return false;
+	// Bind the whole source before the masked destination. The bound lowerer
+	// handles lane rotation and packed S0 results for MicroVuPartial.
+	const int source_reg = mVU.regAlloc->allocRegId(plan.src_vf);
+	const int destination_reg = mVU.regAlloc->allocRegId(-1, plan.dst_vf, plan.lane_mask);
+	Arm64Ir::LowerOutput out;
+	const bool lowered = Arm64Ir::LowerBoundVfToIntPlan(plan, source_reg, destination_reg,
+		&out, &error, Arm64Ir::BoundVfConvertLayout::MicroVuPartial);
+	pxAssertRel(lowered, error.c_str());
+	mVU.regAlloc->clearNeededXmmId(destination_reg);
+	mVU.regAlloc->clearNeededXmmId(source_reg);
+	mVURecordSharedIr(mVU.index, out.host_size);
+	mVURecordSharedFtoi(mVU.index, out.host_size);
+	return true;
+}
+
 static void mVU_FTOI_saturate_oaknut(int Fs, int t1, int t2)
 {
 	const oak::QReg fs_q = oakQRegister(Fs);
@@ -4163,7 +4212,8 @@ static void mVU_FTOI0_emit(mP)
 	pass1 { mVUanalyzeFMAC2(mVU, _Fs_, _Ft_); }
 	pass2
 	{
-		mVU_FTOI0_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedFTOI(mVU, 0))
+			mVU_FTOI0_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3
 	{
@@ -4195,7 +4245,8 @@ static void mVU_FTOI4_emit(mP)
 	pass1 { mVUanalyzeFMAC2(mVU, _Fs_, _Ft_); }
 	pass2
 	{
-		mVU_FTOI4_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedFTOI(mVU, 4))
+			mVU_FTOI4_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3
 	{
@@ -4227,7 +4278,8 @@ static void mVU_FTOI12_emit(mP)
 	pass1 { mVUanalyzeFMAC2(mVU, _Fs_, _Ft_); }
 	pass2
 	{
-		mVU_FTOI12_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedFTOI(mVU, 12))
+			mVU_FTOI12_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3
 	{
@@ -4259,7 +4311,8 @@ static void mVU_FTOI15_emit(mP)
 	pass1 { mVUanalyzeFMAC2(mVU, _Fs_, _Ft_); }
 	pass2
 	{
-		mVU_FTOI15_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedFTOI(mVU, 15))
+			mVU_FTOI15_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3
 	{

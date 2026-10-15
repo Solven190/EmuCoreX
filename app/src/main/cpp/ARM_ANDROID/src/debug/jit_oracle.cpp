@@ -2155,8 +2155,11 @@ void VUSharedTransferBenchmarks()
 #include "jit_oracle_vu_itof.inl"
 #include "jit_oracle_vu_itof_bench.inl"
 #include "jit_oracle_vu_itof_codegen.inl"
+#include "jit_oracle_vu_ftoi.inl"
+#include "jit_oracle_vu_ftoi_integration.inl"
+#include "jit_oracle_vu_ftoi_bench.inl"
 
-void VUTests(bool itof_codegen_only = false)
+void VUTests(bool itof_codegen_only = false, bool ftoi_only = false)
 {
     struct VUOverrideReset
     {
@@ -2182,6 +2185,13 @@ void VUTests(bool itof_codegen_only = false)
         VUBoundItofCodegenTests();
         return;
     }
+    if (ftoi_only)
+    {
+        VUBoundVfToIntTests();
+        VUSharedFtoiIntegrationTests();
+        VUSharedFtoiBenchmarks();
+        return;
+    }
     VUBoundIrTests();
     VUSharedIrProductionTests();
     VUSharedImmediateTests();
@@ -2191,6 +2201,9 @@ void VUTests(bool itof_codegen_only = false)
     VUBoundItofCodegenTests();
     VUSharedItofIntegrationTests();
     VUSharedItofBenchmarks();
+    VUBoundVfToIntTests();
+    VUSharedFtoiIntegrationTests();
+    VUSharedFtoiBenchmarks();
     VUBoundVfViTransferTests();
     VUBoundViVfTransferTests();
     VUSharedMtirProductionTests();
@@ -3936,6 +3949,7 @@ void EECoverageCop2Spec2()
 }
 
 #include "jit_oracle_ee_vu_itof.inl"
+#include "jit_oracle_ee_vu_ftoi.inl"
 #include "jit_oracle_ee_bc1.inl"
 #include "jit_oracle_ee_hot_loads.inl"
 
@@ -9755,7 +9769,8 @@ void EEGameCodeTests()
 }
 
 void EETests(bool cop1_mov_only = false, bool vu_abs_only = false, bool scalar_stores_only = false,
-    bool vu_itof_only = false, bool cop1_branch_only = false, bool hot_loads_only = false)
+    bool vu_itof_only = false, bool cop1_branch_only = false, bool hot_loads_only = false,
+    bool vu_ftoi_only = false)
 {
     EmuCoreXOracleSetSkipEvents(1);
     cpuinfo_initialize();
@@ -9819,6 +9834,11 @@ void EETests(bool cop1_mov_only = false, bool vu_abs_only = false, bool scalar_s
     if (hot_loads_only)
     {
         EEHotLoadBenchmarkTests();
+        return;
+    }
+    if (vu_ftoi_only)
+    {
+        EEVuFtoiMacroTests();
         return;
     }
 
@@ -9928,6 +9948,7 @@ void EETests(bool cop1_mov_only = false, bool vu_abs_only = false, bool scalar_s
     EECoverageCop2Spec2();
     EEVuAbsSharedTests();
     EEVuItofMacroTests();
+    EEVuFtoiMacroTests();
     EEIrCop1BranchTests();
     EEHotLoadBenchmarkTests();
     EEIrScalarStoreTests();
@@ -11969,6 +11990,8 @@ extern "C" __attribute__((visibility("default"))) int EmuCoreXRunJitOracle(const
         VUTests();
     else if (std::strcmp(suite, "vu-itof-codegen") == 0)
         VUTests(true);
+    else if (std::strcmp(suite, "vu-ftoi") == 0)
+        VUTests(false, true);
     else if (std::strcmp(suite, "sqrt-flags") == 0)
         SqrtFlagTests();
     else if (std::strcmp(suite, "div-edges") == 0)
@@ -11985,6 +12008,8 @@ extern "C" __attribute__((visibility("default"))) int EmuCoreXRunJitOracle(const
         EETests(false, false, true);
     else if (std::strcmp(suite, "ee-vu-itof") == 0)
         EETests(false, false, false, true);
+    else if (std::strcmp(suite, "ee-vu-ftoi") == 0)
+        EETests(false, false, false, false, false, false, true);
     else if (std::strcmp(suite, "ee-bc1") == 0)
         EETests(false, false, false, false, true);
     else if (std::strcmp(suite, "ee-hot-loads") == 0)

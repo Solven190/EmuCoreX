@@ -150,6 +150,22 @@ namespace Arm64Ir
 		LowerOutput* out, std::string* error,
 		BoundVfConvertLayout layout = BoundVfConvertLayout::GuestLanes);
 
+	// Strict raw float-to-signed-integer VF conversion. The caller binds a full
+	// V4F32 source before the masked integer-bit destination; MicroVuPartial
+	// maps a one-lane source to the allocator's packed S0 destination.
+	struct BoundVfToIntPlan
+	{
+		u8 src_vf = 0;
+		u8 dst_vf = 0;
+		u8 lane_mask = 0;
+		u8 fractional_bits = 0;
+		bool delay_slot = false;
+	};
+	bool PlanBoundVfToInt(const ir::Function& fn, BoundVfToIntPlan* plan, std::string* error);
+	bool LowerBoundVfToIntPlan(const BoundVfToIntPlan& plan, u32 vf_source, u32 vf_dst,
+		LowerOutput* out, std::string* error,
+		BoundVfConvertLayout layout = BoundVfConvertLayout::GuestLanes);
+
 	// Inline-mode exits are emitted through these hooks so the integration can
 	// reuse the legacy block-tail machinery (pc store, event test, linking).
 	struct LowerHooks
