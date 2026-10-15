@@ -3895,12 +3895,53 @@ static void mVU_ABS_direct_emit_oaknut(mP)
 	mVU.regAlloc->clearNeededXmmId(Fs);
 }
 
+static bool mVUTrySharedABS(mV)
+{
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU) || !mVUSharedIrEnabled(mVU.index)) return false;
+	static thread_local ir::Function fn;
+	if (fn.blocks.empty())
+	{
+		ir::Builder init(fn);
+		init.CreateBlock(0);
+		fn.blocks[0].insts.reserve(4);
+		fn.value_types.reserve(3);
+	}
+	fn.blocks[0].insts.clear();
+	fn.blocks[0].guest_start = mVU.prog.IRinfo.curPC * sizeof(u32);
+	fn.value_types.resize(1);
+	fn.next_value = 1;
+	ir::Builder b(fn);
+	b.SetBlock(1);
+	b.SetDelaySlot(mVUinfo.isBdelay);
+	const u32 source = b.Emit(ir::Op::ReadVf, ir::Type::V4F32, {}, _Fs_);
+	const u32 absolute = b.Emit1(ir::Op::VAbs, ir::Type::V4F32, source);
+	b.Emit1(ir::Op::WriteVfMasked, ir::Type::Void, absolute, _Ft_, _X_Y_Z_W);
+	b.Return();
+	Arm64Ir::BoundVfUnaryPlan plan;
+	std::string error;
+	if (!Arm64Ir::PlanBoundVfUnary(fn, &plan, &error)) return false;
+	// Bind the full raw source before requesting the masked destination. The
+	// lowerer handles MicroVuPartial's single-lane S0 packing from this full Q.
+	const int source_reg = mVU.regAlloc->allocRegId(plan.src_vf);
+	const int destination_reg = mVU.regAlloc->allocRegId(-1, plan.dst_vf, plan.lane_mask);
+	Arm64Ir::LowerOutput out;
+	const bool lowered = Arm64Ir::LowerBoundVfUnaryPlan(plan, source_reg, destination_reg,
+		&out, &error, Arm64Ir::BoundVfUnaryLayout::MicroVuPartial);
+	pxAssertRel(lowered, error.c_str());
+	mVU.regAlloc->clearNeededXmmId(destination_reg);
+	mVU.regAlloc->clearNeededXmmId(source_reg);
+	mVURecordSharedIr(mVU.index, out.host_size);
+	mVURecordSharedAbs(mVU.index, out.host_size);
+	return true;
+}
+
 static void mVU_ABS_emit(mP)
 {
 	pass1 { mVUanalyzeFMAC2(mVU, _Fs_, _Ft_); }
 	pass2
 	{
-		mVU_ABS_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedABS(mVU))
+			mVU_ABS_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3
 	{

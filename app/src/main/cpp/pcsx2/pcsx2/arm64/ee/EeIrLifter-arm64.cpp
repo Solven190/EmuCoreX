@@ -549,10 +549,18 @@ namespace EeIr
 				case 0x0F: // lui
 					WriteGpr(rt, Const(uimm << 16));
 					return true;
-				case 0x11: // COP1 raw register transfers only
+				case 0x11: // COP1 raw transfers and MOV.S
 				{
 					const u32 format = rs;
 					const u32 fs = Rd(word);
+					if (format == 0x10)
+					{
+						if (Funct(word) != 0x06)
+							return Fail(error, "unsupported COP1 S-format operation", pc);
+						const u32 bits = m_b.Emit(ir::Op::ReadFprBits, ir::Type::I32, {}, fs);
+						m_b.Emit1(ir::Op::WriteFprBits, ir::Type::Void, bits, Sa(word));
+						return true;
+					}
 					if ((format != 0x00 && format != 0x02 && format != 0x04 && format != 0x06) ||
 						(word & 0x7ffu) != 0)
 						return Fail(error, "unsupported or malformed COP1 transfer", pc);

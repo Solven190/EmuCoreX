@@ -107,6 +107,28 @@ namespace Arm64Ir
 		LowerOutput* out, std::string* error,
 		BoundVfShuffleLayout layout = BoundVfShuffleLayout::GuestLanes);
 
+	// Narrow raw-bit VU VABS slice. The caller binds the full raw VF source
+	// before the writable destination; VAbs clears selected sign bits. In
+	// MicroVuPartial layout a single selected source lane is packed to S0 by
+	// the lowerer, matching allocRegId(-1, vf, mask).
+	struct BoundVfUnaryPlan
+	{
+		u8 src_vf = 0;
+		u8 dst_vf = 0;
+		u8 lane_mask = 0;
+		bool delay_slot = false;
+	};
+	enum class BoundVfUnaryLayout : u8
+	{
+		GuestLanes,
+		// Mirrors allocRegId(-1, vf, mask). Only selected guest lanes are consumed.
+		MicroVuPartial,
+	};
+	bool PlanBoundVfUnary(const ir::Function& fn, BoundVfUnaryPlan* plan, std::string* error);
+	bool LowerBoundVfUnaryPlan(const BoundVfUnaryPlan& plan, u32 vf_source, u32 vf_dst,
+		LowerOutput* out, std::string* error,
+		BoundVfUnaryLayout layout = BoundVfUnaryLayout::GuestLanes);
+
 	// Inline-mode exits are emitted through these hooks so the integration can
 	// reuse the legacy block-tail machinery (pc store, event test, linking).
 	struct LowerHooks

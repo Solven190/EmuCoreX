@@ -81,6 +81,9 @@ static u64 s_cop1_mfc1_compiles = 0;
 static u64 s_cop1_mtc1_compiles = 0;
 static u64 s_cop1_cfc1_compiles = 0;
 static u64 s_cop1_ctc1_compiles = 0;
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+static u64 s_cop1_mov_s_compiles = 0;
+#endif
 
 static BASEBLOCK* recRAM = nullptr; // and the ptr to the blocks here
 static BASEBLOCK* recROM = nullptr; // and here
@@ -2450,6 +2453,7 @@ extern "C" void EmuCoreXOracleGetEeIrCop1Counts(u64* mfc1, u64* mtc1, u64* cfc1,
 	if (cfc1) *cfc1 = s_cop1_cfc1_compiles;
 	if (ctc1) *ctc1 = s_cop1_ctc1_compiles;
 }
+extern "C" u64 EmuCoreXOracleGetEeIrMovCounts() { return s_cop1_mov_s_compiles; }
 #else
 extern "C" void EmuCoreXOracleSetEeIrMode(int mode) { (void)mode; }
 extern "C" void EmuCoreXOracleGetEeIrCop1Counts(u64* mfc1, u64* mtc1, u64* cfc1, u64* ctc1)
@@ -2459,6 +2463,7 @@ extern "C" void EmuCoreXOracleGetEeIrCop1Counts(u64* mfc1, u64* mtc1, u64* cfc1,
 	if (cfc1) *cfc1 = 0;
 	if (ctc1) *ctc1 = 0;
 }
+extern "C" u64 EmuCoreXOracleGetEeIrMovCounts() { return 0; }
 #endif
 
 static bool EeIrEnabled()
@@ -2698,6 +2703,10 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 				case 0x04: ++s_cop1_mtc1_compiles; break;
 				case 0x06: ++s_cop1_ctc1_compiles; break;
 			}
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+			if (((word >> 21) & 0x1f) == 0x10 && (word & 0x3f) == 0x06)
+				++s_cop1_mov_s_compiles;
+#endif
 		}
 		if (op == 0x1c)
 		{
@@ -2762,8 +2771,13 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	if ((compiled_blocks <= 1024 && (compiled_blocks & (compiled_blocks - 1)) == 0) ||
 		(compiled_blocks % 4096) == 0)
 	{
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+		const unsigned long long cop1_mov_s_compiles = static_cast<unsigned long long>(s_cop1_mov_s_compiles);
+#else
+		constexpr unsigned long long cop1_mov_s_compiles = 0;
+#endif
 		__android_log_print(ANDROID_LOG_INFO, "EEIR",
-			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu fused_multiply_pairs=%llu merge_memory=%llu direct_reads=%u direct_read_operations=%llu packed_narrow=%llu packed_saturating=%llu packed_permutations=%llu hilo_bank1=%llu multiply_accumulate=%llu plzcw=%llu full_hilo_reads=%llu full_hilo_writes=%llu widening_products=%llu variable_shifts=%llu cop1_mfc1=%llu cop1_mtc1=%llu cop1_cfc1=%llu cop1_ctc1=%llu",
+			"compiled_blocks=%llu guest_instructions=%llu native_bytes=%llu last_pc=%08x regalloc=%u optimize=%u registers=%u spills=%u frame=%u native_div=%u division_pairs=%llu quad=%u quad_operations=%llu direct_quad=%llu spill_reuse=%u slots=%u vector_alu=%llu quad_forward=%u vector_regalloc=%u vector_registers=%llu vector_homes=%llu direct_vectors=%u direct_vector_quad=%llu packed_word_shifts=%llu vector_compare_minmax=%llu vector_shuffles=%llu fused_multiply_pairs=%llu merge_memory=%llu direct_reads=%u direct_read_operations=%llu packed_narrow=%llu packed_saturating=%llu packed_permutations=%llu hilo_bank1=%llu multiply_accumulate=%llu plzcw=%llu full_hilo_reads=%llu full_hilo_writes=%llu widening_products=%llu variable_shifts=%llu cop1_mfc1=%llu cop1_mtc1=%llu cop1_cfc1=%llu cop1_ctc1=%llu cop1_mov_s=%llu",
 			static_cast<unsigned long long>(compiled_blocks),
 			static_cast<unsigned long long>(guest_instructions),
 			static_cast<unsigned long long>(native_bytes), startpc, options.allocate_registers ? 1u : 0u,
@@ -2785,7 +2799,8 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 			static_cast<unsigned long long>(full_hilo_reads), static_cast<unsigned long long>(full_hilo_writes),
 			static_cast<unsigned long long>(widening_products), static_cast<unsigned long long>(variable_shifts),
 			static_cast<unsigned long long>(s_cop1_mfc1_compiles), static_cast<unsigned long long>(s_cop1_mtc1_compiles),
-			static_cast<unsigned long long>(s_cop1_cfc1_compiles), static_cast<unsigned long long>(s_cop1_ctc1_compiles));
+			static_cast<unsigned long long>(s_cop1_cfc1_compiles), static_cast<unsigned long long>(s_cop1_ctc1_compiles),
+			cop1_mov_s_compiles);
 	}
 #endif
 

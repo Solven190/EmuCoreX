@@ -2151,6 +2151,8 @@ void VUSharedTransferBenchmarks()
     EmuCoreXOracleSetVUIR(1, -1);
 }
 
+#include "jit_oracle_vu_abs.inl"
+
 void VUTests()
 {
     struct VUOverrideReset
@@ -2176,6 +2178,7 @@ void VUTests()
     VUSharedIrProductionTests();
     VUSharedImmediateTests();
     VUBoundVfShuffleTests();
+    VUBoundVfUnaryTests();
     VUBoundVfViTransferTests();
     VUBoundViVfTransferTests();
     VUSharedMtirProductionTests();
@@ -2677,6 +2680,7 @@ extern "C" void EmuCoreXOracleEESteps(u32 steps);
 extern "C" int EmuCoreXOracleEEIRStep(void (*fn)());
 extern "C" void EmuCoreXOracleSetEeIrMode(int mode);
 extern "C" void EmuCoreXOracleGetEeIrCop1Counts(u64* mfc1, u64* mtc1, u64* cfc1, u64* ctc1);
+extern "C" u64 EmuCoreXOracleGetEeIrMovCounts();
 
 
 constexpr u32 MipsR(u32 rs, u32 rt, u32 rd, u32 sa, u32 fn)
@@ -2848,11 +2852,14 @@ void CompareIOP(const IOPSnapshot& expected, const IOPSnapshot& actual, const ch
 
 EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlock = false,
     const u64* initial_gpr = nullptr, const u32* initial_cp0 = nullptr,
-    const GPR_reg* initial_gpr_full = nullptr, const u32* initial_fpr = nullptr, const u32* initial_fcr = nullptr)
+    const GPR_reg* initial_gpr_full = nullptr, const u32* initial_fpr = nullptr, const u32* initial_fcr = nullptr,
+    const u32* initial_vu0_vf = nullptr)
 {
     std::memset(&cpuRegs, 0, sizeof(cpuRegs));
     std::memset(&fpuRegs, 0, sizeof(fpuRegs));
     std::memset(&VU0.VF, 0, sizeof(VU0.VF));
+    if (initial_vu0_vf)
+        std::memcpy(&VU0.VF, initial_vu0_vf, sizeof(VU0.VF));
     std::memset(&VU0.VI, 0, sizeof(VU0.VI));
     std::memset(&VU0.ACC, 0, sizeof(VU0.ACC));
     VU0.q.UL = VU0.p.UL = 0;
@@ -2920,11 +2927,11 @@ EESnapshot RunEEProgram(bool jit, const std::vector<u32>& program, bool multiBlo
 
 EESnapshot RunEEProgramWithIrMode(int mode, const std::vector<u32>& program,
     const GPR_reg* initial_gpr, const u32* initial_cp0, const u32* initial_fpr, const u32* initial_fcr,
-    bool multiBlock = false)
+    bool multiBlock = false, const u32* initial_vu0_vf = nullptr)
 {
     EmuCoreXOracleSetEeIrMode(mode);
     const EESnapshot result = RunEEProgram(true, program, multiBlock, nullptr, initial_cp0,
-        initial_gpr, initial_fpr, initial_fcr);
+        initial_gpr, initial_fpr, initial_fcr, initial_vu0_vf);
     EmuCoreXOracleSetEeIrMode(-1);
     return result;
 }
@@ -3916,6 +3923,204 @@ void EECoverageCop2Spec2()
     }
 }
 
+void EEVuAbsSharedTests()
+{
+    const auto qmtc2 = [](u32 rt, u32 vd) {
+        return (0x12u << 26) | (5u << 21) | (rt << 16) | (vd << 11);
+    };
+    const auto qmfc2 = [](u32 rt, u32 vd) {
+        return (0x12u << 26) | (1u << 21) | (rt << 16) | (vd << 11);
+    };
+    const auto vabs = [](u32 mask, u32 fs, u32 ft) {
+        return (0x12u << 26) | ((0x10u | mask) << 21) | (ft << 16) |
+            (fs << 11) | (7u << 6) | 0x3du;
+    };
+    const auto capture_vu_flags = [] {
+        return std::array<u32, 3>{VU0.macflag, VU0.statusflag, VU0.clipflag};
+    };
+    const auto check_vu_flags = [](const std::array<u32, 3>& interp,
+        const std::array<u32, 3>& legacy, const std::array<u32, 3>& shared, const char* name) {
+        Check(interp == legacy && legacy == shared && shared == std::array<u32, 3>{0, 0, 0}, name);
+    };
+
+    constexpr std::array<u32, 4> source = {
+        0xffc12345u, 0x80000000u, 0x7f800001u, 0x3f123456u};
+    constexpr std::array<u32, 4> initial_dest = {
+        0xdeadbeefu, 0xcafebabeu, 0x81234567u, 0x7fc54321u};
+    std::array<u32, 128> initial_vu0_vf{};
+    initial_vu0_vf[3] = 0x3f800000u;
+    std::array<GPR_reg, 32> initial_gpr{};
+    initial_gpr[8].UD[0] = static_cast<u64>(source[0]) | (static_cast<u64>(source[1]) << 32);
+    initial_gpr[8].UD[1] = static_cast<u64>(source[2]) | (static_cast<u64>(source[3]) << 32);
+    initial_gpr[10].UD[0] = static_cast<u64>(initial_dest[0]) | (static_cast<u64>(initial_dest[1]) << 32);
+    initial_gpr[10].UD[1] = static_cast<u64>(initial_dest[2]) | (static_cast<u64>(initial_dest[3]) << 32);
+    const auto check_gprs = [&](const EESnapshot& interp, const EESnapshot& legacy, const EESnapshot& shared,
+        u64 output_low, u64 output_high, const char* name) {
+        bool same = true;
+        for (u32 reg = 0; reg < 32; ++reg)
+        {
+            const u64 expected_low = reg == 18 ? output_low : initial_gpr[reg].UD[0];
+            const u64 expected_high = reg == 18 ? output_high : initial_gpr[reg].UD[1];
+            same &= interp.gpr[reg] == expected_low && legacy.gpr[reg] == expected_low && shared.gpr[reg] == expected_low;
+            same &= interp.gpr_upper[reg] == expected_high && legacy.gpr_upper[reg] == expected_high && shared.gpr_upper[reg] == expected_high;
+        }
+        Check(same, name);
+    };
+
+    for (u32 mask = 1; mask < 16; ++mask)
+    {
+        const std::vector<u32> code = {
+            qmtc2(8, 7), qmtc2(10, 9),
+            vabs(mask, 7, 9), qmfc2(18, 9)};
+
+        const u64 before_legacy = EmuCoreXOracleVUIRAbsInstructions(0);
+        EmuCoreXOracleSetVUIR(0, 0);
+        const EESnapshot legacy = RunEEProgramWithIrMode(0, code, initial_gpr.data(), nullptr, nullptr, nullptr,
+            false, initial_vu0_vf.data());
+        const auto legacy_flags = capture_vu_flags();
+        Check(EmuCoreXOracleVUIRAbsInstructions(0) == before_legacy,
+            "EE macro VABS legacy path does not increment shared counter");
+
+        const u64 before_shared = EmuCoreXOracleVUIRAbsInstructions(0);
+        EmuCoreXOracleSetVUIR(0, 1);
+        const EESnapshot shared = RunEEProgramWithIrMode(0, code, initial_gpr.data(), nullptr, nullptr, nullptr,
+            false, initial_vu0_vf.data());
+        const auto shared_flags = capture_vu_flags();
+        Check(EmuCoreXOracleVUIRAbsInstructions(0) == before_shared + 1,
+            "EE macro VABS routes through shared VU IR exactly once");
+        const EESnapshot interp = RunEEProgram(false, code, false, nullptr, nullptr, initial_gpr.data(),
+            nullptr, nullptr, initial_vu0_vf.data());
+        const auto interp_flags = capture_vu_flags();
+        CompareEE(interp, legacy, "EE COP2 macro VABS interpreter/legacy parity");
+        CompareEE(legacy, shared, "EE COP2 macro VABS legacy/shared parity");
+
+        bool expected = true;
+        u32 expected_lanes[4]{};
+        for (u32 lane = 0; lane < 4; ++lane)
+        {
+            expected_lanes[lane] = (mask & (8u >> lane)) ? (source[lane] & 0x7fffffffu) : initial_dest[lane];
+            expected &= interp.vu0_vf[9 * 4 + lane] == expected_lanes[lane];
+            expected &= legacy.vu0_vf[9 * 4 + lane] == expected_lanes[lane];
+            expected &= shared.vu0_vf[9 * 4 + lane] == expected_lanes[lane];
+        }
+        const u64 expected_low = static_cast<u64>(expected_lanes[0]) | (static_cast<u64>(expected_lanes[1]) << 32);
+        const u64 expected_high = static_cast<u64>(expected_lanes[2]) | (static_cast<u64>(expected_lanes[3]) << 32);
+        expected &= interp.gpr[18] == expected_low && legacy.gpr[18] == expected_low && shared.gpr[18] == expected_low;
+        expected &= interp.gpr_upper[18] == expected_high && legacy.gpr_upper[18] == expected_high && shared.gpr_upper[18] == expected_high;
+        Check(expected, "EE COP2 macro VABS matches independent raw-bit VF and QMFC2 expectation");
+        check_gprs(interp, legacy, shared, expected_low, expected_high,
+            "EE COP2 macro VABS preserves all GPRs except the observed QMFC2 destination");
+        Check(legacy.cycle == shared.cycle,
+            "EE COP2 macro VABS preserves exact legacy/shared cycle count");
+        check_vu_flags(interp_flags, legacy_flags, shared_flags,
+            "EE COP2 macro VABS preserves zero MAC/STATUS/CLIP state");
+    }
+
+    // Source/destination aliasing exercises the macro allocator's source-first binding.
+    for (u32 mask : {15u, 4u})
+    {
+        const std::vector<u32> code = {qmtc2(8, 7), vabs(mask, 7, 7), qmfc2(18, 7)};
+        EmuCoreXOracleSetVUIR(0, 0);
+        const EESnapshot legacy = RunEEProgramWithIrMode(0, code, initial_gpr.data(), nullptr, nullptr, nullptr,
+            false, initial_vu0_vf.data());
+        const auto legacy_flags = capture_vu_flags();
+        const u64 before = EmuCoreXOracleVUIRAbsInstructions(0);
+        EmuCoreXOracleSetVUIR(0, 1);
+        const EESnapshot shared = RunEEProgramWithIrMode(0, code, initial_gpr.data(), nullptr, nullptr, nullptr,
+            false, initial_vu0_vf.data());
+        const auto shared_flags = capture_vu_flags();
+        const EESnapshot interp = RunEEProgram(false, code, false, nullptr, nullptr, initial_gpr.data(),
+            nullptr, nullptr, initial_vu0_vf.data());
+        const auto interp_flags = capture_vu_flags();
+        CompareEE(interp, legacy, "EE COP2 macro VABS alias interpreter/legacy parity");
+        CompareEE(legacy, shared, "EE COP2 macro VABS alias matches legacy state");
+        Check(EmuCoreXOracleVUIRAbsInstructions(0) == before + 1,
+            "EE COP2 macro VABS alias routes through shared IR");
+        bool expected = true;
+        u32 expected_lanes[4]{};
+        for (u32 lane = 0; lane < 4; ++lane)
+        {
+            expected_lanes[lane] = (mask & (8u >> lane)) ? (source[lane] & 0x7fffffffu) : source[lane];
+            expected &= interp.vu0_vf[7 * 4 + lane] == expected_lanes[lane] &&
+                legacy.vu0_vf[7 * 4 + lane] == expected_lanes[lane] &&
+                shared.vu0_vf[7 * 4 + lane] == expected_lanes[lane];
+        }
+        const u64 expected_low = static_cast<u64>(expected_lanes[0]) | (static_cast<u64>(expected_lanes[1]) << 32);
+        const u64 expected_high = static_cast<u64>(expected_lanes[2]) | (static_cast<u64>(expected_lanes[3]) << 32);
+        expected &= interp.gpr[18] == expected_low && legacy.gpr[18] == expected_low && shared.gpr[18] == expected_low;
+        expected &= interp.gpr_upper[18] == expected_high && legacy.gpr_upper[18] == expected_high && shared.gpr_upper[18] == expected_high;
+        Check(expected, "EE COP2 macro VABS alias matches independent raw-bit expectation");
+        check_gprs(interp, legacy, shared, expected_low, expected_high,
+            "EE COP2 macro VABS alias preserves all GPRs except QMFC2 destination");
+        Check(legacy.cycle == shared.cycle, "EE COP2 macro VABS alias preserves exact cycles");
+        check_vu_flags(interp_flags, legacy_flags, shared_flags,
+            "EE COP2 macro VABS alias preserves zero MAC/STATUS/CLIP state");
+    }
+
+    // VF0 source remains legal; VF0 destination and an empty mask are no-op/non-routed cases.
+    struct VabsBoundaryCase { u32 mask, fs, ft; bool should_route; };
+    for (const VabsBoundaryCase test : {
+        VabsBoundaryCase{15, 0, 9, true},
+        VabsBoundaryCase{15, 7, 0, false},
+        VabsBoundaryCase{0, 7, 9, false}})
+    {
+        const u32 mask = test.mask, fs = test.fs, ft = test.ft;
+        const std::vector<u32> code = {qmtc2(8, 7), qmtc2(10, 9),
+            vabs(mask, fs, ft), qmfc2(18, ft)};
+        EmuCoreXOracleSetVUIR(0, 0);
+        const EESnapshot legacy = RunEEProgramWithIrMode(0, code, initial_gpr.data(), nullptr, nullptr, nullptr,
+            false, initial_vu0_vf.data());
+        const auto legacy_flags = capture_vu_flags();
+        const EESnapshot interp = RunEEProgram(false, code, false, nullptr, nullptr, initial_gpr.data(),
+            nullptr, nullptr, initial_vu0_vf.data());
+        const auto interp_flags = capture_vu_flags();
+        const u64 before = EmuCoreXOracleVUIRAbsInstructions(0);
+        EmuCoreXOracleSetVUIR(0, 1);
+        const EESnapshot shared = RunEEProgramWithIrMode(0, code, initial_gpr.data(), nullptr, nullptr, nullptr,
+            false, initial_vu0_vf.data());
+        const auto shared_flags = capture_vu_flags();
+        CompareEE(interp, legacy, "EE COP2 macro VABS VF0/mask boundary interpreter/legacy parity");
+        CompareEE(legacy, shared, "EE COP2 macro VABS VF0/mask boundary state parity");
+        Check(EmuCoreXOracleVUIRAbsInstructions(0) == before + (test.should_route ? 1 : 0),
+            "EE COP2 macro VABS VF0/mask boundary routing counter");
+        Check(legacy.cycle == shared.cycle, "EE COP2 macro VABS VF0/mask boundary exact cycles");
+        check_vu_flags(interp_flags, legacy_flags, shared_flags,
+            "EE COP2 macro VABS VF0/mask boundary preserves zero MAC/STATUS/CLIP state");
+        std::array<u32, 4> expected_lanes{};
+        if (fs == 0)
+        {
+            std::copy(initial_vu0_vf.begin(), initial_vu0_vf.begin() + 4, expected_lanes.begin());
+            for (u32 lane = 0; lane < 4; ++lane)
+                Check(interp.vu0_vf[9 * 4 + lane] == expected_lanes[lane] &&
+                    legacy.vu0_vf[9 * 4 + lane] == expected_lanes[lane] &&
+                    shared.vu0_vf[9 * 4 + lane] == expected_lanes[lane],
+                    "EE COP2 macro VABS accepts VF0 with canonical (0,0,0,1) bits");
+        }
+        else if (ft == 0)
+        {
+            std::copy(initial_vu0_vf.begin(), initial_vu0_vf.begin() + 4, expected_lanes.begin());
+            for (u32 lane = 0; lane < 4; ++lane)
+                Check(interp.vu0_vf[lane] == expected_lanes[lane] && legacy.vu0_vf[lane] == expected_lanes[lane] &&
+                    shared.vu0_vf[lane] == expected_lanes[lane],
+                    "EE COP2 macro VABS VF0 destination remains architectural +1");
+        }
+        else
+        {
+            std::copy(initial_dest.begin(), initial_dest.end(), expected_lanes.begin());
+            for (u32 lane = 0; lane < 4; ++lane)
+                Check(interp.vu0_vf[9 * 4 + lane] == initial_dest[lane] &&
+                    legacy.vu0_vf[9 * 4 + lane] == initial_dest[lane] &&
+                    shared.vu0_vf[9 * 4 + lane] == initial_dest[lane],
+                    "EE COP2 macro VABS zero mask leaves destination unchanged");
+        }
+        const u64 expected_low = static_cast<u64>(expected_lanes[0]) | (static_cast<u64>(expected_lanes[1]) << 32);
+        const u64 expected_high = static_cast<u64>(expected_lanes[2]) | (static_cast<u64>(expected_lanes[3]) << 32);
+        check_gprs(interp, legacy, shared, expected_low, expected_high,
+            "EE COP2 macro VABS boundary preserves all GPRs except QMFC2 destination");
+    }
+    EmuCoreXOracleSetVUIR(0, -1);
+}
+
 void EECoverageMmi()
 {
     constexpr u32 MMI0 = 8, MMI2 = 9, MMI1 = 40, MMI3 = 41;
@@ -4820,6 +5025,422 @@ void EEIrCop1TransferTests()
     }
 }
 
+
+void EEIrCop1MoveTests()
+{
+    constexpr u32 raw_bits[] = {
+        0x00000000u, // +0
+        0x80000000u, // -0
+        0x3f800000u, // finite
+        0x7f800000u, // +Inf
+        0xff800000u, // -Inf
+        0x7fc12345u, // quiet NaN payload
+        0x7f812345u, // signaling NaN payload
+        0x80000001u, // negative denormal
+    };
+    std::array<GPR_reg, 32> initial_gpr{};
+    std::array<u32, 32> initial_fpr{}, initial_fcr{};
+    std::array<u32, 32> cop1_cp0{};
+    cop1_cp0[12] = 0x20000000u;
+    for (u32 reg = 0; reg < 32; ++reg)
+    {
+        initial_gpr[reg].UD[0] = 0x1234567800000000ull | (0x76543210u + reg);
+        initial_gpr[reg].UD[1] = 0xabcdef0100000000ull | (0x89abcdefu + reg);
+        initial_fcr[reg] = 0x81004008u ^ (reg * 0x00010101u);
+    }
+
+    bool direct_all = true;
+    constexpr u32 representative_fds[] = {0, 1, 15, 31};
+    for (u32 pattern = 0; pattern < sizeof(raw_bits) / sizeof(raw_bits[0]); ++pattern)
+    {
+        for (u32 fs = 0; fs < 32; ++fs)
+        {
+            // Keep every non-source register distinct, then install this exact
+            // test bit pattern in fs (no XOR that could erase zero/Inf/NaN class).
+            for (u32 reg = 0; reg < 32; ++reg)
+                initial_fpr[reg] = 0x12345678u ^ (reg * 0x01020408u);
+            initial_fpr[fs] = raw_bits[pattern];
+
+            const u32 ft = (pattern + fs) % 3 == 0 ? 0u :
+                (pattern + fs) % 3 == 1 ? 31u : ((pattern * 7 + fs * 11) & 31);
+            for (u32 fd_slot = 0; fd_slot <= sizeof(representative_fds) / sizeof(representative_fds[0]); ++fd_slot)
+            {
+                const u32 fd = fd_slot == sizeof(representative_fds) / sizeof(representative_fds[0]) ?
+                    fs : representative_fds[fd_slot];
+                const std::vector<u32> code = {MipsCop1(16, ft, fs, fd, 0x06)};
+
+                const EESnapshot interp = RunEEProgram(false, code, false, nullptr, cop1_cp0.data(),
+                    initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+                const EESnapshot legacy = RunEEProgramWithIrMode(0, code, initial_gpr.data(), cop1_cp0.data(),
+                    initial_fpr.data(), initial_fcr.data());
+                const EESnapshot shared = RunEEProgramWithIrMode(1, code, initial_gpr.data(), cop1_cp0.data(),
+                    initial_fpr.data(), initial_fcr.data());
+                EESnapshot direct{};
+                const bool direct_ok = RunEEIrCop1Direct(code, initial_gpr.data(), initial_fpr.data(),
+                    initial_fcr.data(), direct);
+                direct_all &= direct_ok;
+
+                CompareEE(interp, legacy, "COP1 MOV.S interpreter/legacy raw state");
+                CompareEE(interp, shared, "COP1 MOV.S interpreter/shared production state");
+                if (direct_ok)
+                    CompareEE(interp, direct, "COP1 MOV.S interpreter/direct IR raw state");
+                Check(legacy.cycle == shared.cycle,
+                    "COP1 MOV.S legacy/shared production exact cycle count");
+
+                bool exact_fprs = true;
+                for (u32 reg = 0; reg < 32; ++reg)
+                    exact_fprs &= interp.fpr[reg] == (reg == fd ? raw_bits[pattern] : initial_fpr[reg]);
+                Check(exact_fprs && std::memcmp(interp.fcr, initial_fcr.data(), sizeof(interp.fcr)) == 0,
+                    "COP1 MOV.S changes only destination raw FPR and preserves every FCR word");
+            }
+        }
+    }
+    Check(direct_all,
+        "COP1 MOV.S 8 exact bit patterns x all 32 sources x 4 representative destinations plus aliases lift directly");
+
+    bool rejected_non_move = true;
+    for (u32 funct = 0; funct < 64; ++funct)
+    {
+        if (funct == 0x06)
+            continue;
+        const u32 word = MipsCop1(16, 9, 8, 10, funct);
+        ir::Function fn;
+        u32 end = 0;
+        std::string error;
+        rejected_non_move &= !EeIr::LiftBlock(&word, {EE_TEST_PC, 1}, fn, &end, &error);
+    }
+    for (const u32 word : {
+            MipsCop1(17, 0, 8, 10, 0x06), // unsupported COP1 format 0x11
+            MipsCop1(20, 0, 8, 10, 0x20), // CVT.S.W
+            MipsCop1(8, 1, 0, 0, 0)})     // BC1T
+    {
+        ir::Function fn;
+        u32 end = 0;
+        std::string error;
+        rejected_non_move &= !EeIr::LiftBlock(&word, {EE_TEST_PC, 1}, fn, &end, &error);
+    }
+    Check(rejected_non_move,
+        "COP1 MOV.S admits only function 6 in S format; all other functions, W format, and BC1 reject");
+
+    // MOV.S must behave as a branch delay-slot instruction on both routes.
+    const u32 delay_bits = 0x7fc54321u;
+    initial_fpr[5] = delay_bits;
+    const std::vector<u32> taken_delay = {MipsI(4, 0, 0, 1), MipsCop1(16, 29, 5, 6, 0x06)};
+    const EESnapshot taken_interp = RunEEProgram(false, taken_delay, false, nullptr, cop1_cp0.data(),
+        initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+    EESnapshot taken_direct{};
+    const bool taken_lifted = RunEEIrCop1Direct(taken_delay, initial_gpr.data(), initial_fpr.data(), initial_fcr.data(), taken_direct);
+    if (taken_lifted)
+        CompareEE(taken_interp, taken_direct, "COP1 MOV.S taken branch delay slot interpreter/direct IR");
+    Check(taken_lifted && taken_interp.fpr[6] == delay_bits,
+        "COP1 MOV.S executes in a taken branch delay slot");
+
+    auto annul_gpr = initial_gpr;
+    annul_gpr[8].UD[0] = 1;
+    const u32 preserved = 0x76543210u;
+    initial_fpr[6] = preserved;
+    const std::vector<u32> annul_delay = {MipsI(0x14, 8, 0, 1), MipsCop1(16, 3, 5, 6, 0x06)};
+    const EESnapshot annul_interp = RunEEProgram(false, annul_delay, false, nullptr, cop1_cp0.data(),
+        annul_gpr.data(), initial_fpr.data(), initial_fcr.data());
+    EESnapshot annul_direct{};
+    const bool annul_lifted = RunEEIrCop1Direct(annul_delay, annul_gpr.data(), initial_fpr.data(),
+        initial_fcr.data(), annul_direct);
+    if (annul_lifted)
+        CompareEE(annul_interp, annul_direct, "COP1 MOV.S untaken likely delay slot interpreter/direct IR");
+    Check(annul_lifted && annul_interp.fpr[6] == preserved,
+        "COP1 MOV.S is annulled in an untaken likely branch delay slot");
+
+    const std::vector<u32> untaken_delay = {MipsI(5, 0, 0, 1), MipsCop1(16, 14, 5, 6, 0x06)};
+    const EESnapshot untaken_interp = RunEEProgram(false, untaken_delay, false, nullptr, cop1_cp0.data(),
+        initial_gpr.data(), initial_fpr.data(), initial_fcr.data());
+    EESnapshot untaken_direct{};
+    const bool untaken_lifted = RunEEIrCop1Direct(untaken_delay, initial_gpr.data(), initial_fpr.data(),
+        initial_fcr.data(), untaken_direct);
+    if (untaken_lifted)
+        CompareEE(untaken_interp, untaken_direct, "COP1 MOV.S untaken normal branch delay slot interpreter/direct IR");
+    Check(untaken_lifted && untaken_interp.fpr[6] == delay_bits,
+        "COP1 MOV.S still executes in an untaken normal branch delay slot");
+
+    auto check_move_branch_production = [&](const char* name, const std::vector<u32>& code,
+        const GPR_reg* gpr, u32 expected_destination) {
+        const EESnapshot interp = RunEEProgram(false, code, false, nullptr, cop1_cp0.data(),
+            gpr, initial_fpr.data(), initial_fcr.data());
+        const u64 before_mov = EmuCoreXOracleGetEeIrMovCounts();
+        const EESnapshot legacy = RunEEProgramWithIrMode(0, code, gpr, cop1_cp0.data(),
+            initial_fpr.data(), initial_fcr.data());
+        const u64 after_legacy_mov = EmuCoreXOracleGetEeIrMovCounts();
+        const EESnapshot shared = RunEEProgramWithIrMode(1, code, gpr, cop1_cp0.data(),
+            initial_fpr.data(), initial_fcr.data());
+        const u64 after_shared_mov = EmuCoreXOracleGetEeIrMovCounts();
+        CompareEE(interp, legacy, name);
+        CompareEE(interp, shared, name);
+        Check(legacy.cycle == shared.cycle, "COP1 MOV.S branch legacy/shared exact cycles");
+        Check(interp.fpr[6] == expected_destination,
+            "COP1 MOV.S branch production destination bits match executed or annulled slot");
+        Check(after_legacy_mov == before_mov,
+            "COP1 MOV.S branch legacy production route has no compile hits");
+        // A likely branch still compiles its delay-slot word even when the
+        // runtime annuls that instruction; this counter records block admission.
+        Check(after_shared_mov == after_legacy_mov + 1,
+            "COP1 MOV.S branch shared route compiles its accepted delay-slot word once");
+    };
+    check_move_branch_production("COP1 MOV.S taken branch delay production",
+        taken_delay, initial_gpr.data(), delay_bits);
+    check_move_branch_production("COP1 MOV.S untaken normal branch delay production",
+        untaken_delay, initial_gpr.data(), delay_bits);
+    check_move_branch_production("COP1 MOV.S untaken likely branch annul production",
+        annul_delay, annul_gpr.data(), preserved);
+
+    // Cross a real unsupported ADD.S block, then admit MOV.S in the following
+    // block. This checks that fallback does not poison later IR eligibility.
+    {
+        auto boundary_gpr = initial_gpr;
+        auto boundary_fpr = initial_fpr;
+        boundary_gpr[8].UD[0] = (boundary_gpr[8].UD[0] & 0xffffffff00000000ull) | 0x3f800000u;
+        boundary_gpr[10].UD[0] = 0;
+        boundary_fpr[1] = 0xdeadbeefu;
+        boundary_fpr[2] = 0x40000000u;
+        boundary_fpr[3] = 0x7fc12345u;
+        boundary_fpr[4] = 0x12345678u;
+        const std::vector<u32> code = {
+            MipsCop1(4, 8, 1, 0, 0),             // block 1: shared MTC1 sets f1 = 1.0
+            MipsCop1(6, 10, 31, 0, 0),           // shared CTC1 keeps setup deterministic
+            MipsI(4, 0, 0, 2), 0,                // branch to block 2
+            0,                                    // skipped word
+            MipsCop1(16, 1, 2, 3, 0),            // block 2: legacy ADD.S f3 = f1 + f2
+            MipsI(4, 0, 0, 2), 0,                // branch to block 3
+            0,                                    // skipped word
+            MipsCop1(16, 31, 3, 4, 0x06),        // block 3: shared MOV.S f4 = f3
+            MipsCop1(0, 9, 4, 0, 0)};             // shared MFC1 observes f4
+
+        const EESnapshot interp = RunEEProgram(false, code, true, nullptr, cop1_cp0.data(),
+            boundary_gpr.data(), boundary_fpr.data(), initial_fcr.data());
+        const u64 before_mov = EmuCoreXOracleGetEeIrMovCounts();
+        const EESnapshot legacy = RunEEProgramWithIrMode(0, code, boundary_gpr.data(), cop1_cp0.data(),
+            boundary_fpr.data(), initial_fcr.data(), true);
+        const u64 after_legacy_mov = EmuCoreXOracleGetEeIrMovCounts();
+        const EESnapshot shared = RunEEProgramWithIrMode(1, code, boundary_gpr.data(), cop1_cp0.data(),
+            boundary_fpr.data(), initial_fcr.data(), true);
+        const u64 after_shared_mov = EmuCoreXOracleGetEeIrMovCounts();
+        CompareEE(interp, legacy, "COP1 IR/legacy ADD.S/IR MOV.S boundary interpreter/legacy");
+        CompareEE(interp, shared, "COP1 IR/legacy ADD.S/IR MOV.S boundary interpreter/shared");
+        Check(shared.fpr[1] == 0x3f800000u && shared.fpr[3] == 0x40400000u &&
+                shared.fpr[4] == 0x40400000u && shared.gpr[9] == 0x0000000040400000ull,
+            "COP1 IR/legacy ADD.S/IR MOV.S boundary preserves the arithmetic result");
+        Check(after_legacy_mov == before_mov,
+            "COP1 ADD.S boundary legacy route has no MOV.S shared compile hits");
+        Check(after_shared_mov == after_legacy_mov + 1,
+            "COP1 ADD.S boundary shared route compiles the following MOV.S block once");
+    }
+
+    // A dedicated counter makes production admission observable without changing
+    // the existing four-argument transfer-counter ABI.
+    const std::vector<u32> production_code = {MipsCop1(16, 17, 6, 21, 0x06)};
+    const u64 before = EmuCoreXOracleGetEeIrMovCounts();
+    const EESnapshot production_legacy = RunEEProgramWithIrMode(0, production_code,
+        initial_gpr.data(), cop1_cp0.data(), initial_fpr.data(), initial_fcr.data());
+    const u64 after_legacy = EmuCoreXOracleGetEeIrMovCounts();
+    const EESnapshot production_shared = RunEEProgramWithIrMode(1, production_code,
+        initial_gpr.data(), cop1_cp0.data(), initial_fpr.data(), initial_fcr.data());
+    const u64 after_shared = EmuCoreXOracleGetEeIrMovCounts();
+    CompareEE(production_legacy, production_shared, "COP1 MOV.S production legacy/shared state");
+    Check(production_legacy.cycle == production_shared.cycle,
+        "COP1 MOV.S production legacy/shared exact cycle count");
+    Check(after_legacy == before, "COP1 MOV.S legacy production route has no shared compile hits");
+    Check(after_shared == after_legacy + 1,
+        "COP1 MOV.S opt-in production route increments its exact compile counter once");
+
+    // Keep a compact cold/hot comparison for the new unary slice. The mixed
+    // fixture moves bits through both existing transfer operations so its
+    // result is independently observable as an integer GPR value.
+    struct MovBenchmarkWorkload
+    {
+        const char* name;
+        std::vector<u32> code;
+        u32 moved_instructions;
+        bool mixed_transfer;
+    };
+    const std::array<MovBenchmarkWorkload, 2> workloads = {{
+        {"MOV.S-only", {MipsCop1(16, 0, 1, 2, 0x06), MipsCop1(16, 31, 2, 3, 0x06),
+            MipsCop1(16, 7, 3, 4, 0x06), MipsCop1(16, 13, 4, 5, 0x06)}, 4, false},
+        {"mixed-MTC1-MOV.S-MFC1", {MipsCop1(4, 8, 1, 0, 0), MipsCop1(16, 29, 1, 2, 0x06),
+            MipsCop1(16, 3, 2, 3, 0x06), MipsCop1(0, 9, 3, 0, 0)}, 2, true},
+    }};
+    constexpr u32 benchmark_bits = 0x7fc12345u;
+    for (const MovBenchmarkWorkload& workload : workloads)
+    {
+        auto bench_gpr = initial_gpr;
+        auto bench_fpr = initial_fpr;
+        auto bench_fcr = initial_fcr;
+        bench_fpr[1] = benchmark_bits;
+        bench_gpr[8].UD[0] = (bench_gpr[8].UD[0] & 0xffffffff00000000ull) | benchmark_bits;
+        const EESnapshot reference = RunEEProgram(false, workload.code, false, nullptr, cop1_cp0.data(),
+            bench_gpr.data(), bench_fpr.data(), bench_fcr.data());
+        const EESnapshot legacy_timing_reference = RunEEProgramWithIrMode(0, workload.code,
+            bench_gpr.data(), cop1_cp0.data(), bench_fpr.data(), bench_fcr.data());
+        constexpr u32 cold_samples = 7;
+        constexpr u32 hot_samples = 9;
+        constexpr u32 hot_repeats = 4096;
+        for (int mode : {0, 1})
+        {
+            std::vector<double> cold_us, hot_ns;
+            u32 cold_native_bytes = 0;
+            for (u32 sample = 0; sample < cold_samples; ++sample)
+            {
+                const u64 count_before = EmuCoreXOracleGetEeIrMovCounts();
+                const auto start = std::chrono::steady_clock::now();
+                const EESnapshot result = RunEEProgramWithIrMode(mode, workload.code, bench_gpr.data(),
+                    cop1_cp0.data(), bench_fpr.data(), bench_fcr.data());
+                const auto stop = std::chrono::steady_clock::now();
+                cold_us.push_back(std::chrono::duration<double, std::micro>(stop - start).count());
+                const u64 count_after = EmuCoreXOracleGetEeIrMovCounts();
+                CompareEE(reference, result, "COP1 MOV.S benchmark cold state");
+                Check(result.cycle == legacy_timing_reference.cycle,
+                    "COP1 MOV.S benchmark cold exact JIT cycles");
+                Check(count_after - count_before == (mode == 1 ? workload.moved_instructions : 0),
+                    "COP1 MOV.S benchmark cold route admission counter delta");
+                Check(workload.mixed_transfer ? result.fpr[3] == benchmark_bits &&
+                        result.gpr[9] == static_cast<u64>(static_cast<s64>(static_cast<s32>(benchmark_bits))) :
+                        result.fpr[5] == benchmark_bits,
+                    "COP1 MOV.S benchmark cold raw result is independently checked");
+
+                std::vector<JitBlockProfile> profiles;
+                EE_JitGetBlockProfiles(profiles);
+                u32 matching_blocks = 0;
+                cold_native_bytes = 0;
+                for (const JitBlockProfile& profile : profiles)
+                {
+                    if (profile.startpc == EE_TEST_PC)
+                    {
+                        ++matching_blocks;
+                        cold_native_bytes += profile.host_size;
+                    }
+                }
+                Check(matching_blocks == 1 && cold_native_bytes != 0,
+                    "COP1 MOV.S benchmark captures actual nonzero compiled block bytes");
+            }
+            std::sort(cold_us.begin(), cold_us.end());
+
+            // Warm the cache once, then time repeated executions of that block.
+            RunEEProgramWithIrMode(mode, workload.code, bench_gpr.data(), cop1_cp0.data(),
+                bench_fpr.data(), bench_fcr.data());
+            EmuCoreXOracleSetEeIrMode(mode);
+            const auto execute_hot_block = [&]() {
+                cpuRegs.CP0.n.Status.val = 0x20000000u;
+                cpuRegs.pc = EE_TEST_PC;
+                cpuRegs.cycle = 0;
+                cpuRegs.branch = 0;
+                cpuRegs.GPR.r[8].UD[0] = bench_gpr[8].UD[0];
+                cpuRegs.GPR.r[8].UD[1] = bench_gpr[8].UD[1];
+                cpuRegs.GPR.r[9].UD[0] = bench_gpr[9].UD[0];
+                cpuRegs.GPR.r[9].UD[1] = bench_gpr[9].UD[1];
+                for (u32 reg = 1; reg <= 5; ++reg)
+                    fpuRegs.fpr[reg].UL = bench_fpr[reg];
+                cpuRegs.nextEventCycle = 0x7fffffffu;
+                EEsCycle = EEoCycle = 0;
+                EmuCoreXEEForceExitAfterFirstBlock();
+                Cpu->Execute();
+            };
+            // memory_protect_recompiled_code emits a u16 manual_page accrual
+            // by guest block word count. Its overflow calls dyna_page_reset,
+            // which clears and recompiles code before the page moves through
+            // its protection probation. Drive that existing guard to its
+            // steady mode before measuring hot execution.
+            constexpr u32 protection_warmup_replays = 65536;
+            for (u32 repeat = 0; repeat < protection_warmup_replays; ++repeat)
+                execute_hot_block();
+            Check(cpuRegs.cycle == legacy_timing_reference.cycle &&
+                    cpuRegs.pc == EE_TEST_PC + static_cast<u32>(workload.code.size()) * 4,
+                "COP1 MOV.S benchmark protection warmup exact JIT cycles and block exit");
+            std::vector<JitBlockProfile> protection_profiles;
+            EE_JitGetBlockProfiles(protection_profiles);
+            u32 steady_native_bytes = 0;
+            u32 steady_blocks = 0;
+            for (const JitBlockProfile& profile : protection_profiles)
+            {
+                if (profile.startpc == EE_TEST_PC)
+                {
+                    ++steady_blocks;
+                    steady_native_bytes = profile.host_size;
+                }
+            }
+            const u64 steady_probe_before = EmuCoreXOracleGetEeIrMovCounts();
+            for (u32 repeat = 0; repeat < hot_repeats; ++repeat)
+                execute_hot_block();
+            const u64 steady_probe_after = EmuCoreXOracleGetEeIrMovCounts();
+            std::vector<JitBlockProfile> steady_probe_profiles;
+            EE_JitGetBlockProfiles(steady_probe_profiles);
+            u32 probe_blocks = 0;
+            u32 probe_native_bytes = 0;
+            for (const JitBlockProfile& profile : steady_probe_profiles)
+            {
+                if (profile.startpc == EE_TEST_PC)
+                {
+                    ++probe_blocks;
+                    probe_native_bytes = profile.host_size;
+                }
+            }
+            Check(steady_probe_after == steady_probe_before,
+                "COP1 MOV.S benchmark protection warmup reaches a no-recompile steady block");
+            Check(steady_blocks == 1 && probe_blocks == 1 && steady_native_bytes != 0 &&
+                    probe_native_bytes == steady_native_bytes,
+                "COP1 MOV.S benchmark steady native block size remains stable after warm probe");
+            if (steady_probe_after != steady_probe_before || probe_native_bytes != steady_native_bytes)
+                std::printf("COP1_MOV_BENCH_WARM_DIAG workload=%s mode=%s probe_compile_delta=%llu before_bytes=%u after_bytes=%u\n",
+                    workload.name, mode == 0 ? "legacy" : "shared",
+                    static_cast<unsigned long long>(steady_probe_after - steady_probe_before),
+                    steady_native_bytes, probe_native_bytes);
+            const u64 hot_count_before = EmuCoreXOracleGetEeIrMovCounts();
+            std::vector<JitBlockProfile> hot_profiles_before;
+            EE_JitGetBlockProfiles(hot_profiles_before);
+            for (u32 sample = 0; sample < hot_samples; ++sample)
+            {
+                const auto start = std::chrono::steady_clock::now();
+                for (u32 repeat = 0; repeat < hot_repeats; ++repeat)
+                    execute_hot_block();
+                const auto stop = std::chrono::steady_clock::now();
+                hot_ns.push_back(std::chrono::duration<double, std::nano>(stop - start).count() / hot_repeats);
+                Check(cpuRegs.cycle == legacy_timing_reference.cycle &&
+                        cpuRegs.pc == EE_TEST_PC + static_cast<u32>(workload.code.size()) * 4,
+                    "COP1 MOV.S benchmark hot exact cycles and block exit");
+                Check(workload.mixed_transfer ? fpuRegs.fpr[3].UL == benchmark_bits &&
+                        cpuRegs.GPR.r[9].UD[0] == static_cast<u64>(static_cast<s64>(static_cast<s32>(benchmark_bits))) :
+                        fpuRegs.fpr[5].UL == benchmark_bits,
+                    "COP1 MOV.S benchmark hot raw result is independently checked");
+            }
+            std::vector<JitBlockProfile> hot_profiles_after;
+            EE_JitGetBlockProfiles(hot_profiles_after);
+            const u64 hot_count_after = EmuCoreXOracleGetEeIrMovCounts();
+            EmuCoreXOracleSetEeIrMode(-1);
+            if (hot_count_after != hot_count_before)
+            {
+                std::printf("COP1_MOV_BENCH_HOT_DIAG workload=%s mode=%s mov_compile_delta=%llu profiles_before=%zu profiles_after=%zu\n",
+                    workload.name, mode == 0 ? "legacy" : "shared",
+                    static_cast<unsigned long long>(hot_count_after - hot_count_before),
+                    hot_profiles_before.size(), hot_profiles_after.size());
+                for (const JitBlockProfile& profile : hot_profiles_before)
+                    if (profile.startpc >= EE_TEST_PC &&
+                        profile.startpc < EE_TEST_PC + static_cast<u32>(workload.code.size()) * 4)
+                        std::printf("COP1_MOV_BENCH_HOT_DIAG phase=before pc=%08x size=%u host_bytes=%u executions=%llu\n",
+                            profile.startpc, profile.size, profile.host_size,
+                            static_cast<unsigned long long>(profile.execution_count));
+                for (const JitBlockProfile& profile : hot_profiles_after)
+                    if (profile.startpc >= EE_TEST_PC &&
+                        profile.startpc < EE_TEST_PC + static_cast<u32>(workload.code.size()) * 4)
+                        std::printf("COP1_MOV_BENCH_HOT_DIAG phase=after pc=%08x size=%u host_bytes=%u executions=%llu\n",
+                            profile.startpc, profile.size, profile.host_size,
+                            static_cast<unsigned long long>(profile.execution_count));
+            }
+            Check(hot_count_after == hot_count_before,
+                "COP1 MOV.S benchmark hot execution adds no compile counter hits");
+            std::sort(hot_ns.begin(), hot_ns.end());
+            std::printf("COP1_MOV_BENCH workload=%s mode=%s cold_reset_setup_compile_median_us=%.3f hot_median_ns_per_block_including_state_reset=%.3f cold_native_block_bytes=%u steady_native_block_bytes=%u samples=%u/%u repeats_per_hot_sample=%u protection_warmup_replays=%u\n",
+                workload.name, mode == 0 ? "legacy" : "shared", cold_us[cold_us.size() / 2],
+                hot_ns[hot_ns.size() / 2], cold_native_bytes, steady_native_bytes,
+                cold_samples, hot_samples, hot_repeats, protection_warmup_replays);
+        }
+    }
+}
 
 struct EEIrQuadTrace
 {
@@ -8064,6 +8685,7 @@ void EEIrPackedHiLoTests()
 void EEIrExecutionTests()
 {
     EEIrCop1TransferTests();
+    EEIrCop1MoveTests();
     EEIrPackedKernelDceTests();
     EEIrQuadHiLoStateTests();
     EEIrPackedProductBackendTests();
@@ -9066,7 +9688,7 @@ void EEGameCodeTests()
     Check(failed == 0, "ee game code differential");
 }
 
-void EETests()
+void EETests(bool cop1_mov_only = false, bool vu_abs_only = false)
 {
     EmuCoreXOracleSetSkipEvents(1);
     cpuinfo_initialize();
@@ -9097,6 +9719,19 @@ void EETests()
     iopMemWrite32(IOP_TEST_SCRATCH + 4, 0);
     psxRegs.pc = IOP_TEST_SCRATCH;
     psxRegs.cycle = 0;
+
+    if (cop1_mov_only)
+    {
+        EEIrCop1MoveTests();
+        return;
+    }
+    if (vu_abs_only)
+    {
+        EEVuAbsSharedTests();
+        EmuCoreXOracleSetVUIR(0, -1);
+        EmuCoreXOracleSetVUIR(1, -1);
+        return;
+    }
 
     struct EECase
     {
@@ -9202,6 +9837,7 @@ void EETests()
     EECoverageFpuModeSemantics();
     EECoverageCop2();
     EECoverageCop2Spec2();
+    EEVuAbsSharedTests();
     EECoverageMmi();
     EECoverageExceptions();
     EEIrExecutionTests();
@@ -11225,6 +11861,10 @@ extern "C" __attribute__((visibility("default"))) int EmuCoreXRunJitOracle(const
         VectorsTests();
     else if (std::strcmp(suite, "ee") == 0)
         EETests();
+    else if (std::strcmp(suite, "ee-cop1-mov") == 0)
+        EETests(true);
+    else if (std::strcmp(suite, "ee-vu-abs") == 0)
+        EETests(false, true);
     else if (std::strcmp(suite, "iop") == 0)
         IOPTests();
     else if (std::strcmp(suite, "gs-prepare") == 0)

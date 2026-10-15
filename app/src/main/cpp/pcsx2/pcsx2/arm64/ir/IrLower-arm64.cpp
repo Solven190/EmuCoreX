@@ -91,6 +91,42 @@ namespace Arm64Ir
 		return true;
 	}
 
+	bool PlanBoundVfUnary(const ir::Function& fn, BoundVfUnaryPlan* plan, std::string* error)
+	{
+		if (plan) *plan = {};
+		const auto fail = [&](const char* message) { if (error) *error = message; return false; };
+		if (!plan) return fail("bound VF unary plan output is missing");
+		if (!ir::Verify(fn, error)) return false;
+		if (fn.blocks.size() != 1 || fn.entry != 1 || fn.blocks[0].insts.size() != 4)
+			return fail("bound VF unary requires one VABS slice");
+		const auto& i = fn.blocks[0].insts;
+		if (i[0].op != ir::Op::ReadVf || i[1].op != ir::Op::VAbs ||
+			i[2].op != ir::Op::WriteVfMasked || i[3].op != ir::Op::Return)
+			return fail("unsupported bound VF unary operation shape");
+		if (i[0].imm >= 32 || i[2].imm == 0 || i[2].imm >= 32 ||
+			(i[2].aux & 0x0f) == 0 || i[1].imm != 0)
+			return fail("bound VF unary register index, mask, or operation immediate is invalid");
+		if (i[0].type != ir::Type::V4F32 || i[1].type != ir::Type::V4F32 ||
+			i[2].type != ir::Type::Void || i[3].type != ir::Type::Void)
+			return fail("bound VF unary values require V4F32");
+		const u16 delay = ir::IF_DELAY_SLOT;
+		if ((i[0].aux & ~delay) != 0 || (i[1].aux & ~delay) != 0 ||
+			(i[2].aux & ~(u16(0x0f) | delay)) != 0 || (i[3].aux & ~delay) != 0)
+			return fail("bound VF unary has unsupported instruction flags");
+		const bool delay_slot = (i[0].aux & delay) != 0;
+		for (const ir::Inst& inst : i)
+			if (((inst.aux & delay) != 0) != delay_slot)
+				return fail("bound VF unary delay-slot flags are inconsistent");
+		if (i[0].value == 0 || i[0].num_args != 0 || i[1].value == 0 || i[1].num_args != 1 ||
+			i[1].args[0] != i[0].value || i[2].value != 0 || i[2].num_args != 1 ||
+			i[2].args[0] != i[1].value || i[3].value != 0 || i[3].num_args != 0 || i[3].imm != 0)
+			return fail("bound VF unary SSA links do not match VABS");
+		*plan = {static_cast<u8>(i[0].imm), static_cast<u8>(i[2].imm),
+			static_cast<u8>(i[2].aux & 0x0f), delay_slot};
+		if (error) error->clear();
+		return true;
+	}
+
 	bool LowerBoundVfShufflePlan(const BoundVfShufflePlan& plan, u32 vf_source, u32 vf_dst,
 		LowerOutput* out, std::string* error, BoundVfShuffleLayout layout)
 	{
@@ -134,6 +170,55 @@ namespace Arm64Ir
 		{
 			const oak::QReg scratch = OAK_QSCRATCH;
 			oakAsm->EXT(scratch.B16(), src.B16(), src.B16(), 4);
+			for (u32 lane = 0; lane < 4; ++lane)
+				if (plan.lane_mask & (8u >> lane))
+					oakAsm->INS(dst.Selem()[lane], scratch.Selem()[lane]);
+		}
+		out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
+		recEndOaknutEmit();
+		if (error) error->clear();
+		return true;
+	}
+
+	bool LowerBoundVfUnaryPlan(const BoundVfUnaryPlan& plan, u32 vf_source, u32 vf_dst,
+		LowerOutput* out, std::string* error, BoundVfUnaryLayout layout)
+	{
+		if (out) *out = {};
+		if (!out || !oakHasBlock() || plan.src_vf >= 32 || plan.dst_vf == 0 || plan.dst_vf >= 32 ||
+			plan.lane_mask == 0 || plan.lane_mask > 0x0f || vf_source >= 31 || vf_dst >= 31 ||
+			(layout != BoundVfUnaryLayout::GuestLanes && layout != BoundVfUnaryLayout::MicroVuPartial) ||
+			vf_source == static_cast<u32>(OAK_QSCRATCH.index()) ||
+			vf_dst == static_cast<u32>(OAK_QSCRATCH.index()))
+		{
+			if (error) *error = "invalid bound VF unary host register contract";
+			return false;
+		}
+		const u8* start = recBeginOaknutEmit();
+		const oak::QReg src(vf_source);
+		const oak::QReg dst(vf_dst);
+		const bool one_lane = (plan.lane_mask & (plan.lane_mask - 1)) == 0;
+		if (layout == BoundVfUnaryLayout::MicroVuPartial)
+		{
+			if (one_lane)
+			{
+				u32 lane = 0;
+				while ((plan.lane_mask & (8u >> lane)) == 0) ++lane;
+				oakAsm->DUP(dst.S4(), src.Selem()[lane]);
+			}
+			else if (dst.index() != src.index())
+				oakAsm->MOV(dst.B16(), src.B16());
+			oakAsm->BIC(dst.S4(), 0x80, oak::LslSymbol::LSL, 24);
+		}
+		else if (plan.lane_mask == 0x0f)
+		{
+			if (dst.index() != src.index()) oakAsm->MOV(dst.B16(), src.B16());
+			oakAsm->BIC(dst.S4(), 0x80, oak::LslSymbol::LSL, 24);
+		}
+		else
+		{
+			const oak::QReg scratch = OAK_QSCRATCH;
+			oakAsm->MOV(scratch.B16(), src.B16());
+			oakAsm->BIC(scratch.S4(), 0x80, oak::LslSymbol::LSL, 24);
 			for (u32 lane = 0; lane < 4; ++lane)
 				if (plan.lane_mask & (8u >> lane))
 					oakAsm->INS(dst.Selem()[lane], scratch.Selem()[lane]);
