@@ -322,6 +322,7 @@ add_library(emucore SHARED
         src/runtime/android_input_services.cpp
         src/runtime/android_host_services.cpp
         src/runtime/android_runtime.cpp
+        src/runtime/tfx_preparation_job.cpp
         src/runtime/upstream_vm_bridge.cpp
 )
 
