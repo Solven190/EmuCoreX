@@ -309,11 +309,16 @@ namespace Arm64Ir
 			{
 				u32 lane = 0;
 				while ((plan.lane_mask & (8u >> lane)) == 0) ++lane;
-				oakAsm->DUP(dst.S4(), src.Selem()[lane]);
+				if (lane == 0)
+					convert(dst, src);
+				else
+				{
+					oakAsm->DUP(dst.S4(), src.Selem()[lane]);
+					convert(dst, dst);
+				}
 			}
-			else if (dst.index() != src.index())
-				oakAsm->MOV(dst.B16(), src.B16());
-			convert(dst, dst);
+			else
+				convert(dst, src);
 		}
 		else if (plan.lane_mask == 0x0f)
 		{

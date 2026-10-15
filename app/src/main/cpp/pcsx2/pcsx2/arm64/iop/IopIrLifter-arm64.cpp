@@ -7,6 +7,78 @@ namespace IopIr
 {
     namespace
     {
+        u32 ReadCp2Data(ir::Builder& b, u32 reg)
+        {
+            return b.Emit(ir::Op::ReadCp2Data, ir::Type::I32, {}, reg);
+        }
+
+        void WriteCp2Data(ir::Builder& b, u32 reg, u32 value)
+        {
+            b.Emit1(ir::Op::WriteCp2Data, ir::Type::Void, value, reg);
+        }
+
+        u32 EmitMfc2Value(ir::Builder& b, u32 reg)
+        {
+            if (reg != 29)
+                return ReadCp2Data(b, reg);
+
+            // MFC2 $29 computes ORGB and also writes the computed value back
+            // to CP2D[29], including when used as the source of SWC2.
+            const u32 ir1 = b.Emit2(ir::Op::And, ir::Type::I32,
+                b.Emit2(ir::Op::ShrU, ir::Type::I32, ReadCp2Data(b, 9), b.ConstI32(7)), b.ConstI32(31));
+            const u32 ir2 = b.Emit2(ir::Op::Shl, ir::Type::I32,
+                b.Emit2(ir::Op::And, ir::Type::I32,
+                    b.Emit2(ir::Op::ShrU, ir::Type::I32, ReadCp2Data(b, 10), b.ConstI32(7)), b.ConstI32(31)), b.ConstI32(5));
+            const u32 ir3 = b.Emit2(ir::Op::Shl, ir::Type::I32,
+                b.Emit2(ir::Op::And, ir::Type::I32,
+                    b.Emit2(ir::Op::ShrU, ir::Type::I32, ReadCp2Data(b, 11), b.ConstI32(7)), b.ConstI32(31)), b.ConstI32(10));
+            const u32 value = b.Emit2(ir::Op::Or, ir::Type::I32,
+                b.Emit2(ir::Op::Or, ir::Type::I32, ir1, ir2), ir3);
+            WriteCp2Data(b, 29, value);
+            return value;
+        }
+
+        void EmitMtc2Value(ir::Builder& b, u32 reg, u32 value)
+        {
+            if (reg >= 8 && reg <= 11)
+            {
+                const u32 extended = b.Emit2(ir::Op::ShrS, ir::Type::I32,
+                    b.Emit2(ir::Op::Shl, ir::Type::I32, value, b.ConstI32(16)), b.ConstI32(16));
+                WriteCp2Data(b, reg, extended);
+            }
+            else if (reg == 15)
+            {
+                const u32 sxy1 = ReadCp2Data(b, 13), sxy2 = ReadCp2Data(b, 14);
+                WriteCp2Data(b, 12, sxy1);
+                WriteCp2Data(b, 13, sxy2);
+                WriteCp2Data(b, 14, value);
+                WriteCp2Data(b, 15, value);
+            }
+            else if (reg >= 16 && reg <= 19)
+                WriteCp2Data(b, reg, b.Emit2(ir::Op::And, ir::Type::I32, value, b.ConstI32(0xffff)));
+            else if (reg == 28)
+            {
+                WriteCp2Data(b, 28, value);
+                WriteCp2Data(b, 9, b.Emit2(ir::Op::Shl, ir::Type::I32,
+                    b.Emit2(ir::Op::And, ir::Type::I32, value, b.ConstI32(31)), b.ConstI32(7)));
+                WriteCp2Data(b, 10, b.Emit2(ir::Op::Shl, ir::Type::I32,
+                    b.Emit2(ir::Op::And, ir::Type::I32,
+                        b.Emit2(ir::Op::ShrU, ir::Type::I32, value, b.ConstI32(5)), b.ConstI32(31)), b.ConstI32(7)));
+                WriteCp2Data(b, 11, b.Emit2(ir::Op::Shl, ir::Type::I32,
+                    b.Emit2(ir::Op::And, ir::Type::I32,
+                        b.Emit2(ir::Op::ShrU, ir::Type::I32, value, b.ConstI32(10)), b.ConstI32(31)), b.ConstI32(7)));
+            }
+            else if (reg == 30)
+            {
+                WriteCp2Data(b, 30, value);
+                const u32 sign = b.Emit2(ir::Op::ShrS, ir::Type::I32, value, b.ConstI32(31));
+                WriteCp2Data(b, 31, b.Emit1(ir::Op::Clz, ir::Type::I32,
+                    b.Emit2(ir::Op::Xor, ir::Type::I32, value, sign)));
+            }
+            else
+                WriteCp2Data(b, reg, value);
+        }
+
         bool LiftMemory(ir::Builder& b, u32 word)
         {
             const u32 op = word >> 26, rs = (word >> 21) & 31, rt = (word >> 16) & 31;
@@ -14,6 +86,17 @@ namespace IopIr
             const auto bin = [&](ir::Op operation, u32 a, u32 c) { return b.Emit2(operation, ir::Type::I32, a, c); };
             const auto write = [&](u32 v) { b.Emit1(ir::Op::WriteGpr, ir::Type::Void, v, rt); };
             const u32 address = bin(ir::Op::Add, read(rs), b.ConstI32(static_cast<u32>(static_cast<s16>(word))));
+            if (op == 50)
+            {
+                const u32 value = b.Emit1(ir::Op::Load32, ir::Type::I32, address);
+                EmitMtc2Value(b, rt, value);
+                return true;
+            }
+            if (op == 58)
+            {
+                b.Emit2(ir::Op::Store32, ir::Type::Void, address, EmitMfc2Value(b, rt));
+                return true;
+            }
             if (op == 32 || op == 33 || op == 35 || op == 36 || op == 37)
             {
                 const ir::Op load = op == 32 ? ir::Op::Load8S : op == 33 ? ir::Op::Load16S :
@@ -63,7 +146,7 @@ namespace IopIr
             const auto read = [&](u32 r) { return r == 0 ? b.ConstI32(0) : b.Emit(ir::Op::ReadGpr, ir::Type::I32, {}, r); };
             const auto write = [&](u32 r, u32 v) { b.Emit1(ir::Op::WriteGpr, ir::Type::Void, v, r); };
             const u32 opcode = word >> 26;
-            if ((opcode >= 32 && opcode <= 38) || (opcode >= 40 && opcode <= 43) || opcode == 46)
+            if ((opcode >= 32 && opcode <= 38) || (opcode >= 40 && opcode <= 43) || opcode == 46 || opcode == 50 || opcode == 58)
                 return LiftMemory(b, word);
             ir::Op op;
             switch (opcode)
@@ -99,34 +182,12 @@ namespace IopIr
                 case 18: // COP2 register transfers; nonzero funct encodings dispatch GTE commands.
                 {
                     if (word & 63u) return false;
-                    const auto read_data = [&](u32 reg) {
-                        return b.Emit(ir::Op::ReadCp2Data, ir::Type::I32, {}, reg);
-                    };
-                    const auto write_data = [&](u32 reg, u32 value) {
-                        b.Emit1(ir::Op::WriteCp2Data, ir::Type::Void, value, reg);
-                    };
                     switch (rs)
                     {
                         case 0: // MFC2; $0 suppresses both the GPR write and rd29's ORGB side effect.
                             if (rt != 0)
                             {
-                                u32 value;
-                                if (rd == 29)
-                                {
-                                    const u32 ir1 = b.Emit2(ir::Op::And, ir::Type::I32,
-                                        b.Emit2(ir::Op::ShrU, ir::Type::I32, read_data(9), b.ConstI32(7)), b.ConstI32(31));
-                                    const u32 ir2 = b.Emit2(ir::Op::Shl, ir::Type::I32,
-                                        b.Emit2(ir::Op::And, ir::Type::I32,
-                                            b.Emit2(ir::Op::ShrU, ir::Type::I32, read_data(10), b.ConstI32(7)), b.ConstI32(31)), b.ConstI32(5));
-                                    const u32 ir3 = b.Emit2(ir::Op::Shl, ir::Type::I32,
-                                        b.Emit2(ir::Op::And, ir::Type::I32,
-                                            b.Emit2(ir::Op::ShrU, ir::Type::I32, read_data(11), b.ConstI32(7)), b.ConstI32(31)), b.ConstI32(10));
-                                    value = b.Emit2(ir::Op::Or, ir::Type::I32, b.Emit2(ir::Op::Or, ir::Type::I32, ir1, ir2), ir3);
-                                    write_data(29, value);
-                                }
-                                else
-                                    value = read_data(rd);
-                                write(rt, value);
+                                write(rt, EmitMfc2Value(b, rd));
                             }
                             return true;
                         case 2: // CFC2; no read or write for $0.
@@ -135,44 +196,7 @@ namespace IopIr
                             return true;
                         case 4: // MTC2: compose the R3000A register-specific transforms from raw state ops.
                         {
-                            const u32 value = read(rt);
-                            if (rd >= 8 && rd <= 11)
-                            {
-                                const u32 extended = b.Emit2(ir::Op::ShrS, ir::Type::I32,
-                                    b.Emit2(ir::Op::Shl, ir::Type::I32, value, b.ConstI32(16)), b.ConstI32(16));
-                                write_data(rd, extended);
-                            }
-                            else if (rd == 15)
-                            {
-                                const u32 sxy1 = read_data(13), sxy2 = read_data(14);
-                                write_data(12, sxy1);
-                                write_data(13, sxy2);
-                                write_data(14, value);
-                                write_data(15, value);
-                            }
-                            else if (rd >= 16 && rd <= 19)
-                                write_data(rd, b.Emit2(ir::Op::And, ir::Type::I32, value, b.ConstI32(0xffff)));
-                            else if (rd == 28)
-                            {
-                                write_data(28, value);
-                                write_data(9, b.Emit2(ir::Op::Shl, ir::Type::I32,
-                                    b.Emit2(ir::Op::And, ir::Type::I32, value, b.ConstI32(31)), b.ConstI32(7)));
-                                write_data(10, b.Emit2(ir::Op::Shl, ir::Type::I32,
-                                    b.Emit2(ir::Op::And, ir::Type::I32,
-                                        b.Emit2(ir::Op::ShrU, ir::Type::I32, value, b.ConstI32(5)), b.ConstI32(31)), b.ConstI32(7)));
-                                write_data(11, b.Emit2(ir::Op::Shl, ir::Type::I32,
-                                    b.Emit2(ir::Op::And, ir::Type::I32,
-                                        b.Emit2(ir::Op::ShrU, ir::Type::I32, value, b.ConstI32(10)), b.ConstI32(31)), b.ConstI32(7)));
-                            }
-                            else if (rd == 30)
-                            {
-                                write_data(30, value);
-                                const u32 sign = b.Emit2(ir::Op::ShrS, ir::Type::I32, value, b.ConstI32(31));
-                                write_data(31, b.Emit1(ir::Op::Clz, ir::Type::I32,
-                                    b.Emit2(ir::Op::Xor, ir::Type::I32, value, sign)));
-                            }
-                            else
-                                write_data(rd, value);
+                            EmitMtc2Value(b, rd, read(rt));
                             return true;
                         }
                         case 6: // CTC2 is an unmodified 32-bit control-register write.

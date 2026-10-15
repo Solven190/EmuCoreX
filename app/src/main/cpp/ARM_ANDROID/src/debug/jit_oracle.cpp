@@ -2154,8 +2154,9 @@ void VUSharedTransferBenchmarks()
 #include "jit_oracle_vu_abs.inl"
 #include "jit_oracle_vu_itof.inl"
 #include "jit_oracle_vu_itof_bench.inl"
+#include "jit_oracle_vu_itof_codegen.inl"
 
-void VUTests()
+void VUTests(bool itof_codegen_only = false)
 {
     struct VUOverrideReset
     {
@@ -2176,12 +2177,18 @@ void VUTests()
     CpuVU1 = &CpuMicroVU1;
     CpuMicroVU0.Reserve();
     CpuMicroVU1.Reserve();
+    if (itof_codegen_only)
+    {
+        VUBoundItofCodegenTests();
+        return;
+    }
     VUBoundIrTests();
     VUSharedIrProductionTests();
     VUSharedImmediateTests();
     VUBoundVfShuffleTests();
     VUBoundVfUnaryTests();
     VUBoundVfConvertTests();
+    VUBoundItofCodegenTests();
     VUSharedItofIntegrationTests();
     VUSharedItofBenchmarks();
     VUBoundVfViTransferTests();
@@ -3929,6 +3936,8 @@ void EECoverageCop2Spec2()
 }
 
 #include "jit_oracle_ee_vu_itof.inl"
+#include "jit_oracle_ee_bc1.inl"
+#include "jit_oracle_ee_hot_loads.inl"
 
 void EEVuAbsSharedTests()
 {
@@ -9746,7 +9755,7 @@ void EEGameCodeTests()
 }
 
 void EETests(bool cop1_mov_only = false, bool vu_abs_only = false, bool scalar_stores_only = false,
-    bool vu_itof_only = false)
+    bool vu_itof_only = false, bool cop1_branch_only = false, bool hot_loads_only = false)
 {
     EmuCoreXOracleSetSkipEvents(1);
     cpuinfo_initialize();
@@ -9800,6 +9809,16 @@ void EETests(bool cop1_mov_only = false, bool vu_abs_only = false, bool scalar_s
     if (vu_itof_only)
     {
         EEVuItofMacroTests();
+        return;
+    }
+    if (cop1_branch_only)
+    {
+        EEIrCop1BranchTests();
+        return;
+    }
+    if (hot_loads_only)
+    {
+        EEHotLoadBenchmarkTests();
         return;
     }
 
@@ -9909,6 +9928,8 @@ void EETests(bool cop1_mov_only = false, bool vu_abs_only = false, bool scalar_s
     EECoverageCop2Spec2();
     EEVuAbsSharedTests();
     EEVuItofMacroTests();
+    EEIrCop1BranchTests();
+    EEHotLoadBenchmarkTests();
     EEIrScalarStoreTests();
     EEIrScalarStoreGuestTests();
     EEIrScalarStoreBenchmark();
@@ -11324,7 +11345,7 @@ void IOPControlFrontendTests()
                     Check(same, name);
                 }
     const u32 branch = MipsI(4, 8, 9, 1);
-    for (u32 delay : {MipsI(50, 8, 9, 0), 0x0000000cu, MipsI(16, 1, 0, 0), MipsI(4, 0, 0, 1), 0x24001234u})
+    for (u32 delay : {MipsI(49, 8, 9, 0), 0x0000000cu, MipsI(16, 1, 0, 0), MipsI(4, 0, 0, 1), 0x24001234u})
     {
         const u32 code[] = {MipsI(9, 0, 8, 3), branch, delay};
         ir::Function fn;
@@ -11417,7 +11438,8 @@ void IOPSharedFrontendTests()
                 std::snprintf(name, sizeof(name), "ir IOP frontend kind=%u dest=%u edge=%08x modes/interpreter", kind, dest, edge);
                 Check(same, name);
             }
-    for (u32 word : {MipsI(50, 8, 9, 0), MipsI(58, 8, 9, 0), MipsI(1, 8, 2, 1),
+    // COP1 memory transfers remain unsupported; COP2 transfers are covered above.
+    for (u32 word : {MipsI(49, 8, 9, 0), MipsI(57, 8, 9, 0), MipsI(1, 8, 2, 1),
         MipsR(8, 0, 0, 0, 1), 0x0000000du, MipsI(16, 1, 0, 0),
         MipsI(16, 8, 8, 0), 0x48080001u, 0x0000000cu, 0xffffffffu})
     {
@@ -11526,8 +11548,9 @@ void IOPSharedStateTests()
 }
 
 #include "jit_oracle_iop_cop2.inl"
+#include "jit_oracle_iop_cop2_memory.inl"
 
-void IOPTests(bool cop2_only = false)
+void IOPTests(bool cop2_only = false, bool cop2_memory_only = false)
 {
     EmuCoreXOracleSetSkipEvents(1);
     cpuinfo_initialize();
@@ -11547,6 +11570,11 @@ void IOPTests(bool cop2_only = false)
     {
         IOPCop2FrontendRedTests();
         IOPCop2IntegrationRedTests();
+        return;
+    }
+    if (cop2_memory_only)
+    {
+        IOPCop2MemoryIntegrationRedTests();
         return;
     }
 
@@ -11606,6 +11634,7 @@ void IOPTests(bool cop2_only = false)
     IOPCoverageGte();
     IOPCop2FrontendRedTests();
     IOPCop2IntegrationRedTests();
+    IOPCop2MemoryIntegrationRedTests();
     IOPSharedMulDivIntegrationTests();
     SharedMulHiBackendTests();
     IOPSharedMulDivFrontendTests();
@@ -11938,6 +11967,8 @@ extern "C" __attribute__((visibility("default"))) int EmuCoreXRunJitOracle(const
         ClassifierTests();
     else if (std::strcmp(suite, "vu") == 0)
         VUTests();
+    else if (std::strcmp(suite, "vu-itof-codegen") == 0)
+        VUTests(true);
     else if (std::strcmp(suite, "sqrt-flags") == 0)
         SqrtFlagTests();
     else if (std::strcmp(suite, "div-edges") == 0)
@@ -11954,10 +11985,16 @@ extern "C" __attribute__((visibility("default"))) int EmuCoreXRunJitOracle(const
         EETests(false, false, true);
     else if (std::strcmp(suite, "ee-vu-itof") == 0)
         EETests(false, false, false, true);
+    else if (std::strcmp(suite, "ee-bc1") == 0)
+        EETests(false, false, false, false, true);
+    else if (std::strcmp(suite, "ee-hot-loads") == 0)
+        EETests(false, false, false, false, false, true);
     else if (std::strcmp(suite, "iop") == 0)
         IOPTests();
     else if (std::strcmp(suite, "iop-cop2") == 0)
         IOPTests(true);
+    else if (std::strcmp(suite, "iop-cop2-memory") == 0)
+        IOPTests(false, true);
     else if (std::strcmp(suite, "gs-prepare") == 0)
         GSPreparationDeviceTests();
     else

@@ -84,6 +84,8 @@ static u64 s_cop1_ctc1_compiles = 0;
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 static u64 s_cop1_mov_s_compiles = 0;
 static u64 s_direct_scalar_store_compiles = 0;
+static u64 s_direct_scalar_load_compiles = 0;
+static u64 s_cop1_bc1_compiles = 0;
 #endif
 
 static BASEBLOCK* recRAM = nullptr; // and the ptr to the blocks here
@@ -2456,6 +2458,25 @@ extern "C" void EmuCoreXOracleGetEeIrCop1Counts(u64* mfc1, u64* mtc1, u64* cfc1,
 }
 extern "C" u64 EmuCoreXOracleGetEeIrMovCounts() { return s_cop1_mov_s_compiles; }
 extern "C" u64 EmuCoreXOracleGetEeIrDirectStoreCounts() { return s_direct_scalar_store_compiles; }
+extern "C" u64 EmuCoreXOracleGetEeIrDirectLoadCounts() { return s_direct_scalar_load_compiles; }
+extern "C" u64 EmuCoreXOracleGetEeIrBc1Counts() { return s_cop1_bc1_compiles; }
+extern "C" bool EmuCoreXOracleGetEeCompiledBlock(u32 guest_pc, const void** host, u32* bytes)
+{
+	if (host)
+		*host = nullptr;
+	if (bytes)
+		*bytes = 0;
+
+	const BASEBLOCKEX* const block = recBlocks.Get(HWADDR(guest_pc));
+	if (!block || block->startpc != HWADDR(guest_pc) || !block->fnptr || block->x86size == 0)
+		return false;
+
+	if (host)
+		*host = reinterpret_cast<const void*>(block->fnptr);
+	if (bytes)
+		*bytes = block->x86size;
+	return true;
+}
 #else
 extern "C" void EmuCoreXOracleSetEeIrMode(int mode) { (void)mode; }
 extern "C" void EmuCoreXOracleGetEeIrCop1Counts(u64* mfc1, u64* mtc1, u64* cfc1, u64* ctc1)
@@ -2683,6 +2704,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	}
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 	s_direct_scalar_store_compiles += out.direct_ee_store_operations;
+	s_direct_scalar_load_compiles += out.direct_ee_load_operations;
 #endif
 #if defined(__ANDROID__)
 	// Process-local compilation counts prove that the enabled path is used,
@@ -2708,7 +2730,8 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		const u32 op = word >> 26;
 		if (op == 0x11)
 		{
-			switch ((word >> 21) & 0x1f)
+			const u32 rs = (word >> 21) & 0x1f;
+			switch (rs)
 			{
 				case 0x00: ++s_cop1_mfc1_compiles; break;
 				case 0x02: ++s_cop1_cfc1_compiles; break;
@@ -2716,7 +2739,10 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 				case 0x06: ++s_cop1_ctc1_compiles; break;
 			}
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
-			if (((word >> 21) & 0x1f) == 0x10 && (word & 0x3f) == 0x06)
+			const u32 rt = (word >> 16) & 0x1f;
+			if (rs == 0x08 && rt <= 3)
+				++s_cop1_bc1_compiles;
+			if (rs == 0x10 && (word & 0x3f) == 0x06)
 				++s_cop1_mov_s_compiles;
 #endif
 		}
