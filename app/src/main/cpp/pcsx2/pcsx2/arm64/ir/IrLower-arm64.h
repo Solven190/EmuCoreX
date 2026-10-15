@@ -186,6 +186,8 @@ namespace Arm64Ir
 		// Explicit contract for before_memory/after_memory only. C helpers and
 		// their surrounding hooks always clobber caller-save SIMD registers.
 		bool memory_preserves_vectors = false;
+		// Dispatcher-entered Android EE ABI: X19 pins the live fastmem base.
+		bool ee_fastmem_abi = false;
 	};
 
 	struct LowerOptions
@@ -217,6 +219,8 @@ namespace Arm64Ir
 		bool direct_quad_memory = true;
 		// Direct mapped EE 8/16/32/64-bit reads; retain helpers for handlers/cache.
 		bool direct_ee_loads = true;
+		// Bounded inline Load32 experiment; standalone callers never use X19.
+		bool fastmem_ee_loads = false;
 		// Direct mapped EE scalar writes; handlers/cache retain their helpers.
 		bool direct_ee_stores = true;
 		// Keep SIMD values in registers on direct RAM paths; spill on fallback.
@@ -239,6 +243,7 @@ namespace Arm64Ir
 		u32 spill_slots = 0;
 		u32 direct_quad_operations = 0;
 		u32 direct_ee_load_operations = 0;
+		u32 fastmem_ee_load_operations = 0;
 		u32 direct_ee_store_operations = 0;
 		u32 direct_quad_vector_operations = 0;
 		u32 vector_register_values = 0;

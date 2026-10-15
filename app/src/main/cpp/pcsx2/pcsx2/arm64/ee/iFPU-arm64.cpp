@@ -314,6 +314,9 @@ static void recABS_S_emit_oaknut(int info)
 		oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, fpuRegs.fpr[_Fs_].UL))});
 	oakAsm->AND(OAK_WSCRATCH, OAK_WSCRATCH, 0x7fffffffu);
 	oakAsm->FMOV(oakSRegister(EEREC_D), OAK_WSCRATCH);
+	oakLoad32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, fpuRegs.fprc[31]))});
+	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, ~static_cast<u32>(FPUflagO | FPUflagU));
+	oakStore32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, fpuRegs.fprc[31]))});
 	recEndOaknutEmit();
 }
 
@@ -1309,6 +1312,9 @@ static void recNEG_S_emit_oaknut(int info)
 		oakLoad32(OAK_WSCRATCH, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, fpuRegs.fpr[_Fs_].UL))});
 	oakAsm->EOR(OAK_WSCRATCH, OAK_WSCRATCH, 0x80000000u);
 	oakAsm->FMOV(oakSRegister(EEREC_D), OAK_WSCRATCH);
+	oakLoad32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, fpuRegs.fprc[31]))});
+	oakAsm->AND(OAK_WSCRATCH2, OAK_WSCRATCH2, ~static_cast<u32>(FPUflagO | FPUflagU));
+	oakStore32(OAK_WSCRATCH2, {oak::util::X27, static_cast<s64>(offsetof(cpuRegistersPack, fpuRegs.fprc[31]))});
 	recEndOaknutEmit();
 }
 

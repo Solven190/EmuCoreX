@@ -978,6 +978,8 @@ namespace Arm64Ir
 				, m_fuse_multiply_pairs(options.optimize_ir)
 				, m_direct_quad_memory(options.optimize_ir && options.direct_quad_memory && (!CHECK_CACHE || CHECK_EEREC))
 				, m_direct_ee_loads(options.guest_state == GuestState::EE && options.optimize_ir && options.direct_ee_loads && (!CHECK_CACHE || CHECK_EEREC))
+				, m_fastmem_ee_loads(options.fastmem_ee_loads && options.inline_body && options.hooks &&
+					options.hooks->ee_fastmem_abi && options.hooks->before_memory && options.hooks->after_memory)
 				, m_direct_ee_stores(options.guest_state == GuestState::EE && options.optimize_ir && options.direct_ee_stores && (!CHECK_CACHE || CHECK_EEREC))
 				, m_direct_quad_vectors(options.direct_quad_vectors)
 				, m_direct_iop_loads(options.optimize_ir && options.direct_iop_loads)
@@ -1197,6 +1199,9 @@ namespace Arm64Ir
 			u32 m_fused_multiply_pairs = 0;
 			bool m_direct_quad_memory = true;
 			bool m_direct_ee_loads = true;
+			bool m_fastmem_ee_loads = false;
+			struct FastLoadSite { uptr host; u32 guest_pc; };
+			std::vector<FastLoadSite> m_fast_load_sites;
 			bool m_direct_ee_stores = true;
 			bool m_direct_quad_vectors = true;
 			bool m_direct_iop_loads = true;
@@ -1552,6 +1557,12 @@ namespace Arm64Ir
 				out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
 				out->direct_quad_operations = m_direct_quad_operations;
 				out->direct_ee_load_operations = m_direct_ee_load_operations;
+				// Publish only after every instruction has lowered successfully.
+#if defined(ARCH_ARM64) && defined(__ANDROID__)
+				for (const FastLoadSite& site : m_fast_load_sites)
+					vtlb_AddLoadStoreInfoIr32(site.host, site.guest_pc);
+#endif
+				out->fastmem_ee_load_operations = static_cast<u32>(m_fast_load_sites.size());
 				out->direct_ee_store_operations = m_direct_ee_store_operations;
 				out->direct_quad_vector_operations = m_direct_quad_vector_operations;
 				out->iop_memory_operations = m_iop_memory_operations;
@@ -2589,6 +2600,20 @@ namespace Arm64Ir
 					load_a();
 					if (m_hooks && m_hooks->before_memory)
 						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
+					// X0 contains a zero-extended guest address. Preserve the hooks
+					// and unsigned I32 result; LW sign extension belongs to the IR.
+#if defined(ARCH_ARM64) && defined(__ANDROID__)
+					if (m_fastmem_ee_loads && m_direct_ee_loads && inst.op == ir::Op::Load32 &&
+						CHECK_FASTMEM && !vtlb_IsFaultingPC(inst.guest_pc))
+					{
+						m_fast_load_sites.push_back({reinterpret_cast<uptr>(oakGetCurrentCodePointer()), inst.guest_pc});
+						oakAsm->LDR(oak::util::W0, oak::util::X19, oak::util::W0, oak::IndexExt::UXTW);
+						m_hooks->after_memory(m_hooks->ctx);
+						store_r();
+						recEndOaknutEmit();
+						return true;
+					}
+#endif
 					oak::Label slow, done;
 					if (iop && m_direct_iop_loads)
 					{

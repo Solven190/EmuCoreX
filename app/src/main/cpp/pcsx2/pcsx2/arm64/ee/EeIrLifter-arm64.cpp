@@ -571,11 +571,29 @@ namespace EeIr
 					const u32 fs = Rd(word);
 					if (format == 0x10)
 					{
-						if (Funct(word) != 0x06)
-							return Fail(error, "unsupported COP1 S-format operation", pc);
-						const u32 bits = m_b.Emit(ir::Op::ReadFprBits, ir::Type::I32, {}, fs);
-						m_b.Emit1(ir::Op::WriteFprBits, ir::Type::Void, bits, Sa(word));
-						return true;
+						const u32 funct = Funct(word);
+						if (funct == 0x06) // mov.s: raw copy, flags are untouched
+						{
+							const u32 bits = m_b.Emit(ir::Op::ReadFprBits, ir::Type::I32, {}, fs);
+							m_b.Emit1(ir::Op::WriteFprBits, ir::Type::Void, bits, Sa(word));
+							return true;
+						}
+						if (funct == 0x05 || funct == 0x07) // abs.s / neg.s
+						{
+							const u32 source = m_b.Emit(ir::Op::ReadFprBits, ir::Type::I32, {}, fs);
+							const u32 result = funct == 0x05 ?
+								Bin(ir::Op::And, source, Const(0x7fffffffu)) :
+								Bin(ir::Op::Xor, source, Const(0x80000000u));
+							m_b.Emit1(ir::Op::WriteFprBits, ir::Type::Void, result, Sa(word));
+
+							// The interpreter clears only the current O/U cause bits for
+							// ABS.S and NEG.S. Sticky flags and all other FCR31 bits survive.
+							const u32 fcr31 = m_b.Emit0(ir::Op::ReadFcr31, ir::Type::I32);
+							m_b.Emit1(ir::Op::WriteFcr31, ir::Type::Void,
+								Bin(ir::Op::And, fcr31, Const(~0x0000c000u)));
+							return true;
+						}
+						return Fail(error, "unsupported COP1 S-format operation", pc);
 					}
 					if ((format != 0x00 && format != 0x02 && format != 0x04 && format != 0x06) ||
 						(word & 0x7ffu) != 0)

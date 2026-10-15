@@ -48,6 +48,12 @@ extern bool vtlb_BackpatchLoadStore(uptr code_address, uptr fault_address);
 extern void vtlb_ClearLoadStoreInfo();
 extern void vtlb_AddLoadStoreInfo(uptr code_address, u32 code_size, u32 guest_pc, u32 gpr_bitmask, u32 fpr_bitmask, u8 address_register, u8 data_register, u8 size_in_bits, bool is_signed, bool is_load, bool is_fpr);
 extern void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, u32 guest_addr, u32 gpr_bitmask, u32 fpr_bitmask, u8 address_register, u8 data_register, u8 size_in_bits, bool is_signed, bool is_load, bool is_fpr);
+#if defined(ARCH_ARM64) && defined(__ANDROID__)
+// Fixed IR inline Load32 fastmem contract: faulting host instruction is a
+// four-byte scalar load using W0 for both the effective address and result.
+extern void vtlb_AddLoadStoreInfoIr32(uptr code_address, u32 guest_pc);
+extern void vtlb_DynBackpatchLoad32Ir(uptr code_address, u32 guest_pc, u32 guest_addr);
+#endif
 extern bool vtlb_IsFaultingPC(u32 guest_pc);
 
 //Memory functions

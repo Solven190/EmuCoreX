@@ -4,6 +4,13 @@
 
 extern "C" bool EmuCoreXOracleGetEeCompiledBlock(u32 pc, const void** host, u32* bytes);
 extern "C" u64 EmuCoreXOracleGetEeIrDirectLoadCounts();
+extern "C" void EmuCoreXOracleSetEeIrFastLoads(int mode);
+extern "C" u64 EmuCoreXOracleGetEeIrFastLoadCounts();
+
+u64 EeHotLoadCount()
+{
+	return EmuCoreXOracleGetEeIrDirectLoadCounts() + EmuCoreXOracleGetEeIrFastLoadCounts();
+}
 
 namespace
 {
@@ -148,8 +155,9 @@ void EeHotLoadResetJitState(const std::array<GPR_reg, 32>& initial_gpr,
 
 }
 
-void EEHotLoadBenchmarkTests()
+void EEHotLoadBenchmarkTests(bool fastmem = false)
 {
+	EmuCoreXOracleSetEeIrFastLoads(fastmem ? 1 : 0);
 	// The first five words are the captured GTA sequence verbatim. Four NOPs
 	// occupy the original branch target at PC+0x24, so both paths reach the
 	// helper's self-branch without changing the five-word hotspot itself.
@@ -189,11 +197,11 @@ void EEHotLoadBenchmarkTests()
 		for (int mode : {0, 1})
 		{
 			EmuCoreXOracleSetEeIrMode(mode);
-			const char* mode_name = mode ? "shared" : "legacy";
-			const u64 direct_loads_before = EmuCoreXOracleGetEeIrDirectLoadCounts();
+			const char* mode_name = mode ? (fastmem ? "shared-fast" : "shared") : "legacy";
+			const u64 direct_loads_before = EeHotLoadCount();
 			const EESnapshot result = RunEEProgramWithIrMode(mode, gta_hot_program,
 				initial_gpr.data(), initial_cp0.data(), nullptr, nullptr, false);
-			const u64 direct_loads = EmuCoreXOracleGetEeIrDirectLoadCounts() - direct_loads_before;
+			const u64 direct_loads = EeHotLoadCount() - direct_loads_before;
 			expected_jit[mode] = result;
 			CompareEE(interp, result, mode ? "GTA five-word load hotspot interpreter/shared" :
 				"GTA five-word load hotspot interpreter/legacy");
@@ -221,7 +229,7 @@ void EEHotLoadBenchmarkTests()
 
 		for (int mode : {0, 1})
 		{
-			const char* mode_name = mode ? "shared" : "legacy";
+			const char* mode_name = mode ? (fastmem ? "shared-fast" : "shared") : "legacy";
 			EmuCoreXOracleSetEeIrMode(mode);
 			const u32 gp = data_address - 0x10f8u;
 			const auto bench_gpr = EeHotLoadInitialGprs(gp);
@@ -236,14 +244,14 @@ void EEHotLoadBenchmarkTests()
 			for (u32 sample = 0; sample < cold_us.size(); ++sample)
 			{
 				const u64 before = s_ee_hot_load_compile_count;
-				const u64 direct_loads_before = EmuCoreXOracleGetEeIrDirectLoadCounts();
+				const u64 direct_loads_before = EeHotLoadCount();
 				const auto start = std::chrono::steady_clock::now();
 				const EESnapshot cold = RunEEProgramWithIrMode(mode, gta_hot_program,
 					bench_gpr.data(), initial_cp0.data(), nullptr, nullptr, false);
 				cold_us[sample] = std::chrono::duration<double, std::micro>(
 					std::chrono::steady_clock::now() - start).count();
 				exact_cold_compile &= s_ee_hot_load_compile_count - before == 1;
-				const u64 direct_loads = EmuCoreXOracleGetEeIrDirectLoadCounts() - direct_loads_before;
+				const u64 direct_loads = EeHotLoadCount() - direct_loads_before;
 				exact_cold_compile &= direct_loads == (mode ? 2u : 0u);
 				Check(EeHotLoadCheckGprs(cold, EeHotLoadExpectedGprs(bench_gpr, 0,
 					first, second, value_case ? 1u : 0u)),
@@ -263,7 +271,7 @@ void EEHotLoadBenchmarkTests()
 			for (u32 repeat = 0; repeat < warm_replays; ++repeat)
 				EeHotLoadResetJitState(bench_gpr, initial_cp0);
 			const u64 warm_compile_count = s_ee_hot_load_compile_count;
-			const u64 warm_direct_load_count = EmuCoreXOracleGetEeIrDirectLoadCounts();
+			const u64 warm_direct_load_count = EeHotLoadCount();
 			std::vector<u8> steady_code;
 			u32 steady_bytes = 0;
 			u64 steady_host_base = 0;
@@ -283,7 +291,7 @@ void EEHotLoadBenchmarkTests()
 				hot_ns[sample] = std::chrono::duration<double, std::nano>(
 					std::chrono::steady_clock::now() - start).count() / repeats;
 				stable_hot &= s_ee_hot_load_compile_count == warm_compile_count &&
-					EmuCoreXOracleGetEeIrDirectLoadCounts() == warm_direct_load_count;
+					EeHotLoadCount() == warm_direct_load_count;
 				std::vector<u8> probe_code;
 				u32 probe_bytes = 0;
 				u64 probe_host_base = 0;
@@ -315,12 +323,12 @@ void EEHotLoadBenchmarkTests()
 		const auto initial = EeHotLoadInitialGprs(one_lw_address + 14376u);
 		const std::vector<u32> code = {0x8f82c7d8u}; // lw v0, -14376(gp)
 		const EESnapshot interp = RunEEProgram(false, code, false, nullptr, initial_cp0.data(), initial.data());
-		const u64 legacy_loads_before = EmuCoreXOracleGetEeIrDirectLoadCounts();
+		const u64 legacy_loads_before = EeHotLoadCount();
 		const EESnapshot legacy = RunEEProgramWithIrMode(0, code, initial.data(), initial_cp0.data(), nullptr, nullptr, false);
-		const u64 legacy_loads = EmuCoreXOracleGetEeIrDirectLoadCounts() - legacy_loads_before;
-		const u64 shared_loads_before = EmuCoreXOracleGetEeIrDirectLoadCounts();
+		const u64 legacy_loads = EeHotLoadCount() - legacy_loads_before;
+		const u64 shared_loads_before = EeHotLoadCount();
 		const EESnapshot shared = RunEEProgramWithIrMode(1, code, initial.data(), initial_cp0.data(), nullptr, nullptr, false);
-		const u64 shared_loads = EmuCoreXOracleGetEeIrDirectLoadCounts() - shared_loads_before;
+		const u64 shared_loads = EeHotLoadCount() - shared_loads_before;
 		CompareEE(interp, legacy, "GTA one-LW control interpreter/legacy");
 		CompareEE(legacy, shared, "GTA one-LW control legacy/shared");
 		const auto expected = EeHotLoadExpectedGprs(initial, 1, 0, value, 0);
@@ -336,12 +344,12 @@ void EEHotLoadBenchmarkTests()
 		// An untaken ordinary BEQ leaves the slot to the next interpreter
 		// step; taken branches execute their slot atomically.
 		const EESnapshot interp = EeHotLoadRunInterpreterFirstBlock(code, initial, initial_cp0, 2);
-		const u64 legacy_loads_before = EmuCoreXOracleGetEeIrDirectLoadCounts();
+		const u64 legacy_loads_before = EeHotLoadCount();
 		const EESnapshot legacy = RunEEProgramWithIrMode(0, code, initial.data(), initial_cp0.data(), nullptr, nullptr, false);
-		const u64 legacy_loads = EmuCoreXOracleGetEeIrDirectLoadCounts() - legacy_loads_before;
-		const u64 shared_loads_before = EmuCoreXOracleGetEeIrDirectLoadCounts();
+		const u64 legacy_loads = EeHotLoadCount() - legacy_loads_before;
+		const u64 shared_loads_before = EeHotLoadCount();
 		const EESnapshot shared = RunEEProgramWithIrMode(1, code, initial.data(), initial_cp0.data(), nullptr, nullptr, false);
-		const u64 shared_loads = EmuCoreXOracleGetEeIrDirectLoadCounts() - shared_loads_before;
+		const u64 shared_loads = EeHotLoadCount() - shared_loads_before;
 		CompareEE(interp, legacy, "GTA branch-only control interpreter/legacy");
 		CompareEE(legacy, shared, "GTA branch-only control legacy/shared");
 		const auto expected = EeHotLoadExpectedGprs(initial, 2, 0, 0, 0);
@@ -354,4 +362,5 @@ void EEHotLoadBenchmarkTests()
 	}
 	EmuCoreXEEOracleSetCompileCallback(nullptr);
 	EmuCoreXOracleSetEeIrMode(-1);
+	EmuCoreXOracleSetEeIrFastLoads(-1);
 }

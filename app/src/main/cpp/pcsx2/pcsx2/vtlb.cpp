@@ -56,6 +56,12 @@ struct FastmemVirtualMapping
 	u32 size;
 };
 
+enum class LoadstoreBackpatchOrigin : u8
+{
+	Legacy,
+	EeIrLoad32,
+};
+
 struct LoadstoreBackpatchInfo
 {
 	u32 guest_pc;
@@ -68,6 +74,7 @@ struct LoadstoreBackpatchInfo
 	bool is_signed;
 	bool is_load;
 	bool is_fpr;
+	LoadstoreBackpatchOrigin origin = LoadstoreBackpatchOrigin::Legacy;
 };
 
 static constexpr size_t FASTMEM_AREA_SIZE = 0x100000000ULL;
@@ -1211,7 +1218,9 @@ void vtlb_ClearLoadStoreInfo()
 	s_fastmem_faulting_pcs.clear();
 }
 
-void vtlb_AddLoadStoreInfo(uptr code_address, u32 code_size, u32 guest_pc, u32 gpr_bitmask, u32 fpr_bitmask, u8 address_register, u8 data_register, u8 size_in_bits, bool is_signed, bool is_load, bool is_fpr)
+static void vtlb_AddLoadStoreInfoImpl(uptr code_address, u32 code_size, u32 guest_pc,
+	u32 gpr_bitmask, u32 fpr_bitmask, u8 address_register, u8 data_register,
+	u8 size_in_bits, bool is_signed, bool is_load, bool is_fpr, LoadstoreBackpatchOrigin origin)
 {
 	pxAssert(code_size < std::numeric_limits<u8>::max());
 
@@ -1219,9 +1228,33 @@ void vtlb_AddLoadStoreInfo(uptr code_address, u32 code_size, u32 guest_pc, u32 g
 	if (iter != s_fastmem_backpatch_info.end())
 		s_fastmem_backpatch_info.erase(iter);
 
-	LoadstoreBackpatchInfo info{guest_pc, gpr_bitmask, fpr_bitmask, static_cast<u8>(code_size), address_register, data_register, size_in_bits, is_signed, is_load, is_fpr};
+	LoadstoreBackpatchInfo info{guest_pc, gpr_bitmask, fpr_bitmask, static_cast<u8>(code_size),
+		address_register, data_register, size_in_bits, is_signed, is_load, is_fpr, origin};
 	s_fastmem_backpatch_info.emplace(code_address, info);
 }
+
+void vtlb_AddLoadStoreInfo(uptr code_address, u32 code_size, u32 guest_pc, u32 gpr_bitmask,
+	u32 fpr_bitmask, u8 address_register, u8 data_register, u8 size_in_bits,
+	bool is_signed, bool is_load, bool is_fpr)
+{
+	vtlb_AddLoadStoreInfoImpl(code_address, code_size, guest_pc, gpr_bitmask, fpr_bitmask,
+		address_register, data_register, size_in_bits, is_signed, is_load, is_fpr,
+		LoadstoreBackpatchOrigin::Legacy);
+}
+
+#if defined(ARCH_ARM64) && defined(__ANDROID__)
+void vtlb_AddLoadStoreInfoIr32(uptr code_address, u32 guest_pc)
+{
+	constexpr u32 IR_LIVE_Q2_Q7 = 0xFC;
+	constexpr u8 IR_ADDRESS_REGISTER = 0;
+	constexpr u8 IR_RESULT_REGISTER = 0;
+	constexpr u8 IR_LOAD_BITS = 32;
+	pxAssert((code_address & 3) == 0);
+	vtlb_AddLoadStoreInfoImpl(code_address, 4, guest_pc, 0, IR_LIVE_Q2_Q7,
+		IR_ADDRESS_REGISTER, IR_RESULT_REGISTER, IR_LOAD_BITS, false, true, false,
+		LoadstoreBackpatchOrigin::EeIrLoad32);
+}
+#endif
 
 bool vtlb_BackpatchLoadStore(uptr code_address, uptr fault_address)
 {
@@ -1240,9 +1273,20 @@ bool vtlb_BackpatchLoadStore(uptr code_address, uptr fault_address)
 	const LoadstoreBackpatchInfo info = iter->second;
 	s_fastmem_backpatch_info.erase(iter);
 	const u32 guest_addr = static_cast<u32>(fault_address - fastmem_start);
-	vtlb_DynBackpatchLoadStore(code_address, info.code_size, info.guest_pc, guest_addr,
-		info.gpr_bitmask, info.fpr_bitmask, info.address_register, info.data_register,
-		info.size_in_bits, info.is_signed, info.is_load, info.is_fpr);
+	if (info.origin == LoadstoreBackpatchOrigin::EeIrLoad32)
+	{
+#if defined(ARCH_ARM64) && defined(__ANDROID__)
+		vtlb_DynBackpatchLoad32Ir(code_address, info.guest_pc, guest_addr);
+#else
+		pxFail("EE IR Load32 backpatch metadata on unsupported platform");
+#endif
+	}
+	else
+	{
+		vtlb_DynBackpatchLoadStore(code_address, info.code_size, info.guest_pc, guest_addr,
+			info.gpr_bitmask, info.fpr_bitmask, info.address_register, info.data_register,
+			info.size_in_bits, info.is_signed, info.is_load, info.is_fpr);
+	}
 
 	// Mark it before clearing the block so a subsequent compilation cannot emit
 	// the same faulting fastmem load/store again.
