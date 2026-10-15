@@ -73,6 +73,9 @@ namespace ir
 			if (inst.op == Op::WriteVfMasked &&
 				(inst.imm >= 32 || !(inst.aux & 0x0f) || (inst.aux & ~(u16(0x0f) | IF_DELAY_SLOT)) != 0))
 				return Fail(error, "WriteVfMasked: VF index, lane mask, or flags are out of range");
+			if (inst.op == Op::WriteVfBitsMasked &&
+				(inst.imm >= 32 || !(inst.aux & 0x0f) || (inst.aux & ~(u16(0x0f) | IF_DELAY_SLOT)) != 0))
+				return Fail(error, "WriteVfBitsMasked: VF index, lane mask, or flags are out of range");
 			if ((inst.op == Op::VShuffle && inst.imm > 0xff) || (inst.op == Op::VShuffle2 && inst.imm > 0xfff))
 				return Fail(error, "vector shuffle: lane selectors are out of range");
 
@@ -228,6 +231,8 @@ namespace ir
 						return Fail(error, "VU raw lane write: 32-bit write required");
 					if (inst.op == Op::WriteVfMasked && fn.ValueType(inst.args[0]) != Type::V4F32)
 						return Fail(error, "VU masked VF write: V4F32 value required");
+					if (inst.op == Op::WriteVfBitsMasked && fn.ValueType(inst.args[0]) != Type::V4I32)
+						return Fail(error, "VU masked VF bits write: V4I32 value required");
 					if (inst.args[0] == 0)
 						return Fail(error, std::string(OpName(inst.op)) + ": missing value");
 					break;
@@ -295,7 +300,7 @@ namespace ir
 						if (t0 != Type::V4I32 || inst.type != Type::V4F32 || inst.imm != 0)
 							return Fail(error, std::string(OpName(inst.op)) + ": V4I32 input, V4F32 result, and zero immediate required");
 					}
-					else if (inst.op == Op::VF2I4 || inst.op == Op::VF2I12 || inst.op == Op::VF2I15)
+					else if (inst.op == Op::VF2I0 || inst.op == Op::VF2I4 || inst.op == Op::VF2I12 || inst.op == Op::VF2I15)
 					{
 						if (t0 != Type::V4F32 || inst.type != Type::V4I32 || inst.imm != 0)
 							return Fail(error, std::string(OpName(inst.op)) + ": V4F32 input, V4I32 result, and zero immediate required");

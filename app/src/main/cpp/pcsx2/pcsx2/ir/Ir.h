@@ -145,6 +145,7 @@ namespace ir
 	X(WriteVf,      StateWrite,  1, 1, Void, false) \
 	/* Write selected raw VU VF lanes from a V4F32 bit vector; aux bits 0..3 are x/y/z/w. */ \
 	X(WriteVfMasked, StateWrite, 1, 1, Void, false) \
+	X(WriteVfBitsMasked, StateWrite, 1, 1, Void, false) \
 	/* Read raw bits from a single VU VF lane; aux selects lane 0..3. */ \
 	X(ReadVfLaneBits, StateRead, 0, 0, I32, false) \
 	/* Write signed-16 VI bits, extended and splatted to selected raw VF lanes. */ \
@@ -255,6 +256,7 @@ namespace ir
 	X(VClip,        VecCompare,  2, 2, Flags, false) \
 	X(VMr32,        VecUnary,    1, 1, Any,  false) \
 	X(VMove,        VecLane2,    2, 2, Any,  false) \
+	X(VF2I0,        VecConvert,  1, 1, V4I32, false) \
 	X(VF2I4,        VecConvert,  1, 1, V4I32, false) \
 	X(VF2I12,       VecConvert,  1, 1, V4I32, false) \
 	X(VF2I15,       VecConvert,  1, 1, V4I32, false) \

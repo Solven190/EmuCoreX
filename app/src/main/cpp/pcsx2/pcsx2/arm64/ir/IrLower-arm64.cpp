@@ -309,11 +309,16 @@ namespace Arm64Ir
 			{
 				u32 lane = 0;
 				while ((plan.lane_mask & (8u >> lane)) == 0) ++lane;
-				oakAsm->DUP(dst.S4(), src.Selem()[lane]);
+				if (lane == 0)
+					convert(dst, src);
+				else
+				{
+					oakAsm->DUP(dst.S4(), src.Selem()[lane]);
+					convert(dst, dst);
+				}
 			}
-			else if (dst.index() != src.index())
-				oakAsm->MOV(dst.B16(), src.B16());
-			convert(dst, dst);
+			else
+				convert(dst, src);
 		}
 		else if (plan.lane_mask == 0x0f)
 		{
@@ -327,6 +332,131 @@ namespace Arm64Ir
 				if (plan.lane_mask & (8u >> lane))
 					oakAsm->INS(dst.Selem()[lane], scratch.Selem()[lane]);
 		}
+		out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
+		recEndOaknutEmit();
+		if (error) error->clear();
+		return true;
+	}
+
+	bool PlanBoundVfToInt(const ir::Function& fn, BoundVfToIntPlan* plan, std::string* error)
+	{
+		if (plan) *plan = {};
+		const auto fail = [&](const char* message) { if (error) *error = message; return false; };
+		if (!plan) return fail("bound VF-to-integer plan output is missing");
+		if (!ir::Verify(fn, error)) return false;
+		if (fn.blocks.size() != 1 || fn.entry != 1 || fn.blocks[0].insts.size() != 4)
+			return fail("bound VF-to-integer requires one conversion slice");
+		const auto& i = fn.blocks[0].insts;
+		if (i[0].op != ir::Op::ReadVf ||
+			(i[1].op != ir::Op::VF2I0 && i[1].op != ir::Op::VF2I4 &&
+				i[1].op != ir::Op::VF2I12 && i[1].op != ir::Op::VF2I15) ||
+			i[2].op != ir::Op::WriteVfBitsMasked || i[3].op != ir::Op::Return)
+			return fail("unsupported bound VF-to-integer operation shape");
+		if (i[0].imm >= 32 || i[2].imm == 0 || i[2].imm >= 32 ||
+			(i[2].aux & 0x0f) == 0 || i[1].imm != 0)
+			return fail("bound VF-to-integer register, lane mask, or operation immediate is invalid");
+		if (i[0].type != ir::Type::V4F32 || i[1].type != ir::Type::V4I32 ||
+			i[2].type != ir::Type::Void || i[3].type != ir::Type::Void)
+			return fail("bound VF-to-integer requires V4F32 input and V4I32 result");
+		const u16 delay = ir::IF_DELAY_SLOT;
+		if ((i[0].aux & ~delay) != 0 || (i[1].aux & ~delay) != 0 ||
+			(i[2].aux & ~(u16(0x0f) | delay)) != 0 || (i[3].aux & ~delay) != 0)
+			return fail("bound VF-to-integer has unsupported instruction flags");
+		const bool delay_slot = (i[0].aux & delay) != 0;
+		for (const ir::Inst& inst : i)
+			if (((inst.aux & delay) != 0) != delay_slot)
+				return fail("bound VF-to-integer delay-slot flags are inconsistent");
+		if (i[0].value == 0 || i[0].num_args != 0 || i[1].value == 0 || i[1].num_args != 1 ||
+			i[1].args[0] != i[0].value || i[2].value != 0 || i[2].num_args != 1 ||
+			i[2].args[0] != i[1].value || i[3].value != 0 || i[3].num_args != 0 || i[3].imm != 0)
+			return fail("bound VF-to-integer SSA links do not match the conversion slice");
+
+		u8 fractional_bits = 0;
+		switch (i[1].op)
+		{
+			case ir::Op::VF2I0: fractional_bits = 0; break;
+			case ir::Op::VF2I4: fractional_bits = 4; break;
+			case ir::Op::VF2I12: fractional_bits = 12; break;
+			case ir::Op::VF2I15: fractional_bits = 15; break;
+			default: return fail("unsupported bound VF-to-integer conversion");
+		}
+		*plan = {static_cast<u8>(i[0].imm), static_cast<u8>(i[2].imm),
+			static_cast<u8>(i[2].aux & 0x0f), fractional_bits, delay_slot};
+		if (error) error->clear();
+		return true;
+	}
+
+	bool LowerBoundVfToIntPlan(const BoundVfToIntPlan& plan, u32 vf_source, u32 vf_dst,
+		LowerOutput* out, std::string* error, BoundVfConvertLayout layout)
+	{
+		if (out) *out = {};
+		if (!out || !oakHasBlock() || plan.src_vf >= 32 || plan.dst_vf == 0 || plan.dst_vf >= 32 ||
+			plan.lane_mask == 0 || plan.lane_mask > 0x0f ||
+			(plan.fractional_bits != 0 && plan.fractional_bits != 4 &&
+				plan.fractional_bits != 12 && plan.fractional_bits != 15) ||
+			vf_source >= 31 || vf_dst >= 31 || vf_source == static_cast<u32>(OAK_QSCRATCH.index()) ||
+			vf_dst == static_cast<u32>(OAK_QSCRATCH.index()) ||
+			vf_source == static_cast<u32>(OAK_QSCRATCH2.index()) ||
+			vf_dst == static_cast<u32>(OAK_QSCRATCH2.index()) ||
+			vf_source == static_cast<u32>(OAK_QSCRATCH3.index()) ||
+			vf_dst == static_cast<u32>(OAK_QSCRATCH3.index()) ||
+			(layout != BoundVfConvertLayout::GuestLanes && layout != BoundVfConvertLayout::MicroVuPartial))
+		{
+			if (error) *error = "invalid bound VF-to-integer plan, host register contract, or destination layout";
+			return false;
+		}
+
+		const u8* start = recBeginOaknutEmit();
+		const oak::QReg src(vf_source);
+		const oak::QReg dst(vf_dst);
+		const oak::QReg scaled = OAK_QSCRATCH;
+		const oak::QReg clamp = OAK_QSCRATCH2;
+		const oak::QReg scratch = OAK_QSCRATCH3;
+		const bool one_lane = (plan.lane_mask & (plan.lane_mask - 1)) == 0;
+		if (layout == BoundVfConvertLayout::MicroVuPartial && one_lane)
+		{
+			u32 lane = 0;
+			while ((plan.lane_mask & (8u >> lane)) == 0) ++lane;
+			oakAsm->DUP(scaled.S4(), src.Selem()[lane]);
+		}
+		else
+			oakAsm->MOV(scaled.B16(), src.B16());
+
+		if (plan.fractional_bits != 0)
+		{
+			const u32 scale_bits = 0x3f800000u + (static_cast<u32>(plan.fractional_bits) << 23);
+			oakAsm->MOV(OAK_WSCRATCH, scale_bits);
+			oakAsm->DUP(clamp.S4(), OAK_WSCRATCH);
+			oakAsm->FMUL(scaled.S4(), scaled.S4(), clamp.S4());
+		}
+
+		// Replace exponent-255 values with signed infinity before FCVTZS. The
+		// legacy helper saturates every infinity/NaN by the scaled raw sign; this
+		// also avoids AArch64's different NaN-to-integer result. Scaling happens
+		// first, so FPCR.DN canonicalization is reflected in the selected sign.
+		oakAsm->USHR(clamp.S4(), scaled.S4(), 23);
+		oakAsm->MOVI(scratch.S4(), 0xff);
+		oakAsm->AND(clamp.B16(), clamp.B16(), scratch.B16());
+		oakAsm->CMEQ(clamp.S4(), clamp.S4(), scratch.S4());
+		oakAsm->MOV(OAK_WSCRATCH, 0xff800000u);
+		oakAsm->DUP(scratch.S4(), OAK_WSCRATCH);
+		oakAsm->AND(scratch.B16(), scaled.B16(), scratch.B16());
+		oakAsm->BSL(clamp.B16(), scratch.B16(), scaled.B16());
+		// FCVTZS uses round-toward-zero and saturates finite overflow to INT_MIN/MAX.
+		// NaNs have already become same-sign infinity, so they follow the legacy clamp.
+		oakAsm->FCVTZS(clamp.S4(), clamp.S4());
+
+		if (layout == BoundVfConvertLayout::MicroVuPartial && one_lane)
+			oakAsm->INS(dst.Selem()[0], clamp.Selem()[0]);
+		else if (plan.lane_mask == 0x0f)
+			oakAsm->MOV(dst.B16(), clamp.B16());
+		else
+		{
+			for (u32 lane = 0; lane < 4; ++lane)
+				if (plan.lane_mask & (8u >> lane))
+					oakAsm->INS(dst.Selem()[lane], clamp.Selem()[lane]);
+		}
+
 		out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
 		recEndOaknutEmit();
 		if (error) error->clear();
@@ -848,6 +978,8 @@ namespace Arm64Ir
 				, m_fuse_multiply_pairs(options.optimize_ir)
 				, m_direct_quad_memory(options.optimize_ir && options.direct_quad_memory && (!CHECK_CACHE || CHECK_EEREC))
 				, m_direct_ee_loads(options.guest_state == GuestState::EE && options.optimize_ir && options.direct_ee_loads && (!CHECK_CACHE || CHECK_EEREC))
+				, m_fastmem_ee_loads(options.fastmem_ee_loads && options.inline_body && options.hooks &&
+					options.hooks->ee_fastmem_abi && options.hooks->before_memory && options.hooks->after_memory)
 				, m_direct_ee_stores(options.guest_state == GuestState::EE && options.optimize_ir && options.direct_ee_stores && (!CHECK_CACHE || CHECK_EEREC))
 				, m_direct_quad_vectors(options.direct_quad_vectors)
 				, m_direct_iop_loads(options.optimize_ir && options.direct_iop_loads)
@@ -1067,6 +1199,9 @@ namespace Arm64Ir
 			u32 m_fused_multiply_pairs = 0;
 			bool m_direct_quad_memory = true;
 			bool m_direct_ee_loads = true;
+			bool m_fastmem_ee_loads = false;
+			struct FastLoadSite { uptr host; u32 guest_pc; };
+			std::vector<FastLoadSite> m_fast_load_sites;
 			bool m_direct_ee_stores = true;
 			bool m_direct_quad_vectors = true;
 			bool m_direct_iop_loads = true;
@@ -1422,6 +1557,12 @@ namespace Arm64Ir
 				out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
 				out->direct_quad_operations = m_direct_quad_operations;
 				out->direct_ee_load_operations = m_direct_ee_load_operations;
+				// Publish only after every instruction has lowered successfully.
+#if defined(ARCH_ARM64) && defined(__ANDROID__)
+				for (const FastLoadSite& site : m_fast_load_sites)
+					vtlb_AddLoadStoreInfoIr32(site.host, site.guest_pc);
+#endif
+				out->fastmem_ee_load_operations = static_cast<u32>(m_fast_load_sites.size());
 				out->direct_ee_store_operations = m_direct_ee_store_operations;
 				out->direct_quad_vector_operations = m_direct_quad_vector_operations;
 				out->iop_memory_operations = m_iop_memory_operations;
@@ -2459,6 +2600,20 @@ namespace Arm64Ir
 					load_a();
 					if (m_hooks && m_hooks->before_memory)
 						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
+					// X0 contains a zero-extended guest address. Preserve the hooks
+					// and unsigned I32 result; LW sign extension belongs to the IR.
+#if defined(ARCH_ARM64) && defined(__ANDROID__)
+					if (m_fastmem_ee_loads && m_direct_ee_loads && inst.op == ir::Op::Load32 &&
+						CHECK_FASTMEM && !vtlb_IsFaultingPC(inst.guest_pc))
+					{
+						m_fast_load_sites.push_back({reinterpret_cast<uptr>(oakGetCurrentCodePointer()), inst.guest_pc});
+						oakAsm->LDR(oak::util::W0, oak::util::X19, oak::util::W0, oak::IndexExt::UXTW);
+						m_hooks->after_memory(m_hooks->ctx);
+						store_r();
+						recEndOaknutEmit();
+						return true;
+					}
+#endif
 					oak::Label slow, done;
 					if (iop && m_direct_iop_loads)
 					{

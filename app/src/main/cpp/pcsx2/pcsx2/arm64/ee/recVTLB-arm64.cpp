@@ -101,13 +101,21 @@ static void vtlbWriteGuestPC_emit_oaknut(u32 guest_pc)
 
 namespace vtlb_private
 {
-	static void DynGen_PrepRegs_emit_oaknut(int addr_reg, int value_reg, u32 sz, bool xmm)
+	static void DynGen_PrepRegs_emit_oaknut(int addr_reg, int value_reg, u32 sz, bool xmm,
+		bool ir_fastmem_load = false)
 	{
 		using namespace oak::util;
 
 		EE::Profiler.EmitMem();
 
-		_freeX86reg(EE_HOST_RCX);
+		if (ir_fastmem_load)
+		{
+			pxAssert(value_reg < 0 && sz == 32 && !xmm);
+		}
+		else
+		{
+			_freeX86reg(EE_HOST_RCX);
+		}
 
 		if (value_reg >= 0)
 		{
@@ -1389,9 +1397,9 @@ void vtlb_DynV2P()
     recEndOaknutEmit();
 }
 
-void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, u32 guest_addr,
+static void DynBackpatchLoadStoreImpl(uptr code_address, u32 code_size, u32 guest_pc, u32 guest_addr,
 	u32 gpr_bitmask, u32 fpr_bitmask, u8 address_register, u8 data_register,
-	u8 size_in_bits, bool is_signed, bool is_load, bool is_xmm)
+	u8 size_in_bits, bool is_signed, bool is_load, bool is_xmm, bool ir_fastmem_load)
 {
 	static constexpr u32 GPR_SIZE = 8;
 	static constexpr u32 XMM_SIZE = 16;
@@ -1458,7 +1466,7 @@ void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, 
 	{
 		recBeginOaknutEmit();
 		vtlbWriteGuestPC_emit_oaknut(guest_pc);
-		DynGen_PrepRegs_emit_oaknut(address_register, -1, size_in_bits, is_xmm);
+		DynGen_PrepRegs_emit_oaknut(address_register, -1, size_in_bits, is_xmm, ir_fastmem_load);
 		DynGen_HandlerTest_emit_oaknut([size_in_bits, is_signed]() {DynGen_DirectRead_emit_oaknut(size_in_bits, is_signed); },  0, size_in_bits, is_signed && size_in_bits <= 32);
 		recEndOaknutEmit();
 
@@ -1530,4 +1538,25 @@ void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, 
 //	x86Ptr = (u8*)code_address;
     oakEmitJmpPtr((void*)code_address, thunk, true);
 }
+
+void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, u32 guest_addr,
+	u32 gpr_bitmask, u32 fpr_bitmask, u8 address_register, u8 data_register,
+	u8 size_in_bits, bool is_signed, bool is_load, bool is_xmm)
+{
+	DynBackpatchLoadStoreImpl(code_address, code_size, guest_pc, guest_addr,
+		gpr_bitmask, fpr_bitmask, address_register, data_register, size_in_bits,
+		is_signed, is_load, is_xmm, false);
+}
+
+#if defined(ARCH_ARM64) && defined(__ANDROID__)
+void vtlb_DynBackpatchLoad32Ir(uptr code_address, u32 guest_pc, u32 guest_addr)
+{
+	constexpr u32 IR_LIVE_Q2_Q7 = 0xFC;
+	constexpr u8 IR_REGISTER_W0 = 0;
+	constexpr u8 IR_LOAD_BITS = 32;
+	DynBackpatchLoadStoreImpl(code_address, 4, guest_pc, guest_addr, 0,
+		IR_LIVE_Q2_Q7, IR_REGISTER_W0, IR_REGISTER_W0, IR_LOAD_BITS,
+		false, true, false, true);
+}
+#endif
 

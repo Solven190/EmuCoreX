@@ -8,6 +8,8 @@
 #include "JitProfiler.h"
 #include "ir/Ir.h"
 #include "arm64/ee/EeIrLifter-arm64.h"
+#include "arm64/ee/iCore-arm64.h"
+#include "arm64/ee/iR5900-arm64.h"
 #include "arm64/iop/IopIrLifter-arm64.h"
 #include "arm64/ee/EeIrLower-arm64.h"
 #include "arm64/OaknutHelpers-arm64.h"
@@ -2154,8 +2156,12 @@ void VUSharedTransferBenchmarks()
 #include "jit_oracle_vu_abs.inl"
 #include "jit_oracle_vu_itof.inl"
 #include "jit_oracle_vu_itof_bench.inl"
+#include "jit_oracle_vu_itof_codegen.inl"
+#include "jit_oracle_vu_ftoi.inl"
+#include "jit_oracle_vu_ftoi_integration.inl"
+#include "jit_oracle_vu_ftoi_bench.inl"
 
-void VUTests()
+void VUTests(bool itof_codegen_only = false, bool ftoi_only = false)
 {
     struct VUOverrideReset
     {
@@ -2176,14 +2182,30 @@ void VUTests()
     CpuVU1 = &CpuMicroVU1;
     CpuMicroVU0.Reserve();
     CpuMicroVU1.Reserve();
+    if (itof_codegen_only)
+    {
+        VUBoundItofCodegenTests();
+        return;
+    }
+    if (ftoi_only)
+    {
+        VUBoundVfToIntTests();
+        VUSharedFtoiIntegrationTests();
+        VUSharedFtoiBenchmarks();
+        return;
+    }
     VUBoundIrTests();
     VUSharedIrProductionTests();
     VUSharedImmediateTests();
     VUBoundVfShuffleTests();
     VUBoundVfUnaryTests();
     VUBoundVfConvertTests();
+    VUBoundItofCodegenTests();
     VUSharedItofIntegrationTests();
     VUSharedItofBenchmarks();
+    VUBoundVfToIntTests();
+    VUSharedFtoiIntegrationTests();
+    VUSharedFtoiBenchmarks();
     VUBoundVfViTransferTests();
     VUBoundViVfTransferTests();
     VUSharedMtirProductionTests();
@@ -3929,6 +3951,11 @@ void EECoverageCop2Spec2()
 }
 
 #include "jit_oracle_ee_vu_itof.inl"
+#include "jit_oracle_ee_vu_ftoi.inl"
+#include "jit_oracle_ee_bc1.inl"
+#include "jit_oracle_ee_hot_loads.inl"
+#include "jit_oracle_ee_fastmem.inl"
+#include "jit_oracle_ee_fastmem_abi.inl"
 
 void EEVuAbsSharedTests()
 {
@@ -4503,6 +4530,8 @@ bool RunEEIrCop1Direct(const std::vector<u32>& program, const GPR_reg* initial_g
     result.pc = g_eeir_exit_pc;
     return true;
 }
+
+#include "jit_oracle_ee_unary.inl"
 
 void EEIrCop1TransferTests()
 {
@@ -5108,7 +5137,7 @@ void EEIrCop1MoveTests()
     bool rejected_non_move = true;
     for (u32 funct = 0; funct < 64; ++funct)
     {
-        if (funct == 0x06)
+        if (funct == 0x05 || funct == 0x06 || funct == 0x07)
             continue;
         const u32 word = MipsCop1(16, 9, 8, 10, funct);
         ir::Function fn;
@@ -5127,7 +5156,7 @@ void EEIrCop1MoveTests()
         rejected_non_move &= !EeIr::LiftBlock(&word, {EE_TEST_PC, 1}, fn, &end, &error);
     }
     Check(rejected_non_move,
-        "COP1 MOV.S admits only function 6 in S format; all other functions, W format, and BC1 reject");
+        "COP1 raw-sign slice admits ABS.S/MOV.S/NEG.S; other S functions, W format, and incomplete BC1 reject");
 
     // MOV.S must behave as a branch delay-slot instruction on both routes.
     const u32 delay_bits = 0x7fc54321u;
@@ -8739,6 +8768,7 @@ void EEIrExecutionTests()
 {
     EEIrCop1TransferTests();
     EEIrCop1MoveTests();
+    EEIrCop1UnaryTests();
     EEIrPackedKernelDceTests();
     EEIrQuadHiLoStateTests();
     EEIrPackedProductBackendTests();
@@ -9746,7 +9776,8 @@ void EEGameCodeTests()
 }
 
 void EETests(bool cop1_mov_only = false, bool vu_abs_only = false, bool scalar_stores_only = false,
-    bool vu_itof_only = false)
+    bool vu_itof_only = false, bool cop1_branch_only = false, bool hot_loads_only = false,
+    bool vu_ftoi_only = false, bool fastmem_only = false, bool cop1_unary_only = false)
 {
     EmuCoreXOracleSetSkipEvents(1);
     cpuinfo_initialize();
@@ -9783,6 +9814,17 @@ void EETests(bool cop1_mov_only = false, bool vu_abs_only = false, bool scalar_s
         EEIrCop1MoveTests();
         return;
     }
+    if (fastmem_only)
+    {
+        EEFastmemIntegrationTests();
+        EEFastmemAbiTests();
+        return;
+    }
+    if (cop1_unary_only)
+    {
+        EEIrCop1UnaryTests();
+        return;
+    }
     if (vu_abs_only)
     {
         EEVuAbsSharedTests();
@@ -9800,6 +9842,22 @@ void EETests(bool cop1_mov_only = false, bool vu_abs_only = false, bool scalar_s
     if (vu_itof_only)
     {
         EEVuItofMacroTests();
+        return;
+    }
+    if (cop1_branch_only)
+    {
+        EEIrCop1BranchTests();
+        return;
+    }
+    if (hot_loads_only)
+    {
+        EEHotLoadBenchmarkTests();
+        EEHotLoadBenchmarkTests(true);
+        return;
+    }
+    if (vu_ftoi_only)
+    {
+        EEVuFtoiMacroTests();
         return;
     }
 
@@ -9909,7 +9967,12 @@ void EETests(bool cop1_mov_only = false, bool vu_abs_only = false, bool scalar_s
     EECoverageCop2Spec2();
     EEVuAbsSharedTests();
     EEVuItofMacroTests();
+    EEVuFtoiMacroTests();
+    EEIrCop1BranchTests();
+    EEHotLoadBenchmarkTests();
     EEIrScalarStoreTests();
+    EEFastmemIntegrationTests();
+    EEFastmemAbiTests();
     EEIrScalarStoreGuestTests();
     EEIrScalarStoreBenchmark();
     EECoverageMmi();
@@ -11324,7 +11387,7 @@ void IOPControlFrontendTests()
                     Check(same, name);
                 }
     const u32 branch = MipsI(4, 8, 9, 1);
-    for (u32 delay : {MipsI(50, 8, 9, 0), 0x0000000cu, MipsI(16, 1, 0, 0), MipsI(4, 0, 0, 1), 0x24001234u})
+    for (u32 delay : {MipsI(49, 8, 9, 0), 0x0000000cu, MipsI(16, 1, 0, 0), MipsI(4, 0, 0, 1), 0x24001234u})
     {
         const u32 code[] = {MipsI(9, 0, 8, 3), branch, delay};
         ir::Function fn;
@@ -11417,7 +11480,8 @@ void IOPSharedFrontendTests()
                 std::snprintf(name, sizeof(name), "ir IOP frontend kind=%u dest=%u edge=%08x modes/interpreter", kind, dest, edge);
                 Check(same, name);
             }
-    for (u32 word : {MipsI(50, 8, 9, 0), MipsI(58, 8, 9, 0), MipsI(1, 8, 2, 1),
+    // COP1 memory transfers remain unsupported; COP2 transfers are covered above.
+    for (u32 word : {MipsI(49, 8, 9, 0), MipsI(57, 8, 9, 0), MipsI(1, 8, 2, 1),
         MipsR(8, 0, 0, 0, 1), 0x0000000du, MipsI(16, 1, 0, 0),
         MipsI(16, 8, 8, 0), 0x48080001u, 0x0000000cu, 0xffffffffu})
     {
@@ -11526,8 +11590,9 @@ void IOPSharedStateTests()
 }
 
 #include "jit_oracle_iop_cop2.inl"
+#include "jit_oracle_iop_cop2_memory.inl"
 
-void IOPTests(bool cop2_only = false)
+void IOPTests(bool cop2_only = false, bool cop2_memory_only = false)
 {
     EmuCoreXOracleSetSkipEvents(1);
     cpuinfo_initialize();
@@ -11547,6 +11612,11 @@ void IOPTests(bool cop2_only = false)
     {
         IOPCop2FrontendRedTests();
         IOPCop2IntegrationRedTests();
+        return;
+    }
+    if (cop2_memory_only)
+    {
+        IOPCop2MemoryIntegrationRedTests();
         return;
     }
 
@@ -11606,6 +11676,7 @@ void IOPTests(bool cop2_only = false)
     IOPCoverageGte();
     IOPCop2FrontendRedTests();
     IOPCop2IntegrationRedTests();
+    IOPCop2MemoryIntegrationRedTests();
     IOPSharedMulDivIntegrationTests();
     SharedMulHiBackendTests();
     IOPSharedMulDivFrontendTests();
@@ -11938,6 +12009,10 @@ extern "C" __attribute__((visibility("default"))) int EmuCoreXRunJitOracle(const
         ClassifierTests();
     else if (std::strcmp(suite, "vu") == 0)
         VUTests();
+    else if (std::strcmp(suite, "vu-itof-codegen") == 0)
+        VUTests(true);
+    else if (std::strcmp(suite, "vu-ftoi") == 0)
+        VUTests(false, true);
     else if (std::strcmp(suite, "sqrt-flags") == 0)
         SqrtFlagTests();
     else if (std::strcmp(suite, "div-edges") == 0)
@@ -11954,10 +12029,22 @@ extern "C" __attribute__((visibility("default"))) int EmuCoreXRunJitOracle(const
         EETests(false, false, true);
     else if (std::strcmp(suite, "ee-vu-itof") == 0)
         EETests(false, false, false, true);
+    else if (std::strcmp(suite, "ee-vu-ftoi") == 0)
+        EETests(false, false, false, false, false, false, true);
+    else if (std::strcmp(suite, "ee-fastmem") == 0)
+        EETests(false, false, false, false, false, false, false, true);
+    else if (std::strcmp(suite, "ee-cop1-unary") == 0)
+        EETests(false, false, false, false, false, false, false, false, true);
+    else if (std::strcmp(suite, "ee-bc1") == 0)
+        EETests(false, false, false, false, true);
+    else if (std::strcmp(suite, "ee-hot-loads") == 0)
+        EETests(false, false, false, false, false, true);
     else if (std::strcmp(suite, "iop") == 0)
         IOPTests();
     else if (std::strcmp(suite, "iop-cop2") == 0)
         IOPTests(true);
+    else if (std::strcmp(suite, "iop-cop2-memory") == 0)
+        IOPTests(false, true);
     else if (std::strcmp(suite, "gs-prepare") == 0)
         GSPreparationDeviceTests();
     else

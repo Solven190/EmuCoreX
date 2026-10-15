@@ -83,7 +83,10 @@ static u64 s_cop1_cfc1_compiles = 0;
 static u64 s_cop1_ctc1_compiles = 0;
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 static u64 s_cop1_mov_s_compiles = 0;
+static u64 s_cop1_unary_compiles = 0;
 static u64 s_direct_scalar_store_compiles = 0;
+static u64 s_direct_scalar_load_compiles = 0;
+static u64 s_cop1_bc1_compiles = 0;
 #endif
 
 static BASEBLOCK* recRAM = nullptr; // and the ptr to the blocks here
@@ -2441,6 +2444,8 @@ static u8* recShortBlockLink_emit_oaknut(u32 next_pc, u32 scaled_cycles)
 // can never activate in a release build.
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 static int s_oracleEeIrModeOverride = -1;
+static int s_oracleEeIrFastLoadOverride = -1;
+static u64 s_fast_scalar_load_compiles = 0;
 extern "C" void EmuCoreXOracleSetEeIrMode(int mode)
 {
 	if (mode >= -1 && mode <= 1)
@@ -2455,7 +2460,33 @@ extern "C" void EmuCoreXOracleGetEeIrCop1Counts(u64* mfc1, u64* mtc1, u64* cfc1,
 	if (ctc1) *ctc1 = s_cop1_ctc1_compiles;
 }
 extern "C" u64 EmuCoreXOracleGetEeIrMovCounts() { return s_cop1_mov_s_compiles; }
+extern "C" u64 EmuCoreXOracleGetEeIrUnaryCounts() { return s_cop1_unary_compiles; }
 extern "C" u64 EmuCoreXOracleGetEeIrDirectStoreCounts() { return s_direct_scalar_store_compiles; }
+extern "C" u64 EmuCoreXOracleGetEeIrDirectLoadCounts() { return s_direct_scalar_load_compiles; }
+extern "C" void EmuCoreXOracleSetEeIrFastLoads(int mode)
+{
+	if (mode >= -1 && mode <= 1)
+		s_oracleEeIrFastLoadOverride = mode;
+}
+extern "C" u64 EmuCoreXOracleGetEeIrFastLoadCounts() { return s_fast_scalar_load_compiles; }
+extern "C" u64 EmuCoreXOracleGetEeIrBc1Counts() { return s_cop1_bc1_compiles; }
+extern "C" bool EmuCoreXOracleGetEeCompiledBlock(u32 guest_pc, const void** host, u32* bytes)
+{
+	if (host)
+		*host = nullptr;
+	if (bytes)
+		*bytes = 0;
+
+	const BASEBLOCKEX* const block = recBlocks.Get(HWADDR(guest_pc));
+	if (!block || block->startpc != HWADDR(guest_pc) || !block->fnptr || block->x86size == 0)
+		return false;
+
+	if (host)
+		*host = reinterpret_cast<const void*>(block->fnptr);
+	if (bytes)
+		*bytes = block->x86size;
+	return true;
+}
 #else
 extern "C" void EmuCoreXOracleSetEeIrMode(int mode) { (void)mode; }
 extern "C" void EmuCoreXOracleGetEeIrCop1Counts(u64* mfc1, u64* mtc1, u64* cfc1, u64* ctc1)
@@ -2619,6 +2650,7 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	// These two memory hooks emit integer state stores only; C-helper hooks
 	// retain the full caller-save clobber contract.
 	hooks.memory_preserves_vectors = true;
+	hooks.ee_fastmem_abi = true;
 
 	EeIr::LowerOutput out;
 	EeIr::LowerOptions options;
@@ -2655,6 +2687,13 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		return __system_property_get("debug.emucorex.ee_ir_direct_loads", value) == 0 || value[0] != '0';
 	}();
 	options.direct_ee_loads = direct_ee_loads;
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+	static const bool fastmem_ee_loads = []() {
+		char value[PROP_VALUE_MAX] = {};
+		return __system_property_get("debug.emucorex.ee_ir_fastmem", value) > 0 && value[0] == '1';
+	}();
+	options.fastmem_ee_loads = s_oracleEeIrFastLoadOverride >= 0 ? s_oracleEeIrFastLoadOverride == 1 : fastmem_ee_loads;
+#endif
 	static const bool direct_ee_stores = []() {
 		char value[PROP_VALUE_MAX] = {};
 		return __system_property_get("debug.emucorex.ee_ir_direct_stores", value) == 0 || value[0] != '0';
@@ -2683,6 +2722,10 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 	}
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 	s_direct_scalar_store_compiles += out.direct_ee_store_operations;
+	s_direct_scalar_load_compiles += out.direct_ee_load_operations;
+	s_fast_scalar_load_compiles += out.fastmem_ee_load_operations;
+	if (out.fastmem_ee_load_operations && (s_fast_scalar_load_compiles & (s_fast_scalar_load_compiles - 1)) == 0)
+		__android_log_print(ANDROID_LOG_INFO, "EEIR", "compiled_fast_loads=%llu", static_cast<unsigned long long>(s_fast_scalar_load_compiles));
 #endif
 #if defined(__ANDROID__)
 	// Process-local compilation counts prove that the enabled path is used,
@@ -2708,7 +2751,8 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 		const u32 op = word >> 26;
 		if (op == 0x11)
 		{
-			switch ((word >> 21) & 0x1f)
+			const u32 rs = (word >> 21) & 0x1f;
+			switch (rs)
 			{
 				case 0x00: ++s_cop1_mfc1_compiles; break;
 				case 0x02: ++s_cop1_cfc1_compiles; break;
@@ -2716,8 +2760,13 @@ static bool TryCompileEeIrBlock(const u32 startpc)
 				case 0x06: ++s_cop1_ctc1_compiles; break;
 			}
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
-			if (((word >> 21) & 0x1f) == 0x10 && (word & 0x3f) == 0x06)
+			const u32 rt = (word >> 16) & 0x1f;
+			if (rs == 0x08 && rt <= 3)
+				++s_cop1_bc1_compiles;
+			if (rs == 0x10 && (word & 0x3f) == 0x06)
 				++s_cop1_mov_s_compiles;
+			if (rs == 0x10 && ((word & 0x3f) == 0x05 || (word & 0x3f) == 0x07))
+				++s_cop1_unary_compiles;
 #endif
 		}
 		if (op == 0x1c)
