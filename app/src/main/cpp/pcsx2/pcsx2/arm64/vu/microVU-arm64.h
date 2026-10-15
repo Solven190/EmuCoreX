@@ -431,6 +431,7 @@ void mVURecordSharedIr(u32 index, u32 host_bytes, bool immediate = false, bool t
 void mVURecordSharedMfir(u32 index, u32 host_bytes);
 void mVURecordSharedMr32(u32 index, u32 host_bytes);
 void mVURecordSharedAbs(u32 index, u32 host_bytes);
+void mVURecordSharedItof(u32 index, u32 host_bytes);
 
 // Include all the *.inl files (microVU compiles as 1 Translation Unit)
 #include "microVU_Misc-arm64.inl"

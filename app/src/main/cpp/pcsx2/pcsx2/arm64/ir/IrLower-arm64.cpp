@@ -127,6 +127,54 @@ namespace Arm64Ir
 		return true;
 	}
 
+	bool PlanBoundVfConvert(const ir::Function& fn, BoundVfConvertPlan* plan, std::string* error)
+	{
+		if (plan) *plan = {};
+		const auto fail = [&](const char* message) { if (error) *error = message; return false; };
+		if (!plan) return fail("bound VF convert plan output is missing");
+		if (!ir::Verify(fn, error)) return false;
+		if (fn.blocks.size() != 1 || fn.entry != 1 || fn.blocks[0].insts.size() != 4)
+			return fail("bound VF convert requires one integer-to-float slice");
+		const auto& i = fn.blocks[0].insts;
+		if (i[0].op != ir::Op::ReadVfBits ||
+			(i[1].op != ir::Op::VI2F0 && i[1].op != ir::Op::VI2F4 &&
+				i[1].op != ir::Op::VI2F12 && i[1].op != ir::Op::VI2F15) ||
+			i[2].op != ir::Op::WriteVfMasked || i[3].op != ir::Op::Return)
+			return fail("unsupported bound VF convert operation shape");
+		if (i[0].imm >= 32 || i[2].imm == 0 || i[2].imm >= 32 ||
+			(i[2].aux & 0x0f) == 0 || i[1].imm != 0)
+			return fail("bound VF convert register, lane mask, or operation immediate is invalid");
+		if (i[0].type != ir::Type::V4I32 || i[1].type != ir::Type::V4F32 ||
+			i[2].type != ir::Type::Void || i[3].type != ir::Type::Void)
+			return fail("bound VF convert requires V4I32 input and V4F32 result");
+		const u16 delay = ir::IF_DELAY_SLOT;
+		if ((i[0].aux & ~delay) != 0 || (i[1].aux & ~delay) != 0 ||
+			(i[2].aux & ~(u16(0x0f) | delay)) != 0 || (i[3].aux & ~delay) != 0)
+			return fail("bound VF convert has unsupported instruction flags");
+		const bool delay_slot = (i[0].aux & delay) != 0;
+		for (const ir::Inst& inst : i)
+			if (((inst.aux & delay) != 0) != delay_slot)
+				return fail("bound VF convert delay-slot flags are inconsistent");
+		if (i[0].value == 0 || i[0].num_args != 0 || i[1].value == 0 || i[1].num_args != 1 ||
+			i[1].args[0] != i[0].value || i[2].value != 0 || i[2].num_args != 1 ||
+			i[2].args[0] != i[1].value || i[3].value != 0 || i[3].num_args != 0 || i[3].imm != 0)
+			return fail("bound VF convert SSA links do not match the conversion slice");
+
+		u8 fractional_bits = 0;
+		switch (i[1].op)
+		{
+			case ir::Op::VI2F0: fractional_bits = 0; break;
+			case ir::Op::VI2F4: fractional_bits = 4; break;
+			case ir::Op::VI2F12: fractional_bits = 12; break;
+			case ir::Op::VI2F15: fractional_bits = 15; break;
+			default: return fail("unsupported bound VF convert operation");
+		}
+		*plan = {static_cast<u8>(i[0].imm), static_cast<u8>(i[2].imm),
+			static_cast<u8>(i[2].aux & 0x0f), fractional_bits, delay_slot};
+		if (error) error->clear();
+		return true;
+	}
+
 	bool LowerBoundVfShufflePlan(const BoundVfShufflePlan& plan, u32 vf_source, u32 vf_dst,
 		LowerOutput* out, std::string* error, BoundVfShuffleLayout layout)
 	{
@@ -219,6 +267,62 @@ namespace Arm64Ir
 			const oak::QReg scratch = OAK_QSCRATCH;
 			oakAsm->MOV(scratch.B16(), src.B16());
 			oakAsm->BIC(scratch.S4(), 0x80, oak::LslSymbol::LSL, 24);
+			for (u32 lane = 0; lane < 4; ++lane)
+				if (plan.lane_mask & (8u >> lane))
+					oakAsm->INS(dst.Selem()[lane], scratch.Selem()[lane]);
+		}
+		out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
+		recEndOaknutEmit();
+		if (error) error->clear();
+		return true;
+	}
+
+	bool LowerBoundVfConvertPlan(const BoundVfConvertPlan& plan, u32 vf_source, u32 vf_dst,
+		LowerOutput* out, std::string* error, BoundVfConvertLayout layout)
+	{
+		if (out) *out = {};
+		if (!out || !oakHasBlock() || plan.src_vf >= 32 || plan.dst_vf == 0 || plan.dst_vf >= 32 ||
+			plan.lane_mask == 0 || plan.lane_mask > 0x0f ||
+			(plan.fractional_bits != 0 && plan.fractional_bits != 4 &&
+				plan.fractional_bits != 12 && plan.fractional_bits != 15) ||
+			vf_source >= 31 || vf_dst >= 31 || vf_source == static_cast<u32>(OAK_QSCRATCH.index()) ||
+			vf_dst == static_cast<u32>(OAK_QSCRATCH.index()) ||
+			(layout != BoundVfConvertLayout::GuestLanes && layout != BoundVfConvertLayout::MicroVuPartial))
+		{
+			if (error) *error = "invalid bound VF convert plan, host register contract, or destination layout";
+			return false;
+		}
+
+		const u8* start = recBeginOaknutEmit();
+		const oak::QReg src(vf_source);
+		const oak::QReg dst(vf_dst);
+		const auto convert = [&](oak::QReg output, oak::QReg input) {
+			if (plan.fractional_bits == 0)
+				oakAsm->SCVTF(output.S4(), input.S4());
+			else
+				oakAsm->SCVTF(output.S4(), input.S4(), plan.fractional_bits);
+		};
+
+		if (layout == BoundVfConvertLayout::MicroVuPartial)
+		{
+			if ((plan.lane_mask & (plan.lane_mask - 1)) == 0)
+			{
+				u32 lane = 0;
+				while ((plan.lane_mask & (8u >> lane)) == 0) ++lane;
+				oakAsm->DUP(dst.S4(), src.Selem()[lane]);
+			}
+			else if (dst.index() != src.index())
+				oakAsm->MOV(dst.B16(), src.B16());
+			convert(dst, dst);
+		}
+		else if (plan.lane_mask == 0x0f)
+		{
+			convert(dst, src);
+		}
+		else
+		{
+			const oak::QReg scratch = OAK_QSCRATCH;
+			convert(scratch, src);
 			for (u32 lane = 0; lane < 4; ++lane)
 				if (plan.lane_mask & (8u >> lane))
 					oakAsm->INS(dst.Selem()[lane], scratch.Selem()[lane]);
@@ -606,6 +710,10 @@ namespace Arm64Ir
 				case ir::Op::Store128:
 				case ir::Op::ReadCp0:
 				case ir::Op::WriteCp0:
+				case ir::Op::ReadCp2Data:
+				case ir::Op::WriteCp2Data:
+				case ir::Op::ReadCp2Control:
+				case ir::Op::WriteCp2Control:
 				case ir::Op::ReadFprBits:
 				case ir::Op::WriteFprBits:
 				case ir::Op::ReadFcr31:
@@ -740,6 +848,7 @@ namespace Arm64Ir
 				, m_fuse_multiply_pairs(options.optimize_ir)
 				, m_direct_quad_memory(options.optimize_ir && options.direct_quad_memory && (!CHECK_CACHE || CHECK_EEREC))
 				, m_direct_ee_loads(options.guest_state == GuestState::EE && options.optimize_ir && options.direct_ee_loads && (!CHECK_CACHE || CHECK_EEREC))
+				, m_direct_ee_stores(options.guest_state == GuestState::EE && options.optimize_ir && options.direct_ee_stores && (!CHECK_CACHE || CHECK_EEREC))
 				, m_direct_quad_vectors(options.direct_quad_vectors)
 				, m_direct_iop_loads(options.optimize_ir && options.direct_iop_loads)
 				, m_reuse_spill_slots(options.optimize_ir && options.reuse_spill_slots)
@@ -761,9 +870,11 @@ namespace Arm64Ir
 			{
 				const bool scalar = m_direct_ee_loads && (inst.op == ir::Op::Load8U || inst.op == ir::Op::Load8S ||
 					inst.op == ir::Op::Load16U || inst.op == ir::Op::Load16S || inst.op == ir::Op::Load32 || inst.op == ir::Op::Load64);
+				const bool scalar_store = m_direct_ee_stores && (inst.op == ir::Op::Store8 || inst.op == ir::Op::Store16 ||
+					inst.op == ir::Op::Store32 || inst.op == ir::Op::Store64);
 				const bool quad = m_direct_quad_memory && m_direct_quad_vectors &&
 					(inst.op == ir::Op::Load128 || inst.op == ir::Op::Store128);
-				return m_allocate_vectors && (!m_hooks || m_hooks->memory_preserves_vectors) && (scalar || quad);
+				return m_allocate_vectors && (!m_hooks || m_hooks->memory_preserves_vectors) && (scalar || scalar_store || quad);
 			}
 			void EmitEeDirectAddress(oak::Label& slow)
 			{
@@ -956,6 +1067,7 @@ namespace Arm64Ir
 			u32 m_fused_multiply_pairs = 0;
 			bool m_direct_quad_memory = true;
 			bool m_direct_ee_loads = true;
+			bool m_direct_ee_stores = true;
 			bool m_direct_quad_vectors = true;
 			bool m_direct_iop_loads = true;
 			bool m_reuse_spill_slots = true;
@@ -963,6 +1075,7 @@ namespace Arm64Ir
 			u32 m_direct_iop_load_operations = 0;
 			u32 m_direct_quad_operations = 0;
 			u32 m_direct_ee_load_operations = 0;
+			u32 m_direct_ee_store_operations = 0;
 			u32 m_direct_quad_vector_operations = 0;
 			std::vector<std::optional<u64>> m_constants;
 			std::vector<u32> m_slots;
@@ -1309,6 +1422,7 @@ namespace Arm64Ir
 				out->host_size = static_cast<u32>(oakGetCurrentCodePointer() - start);
 				out->direct_quad_operations = m_direct_quad_operations;
 				out->direct_ee_load_operations = m_direct_ee_load_operations;
+				out->direct_ee_store_operations = m_direct_ee_store_operations;
 				out->direct_quad_vector_operations = m_direct_quad_vector_operations;
 				out->iop_memory_operations = m_iop_memory_operations;
 				out->direct_iop_load_operations = m_direct_iop_load_operations;
@@ -1335,6 +1449,7 @@ namespace Arm64Ir
 			out->host_size = static_cast<u32>(end - start);
 			out->direct_quad_operations = m_direct_quad_operations;
 			out->direct_ee_load_operations = m_direct_ee_load_operations;
+			out->direct_ee_store_operations = m_direct_ee_store_operations;
 			out->direct_quad_vector_operations = m_direct_quad_vector_operations;
 			out->iop_memory_operations = m_iop_memory_operations;
 			out->direct_iop_load_operations = m_direct_iop_load_operations;
@@ -2481,6 +2596,8 @@ namespace Arm64Ir
 				{
 					const bool iop = m_guest_state == GuestState::IOP;
 					if (iop) ++m_iop_memory_operations;
+					const bool direct_vectors = UsesDirectVectorMemory(inst);
+					const u32 position = m_emit_position - 1;
 					const void* helper = nullptr;
 					switch (inst.op)
 					{
@@ -2497,7 +2614,27 @@ namespace Arm64Ir
 						Load32(a[1], oak::util::W1);
 					if (m_hooks && m_hooks->before_memory)
 						m_hooks->before_memory(m_hooks->ctx, inst.guest_pc, (inst.aux & ir::IF_DELAY_SLOT) != 0);
+					oak::Label slow, done;
+					if (m_direct_ee_stores)
+					{
+						// Preserve the ordinary VTLB write contract, including live
+						// remaps and host write protection for recompiled guest code.
+						EmitEeDirectAddress(slow);
+						switch (inst.op)
+						{
+							case ir::Op::Store8: oakAsm->STRB(oak::util::W1, oak::util::X2); break;
+							case ir::Op::Store16: oakAsm->STRH(oak::util::W1, oak::util::X2); break;
+							case ir::Op::Store32: oakAsm->STR(oak::util::W1, oak::util::X2); break;
+							default: oakAsm->STR(oak::util::X1, oak::util::X2); break;
+						}
+						oakAsm->B(done);
+						oakAsm->l(slow);
+						++m_direct_ee_store_operations;
+						if (direct_vectors) SaveVectors(position);
+					}
 					call_helper(helper);
+					if (direct_vectors) RestoreVectors(position);
+					if (m_direct_ee_stores) oakAsm->l(done);
 					if (m_hooks && m_hooks->after_memory)
 						m_hooks->after_memory(m_hooks->ctx);
 					recEndOaknutEmit();
@@ -2514,6 +2651,32 @@ namespace Arm64Ir
 				case ir::Op::WriteCp0:
 					recBeginOaknutEmit();
 					oakStore32(Operand32(a[0], oak::util::W0), {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.CP0) + inst.imm * sizeof(u32))});
+					recEndOaknutEmit();
+					return true;
+
+				case ir::Op::ReadCp2Data:
+					recBeginOaknutEmit();
+					oakLoad32(Result32(inst.value), {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.CP2D.r) + inst.imm * sizeof(u32))});
+					Store32(inst.value, Result32(inst.value));
+					recEndOaknutEmit();
+					return true;
+
+				case ir::Op::WriteCp2Data:
+					recBeginOaknutEmit();
+					oakStore32(Operand32(a[0], oak::util::W0), {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.CP2D.r) + inst.imm * sizeof(u32))});
+					recEndOaknutEmit();
+					return true;
+
+				case ir::Op::ReadCp2Control:
+					recBeginOaknutEmit();
+					oakLoad32(Result32(inst.value), {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.CP2C.r) + inst.imm * sizeof(u32))});
+					Store32(inst.value, Result32(inst.value));
+					recEndOaknutEmit();
+					return true;
+
+				case ir::Op::WriteCp2Control:
+					recBeginOaknutEmit();
+					oakStore32(Operand32(a[0], oak::util::W0), {GuestBase(), static_cast<s64>(offsetof(cpuRegistersPack, psxRegs.CP2C.r) + inst.imm * sizeof(u32))});
 					recEndOaknutEmit();
 					return true;
 
@@ -2762,9 +2925,12 @@ namespace Arm64Ir
 		{
 			for (const ir::Inst& inst : block.insts)
 			{
-				if (guest_state != GuestState::IOP && (inst.op == ir::Op::ReadCp0 || inst.op == ir::Op::WriteCp0 || inst.op == ir::Op::CheckInterrupts))
+				if (guest_state != GuestState::IOP &&
+					(inst.op == ir::Op::ReadCp0 || inst.op == ir::Op::WriteCp0 || inst.op == ir::Op::CheckInterrupts ||
+						inst.op == ir::Op::ReadCp2Data || inst.op == ir::Op::WriteCp2Data ||
+						inst.op == ir::Op::ReadCp2Control || inst.op == ir::Op::WriteCp2Control))
 				{
-					if (error) *error = "COP0/interrupt lowering is only modelled for IOP";
+					if (error) *error = "COP0/COP2/interrupt lowering is only modelled for IOP";
 					return false;
 				}
 				if (guest_state == GuestState::IOP)
@@ -2793,6 +2959,8 @@ namespace Arm64Ir
 						case ir::Op::CmpGtS: case ir::Op::CmpGeS:
 						case ir::Op::Jump: case ir::Op::Branch: case ir::Op::BranchIndirect:
 						case ir::Op::ReadCp0: case ir::Op::WriteCp0: case ir::Op::CheckInterrupts:
+						case ir::Op::ReadCp2Data: case ir::Op::WriteCp2Data:
+						case ir::Op::ReadCp2Control: case ir::Op::WriteCp2Control:
 						case ir::Op::ReadGpr: case ir::Op::WriteGpr:
 						case ir::Op::ReadHi: case ir::Op::WriteHi:
 						case ir::Op::ReadLo: case ir::Op::WriteLo:

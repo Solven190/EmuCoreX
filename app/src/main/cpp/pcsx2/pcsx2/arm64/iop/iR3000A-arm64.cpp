@@ -49,6 +49,7 @@ static u64 s_iopIrDirectLoads = 0;
 static u64 s_iopIrMulDivInstructions = 0;
 static u64 s_iopIrBranches = 0;
 static u64 s_iopIrCop0Instructions = 0;
+static u64 s_iopIrCop2Instructions = 0;
 #if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
 static int s_iopIrOverride = -1;
 extern "C" void EmuCoreXOracleSetIOPIR(int enabled) { s_iopIrOverride = enabled < 0 ? -1 : (enabled != 0); }
@@ -59,6 +60,7 @@ extern "C" u64 EmuCoreXOracleIOPIRDirectLoads() { return s_iopIrDirectLoads; }
 extern "C" u64 EmuCoreXOracleIOPIRMulDivInstructions() { return s_iopIrMulDivInstructions; }
 extern "C" u64 EmuCoreXOracleIOPIRBranches() { return s_iopIrBranches; }
 extern "C" u64 EmuCoreXOracleIOPIRCop0Instructions() { return s_iopIrCop0Instructions; }
+extern "C" u64 EmuCoreXOracleIOPIRCop2Instructions() { return s_iopIrCop2Instructions; }
 #endif
 
 static bool IopIrEnabled()
@@ -1831,6 +1833,19 @@ static bool TryIopIrSequence()
         pxFailRel(error.c_str()); // validated above; never append fallback after partial emission
     if (control) ++s_iopIrBranches;
     s_iopIrInstructions += accepted;
+#if defined(EMUCOREX_ENABLE_NATIVE_SELF_TESTS)
+    // Count source COP2 transfers only after both LiftSequence and LowerBlock
+    // accepted the complete sequence. This isolates coverage from the legacy
+    // terminator, delay slot, and block recompilation accounting.
+    for (u32 i = 0; i < accepted; ++i)
+    {
+        const u32 word = code[i];
+        const u32 rs = (word >> 21) & 31;
+        if ((word >> 26) == 18 && (word & 63u) == 0 &&
+            (rs == 0 || rs == 2 || rs == 4 || rs == 6))
+            ++s_iopIrCop2Instructions;
+    }
+#endif
     s_iopIrMemoryOperations += out.iop_memory_operations;
     s_iopIrDirectLoads += out.direct_iop_load_operations;
     if (out.frame_size != 0 && out.spill_values != 0) ++s_iopIrSpillSequences;

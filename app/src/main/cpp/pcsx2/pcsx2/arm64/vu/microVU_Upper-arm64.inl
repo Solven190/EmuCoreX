@@ -4269,6 +4269,55 @@ static void mVU_FTOI15_emit(mP)
 }
 
 // ITOF0 Opcode
+static bool mVUTrySharedITOF(mV, u32 fractional_bits)
+{
+	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU) || !mVUSharedIrEnabled(mVU.index)) return false;
+	static thread_local ir::Function fn;
+	if (fn.blocks.empty())
+	{
+		ir::Builder init(fn);
+		init.CreateBlock(0);
+		fn.blocks[0].insts.reserve(4);
+		fn.value_types.reserve(3);
+	}
+	fn.blocks[0].insts.clear();
+	fn.blocks[0].guest_start = mVU.prog.IRinfo.curPC * sizeof(u32);
+	fn.value_types.resize(1);
+	fn.next_value = 1;
+	ir::Builder b(fn);
+	b.SetBlock(1);
+	b.SetDelaySlot(mVUinfo.isBdelay);
+	const u32 source = b.Emit(ir::Op::ReadVfBits, ir::Type::V4I32, {}, _Fs_);
+	ir::Op convert_op = ir::Op::VI2F0;
+	switch (fractional_bits)
+	{
+		case 0: convert_op = ir::Op::VI2F0; break;
+		case 4: convert_op = ir::Op::VI2F4; break;
+		case 12: convert_op = ir::Op::VI2F12; break;
+		case 15: convert_op = ir::Op::VI2F15; break;
+		default: return false;
+	}
+	const u32 converted = b.Emit1(convert_op, ir::Type::V4F32, source);
+	b.Emit1(ir::Op::WriteVfMasked, ir::Type::Void, converted, _Ft_, _X_Y_Z_W);
+	b.Return();
+	Arm64Ir::BoundVfConvertPlan plan;
+	std::string error;
+	if (!Arm64Ir::PlanBoundVfConvert(fn, &plan, &error)) return false;
+	// Match the upper allocator: read the complete raw source before acquiring
+	// the masked destination; MicroVuPartial extracts the selected lane once.
+	const int source_reg = mVU.regAlloc->allocRegId(plan.src_vf);
+	const int destination_reg = mVU.regAlloc->allocRegId(-1, plan.dst_vf, plan.lane_mask);
+	Arm64Ir::LowerOutput out;
+	const bool lowered = Arm64Ir::LowerBoundVfConvertPlan(plan, source_reg, destination_reg,
+		&out, &error, Arm64Ir::BoundVfConvertLayout::MicroVuPartial);
+	pxAssertRel(lowered, error.c_str());
+	mVU.regAlloc->clearNeededXmmId(destination_reg);
+	mVU.regAlloc->clearNeededXmmId(source_reg);
+	mVURecordSharedIr(mVU.index, out.host_size);
+	mVURecordSharedItof(mVU.index, out.host_size);
+	return true;
+}
+
 static void mVU_ITOF0_direct_emit_oaknut(mP)
 {
 	if (!_Ft_ || mVUtrySkipNoLaneWrite_oaknut(mVU))
@@ -4285,7 +4334,8 @@ static void mVU_ITOF0_emit(mP)
 	pass1 { mVUanalyzeFMAC2(mVU, _Fs_, _Ft_); }
 	pass2
 	{
-		mVU_ITOF0_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedITOF(mVU, 0))
+			mVU_ITOF0_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3
 	{
@@ -4313,7 +4363,8 @@ static void mVU_ITOF4_emit(mP)
 	pass1 { mVUanalyzeFMAC2(mVU, _Fs_, _Ft_); }
 	pass2
 	{
-		mVU_ITOF4_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedITOF(mVU, 4))
+			mVU_ITOF4_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3
 	{
@@ -4341,7 +4392,8 @@ static void mVU_ITOF12_emit(mP)
 	pass1 { mVUanalyzeFMAC2(mVU, _Fs_, _Ft_); }
 	pass2
 	{
-		mVU_ITOF12_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedITOF(mVU, 12))
+			mVU_ITOF12_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3
 	{
@@ -4369,7 +4421,8 @@ static void mVU_ITOF15_emit(mP)
 	pass1 { mVUanalyzeFMAC2(mVU, _Fs_, _Ft_); }
 	pass2
 	{
-		mVU_ITOF15_direct_emit_oaknut(mVU, recPass);
+		if (!mVUTrySharedITOF(mVU, 15))
+			mVU_ITOF15_direct_emit_oaknut(mVU, recPass);
 	}
 	pass3
 	{

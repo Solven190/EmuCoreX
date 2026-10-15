@@ -127,6 +127,11 @@ namespace ir
 	X(WriteGpr,     StateWrite,  1, 1, Void, false) \
 	X(ReadCp0,      StateRead,   0, 0, I32,  false) \
 	X(WriteCp0,     StateWrite,  1, 1, Void, false) \
+	/* Raw IOP GTE register access; transfer side effects are composed in the lifter. */ \
+	X(ReadCp2Data,  StateRead,   0, 0, I32,  false) \
+	X(WriteCp2Data, StateWrite,  1, 1, Void, false) \
+	X(ReadCp2Control, StateRead, 0, 0, I32,  false) \
+	X(WriteCp2Control, StateWrite, 1, 1, Void, false) \
 	X(ReadFpr,      StateRead,   0, 0, F32,  false) \
 	X(WriteFpr,     StateWrite,  1, 1, Void, false) \
 	/* Raw scalar COP1 transfer words. FCR31 is the only architecturally writable FCR here. */ \
@@ -135,6 +140,8 @@ namespace ir
 	X(ReadFcr31,    StateRead,   0, 0, I32,  false) \
 	X(WriteFcr31,   StateWrite,  1, 1, Void, false) \
 	X(ReadVf,       StateRead,   0, 0, V4F32, false) \
+	/* Read all four VF words as signed raw integer lanes without FP reinterpretation. */ \
+	X(ReadVfBits,   StateRead,   0, 0, V4I32, false) \
 	X(WriteVf,      StateWrite,  1, 1, Void, false) \
 	/* Write selected raw VU VF lanes from a V4F32 bit vector; aux bits 0..3 are x/y/z/w. */ \
 	X(WriteVfMasked, StateWrite, 1, 1, Void, false) \
@@ -251,6 +258,7 @@ namespace ir
 	X(VF2I4,        VecConvert,  1, 1, V4I32, false) \
 	X(VF2I12,       VecConvert,  1, 1, V4I32, false) \
 	X(VF2I15,       VecConvert,  1, 1, V4I32, false) \
+	X(VI2F0,        VecConvert,  1, 1, V4F32, false) \
 	X(VI2F4,        VecConvert,  1, 1, V4F32, false) \
 	X(VI2F12,       VecConvert,  1, 1, V4F32, false) \
 	X(VI2F15,       VecConvert,  1, 1, V4F32, false) \

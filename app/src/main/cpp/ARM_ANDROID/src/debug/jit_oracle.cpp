@@ -2152,6 +2152,8 @@ void VUSharedTransferBenchmarks()
 }
 
 #include "jit_oracle_vu_abs.inl"
+#include "jit_oracle_vu_itof.inl"
+#include "jit_oracle_vu_itof_bench.inl"
 
 void VUTests()
 {
@@ -2179,6 +2181,9 @@ void VUTests()
     VUSharedImmediateTests();
     VUBoundVfShuffleTests();
     VUBoundVfUnaryTests();
+    VUBoundVfConvertTests();
+    VUSharedItofIntegrationTests();
+    VUSharedItofBenchmarks();
     VUBoundVfViTransferTests();
     VUBoundViVfTransferTests();
     VUSharedMtirProductionTests();
@@ -3923,6 +3928,8 @@ void EECoverageCop2Spec2()
     }
 }
 
+#include "jit_oracle_ee_vu_itof.inl"
+
 void EEVuAbsSharedTests()
 {
     const auto qmtc2 = [](u32 rt, u32 vd) {
@@ -5573,7 +5580,11 @@ void EEIrQuadOptimizationsTests()
                         options.reuse_spill_slots = reuse;
                         options.allocate_registers = allocate;
                         options.hooks = &hooks;
-                        if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+                        if (hooks.before_helper || hooks.after_helper)
+                        {
+                            options.direct_ee_loads = false;
+                            options.direct_ee_stores = false;
+                        }
                         EeIr::LowerOutput out;
                         std::string error;
                         const bool lowered = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
@@ -5884,7 +5895,11 @@ void EEIrQuadVectorFastPathTests()
             }
             EeIr::LowerOptions options;
             options.hooks = &hooks;
-            if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+            if (hooks.before_helper || hooks.after_helper)
+            {
+                options.direct_ee_loads = false;
+                options.direct_ee_stores = false;
+            }
             options.direct_quad_vectors = fast;
             EeIr::LowerOutput out;
             std::string error;
@@ -6027,7 +6042,11 @@ void EEIrVectorAllocationTests()
             hooks.before_helper = hooks.after_helper = hooks.after_memory = clobber;
             EeIr::LowerOptions options;
             options.hooks = &hooks;
-            if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+            if (hooks.before_helper || hooks.after_helper)
+            {
+                options.direct_ee_loads = false;
+                options.direct_ee_stores = false;
+            }
             options.reuse_spill_slots = reuse;
             EeIr::LowerOutput out;
             std::string error;
@@ -6087,7 +6106,11 @@ void EEIrVectorAllocationTests()
                 hooks.before_helper = hooks.after_helper = hooks.after_memory = clobber;
                 EeIr::LowerOptions options;
                 options.hooks = &hooks;
-                if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+                if (hooks.before_helper || hooks.after_helper)
+                {
+                    options.direct_ee_loads = false;
+                    options.direct_ee_stores = false;
+                }
                 options.inline_division = native_div;
                 options.direct_quad_memory = direct;
                 EeIr::LowerOutput out;
@@ -6136,7 +6159,11 @@ void EEIrVectorAllocationTests()
         options.optimize_ir = false;
         options.reuse_spill_slots = false;
         options.hooks = &hooks;
-        if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+        if (hooks.before_helper || hooks.after_helper)
+        {
+            options.direct_ee_loads = false;
+            options.direct_ee_stores = false;
+        }
         EeIr::LowerOutput out;
         std::string error;
         bool same = EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
@@ -6343,7 +6370,11 @@ void EEIrVectorForwardTests()
                     hooks.after_memory = mutate;
                 EeIr::LowerOptions options;
                 options.hooks = &hooks;
-                if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+                if (hooks.before_helper || hooks.after_helper)
+                {
+                    options.direct_ee_loads = false;
+                    options.direct_ee_stores = false;
+                }
                 options.inline_division = false;
                 options.direct_quad_memory = direct;
                 options.forward_quad_state = forward;
@@ -7093,7 +7124,11 @@ void EEIrPackedWordShiftTests()
                         options.materialize_constants = mode == 1 || mode == 3 || mode == 4;
                         options.allocate_vector_registers = mode != 4;
                         options.hooks = &hooks;
-                        if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+                        if (hooks.before_helper || hooks.after_helper)
+                        {
+                            options.direct_ee_loads = false;
+                            options.direct_ee_stores = false;
+                        }
                         EeIr::LowerOutput out;
                         std::string error;
                         if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
@@ -7269,7 +7304,11 @@ void EEIrVectorCompareTests()
                     options.allocate_vector_registers = mode != 4;
                     options.reuse_spill_slots = mode != 3;
                     options.hooks = &hooks;
-                    if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+                    if (hooks.before_helper || hooks.after_helper)
+                    {
+                        options.direct_ee_loads = false;
+                        options.direct_ee_stores = false;
+                    }
                     EeIr::LowerOutput out;
                     std::string error;
                     if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
@@ -7366,7 +7405,11 @@ void EEIrWordShuffleTests()
             options.allocate_vector_registers = mode != 4;
             options.reuse_spill_slots = mode != 3;
             options.hooks = &hooks;
-            if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+            if (hooks.before_helper || hooks.after_helper)
+            {
+                options.direct_ee_loads = false;
+                options.direct_ee_stores = false;
+            }
             EeIr::LowerOutput out;
             std::string error;
             if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
@@ -7633,7 +7676,11 @@ void IRMultiplyPairVectorTests()
             options.allocate_registers = allocate;
             options.reuse_spill_slots = reuse;
             options.hooks = &hooks;
-            if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+            if (hooks.before_helper || hooks.after_helper)
+            {
+                options.direct_ee_loads = false;
+                options.direct_ee_stores = false;
+            }
             Arm64Ir::LowerOutput out;
             std::string error;
             bool same = Arm64Ir::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
@@ -7797,7 +7844,11 @@ void EEIrMergeHandlerTests()
                         };
                         hooks.after_helper = +[](void*) { for (u32 r = 1; r <= 17; ++r) oakAsm->MOV(oak::WReg(r), 0xa5a5a5a5u); };
                         options.hooks = &hooks;
-                        if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+                        if (hooks.before_helper || hooks.after_helper)
+                        {
+                            options.direct_ee_loads = false;
+                            options.direct_ee_stores = false;
+                        }
                         EeIr::LowerOutput out;
                         same &= EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error);
                         if (!same) break;
@@ -8034,6 +8085,8 @@ void EEIrScalarReadBenchmark()
     }
     EmuConfig.Cpu.Recompiler = saved_config;
 }
+
+#include "jit_oracle_ee_stores.inl"
 
 void EEIrMergeMemoryTests()
 {
@@ -9100,7 +9153,11 @@ void EEIrExecutionTests()
             EeIr::LowerOptions options;
             options.optimize_ir = optimize;
             options.hooks = &hooks;
-            if (hooks.before_helper || hooks.after_helper) options.direct_ee_loads = false;
+            if (hooks.before_helper || hooks.after_helper)
+            {
+                options.direct_ee_loads = false;
+                options.direct_ee_stores = false;
+            }
             EeIr::LowerOutput out;
             std::string error;
             if (!EeIr::LowerBlock(fn, options, SysMemory::GetEERec() + 0x2000000, 0x10000, &out, &error))
@@ -9688,7 +9745,8 @@ void EEGameCodeTests()
     Check(failed == 0, "ee game code differential");
 }
 
-void EETests(bool cop1_mov_only = false, bool vu_abs_only = false)
+void EETests(bool cop1_mov_only = false, bool vu_abs_only = false, bool scalar_stores_only = false,
+    bool vu_itof_only = false)
 {
     EmuCoreXOracleSetSkipEvents(1);
     cpuinfo_initialize();
@@ -9730,6 +9788,18 @@ void EETests(bool cop1_mov_only = false, bool vu_abs_only = false)
         EEVuAbsSharedTests();
         EmuCoreXOracleSetVUIR(0, -1);
         EmuCoreXOracleSetVUIR(1, -1);
+        return;
+    }
+    if (scalar_stores_only)
+    {
+        EEIrScalarStoreTests();
+        EEIrScalarStoreGuestTests();
+        EEIrScalarStoreBenchmark();
+        return;
+    }
+    if (vu_itof_only)
+    {
+        EEVuItofMacroTests();
         return;
     }
 
@@ -9838,6 +9908,10 @@ void EETests(bool cop1_mov_only = false, bool vu_abs_only = false)
     EECoverageCop2();
     EECoverageCop2Spec2();
     EEVuAbsSharedTests();
+    EEVuItofMacroTests();
+    EEIrScalarStoreTests();
+    EEIrScalarStoreGuestTests();
+    EEIrScalarStoreBenchmark();
     EECoverageMmi();
     EECoverageExceptions();
     EEIrExecutionTests();
@@ -11345,7 +11419,7 @@ void IOPSharedFrontendTests()
             }
     for (u32 word : {MipsI(50, 8, 9, 0), MipsI(58, 8, 9, 0), MipsI(1, 8, 2, 1),
         MipsR(8, 0, 0, 0, 1), 0x0000000du, MipsI(16, 1, 0, 0),
-        MipsI(16, 8, 8, 0), 0x48080000u, 0x0000000cu, 0xffffffffu})
+        MipsI(16, 8, 8, 0), 0x48080001u, 0x0000000cu, 0xffffffffu})
     {
         const u32 code[] = {MipsI(9, 0, 8, 1), word, 0};
         ir::Function fn;
@@ -11451,7 +11525,9 @@ void IOPSharedStateTests()
     }
 }
 
-void IOPTests()
+#include "jit_oracle_iop_cop2.inl"
+
+void IOPTests(bool cop2_only = false)
 {
     EmuCoreXOracleSetSkipEvents(1);
     cpuinfo_initialize();
@@ -11466,6 +11542,13 @@ void IOPTests()
     SysMemory::Reset();
     psxCpu = &psxRec;
     psxCpu->Reserve();
+
+    if (cop2_only)
+    {
+        IOPCop2FrontendRedTests();
+        IOPCop2IntegrationRedTests();
+        return;
+    }
 
     struct IOPCase
     {
@@ -11521,6 +11604,8 @@ void IOPTests()
 
     IOPCoverage();
     IOPCoverageGte();
+    IOPCop2FrontendRedTests();
+    IOPCop2IntegrationRedTests();
     IOPSharedMulDivIntegrationTests();
     SharedMulHiBackendTests();
     IOPSharedMulDivFrontendTests();
@@ -11865,8 +11950,14 @@ extern "C" __attribute__((visibility("default"))) int EmuCoreXRunJitOracle(const
         EETests(true);
     else if (std::strcmp(suite, "ee-vu-abs") == 0)
         EETests(false, true);
+    else if (std::strcmp(suite, "ee-stores") == 0)
+        EETests(false, false, true);
+    else if (std::strcmp(suite, "ee-vu-itof") == 0)
+        EETests(false, false, false, true);
     else if (std::strcmp(suite, "iop") == 0)
         IOPTests();
+    else if (std::strcmp(suite, "iop-cop2") == 0)
+        IOPTests(true);
     else if (std::strcmp(suite, "gs-prepare") == 0)
         GSPreparationDeviceTests();
     else
